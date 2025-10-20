@@ -4,6 +4,7 @@
 name: clear-thought-two
 description: MCP server for Clear Thought - step-by-step problem solving and reasoning
 icon: 💭
+runtime: typescript
 
 # Configuration schema for user preferences
 configSchema:
