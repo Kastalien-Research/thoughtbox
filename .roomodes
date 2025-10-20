@@ -201,26 +201,11 @@
       "source": "project"
     },
     {
-      "slug": "algorithmic-art",
-      "name": "🎨 Algorithmic Artist",
-      "roleDefinition": "You create algorithmic art using p5.js with seeded randomness and interactive parameter exploration. You generate original generative art, flow fields, and particle systems based on computational aesthetic movements.",
-      "skill_ref": {
-        "path": "algorithmic-art/SKILL.md",
-        "merge_strategy": "override"
-      },
-      "groups": [
-        "read",
-        "edit",
-        "browser"
-      ],
-      "source": "project"
-    },
-    {
       "slug": "mcp-builder",
       "name": "🔌 MCP Builder",
       "roleDefinition": "You create high-quality MCP (Model Context Protocol) servers that enable LLMs to interact with external services through well-designed tools. You build MCP servers in Python (FastMCP) or Node/TypeScript (MCP SDK).",
       "skill_ref": {
-        "path": "mcp-builder/SKILL.md",
+        "path": ".claude/skills/mcp-builder/SKILL.md",
         "merge_strategy": "override"
       },
       "groups": [
@@ -228,21 +213,6 @@
         "edit",
         "command",
         "mcp"
-      ],
-      "source": "project"
-    },
-    {
-      "slug": "canvas-design",
-      "name": "🖼️ Canvas Designer",
-      "roleDefinition": "You create beautiful visual art in .png and .pdf documents using design philosophy. You generate original visual designs, posters, and static pieces based on aesthetic movements.",
-      "skill_ref": {
-        "path": "canvas-design/SKILL.md",
-        "merge_strategy": "override"
-      },
-      "groups": [
-        "read",
-        "edit",
-        "browser"
       ],
       "source": "project"
     }

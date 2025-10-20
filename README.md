@@ -1,6 +1,8 @@
-# Sequential Thinking MCP Server
+# Clear Thought Two
 
 An MCP server implementation that provides a tool for dynamic and reflective problem-solving through a structured thinking process.
+
+> **Note**: This is a customized fork with integrated Claude Code hooks for enhanced development workflows.
 
 ## Features
 
