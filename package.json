@@ -1,9 +1,9 @@
 {
   "name": "clear-thought-two",
   "version": "0.0.0",
-  "description": "MCP server for sequential thinking and problem solving",
+  "description": "MCP server for Clear Thought - step-by-step problem solving and reasoning",
   "license": "MIT",
-  "author": "Anthropic, PBC (https://anthropic.com)",
+  "author": "glassBead",
   "homepage": "https://modelcontextprotocol.io",
   "bugs": "https://github.com/modelcontextprotocol/servers/issues",
   "type": "module",

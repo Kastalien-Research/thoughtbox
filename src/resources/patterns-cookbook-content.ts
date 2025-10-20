@@ -1,11 +1,11 @@
-// Auto-generated from src/resources/sequential-thinking-patterns-cookbook.md
+// Auto-generated from src/resources/clear-thought-patterns-cookbook.md
 // This allows the content to be bundled into the JavaScript build for both STDIO and HTTP transports
 
-export const PATTERNS_COOKBOOK = `# Sequential Thinking Patterns Cookbook
+export const PATTERNS_COOKBOOK = `# Clear Thought Patterns Cookbook
 
 **Quick Reference Guide for AI Agents**
 
-This guide shows you how to use the sequential thinking tool flexibly to solve complex problems. The tool supports 20+ reasoning patterns without requiring different code - just use the parameters creatively.
+This guide shows you how to use the Clear Thought tool flexibly to solve complex problems. The tool supports 20+ reasoning patterns without requiring different code - just use the parameters creatively.
 
 ---
 

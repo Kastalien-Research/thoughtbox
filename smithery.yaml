@@ -2,7 +2,7 @@
 # This enables HTTP transport with backward compatibility for STDIO
 
 name: clear-thought-two
-description: MCP server for sequential thinking and problem solving with step-by-step reasoning
+description: MCP server for Clear Thought - step-by-step problem solving and reasoning
 icon: 💭
 
 # Configuration schema for user preferences

@@ -1,8 +1,8 @@
-# Sequential Thinking Patterns Cookbook
+# Clear Thought Patterns Cookbook
 
 **Quick Reference Guide for AI Agents**
 
-This guide shows you how to use the sequential thinking tool flexibly to solve complex problems. The tool supports 20+ reasoning patterns without requiring different code - just use the parameters creatively.
+This guide shows you how to use the Clear Thought tool flexibly to solve complex problems. The tool supports 20+ reasoning patterns without requiring different code - just use the parameters creatively.
 
 ---
 

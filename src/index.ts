@@ -35,7 +35,7 @@ interface ThoughtData {
   nextThoughtNeeded: boolean;
 }
 
-class SequentialThinkingServer {
+class ClearThoughtServer {
   private thoughtHistory: ThoughtData[] = [];
   private branches: Record<string, ThoughtData[]> = {};
   private disableThoughtLogging: boolean;
@@ -193,8 +193,8 @@ const THINK_START_PROMPT = {
   ]
 };
 
-const SEQUENTIAL_THINKING_TOOL: Tool = {
-  name: "sequentialthinking",
+const CLEAR_THOUGHT_TOOL: Tool = {
+  name: "clear_thought",
   description: `A detailed tool for dynamic and reflective problem-solving through thoughts.
 This tool helps analyze problems through a flexible thinking process that can adapt and evolve.
 Each thought can build on, question, or revise previous insights as understanding deepens.
@@ -332,7 +332,7 @@ export default function createServer({
 }) {
   const server = new Server(
     {
-      name: "sequential-thinking-server",
+      name: "clear-thought-server",
       version: "0.2.0",
     },
     {
@@ -345,14 +345,14 @@ export default function createServer({
     }
   );
 
-  const thinkingServer = new SequentialThinkingServer(config.disableThoughtLogging);
+  const thinkingServer = new ClearThoughtServer(config.disableThoughtLogging);
 
   server.setRequestHandler(ListToolsRequestSchema, async () => ({
-    tools: [SEQUENTIAL_THINKING_TOOL],
+    tools: [CLEAR_THOUGHT_TOOL],
   }));
 
   server.setRequestHandler(CallToolRequestSchema, async (request) => {
-    if (request.params.name === "sequentialthinking") {
+    if (request.params.name === "clear_thought") {
       return thinkingServer.processThought(request.params.arguments);
     }
 
@@ -487,7 +487,7 @@ async function runServer() {
 
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  console.error("Sequential Thinking MCP Server running on stdio");
+  console.error("Clear Thought MCP Server running on stdio");
 }
 
 // Only run STDIO server when executed directly (not when imported by Smithery)

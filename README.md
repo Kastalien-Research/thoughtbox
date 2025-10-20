@@ -12,7 +12,7 @@ Successor to Waldzell AI's Clear Thought.
 
 ## Tool
 
-### sequential_thinking
+### clear_thought
 
 Facilitates a detailed, step-by-step thinking process for problem-solving and analysis.
 
@@ -29,7 +29,7 @@ Facilitates a detailed, step-by-step thinking process for problem-solving and an
 
 ## Usage
 
-The Sequential Thinking tool is designed for:
+The Clear Thought tool is designed for:
 - Breaking down complex problems into steps
 - Planning and design with room for revision
 - Analysis that might need course correction
@@ -39,7 +39,7 @@ The Sequential Thinking tool is designed for:
 
 ### Thinking Approaches
 
-Clear Thought 2.0 supports multiple reasoning strategies. For a comprehensive guide with 20+ reasoning patterns, see the **[Sequential Thinking Patterns Cookbook](src/resources/sequential-thinking-patterns-cookbook.md)**.
+Clear Thought 2.0 supports multiple reasoning strategies. For a comprehensive guide with 20+ reasoning patterns, see the **[Clear Thought Patterns Cookbook](src/resources/clear-thought-patterns-cookbook.md)**.
 
 Below are the three primary approaches:
 
