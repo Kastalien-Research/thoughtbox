@@ -1,5 +1,5 @@
 {
-  "name": "Claude Code Sandbox",
+  "name": "Clear Thought 2.0 - MCP Server Development",
   "build": {
     "dockerfile": "Dockerfile",
     "args": {
@@ -54,22 +54,7 @@
   },
   "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind,consistency=delegated",
   "workspaceFolder": "/workspace",
-  "postCreateCommand": "npm install",
-  "postStartCommand": "sudo /usr/local/bin/init-firewall.sh || echo 'Warning: Firewall initialization failed, continuing without restrictions'",
-  "waitFor": "postStartCommand",
-  "forwardPorts": [3000, 8080, 9229],
-  "portsAttributes": {
-    "3000": {
-      "label": "Application",
-      "onAutoForward": "notify"
-    },
-    "8080": {
-      "label": "API Server",
-      "onAutoForward": "notify"
-    },
-    "9229": {
-      "label": "Node Debugger",
-      "onAutoForward": "silent"
-    }
-  }
+  "postCreateCommand": "npm install && npm run build",
+  "postStartCommand": "npm run watch &",
+  "waitFor": "postStartCommand"
 }

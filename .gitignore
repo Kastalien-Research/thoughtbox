@@ -28,3 +28,5 @@ logs/
 *.swp
 *.swo
 *~
+
+REASONING_PATTERNS_REPORT.md
