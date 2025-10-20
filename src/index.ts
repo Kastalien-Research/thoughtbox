@@ -336,11 +336,9 @@ export default function createServer({
       version: "0.2.0",
     },
     {
-      // note: objects are intended to be empty
       capabilities: {
         tools: {},
         prompts: {},
-        resources: {}
       },
     }
   );
