@@ -39,7 +39,9 @@ The Sequential Thinking tool is designed for:
 
 ### Thinking Approaches
 
-Clear Thought 2.0 supports multiple reasoning strategies:
+Clear Thought 2.0 supports multiple reasoning strategies. For a comprehensive guide with 20+ reasoning patterns, see the **[Sequential Thinking Patterns Cookbook](src/resources/sequential-thinking-patterns-cookbook.md)**.
+
+Below are the three primary approaches:
 
 #### Forward Thinking (Traditional)
 Start at thought 1 and work sequentially toward your conclusion. Best for exploration and discovery.
