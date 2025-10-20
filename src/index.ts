@@ -5,6 +5,8 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
+  ListPromptsRequestSchema,
+  GetPromptRequestSchema,
   Tool,
 } from "@modelcontextprotocol/sdk/types.js";
 // Fixed chalk import for ESM
@@ -175,6 +177,19 @@ class SequentialThinkingServer {
   }
 }
 
+const THINK_START_PROMPT = {
+  name: "think-start",
+  title: "Start Sequential Thinking",
+  description: "Analyze your problem and set up the first thought with the right reasoning pattern",
+  arguments: [
+    {
+      name: "problem",
+      description: "Description of the problem or task you want to solve",
+      required: true
+    }
+  ]
+};
+
 const SEQUENTIAL_THINKING_TOOL: Tool = {
   name: "sequentialthinking",
   description: `A detailed tool for dynamic and reflective problem-solving through thoughts.
@@ -312,8 +327,11 @@ const server = new Server(
     version: "0.2.0",
   },
   {
+    // note: objects are intended to be empty
     capabilities: {
       tools: {},
+      prompts: {},
+      resources: {}
     },
   }
 );
@@ -335,6 +353,111 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       text: `Unknown tool: ${request.params.name}`
     }],
     isError: true
+  };
+});
+
+server.setRequestHandler(ListPromptsRequestSchema, async () => ({
+  prompts: [THINK_START_PROMPT]
+}));
+
+server.setRequestHandler(GetPromptRequestSchema, async (request) => {
+  if (request.params.name !== "think-start") {
+    throw new Error(`Unknown prompt: ${request.params.name}`);
+  }
+
+  const problem = request.params.arguments?.problem as string || "";
+
+  if (!problem) {
+    throw new Error("Problem description is required");
+  }
+
+  // Pattern detection based on keywords
+  const problemLower = problem.toLowerCase();
+  let pattern = "Forward";
+  let reasoning = "";
+  let totalThoughts = 15;
+  let startingThought = 1;
+  let direction = "1→N (sequential progression)";
+  let firstThoughtGuidance = `Thought 1: Start by describing the current state or context of "${problem}"`;
+  let nextSteps = `- Continue with thought 2, building on your initial analysis
+- Progress sequentially through thoughts
+- Adjust totalThoughts if you need more or fewer steps`;
+
+  // Backward thinking keywords
+  if (problemLower.match(/\b(design|plan|build|create|implement|architect|develop)\b/)) {
+    pattern = "Backward";
+    reasoning = "Your problem involves design/planning/implementation, which benefits from working backwards from the desired goal state.";
+    totalThoughts = 20;
+    startingThought = 20;
+    direction = "N→1 (working backwards from goal)";
+    firstThoughtGuidance = `Thought ${totalThoughts}: GOAL STATE - Describe the successful end result of "${problem}"`;
+    nextSteps = `- Work backwards from thought ${totalThoughts} to thought 1
+- For each thought, ask: "What must be true immediately before this?"
+- End at thought 1 with your starting conditions`;
+  }
+  // Branching/comparison keywords
+  else if (problemLower.match(/\b(compare|versus|vs\b|options|alternatives|choose|decide)\b/)) {
+    pattern = "Branching";
+    reasoning = "Your problem involves comparing alternatives, which benefits from exploring multiple paths in parallel.";
+    totalThoughts = 15;
+    startingThought = 1;
+    direction = "Create branches for each option";
+    firstThoughtGuidance = `Thought 1: Identify the options you're comparing in "${problem}"`;
+    nextSteps = `- After thought 5-7, create branches using branchFromThought and branchId
+- Explore each option in its own branch
+- Create a synthesis thought (e.g., thought 15) to compare and decide`;
+  }
+  // Forward thinking keywords or default
+  else if (problemLower.match(/\b(explore|understand|analyze|investigate|research|learn|study)\b/)) {
+    reasoning = "Your problem involves exploration/analysis, which benefits from sequential forward progression.";
+    totalThoughts = 12;
+  } else {
+    reasoning = "Using forward progression as the default approach for systematic exploration.";
+    totalThoughts = 15;
+  }
+
+  // Complexity adjustment
+  const words = problem.split(/\s+/).length;
+  if (words > 15) {
+    totalThoughts = Math.min(totalThoughts + 10, 40);
+  } else if (words < 5) {
+    totalThoughts = Math.max(totalThoughts - 5, 5);
+  }
+
+  const response = `Based on your problem: "${problem}"
+
+RECOMMENDED PATTERN: ${pattern} Thinking
+REASONING: ${reasoning}
+
+SETUP:
+- totalThoughts: ${totalThoughts}
+- Starting point: thought ${startingThought}
+- Direction: ${direction}
+
+FIRST THOUGHT TEMPLATE:
+{
+  "thought": "${firstThoughtGuidance}",
+  "thoughtNumber": ${startingThought},
+  "totalThoughts": ${totalThoughts},
+  "nextThoughtNeeded": true
+}
+
+NEXT STEPS:
+${nextSteps}
+
+TIP: The patterns cookbook guide is automatically provided at thought 1 for detailed pattern reference.`;
+
+  return {
+    description: `Sequential thinking starter for: ${problem}`,
+    messages: [
+      {
+        role: "user",
+        content: {
+          type: "text",
+          text: response
+        }
+      }
+    ]
   };
 });
 
