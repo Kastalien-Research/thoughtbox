@@ -1,0 +1,659 @@
+[
+  {
+    "url": "https://docs.claude.com/en/docs/agents-and-tools/tool-use/text-editor-tool",
+    "title": "Text editor tool - Claude Docs"
+  },
+  {
+    "url": "https://docs.claude.com/en/docs/claude-code/overview",
+    "title": "Claude Code overview - Claude Docs",
+    "description": "Learn about Claude Code, Anthropic's agentic coding tool that lives in your terminal and helps you turn ideas into code faster than ever before."
+  },
+  {
+    "url": "https://docs.claude.com/en/docs/build-with-claude/streaming",
+    "title": "Streaming Messages - Claude Docs"
+  },
+  {
+    "url": "https://docs.claude.com/en/docs/claude-code/github-actions",
+    "title": "Claude Code GitHub Actions - Claude Docs",
+    "description": "Learn about integrating Claude Code into your development workflow with Claude Code GitHub Actions"
+  },
+  {
+    "url": "https://docs.claude.com/en/docs/claude-code/skills.md"
+  },
+  {
+    "url": "https://docs.claude.com/en/docs/claude-code/plugin-marketplaces",
+    "title": "Plugin marketplaces - Claude Docs",
+    "description": "Create and manage plugin marketplaces to distribute Claude Code extensions across teams and communities."
+  },
+  {
+    "url": "https://docs.claude.com/en/docs/test-and-evaluate/strengthen-guardrails/mitigate-jailbreaks",
+    "title": "Mitigate jailbreaks and prompt injections - Claude Docs"
+  },
+  {
+    "url": "https://docs.claude.com/en/docs/claude-code/skill",
+    "title": "Page Not Found"
+  },
+  {
+    "url": "https://docs.claude.com/en/docs/claude-code/monitoring-usage",
+    "title": "Monitoring - Claude Docs",
+    "description": "Learn how to enable and configure OpenTelemetry for Claude Code."
+  },
+  {
+    "url": "https://docs.claude.com/en/docs/about-claude/use-case-guides/customer-support-chat",
+    "title": "Customer support agent - Claude Docs",
+    "description": "This guide walks through how to leverage Claude's advanced conversational capabilities to handle customer inquiries in real time, providing 24/7 support, red..."
+  },
+  {
+    "url": "https://docs.claude.com/en/docs/claude-code/mcp",
+    "title": "Connect Claude Code to tools via MCP - Claude Docs",
+    "description": "Learn how to connect Claude Code to your tools with the Model Context Protocol."
+  },
+  {
+    "url": "https://docs.claude.com/en/docs/about-claude/pricing",
+    "title": "Pricing - Claude Docs",
+    "description": "Learn about Anthropic's pricing structure for models and features"
+  },
+  {
+    "url": "https://docs.claude.com/en/docs/claude-code/settings#environment-variables",
+    "title": "Claude Code settings - Claude Docs",
+    "description": "Configure Claude Code with global and project-level settings, and environment variables."
+  },
+  {
+    "url": "https://docs.claude.com/en/docs/claude-code/mcp#user-scope",
+    "title": "Connect Claude Code to tools via MCP - Claude Docs",
+    "description": "Learn how to connect Claude Code to your tools with the Model Context Protocol."
+  },
+  {
+    "url": "https://docs.claude.com/en/docs/claude-code/model-config",
+    "title": "Model configuration - Claude Docs",
+    "description": "Learn about the Claude Code model configuration, including model aliases like `opusplan`"
+  },
+  {
+    "url": "https://docs.claude.com/en/docs/agents-and-tools/remote-mcp-servers",
+    "title": "Remote MCP servers - Claude Docs"
+  },
+  {
+    "url": "https://docs.claude.com/en/docs/claude-code/terminal-config",
+    "title": "Optimize your terminal setup - Claude Docs",
+    "description": "Claude Code works best when your terminal is properly configured. Follow these guidelines to optimize your experience."
+  },
+  {
+    "url": "https://docs.claude.com/en/docs/claude-code/statusline",
+    "title": "Status line configuration - Claude Docs",
+    "description": "Create a custom status line for Claude Code to display contextual information"
+  },
+  {
+    "url": "https://docs.claude.com/en/docs/intro",
+    "title": "Intro to Claude - Claude Docs",
+    "description": "Claude is a highly performant, trustworthy, and intelligent AI platform built by Anthropic. Claude excels at tasks involving language, reasoning, analysis, c..."
+  },
+  {
+    "url": "https://docs.claude.com/en/docs/claude-code/iam",
+    "title": "Identity and Access Management - Claude Docs",
+    "description": "Learn how to configure user authentication, authorization, and access controls for Claude Code in your organization."
+  },
+  {
+    "url": "https://docs.claude.com/en/docs/claude-code/plugins",
+    "title": "Plugins - Claude Docs",
+    "description": "Extend Claude Code with custom commands, agents, hooks, and MCP servers through the plugin system."
+  },
+  {
+    "url": "https://docs.claude.com/en/docs/claude-code/claude_code_docs_map.md"
+  },
+  {
+    "url": "https://docs.claude.com/en/docs/claude-code/data-usage",
+    "title": "Data usage - Claude Docs",
+    "description": "Learn about Anthropic's data usage policies for Claude"
+  },
+  {
+    "url": "https://docs.claude.com/en/docs/claude-code/settings",
+    "title": "Claude Code settings - Claude Docs",
+    "description": "Configure Claude Code with global and project-level settings, and environment variables."
+  },
+  {
+    "url": "https://docs.claude.com/en/docs/about-claude/models/whats-new-claude-4-5",
+    "title": "What's new in Claude 4.5 - Claude Docs"
+  },
+  {
+    "url": "https://docs.claude.com/en/docs/mcp",
+    "title": "Model Context Protocol (MCP) - Claude Docs"
+  },
+  {
+    "url": "https://docs.claude.com/en/docs/test-and-evaluate/strengthen-guardrails/increase-consistency",
+    "title": "Increase output consistency (JSON mode) - Claude Docs"
+  },
+  {
+    "url": "https://docs.claude.com/en/docs/agents-and-tools/claude-for-sheets",
+    "title": "Google Sheets add-on - Claude Docs",
+    "description": "The [Claude for Sheets extension](https://workspace.google.com/marketplace/app/claude%5Ffor%5Fsheets/909417792257) integrates Claude into Google Sheets, allo..."
+  },
+  {
+    "url": "https://docs.claude.com/en/docs/test-and-evaluate/strengthen-guardrails/handle-streaming-refusals",
+    "title": "Streaming refusals - Claude Docs"
+  },
+  {
+    "url": "https://docs.claude.com/en/docs/claude-code/costs",
+    "title": "Manage costs effectively - Claude Docs",
+    "description": "Learn how to track and optimize token usage and costs when using Claude Code."
+  },
+  {
+    "url": "https://docs.claude.com/en/docs/build-with-claude/extended-thinking",
+    "title": "Building with extended thinking - Claude Docs"
+  },
+  {
+    "url": "https://docs.claude.com/en/docs/build-with-claude/prompt-engineering/system-prompts",
+    "title": "Giving Claude a role with a system prompt - Claude Docs"
+  },
+  {
+    "url": "https://docs.claude.com/en/docs/claude-code/plugins-reference",
+    "title": "Plugins reference - Claude Docs",
+    "description": "Complete technical reference for Claude Code plugin system, including schemas, CLI commands, and component specifications."
+  },
+  {
+    "url": "https://docs.claude.com/en/docs/test-and-evaluate/eval-tool",
+    "title": "Using the Evaluation Tool - Claude Docs",
+    "description": "The [Claude Console](https://console.anthropic.com/dashboard) features an **Evaluation tool** that allows you to test your prompts under various scenarios."
+  },
+  {
+    "url": "https://docs.claude.com/en/docs/about-claude/use-case-guides/ticket-routing#define-whether-to-use-claude-for-ticket-routin",
+    "title": "Ticket routing - Claude Docs",
+    "description": "This guide walks through how to harness Claude's advanced natural language understanding capabilities to classify customer support tickets at scale based on ..."
+  },
+  {
+    "url": "https://docs.claude.com/en/docs/test-and-evaluate/define-success",
+    "title": "Define your success criteria - Claude Docs"
+  },
+  {
+    "url": "https://docs.claude.com/en/docs/claude-code/amazon-bedrock",
+    "title": "Claude Code on Amazon Bedrock - Claude Docs",
+    "description": "Learn about configuring Claude Code through Amazon Bedrock, including setup, IAM configuration, and troubleshooting."
+  },
+  {
+    "url": "https://docs.claude.com/en/docs/claude_api_primer.md"
+  },
+  {
+    "url": "https://docs.claude.com/en/docs/claude-code/quickstart",
+    "title": "Quickstart - Claude Docs",
+    "description": "Welcome to Claude Code!"
+  },
+  {
+    "url": "https://docs.claude.com/en/docs/claude-code/setup",
+    "title": "Set up Claude Code - Claude Docs",
+    "description": "Install, authenticate, and start using Claude Code on your development machine."
+  },
+  {
+    "url": "https://docs.claude.com/en/docs/claude-code/cli-reference",
+    "title": "CLI reference - Claude Docs",
+    "description": "Complete reference for Claude Code command-line interface, including commands and flags."
+  },
+  {
+    "url": "https://docs.claude.com/en/docs/about-claude/glossary",
+    "title": "Glossary - Claude Docs",
+    "description": "These concepts are not unique to Anthropic’s language models, but we present a brief summary of key terms below."
+  },
+  {
+    "url": "https://docs.claude.com/en/docs/claude-code/legal-and-compliance",
+    "title": "Legal and compliance - Claude Docs",
+    "description": "Legal agreements, compliance certifications, and security information for Claude Code."
+  },
+  {
+    "url": "https://docs.claude.com/en/docs/claude-code/sub-agents",
+    "title": "Subagents - Claude Docs",
+    "description": "Create and use specialized AI subagents in Claude Code for task-specific workflows and improved context management."
+  },
+  {
+    "url": "https://docs.claude.com/en/docs/about-claude/use-case-guides/ticket-routing",
+    "title": "Ticket routing - Claude Docs",
+    "description": "This guide walks through how to harness Claude's advanced natural language understanding capabilities to classify customer support tickets at scale based on ..."
+  },
+  {
+    "url": "https://docs.claude.com/en/docs/claude-code/jetbrains",
+    "title": "JetBrains IDEs - Claude Docs",
+    "description": "Use Claude Code with JetBrains IDEs including IntelliJ, PyCharm, WebStorm, and more"
+  },
+  {
+    "url": "https://docs.claude.com/en/docs/build-with-claude/prompt-engineering/prompt-improver",
+    "title": "Use our prompt improver to optimize your prompts - Claude..."
+  },
+  {
+    "url": "https://docs.claude.com/en/docs/build-with-claude/files",
+    "title": "Files API - Claude Docs"
+  },
+  {
+    "url": "https://docs.claude.com/en/docs/test-and-evaluate/strengthen-guardrails/reduce-prompt-leak",
+    "title": "Reduce prompt leak - Claude Docs"
+  },
+  {
+    "url": "https://docs.claude.com/en/docs/claude-code/hooks-guide",
+    "title": "Get started with Claude Code hooks - Claude Docs",
+    "description": "Learn how to customize and extend Claude Code's behavior by registering shell commands"
+  },
+  {
+    "url": "https://docs.claude.com/en/docs/build-with-claude/batch-processing",
+    "title": "Batch processing - Claude Docs"
+  },
+  {
+    "url": "https://docs.claude.com/en/docs/claude-code/vs-code",
+    "title": "Visual Studio Code - Claude Docs",
+    "description": "Use Claude Code with Visual Studio Code through our native extension or CLI integration"
+  },
+  {
+    "url": "https://docs.claude.com/en/docs/api/overview",
+    "title": "Page Not Found"
+  },
+  {
+    "url": "https://docs.claude.com/en/docs/%E2%80%99",
+    "title": "Page Not Found"
+  },
+  {
+    "url": "https://docs.claude.com/en/docs/test-and-evaluate/strengthen-guardrails/reduce-hallucinations",
+    "title": "Reduce hallucinations - Claude Docs"
+  },
+  {
+    "url": "https://docs.claude.com/en/docs/about-claude/use-case-guides/overview",
+    "title": "Guides to common use cases - Claude Docs"
+  },
+  {
+    "url": "https://docs.claude.com/en/docs/build-with-claude/multilingual-support",
+    "title": "Multilingual support - Claude Docs",
+    "description": "Claude excels at tasks across multiple languages, maintaining strong cross-lingual performance relative to English."
+  },
+  {
+    "url": "https://docs.claude.com/en/docs/claude-code/third-party-integrations",
+    "title": "Enterprise deployment overview - Claude Docs",
+    "description": "Learn how Claude Code can integrate with various third-party services and infrastructure to meet enterprise deployment requirements."
+  },
+  {
+    "url": "https://docs.claude.com/en/docs/build-with-claude/embeddings",
+    "title": "Embeddings - Claude Docs",
+    "description": "Text embeddings are numerical representations of text that enable measuring semantic similarity. This guide introduces embeddings, their applications, and ho..."
+  },
+  {
+    "url": "https://docs.claude.com/en/docs/agents-and-tools/tool-use/fine-grained-tool-streaming",
+    "title": "Fine-grained tool streaming - Claude Docs"
+  },
+  {
+    "url": "https://docs.claude.com/en/docs/claude-code/sub-agents.md"
+  },
+  {
+    "url": "https://docs.claude.com/en/docs/test-and-evaluate/develop-tests",
+    "title": "Create strong empirical evaluations - Claude Docs"
+  },
+  {
+    "url": "https://docs.claude.com/en/docs/claude-code/output-styles",
+    "title": "Output styles - Claude Docs",
+    "description": "Adapt Claude Code for uses beyond software engineering"
+  },
+  {
+    "url": "https://docs.claude.com/en/docs/build-with-claude/prompt-engineering/chain-prompts",
+    "title": "Chain complex prompts for stronger performance - Claude Docs"
+  },
+  {
+    "url": "https://docs.claude.com/en/docs/claude-code/network-config",
+    "title": "Enterprise network configuration - Claude Docs",
+    "description": "Configure Claude Code for enterprise environments with proxy servers, custom Certificate Authorities (CA), and mutual Transport Layer Security (mTLS) authent..."
+  },
+  {
+    "url": "https://docs.claude.com/en/docs/claude-code/analytics",
+    "title": "Analytics - Claude Docs",
+    "description": "View detailed usage insights and productivity metrics for your organization's Claude Code deployment."
+  },
+  {
+    "url": "https://docs.claude.com/en/docs/agents-and-tools/tool-use/computer-use-tool",
+    "title": "Computer use tool - Claude Docs"
+  },
+  {
+    "url": "https://docs.claude.com/en/docs/build-with-claude/prompt-engineering/multishot-prompting",
+    "title": "Use examples (multishot prompting) to guide Claude's beha..."
+  },
+  {
+    "url": "https://docs.claude.com/en/docs/agents-and-tools/mcp-connector",
+    "title": "MCP connector - Claude Docs"
+  },
+  {
+    "url": "https://docs.claude.com/en/docs/claude-code/google-vertex-ai",
+    "title": "Claude Code on Google Vertex AI - Claude Docs",
+    "description": "Learn about configuring Claude Code through Google Vertex AI, including setup, IAM configuration, and troubleshooting."
+  },
+  {
+    "url": "https://docs.claude.com/en/docs/about-claude/model-deprecations",
+    "title": "Model deprecations - Claude Docs"
+  },
+  {
+    "url": "https://docs.claude.com/en/docs/build-with-claude/search-results",
+    "title": "Search results - Claude Docs",
+    "description": "Enable natural citations for RAG applications by providing search results with source attribution"
+  },
+  {
+    "url": "https://docs.claude.com/en/docs/about-claude/models/overview",
+    "title": "Models overview - Claude Docs",
+    "description": "Claude is a family of state-of-the-art large language models developed by Anthropic. This guide introduces our models and compares their performance."
+  },
+  {
+    "url": "https://docs.claude.com/en/docs/build-with-claude/citations",
+    "title": "Citations - Claude Docs"
+  },
+  {
+    "url": "https://docs.claude.com/en/docs/build-with-claude/context-windows",
+    "title": "Context windows - Claude Docs"
+  },
+  {
+    "url": "https://docs.claude.com/en/docs/agents-and-tools/tool-use/overview",
+    "title": "Tool use with Claude - Claude Docs"
+  },
+  {
+    "url": "https://docs.claude.com/en/docs/build-with-claude/prompt-engineering/extended-thinking-tips",
+    "title": "Extended thinking tips - Claude Docs"
+  },
+  {
+    "url": "https://docs.claude.com/en/docs/claude-code/iam#configuring-permissions",
+    "title": "Identity and Access Management - Claude Docs",
+    "description": "Learn how to configure user authentication, authorization, and access controls for Claude Code in your organization."
+  },
+  {
+    "url": "https://docs.claude.com/en/docs/agents-and-tools/tool-use/memory-tool",
+    "title": "Memory tool - Claude Docs"
+  },
+  {
+    "url": "https://docs.claude.com/en/docs/test-and-evaluate/strengthen-guardrails/reduce-latency",
+    "title": "Reducing latency - Claude Docs"
+  },
+  {
+    "url": "https://docs.claude.com/en/docs/build-with-claude/prompt-caching",
+    "title": "Prompt caching - Claude Docs"
+  },
+  {
+    "url": "https://docs.claude.com/en/docs/build-with-claude/prompt-engineering/claude-4-best-practices",
+    "title": "Claude 4 prompt engineering best practices - Claude Docs"
+  },
+  {
+    "url": "https://docs.claude.com/en/docs/build-with-claude/token-counting",
+    "title": "Token counting - Claude Docs"
+  },
+  {
+    "url": "https://docs.claude.com/en/docs/agents-and-tools/agent-skills/best-practices",
+    "title": "Skill authoring best practices - Claude Docs",
+    "description": "Learn how to write effective Skills that Claude can discover and use successfully."
+  },
+  {
+    "url": "https://docs.claude.com/en/docs/agents-and-tools/tool-use/bash-tool",
+    "title": "Bash tool - Claude Docs"
+  },
+  {
+    "url": "https://docs.claude.com/en/docs/claude-code/hooks",
+    "title": "Hooks reference - Claude Docs",
+    "description": "This page provides reference documentation for implementing hooks in Claude Code."
+  },
+  {
+    "url": "https://docs.claude.com/en/docs/build-with-claude/prompt-engineering/prompt-templates-and-variables",
+    "title": "Use prompt templates and variables - Claude Docs"
+  },
+  {
+    "url": "https://docs.claude.com/en/docs/claude-code/statusline.md"
+  },
+  {
+    "url": "https://docs.claude.com/en/docs/claude-code/slash-commands",
+    "title": "Slash commands - Claude Docs",
+    "description": "Control Claude's behavior during an interactive session with slash commands."
+  },
+  {
+    "url": "https://docs.claude.com/en/docs/agents-and-tools/agent-skills/overview",
+    "title": "Agent Skills - Claude Docs",
+    "description": "Agent Skills are modular capabilities that extend Claude's functionality. Each Skill packages instructions, metadata, and optional resources (scripts, templa..."
+  },
+  {
+    "url": "https://docs.claude.com/en/docs/claude-code/devcontainer",
+    "title": "Development containers - Claude Docs",
+    "description": "Learn about the Claude Code development container for teams that need consistent, secure environments."
+  },
+  {
+    "url": "https://docs.claude.com/en/docs/claude-code/skills#view-available-skills",
+    "title": "Agent Skills - Claude Docs",
+    "description": "Create, manage, and share Skills to extend Claude's capabilities in Claude Code."
+  },
+  {
+    "url": "https://docs.claude.com/en/docs/claude-code/building-with-chatkit/shared-interfaces",
+    "title": "Page Not Found"
+  },
+  {
+    "url": "https://docs.claude.com/en/docs/build-with-claude/prompt-engineering/overview",
+    "title": "Prompt engineering overview - Claude Docs"
+  },
+  {
+    "url": "https://docs.claude.com/en/docs/claude-code/interactive-mode",
+    "title": "Interactive mode - Claude Docs",
+    "description": "Complete reference for keyboard shortcuts, input modes, and interactive features in Claude Code sessions."
+  },
+  {
+    "url": "https://docs.claude.com/en/docs/claude-code/headless",
+    "title": "Headless mode - Claude Docs",
+    "description": "Run Claude Code programmatically without interactive UI"
+  },
+  {
+    "url": "https://docs.claude.com/en/docs/overview",
+    "title": "Building with Claude - Claude Docs",
+    "description": "Claude is a family of [highly performant and intelligent AI models](/en/docs/about-claude/models) built by Anthropic. While Claude is powerful and extensible..."
+  },
+  {
+    "url": "https://docs.claude.com/en/docs/claude-code/sdk/migration-guide",
+    "title": "Migrate to Claude Agent SDK - Claude Docs",
+    "description": "Guide for migrating the Claude Code TypeScript and Python SDKs to the Claude Agent SDK"
+  },
+  {
+    "url": "https://docs.claude.com/en/docs/claude-code/llm-gateway",
+    "title": "LLM gateway configuration - Claude Docs",
+    "description": "Learn how to configure Claude Code with LLM gateway solutions, including LiteLLM setup, authentication methods, and enterprise features like usage tracking a..."
+  },
+  {
+    "url": "https://docs.claude.com/en/docs/agents-and-tools/tool-use/token-efficient-tool-use",
+    "title": "Token-efficient tool use - Claude Docs"
+  },
+  {
+    "url": "https://docs.claude.com/en/docs/about-claude/models/choosing-a-model",
+    "title": "Choosing the right model - Claude Docs",
+    "description": "Selecting the optimal Claude model for your application involves balancing three key considerations: capabilities, speed, and cost. This guide helps you make..."
+  },
+  {
+    "url": "https://docs.claude.com/en/docs/build-with-claude/vision",
+    "title": "Vision - Claude Docs",
+    "description": "The Claude 3 and 4 families of models comes with new vision capabilities that allow Claude to understand and analyze images, opening up exciting possibilitie..."
+  },
+  {
+    "url": "https://docs.claude.com/en/docs/claude-code/vscode",
+    "title": "Page Not Found"
+  },
+  {
+    "url": "https://docs.claude.com/en/docs/claude-code/slash-commands.md"
+  },
+  {
+    "url": "https://docs.claude.com/en/docs/claude-code/skills",
+    "title": "Agent Skills - Claude Docs",
+    "description": "Create, manage, and share Skills to extend Claude's capabilities in Claude Code."
+  },
+  {
+    "url": "https://docs.claude.com/en/docs/build-with-claude/text-generation",
+    "title": "Text generation - Claude Docs",
+    "description": "Claude excels in a wide range of text-based tasks. Claude has been trained to ingest code, prose, and other natural language inputs, and provide text outputs..."
+  },
+  {
+    "url": "https://docs.claude.com/en/docs/agents-and-tools/agent-skills/quickstart",
+    "title": "Get started with Agent Skills in the API - Claude Docs",
+    "description": "Learn how to use Agent Skills to create documents with the Claude API in under 10 minutes."
+  },
+  {
+    "url": "https://docs.claude.com/en/docs/claude-code/memory",
+    "title": "Manage Claude's memory - Claude Docs",
+    "description": "Learn how to manage Claude Code's memory across sessions with different memory locations and best practices."
+  },
+  {
+    "url": "https://docs.claude.com/en/docs/build-with-claude/prompt-engineering/use-xml-tags",
+    "title": "Use XML tags to structure your prompts - Claude Docs"
+  },
+  {
+    "url": "https://docs.claude.com/en/docs/claude-code/checkpointing",
+    "title": "Checkpointing - Claude Docs",
+    "description": "Automatically track and rewind Claude's edits to quickly recover from unwanted changes."
+  },
+  {
+    "url": "https://docs.claude.com/en/docs/agents-and-tools/agent-skills/api",
+    "title": "Page Not Found"
+  },
+  {
+    "url": "https://docs.claude.com/en/docs/claude-code/usage-limits",
+    "title": "Page Not Found"
+  },
+  {
+    "url": "https://docs.claude.com/en/docs/build-with-claude/overview",
+    "title": "Features overview - Claude Docs",
+    "description": "Explore Claude's advanced features and capabilities."
+  },
+  {
+    "url": "https://docs.claude.com/en/docs/agents-and-tools/tool-use/web-fetch-tool",
+    "title": "Web fetch tool - Claude Docs"
+  },
+  {
+    "url": "https://docs.claude.com/en/docs/claude-code/troubleshooting",
+    "title": "Troubleshooting - Claude Docs",
+    "description": "Discover solutions to common issues with Claude Code installation and usage."
+  },
+  {
+    "url": "https://docs.claude.com/en/docs/build-with-claude/prompt-engineering/prompt-generator",
+    "title": "Automatically generate first draft prompt templates - Cla..."
+  },
+  {
+    "url": "https://docs.claude.com/en/docs/claude-code/common-workflows",
+    "title": "Common workflows - Claude Docs",
+    "description": "Learn about common workflows with Claude Code."
+  },
+  {
+    "url": "https://docs.claude.com/en/docs/about-claude/use-case-guides/legal-summarization",
+    "title": "Legal summarization - Claude Docs",
+    "description": "This guide walks through how to leverage Claude's advanced natural language processing capabilities to efficiently summarize legal documents, extracting key ..."
+  },
+  {
+    "url": "https://docs.claude.com/en/docs/get-started",
+    "title": "Get started with Claude - Claude Docs",
+    "description": "Make your first API call to Claude and build a simple web search assistant"
+  },
+  {
+    "url": "https://docs.claude.com/en/docs/agents-and-tools/tool-use/web-search-tool",
+    "title": "Web search tool - Claude Docs"
+  },
+  {
+    "url": "https://docs.claude.com/en/docs/build-with-claude/prompt-engineering/long-context-tips",
+    "title": "Long context prompting tips - Claude Docs"
+  },
+  {
+    "url": "https://docs.claude.com/en/docs/build-with-claude/prompt-engineering/chain-of-thought",
+    "title": "Let Claude think (chain of thought prompting) to increase..."
+  },
+  {
+    "url": "https://docs.claude.com/en/docs/claude-code/gitlab-ci-cd",
+    "title": "Claude Code GitLab CI/CD - Claude Docs",
+    "description": "Learn about integrating Claude Code into your development workflow with GitLab CI/CD"
+  },
+  {
+    "url": "https://docs.claude.com/en/docs/about-claude/models/migrating-to-claude-4",
+    "title": "Migrating to Claude 4.5 - Claude Docs"
+  },
+  {
+    "url": "https://docs.claude.com/en/docs/build-with-claude/prompt-engineering/overview%E2%80%99",
+    "title": "Page Not Found"
+  },
+  {
+    "url": "https://docs.claude.com/en/docs/test-and-evaluate/strengthen-guardrails/keep-claude-in-character",
+    "title": "Keep Claude in character with role prompting and prefilli..."
+  },
+  {
+    "url": "https://docs.claude.com/en/docs/build-with-claude/prompt-engineering/prefill-claudes-response",
+    "title": "Prefill Claude's response for greater output control - Cl..."
+  },
+  {
+    "url": "https://docs.claude.com/en/docs/build-with-claude/batch-processing#pricing",
+    "title": "Batch processing - Claude Docs"
+  },
+  {
+    "url": "https://docs.claude.com/en/docs/build-with-claude/prompt-engineering/be-clear-and-direct",
+    "title": "Be clear, direct, and detailed - Claude Docs"
+  },
+  {
+    "url": "https://docs.claude.com/en/docs/build-with-claude/context-editing",
+    "title": "Context editing - Claude Docs",
+    "description": "Automatically manage conversation context as it grows with context editing."
+  },
+  {
+    "url": "https://docs.claude.com/en/docs/build-with-claude/pdf-support",
+    "title": "PDF support - Claude Docs",
+    "description": "Process PDFs with Claude. Extract text, analyze charts, and understand visual content from your documents."
+  },
+  {
+    "url": "https://docs.claude.com/en/docs/agents-and-tools/tool-use/code-execution-tool",
+    "title": "Code execution tool - Claude Docs"
+  },
+  {
+    "url": "https://docs.claude.com/en/docs/claude-code/security",
+    "title": "Security - Claude Docs",
+    "description": "Learn about Claude Code's security safeguards and best practices for safe usage."
+  },
+  {
+    "url": "https://docs.claude.com/en/docs/claude-code/common-workflows.md"
+  },
+  {
+    "url": "https://docs.claude.com/en/docs/agents-and-tools/tool-use/implement-tool-use",
+    "title": "How to implement tool use - Claude Docs"
+  },
+  {
+    "url": "https://docs.claude.com/en/docs/about-claude/use-case-guides/content-moderation",
+    "title": "Content moderation - Claude Docs",
+    "description": "Content moderation is a critical aspect of maintaining a safe, respectful, and productive environment in digital applications. In this guide, we'll discuss h..."
+  },
+  {
+    "url": "https://docs.claude.com/en/docs/claude-code/claude.ai/settings/data-privacy-controls",
+    "title": "Page Not Found"
+  },
+  {
+    "url": "https://docs.claude.com/en/docs/resources/glossary",
+    "title": "Glossary - Claude Docs",
+    "description": "It is an important indicator of the model's responsiveness and is particularly relevant for interactive applications, chatbots, and real-time systems where ..."
+  },
+  {
+    "url": "https://docs.claude.com/en/docs/claude-code/ide-integrations",
+    "title": "Visual Studio Code",
+    "description": "Simply run claude from the terminal and all features activate. For external terminals, use the /ide command to connect Claude Code to your VS Code instance. To ..."
+  },
+  {
+    "url": "https://docs.claude.com/en/docs/google-shets-add-on",
+    "title": "Google Sheets add-on",
+    "description": "Why use Claude for Sheets? Claude for Sheets enables prompt engineering at scale by enabling you to test prompts across evaluation suites in parallel."
+  },
+  {
+    "url": "https://docs.claude.com/en/docs/claude-code/sdk/sdk-permissions",
+    "title": "Handling Permissions",
+    "description": "The Claude Agent SDK provides powerful permission controls that allow you to manage how Claude uses tools in your application. This guide covers how to ..."
+  },
+  {
+    "url": "https://docs.claude.com/en/docs/claude-code/sdk/sdk-slash-commands",
+    "title": "Slash Commands in the SDK",
+    "description": "Slash commands provide a way to control Claude Code sessions with special commands that start with / . These commands can be sent through the SDK to perform ..."
+  },
+  {
+    "url": "https://docs.claude.com/en/docs/about-claude/security-compliance",
+    "title": "Anthropic Trust Center",
+    "description": "Anthropic is an AI safety and research company with a mission of ensuring the world safely makes the transition through transformative AI."
+  },
+  {
+    "url": "https://docs.claude.com/en/docs/prefill-claudes-response",
+    "title": "Prefill Claude's response for greater output control",
+    "description": "When using Claude, you have the unique ability to guide its responses by prefilling the Assistant message. This powerful technique allows you to direct ..."
+  },
+  {
+    "url": "https://docs.claude.com/en/docs/build-with-claude/tool-use/web-search-tool",
+    "title": "Web search tool - Claude Docs",
+    "description": "The web search tool gives Claude direct access to real-time web content, allowing it to answer questions with up-to-date information beyond its knowledge ..."
+  },
+  {
+    "url": "https://docs.claude.com/en/docs/about-claude/models/whats-new-sonnet-4-5",
+    "title": "What's new in Claude 4.5",
+    "description": "Claude 4.5 models include a bug fix that preserves intentional formatting in tool call string parameters. Previously, trailing newlines in string parameters ..."
+  }
+]

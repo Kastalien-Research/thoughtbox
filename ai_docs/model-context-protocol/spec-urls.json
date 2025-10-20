@@ -1,0 +1,135 @@
+[
+  {
+    "url": "https://modelcontextprotocol.io/specification/2025-06-18/basic",
+    "title": "Overview - Model Context Protocol"
+  },
+  {
+    "url": "https://modelcontextprotocol.io/specification/2025-06-18/basic/lifecycle",
+    "title": "Lifecycle - Model Context Protocol"
+  },
+  {
+    "url": "https://modelcontextprotocol.io/specification/2025-06-18/basic/security_best_practices",
+    "title": "Security Best Practices - Model Context Protocol"
+  },
+  {
+    "url": "https://modelcontextprotocol.io/specification/2025-06-18/architecture/index.md"
+  },
+  {
+    "url": "https://modelcontextprotocol.io/specification/2025-06-18/server/index",
+    "title": "Overview - Model Context Protocol"
+  },
+  {
+    "url": "https://modelcontextprotocol.io/specification/2025-06-18/client/elicitation",
+    "title": "Elicitation - Model Context Protocol"
+  },
+  {
+    "url": "https://modelcontextprotocol.io/specification/2025-06-18/server/prompts.md"
+  },
+  {
+    "url": "https://modelcontextprotocol.io/specification/2025-06-18/basic/utilities/ping",
+    "title": "Ping - Model Context Protocol"
+  },
+  {
+    "url": "https://modelcontextprotocol.io/specification/2025-06-18/basic/overview",
+    "title": "Page Not Found"
+  },
+  {
+    "url": "https://modelcontextprotocol.io/specification/2025-06-18/basic/authorization",
+    "title": "Authorization - Model Context Protocol"
+  },
+  {
+    "url": "https://modelcontextprotocol.io/specification/2025-06-18/server/resources",
+    "title": "Resources - Model Context Protocol"
+  },
+  {
+    "url": "https://modelcontextprotocol.io/specification/2025-06-18/server/utilities/progress",
+    "title": "Page Not Found"
+  },
+  {
+    "url": "https://modelcontextprotocol.io/specification/2025-06-18/server/tools",
+    "title": "Tools - Model Context Protocol"
+  },
+  {
+    "url": "https://modelcontextprotocol.io/specification/2025-06-18/basic/transports",
+    "title": "Transports - Model Context Protocol"
+  },
+  {
+    "url": "https://modelcontextprotocol.io/specification/2025-06-18/server/prompts",
+    "title": "Prompts - Model Context Protocol"
+  },
+  {
+    "url": "https://modelcontextprotocol.io/specification/2025-06-18/server/utilities/completion",
+    "title": "Completion - Model Context Protocol"
+  },
+  {
+    "url": "https://modelcontextprotocol.io/specification/2025-06-18/basic/utilities/progress",
+    "title": "Progress - Model Context Protocol"
+  },
+  {
+    "url": "https://modelcontextprotocol.io/specification/2025-06-18/server/utilities/logging.md"
+  },
+  {
+    "url": "https://modelcontextprotocol.io/specification/2025-06-18/basic/utilities/cancellation",
+    "title": "Cancellation - Model Context Protocol"
+  },
+  {
+    "url": "https://modelcontextprotocol.io/specification/2025-06-18",
+    "title": "Specification - Model Context Protocol"
+  },
+  {
+    "url": "https://modelcontextprotocol.io/specification/2025-06-18/index",
+    "title": "Specification - Model Context Protocol"
+  },
+  {
+    "url": "https://modelcontextprotocol.io/specification/2025-06-18/basic/index.md"
+  },
+  {
+    "url": "https://modelcontextprotocol.io/specification/2025-06-18/basic/index",
+    "title": "Overview - Model Context Protocol"
+  },
+  {
+    "url": "https://modelcontextprotocol.io/specification/2025-06-18/architecture",
+    "title": "Architecture - Model Context Protocol"
+  },
+  {
+    "url": "https://modelcontextprotocol.io/specification/2025-06-18/basic/security_best_practices.md"
+  },
+  {
+    "url": "https://modelcontextprotocol.io/specification/2025-06-18/index.md"
+  },
+  {
+    "url": "https://modelcontextprotocol.io/specification/2025-06-18/schema",
+    "title": "Schema Reference - Model Context Protocol"
+  },
+  {
+    "url": "https://modelcontextprotocol.io/specification/2025-06-18/basic/authorization.md"
+  },
+  {
+    "url": "https://modelcontextprotocol.io/specification/2025-06-18/client/roots",
+    "title": "Roots - Model Context Protocol"
+  },
+  {
+    "url": "https://modelcontextprotocol.io/specification/2025-06-18/server",
+    "title": "Overview - Model Context Protocol"
+  },
+  {
+    "url": "https://modelcontextprotocol.io/specification/2025-06-18/changelog",
+    "title": "Key Changes - Model Context Protocol"
+  },
+  {
+    "url": "https://modelcontextprotocol.io/specification/2025-06-18/server/utilities/logging",
+    "title": "Logging - Model Context Protocol"
+  },
+  {
+    "url": "https://modelcontextprotocol.io/specification/2025-06-18/server/utilities/pagination",
+    "title": "Pagination - Model Context Protocol"
+  },
+  {
+    "url": "https://modelcontextprotocol.io/specification/2025-06-18/architecture/index",
+    "title": "Architecture - Model Context Protocol"
+  },
+  {
+    "url": "https://modelcontextprotocol.io/specification/2025-06-18/client/sampling",
+    "title": "Sampling - Model Context Protocol"
+  }
+]
