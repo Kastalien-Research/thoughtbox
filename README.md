@@ -70,7 +70,11 @@ Combine approaches or explore alternatives using revision and branch parameters 
 
 ## Installation
 
-### Claude Desktop
+Clear Thought 2.0 supports both **STDIO** (for local development) and **HTTP** (for production deployments) transports.
+
+### STDIO Transport (Local Development)
+
+#### Claude Desktop
 
 Add to your `claude_desktop_config.json`:
 
@@ -88,7 +92,7 @@ Add to your `claude_desktop_config.json`:
 **Environment Variables:**
 - `DISABLE_THOUGHT_LOGGING=true` - Disable thought logging to stderr
 
-### VS Code (Cline)
+#### VS Code (Cline)
 
 Add to `.vscode/mcp.json` or User Settings:
 
@@ -105,12 +109,49 @@ Add to `.vscode/mcp.json` or User Settings:
 }
 ```
 
+### HTTP Transport (Production Deployment)
+
+Clear Thought 2.0 can be deployed as a scalable HTTP server using [Smithery](https://smithery.ai).
+
+**Benefits:**
+- Streamable HTTP transport for better performance
+- Automatic containerization and deployment
+- Interactive development playground
+- Built-in configuration management
+
+**Deploy to Smithery:**
+1. Visit [smithery.ai/new](https://smithery.ai/new)
+2. Connect your GitHub repository
+3. Configure `disableThoughtLogging` setting as needed
+4. Deploy!
+
 ## Development
 
+### Local Development
+
 ```bash
+# Install dependencies
 npm install
-npm run build
+
+# Build for STDIO (backward compatible)
+npm run build:stdio
+
+# Build for HTTP (Smithery deployment)
+npm run build:http
+
+# Start development server with interactive playground
+npm run dev
 ```
+
+### Scripts
+
+- `npm run dev` - Start Smithery development server with interactive playground
+- `npm run build` - Build for production (defaults to HTTP)
+- `npm run build:stdio` - Compile TypeScript for STDIO usage
+- `npm run build:http` - Build for Smithery HTTP deployment
+- `npm run start:http` - Run the Smithery-built HTTP server
+- `npm run start:stdio` - Run the compiled STDIO version locally
+- `npm run watch` - Watch mode for development
 
 ## License
 

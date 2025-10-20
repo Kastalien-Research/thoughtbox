@@ -11,9 +11,16 @@ import {
 } from "@modelcontextprotocol/sdk/types.js";
 // Fixed chalk import for ESM
 import chalk from 'chalk';
-import { readFileSync } from 'fs';
-import { fileURLToPath } from 'url';
-import { dirname, join } from 'path';
+import { z } from 'zod';
+import { PATTERNS_COOKBOOK } from './resources/patterns-cookbook-content.js';
+
+// Configuration schema for Smithery
+export const configSchema = z.object({
+  disableThoughtLogging: z.boolean()
+    .optional()
+    .default(false)
+    .describe("Disable thought output to stderr (useful for production deployments)"),
+});
 
 interface ThoughtData {
   thought: string;
@@ -34,14 +41,10 @@ class SequentialThinkingServer {
   private disableThoughtLogging: boolean;
   private patternsCookbook: string;
 
-  constructor() {
-    this.disableThoughtLogging = (process.env.DISABLE_THOUGHT_LOGGING || "").toLowerCase() === "true";
-
-    // Load patterns cookbook once at startup
-    const __filename = fileURLToPath(import.meta.url);
-    const __dirname = dirname(__filename);
-    const cookbookPath = join(__dirname, 'resources', 'sequential-thinking-patterns-cookbook.md');
-    this.patternsCookbook = readFileSync(cookbookPath, 'utf-8');
+  constructor(disableThoughtLogging: boolean = false) {
+    this.disableThoughtLogging = disableThoughtLogging;
+    // Use imported cookbook content (works for both STDIO and HTTP builds)
+    this.patternsCookbook = PATTERNS_COOKBOOK;
   }
 
   private validateThoughtData(input: unknown): ThoughtData {
@@ -179,7 +182,7 @@ class SequentialThinkingServer {
 
 const THINK_START_PROMPT = {
   name: "think-start",
-  title: "Start Sequential Thinking",
+  title: "think-start",
   description: "Analyze your problem and set up the first thought with the right reasoning pattern",
   arguments: [
     {
@@ -321,110 +324,116 @@ You should:
   }
 };
 
-const server = new Server(
-  {
-    name: "sequential-thinking-server",
-    version: "0.2.0",
-  },
-  {
-    // note: objects are intended to be empty
-    capabilities: {
-      tools: {},
-      prompts: {},
-      resources: {}
+// Exported server creation function for Smithery HTTP transport
+export default function createServer({
+  config,
+}: {
+  config: z.infer<typeof configSchema>;
+}) {
+  const server = new Server(
+    {
+      name: "sequential-thinking-server",
+      version: "0.2.0",
     },
-  }
-);
+    {
+      // note: objects are intended to be empty
+      capabilities: {
+        tools: {},
+        prompts: {},
+        resources: {}
+      },
+    }
+  );
 
-const thinkingServer = new SequentialThinkingServer();
+  const thinkingServer = new SequentialThinkingServer(config.disableThoughtLogging);
 
-server.setRequestHandler(ListToolsRequestSchema, async () => ({
-  tools: [SEQUENTIAL_THINKING_TOOL],
-}));
+  server.setRequestHandler(ListToolsRequestSchema, async () => ({
+    tools: [SEQUENTIAL_THINKING_TOOL],
+  }));
 
-server.setRequestHandler(CallToolRequestSchema, async (request) => {
-  if (request.params.name === "sequentialthinking") {
-    return thinkingServer.processThought(request.params.arguments);
-  }
+  server.setRequestHandler(CallToolRequestSchema, async (request) => {
+    if (request.params.name === "sequentialthinking") {
+      return thinkingServer.processThought(request.params.arguments);
+    }
 
-  return {
-    content: [{
-      type: "text",
-      text: `Unknown tool: ${request.params.name}`
-    }],
-    isError: true
-  };
-});
+    return {
+      content: [{
+        type: "text",
+        text: `Unknown tool: ${request.params.name}`
+      }],
+      isError: true
+    };
+  });
 
-server.setRequestHandler(ListPromptsRequestSchema, async () => ({
-  prompts: [THINK_START_PROMPT]
-}));
+  server.setRequestHandler(ListPromptsRequestSchema, async () => ({
+    prompts: [THINK_START_PROMPT]
+  }));
 
-server.setRequestHandler(GetPromptRequestSchema, async (request) => {
-  if (request.params.name !== "think-start") {
-    throw new Error(`Unknown prompt: ${request.params.name}`);
-  }
+  server.setRequestHandler(GetPromptRequestSchema, async (request) => {
+    if (request.params.name !== "think-start") {
+      throw new Error(`Unknown prompt: ${request.params.name}`);
+    }
 
-  const problem = request.params.arguments?.problem as string || "";
+    const problem = request.params.arguments?.problem as string || "";
 
-  if (!problem) {
-    throw new Error("Problem description is required");
-  }
+    if (!problem) {
+      throw new Error("Problem description is required");
+    }
 
-  // Pattern detection based on keywords
-  const problemLower = problem.toLowerCase();
-  let pattern = "Forward";
-  let reasoning = "";
-  let totalThoughts = 15;
-  let startingThought = 1;
-  let direction = "1→N (sequential progression)";
-  let firstThoughtGuidance = `Thought 1: Start by describing the current state or context of "${problem}"`;
-  let nextSteps = `- Continue with thought 2, building on your initial analysis
+    // Pattern detection based on keywords
+    const problemLower = problem.toLowerCase();
+    let pattern = "Forward";
+    let reasoning = "";
+    let totalThoughts = 15;
+    let startingThought = 1;
+    let direction = "1→N (sequential progression)";
+    let firstThoughtGuidance = `Thought 1: Start by describing the current state or context of "${problem}"`;
+    let nextSteps = `- Continue with thought 2, building on your initial analysis
 - Progress sequentially through thoughts
 - Adjust totalThoughts if you need more or fewer steps`;
 
-  // Backward thinking keywords
-  if (problemLower.match(/\b(design|plan|build|create|implement|architect|develop)\b/)) {
-    pattern = "Backward";
-    reasoning = "Your problem involves design/planning/implementation, which benefits from working backwards from the desired goal state.";
-    totalThoughts = 20;
-    startingThought = 20;
-    direction = "N→1 (working backwards from goal)";
-    firstThoughtGuidance = `Thought ${totalThoughts}: GOAL STATE - Describe the successful end result of "${problem}"`;
-    nextSteps = `- Work backwards from thought ${totalThoughts} to thought 1
+    // Backward thinking keywords
+    if (problemLower.match(/\b(design|plan|build|create|implement|architect|develop)\b/)) {
+      pattern = "Backward";
+      reasoning = "Your problem involves design/planning/implementation, which benefits from working backwards from the desired goal state.";
+      totalThoughts = 20;
+      startingThought = 20;
+      direction = "N→1 (working backwards from goal)";
+      firstThoughtGuidance = `Thought ${totalThoughts}: GOAL STATE - Describe the successful end result of "${problem}"`;
+      nextSteps = `- Work backwards from thought ${totalThoughts} to thought 1
 - For each thought, ask: "What must be true immediately before this?"
 - End at thought 1 with your starting conditions`;
-  }
-  // Branching/comparison keywords
-  else if (problemLower.match(/\b(compare|versus|vs\b|options|alternatives|choose|decide)\b/)) {
-    pattern = "Branching";
-    reasoning = "Your problem involves comparing alternatives, which benefits from exploring multiple paths in parallel.";
-    totalThoughts = 15;
-    startingThought = 1;
-    direction = "Create branches for each option";
-    firstThoughtGuidance = `Thought 1: Identify the options you're comparing in "${problem}"`;
-    nextSteps = `- After thought 5-7, create branches using branchFromThought and branchId
+    }
+    // Branching/comparison keywords
+    else if (problemLower.match(/\b(compare|versus|vs\b|options|alternatives|choose|decide)\b/)) {
+      pattern = "Branching";
+      reasoning = "Your problem involves comparing alternatives, which benefits from exploring multiple paths in parallel.";
+      totalThoughts = 15;
+      startingThought = 1;
+      direction = "Create branches for each option";
+      firstThoughtGuidance = `Thought 1: Identify the options you're comparing in "${problem}"`;
+      nextSteps = `- After thought 5-7, create branches using branchFromThought and branchId
 - Explore each option in its own branch
 - Create a synthesis thought (e.g., thought 15) to compare and decide`;
-  }
-  // Forward thinking keywords or default
-  else if (problemLower.match(/\b(explore|understand|analyze|investigate|research|learn|study)\b/)) {
-    reasoning = "Your problem involves exploration/analysis, which benefits from sequential forward progression.";
-    totalThoughts = 12;
-  } else {
-    reasoning = "Using forward progression as the default approach for systematic exploration.";
-    totalThoughts = 15;
-  }
+    }
+    // Forward thinking keywords or default
+    else if (problemLower.match(/\b(explore|understand|analyze|investigate|research|learn|study)\b/)) {
+      reasoning = "Your problem involves exploration/analysis, which benefits from sequential forward progression.";
+      totalThoughts = 12;
+    } else {
+      reasoning = "Using forward progression as the default approach for systematic exploration.";
+      totalThoughts = 15;
+    }
 
-  // Complexity adjustment
-  const words = problem.split(/\s+/).length;
-  if (words > 15) {
-    totalThoughts = Math.min(totalThoughts + 10, 40);
-  } else if (words < 5) {
-    totalThoughts = Math.max(totalThoughts - 5, 5);
-  }
+    // Complexity adjustment
+    const words = problem.split(/\s+/).length;
+    if (words > 15) {
+      totalThoughts = Math.min(totalThoughts + 10, 40);
+    } else if (words < 5) {
+      totalThoughts = Math.max(totalThoughts - 5, 5);
+    }
 
-  const response = `Based on your problem: "${problem}"
+    const response = `Based on your problem: "${problem}"
 
 RECOMMENDED PATTERN: ${pattern} Thinking
 REASONING: ${reasoning}
@@ -447,27 +456,45 @@ ${nextSteps}
 
 TIP: The patterns cookbook guide is automatically provided at thought 1 for detailed pattern reference.`;
 
-  return {
-    description: `Sequential thinking starter for: ${problem}`,
-    messages: [
-      {
-        role: "user",
-        content: {
-          type: "text",
-          text: response
+    return {
+      description: `Sequential thinking starter for: ${problem}`,
+      messages: [
+        {
+          role: "user",
+          content: {
+            type: "text",
+            text: response
+          }
         }
-      }
-    ]
-  };
-});
+      ]
+    };
+  });
 
+  return server;
+}
+
+// STDIO transport for backward compatibility
 async function runServer() {
+  // Get configuration from environment variable (backward compatible)
+  const disableThoughtLogging = (process.env.DISABLE_THOUGHT_LOGGING || "").toLowerCase() === "true";
+
+  // Create server using the exported function
+  const server = createServer({
+    config: {
+      disableThoughtLogging,
+    },
+  });
+
   const transport = new StdioServerTransport();
   await server.connect(transport);
   console.error("Sequential Thinking MCP Server running on stdio");
 }
 
-runServer().catch((error) => {
-  console.error("Fatal error running server:", error);
-  process.exit(1);
-});
+// Only run STDIO server when executed directly (not when imported by Smithery)
+// This check only works in ESM environments; in CJS builds (Smithery), this block is skipped
+if (typeof import.meta.url !== 'undefined' && import.meta.url === `file://${process.argv[1]}`) {
+  runServer().catch((error) => {
+    console.error("Fatal error running server:", error);
+    process.exit(1);
+  });
+}

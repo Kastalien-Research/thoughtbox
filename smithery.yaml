@@ -1,0 +1,19 @@
+# Smithery Configuration for Clear Thought 2.0
+# This enables HTTP transport with backward compatibility for STDIO
+
+name: clear-thought-two
+description: MCP server for sequential thinking and problem solving with step-by-step reasoning
+icon: 💭
+
+# Configuration schema for user preferences
+configSchema:
+  type: object
+  properties:
+    disableThoughtLogging:
+      type: boolean
+      description: Disable thought output to stderr (useful for production deployments or when integrating with other tools)
+      default: false
+
+# Example configuration
+exampleConfig:
+  disableThoughtLogging: false
