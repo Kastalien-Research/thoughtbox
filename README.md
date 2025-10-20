@@ -1,4 +1,5 @@
 # Clear Thought 2.0
+[![smithery badge](https://smithery.ai/badge/@Kastalien-Research/clear-thought-two)](https://smithery.ai/server/@Kastalien-Research/clear-thought-two)
 
 Successor to Waldzell AI's Clear Thought. 
 
@@ -71,6 +72,14 @@ Start with thought N (your desired end state) and work backward to thought 1 (st
 Combine approaches or explore alternatives using revision and branch parameters for complex multi-faceted problems.
 
 ## Installation
+
+### Installing via Smithery
+
+To install Clear Thought 2.0 (beta) automatically via [Smithery](https://smithery.ai/server/@Kastalien-Research/clear-thought-two):
+
+```bash
+npx -y @smithery/cli install @Kastalien-Research/clear-thought-two
+```
 
 Clear Thought 2.0 supports both **STDIO** (for local development) and **HTTP** (for production deployments) transports.
 
