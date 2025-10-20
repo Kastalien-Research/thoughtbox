@@ -1,11 +1,11 @@
 {
   "name": "clear-thought-two",
   "version": "0.0.0",
-  "description": "MCP server for Clear Thought - step-by-step problem solving and reasoning",
+  "description": "Clear Thought 2.0",
   "license": "MIT",
-  "author": "glassBead",
-  "homepage": "https://modelcontextprotocol.io",
-  "bugs": "https://github.com/modelcontextprotocol/servers/issues",
+  "author": "glassBead at Kastalien Research",
+  "homepage": "https://github.com/Kastalien-Research",
+  "bugs": "https://github.com/Kastalien-Research/clear-thought-two/issues",
   "type": "module",
   "module": "src/index.ts",
   "bin": {
