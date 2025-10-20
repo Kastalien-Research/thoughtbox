@@ -44,17 +44,6 @@
         ]
       }
     ],
-    "Notification": [
-      {
-        "matcher": "",
-        "hooks": [
-          {
-            "type": "command",
-            "command": ".claude/hooks/notification.sh --notify"
-          }
-        ]
-      }
-    ],
     "Stop": [
       {
         "matcher": "",
@@ -62,17 +51,6 @@
           {
             "type": "command",
             "command": ".claude/hooks/stop.sh --chat"
-          }
-        ]
-      }
-    ],
-    "SubagentStop": [
-      {
-        "matcher": "",
-        "hooks": [
-          {
-            "type": "command",
-            "command": ".claude/hooks/subagent_stop.sh --notify"
           }
         ]
       }
