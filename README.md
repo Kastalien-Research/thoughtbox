@@ -1,8 +1,6 @@
 # Clear Thought 2.0
 
-An MCP server that provides dynamic and reflective problem-solving through structured sequential thinking.
-
-> Enhanced with Claude Code hooks and custom development workflows.
+Successor to Waldzell AI's Clear Thought. 
 
 ## Features
 
@@ -48,7 +46,7 @@ Add to your `claude_desktop_config.json`:
 ```json
 {
   "mcpServers": {
-    "clear-thought-2": {
+    "clear-thought-two": {
       "command": "npx",
       "args": ["-y", "clear-thought-two"]
     }
@@ -67,7 +65,7 @@ Add to `.vscode/mcp.json` or User Settings:
 {
   "mcp": {
     "servers": {
-      "clear-thought-2": {
+      "clear-thought-two": {
         "command": "npx",
         "args": ["-y", "clear-thought-two"]
       }
