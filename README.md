@@ -37,6 +37,37 @@ The Sequential Thinking tool is designed for:
 - Tasks that need to maintain context over multiple steps
 - Situations where irrelevant information needs to be filtered out
 
+### Thinking Approaches
+
+Clear Thought 2.0 supports multiple reasoning strategies:
+
+#### Forward Thinking (Traditional)
+Start at thought 1 and work sequentially toward your conclusion. Best for exploration and discovery.
+
+**Example: "How can we improve user engagement?"**
+- Thought 1: Analyze current engagement metrics (DAU/MAU ratio, session duration, bounce rate)
+- Thought 2: Identify patterns in user behavior (when do users drop off? what features are sticky?)
+- Thought 3: Survey top engagement drivers from user research and analytics
+- Thought 4: Brainstorm potential improvements (notifications, gamification, social features)
+- Thought 5: Evaluate each option against effort/impact matrix
+- Thought 6: Recommendation - implement personalized onboarding flow with progress tracking
+
+#### Backward Thinking (Goal-Driven)
+Start with thought N (your desired end state) and work backward to thought 1 (starting conditions). Best for planning and system design.
+
+**Example: "Design a caching strategy for a high-traffic API (10k req/s)"**
+- Thought 8: **Final state** - System handles 10,000 requests/second with <50ms p95 latency, 85%+ cache hit rate
+- Thought 7: To validate success, need monitoring: cache hit/miss rates, latency metrics, memory usage, eviction rates
+- Thought 6: Before monitoring, implement resilience: circuit breakers, fallback to database, graceful degradation
+- Thought 5: Before resilience, need cache invalidation strategy: TTL (1-5 min) + event-driven invalidation on writes
+- Thought 4: Before invalidation, implement caching layer: Redis cluster with connection pooling, LRU eviction
+- Thought 3: Before implementation, identify what to cache: analyze endpoint usage patterns, read/write ratios
+- Thought 2: Before analysis, establish baseline metrics: current throughput, latency distribution, query times
+- Thought 1: **Starting point** - Define success criteria and constraints (target latency, throughput, data freshness)
+
+#### Mixed/Branched Thinking
+Combine approaches or explore alternatives using revision and branch parameters for complex multi-faceted problems.
+
 ## Installation
 
 ### Claude Desktop

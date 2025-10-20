@@ -9,6 +9,9 @@ import {
 } from "@modelcontextprotocol/sdk/types.js";
 // Fixed chalk import for ESM
 import chalk from 'chalk';
+import { readFileSync } from 'fs';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
 
 interface ThoughtData {
   thought: string;
@@ -19,6 +22,7 @@ interface ThoughtData {
   branchFromThought?: number;
   branchId?: string;
   needsMoreThoughts?: boolean;
+  includeGuide?: boolean;
   nextThoughtNeeded: boolean;
 }
 
@@ -26,9 +30,16 @@ class SequentialThinkingServer {
   private thoughtHistory: ThoughtData[] = [];
   private branches: Record<string, ThoughtData[]> = {};
   private disableThoughtLogging: boolean;
+  private patternsCookbook: string;
 
   constructor() {
     this.disableThoughtLogging = (process.env.DISABLE_THOUGHT_LOGGING || "").toLowerCase() === "true";
+
+    // Load patterns cookbook once at startup
+    const __filename = fileURLToPath(import.meta.url);
+    const __dirname = dirname(__filename);
+    const cookbookPath = join(__dirname, 'resources', 'sequential-thinking-patterns-cookbook.md');
+    this.patternsCookbook = readFileSync(cookbookPath, 'utf-8');
   }
 
   private validateThoughtData(input: unknown): ThoughtData {
@@ -57,6 +68,7 @@ class SequentialThinkingServer {
       branchFromThought: data.branchFromThought as number | undefined,
       branchId: data.branchId as string | undefined,
       needsMoreThoughts: data.needsMoreThoughts as boolean | undefined,
+      includeGuide: data.includeGuide as boolean | undefined,
     };
   }
 
@@ -88,7 +100,7 @@ class SequentialThinkingServer {
 └${border}┘`;
   }
 
-  public processThought(input: unknown): { content: Array<{ type: string; text: string }>; isError?: boolean } {
+  public processThought(input: unknown): { content: Array<any>; isError?: boolean } {
     try {
       const validatedInput = this.validateThoughtData(input);
 
@@ -110,18 +122,44 @@ class SequentialThinkingServer {
         console.error(formattedThought);
       }
 
-      return {
-        content: [{
-          type: "text",
-          text: JSON.stringify({
-            thoughtNumber: validatedInput.thoughtNumber,
-            totalThoughts: validatedInput.totalThoughts,
-            nextThoughtNeeded: validatedInput.nextThoughtNeeded,
-            branches: Object.keys(this.branches),
-            thoughtHistoryLength: this.thoughtHistory.length
-          }, null, 2)
-        }]
-      };
+      // Build response content array
+      const content: Array<any> = [{
+        type: "text",
+        text: JSON.stringify({
+          thoughtNumber: validatedInput.thoughtNumber,
+          totalThoughts: validatedInput.totalThoughts,
+          nextThoughtNeeded: validatedInput.nextThoughtNeeded,
+          branches: Object.keys(this.branches),
+          thoughtHistoryLength: this.thoughtHistory.length
+        }, null, 2)
+      }];
+
+      // Include patterns cookbook as embedded resource when:
+      // 1. At the start (thoughtNumber === 1)
+      // 2. At the end (thoughtNumber === totalThoughts)
+      // 3. On-demand (includeGuide === true)
+      const shouldIncludeGuide =
+        validatedInput.thoughtNumber === 1 ||
+        validatedInput.thoughtNumber === validatedInput.totalThoughts ||
+        validatedInput.includeGuide === true;
+
+      if (shouldIncludeGuide) {
+        content.push({
+          type: "resource",
+          resource: {
+            uri: "thinking://patterns-cookbook",
+            title: "Sequential Thinking Patterns Cookbook",
+            mimeType: "text/markdown",
+            text: this.patternsCookbook,
+            annotations: {
+              audience: ["assistant"],
+              priority: 0.9
+            }
+          }
+        });
+      }
+
+      return { content };
     } catch (error) {
       return {
         content: [{
@@ -142,6 +180,7 @@ const SEQUENTIAL_THINKING_TOOL: Tool = {
   description: `A detailed tool for dynamic and reflective problem-solving through thoughts.
 This tool helps analyze problems through a flexible thinking process that can adapt and evolve.
 Each thought can build on, question, or revise previous insights as understanding deepens.
+Supports forward thinking (1→N), backward thinking (N→1), or mixed approaches.
 
 When to use this tool:
 - Breaking down complex problems into steps
@@ -151,6 +190,28 @@ When to use this tool:
 - Problems that require a multi-step solution
 - Tasks that need to maintain context over multiple steps
 - Situations where irrelevant information needs to be filtered out
+
+Thinking Approaches:
+
+**Forward Thinking (Traditional Chain of Thought)**: Start at thought 1, work sequentially to thought N
+- Use when: Exploring unknowns, brainstorming, open-ended analysis, discovery
+- Pattern: thoughtNumber 1 → 2 → 3 → ... → N
+- Example: "How can we improve user engagement?" Start with current state, explore options, reach conclusion
+
+**Backward Thinking (Goal-Driven Reasoning)**: Start at thought N (desired end state), work back to thought 1 (starting conditions)
+- Use when: Designing systems, planning projects, solving well-defined problems, working from goals
+- Pattern: thoughtNumber N → N-1 → N-2 → ... → 1
+- Example: "Design a caching strategy for 10k req/s" Start with success criteria (thought 8), work backwards through prerequisites (monitoring, invalidation, implementation, profiling) to reach starting point (thought 1: define requirements)
+- Tip: Begin with the desired outcome, then repeatedly ask "what must be true immediately before this?"
+
+**Mixed/Branched Thinking**: Combine approaches or explore alternative paths using branch parameters
+- Use when: Complex problems requiring multiple perspectives or hypothesis testing
+- Pattern: Use isRevision, branchFromThought, and branchId to create alternative reasoning paths
+
+Patterns Cookbook:
+The patterns cookbook guide is automatically provided as an embedded resource at thought 1 and at the final thought.
+You can also request it at any time using the includeGuide parameter.
+The cookbook contains 20+ reasoning patterns with examples and usage guidance.
 
 Key features:
 - You can adjust total_thoughts up or down as you progress
@@ -206,12 +267,12 @@ You should:
       },
       thoughtNumber: {
         type: "integer",
-        description: "Current thought number",
+        description: "Current thought number (can be 1→N for forward thinking, or N→1 for backward/goal-driven thinking)",
         minimum: 1
       },
       totalThoughts: {
         type: "integer",
-        description: "Estimated total thoughts needed",
+        description: "Estimated total thoughts needed (for backward thinking, start with thoughtNumber = totalThoughts)",
         minimum: 1
       },
       isRevision: {
@@ -235,6 +296,10 @@ You should:
       needsMoreThoughts: {
         type: "boolean",
         description: "If more thoughts are needed"
+      },
+      includeGuide: {
+        type: "boolean",
+        description: "Request the patterns cookbook guide as embedded resource (also provided automatically at thought 1 and final thought)"
       }
     },
     required: ["thought", "nextThoughtNeeded", "thoughtNumber", "totalThoughts"]
