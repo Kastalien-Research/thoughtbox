@@ -1,1 +1,29 @@
+# Secrets
 cc_mcp_config.json
+
+# Development/Build artifacts (Smithery-specific)
+src/
+.smithery/
+smithery.yaml
+tsconfig.json
+.dockerignore
+
+# Documentation (not needed by NPM users)
+ai_docs/
+CLAUDE.md
+REASONING_PATTERNS_REPORT.md
+.devcontainer/
+
+# Project-specific files
+.claude/
+.roo/
+.roomodes
+logs/
+
+# Git files
+.git/
+.gitignore
+
+# Package management
+node_modules/
+package-lock.json

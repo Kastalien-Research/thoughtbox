@@ -1,6 +1,6 @@
 {
   "name": "clear-thought-two",
-  "version": "0.0.0",
+  "version": "1.0.0",
   "description": "Clear Thought 2.0",
   "license": "MIT",
   "author": "glassBead at Kastalien Research",
@@ -27,13 +27,13 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.20.0",
-    "@smithery/sdk": "^1.7.4",
     "chalk": "^5.6.0",
     "yargs": "^18.0.0",
     "zod": "^3.25.76"
   },
   "devDependencies": {
     "@smithery/cli": "^1.6.2",
+    "@smithery/sdk": "^1.7.4",
     "@types/node": "^22",
     "@types/yargs": "^17.0.32",
     "shx": "^0.3.4",
