@@ -12,9 +12,13 @@ dist/
 .env.local
 .env.*.local
 
-# Logs
+# Logs (but keep refactoring game archives)
 logs/
+!logs/refactoring-games/
 *.log
+
+# Refactoring game temporary state
+.refactoring-game/
 
 # IDE
 .DS_Store

@@ -1,6 +1,6 @@
 # /refactoring-game
 
-Execute a game-theoretic refactoring protocol that prevents perfectionism spirals while maintaining code quality.
+Execute an operations research-inspired closed loop that prevents perfectionism spirals while maintaining code quality.
 
 ## Usage
 
@@ -75,7 +75,7 @@ echo "📊 Auction complete. Top candidates identified."
 ### Phase 2: Main Game Loop
 
 ```bash
-# Game loop with anti-Markov mechanisms
+# Game loop
 while true; do
   # Load current state
   STATE=$(cat .refactoring-game/state.json)
@@ -364,7 +364,38 @@ if [ "$IMPROVEMENTS_COUNT" -gt 0 ]; then
 Refactoring game prevented perfectionism spirals while improving code quality." 2>/dev/null || true
 fi
 
-# Cleanup
+# Archive game state before cleanup
+echo ""
+echo "📦 Archiving game state for future analysis..."
+TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+ARCHIVE_DIR="logs/refactoring-games/$TIMESTAMP"
+mkdir -p "$ARCHIVE_DIR"
+
+# Copy all game files
+cp -r .refactoring-game/* "$ARCHIVE_DIR/" 2>/dev/null || true
+
+# Create summary file
+cat > "$ARCHIVE_DIR/summary.txt" << SUMMARY
+Refactoring Game Session: $TIMESTAMP
+======================================
+
+Codebase: $CODEBASE_PATH
+Deadline: $SHIP_DEADLINE
+Initial Budget: $BUDGET
+
+Results:
+- Rounds: $TOTAL_ROUNDS
+- Improvements: $IMPROVEMENTS_COUNT
+- Value: $TOTAL_VALUE
+- Spirals Avoided: $SPIRALS_AVOIDED
+- Final Budget: $FINAL_BUDGET
+
+Outcome: $OUTCOME
+SUMMARY
+
+echo "✅ Game state archived to $ARCHIVE_DIR"
+
+# Cleanup working directory
 rm -rf .refactoring-game
 
 echo "
@@ -397,4 +428,17 @@ echo "
 
 ## Meta-Learning
 
-The algorithm learns from each execution by storing results in `~/.claude-code/refactoring-games.log` for future pattern recognition and heuristic improvement.
+The algorithm learns from each execution by:
+1. **Archiving full game state** to `logs/refactoring-games/<timestamp>/` including:
+   - `state.json` - Complete game state
+   - `auction.json` - Bidding analysis
+   - `options.md` - Refactoring options considered
+   - `regret.json` - Decision matrix
+   - `summary.txt` - Human-readable summary
+2. **Storing aggregate results** in `~/.claude-code/refactoring-games.log` for future pattern recognition
+
+These archives enable:
+- Post-game analysis and debugging
+- Trend analysis across multiple sessions
+- Continuous improvement of heuristics
+- Verification of spiral prevention effectiveness
