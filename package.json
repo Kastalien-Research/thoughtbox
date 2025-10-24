@@ -1,6 +1,6 @@
 {
   "name": "@kastalien-research/thoughtbox",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Thoughtbox",
   "mcpName": "io.github.Kastalien-Research/thoughtbox",
   "license": "MIT",
@@ -13,11 +13,12 @@
     "thoughtbox": "./dist/index.js"
   },
   "files": [
-    "dist"
+    "dist",
+    "README.md"
   ],
   "scripts": {
     "dev": "smithery dev",
-    "build": "npm run build:http",
+    "build": "npm run build:stdio && npm run build:http",
     "build:stdio": "tsc && shx cp -r src/resources dist/ && shx chmod +x dist/*.js",
     "build:http": "smithery build",
     "start": "npm run start:http",
