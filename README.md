@@ -1,4 +1,4 @@
-# Clear Thought 2.0
+# Thoughtbox
 [![smithery badge](https://smithery.ai/badge/@Kastalien-Research/clear-thought-two)](https://smithery.ai/server/@Kastalien-Research/clear-thought-two)
 
 Successor to Waldzell AI's Clear Thought. 
