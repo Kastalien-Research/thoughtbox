@@ -2,6 +2,7 @@
   "name": "@kastalien-research/clear-thought-two",
   "version": "1.0.0",
   "description": "Clear Thought 2.0",
+  "mcpName": "io.github.Kastalien-Research/clear-thought-two",
   "license": "MIT",
   "author": "glassBead at Kastalien Research",
   "homepage": "https://github.com/Kastalien-Research",

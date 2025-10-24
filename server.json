@@ -1,0 +1,29 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-10-17/server.schema.json",
+  "name": "io.github.Kastalien-Research/clear-thought-two",
+  "description": "Clear Thought 2.0",
+  "repository": {
+    "url": "https://github.com/Kastalien-Research/thoughtbox",
+    "source": "github"
+  },
+  "version": "1.0.0",
+  "packages": [
+    {
+      "registryType": "npm",
+      "identifier": "@kastalien-research/clear-thought-two",
+      "version": "1.0.0",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "description": "Your API key for the service",
+          "isRequired": true,
+          "format": "string",
+          "isSecret": true,
+          "name": "YOUR_API_KEY"
+        }
+      ]
+    }
+  ]
+}
