@@ -1,16 +1,16 @@
 {
-  "name": "@kastalien-research/clear-thought-two",
+  "name": "@kastalien-research/thoughtbox",
   "version": "1.0.0",
-  "description": "Clear Thought 2.0",
-  "mcpName": "io.github.Kastalien-Research/clear-thought-two",
+  "description": "Thoughtbox",
+  "mcpName": "io.github.Kastalien-Research/thoughtbox",
   "license": "MIT",
   "author": "glassBead at Kastalien Research",
   "homepage": "https://github.com/Kastalien-Research",
-  "bugs": "https://github.com/Kastalien-Research/clear-thought-two/issues",
+  "bugs": "https://github.com/Kastalien-Research/thoughtbox/issues",
   "type": "module",
   "module": "src/index.ts",
   "bin": {
-    "clear-thought-two": "./dist/index.js"
+    "thoughtbox": "./dist/index.js"
   },
   "files": [
     "dist"
@@ -35,7 +35,7 @@
   "devDependencies": {
     "@smithery/cli": "^1.6.2",
     "@smithery/sdk": "^1.7.4",
-    "@types/node": "^22",
+    "@types/node": "^22.18.12",
     "@types/yargs": "^17.0.32",
     "shx": "^0.3.4",
     "typescript": "^5.3.3"
