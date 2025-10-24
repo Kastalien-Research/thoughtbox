@@ -1,7 +1,8 @@
-# Clear Thought 2.0
+# Thoughtbox
+
 [![smithery badge](https://smithery.ai/badge/@Kastalien-Research/clear-thought-two)](https://smithery.ai/server/@Kastalien-Research/clear-thought-two)
 
-Successor to Waldzell AI's Clear Thought. 
+Successor to Waldzell AI's Clear Thought.
 
 ## Features
 
@@ -18,6 +19,7 @@ Successor to Waldzell AI's Clear Thought.
 Facilitates a detailed, step-by-step thinking process for problem-solving and analysis.
 
 **Inputs:**
+
 - `thought` (string): The current thinking step
 - `nextThoughtNeeded` (boolean): Whether another thought step is needed
 - `thoughtNumber` (integer): Current thought number
@@ -31,6 +33,7 @@ Facilitates a detailed, step-by-step thinking process for problem-solving and an
 ## Usage
 
 The Clear Thought tool is designed for:
+
 - Breaking down complex problems into steps
 - Planning and design with room for revision
 - Analysis that might need course correction
@@ -45,9 +48,11 @@ Clear Thought 2.0 supports multiple reasoning strategies. For a comprehensive gu
 Below are the three primary approaches:
 
 #### Forward Thinking (Traditional)
+
 Start at thought 1 and work sequentially toward your conclusion. Best for exploration and discovery.
 
 **Example: "How can we improve user engagement?"**
+
 - Thought 1: Analyze current engagement metrics (DAU/MAU ratio, session duration, bounce rate)
 - Thought 2: Identify patterns in user behavior (when do users drop off? what features are sticky?)
 - Thought 3: Survey top engagement drivers from user research and analytics
@@ -56,9 +61,11 @@ Start at thought 1 and work sequentially toward your conclusion. Best for explor
 - Thought 6: Recommendation - implement personalized onboarding flow with progress tracking
 
 #### Backward Thinking (Goal-Driven)
+
 Start with thought N (your desired end state) and work backward to thought 1 (starting conditions). Best for planning and system design.
 
 **Example: "Design a caching strategy for a high-traffic API (10k req/s)"**
+
 - Thought 8: **Final state** - System handles 10,000 requests/second with <50ms p95 latency, 85%+ cache hit rate
 - Thought 7: To validate success, need monitoring: cache hit/miss rates, latency metrics, memory usage, eviction rates
 - Thought 6: Before monitoring, implement resilience: circuit breakers, fallback to database, graceful degradation
@@ -69,6 +76,7 @@ Start with thought N (your desired end state) and work backward to thought 1 (st
 - Thought 1: **Starting point** - Define success criteria and constraints (target latency, throughput, data freshness)
 
 #### Mixed/Branched Thinking
+
 Combine approaches or explore alternatives using revision and branch parameters for complex multi-faceted problems.
 
 ## Installation
@@ -101,6 +109,7 @@ Add to your `claude_desktop_config.json`:
 ```
 
 **Environment Variables:**
+
 - `DISABLE_THOUGHT_LOGGING=true` - Disable thought logging to stderr
 
 #### VS Code (Cline)
@@ -125,12 +134,14 @@ Add to `.vscode/mcp.json` or User Settings:
 Clear Thought 2.0 can be deployed as a scalable HTTP server using [Smithery](https://smithery.ai).
 
 **Benefits:**
+
 - Streamable HTTP transport for better performance
 - Automatic containerization and deployment
 - Interactive development playground
 - Built-in configuration management
 
 **Deploy to Smithery:**
+
 1. Visit [smithery.ai/new](https://smithery.ai/new)
 2. Connect your GitHub repository
 3. Configure `disableThoughtLogging` setting as needed

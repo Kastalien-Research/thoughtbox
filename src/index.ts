@@ -10,16 +10,19 @@ import {
   Tool,
 } from "@modelcontextprotocol/sdk/types.js";
 // Fixed chalk import for ESM
-import chalk from 'chalk';
-import { z } from 'zod';
-import { PATTERNS_COOKBOOK } from './resources/patterns-cookbook-content.js';
+import chalk from "chalk";
+import { z } from "zod";
+import { PATTERNS_COOKBOOK } from "./resources/patterns-cookbook-content.js";
 
 // Configuration schema for Smithery
 export const configSchema = z.object({
-  disableThoughtLogging: z.boolean()
+  disableThoughtLogging: z
+    .boolean()
     .optional()
     .default(false)
-    .describe("Disable thought output to stderr (useful for production deployments)"),
+    .describe(
+      "Disable thought output to stderr (useful for production deployments)"
+    ),
 });
 
 interface ThoughtData {
@@ -50,17 +53,17 @@ class ClearThoughtServer {
   private validateThoughtData(input: unknown): ThoughtData {
     const data = input as Record<string, unknown>;
 
-    if (!data.thought || typeof data.thought !== 'string') {
-      throw new Error('Invalid thought: must be a string');
+    if (!data.thought || typeof data.thought !== "string") {
+      throw new Error("Invalid thought: must be a string");
     }
-    if (!data.thoughtNumber || typeof data.thoughtNumber !== 'number') {
-      throw new Error('Invalid thoughtNumber: must be a number');
+    if (!data.thoughtNumber || typeof data.thoughtNumber !== "number") {
+      throw new Error("Invalid thoughtNumber: must be a number");
     }
-    if (!data.totalThoughts || typeof data.totalThoughts !== 'number') {
-      throw new Error('Invalid totalThoughts: must be a number');
+    if (!data.totalThoughts || typeof data.totalThoughts !== "number") {
+      throw new Error("Invalid totalThoughts: must be a number");
     }
-    if (typeof data.nextThoughtNeeded !== 'boolean') {
-      throw new Error('Invalid nextThoughtNeeded: must be a boolean');
+    if (typeof data.nextThoughtNeeded !== "boolean") {
+      throw new Error("Invalid nextThoughtNeeded: must be a boolean");
     }
 
     return {
@@ -78,24 +81,32 @@ class ClearThoughtServer {
   }
 
   private formatThought(thoughtData: ThoughtData): string {
-    const { thoughtNumber, totalThoughts, thought, isRevision, revisesThought, branchFromThought, branchId } = thoughtData;
+    const {
+      thoughtNumber,
+      totalThoughts,
+      thought,
+      isRevision,
+      revisesThought,
+      branchFromThought,
+      branchId,
+    } = thoughtData;
 
-    let prefix = '';
-    let context = '';
+    let prefix = "";
+    let context = "";
 
     if (isRevision) {
-      prefix = chalk.yellow('🔄 Revision');
+      prefix = chalk.yellow("🔄 Revision");
       context = ` (revising thought ${revisesThought})`;
     } else if (branchFromThought) {
-      prefix = chalk.green('🌿 Branch');
+      prefix = chalk.green("🌿 Branch");
       context = ` (from thought ${branchFromThought}, ID: ${branchId})`;
     } else {
-      prefix = chalk.blue('💭 Thought');
-      context = '';
+      prefix = chalk.blue("💭 Thought");
+      context = "";
     }
 
     const header = `${prefix} ${thoughtNumber}/${totalThoughts}${context}`;
-    const border = '─'.repeat(Math.max(header.length, thought.length) + 4);
+    const border = "─".repeat(Math.max(header.length, thought.length) + 4);
 
     return `
 ┌${border}┐
@@ -105,7 +116,10 @@ class ClearThoughtServer {
 └${border}┘`;
   }
 
-  public processThought(input: unknown): { content: Array<any>; isError?: boolean } {
+  public processThought(input: unknown): {
+    content: Array<any>;
+    isError?: boolean;
+  } {
     try {
       const validatedInput = this.validateThoughtData(input);
 
@@ -128,16 +142,22 @@ class ClearThoughtServer {
       }
 
       // Build response content array
-      const content: Array<any> = [{
-        type: "text",
-        text: JSON.stringify({
-          thoughtNumber: validatedInput.thoughtNumber,
-          totalThoughts: validatedInput.totalThoughts,
-          nextThoughtNeeded: validatedInput.nextThoughtNeeded,
-          branches: Object.keys(this.branches),
-          thoughtHistoryLength: this.thoughtHistory.length
-        }, null, 2)
-      }];
+      const content: Array<any> = [
+        {
+          type: "text",
+          text: JSON.stringify(
+            {
+              thoughtNumber: validatedInput.thoughtNumber,
+              totalThoughts: validatedInput.totalThoughts,
+              nextThoughtNeeded: validatedInput.nextThoughtNeeded,
+              branches: Object.keys(this.branches),
+              thoughtHistoryLength: this.thoughtHistory.length,
+            },
+            null,
+            2
+          ),
+        },
+      ];
 
       // Include patterns cookbook as embedded resource when:
       // 1. At the start (thoughtNumber === 1)
@@ -158,23 +178,29 @@ class ClearThoughtServer {
             text: this.patternsCookbook,
             annotations: {
               audience: ["assistant"],
-              priority: 0.9
-            }
-          }
+              priority: 0.9,
+            },
+          },
         });
       }
 
       return { content };
     } catch (error) {
       return {
-        content: [{
-          type: "text",
-          text: JSON.stringify({
-            error: error instanceof Error ? error.message : String(error),
-            status: 'failed'
-          }, null, 2)
-        }],
-        isError: true
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify(
+              {
+                error: error instanceof Error ? error.message : String(error),
+                status: "failed",
+              },
+              null,
+              2
+            ),
+          },
+        ],
+        isError: true,
       };
     }
   }
@@ -183,14 +209,15 @@ class ClearThoughtServer {
 const THINK_START_PROMPT = {
   name: "think-start",
   title: "think-start",
-  description: "Analyze your problem and set up the first thought with the right reasoning pattern",
+  description:
+    "Analyze your problem and set up the first thought with the right reasoning pattern",
   arguments: [
     {
       name: "problem",
       description: "Description of the problem or task you want to solve",
-      required: true
-    }
-  ]
+      required: true,
+    },
+  ],
 };
 
 const CLEAR_THOUGHT_TOOL: Tool = {
@@ -277,51 +304,59 @@ You should:
     properties: {
       thought: {
         type: "string",
-        description: "Your current thinking step"
+        description: "Your current thinking step",
       },
       nextThoughtNeeded: {
         type: "boolean",
-        description: "Whether another thought step is needed"
+        description: "Whether another thought step is needed",
       },
       thoughtNumber: {
         type: "integer",
-        description: "Current thought number (can be 1→N for forward thinking, or N→1 for backward/goal-driven thinking)",
-        minimum: 1
+        description:
+          "Current thought number (can be 1→N for forward thinking, or N→1 for backward/goal-driven thinking)",
+        minimum: 1,
       },
       totalThoughts: {
         type: "integer",
-        description: "Estimated total thoughts needed (for backward thinking, start with thoughtNumber = totalThoughts)",
-        minimum: 1
+        description:
+          "Estimated total thoughts needed (for backward thinking, start with thoughtNumber = totalThoughts)",
+        minimum: 1,
       },
       isRevision: {
         type: "boolean",
-        description: "Whether this revises previous thinking"
+        description: "Whether this revises previous thinking",
       },
       revisesThought: {
         type: "integer",
         description: "Which thought is being reconsidered",
-        minimum: 1
+        minimum: 1,
       },
       branchFromThought: {
         type: "integer",
         description: "Branching point thought number",
-        minimum: 1
+        minimum: 1,
       },
       branchId: {
         type: "string",
-        description: "Branch identifier"
+        description: "Branch identifier",
       },
       needsMoreThoughts: {
         type: "boolean",
-        description: "If more thoughts are needed"
+        description: "If more thoughts are needed",
       },
       includeGuide: {
         type: "boolean",
-        description: "Request the patterns cookbook guide as embedded resource (also provided automatically at thought 1 and final thought)"
-      }
+        description:
+          "Request the patterns cookbook guide as embedded resource (also provided automatically at thought 1 and final thought)",
+      },
     },
-    required: ["thought", "nextThoughtNeeded", "thoughtNumber", "totalThoughts"]
-  }
+    required: [
+      "thought",
+      "nextThoughtNeeded",
+      "thoughtNumber",
+      "totalThoughts",
+    ],
+  },
 };
 
 // Exported server creation function for Smithery HTTP transport
@@ -332,8 +367,8 @@ export default function createServer({
 }) {
   const server = new Server(
     {
-      name: "clear-thought-server",
-      version: "0.2.0",
+      name: "thoughtbox-server",
+      version: "1.0.0",
     },
     {
       capabilities: {
@@ -355,16 +390,18 @@ export default function createServer({
     }
 
     return {
-      content: [{
-        type: "text",
-        text: `Unknown tool: ${request.params.name}`
-      }],
-      isError: true
+      content: [
+        {
+          type: "text",
+          text: `Unknown tool: ${request.params.name}`,
+        },
+      ],
+      isError: true,
     };
   });
 
   server.setRequestHandler(ListPromptsRequestSchema, async () => ({
-    prompts: [THINK_START_PROMPT]
+    prompts: [THINK_START_PROMPT],
   }));
 
   server.setRequestHandler(GetPromptRequestSchema, async (request) => {
@@ -372,7 +409,7 @@ export default function createServer({
       throw new Error(`Unknown prompt: ${request.params.name}`);
     }
 
-    const problem = request.params.arguments?.problem as string || "";
+    const problem = (request.params.arguments?.problem as string) || "";
 
     if (!problem) {
       throw new Error("Problem description is required");
@@ -391,9 +428,14 @@ export default function createServer({
 - Adjust totalThoughts if you need more or fewer steps`;
 
     // Backward thinking keywords
-    if (problemLower.match(/\b(design|plan|build|create|implement|architect|develop)\b/)) {
+    if (
+      problemLower.match(
+        /\b(design|plan|build|create|implement|architect|develop)\b/
+      )
+    ) {
       pattern = "Backward";
-      reasoning = "Your problem involves design/planning/implementation, which benefits from working backwards from the desired goal state.";
+      reasoning =
+        "Your problem involves design/planning/implementation, which benefits from working backwards from the desired goal state.";
       totalThoughts = 20;
       startingThought = 20;
       direction = "N→1 (working backwards from goal)";
@@ -403,9 +445,14 @@ export default function createServer({
 - End at thought 1 with your starting conditions`;
     }
     // Branching/comparison keywords
-    else if (problemLower.match(/\b(compare|versus|vs\b|options|alternatives|choose|decide)\b/)) {
+    else if (
+      problemLower.match(
+        /\b(compare|versus|vs\b|options|alternatives|choose|decide)\b/
+      )
+    ) {
       pattern = "Branching";
-      reasoning = "Your problem involves comparing alternatives, which benefits from exploring multiple paths in parallel.";
+      reasoning =
+        "Your problem involves comparing alternatives, which benefits from exploring multiple paths in parallel.";
       totalThoughts = 15;
       startingThought = 1;
       direction = "Create branches for each option";
@@ -415,11 +462,17 @@ export default function createServer({
 - Create a synthesis thought (e.g., thought 15) to compare and decide`;
     }
     // Forward thinking keywords or default
-    else if (problemLower.match(/\b(explore|understand|analyze|investigate|research|learn|study)\b/)) {
-      reasoning = "Your problem involves exploration/analysis, which benefits from sequential forward progression.";
+    else if (
+      problemLower.match(
+        /\b(explore|understand|analyze|investigate|research|learn|study)\b/
+      )
+    ) {
+      reasoning =
+        "Your problem involves exploration/analysis, which benefits from sequential forward progression.";
       totalThoughts = 12;
     } else {
-      reasoning = "Using forward progression as the default approach for systematic exploration.";
+      reasoning =
+        "Using forward progression as the default approach for systematic exploration.";
       totalThoughts = 15;
     }
 
@@ -461,10 +514,10 @@ TIP: The patterns cookbook guide is automatically provided at thought 1 for deta
           role: "user",
           content: {
             type: "text",
-            text: response
-          }
-        }
-      ]
+            text: response,
+          },
+        },
+      ],
     };
   });
 
@@ -474,7 +527,8 @@ TIP: The patterns cookbook guide is automatically provided at thought 1 for deta
 // STDIO transport for backward compatibility
 async function runServer() {
   // Get configuration from environment variable (backward compatible)
-  const disableThoughtLogging = (process.env.DISABLE_THOUGHT_LOGGING || "").toLowerCase() === "true";
+  const disableThoughtLogging =
+    (process.env.DISABLE_THOUGHT_LOGGING || "").toLowerCase() === "true";
 
   // Create server using the exported function
   const server = createServer({
@@ -490,7 +544,10 @@ async function runServer() {
 
 // Only run STDIO server when executed directly (not when imported by Smithery)
 // This check only works in ESM environments; in CJS builds (Smithery), this block is skipped
-if (typeof import.meta.url !== 'undefined' && import.meta.url === `file://${process.argv[1]}`) {
+if (
+  typeof import.meta.url !== "undefined" &&
+  import.meta.url === `file://${process.argv[1]}`
+) {
   runServer().catch((error) => {
     console.error("Fatal error running server:", error);
     process.exit(1);

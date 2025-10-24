@@ -1,8 +1,8 @@
-# Smithery Configuration for Clear Thought 2.0
+# Smithery Configuration for Thoughtbox
 # This enables HTTP transport with backward compatibility for STDIO
 
-name: clear-thought-two
-description: MCP server for Clear Thought - step-by-step problem solving and reasoning
+name: thoughtbox
+description: MCP server for Thoughtbox - step-by-step problem solving and reasoning
 icon: 💭
 runtime: typescript
 
