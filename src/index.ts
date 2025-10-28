@@ -392,7 +392,7 @@ You should:
 };
 
 // Exported server creation function for Smithery HTTP transport
-export default async function createServer({
+export default function createServer({
   config,
 }: {
   config: z.infer<typeof configSchema>;
@@ -415,8 +415,7 @@ export default async function createServer({
   const notebookServer = new NotebookServer();
   const mapElitesServer = new MapElitesServer(config.disableThoughtLogging);
 
-  // Initialize notebook server - wait for initialization to complete
-  await notebookServer.init();
+  // Note: NotebookServer uses lazy initialization - temp directories created on first use
 
   server.setRequestHandler(ListToolsRequestSchema, async () => ({
     tools: [CLEAR_THOUGHT_TOOL, NOTEBOOK_TOOL, MAP_ELITES_TOOL],
@@ -927,7 +926,7 @@ async function runServer() {
     (process.env.DISABLE_THOUGHT_LOGGING || "").toLowerCase() === "true";
 
   // Create server using the exported function
-  const server = await createServer({
+  const server = createServer({
     config: {
       disableThoughtLogging,
     },
