@@ -15,6 +15,7 @@ import {
 import chalk from "chalk";
 import { z } from "zod";
 import { PATTERNS_COOKBOOK } from "./resources/patterns-cookbook-content.js";
+import { SERVER_ARCHITECTURE_GUIDE } from "./resources/server-architecture-content.js";
 import { NotebookServer, NOTEBOOK_TOOL } from "./notebook/index.js";
 
 // Configuration schema for Smithery
@@ -458,6 +459,7 @@ export default function createServer({
 - \`system://status\` — Notebook server health snapshot
 - \`notebook://operations\` — Notebook operations catalog with schemas and examples
 - \`thinking://patterns-cookbook\` — Sequential thinking patterns guide
+- \`docs://server-architecture\` — Interactive guide to Thoughtbox architecture and implementation
 
 ## Quick Start
 
@@ -533,6 +535,12 @@ notebook({
         description: "Guide to 20+ reasoning patterns for clear_thought tool",
         mimeType: "text/markdown",
       },
+      {
+        uri: "docs://server-architecture",
+        name: "Server Architecture Guide",
+        description: "Interactive notebook explaining Thoughtbox MCP server architecture and implementation patterns",
+        mimeType: "text/markdown",
+      },
     ],
   }));
 
@@ -572,6 +580,18 @@ notebook({
             uri,
             mimeType: "text/markdown",
             text: PATTERNS_COOKBOOK,
+          },
+        ],
+      };
+    }
+
+    if (uri === "docs://server-architecture") {
+      return {
+        contents: [
+          {
+            uri,
+            mimeType: "text/markdown",
+            text: SERVER_ARCHITECTURE_GUIDE,
           },
         ],
       };
