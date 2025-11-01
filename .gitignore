@@ -37,3 +37,7 @@ REASONING_PATTERNS_REPORT.md
 
 # Srcbook development/testing files
 srcbook/
+*.src.md
+
+# Roo modes configuration
+.roomodes
