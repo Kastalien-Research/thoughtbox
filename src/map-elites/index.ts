@@ -76,6 +76,13 @@ See the map://algorithms resource for detailed guide on Quality Diversity algori
     },
     required: ["operation"],
   },
+  annotations: {
+    audience: ["assistant"],
+    priority: 0.75,
+    readOnlyHint: false,
+    destructiveHint: false,
+    idempotentHint: false,
+  },
 };
 
 /**
