@@ -18,7 +18,7 @@ export const SERVER_ARCHITECTURE_GUIDE = `<!-- srcbook:{"language":"typescript",
 
 Thoughtbox is an MCP (Model Context Protocol) server that provides cognitive enhancement tools for LLM agents. It exposes two main capabilities:
 
-1. **clear_thought** - A sequential thinking tool supporting 20+ reasoning patterns
+1. **clear_thought** - A sequential thinking tool supporting 7 core reasoning patterns
 2. **notebook** - A literate programming toolhost for executable documentation
 
 This notebook explores the architecture, implementation patterns, and design decisions behind the Thoughtbox server.
@@ -130,7 +130,7 @@ const exampleResponse: MCPToolResponse = {
   ]
 };
 
-console.log('\\nMCP Response:', JSON.stringify(exampleResponse, null, 2));
+console.log('\nMCP Response:', JSON.stringify(exampleResponse, null, 2));
 \`\`\`
 
 ## The clear_thought Tool
@@ -167,7 +167,7 @@ const forwardThinking = {
   nextThoughtNeeded: true
 };
 
-// 2. Backward Thinking (N → 1)
+// 2. Backward Thinking (N → 1)  
 const backwardThinking = {
   thought: 'Final state: System handles 10k req/s',
   thoughtNumber: 8,  // Start at the end
@@ -205,10 +205,10 @@ const withGuide = {
 };
 
 console.log('Forward:', forwardThinking);
-console.log('\\nBackward:', backwardThinking);
-console.log('\\nBranch:', branch);
-console.log('\\nRevision:', revision);
-console.log('\\nWith Guide:', withGuide);
+console.log('\nBackward:', backwardThinking);
+console.log('\nBranch:', branch);
+console.log('\nRevision:', revision);
+console.log('\nWith Guide:', withGuide);
 \`\`\`
 
 ## The Notebook Toolhost Pattern
@@ -289,7 +289,7 @@ const operationsCatalog = {
 
 console.log('Total operations:', operationsCatalog.operations.length);
 console.log('Categories:', operationsCatalog.categories.map(c => c.name));
-console.log('\\nExample operation:', JSON.stringify(operationsCatalog.operations[0], null, 2));
+console.log('\nExample operation:', JSON.stringify(operationsCatalog.operations[0], null, 2));
 \`\`\`
 
 ## Resource Embedding Pattern
@@ -307,7 +307,7 @@ A powerful MCP feature: **tools can embed resources in their responses**. This p
    - Static reference documentation
 
 3. **thinking://patterns-cookbook** - Reasoning patterns guide
-   - 20+ thinking patterns
+   - 7 core thinking patterns
    - Embedded at thought 1, final thought, or on-demand
 
 ### Embedded Resources in Responses
@@ -403,7 +403,7 @@ console.log('Response structure:', {
   resourceParts: notebookResponse.content.filter(c => c.type === 'resource').length
 });
 
-console.log('\\nEmbedded resource URI:',
+console.log('\nEmbedded resource URI:', 
   notebookResponse.content.find(c => c.type === 'resource')?.resource?.uri
 );
 \`\`\`
@@ -436,7 +436,7 @@ This is **literate programming for AI agents** - executable documentation that e
 ### 1. MCP Enables Structured Cognition
 
 The Model Context Protocol isn't just about API calls - it's about giving LLMs structured ways to think, document, and organize knowledge. Thoughtbox demonstrates two cognitive patterns:
-- **Sequential thinking** (clear_thought): Structured reasoning with 20+ patterns
+- **Sequential thinking** (clear_thought): Structured reasoning with 7 core patterns
 - **Executable documentation** (notebook): Literate programming for AI
 
 ### 2. The Toolhost Pattern Scales Better
@@ -486,5 +486,4 @@ Thoughtbox demonstrates that MCP servers can be **cognitive enhancement tools**,
 
 The Thoughtbox MCP server showcases modern patterns for building AI-native tools. By combining the toolhost pattern, resource embedding, and cognitive frameworks, it creates a powerful environment for LLM agents to think, document, and execute code.
 
-The self-referential nature of this notebook - created using the very tools it explains - demonstrates the meta-cognitive potential of well-designed MCP servers.
-`;
+The self-referential nature of this notebook - created using the very tools it explains - demonstrates the meta-cognitive potential of well-designed MCP servers.`;

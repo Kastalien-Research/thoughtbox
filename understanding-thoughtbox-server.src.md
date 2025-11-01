@@ -15,7 +15,7 @@
 
 Thoughtbox is an MCP (Model Context Protocol) server that provides cognitive enhancement tools for LLM agents. It exposes two main capabilities:
 
-1. **clear_thought** - A sequential thinking tool supporting 20+ reasoning patterns
+1. **clear_thought** - A sequential thinking tool supporting 7 core reasoning patterns
 2. **notebook** - A literate programming toolhost for executable documentation
 
 This notebook explores the architecture, implementation patterns, and design decisions behind the Thoughtbox server.
