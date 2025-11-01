@@ -43,7 +43,7 @@ The Clear Thought tool is designed for:
 
 ### Thinking Approaches
 
-Thoughtbox supports multiple reasoning strategies. For a comprehensive guide with 7 core reasoning patterns, see the **[Clear Thought Patterns Cookbook](src/resources/clear-thought-patterns-cookbook.md)**.
+Thoughtbox supports multiple reasoning strategies. For a comprehensive guide with 7 core reasoning patterns, see the **[Clear Thought Patterns Cookbook](src/resources/docs/clear-thought-patterns-cookbook.md)**.
 
 Below are the three primary approaches:
 

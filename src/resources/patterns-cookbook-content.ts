@@ -1,4 +1,4 @@
-// Auto-generated from src/resources/clear-thought-patterns-cookbook.md
+// Auto-generated from src/resources/docs/clear-thought-patterns-cookbook.md
 // This allows the content to be bundled into the JavaScript build for both STDIO and HTTP transports
 
 export const PATTERNS_COOKBOOK = `# Clear Thought Patterns Cookbook
