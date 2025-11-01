@@ -43,7 +43,7 @@ The Clear Thought tool is designed for:
 
 ### Thinking Approaches
 
-Clear Thought 2.0 supports multiple reasoning strategies. For a comprehensive guide with 20+ reasoning patterns, see the **[Clear Thought Patterns Cookbook](src/resources/clear-thought-patterns-cookbook.md)**.
+Thoughtbox supports multiple reasoning strategies. For a comprehensive guide with 7 core reasoning patterns, see the **[Clear Thought Patterns Cookbook](src/resources/clear-thought-patterns-cookbook.md)**.
 
 Below are the three primary approaches:
 
@@ -83,13 +83,13 @@ Combine approaches or explore alternatives using revision and branch parameters 
 
 ### Installing via Smithery
 
-To install Clear Thought 2.0 (beta) automatically via [Smithery](https://smithery.ai/server/@Kastalien-Research/clear-thought-two):
+To install Thoughtbox (beta) automatically via [Smithery](https://smithery.ai/server/@Kastalien-Research/clear-thought-two):
 
 ```bash
 npx -y @smithery/cli install @Kastalien-Research/clear-thought-two
 ```
 
-Clear Thought 2.0 supports both **STDIO** (for local development) and **HTTP** (for production deployments) transports.
+Thoughtbox supports both **STDIO** (for local development) and **HTTP** (for production deployments) transports.
 
 ### STDIO Transport (Local Development)
 
@@ -131,7 +131,7 @@ Add to `.vscode/mcp.json` or User Settings:
 
 ### HTTP Transport (Production Deployment)
 
-Clear Thought 2.0 can be deployed as a scalable HTTP server using [Smithery](https://smithery.ai).
+Thoughtbox can be deployed as a scalable HTTP server using [Smithery](https://smithery.ai).
 
 **Benefits:**
 

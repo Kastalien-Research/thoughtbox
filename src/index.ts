@@ -254,7 +254,7 @@ Thinking Approaches:
 Patterns Cookbook:
 The patterns cookbook guide is automatically provided as an embedded resource at thought 1 and at the final thought.
 You can also request it at any time using the includeGuide parameter.
-The cookbook contains 20+ reasoning patterns with examples and usage guidance.
+The cookbook contains core reasoning patterns with examples and usage guidance.
 
 Key features:
 - You can adjust total_thoughts up or down as you progress
@@ -532,7 +532,7 @@ notebook({
       {
         uri: "thinking://patterns-cookbook",
         name: "Sequential Thinking Patterns Cookbook",
-        description: "Guide to 20+ reasoning patterns for clear_thought tool",
+        description: "Guide to core reasoning patterns for clear_thought tool",
         mimeType: "text/markdown",
       },
       {

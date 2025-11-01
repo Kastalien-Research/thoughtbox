@@ -2,7 +2,7 @@
 
 **Quick Reference Guide for AI Agents**
 
-This guide shows you how to use the Clear Thought tool flexibly to solve complex problems. The tool supports 20+ reasoning patterns without requiring different code - just use the parameters creatively.
+This guide shows you how to use the Clear Thought tool flexibly to solve complex problems. The tool supports multiple reasoning patterns without requiring different code - just use the parameters creatively.
 
 ---
 
@@ -25,7 +25,7 @@ This guide shows you how to use the Clear Thought tool flexibly to solve complex
 
 ---
 
-## Pattern Catalog
+## Core Patterns
 
 ### 1. Forward Thinking (Traditional)
 
@@ -125,45 +125,24 @@ thought: "REVISION: Missed critical stakeholder - security team needs compliance
 
 ---
 
-### 5. Non-Sequential Jumping
+### 5. Meta-Cognition (Thinking About Thinking)
 
-**When to use:** Exploring different time horizons, validating distant consequences
+**When to use:** Process improvement, learning from approach, course correction
 
-**How it works:** Jump to any thought number, regardless of previous thoughts
-
-**Example:**
-```
-Thought 1: "Problem: Need new authentication system"
-Thought 50: "Mid-development - alpha testing reveals 2FA UX issues"
-Thought 100: "End state - 10k users migrated, 99.9% uptime"
-Thought 2: "Requirements gathering from stakeholders"
-```
-
-**Key:** Thought numbers are logical positions, not chronological order.
-
----
-
-### 6. Dialectical Reasoning (Thesis-Antithesis-Synthesis)
-
-**When to use:** Resolving tensions, finding balanced solutions, contentious decisions
-
-**Pattern:**
-```
-Thought N: THESIS - Position A
-Thought N+1: ANTITHESIS - Opposing position
-Thought N+2: SYNTHESIS - Integrated view
-```
+**Pattern:** Step back and reflect on the reasoning process itself
 
 **Example:**
 ```
-Thought 15: "THESIS: Microservices increase complexity but improve scalability"
-Thought 16: "ANTITHESIS: Monolith is simpler but harder to scale"
-Thought 17: "SYNTHESIS: Start with modular monolith, extract services as needed"
+Thought 25: "META: I've been using forward thinking, but this is a planning problem"
+Thought 26: "Switching to backward thinking from goal state"
+Thought 99: "Started at goal, worked backwards successfully"
 ```
+
+**Key:** Adjust your approach mid-stream if needed.
 
 ---
 
-### 7. Hypothesis Testing
+### 6. Hypothesis Testing
 
 **When to use:** Scientific thinking, validating assumptions, empirical analysis
 
@@ -183,42 +162,7 @@ Thought 25: "RESULTS: 18% reduction confirmed, hypothesis supported"
 
 ---
 
-### 8. Scenario Planning
-
-**When to use:** Strategic planning, risk management, uncertain futures
-
-**Pattern:** Explore optimistic, pessimistic, and realistic scenarios
-
-**Example:**
-```
-Thought 20: "OPTIMISTIC: Product hits 100k users in 6 months"
-Thought 21: "PESSIMISTIC: Competition launches better product, we get 1k users"
-Thought 22: "REALISTIC: Steady growth to 20k users, profitable in 12 months"
-```
-
-**Key:** Prepare for multiple futures, don't bet on one.
-
----
-
-### 9. Constraint Analysis
-
-**When to use:** Engineering trade-offs, requirement validation, feasibility checks
-
-**Pattern:**
-1. Identify hard constraints
-2. Derive implications
-3. Explore constraint relaxation
-
-**Example:**
-```
-Thought 15: "CONSTRAINTS: <100ms latency, <$1k/month cost, 99% uptime"
-Thought 16: "IMPLICATIONS: Can't use large LLM, need caching, require redundancy"
-Thought 17: "RELAXATION: If we allow 200ms latency, can use better model"
-```
-
----
-
-### 10. First Principles Thinking
+### 7. First Principles Thinking
 
 **When to use:** Innovation, challenging assumptions, deep understanding
 
@@ -234,111 +178,17 @@ Thought 23: "From first principles: Need verification system + permission system
 
 ---
 
-### 11. Causal Chain Analysis
-
-**When to use:** Root cause investigation, understanding dynamics
-
-**Pattern:** Trace cause → effect relationships (or use 5 Whys)
-
-**Example:**
-```
-Thought 30: "Production bugs occurring. Why?"
-Thought 31: "Because code review missed them. Why?"
-Thought 32: "Because reviewers were rushed. Why?"
-Thought 33: "Because review queue is too large. Why?"
-Thought 34: "ROOT CAUSE: Need to reduce review volume via automated checks"
-```
-
----
-
-### 12. Systems Thinking
-
-**When to use:** Complex systems, organizational change, feedback loops
-
-**Pattern:** Map interconnections, identify feedback loops, find leverage points
-
-**Example:**
-```
-Thought 40: "REINFORCING LOOP: Better docs → fewer support tickets → more time for docs"
-Thought 41: "BALANCING LOOP: Add features → complexity up → docs harder to maintain"
-Thought 42: "LEVERAGE POINT: Improve feature flags to reduce complexity"
-```
-
----
-
-### 13. Meta-Cognition (Thinking About Thinking)
-
-**When to use:** Process improvement, learning from approach, course correction
-
-**Pattern:** Step back and reflect on the reasoning process itself
-
-**Example:**
-```
-Thought 25: "META: I've been using forward thinking, but this is a planning problem"
-Thought 26: "Switching to backward thinking from goal state"
-Thought 99: "Started at goal, worked backwards successfully"
-```
-
-**Key:** Adjust your approach mid-stream if needed.
-
----
-
-### 14. Pattern Recognition
-
-**When to use:** Optimization, prioritization, finding high-impact areas
-
-**Pattern:** Identify recurring patterns, apply 80/20 rule
-
-**Example:**
-```
-Thought 50: "Analyzed 1000 bugs: 40% are null checks, 30% are off-by-one errors"
-Thought 51: "INSIGHT: Focus automated detection on these two patterns"
-```
-
----
-
-### 15. Economic Modeling
-
-**When to use:** Business decisions, ROI calculation, resource allocation
-
-**Pattern:** Cost-benefit analysis, market sizing, opportunity cost
-
-**Example:**
-```
-Thought 60: "COSTS: $500k dev, $50k/mo infrastructure"
-Thought 61: "BENEFITS: Save 1000 eng-hours/mo at $100/hr = $100k/mo"
-Thought 62: "ROI: Break even in 5 months, 2.4x return in year 1"
-```
-
----
-
-### 16. Integration and Synthesis
-
-**When to use:** Combining insights from multiple branches, final decision-making
-
-**Pattern:** Pull together diverse analyses into coherent conclusion
-
-**Example:**
-```
-Thought 80: "Synthesizing: Branch A showed cost benefits, Branch B showed UX benefits"
-Thought 81: "INTEGRATION: Choose hybrid - Branch A's architecture + Branch B's UX"
-```
-
----
-
-## Advanced Techniques
-
-### Combining Patterns
+## Combining Patterns
 
 Most complex problems benefit from multiple patterns:
 
 **Example: Architecture Decision**
 1. Forward thinking (thoughts 1-10): Explore current system
 2. Branching (thoughts 11-20): Compare 3 architecture options
-3. Constraint analysis (thoughts 21-25): Validate against requirements
-4. Risk analysis (thoughts 26-30): Identify failure modes
-5. Economic modeling (thoughts 31-35): Calculate costs
-6. Synthesis (thought 36): Make final decision
+3. Backward thinking (thoughts 21-25): Work back from requirements
+4. Hypothesis testing (thoughts 26-30): Validate assumptions
+5. Meta-cognition (thought 31): Reflect on process
+6. Synthesis (thought 32): Make final decision
 
 ### Adjusting totalThoughts
 
@@ -351,14 +201,20 @@ Thought 15: "Realized this is more complex than expected"
 Thought 16: totalThoughts: 40  // Adjusted upward
 ```
 
-### When to Use What
+---
 
-**Problem Type** → **Recommended Pattern**
-- Architecture design → Backward + branching
-- Bug investigation → Forward + hypothesis testing
-- Strategic planning → Scenario planning + risk analysis
-- Research synthesis → Forward + meta-cognition
-- Optimization → Pattern recognition + constraint analysis
+## Quick Decision Guide
+
+**I need to...**
+
+- **Explore a new problem** → Forward thinking (1→N)
+- **Plan a project** → Backward thinking (N→1)
+- **Compare options** → Branching + synthesis
+- **Fix an error** → Revision
+- **Validate assumptions** → Hypothesis testing
+- **Challenge assumptions** → First principles
+- **Improve my process** → Meta-cognition
+- **Design architecture** → Backward + branching + synthesis
 
 ---
 
@@ -395,23 +251,6 @@ Every 20-30 thoughts, step back and assess your approach.
 ❌ **Premature convergence**: Deciding before exploring alternatives
 
 ❌ **Under-estimation**: Starting with totalThoughts too low, constantly adjusting
-
----
-
-## Quick Decision Guide
-
-**I need to...**
-
-- **Explore a new problem** → Forward thinking (1→N)
-- **Plan a project** → Backward thinking (N→1)
-- **Compare options** → Branching
-- **Fix an error** → Revision
-- **Understand root causes** → Causal chain or 5 Whys
-- **Make strategic decision** → Scenario planning + synthesis
-- **Optimize something** → Pattern recognition + constraint analysis
-- **Design architecture** → Backward + branching + synthesis
-- **Validate assumptions** → Hypothesis testing
-- **Handle complexity** → Systems thinking + first principles
 
 ---
 
