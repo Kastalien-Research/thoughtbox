@@ -389,6 +389,13 @@ You should:
       "totalThoughts",
     ],
   },
+  annotations: {
+    audience: ["assistant"],
+    priority: 0.85,
+    readOnlyHint: false,
+    destructiveHint: false,
+    idempotentHint: false,
+  },
 };
 
 // Exported server creation function for Smithery HTTP transport
