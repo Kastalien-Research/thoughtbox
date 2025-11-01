@@ -219,25 +219,6 @@ const LIST_MCP_ASSETS_PROMPT = {
   arguments: [],
 };
 
-const MAP_ELITES_START_PROMPT = {
-  name: "map-elites-start",
-  title: "map-elites-start",
-  description:
-    "Initialize MAP-Elites archive and start quality diversity exploration",
-  arguments: [
-    {
-      name: "problem",
-      description: "Description of the exploration problem",
-      required: true,
-    },
-    {
-      name: "behaviorDimensions",
-      description: "Suggested behavioral dimensions (optional)",
-      required: false,
-    },
-  ],
-};
-
 const CLEAR_THOUGHT_TOOL: Tool = {
   name: "clear_thought",
   description: `A detailed tool for dynamic and reflective problem-solving through thoughts.
@@ -483,7 +464,7 @@ export default function createServer({
   });
 
   server.setRequestHandler(ListPromptsRequestSchema, async () => ({
-    prompts: [MAP_ELITES_START_PROMPT, LIST_MCP_ASSETS_PROMPT],
+    prompts: [LIST_MCP_ASSETS_PROMPT],
   }));
 
   server.setRequestHandler(GetPromptRequestSchema, async (request) => {
@@ -491,7 +472,6 @@ export default function createServer({
       const markdown = `# Thoughtbox MCP Server Capabilities
 
 ## Prompts
-- \`map-elites-start(problem, behaviorDimensions?)\` — Initialize MAP-Elites archive for quality diversity exploration
 - \`list_mcp_assets()\` — Overview of tools/resources and quickstart steps (this prompt)
 
 ## Tools
@@ -586,120 +566,6 @@ map_elites({
             content: {
               type: "text",
               text: markdown,
-            },
-          },
-        ],
-      };
-    }
-
-    if (request.params.name === "map-elites-start") {
-      const problem = (request.params.arguments?.problem as string) || "";
-
-      if (!problem) {
-        throw new Error("Problem description is required");
-      }
-
-      const suggestedDims = (request.params.arguments?.behaviorDimensions as string) || "";
-
-      const response = `# MAP-Elites Exploration Setup
-
-**Problem**: ${problem}
-
-## Recommended Setup
-
-${suggestedDims ? `**Suggested Dimensions**: ${suggestedDims}\n\n` : ''}
-
-**Step 1: Design Behavioral Dimensions**
-
-Choose 2-3 dimensions that characterize solutions meaningfully:
-- Should be independent (not correlated)
-- Should be measurable from the solution
-- Should capture important trade-offs or aspects
-
-**Examples by domain:**
-- **Creative content**: specificity vs creativity, length vs formality
-- **Algorithms**: time complexity vs space complexity, accuracy vs speed
-- **Designs**: simplicity vs capability, cost vs performance
-
-**Step 2: Create Archive**
-
-\`\`\`javascript
-map_elites({
-  operation: "create_archive",
-  args: {
-    dimensions: [
-      { name: "dimension_1", min: 0, max: 100, resolution: 10 },
-      { name: "dimension_2", min: 0, max: 100, resolution: 10 }
-    ],
-    metadata: {
-      description: "${problem}",
-      performanceMetric: "your_quality_metric"
-    }
-  }
-})
-\`\`\`
-
-**Step 3: Run Exploration Loop**
-
-For each iteration (500-1000 iterations typical):
-1. **Select**: Pick parent from archive (random if empty)
-2. **Mutate**: Create variation of parent solution
-3. **Evaluate Behavior**: Measure behavioral characteristics [x, y]
-4. **Evaluate Performance**: Compute fitness/quality score
-5. **Propose**: Submit to archive
-
-\`\`\`javascript
-map_elites({
-  operation: "propose_solution",
-  args: {
-    archiveId: "...",
-    solution: your_generated_solution,
-    behavioralCharacteristics: [x_value, y_value],
-    performance: quality_score
-  }
-})
-\`\`\`
-
-**Step 4: Monitor Progress**
-
-Check coverage periodically:
-
-\`\`\`javascript
-map_elites({
-  operation: "get_map_state",
-  args: { archiveId: "...", includeVisualization: true }
-})
-\`\`\`
-
-**Step 5: Harvest Results**
-
-Extract all elites for downstream use:
-
-\`\`\`javascript
-const state = map_elites({
-  operation: "get_map_state",
-  args: { archiveId: "..." }
-})
-// state.elites contains all diverse solutions
-\`\`\`
-
-## Important Reminders
-
-- **You define the fitness function**: The server doesn't evaluate - you must measure performance
-- **You run the loop**: The server just stores and compares - you control the search
-- **Coverage takes time**: Expect to need 10-100× the number of niches in proposals
-
-See \`map://algorithms\` resource for complete guide on Quality Diversity algorithms.
-`;
-
-      return {
-        description: `MAP-Elites exploration setup for: ${problem}`,
-        messages: [
-          {
-            role: "user",
-            content: {
-              type: "text",
-              text: response,
             },
           },
         ],
