@@ -16,8 +16,6 @@ import chalk from "chalk";
 import { z } from "zod";
 import { PATTERNS_COOKBOOK } from "./resources/patterns-cookbook-content.js";
 import { NotebookServer, NOTEBOOK_TOOL } from "./notebook/index.js";
-import { MapElitesServer, MAP_ELITES_TOOL } from "./map-elites/index.js";
-import { MAP_ELITES_GUIDE } from "./resources/map-elites-guide.js";
 
 // Configuration schema for Smithery
 export const configSchema = z.object({
@@ -387,12 +385,11 @@ export default function createServer({
 
   const thinkingServer = new ClearThoughtServer(config.disableThoughtLogging);
   const notebookServer = new NotebookServer();
-  const mapElitesServer = new MapElitesServer(config.disableThoughtLogging);
 
   // Note: NotebookServer uses lazy initialization - temp directories created on first use
 
   server.setRequestHandler(ListToolsRequestSchema, async () => ({
-    tools: [CLEAR_THOUGHT_TOOL, NOTEBOOK_TOOL, MAP_ELITES_TOOL],
+    tools: [CLEAR_THOUGHT_TOOL, NOTEBOOK_TOOL],
   }));
 
   server.setRequestHandler(CallToolRequestSchema, async (request) => {
@@ -426,32 +423,6 @@ export default function createServer({
       return notebookServer.processTool(operation, args || {});
     }
 
-    // Handle map_elites toolhost dispatcher
-    if (request.params.name === "map_elites") {
-      const { operation, args } = request.params.arguments as any;
-
-      if (!operation || typeof operation !== "string") {
-        return {
-          content: [
-            {
-              type: "text",
-              text: JSON.stringify(
-                {
-                  success: false,
-                  error: "operation parameter is required and must be a string",
-                },
-                null,
-                2
-              ),
-            },
-          ],
-          isError: true,
-        };
-      }
-
-      return mapElitesServer.processTool(operation, args || {});
-    }
-
     return {
       content: [
         {
@@ -483,16 +454,10 @@ export default function createServer({
   - Operations: \`create\`, \`list\`, \`load\`, \`add_cell\`, \`update_cell\`, \`run_cell\`, \`install_deps\`, \`list_cells\`, \`get_cell\`, \`export\`
   - Full operation reference: \`notebook://operations\`
 
-- \`map_elites(operation, args)\` — Quality Diversity algorithm workspace
-  - Operations: \`create_archive\`, \`propose_solution\`, \`get_elite\`, \`get_map_state\`, \`get_empty_niches\`, \`get_neighbors\`
-  - Population-based exploration, illuminates behavior spaces
-  - Full guide: \`map://algorithms\`
-
 ## Resources
 - \`system://status\` — Notebook server health snapshot
 - \`notebook://operations\` — Notebook operations catalog with schemas and examples
 - \`thinking://patterns-cookbook\` — Sequential thinking patterns guide
-- \`map://algorithms\` — MAP-Elites and Quality Diversity guide
 
 ## Quick Start
 
@@ -526,34 +491,6 @@ notebook({
 notebook({
   operation: "run_cell",
   args: { notebookId: "abc123", cellId: "cell456" }
-})
-\`\`\`
-
-### MAP-Elites (Quality Diversity)
-\`\`\`
-map_elites({
-  operation: "create_archive",
-  args: {
-    dimensions: [
-      { name: "complexity", min: 0, max: 100, resolution: 10 },
-      { name: "speed", min: 0, max: 1000, resolution: 20 }
-    ]
-  }
-})
-
-map_elites({
-  operation: "propose_solution",
-  args: {
-    archiveId: "xyz789",
-    solution: { /* your solution */ },
-    behavioralCharacteristics: [45, 750],
-    performance: 0.85
-  }
-})
-
-map_elites({
-  operation: "get_map_state",
-  args: { archiveId: "xyz789", includeVisualization: true }
 })
 \`\`\`
 `;
@@ -596,12 +533,6 @@ map_elites({
         description: "Guide to 20+ reasoning patterns for clear_thought tool",
         mimeType: "text/markdown",
       },
-      {
-        uri: "map://algorithms",
-        name: "MAP-Elites & Quality Diversity Guide",
-        description: "Complete guide to Quality Diversity algorithms and MAP-Elites",
-        mimeType: "text/markdown",
-      },
     ],
   }));
 
@@ -641,18 +572,6 @@ map_elites({
             uri,
             mimeType: "text/markdown",
             text: PATTERNS_COOKBOOK,
-          },
-        ],
-      };
-    }
-
-    if (uri === "map://algorithms") {
-      return {
-        contents: [
-          {
-            uri,
-            mimeType: "text/markdown",
-            text: MAP_ELITES_GUIDE,
           },
         ],
       };
