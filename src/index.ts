@@ -516,12 +516,19 @@ notebook({
     }
 
     if (request.params.name === "interleaved-thinking") {
-      // Extract arguments directly without validation
-      const { task, thoughts_limit, clear_folder } = request.params.arguments ?? {};
-
+      // Extract arguments - MCP spec says arguments values are always strings
+      const args = request.params.arguments ?? {};
+      const task = args.task;
+      
       if (!task) {
         throw new Error("Missing required argument 'task'");
       }
+
+      // Convert string arguments to proper types
+      const thoughts_limit = args.thoughts_limit 
+        ? parseInt(args.thoughts_limit, 10) 
+        : undefined;
+      const clear_folder = args.clear_folder === "true";
 
       // Get the prompt content with variable substitution
       const content = getInterleavedThinkingContent({
