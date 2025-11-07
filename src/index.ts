@@ -442,7 +442,7 @@ notebook({
         description: "MCP server capabilities overview",
         messages: [
           {
-            role: "user",
+            role: "assistant",
             content: {
               type: "text",
               text: markdown,
