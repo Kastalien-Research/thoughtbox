@@ -418,7 +418,7 @@ export class NotebookServer {
         content.push({
           type: "resource",
           resource: {
-            uri: `notebook://operations/${operation}`,
+            uri: `thoughtbox://notebook/operations/${operation}`,
             title: opDef.title,
             mimeType: "application/json",
             text: JSON.stringify(opDef, null, 2),
@@ -524,7 +524,7 @@ When to use:
     audience: ["assistant"],
     priority: 0.8,
     available_operations: getOperationNames(),
-    docs: "notebook://operations",
+    docs: "thoughtbox://notebook/operations",
     quickstart: "prompt://list_mcp_assets",
   },
 };

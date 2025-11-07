@@ -122,8 +122,8 @@ const exampleResponse: MCPToolResponse = {
     {
       type: 'resource',
       resource: {
-        uri: 'thinking://patterns-cookbook',
-        title: 'Sequential Thinking Patterns Cookbook',
+        uri: 'thoughtbox://patterns-cookbook',
+        title: 'Thoughtbox Patterns Cookbook',
         mimeType: 'text/markdown'
       }
     }
@@ -240,13 +240,13 @@ Instead of exposing 10 separate MCP tools (\`notebook_create\`, \`notebook_list\
 
 ### Operation Catalog Resource
 
-The \`notebook://operations\` resource provides a complete catalog of operations with schemas and examples. This enables LLMs to discover and use operations correctly.
+The \`thoughtbox://notebook/operations\` resource provides a complete catalog of operations with schemas and examples. This enables LLMs to discover and use operations correctly.
 
 ###### operations-catalog.ts
 
 \`\`\`typescript
 // Demonstration: Operations Catalog Structure
-// This is what notebook://operations resource contains
+// This is what thoughtbox://notebook/operations resource contains
 
 const operationsCatalog = {
   version: '1.0.0',
@@ -302,11 +302,11 @@ A powerful MCP feature: **tools can embed resources in their responses**. This p
    - Notebook count, active notebooks
    - Dynamic, reflects current state
 
-2. **notebook://operations** - Complete operations catalog
+2. **thoughtbox://notebook/operations** - Complete operations catalog
    - All 10 operations with schemas and examples
    - Static reference documentation
 
-3. **thinking://patterns-cookbook** - Reasoning patterns guide
+3. **thoughtbox://patterns-cookbook** - Reasoning patterns guide
    - 7 core thinking patterns
    - Embedded at thought 1, final thought, or on-demand
 
@@ -321,7 +321,7 @@ When you call a notebook operation, the response includes an embedded resource:
     {
       type: 'resource',
       resource: {
-        uri: 'notebook://operations/create',
+        uri: 'thoughtbox://notebook/operations/create',
         title: 'Create Notebook',
         mimeType: 'application/json',
         text: '{ "name": "create", ... }',
@@ -380,7 +380,7 @@ const notebookResponse: ToolResponse = {
     {
       type: 'resource',
       resource: {
-        uri: 'notebook://operations/create',
+        uri: 'thoughtbox://notebook/operations/create',
         title: 'Create Notebook',
         mimeType: 'application/json',
         text: JSON.stringify({
