@@ -253,6 +253,109 @@ export const NOTEBOOK_OPERATIONS: OperationDefinition[] = [
       path: "/path/to/output.src.md",
     },
   },
+  {
+    name: "get_progress",
+    title: "Get Progress",
+    description: "Get notebook progress status for Sequential Feynman workflows (Phase 2 enhancement)",
+    category: "workflow",
+    inputSchema: {
+      type: "object",
+      properties: {
+        notebookId: {
+          type: "string",
+          description: "Notebook ID",
+        },
+      },
+      required: ["notebookId"],
+    },
+    example: {
+      notebookId: "abc123",
+    },
+  },
+  {
+    name: "start_cycle",
+    title: "Start Refinement Cycle",
+    description: "Mark a refinement cycle as started, updating timestamps and status (Phase 2 enhancement)",
+    category: "workflow",
+    inputSchema: {
+      type: "object",
+      properties: {
+        notebookId: {
+          type: "string",
+          description: "Notebook ID",
+        },
+        cycle: {
+          type: "integer",
+          minimum: 1,
+          maximum: 3,
+          description: "Cycle number (1-3)",
+        },
+      },
+      required: ["notebookId", "cycle"],
+    },
+    example: {
+      notebookId: "abc123",
+      cycle: 1,
+    },
+  },
+  {
+    name: "complete_cycle",
+    title: "Complete Refinement Cycle",
+    description: "Mark a refinement cycle as completed, updating progress checklist (Phase 2 enhancement)",
+    category: "workflow",
+    inputSchema: {
+      type: "object",
+      properties: {
+        notebookId: {
+          type: "string",
+          description: "Notebook ID",
+        },
+        cycle: {
+          type: "integer",
+          minimum: 1,
+          maximum: 3,
+          description: "Cycle number (1-3)",
+        },
+      },
+      required: ["notebookId", "cycle"],
+    },
+    example: {
+      notebookId: "abc123",
+      cycle: 1,
+    },
+  },
+  {
+    name: "filter_cells",
+    title: "Filter Cells",
+    description: "Get cells filtered by phase and/or cycle (Phase 2 enhancement)",
+    category: "workflow",
+    inputSchema: {
+      type: "object",
+      properties: {
+        notebookId: {
+          type: "string",
+          description: "Notebook ID",
+        },
+        phase: {
+          type: "string",
+          enum: ["research", "feynman", "refinement", "expert", "meta"],
+          description: "Filter by phase",
+        },
+        cycle: {
+          type: "integer",
+          minimum: 1,
+          maximum: 3,
+          description: "Filter by cycle number (only applies to refinement phase)",
+        },
+      },
+      required: ["notebookId"],
+    },
+    example: {
+      notebookId: "abc123",
+      phase: "refinement",
+      cycle: 1,
+    },
+  },
 ];
 
 /**
@@ -296,6 +399,10 @@ export function getOperationsCatalog(): string {
         {
           name: "execution",
           description: "Run code cells and install dependencies",
+        },
+        {
+          name: "workflow",
+          description: "Sequential Feynman workflow operations (progress tracking, cycle management)",
         },
       ],
     },

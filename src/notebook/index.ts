@@ -373,6 +373,249 @@ export class NotebookServer {
   }
 
   /**
+   * Handle get_progress tool call (Phase 2)
+   */
+  async handleGetProgress(args: any): Promise<any> {
+    const { notebookId } = args;
+
+    if (!notebookId || typeof notebookId !== "string") {
+      throw new Error("notebookId is required and must be a string");
+    }
+
+    const notebook = this.stateManager.getNotebook(notebookId);
+    if (!notebook) {
+      throw new Error(`Notebook ${notebookId} not found`);
+    }
+
+    // Find progress tracker cell
+    const progressCell = notebook.cells.find(
+      (c: Cell) => c.metadata?.role === "progress-tracker"
+    );
+
+    if (!progressCell || (progressCell.type !== "markdown" && progressCell.type !== "title")) {
+      return {
+        success: true,
+        progress: {
+          message: "No progress tracker found in this notebook",
+        },
+      };
+    }
+
+    const text = (progressCell as any).text;
+
+    // Parse checkboxes
+    const checkboxRegex = /- \[([ x])\] (.+)/gi;
+    const matches = [...text.matchAll(checkboxRegex)];
+
+    const total = matches.length;
+    const completed = matches.filter(m => m[1] === 'x').length;
+    const percentage = total > 0 ? Math.round((completed / total) * 100) : 0;
+
+    const tasks = matches.map(m => ({
+      completed: m[1] === 'x',
+      description: m[2],
+    }));
+
+    // Extract current phase and cycle from first cell
+    const titleCell = notebook.cells.find((c: Cell) => c.type === "title");
+    let currentPhase = "Unknown";
+    let currentCycle = "N/A";
+
+    if (titleCell && titleCell.type === "title") {
+      const titleText = (titleCell as any).text;
+      const phaseMatch = titleText.match(/\*\*Current Phase\*\*: (.+)/);
+      const cycleMatch = titleText.match(/\*\*Refinement Cycle\*\*: (.+)/);
+
+      if (phaseMatch) currentPhase = phaseMatch[1].trim();
+      if (cycleMatch) currentCycle = cycleMatch[1].trim();
+    }
+
+    return {
+      success: true,
+      progress: {
+        percentage,
+        completed,
+        total,
+        currentPhase,
+        currentCycle,
+        tasks,
+      },
+    };
+  }
+
+  /**
+   * Handle start_cycle tool call (Phase 2)
+   */
+  async handleStartCycle(args: any): Promise<any> {
+    const { notebookId, cycle } = args;
+
+    if (!notebookId || typeof notebookId !== "string") {
+      throw new Error("notebookId is required and must be a string");
+    }
+
+    if (typeof cycle !== "number" || cycle < 1 || cycle > 3) {
+      throw new Error("cycle must be a number between 1 and 3");
+    }
+
+    const notebook = this.stateManager.getNotebook(notebookId);
+    if (!notebook) {
+      throw new Error(`Notebook ${notebookId} not found`);
+    }
+
+    // Find title cell and update current cycle
+    const titleCell = notebook.cells.find((c: Cell) => c.type === "title");
+
+    if (titleCell && titleCell.type === "title") {
+      const oldText = (titleCell as any).text;
+      const newText = oldText.replace(
+        /\*\*Refinement Cycle\*\*: .+/,
+        `**Refinement Cycle**: Cycle ${cycle} (Started: ${new Date().toISOString().split('T')[0]})`
+      );
+      (titleCell as any).text = newText;
+    }
+
+    // Find cycle status cell and mark as "In Progress"
+    const cycleCell = notebook.cells.find(
+      (c: Cell) => c.metadata?.phase === "refinement" && c.metadata?.cycle === cycle
+    );
+
+    if (cycleCell && (cycleCell.type === "markdown" || cycleCell.type === "title")) {
+      const oldText = (cycleCell as any).text;
+      const newText = oldText.replace(
+        /\*\*Current Status\*\*: \[.+\]/,
+        `**Current Status**: [In Progress]`
+      );
+      (cycleCell as any).text = newText;
+    }
+
+    notebook.updatedAt = Date.now();
+
+    return {
+      success: true,
+      message: `Cycle ${cycle} started`,
+      timestamp: new Date().toISOString(),
+    };
+  }
+
+  /**
+   * Handle complete_cycle tool call (Phase 2)
+   */
+  async handleCompleteCycle(args: any): Promise<any> {
+    const { notebookId, cycle } = args;
+
+    if (!notebookId || typeof notebookId !== "string") {
+      throw new Error("notebookId is required and must be a string");
+    }
+
+    if (typeof cycle !== "number" || cycle < 1 || cycle > 3) {
+      throw new Error("cycle must be a number between 1 and 3");
+    }
+
+    const notebook = this.stateManager.getNotebook(notebookId);
+    if (!notebook) {
+      throw new Error(`Notebook ${notebookId} not found`);
+    }
+
+    // Update progress checklist
+    const progressCell = notebook.cells.find(
+      (c: Cell) => c.metadata?.role === "progress-tracker"
+    );
+
+    if (progressCell && (progressCell.type === "markdown" || progressCell.type === "title")) {
+      const oldText = (progressCell as any).text;
+      let checkboxText = "";
+
+      if (cycle === 1) {
+        checkboxText = "Phase 3, Cycle 1: Major issues identified & fixed";
+      } else if (cycle === 2) {
+        checkboxText = "Phase 3, Cycle 2: Depth added & polished";
+      } else if (cycle === 3) {
+        checkboxText = "Phase 3, Cycle 3: Final validation passed";
+      }
+
+      const newText = oldText.replace(
+        new RegExp(`- \\[ \\] ${checkboxText}`),
+        `- [x] ${checkboxText}`
+      );
+      (progressCell as any).text = newText;
+    }
+
+    // Update cycle status cell
+    const cycleCell = notebook.cells.find(
+      (c: Cell) => c.metadata?.phase === "refinement" && c.metadata?.cycle === cycle
+    );
+
+    if (cycleCell && (cycleCell.type === "markdown" || cycleCell.type === "title")) {
+      const oldText = (cycleCell as any).text;
+      const newText = oldText.replace(
+        /\*\*Current Status\*\*: \[.+\]/,
+        `**Current Status**: [Complete]`
+      );
+      (cycleCell as any).text = newText;
+    }
+
+    notebook.updatedAt = Date.now();
+
+    return {
+      success: true,
+      message: `Cycle ${cycle} completed`,
+      timestamp: new Date().toISOString(),
+    };
+  }
+
+  /**
+   * Handle filter_cells tool call (Phase 2)
+   */
+  async handleFilterCells(args: any): Promise<any> {
+    const { notebookId, phase, cycle } = args;
+
+    if (!notebookId || typeof notebookId !== "string") {
+      throw new Error("notebookId is required and must be a string");
+    }
+
+    const notebook = this.stateManager.getNotebook(notebookId);
+    if (!notebook) {
+      throw new Error(`Notebook ${notebookId} not found`);
+    }
+
+    let filtered = notebook.cells;
+
+    // Filter by phase
+    if (phase) {
+      filtered = filtered.filter((c: Cell) => c.metadata?.phase === phase);
+    }
+
+    // Filter by cycle
+    if (typeof cycle === "number") {
+      filtered = filtered.filter((c: Cell) => c.metadata?.cycle === cycle);
+    }
+
+    return {
+      success: true,
+      cells: filtered.map((cell: Cell) => {
+        const base = {
+          id: cell.id,
+          type: cell.type,
+          metadata: cell.metadata,
+        };
+
+        if (cell.type === "title" || cell.type === "markdown") {
+          return { ...base, text: (cell as any).text };
+        } else if (cell.type === "code") {
+          return {
+            ...base,
+            filename: (cell as any).filename,
+            language: (cell as any).language,
+            status: (cell as any).status,
+          };
+        }
+        return base;
+      }),
+      count: filtered.length,
+    };
+  }
+
+  /**
    * Process MCP tool call (Toolhost dispatcher pattern)
    */
   async processTool(operation: string, args: any): Promise<any> {
@@ -412,6 +655,18 @@ export class NotebookServer {
           break;
         case "export":
           result = await this.handleExportNotebook(args);
+          break;
+        case "get_progress":
+          result = await this.handleGetProgress(args);
+          break;
+        case "start_cycle":
+          result = await this.handleStartCycle(args);
+          break;
+        case "complete_cycle":
+          result = await this.handleCompleteCycle(args);
+          break;
+        case "filter_cells":
+          result = await this.handleFilterCells(args);
           break;
         default:
           throw new Error(`Unknown notebook operation: ${operation}`);

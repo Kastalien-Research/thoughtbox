@@ -1,16 +1,25 @@
 import { z } from "zod";
 
+// Cell Metadata Schema (for Phase 2 enhancements)
+export const CellMetadataSchema = z.object({
+  phase: z.enum(["research", "feynman", "refinement", "expert", "meta"]).optional(),
+  cycle: z.number().min(1).max(3).optional(),
+  role: z.string().optional(), // e.g., "progress-tracker", "cycle-analysis"
+}).optional();
+
 // Cell Schemas
 export const TitleCellSchema = z.object({
   id: z.string(),
   type: z.literal("title"),
   text: z.string(),
+  metadata: CellMetadataSchema,
 });
 
 export const MarkdownCellSchema = z.object({
   id: z.string(),
   type: z.literal("markdown"),
   text: z.string(),
+  metadata: CellMetadataSchema,
 });
 
 export const PackageJsonCellSchema = z.object({
@@ -26,6 +35,7 @@ export const PackageJsonCellSchema = z.object({
   ]),
   output: z.string().optional(),
   error: z.string().optional(),
+  metadata: CellMetadataSchema,
 });
 
 export const CodeCellSchema = z.object({
@@ -42,6 +52,7 @@ export const CodeCellSchema = z.object({
   ]),
   output: z.string().optional(),
   error: z.string().optional(),
+  metadata: CellMetadataSchema,
 });
 
 export const CellSchema = z.union([
@@ -67,6 +78,7 @@ export const NotebookSchema = z.object({
 });
 
 // Type exports
+export type CellMetadata = z.infer<typeof CellMetadataSchema>;
 export type TitleCell = z.infer<typeof TitleCellSchema>;
 export type MarkdownCell = z.infer<typeof MarkdownCellSchema>;
 export type PackageJsonCell = z.infer<typeof PackageJsonCellSchema>;
@@ -78,6 +90,7 @@ export type Notebook = z.infer<typeof NotebookSchema>;
 
 export type CodeLanguage = "javascript" | "typescript";
 export type CellStatus = "idle" | "running" | "completed" | "failed";
+export type CellPhase = "research" | "feynman" | "refinement" | "expert" | "meta";
 
 // Utility function to generate random IDs
 export function randomid(): string {

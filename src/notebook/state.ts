@@ -7,6 +7,7 @@ import type {
   CodeCell,
   CodeLanguage,
   PackageJsonCell,
+  CellPhase,
 } from "./types.js";
 import { randomid, buildDefaultTsconfig } from "./types.js";
 import {
@@ -124,6 +125,11 @@ export class NotebookStateManager {
       notebook["tsconfig.json"] = buildDefaultTsconfig();
     }
 
+    // Tag cells with metadata for navigation (Phase 2 enhancement)
+    if (templateName === "sequential-feynman") {
+      this.tagSequentialFeynmanCells(notebook.cells);
+    }
+
     // Create notebook directory
     const notebookDir = path.join(this.tempDir, notebook.id);
     await fs.mkdir(notebookDir, { recursive: true });
@@ -137,6 +143,50 @@ export class NotebookStateManager {
     this.notebookDirs.set(notebook.id, notebookDir);
 
     return notebook;
+  }
+
+  /**
+   * Tag Sequential Feynman template cells with metadata (Phase 2)
+   */
+  private tagSequentialFeynmanCells(cells: Cell[]): void {
+    for (const cell of cells) {
+      if (cell.type === "package.json") continue;
+
+      const cellText = cell.type === "title" || cell.type === "markdown"
+        ? (cell as any).text
+        : "";
+
+      // Tag progress tracker cell
+      if (cellText.includes("Progress Checklist")) {
+        cell.metadata = { role: "progress-tracker" };
+      }
+      // Tag research phase
+      else if (cellText.includes("Phase 1") || cellText.includes("Research & Synthesis")) {
+        cell.metadata = { phase: "research" };
+      }
+      // Tag Feynman explanation phase
+      else if (cellText.includes("Phase 2") || cellText.includes("Feynman Explanation")) {
+        cell.metadata = { phase: "feynman" };
+      }
+      // Tag refinement cycles
+      else if (cellText.includes("Cycle 1")) {
+        cell.metadata = { phase: "refinement", cycle: 1 };
+      }
+      else if (cellText.includes("Cycle 2")) {
+        cell.metadata = { phase: "refinement", cycle: 2 };
+      }
+      else if (cellText.includes("Cycle 3")) {
+        cell.metadata = { phase: "refinement", cycle: 3 };
+      }
+      // Tag expert re-encoding phase
+      else if (cellText.includes("Phase 4") || cellText.includes("Expert Re-Encoding")) {
+        cell.metadata = { phase: "expert" };
+      }
+      // Tag meta-reflection
+      else if (cellText.includes("Meta-Reflection")) {
+        cell.metadata = { phase: "meta" };
+      }
+    }
   }
 
   /**
