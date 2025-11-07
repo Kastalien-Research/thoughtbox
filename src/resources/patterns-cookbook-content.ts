@@ -1,6 +1,3 @@
-// Auto-generated from local-docs/thoughtbox-patterns-cookbook.md
-// This allows the content to be bundled into the JavaScript build for both STDIO and HTTP transports
-
 export const PATTERNS_COOKBOOK = `# Thoughtbox Patterns Cookbook
 
 **Quick Reference Guide for AI Agents**

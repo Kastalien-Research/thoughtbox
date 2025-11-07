@@ -1,6 +1,3 @@
-// Auto-generated from local-docs/interleaved-thinking.md
-// This allows the content to be bundled into the JavaScript build for both STDIO and HTTP transports
-
 export const INTERLEAVED_THINKING_CONTENT = `# Interleaved Thinking
 
 Use this Thoughtbox server as a reasoning workspace to alternate between internal reasoning steps and external tool/action invocation, carrying the reasoning state forward across those alternations. Put another way, you will use this server to reason about how to utilize a subset of your available tools to complete a user-provided task.

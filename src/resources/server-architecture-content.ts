@@ -1,6 +1,3 @@
-// Auto-generated from local-docs/server-architecture-guide.md
-// This allows the content to be bundled into the JavaScript build for both STDIO and HTTP transports
-
 export const SERVER_ARCHITECTURE_GUIDE = `<!-- srcbook:{"language":"typescript","tsconfig.json":"{\n  \"compilerOptions\": {\n    \"target\": \"ES2022\",\n    \"module\": \"ES2022\",\n    \"moduleResolution\": \"node\",\n    \"esModuleInterop\": true,\n    \"skipLibCheck\": true,\n    \"strict\": true,\n    \"resolveJsonModule\": true,\n    \"allowSyntheticDefaultImports\": true,\n    \"forceConsistentCasingInFileNames\": true\n  }\n}"} -->
 
 # Understanding the Thoughtbox MCP Server
