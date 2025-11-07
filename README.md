@@ -14,7 +14,7 @@ Successor to Waldzell AI's Clear Thought.
 
 ## Tool
 
-### clear_thought
+### thoughtbox
 
 Facilitates a detailed, step-by-step thinking process for problem-solving and analysis.
 
@@ -32,7 +32,7 @@ Facilitates a detailed, step-by-step thinking process for problem-solving and an
 
 ## Usage
 
-The Clear Thought tool is designed for:
+The Thoughtbox tool is designed for:
 
 - Breaking down complex problems into steps
 - Planning and design with room for revision
@@ -43,7 +43,7 @@ The Clear Thought tool is designed for:
 
 ### Thinking Approaches
 
-Thoughtbox supports multiple reasoning strategies. For a comprehensive guide with 7 core reasoning patterns, see the **[Clear Thought Patterns Cookbook](src/resources/docs/clear-thought-patterns-cookbook.md)**.
+Thoughtbox supports multiple reasoning strategies. For a comprehensive guide with 7 core reasoning patterns, see the **[Thoughtbox Patterns Cookbook](src/resources/docs/thoughtbox-patterns-cookbook.md)**.
 
 Below are the three primary approaches:
 
