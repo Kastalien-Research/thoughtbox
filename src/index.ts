@@ -647,22 +647,6 @@ notebook({
     throw new Error(`Unknown resource: ${uri}`);
   });
 
-  server.setRequestHandler(GetPromptRequestSchema, async (request) => {
-    if (request.params.name === "list_mcp_assets") {
-      return {
-        prompt: LIST_MCP_ASSETS_PROMPT,
-      };
-    }
-
-    if (request.params.name === "interleaved-thinking") {
-      return {
-        prompt: INTERLEAVED_THINKING_PROMPT,
-      };
-    }
-
-    throw new Error(`Unknown prompt: ${request.params.name}`);
-  });
-
   return server;
 }
 
