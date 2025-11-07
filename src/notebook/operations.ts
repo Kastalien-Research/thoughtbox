@@ -356,6 +356,56 @@ export const NOTEBOOK_OPERATIONS: OperationDefinition[] = [
       cycle: 1,
     },
   },
+  {
+    name: "export_to_skill",
+    title: "Export to Skill",
+    description: "Export Phase 4 expert re-encoding content to a skill directory (Phase 3 enhancement)",
+    category: "workflow",
+    inputSchema: {
+      type: "object",
+      properties: {
+        notebookId: {
+          type: "string",
+          description: "Notebook ID",
+        },
+        skillPath: {
+          type: "string",
+          description: "Path to skill directory (e.g., '.claude/skills/topic-name')",
+        },
+      },
+      required: ["notebookId", "skillPath"],
+    },
+    example: {
+      notebookId: "abc123",
+      skillPath: ".claude/skills/react-server-components",
+    },
+  },
+  {
+    name: "get_cycle_diff",
+    title: "Get Cycle Diff",
+    description: "Get diff of changes made during a refinement cycle (Phase 3 enhancement)",
+    category: "workflow",
+    inputSchema: {
+      type: "object",
+      properties: {
+        notebookId: {
+          type: "string",
+          description: "Notebook ID",
+        },
+        cycle: {
+          type: "integer",
+          minimum: 1,
+          maximum: 3,
+          description: "Cycle number to show diff for",
+        },
+      },
+      required: ["notebookId", "cycle"],
+    },
+    example: {
+      notebookId: "abc123",
+      cycle: 1,
+    },
+  },
 ];
 
 /**

@@ -68,6 +68,13 @@ export const NotebookMetadataSchema = z.object({
   "tsconfig.json": z.string().optional(),
 });
 
+// Cycle snapshot for diff tracking (Phase 3)
+export const CycleSnapshotSchema = z.object({
+  cycle: z.number(),
+  timestamp: z.number(),
+  cellSnapshots: z.record(z.string()), // cellId -> cell text snapshot
+});
+
 export const NotebookSchema = z.object({
   id: z.string(),
   cells: z.array(CellSchema),
@@ -75,6 +82,7 @@ export const NotebookSchema = z.object({
   "tsconfig.json": z.string().optional(),
   createdAt: z.number(),
   updatedAt: z.number(),
+  cycleSnapshots: z.array(CycleSnapshotSchema).optional(), // For Phase 3 diff tracking
 });
 
 // Type exports
@@ -86,6 +94,7 @@ export type CodeCell = z.infer<typeof CodeCellSchema>;
 export type Cell = z.infer<typeof CellSchema>;
 
 export type NotebookMetadata = z.infer<typeof NotebookMetadataSchema>;
+export type CycleSnapshot = z.infer<typeof CycleSnapshotSchema>;
 export type Notebook = z.infer<typeof NotebookSchema>;
 
 export type CodeLanguage = "javascript" | "typescript";

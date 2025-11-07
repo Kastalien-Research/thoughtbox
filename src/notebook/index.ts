@@ -444,7 +444,7 @@ export class NotebookServer {
   }
 
   /**
-   * Handle start_cycle tool call (Phase 2)
+   * Handle start_cycle tool call (Phase 2/3)
    */
   async handleStartCycle(args: any): Promise<any> {
     const { notebookId, cycle } = args;
@@ -461,6 +461,31 @@ export class NotebookServer {
     if (!notebook) {
       throw new Error(`Notebook ${notebookId} not found`);
     }
+
+    // Phase 3: Create snapshot before starting cycle for diff tracking
+    if (!notebook.cycleSnapshots) {
+      notebook.cycleSnapshots = [];
+    }
+
+    const snapshot: any = {
+      cycle,
+      timestamp: Date.now(),
+      cellSnapshots: {},
+    };
+
+    // Snapshot all Feynman explanation cells (phase: "feynman")
+    notebook.cells.forEach((cell: Cell) => {
+      if (cell.metadata?.phase === "feynman" || cell.type === "code") {
+        const text = cell.type === "title" || cell.type === "markdown"
+          ? (cell as any).text
+          : cell.type === "code"
+          ? (cell as any).source
+          : "";
+        snapshot.cellSnapshots[cell.id] = text;
+      }
+    });
+
+    notebook.cycleSnapshots.push(snapshot);
 
     // Find title cell and update current cycle
     const titleCell = notebook.cells.find((c: Cell) => c.type === "title");
@@ -492,7 +517,7 @@ export class NotebookServer {
 
     return {
       success: true,
-      message: `Cycle ${cycle} started`,
+      message: `Cycle ${cycle} started (snapshot created)`,
       timestamp: new Date().toISOString(),
     };
   }
@@ -616,6 +641,135 @@ export class NotebookServer {
   }
 
   /**
+   * Handle export_to_skill tool call (Phase 3)
+   */
+  async handleExportToSkill(args: any): Promise<any> {
+    const { notebookId, skillPath } = args;
+
+    if (!notebookId || typeof notebookId !== "string") {
+      throw new Error("notebookId is required and must be a string");
+    }
+
+    if (!skillPath || typeof skillPath !== "string") {
+      throw new Error("skillPath is required and must be a string");
+    }
+
+    const notebook = this.stateManager.getNotebook(notebookId);
+    if (!notebook) {
+      throw new Error(`Notebook ${notebookId} not found`);
+    }
+
+    // Extract Phase 4 (expert) cells
+    const expertCells = notebook.cells.filter(
+      (c: Cell) => c.metadata?.phase === "expert"
+    );
+
+    if (expertCells.length === 0) {
+      return {
+        success: false,
+        error: "No expert re-encoding content found (Phase 4)",
+      };
+    }
+
+    // Build skill content from expert cells
+    let skillContent = "# Skill: " + (notebook.cells.find((c: Cell) => c.type === "title") as any)?.text.replace(/🧠 Sequential Feynman Learning: /, "") + "\n\n";
+
+    expertCells.forEach((cell: Cell) => {
+      if (cell.type === "markdown" || cell.type === "title") {
+        skillContent += (cell as any).text + "\n\n";
+      }
+    });
+
+    // Use state manager to write skill file
+    const fs = await import('fs/promises');
+    const path = await import('path');
+
+    // Create skill directory
+    await fs.mkdir(skillPath, { recursive: true });
+
+    // Write SKILL.md
+    const skillFilePath = path.join(skillPath, "SKILL.md");
+    await fs.writeFile(skillFilePath, skillContent, "utf8");
+
+    return {
+      success: true,
+      skillPath,
+      file: skillFilePath,
+      message: "Expert re-encoding content exported to skill",
+    };
+  }
+
+  /**
+   * Handle get_cycle_diff tool call (Phase 3)
+   */
+  async handleGetCycleDiff(args: any): Promise<any> {
+    const { notebookId, cycle } = args;
+
+    if (!notebookId || typeof notebookId !== "string") {
+      throw new Error("notebookId is required and must be a string");
+    }
+
+    if (typeof cycle !== "number" || cycle < 1 || cycle > 3) {
+      throw new Error("cycle must be a number between 1 and 3");
+    }
+
+    const notebook = this.stateManager.getNotebook(notebookId);
+    if (!notebook) {
+      throw new Error(`Notebook ${notebookId} not found`);
+    }
+
+    if (!notebook.cycleSnapshots || notebook.cycleSnapshots.length === 0) {
+      return {
+        success: false,
+        error: "No cycle snapshots found. Start a cycle to create snapshots.",
+      };
+    }
+
+    // Find snapshot for this cycle
+    const snapshot = notebook.cycleSnapshots.find((s: any) => s.cycle === cycle);
+
+    if (!snapshot) {
+      return {
+        success: false,
+        error: `No snapshot found for cycle ${cycle}`,
+      };
+    }
+
+    // Compute diffs
+    const diffs: any[] = [];
+
+    Object.entries(snapshot.cellSnapshots).forEach(([cellId, oldText]) => {
+      const cell = notebook.cells.find((c: Cell) => c.id === cellId);
+
+      if (!cell) return;
+
+      const newText = cell.type === "title" || cell.type === "markdown"
+        ? (cell as any).text
+        : cell.type === "code"
+        ? (cell as any).source
+        : "";
+
+      if (oldText !== newText) {
+        diffs.push({
+          cellId,
+          cellType: cell.type,
+          before: oldText,
+          after: newText,
+          changed: true,
+        });
+      }
+    });
+
+    return {
+      success: true,
+      cycle,
+      timestamp: new Date(snapshot.timestamp).toISOString(),
+      changes: diffs.length,
+      diffs,
+    };
+  }
+
+  /**
    * Process MCP tool call (Toolhost dispatcher pattern)
    */
   async processTool(operation: string, args: any): Promise<any> {
@@ -667,6 +821,12 @@ export class NotebookServer {
           break;
         case "filter_cells":
           result = await this.handleFilterCells(args);
+          break;
+        case "export_to_skill":
+          result = await this.handleExportToSkill(args);
+          break;
+        case "get_cycle_diff":
+          result = await this.handleGetCycleDiff(args);
           break;
         default:
           throw new Error(`Unknown notebook operation: ${operation}`);
