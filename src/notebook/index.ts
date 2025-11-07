@@ -418,7 +418,7 @@ export class NotebookServer {
         content.push({
           type: "resource",
           resource: {
-            uri: `notebook://operations/${operation}`,
+            uri: `thoughtbox://notebook/operations/${operation}`,
             title: opDef.title,
             mimeType: "application/json",
             text: JSON.stringify(opDef, null, 2),
@@ -499,6 +499,22 @@ Available operations:
 - get_cell: Get cell details
 - export: Export notebook to .src.md
 
+Common operation examples:
+
+Create a notebook:
+{ operation: "create", args: { title: "My Analysis", language: "typescript" } }
+
+Add a code cell:
+{ operation: "add_cell", args: { notebookId: "abc123", cellType: "code", content: "console.log('hello')", filename: "example.ts" } }
+
+Run a cell:
+{ operation: "run_cell", args: { notebookId: "abc123", cellId: "cell_456" } }
+
+List notebooks:
+{ operation: "list", args: {} }
+
+For detailed schemas of all operations, see the thoughtbox://notebook/operations resource.
+
 When to use:
 - Writing executable documentation
 - Building reproducible code examples
@@ -524,7 +540,7 @@ When to use:
     audience: ["assistant"],
     priority: 0.8,
     available_operations: getOperationNames(),
-    docs: "notebook://operations",
+    docs: "thoughtbox://notebook/operations",
     quickstart: "prompt://list_mcp_assets",
   },
 };

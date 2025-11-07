@@ -1,5 +1,6 @@
 # MCP config with API keys
 cc_mcp_config.json
+.mcp.json
 
 # Dependencies
 node_modules/
@@ -20,6 +21,7 @@ logs/
 
 # Refactoring game temporary state
 .refactoring-game/
+.interleaved-thinking/
 
 # IDE
 .DS_Store
@@ -29,6 +31,11 @@ logs/
 *.swp
 *.swo
 *~
+RESOURCE_IMPROVEMENTS.md
+TOOL_IMPROVEMENTS.md
+REDUNDANCY_IMPROVEMENTS.md
+PROMPT_IMPLEMENTATION_RECOMMENDATIONS.md
+glassBead-dot-claude/
 
 # Claude Code configuration and local data
 .claude/
@@ -41,3 +48,6 @@ srcbook/
 
 # Roo modes configuration
 .roomodes
+
+# Local documentation (source files for bundled content)
+local-docs/

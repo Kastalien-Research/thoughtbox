@@ -1,11 +1,8 @@
-// Auto-generated from src/resources/docs/clear-thought-patterns-cookbook.md
-// This allows the content to be bundled into the JavaScript build for both STDIO and HTTP transports
-
-export const PATTERNS_COOKBOOK = `# Clear Thought Patterns Cookbook
+export const PATTERNS_COOKBOOK = `# Thoughtbox Patterns Cookbook
 
 **Quick Reference Guide for AI Agents**
 
-This guide shows you how to use the Clear Thought tool flexibly to solve complex problems. The tool supports multiple reasoning patterns without requiring different code - just use the parameters creatively.
+This guide shows you how to use the Thoughtbox tool flexibly to solve complex problems. The tool supports multiple reasoning patterns without requiring different code - just use the parameters creatively.
 
 ---
 
@@ -128,44 +125,29 @@ thought: "REVISION: Missed critical stakeholder - security team needs compliance
 
 ---
 
-### 5. Meta-Cognition (Thinking About Thinking)
+### 5. Interleaved Thinking (Reason ↔ Action Loops)
 
-**When to use:** Process improvement, learning from approach, course correction
+**When to use:** Tool-oriented reasoning; adaptive task execution where thinking and acting must stay synchronized
 
-**Pattern:** Step back and reflect on the reasoning process itself
-
-**Example:**
-\`\`\`
-Thought 25: "META: I've been using forward thinking, but this is a planning problem"
-Thought 26: "Switching to backward thinking from goal state"
-Thought 99: "Started at goal, worked backwards successfully"
-\`\`\`
-
-**Key:** Adjust your approach mid-stream if needed.
-
----
-
-### 6. Hypothesis Testing
-
-**When to use:** Scientific thinking, validating assumptions, empirical analysis
-
-**Pattern:**
-1. Generate hypothesis
-2. Design test
-3. Predict outcome
-4. Analyze results
+**How it works:** Alternate between reasoning steps (inside Thoughtbox) and external tool actions. Each reasoning step carries state forward, updates based on tool results, and decides the next move. Continue looping until the task's defined "gates" or checkpoints are reached.
 
 **Example:**
 \`\`\`
-Thought 10: "HYPOTHESIS: Users abandon cart due to shipping costs"
-Thought 11: "TEST: A/B test free shipping over \$50"
-Thought 12: "PREDICTION: 20% reduction in cart abandonment"
-Thought 25: "RESULTS: 18% reduction confirmed, hypothesis supported"
+Thought 1: "TASK: Create plan to refactor app for Vercel AI SDK"
+Thought 2: "INVENTORY: List all tools via mcp__* → tooling-inventory.md"
+Thought 3: "ASSESS: Tools are sufficient (Firecrawl + Context7 enable info retrieval)"
+Thought 4: "STRATEGIZE: Backward-plan steps to produce refactor plan → strategy.md"
+Thought 5: "EXECUTE LOOP: Use Thoughtbox to reason, then invoke tools, reason again"
+Thought 6: "GATE 1 reached: Draft plan validated, move to next phase"
+Thought 7: "GATE 2 reached: Final plan complete"
+Thought 8: "FINALIZE: Write final-answer.md, clear folder if requested"
 \`\`\`
+
+**Key:** Think → Act → Reflect → Act → Reflect. Maintain reasoning continuity between actions; update strategy dynamically using the results of each tool call.
 
 ---
 
-### 7. First Principles Thinking
+### 6. First Principles Thinking
 
 **When to use:** Innovation, challenging assumptions, deep understanding
 
@@ -189,9 +171,8 @@ Most complex problems benefit from multiple patterns:
 1. Forward thinking (thoughts 1-10): Explore current system
 2. Branching (thoughts 11-20): Compare 3 architecture options
 3. Backward thinking (thoughts 21-25): Work back from requirements
-4. Hypothesis testing (thoughts 26-30): Validate assumptions
-5. Meta-cognition (thought 31): Reflect on process
-6. Synthesis (thought 32): Make final decision
+4. First principles (thoughts 26-30): Break down to fundamentals
+5. Synthesis (thought 31): Make final decision
 
 ### Adjusting totalThoughts
 
@@ -214,16 +195,15 @@ Thought 16: totalThoughts: 40  // Adjusted upward
 - **Plan a project** → Backward thinking (N→1)
 - **Compare options** → Branching + synthesis
 - **Fix an error** → Revision
-- **Validate assumptions** → Hypothesis testing
 - **Challenge assumptions** → First principles
-- **Improve my process** → Meta-cognition
+- **Coordinate reasoning with tool actions** → Interleaved thinking
 - **Design architecture** → Backward + branching + synthesis
 
 ---
 
 ## Best Practices
 
-### 1. Start with Clear Problem Statement
+### 1. Start with Problem Statement
 Your thought 1 should clearly define what you're trying to solve.
 
 ### 2. Use Backward Thinking for Goals

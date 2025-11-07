@@ -17,6 +17,12 @@ import { z } from "zod";
 import { PATTERNS_COOKBOOK } from "./resources/patterns-cookbook-content.js";
 import { SERVER_ARCHITECTURE_GUIDE } from "./resources/server-architecture-content.js";
 import { NotebookServer, NOTEBOOK_TOOL } from "./notebook/index.js";
+import {
+  LIST_MCP_ASSETS_PROMPT,
+  getListMcpAssetsContent,
+  INTERLEAVED_THINKING_PROMPT,
+  getInterleavedThinkingContent,
+} from "./prompts/index.js";
 
 // Configuration schema for Smithery
 export const configSchema = z.object({
@@ -176,8 +182,8 @@ class ClearThoughtServer {
         content.push({
           type: "resource",
           resource: {
-            uri: "thinking://patterns-cookbook",
-            title: "Sequential Thinking Patterns Cookbook",
+            uri: "thoughtbox://patterns-cookbook",
+            title: "Thoughtbox Patterns Cookbook",
             mimeType: "text/markdown",
             text: this.patternsCookbook,
             annotations: {
@@ -210,93 +216,22 @@ class ClearThoughtServer {
   }
 }
 
-const LIST_MCP_ASSETS_PROMPT = {
-  name: "list_mcp_assets",
-  title: "list_mcp_assets",
-  description:
-    "Overview of all MCP capabilities, tools, resources, and quickstart guide",
-  arguments: [],
-};
-
 const CLEAR_THOUGHT_TOOL: Tool = {
-  name: "clear_thought",
-  description: `A detailed tool for dynamic and reflective problem-solving through thoughts.
-This tool helps analyze problems through a flexible thinking process that can adapt and evolve.
-Each thought can build on, question, or revise previous insights as understanding deepens.
-Supports forward thinking (1→N), backward thinking (N→1), or mixed approaches.
+  name: "thoughtbox",
+  description: `Step-by-step thinking tool for complex problem-solving.
 
-When to use this tool:
-- Breaking down complex problems into steps
-- Planning and design with room for revision
-- Analysis that might need course correction
-- Problems where the full scope might not be clear initially
-- Problems that require a multi-step solution
-- Tasks that need to maintain context over multiple steps
-- Situations where irrelevant information needs to be filtered out
+Supports flexible reasoning: forward thinking (1→N), backward thinking (N→1), branching, and revision.
+Adjust your approach dynamically as understanding deepens.
 
-Thinking Approaches:
-
-**Forward Thinking (Traditional Chain of Thought)**: Start at thought 1, work sequentially to thought N
-- Use when: Exploring unknowns, brainstorming, open-ended analysis, discovery
-- Pattern: thoughtNumber 1 → 2 → 3 → ... → N
-- Example: "How can we improve user engagement?" Start with current state, explore options, reach conclusion
-
-**Backward Thinking (Goal-Driven Reasoning)**: Start at thought N (desired end state), work back to thought 1 (starting conditions)
-- Use when: Designing systems, planning projects, solving well-defined problems, working from goals
-- Pattern: thoughtNumber N → N-1 → N-2 → ... → 1
-- Example: "Design a caching strategy for 10k req/s" Start with success criteria (thought 8), work backwards through prerequisites (monitoring, invalidation, implementation, profiling) to reach starting point (thought 1: define requirements)
-- Tip: Begin with the desired outcome, then repeatedly ask "what must be true immediately before this?"
-
-**Mixed/Branched Thinking**: Combine approaches or explore alternative paths using branch parameters
-- Use when: Complex problems requiring multiple perspectives or hypothesis testing
-- Pattern: Use isRevision, branchFromThought, and branchId to create alternative reasoning paths
+Use for:
+- Multi-step analysis and planning
+- Problems requiring course correction
+- Hypothesis generation and testing
+- System design and architecture decisions
 
 Patterns Cookbook:
-The patterns cookbook guide is automatically provided as an embedded resource at thought 1 and at the final thought.
-You can also request it at any time using the includeGuide parameter.
-The cookbook contains core reasoning patterns with examples and usage guidance.
-
-Key features:
-- You can adjust total_thoughts up or down as you progress
-- You can question or revise previous thoughts
-- You can add more thoughts even after reaching what seemed like the end
-- You can express uncertainty and explore alternative approaches
-- Not every thought needs to build linearly - you can branch or backtrack
-- Generates a solution hypothesis
-- Verifies the hypothesis based on the Chain of Thought steps
-- Repeats the process until satisfied
-- Provides a correct answer
-
-Parameters explained:
-- thought: Your current thinking step, which can include:
-* Regular analytical steps
-* Revisions of previous thoughts
-* Questions about previous decisions
-* Realizations about needing more analysis
-* Changes in approach
-* Hypothesis generation
-* Hypothesis verification
-- next_thought_needed: True if you need more thinking, even if at what seemed like the end
-- thought_number: Current number in sequence (can go beyond initial total if needed)
-- total_thoughts: Current estimate of thoughts needed (can be adjusted up/down)
-- is_revision: A boolean indicating if this thought revises previous thinking
-- revises_thought: If is_revision is true, which thought number is being reconsidered
-- branch_from_thought: If branching, which thought number is the branching point
-- branch_id: Identifier for the current branch (if any)
-- needs_more_thoughts: If reaching end but realizing more thoughts needed
-
-You should:
-1. Start with an initial estimate of needed thoughts, but be ready to adjust
-2. Feel free to question or revise previous thoughts
-3. Don't hesitate to add more thoughts if needed, even at the "end"
-4. Express uncertainty when present
-5. Mark thoughts that revise previous thinking or branch into new paths
-6. Ignore information that is irrelevant to the current step
-7. Generate a solution hypothesis when appropriate
-8. Verify the hypothesis based on the Chain of Thought steps
-9. Repeat the process until satisfied with the solution
-10. Provide a single, ideally correct answer as the final output
-11. Only set next_thought_needed to false when truly done and a satisfactory answer is reached`,
+Automatically provided at thought 1 with 6 core reasoning patterns, examples, and best practices.
+Request anytime with includeGuide parameter.`,
   inputSchema: {
     type: "object",
     properties: {
@@ -394,7 +329,7 @@ export default function createServer({
   }));
 
   server.setRequestHandler(CallToolRequestSchema, async (request) => {
-    if (request.params.name === "clear_thought") {
+    if (request.params.name === "thoughtbox") {
       return thinkingServer.processThought(request.params.arguments);
     }
 
@@ -436,75 +371,55 @@ export default function createServer({
   });
 
   server.setRequestHandler(ListPromptsRequestSchema, async () => ({
-    prompts: [LIST_MCP_ASSETS_PROMPT],
+    prompts: [LIST_MCP_ASSETS_PROMPT, INTERLEAVED_THINKING_PROMPT],
   }));
 
   server.setRequestHandler(GetPromptRequestSchema, async (request) => {
     if (request.params.name === "list_mcp_assets") {
-      const markdown = `# Thoughtbox MCP Server Capabilities
+      return {
+        description: LIST_MCP_ASSETS_PROMPT.description,
+        messages: [
+          {
+            role: "assistant",
+            content: {
+              type: "text",
+              text: getListMcpAssetsContent(),
+            },
+          },
+        ],
+      };
+    }
 
-## Prompts
-- \`list_mcp_assets()\` — Overview of tools/resources and quickstart steps (this prompt)
+    if (request.params.name === "interleaved-thinking") {
+      // Extract arguments - MCP spec says arguments values are always strings
+      const args = request.params.arguments ?? {};
+      const task = args.task;
+      
+      if (!task) {
+        throw new Error("Missing required argument 'task'");
+      }
 
-## Tools
-- \`clear_thought(thought, thoughtNumber, totalThoughts, ...)\` — Sequential thinking for complex problem-solving
-  - Supports forward thinking (1→N), backward thinking (N→1), and branching
-  - Automatic patterns cookbook at thought 1 and final thought
+      // Convert string arguments to proper types
+      const thoughts_limit = args.thoughts_limit 
+        ? parseInt(args.thoughts_limit, 10) 
+        : undefined;
+      const clear_folder = args.clear_folder === "true";
 
-- \`notebook(operation, args)\` — Toolhost for literate programming notebooks
-  - Operations: \`create\`, \`list\`, \`load\`, \`add_cell\`, \`update_cell\`, \`run_cell\`, \`install_deps\`, \`list_cells\`, \`get_cell\`, \`export\`
-  - Full operation reference: \`notebook://operations\`
-
-## Resources
-- \`system://status\` — Notebook server health snapshot
-- \`notebook://operations\` — Notebook operations catalog with schemas and examples
-- \`thinking://patterns-cookbook\` — Sequential thinking patterns guide
-- \`docs://server-architecture\` — Interactive guide to Thoughtbox architecture and implementation
-
-## Quick Start
-
-### Sequential Thinking
-\`\`\`
-clear_thought({
-  thought: "Breaking down the problem...",
-  thoughtNumber: 1,
-  totalThoughts: 10,
-  nextThoughtNeeded: true
-})
-\`\`\`
-
-### Notebooks
-\`\`\`
-notebook({
-  operation: "create",
-  args: { title: "My Notebook", language: "typescript" }
-})
-
-notebook({
-  operation: "add_cell",
-  args: {
-    notebookId: "abc123",
-    cellType: "code",
-    content: "console.log('Hello!');",
-    filename: "hello.ts"
-  }
-})
-
-notebook({
-  operation: "run_cell",
-  args: { notebookId: "abc123", cellId: "cell456" }
-})
-\`\`\`
-`;
+      // Get the prompt content with variable substitution
+      const content = getInterleavedThinkingContent({
+        task: String(task),
+        thoughts_limit,
+        clear_folder,
+      });
 
       return {
-        description: "MCP server capabilities overview",
+        description: INTERLEAVED_THINKING_PROMPT.description,
         messages: [
           {
             role: "user",
             content: {
               type: "text",
-              text: markdown,
+              text: content,
             },
           },
         ],
@@ -524,19 +439,19 @@ notebook({
         mimeType: "application/json",
       },
       {
-        uri: "notebook://operations",
+        uri: "thoughtbox://notebook/operations",
         name: "Notebook Operations Catalog",
         description: "Complete catalog of notebook operations with schemas and examples",
         mimeType: "application/json",
       },
       {
-        uri: "thinking://patterns-cookbook",
-        name: "Sequential Thinking Patterns Cookbook",
-        description: "Guide to core reasoning patterns for clear_thought tool",
+        uri: "thoughtbox://patterns-cookbook",
+        name: "Thoughtbox Patterns Cookbook",
+        description: "Guide to core reasoning patterns for thoughtbox tool",
         mimeType: "text/markdown",
       },
       {
-        uri: "docs://server-architecture",
+        uri: "thoughtbox://architecture",
         name: "Server Architecture Guide",
         description: "Interactive notebook explaining Thoughtbox MCP server architecture and implementation patterns",
         mimeType: "text/markdown",
@@ -560,7 +475,7 @@ notebook({
       };
     }
 
-    if (uri === "notebook://operations") {
+    if (uri === "thoughtbox://notebook/operations") {
       const catalog = notebookServer.getOperationsCatalog();
       return {
         contents: [
@@ -573,7 +488,7 @@ notebook({
       };
     }
 
-    if (uri === "thinking://patterns-cookbook") {
+    if (uri === "thoughtbox://patterns-cookbook") {
       return {
         contents: [
           {
@@ -585,7 +500,7 @@ notebook({
       };
     }
 
-    if (uri === "docs://server-architecture") {
+    if (uri === "thoughtbox://architecture") {
       return {
         contents: [
           {
@@ -618,17 +533,11 @@ async function runServer() {
 
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  console.error("Clear Thought MCP Server running on stdio");
+  console.error("Thoughtbox MCP Server running on stdio");
 }
 
-// Only run STDIO server when executed directly (not when imported by Smithery)
-// This check only works in ESM environments; in CJS builds (Smithery), this block is skipped
-if (
-  typeof import.meta.url !== "undefined" &&
-  import.meta.url === `file://${process.argv[1]}`
-) {
-  runServer().catch((error) => {
-    console.error("Fatal error running server:", error);
-    process.exit(1);
-  });
-}
+// Auto-run for STDIO usage (dist/index.js is never imported, only executed)
+runServer().catch((error) => {
+  console.error("Fatal error running server:", error);
+  process.exit(1);
+});
