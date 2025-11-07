@@ -516,32 +516,18 @@ notebook({
     }
 
     if (request.params.name === "interleaved-thinking") {
-      // Extract arguments with defaults
-      const args = request.params.arguments ?? {};
-      const task = args.task as string;
+      // Extract arguments directly without validation
+      const { task, thoughts_limit, clear_folder } = request.params.arguments ?? {};
 
       if (!task) {
-        throw new Error(
-          "Missing required argument 'task' for interleaved-thinking prompt"
-        );
+        throw new Error("Missing required argument 'task'");
       }
-
-      const thoughtsLimit =
-        args.thoughts_limit !== undefined
-          ? Number(args.thoughts_limit)
-          : undefined;
-      const clearFolder =
-        args.clear_folder !== undefined
-          ? typeof args.clear_folder === "boolean"
-            ? args.clear_folder
-            : String(args.clear_folder) === "true"
-          : undefined;
 
       // Get the prompt content with variable substitution
       const content = getInterleavedThinkingContent({
-        task,
-        thoughts_limit: thoughtsLimit,
-        clear_folder: clearFolder,
+        task: String(task),
+        thoughts_limit,
+        clear_folder,
       });
 
       return {

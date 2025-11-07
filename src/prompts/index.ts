@@ -33,8 +33,8 @@ export const INTERLEAVED_THINKING_PROMPT = {
  */
 export function getInterleavedThinkingContent(args: {
   task: string;
-  thoughts_limit?: number;
-  clear_folder?: boolean;
+  thoughts_limit?: any;
+  clear_folder?: any;
 }): string {
   // Use bundled content (no file I/O)
   let content = INTERLEAVED_THINKING_CONTENT;
