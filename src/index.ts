@@ -217,7 +217,7 @@ class ClearThoughtServer {
 }
 
 const CLEAR_THOUGHT_TOOL: Tool = {
-  name: "clear_thought",
+  name: "thoughtbox",
   description: `Step-by-step thinking tool for complex problem-solving.
 
 Supports flexible reasoning: forward thinking (1→N), backward thinking (N→1), branching, and revision.
@@ -329,7 +329,7 @@ export default function createServer({
   }));
 
   server.setRequestHandler(CallToolRequestSchema, async (request) => {
-    if (request.params.name === "clear_thought") {
+    if (request.params.name === "thoughtbox") {
       return thinkingServer.processThought(request.params.arguments);
     }
 
@@ -447,7 +447,7 @@ export default function createServer({
       {
         uri: "thoughtbox://patterns-cookbook",
         name: "Thoughtbox Patterns Cookbook",
-        description: "Guide to core reasoning patterns for clear_thought tool",
+        description: "Guide to core reasoning patterns for thoughtbox tool",
         mimeType: "text/markdown",
       },
       {
@@ -533,7 +533,7 @@ async function runServer() {
 
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  console.error("Clear Thought MCP Server running on stdio");
+  console.error("Thoughtbox MCP Server running on stdio");
 }
 
 // Auto-run for STDIO usage (dist/index.js is never imported, only executed)

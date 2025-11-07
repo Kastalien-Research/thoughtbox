@@ -19,7 +19,7 @@ export function getListMcpAssetsContent(): string {
 - \`list_mcp_assets()\` — Overview of tools/resources and quickstart steps (this prompt)
 
 ## Tools
-- \`clear_thought(thought, thoughtNumber, totalThoughts, ...)\` — Sequential thinking for complex problem-solving
+- \`thoughtbox(thought, thoughtNumber, totalThoughts, ...)\` — Step-by-step reasoning for complex problem-solving
   - Supports forward thinking (1→N), backward thinking (N→1), and branching
   - Automatic Thoughtbox patterns cookbook at thought 1 and final thought
 
@@ -30,14 +30,14 @@ export function getListMcpAssetsContent(): string {
 ## Resources
 - \`system://status\` — Notebook server health snapshot
 - \`thoughtbox://notebook/operations\` — Notebook operations catalog with schemas and examples
-- \`thoughtbox://patterns-cookbook\` — Clear Thought patterns guide
+- \`thoughtbox://patterns-cookbook\` — Thoughtbox reasoning patterns guide
 - \`thoughtbox://architecture\` — Interactive guide to Thoughtbox architecture and implementation
 
 ## Quick Start
 
 ### Thoughtbox Reasoning
 \`\`\`
-clear_thought({
+thoughtbox({
   thought: "Breaking down the problem...",
   thoughtNumber: 1,
   totalThoughts: 10,

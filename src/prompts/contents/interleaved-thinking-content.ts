@@ -31,7 +31,7 @@ This assessment will result in one of two outcomes.
 
 OUTCOME 1 EXAMPLE: You look in your environment and see the following tools available to you:
 
-mcp__thoughtbox__clear_thought (thoughtbox): 2.0k tokens
+mcp__thoughtbox__thoughtbox (thoughtbox): 2.0k tokens
 mcp__thoughtbox__notebook (thoughtbox): 853 tokens
 mcp__ide__getDiagnostics (ide): 611 tokens
 mcp__ide__executeCode (ide): 682 tokens
@@ -48,7 +48,7 @@ You notice that the context7 and Firecrawl tools would allow you to retrieve the
 
 OUTCOME 2 EXAMPLE: You look in your environment and see the following tools available to you:
 
-mcp__thoughtbox__clear_thought (thoughtbox): 2.0k tokens
+mcp__thoughtbox__thoughtbox (thoughtbox): 2.0k tokens
 mcp__thoughtbox__notebook (thoughtbox): 853 tokens
 mcp__ide__getDiagnostics (ide): 611 tokens
 mcp__ide__executeCode (ide): 682 tokens
@@ -65,7 +65,7 @@ if (OUTCOME 2) {
 ### Phase 3: Use Thoughtbox to reason about how to use the available tools to complete the TASK
 
 \`\`\`
-OBJECTIVE: Use your mcp__thoughtbox__clear_thought tool to develop a strategy for using the available tools to complete the TASK.
+OBJECTIVE: Use your mcp__thoughtbox__thoughtbox tool to develop a strategy for using the available tools to complete the TASK.
 
 The strategy should not be a rigid TODO list that dictates what tools should be used when. Rather, it should describe a process by which you can use the provided tools to iterate toward the user's desired outcome (in our example, a plan to refactor the current project to use the Vercel AI SDK instead of direct calls to a model provider API), and should be flexible enough to adapt to unexpected information that may be discovered along the way.
 
@@ -82,7 +82,7 @@ Use the following process to develop your strategy:
 \`\`\`
 OBJECTIVE: Execute the strategy for completing the user's TASK.
 
-Utilize the mcp__thoughtbox__clear_thought tool to structure your execution as a stepwise process. This process will look something like:
+Utilize the mcp__thoughtbox__thoughtbox tool to structure your execution as a stepwise process. This process will look something like:
 
 1. Allocate a number of thoughts up to and including the remaining number of thoughts from the THOUGHTS_LIMIT argument (THOUGHTS_LIMIT - N, where N is the number of thoughts used in Phase 3).
 2. Break down the contents of the strategy.md file into a closed-loop, stepwise process in which you iterate in sub-loops toward each "gate" as defined in the strategy.
