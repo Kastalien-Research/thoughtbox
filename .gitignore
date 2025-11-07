@@ -29,6 +29,7 @@ logs/
 *.swp
 *.swo
 *~
+RESOURCE_IMPROVEMENTS.md
 
 # Claude Code configuration and local data
 .claude/

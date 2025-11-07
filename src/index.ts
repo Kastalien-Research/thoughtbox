@@ -17,6 +17,10 @@ import { z } from "zod";
 import { PATTERNS_COOKBOOK } from "./resources/patterns-cookbook-content.js";
 import { SERVER_ARCHITECTURE_GUIDE } from "./resources/server-architecture-content.js";
 import { NotebookServer, NOTEBOOK_TOOL } from "./notebook/index.js";
+import {
+  INTERLEAVED_THINKING_PROMPT,
+  getInterleavedThinkingContent,
+} from "./prompts/index.js";
 
 // Configuration schema for Smithery
 export const configSchema = z.object({
@@ -436,7 +440,7 @@ export default function createServer({
   });
 
   server.setRequestHandler(ListPromptsRequestSchema, async () => ({
-    prompts: [LIST_MCP_ASSETS_PROMPT],
+    prompts: [LIST_MCP_ASSETS_PROMPT, INTERLEAVED_THINKING_PROMPT],
   }));
 
   server.setRequestHandler(GetPromptRequestSchema, async (request) => {
@@ -505,6 +509,49 @@ notebook({
             content: {
               type: "text",
               text: markdown,
+            },
+          },
+        ],
+      };
+    }
+
+    if (request.params.name === "interleaved-thinking") {
+      // Extract arguments with defaults
+      const args = request.params.arguments ?? {};
+      const task = args.task as string;
+
+      if (!task) {
+        throw new Error(
+          "Missing required argument 'task' for interleaved-thinking prompt"
+        );
+      }
+
+      const thoughtsLimit =
+        args.thoughts_limit !== undefined
+          ? Number(args.thoughts_limit)
+          : undefined;
+      const clearFolder =
+        args.clear_folder !== undefined
+          ? typeof args.clear_folder === "boolean"
+            ? args.clear_folder
+            : String(args.clear_folder) === "true"
+          : undefined;
+
+      // Get the prompt content with variable substitution
+      const content = getInterleavedThinkingContent({
+        task,
+        thoughts_limit: thoughtsLimit,
+        clear_folder: clearFolder,
+      });
+
+      return {
+        description: INTERLEAVED_THINKING_PROMPT.description,
+        messages: [
+          {
+            role: "user",
+            content: {
+              type: "text",
+              text: content,
             },
           },
         ],
@@ -598,6 +645,22 @@ notebook({
     }
 
     throw new Error(`Unknown resource: ${uri}`);
+  });
+
+  server.setRequestHandler(GetPromptRequestSchema, async (request) => {
+    if (request.params.name === "list_mcp_assets") {
+      return {
+        prompt: LIST_MCP_ASSETS_PROMPT,
+      };
+    }
+
+    if (request.params.name === "interleaved-thinking") {
+      return {
+        prompt: INTERLEAVED_THINKING_PROMPT,
+      };
+    }
+
+    throw new Error(`Unknown prompt: ${request.params.name}`);
   });
 
   return server;
