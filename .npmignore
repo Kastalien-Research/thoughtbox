@@ -27,3 +27,6 @@ logs/
 # Package management
 node_modules/
 package-lock.json
+
+# Local documentation (source files for bundled content)
+local-docs/

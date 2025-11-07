@@ -1,4 +1,4 @@
-// Auto-generated from src/resources/docs/server-architecture-guide.md
+// Auto-generated from local-docs/server-architecture-guide.md
 // This allows the content to be bundled into the JavaScript build for both STDIO and HTTP transports
 
 export const SERVER_ARCHITECTURE_GUIDE = `<!-- srcbook:{"language":"typescript","tsconfig.json":"{\n  \"compilerOptions\": {\n    \"target\": \"ES2022\",\n    \"module\": \"ES2022\",\n    \"moduleResolution\": \"node\",\n    \"esModuleInterop\": true,\n    \"skipLibCheck\": true,\n    \"strict\": true,\n    \"resolveJsonModule\": true,\n    \"allowSyntheticDefaultImports\": true,\n    \"forceConsistentCasingInFileNames\": true\n  }\n}"} -->
@@ -18,7 +18,7 @@ export const SERVER_ARCHITECTURE_GUIDE = `<!-- srcbook:{"language":"typescript",
 
 Thoughtbox is an MCP (Model Context Protocol) server that provides cognitive enhancement tools for LLM agents. It exposes two main capabilities:
 
-1. **clear_thought** - A sequential thinking tool supporting 7 core reasoning patterns
+1. **thoughtbox** - A sequential thinking tool supporting 7 core reasoning patterns
 2. **notebook** - A literate programming toolhost for executable documentation
 
 This notebook explores the architecture, implementation patterns, and design decisions behind the Thoughtbox server.
@@ -89,11 +89,11 @@ interface MCPToolResponse {
   isError?: boolean;
 }
 
-// Example: clear_thought tool call
+// Example: thoughtbox tool call
 const exampleRequest: MCPToolRequest = {
   method: 'tools/call',
   params: {
-    name: 'clear_thought',
+    name: 'thoughtbox',
     arguments: {
       thought: 'Analyzing the problem structure',
       thoughtNumber: 1,
@@ -133,9 +133,9 @@ const exampleResponse: MCPToolResponse = {
 console.log('\nMCP Response:', JSON.stringify(exampleResponse, null, 2));
 \`\`\`
 
-## The clear_thought Tool
+## The thoughtbox Tool
 
-The \`clear_thought\` tool implements a flexible sequential thinking framework. Key features:
+The \`thoughtbox\` tool implements a flexible sequential thinking framework. Key features:
 
 ### Parameters
 - **thought**: The current reasoning step
@@ -157,7 +157,7 @@ The \`clear_thought\` tool implements a flexible sequential thinking framework. 
 ###### clear-thought-patterns.ts
 
 \`\`\`typescript
-// Demonstration: clear_thought patterns
+// Demonstration: thoughtbox patterns
 
 // 1. Forward Thinking (1 → N)
 const forwardThinking = {
@@ -427,7 +427,7 @@ notebook({
 This demonstrates the power of the toolhost pattern:
 1. The LLM used the notebook tool to explain how the notebook tool works
 2. Each response included embedded resources about the operations being used
-3. The patterns cookbook was accessed via the clear_thought tool during planning
+3. The patterns cookbook was accessed via the thoughtbox tool during planning
 
 This is **literate programming for AI agents** - executable documentation that explains itself!
 
@@ -436,7 +436,7 @@ This is **literate programming for AI agents** - executable documentation that e
 ### 1. MCP Enables Structured Cognition
 
 The Model Context Protocol isn't just about API calls - it's about giving LLMs structured ways to think, document, and organize knowledge. Thoughtbox demonstrates two cognitive patterns:
-- **Sequential thinking** (clear_thought): Structured reasoning with 7 core patterns
+- **Sequential thinking** (thoughtbox): Structured reasoning with 7 core patterns
 - **Executable documentation** (notebook): Literate programming for AI
 
 ### 2. The Toolhost Pattern Scales Better
