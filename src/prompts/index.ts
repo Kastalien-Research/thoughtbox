@@ -1,5 +1,7 @@
 import { INTERLEAVED_THINKING_CONTENT } from "./contents/interleaved-thinking-content.js";
 
+export { LIST_MCP_ASSETS_PROMPT, getListMcpAssetsContent } from "./list-mcp-assets.js";
+
 /**
  * MCP Prompt definition for interleaved thinking workflow
  */

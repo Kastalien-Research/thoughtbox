@@ -18,6 +18,8 @@ import { PATTERNS_COOKBOOK } from "./resources/patterns-cookbook-content.js";
 import { SERVER_ARCHITECTURE_GUIDE } from "./resources/server-architecture-content.js";
 import { NotebookServer, NOTEBOOK_TOOL } from "./notebook/index.js";
 import {
+  LIST_MCP_ASSETS_PROMPT,
+  getListMcpAssetsContent,
   INTERLEAVED_THINKING_PROMPT,
   getInterleavedThinkingContent,
 } from "./prompts/index.js";
@@ -214,14 +216,6 @@ class ClearThoughtServer {
   }
 }
 
-const LIST_MCP_ASSETS_PROMPT = {
-  name: "list_mcp_assets",
-  title: "list_mcp_assets",
-  description:
-    "Overview of all MCP capabilities, tools, resources, and quickstart guide",
-  arguments: [],
-};
-
 const CLEAR_THOUGHT_TOOL: Tool = {
   name: "clear_thought",
   description: `Step-by-step thinking tool for complex problem-solving.
@@ -382,70 +376,14 @@ export default function createServer({
 
   server.setRequestHandler(GetPromptRequestSchema, async (request) => {
     if (request.params.name === "list_mcp_assets") {
-      const markdown = `# Thoughtbox MCP Server Capabilities
-
-## Prompts
-- \`list_mcp_assets()\` — Overview of tools/resources and quickstart steps (this prompt)
-
-## Tools
-- \`clear_thought(thought, thoughtNumber, totalThoughts, ...)\` — Sequential thinking for complex problem-solving
-  - Supports forward thinking (1→N), backward thinking (N→1), and branching
-  - Automatic Thoughtbox patterns cookbook at thought 1 and final thought
-
-- \`notebook(operation, args)\` — Toolhost for literate programming notebooks
-  - Operations: \`create\`, \`list\`, \`load\`, \`add_cell\`, \`update_cell\`, \`run_cell\`, \`install_deps\`, \`list_cells\`, \`get_cell\`, \`export\`
-  - Full operation reference: \`thoughtbox://notebook/operations\`
-
-## Resources
-- \`system://status\` — Notebook server health snapshot
-- \`thoughtbox://notebook/operations\` — Notebook operations catalog with schemas and examples
-- \`thoughtbox://patterns-cookbook\` — Clear Thought patterns guide
-- \`thoughtbox://architecture\` — Interactive guide to Thoughtbox architecture and implementation
-
-## Quick Start
-
-### Thoughtbox Reasoning
-\`\`\`
-clear_thought({
-  thought: "Breaking down the problem...",
-  thoughtNumber: 1,
-  totalThoughts: 10,
-  nextThoughtNeeded: true
-})
-\`\`\`
-
-### Notebooks
-\`\`\`
-notebook({
-  operation: "create",
-  args: { title: "My Notebook", language: "typescript" }
-})
-
-notebook({
-  operation: "add_cell",
-  args: {
-    notebookId: "abc123",
-    cellType: "code",
-    content: "console.log('Hello!');",
-    filename: "hello.ts"
-  }
-})
-
-notebook({
-  operation: "run_cell",
-  args: { notebookId: "abc123", cellId: "cell456" }
-})
-\`\`\`
-`;
-
       return {
-        description: "MCP server capabilities overview",
+        description: LIST_MCP_ASSETS_PROMPT.description,
         messages: [
           {
             role: "assistant",
             content: {
               type: "text",
-              text: markdown,
+              text: getListMcpAssetsContent(),
             },
           },
         ],
