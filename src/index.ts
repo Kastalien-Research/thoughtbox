@@ -399,12 +399,12 @@ export default function createServer({
 ## Resources
 - \`system://status\` — Notebook server health snapshot
 - \`thoughtbox://notebook/operations\` — Notebook operations catalog with schemas and examples
-- \`thoughtbox://patterns-cookbook\` — Thoughtbox patterns guide
+- \`thoughtbox://patterns-cookbook\` — Clear Thought patterns guide
 - \`thoughtbox://architecture\` — Interactive guide to Thoughtbox architecture and implementation
 
 ## Quick Start
 
-### Sequential Thinking
+### Thoughtbox Reasoning
 \`\`\`
 clear_thought({
   thought: "Breaking down the problem...",
