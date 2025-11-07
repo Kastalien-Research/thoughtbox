@@ -1,4 +1,4 @@
-// Auto-generated from src/prompts/contents/interleaved-thinking.md
+// Auto-generated from local-docs/interleaved-thinking.md
 // This allows the content to be bundled into the JavaScript build for both STDIO and HTTP transports
 
 export const INTERLEAVED_THINKING_CONTENT = `# Interleaved Thinking
