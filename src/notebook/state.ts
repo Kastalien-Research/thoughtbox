@@ -8,7 +8,7 @@ import type {
   CodeLanguage,
   PackageJsonCell,
 } from "./types.js";
-import { randomid } from "./types.js";
+import { randomid, buildDefaultTsconfig } from "./types.js";
 import {
   executeCodeCell,
   installDependencies,
@@ -73,6 +73,63 @@ export class NotebookStateManager {
     await fs.mkdir(path.join(notebookDir, "src"), { recursive: true });
 
     // Write initial files to disk
+    await this.writeNotebookToDisk(notebook, notebookDir);
+
+    // Store in memory
+    this.notebooks.set(notebook.id, notebook);
+    this.notebookDirs.set(notebook.id, notebookDir);
+
+    return notebook;
+  }
+
+  /**
+   * Create a notebook from a template
+   */
+  async createNotebookFromTemplate(
+    title: string,
+    language: CodeLanguage,
+    templateName: string
+  ): Promise<Notebook> {
+    // Resolve template path (assume templates are in project root)
+    const projectRoot = process.cwd();
+    const templatePath = path.join(
+      projectRoot,
+      "templates",
+      `${templateName}-template.src.md`
+    );
+
+    // Load template content
+    let templateContent: string;
+    try {
+      templateContent = await fs.readFile(templatePath, "utf8");
+    } catch (error) {
+      throw new Error(
+        `Template '${templateName}' not found at ${templatePath}`
+      );
+    }
+
+    // Substitute placeholders
+    const date = new Date().toISOString().split("T")[0]; // YYYY-MM-DD format
+    const populatedContent = templateContent
+      .replace(/\[TOPIC\]/g, title)
+      .replace(/\[DATE\]/g, date)
+      .replace(/\[LANGUAGE\]/g, language);
+
+    // Decode the populated template
+    const notebook = decode(populatedContent);
+
+    // Override metadata with provided values
+    notebook.language = language;
+    if (language === "typescript" && !notebook["tsconfig.json"]) {
+      notebook["tsconfig.json"] = buildDefaultTsconfig();
+    }
+
+    // Create notebook directory
+    const notebookDir = path.join(this.tempDir, notebook.id);
+    await fs.mkdir(notebookDir, { recursive: true });
+    await fs.mkdir(path.join(notebookDir, "src"), { recursive: true });
+
+    // Write files to disk
     await this.writeNotebookToDisk(notebook, notebookDir);
 
     // Store in memory

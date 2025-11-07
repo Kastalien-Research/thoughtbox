@@ -18,19 +18,24 @@ export const NOTEBOOK_OPERATIONS: OperationDefinition[] = [
   {
     name: "create",
     title: "Create Notebook",
-    description: "Create a new headless notebook for literate programming with JavaScript or TypeScript support",
+    description: "Create a new headless notebook for literate programming with JavaScript or TypeScript support. Optionally use a pre-structured template for guided workflows.",
     category: "notebook-management",
     inputSchema: {
       type: "object",
       properties: {
         title: {
           type: "string",
-          description: "Notebook title",
+          description: "Notebook title (or topic name when using templates)",
         },
         language: {
           type: "string",
           enum: ["javascript", "typescript"],
           description: "Programming language for the notebook",
+        },
+        template: {
+          type: "string",
+          enum: ["sequential-feynman"],
+          description: "Optional: Load a pre-structured template. 'sequential-feynman' provides guided structure for deep learning workflows with Feynman Technique.",
         },
       },
       required: ["title", "language"],
