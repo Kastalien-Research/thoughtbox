@@ -1,5 +1,4 @@
-import * as fs from "fs";
-import * as path from "path";
+import { INTERLEAVED_THINKING_CONTENT } from "./contents/interleaved-thinking-content.js";
 
 /**
  * MCP Prompt definition for interleaved thinking workflow
@@ -37,13 +36,8 @@ export function getInterleavedThinkingContent(args: {
   thoughts_limit?: number;
   clear_folder?: boolean;
 }): string {
-  // Read the markdown file
-  const promptPath = path.join(
-    __dirname,
-    "contents",
-    "interleaved-thinking.md"
-  );
-  let content = fs.readFileSync(promptPath, "utf-8");
+  // Use bundled content (no file I/O)
+  let content = INTERLEAVED_THINKING_CONTENT;
 
   // Apply defaults
   const thoughtsLimit = args.thoughts_limit ?? 100;
