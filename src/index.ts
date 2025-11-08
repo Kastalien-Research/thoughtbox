@@ -9,6 +9,7 @@ import {
   GetPromptRequestSchema,
   ListResourcesRequestSchema,
   ReadResourceRequestSchema,
+  ListResourceTemplatesRequestSchema,
   Tool,
 } from "@modelcontextprotocol/sdk/types.js";
 // Fixed chalk import for ESM
@@ -22,6 +23,8 @@ import {
   getListMcpAssetsContent,
   INTERLEAVED_THINKING_PROMPT,
   getInterleavedThinkingContent,
+  getInterleavedResourceTemplates,
+  getInterleavedGuideForUri,
 } from "./prompts/index.js";
 
 // Configuration schema for Smithery
@@ -315,6 +318,7 @@ export default function createServer({
         tools: {},
         prompts: {},
         resources: {},
+        resourceTemplates: {},
       },
     }
   );
@@ -459,6 +463,11 @@ export default function createServer({
     ],
   }));
 
+  // Resource template handlers
+  server.setRequestHandler(ListResourceTemplatesRequestSchema, async () => {
+    return getInterleavedResourceTemplates();
+  });
+
   server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
     const uri = request.params.uri;
 
@@ -510,6 +519,20 @@ export default function createServer({
           },
         ],
       };
+    }
+
+    // Handle interleaved thinking resource templates
+    if (uri.startsWith("thoughtbox://interleaved/")) {
+      try {
+        const resource = getInterleavedGuideForUri(uri);
+        return {
+          contents: [resource],
+        };
+      } catch (error) {
+        throw new Error(
+          error instanceof Error ? error.message : String(error)
+        );
+      }
     }
 
     throw new Error(`Unknown resource: ${uri}`);
