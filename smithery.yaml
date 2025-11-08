@@ -1,20 +1,4 @@
 # Smithery Configuration for Thoughtbox
 # This enables HTTP transport with backward compatibility for STDIO
 
-name: thoughtbox
-description: MCP server for Thoughtbox - step-by-step problem solving and reasoning
-icon: 💭
 runtime: typescript
-
-# Configuration schema for user preferences
-configSchema:
-  type: object
-  properties:
-    disableThoughtLogging:
-      type: boolean
-      description: Disable thought output to stderr (useful for production deployments or when integrating with other tools)
-      default: false
-
-# Example configuration
-exampleConfig:
-  disableThoughtLogging: false
