@@ -30,6 +30,3 @@ package-lock.json
 
 # Local documentation (source files for bundled content)
 local-docs/
-
-# Improvement opps
-improvement-recs/

@@ -1,9 +1,4 @@
 import { INTERLEAVED_THINKING_CONTENT } from "./contents/interleaved-thinking-content.js";
-import {
-  interleavedGuide,
-  isValidMode,
-  type InterleavedMode,
-} from "./contents/interleaved-template.js";
 
 export { LIST_MCP_ASSETS_PROMPT, getListMcpAssetsContent } from "./list-mcp-assets.js";
 
@@ -72,60 +67,4 @@ CLEAR_FOLDER: ${clearFolder}`;
   content = content.replace(variablesSection, substitutedVariables);
 
   return content;
-}
-
-/**
- * Returns the resource template definition for interleaved thinking guides
- * Used by the ListResourceTemplatesRequestSchema handler
- */
-export function getInterleavedResourceTemplates() {
-  return {
-    resourceTemplates: [
-      {
-        uriTemplate: "thoughtbox://interleaved/{mode}",
-        name: "thoughtbox-interleaved-guides",
-        title: "Thoughtbox Interleaved Thinking Guides",
-        description:
-          "IRCoT-style interleaved reasoning guides centered on Thoughtbox as the canonical reasoning workspace. Mode parameter: research, analysis, or development.",
-        mimeType: "text/markdown",
-        annotations: {
-          audience: ["assistant"],
-          priority: 1.0,
-        },
-      },
-    ],
-  };
-}
-
-/**
- * Resolves a thoughtbox://interleaved/{mode} URI to its content
- * Used by the ReadResourceRequestSchema handler
- *
- * @param uri - The resource URI to resolve
- * @returns Resource content with metadata
- * @throws Error if the URI is invalid or mode is not supported
- */
-export function getInterleavedGuideForUri(uri: string) {
-  // Expected format: thoughtbox://interleaved/{mode}
-  const match = uri.match(/^thoughtbox:\/\/interleaved\/(.+)$/);
-
-  if (!match) {
-    throw new Error(
-      `Invalid interleaved guide URI: ${uri}. Expected format: thoughtbox://interleaved/{mode}`
-    );
-  }
-
-  const mode = match[1];
-
-  if (!isValidMode(mode)) {
-    throw new Error(
-      `Invalid mode: ${mode}. Must be one of: research, analysis, development`
-    );
-  }
-
-  return {
-    uri,
-    mimeType: "text/markdown",
-    text: interleavedGuide(mode),
-  };
 }
