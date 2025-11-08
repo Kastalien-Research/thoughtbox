@@ -31,14 +31,12 @@ logs/
 *.swp
 *.swo
 *~
-RESOURCE_IMPROVEMENTS.md
-TOOL_IMPROVEMENTS.md
-REDUNDANCY_IMPROVEMENTS.md
-PROMPT_IMPLEMENTATION_RECOMMENDATIONS.md
-glassBead-dot-claude/
 
 # Claude Code configuration and local data
 .claude/
+
+# Roo configuration and local data
+.roo/
 
 REASONING_PATTERNS_REPORT.md
 
@@ -51,3 +49,12 @@ srcbook/
 
 # Local documentation (source files for bundled content)
 local-docs/
+
+# Improvement opps
+improvement-recs/
+
+# Claude Code plugins
+.claude-plugin/
+
+# Specifications
+specs/
