@@ -1,7 +1,6 @@
 import * as fs from "fs/promises";
 import * as path from "path";
 import * as os from "os";
-import { fileURLToPath } from "url";
 import type {
   Notebook,
   Cell,
@@ -91,9 +90,12 @@ export class NotebookStateManager {
     language: CodeLanguage,
     templateName: string
   ): Promise<Notebook> {
-    // Resolve template path using ESM-native URL-based resolution
-    const templatePath = fileURLToPath(
-      new URL(`../../templates/${templateName}-template.src.md`, import.meta.url)
+    // Resolve template path (works in both ESM and CJS environments)
+    const projectRoot = process.cwd();
+    const templatePath = path.join(
+      projectRoot,
+      "templates",
+      `${templateName}-template.src.md`
     );
 
     // Load template content
