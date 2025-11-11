@@ -27,7 +27,7 @@ export class NotebookServer {
    * Handle notebook_create tool call
    */
   async handleCreateNotebook(args: any): Promise<any> {
-    const { title, language } = args;
+    const { title, language, template } = args;
 
     if (!title || typeof title !== "string") {
       throw new Error("title is required and must be a string");
@@ -37,16 +37,28 @@ export class NotebookServer {
       throw new Error('language must be "javascript" or "typescript"');
     }
 
-    const notebook = await this.stateManager.createNotebook(
-      title,
-      language as CodeLanguage
-    );
+    let notebook: any;
+
+    // Create from template if provided
+    if (template && typeof template === "string") {
+      notebook = await this.stateManager.createNotebookFromTemplate(
+        title,
+        language as CodeLanguage,
+        template
+      );
+    } else {
+      // Create blank notebook
+      notebook = await this.stateManager.createNotebook(
+        title,
+        language as CodeLanguage
+      );
+    }
 
     return {
       success: true,
       notebook: {
         id: notebook.id,
-        title: notebook.cells.find((c) => c.type === "title")?.text || title,
+        title: notebook.cells.find((c: Cell) => c.type === "title")?.text || title,
         language: notebook.language,
         cellCount: notebook.cells.length,
         createdAt: notebook.createdAt,
@@ -487,8 +499,13 @@ export const NOTEBOOK_TOOL: Tool = {
 Create, manage, and execute interactive notebooks with markdown documentation and executable code cells.
 Each notebook runs in an isolated environment with its own package.json and workspace.
 
+✨ NEW: Pre-structured templates for guided workflows
+- Use template: "sequential-feynman" for deep learning with Feynman Technique
+- Templates provide scaffolded cells, metacognitive prompts, and progress tracking
+- Perfect for complex topics requiring validated understanding
+
 Available operations:
-- create: Create a new notebook
+- create: Create a new notebook (optionally from template)
 - list: List all active notebooks
 - load: Load notebook from .src.md file
 - add_cell: Add cell (title/markdown/code)
@@ -501,8 +518,11 @@ Available operations:
 
 Common operation examples:
 
-Create a notebook:
+Create a blank notebook:
 { operation: "create", args: { title: "My Analysis", language: "typescript" } }
+
+Create from Sequential Feynman template:
+{ operation: "create", args: { title: "React Server Components", language: "typescript", template: "sequential-feynman" } }
 
 Add a code cell:
 { operation: "add_cell", args: { notebookId: "abc123", cellType: "code", content: "console.log('hello')", filename: "example.ts" } }
@@ -520,7 +540,8 @@ When to use:
 - Building reproducible code examples
 - Creating step-by-step tutorials
 - Developing and testing code snippets
-- Prototyping with immediate feedback`,
+- Prototyping with immediate feedback
+- Deep learning workflows (with templates)`,
   inputSchema: {
     type: "object",
     properties: {

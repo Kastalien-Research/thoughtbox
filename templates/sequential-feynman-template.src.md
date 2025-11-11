@@ -1,0 +1,644 @@
+<!-- srcbook:{"language":"[LANGUAGE]"} -->
+
+# 🧠 Sequential Feynman Learning: [TOPIC]
+
+**Topic**: `[TOPIC]`
+**Started**: [DATE]
+**Current Phase**: Phase 1 - Research
+**Refinement Cycle**: N/A
+
+---
+
+## Progress Checklist
+
+- [ ] Phase 1: Research & Synthesis completed
+- [ ] Phase 2: Initial Feynman Explanation written
+- [ ] Phase 3, Cycle 1: Major issues identified & fixed
+- [ ] Phase 3, Cycle 2: Depth added & polished
+- [ ] Phase 3, Cycle 3: Final validation passed
+- [ ] Phase 4: Expert skill created
+
+---
+
+# Phase 1: Research & Synthesis
+
+## What I Need to Learn
+
+*Before diving into sources, clarify what I need to understand:*
+
+- **Core Purpose**: Why does this technology/concept exist?
+- **Key Mechanisms**: How does it actually work?
+- **Mental Models**: What are the governing principles?
+- **Usage Patterns**: How do practitioners actually use this?
+- **Anti-Patterns**: What are common mistakes?
+- **Trade-offs**: What are the costs and benefits?
+
+---
+
+## Sources & Key Findings
+
+*Track authoritative sources and main takeaways:*
+
+### Source 1: [Title/URL]
+- Key point 1
+- Key point 2
+- Questions raised:
+
+### Source 2: [Title/URL]
+- Key point 1
+- Key point 2
+- Questions raised:
+
+### Source 3: [Title/URL]
+- Key point 1
+- Key point 2
+- Questions raised:
+
+*Add more sources as needed*
+
+---
+
+## 🤔 What I Don't Understand Yet
+
+*Be explicit about gaps - they're where the learning happens:*
+
+1.
+2.
+3.
+
+*This list should shrink as you progress through the notebook*
+
+---
+
+# Phase 2: Feynman Explanation
+
+## What We're Learning Today
+
+*Start with a relatable scenario that hooks interest:*
+
+[Imagine you're explaining this to an intelligent college freshman who asks "Why should I care about this?" - answer that question in 2-3 paragraphs using a concrete scenario they'd relate to]
+
+**Example structure:**
+- Relatable problem or scenario
+- Why existing approaches fall short
+- How this concept solves it
+
+---
+
+## The Core Mental Model: [Your Analogy]
+
+*Pick ONE central analogy that captures the essence - restaurants, mail systems, orchestras, etc.*
+
+**The Analogy:**
+
+[Develop your analogy in detail - what maps to what?]
+
+**The Mapping:**
+
+| Real System Component | Analogy Equivalent | Why This Maps |
+|----------------------|-------------------|---------------|
+|                      |                   |               |
+|                      |                   |               |
+
+**Limitations of This Analogy:**
+
+*Be honest about where the analogy breaks down:*
+-
+
+---
+
+## Concept 1: [Concept Name]
+
+**In simple terms:**
+
+[Explain using the analogy or simple language]
+
+**Why this matters:**
+
+[Connect to the larger picture]
+
+**Concrete example:**
+
+[Show a real, specific case]
+
+---
+
+## Concept 2: [Concept Name]
+
+**In simple terms:**
+
+[Explain using the analogy or simple language]
+
+**Why this matters:**
+
+[Connect to the larger picture]
+
+**Concrete example:**
+
+[Show a real, specific case]
+
+---
+
+## Concept 3: [Concept Name]
+
+**In simple terms:**
+
+[Explain using the analogy or simple language]
+
+**Why this matters:**
+
+[Connect to the larger picture]
+
+**Concrete example:**
+
+[Show a real, specific case]
+
+---
+
+## Concept 4: [Concept Name]
+
+**In simple terms:**
+
+[Explain using the analogy or simple language]
+
+**Why this matters:**
+
+[Connect to the larger picture]
+
+**Concrete example:**
+
+[Show a real, specific case]
+
+---
+
+## Concept 5: [Concept Name]
+
+**In simple terms:**
+
+[Explain using the analogy or simple language]
+
+**Why this matters:**
+
+[Connect to the larger picture]
+
+**Concrete example:**
+
+[Show a real, specific case]
+
+---
+
+## Concept 6: [Concept Name]
+
+**In simple terms:**
+
+[Explain using the analogy or simple language]
+
+**Why this matters:**
+
+[Connect to the larger picture]
+
+**Concrete example:**
+
+[Show a real, specific case]
+
+---
+
+```python
+# If applicable: Concrete code example demonstrating the concept
+
+# Example:
+# [Show actual working code that demonstrates what you just explained]
+
+# Expected output:
+# [What should happen when this runs?]
+```
+
+---
+
+## Summary: What We Learned
+
+*Recap the key insights without jargon:*
+
+1. **Main Idea**:
+2. **Why It Matters**:
+3. **How It Works**:
+4. **When to Use It**:
+5. **When NOT to Use It**:
+
+**The One-Sentence Explanation:**
+
+[If you had to explain this entire topic in one sentence, what would it be?]
+
+---
+
+# Phase 3: Refinement Through Clear Thought Analysis
+
+*This section tracks three refinement cycles. Each cycle has:*
+- Pre-analysis questions to focus attention
+- Space for clear_thought analysis results
+- Action items for refinement
+- Post-refinement validation
+
+---
+
+## 🔍 Cycle 1: Finding Major Issues
+
+**Current Status**: [Not Started | In Progress | Complete]
+
+**Focus Areas for This Cycle:**
+- Technical accuracy errors
+- Major conceptual omissions
+- Unclear or confusing explanations
+- Missing critical examples
+- Broken or weak analogies
+
+**Prompt for clear_thought:**
+> "Analyzing this Feynman explanation of [TOPIC] to identify technical errors, major conceptual gaps, unclear sections, and missing critical examples. Will be thorough and critical."
+
+---
+
+### Issues Identified
+
+*After running clear_thought, document what needs fixing:*
+
+#### Technical Errors
+1.
+2.
+
+#### Conceptual Gaps
+1.
+2.
+
+#### Unclear Explanations
+1.
+2.
+
+#### Missing Examples
+1.
+2.
+
+---
+
+### Action Items
+
+- [ ] Fix issue 1
+- [ ] Fix issue 2
+- [ ] Fix issue 3
+
+---
+
+### Refinements Made
+
+*Document what you changed and why:*
+
+1. **Fixed**: [What changed]
+   - **Why**: [Reasoning]
+
+2. **Added**: [What was added]
+   - **Why**: [Reasoning]
+
+---
+
+*Now go back and update the Feynman Explanation section above ↑*
+
+---
+
+## 🎯 Cycle 2: Adding Depth & Polish
+
+**Current Status**: [Not Started | In Progress | Complete]
+
+**Focus Areas for This Cycle:**
+- Flow and organization
+- Clarity of technical concepts
+- Completeness of coverage
+- Appropriateness of language for audience
+- Strength and consistency of analogies
+- Integration between sections
+
+**Prompt for clear_thought:**
+> "Reviewing refined notebook for [TOPIC]. Will assess flow, clarity of technical concepts, completeness of coverage, and whether language is appropriate for an intelligent college freshman."
+
+---
+
+### Depth Opportunities
+
+*What could be richer, clearer, or more complete?*
+
+#### Flow Issues
+1.
+2.
+
+#### Clarity Improvements
+1.
+2.
+
+#### Completeness Gaps
+1.
+2.
+
+#### Language Adjustments
+1.
+2.
+
+---
+
+### Action Items
+
+- [ ] Improve area 1
+- [ ] Improve area 2
+- [ ] Improve area 3
+
+---
+
+### Refinements Made
+
+*Document depth improvements:*
+
+1. **Enhanced**: [What improved]
+   - **How**: [Specific changes]
+
+2. **Integrated**: [What connected better]
+   - **How**: [Specific changes]
+
+---
+
+*Update the Feynman Explanation section above ↑*
+
+---
+
+## ✨ Cycle 3: Final Validation
+
+**Current Status**: [Not Started | In Progress | Complete]
+
+**Focus Areas for This Cycle:**
+- Overall coherence and narrative flow
+- Consistency of analogies throughout
+- Readability and engagement
+- No remaining gaps or confusions
+- Ready for expert re-encoding?
+
+**Prompt for clear_thought:**
+> "Final validation of [TOPIC] notebook. Will check overall coherence, consistency of analogies, readability, engagement, and confirm no gaps remain."
+
+---
+
+### Final Issues
+
+*Last chance to catch problems:*
+
+#### Coherence Issues
+1.
+2.
+
+#### Consistency Problems
+1.
+2.
+
+#### Readability Concerns
+1.
+2.
+
+#### Remaining Gaps
+1.
+2.
+
+---
+
+### Action Items
+
+- [ ] Polish issue 1
+- [ ] Polish issue 2
+- [ ] Final validation check
+
+---
+
+### Final Refinements
+
+*Last touches:*
+
+1. **Polished**: [Final change]
+2. **Validated**: [Confirmation]
+
+---
+
+**✅ Feynman Explanation is now complete and validated**
+
+*Update the Feynman Explanation section above ↑ for the last time*
+
+---
+
+# Phase 4: Expert Re-Encoding
+
+*Now that understanding is validated, extract patterns for expert use.*
+
+**Goal**: Create high-signal, low-friction reference material optimized for rapid application.
+
+**Characteristics:**
+- Pattern-dense with code examples
+- Decision tables and lookup charts
+- If-then logic, not narrative
+- Anti-patterns explicitly marked (❌)
+- Checklists for validation
+- ASCII diagrams for mental models
+- Hierarchical for easy scanning
+
+---
+
+## Core Mental Model
+
+*Extract the essence into ASCII diagrams:*
+
+```
+[Create ASCII diagram showing system architecture or concept relationships]
+
+Example:
+    ┌─────────┐
+    │ Client  │
+    └────┬────┘
+         │
+    ┌────▼────┐
+    │ Server  │
+    └────┬────┘
+         │
+    ┌────▼────┐
+    │Database │
+    └─────────┘
+```
+
+**Key Principles:**
+1.
+2.
+3.
+
+---
+
+## Pattern: [Pattern Name 1]
+
+**When to Use:**
+- Scenario 1
+- Scenario 2
+
+**Implementation:**
+
+```typescript
+// ✅ CORRECT: Pattern shown
+class Example {
+  // Show the right way
+}
+
+// ❌ WRONG: Anti-pattern shown
+class BadExample {
+  // Show what NOT to do
+}
+```
+
+**Trade-offs:**
+
+| Aspect | Pro | Con |
+|--------|-----|-----|
+|        |     |     |
+
+---
+
+## Pattern: [Pattern Name 2]
+
+*Repeat structure for additional patterns*
+
+**When to Use:**
+- Scenario 1
+- Scenario 2
+
+**Implementation:**
+
+```typescript
+// ✅ CORRECT: Pattern shown
+
+// ❌ WRONG: Anti-pattern shown
+```
+
+**Trade-offs:**
+
+| Aspect | Pro | Con |
+|--------|-----|-----|
+|        |     |     |
+
+---
+
+## Decision Framework
+
+*When should I use approach A vs B vs C?*
+
+| Decision | Use When | Pros | Cons | Example |
+|----------|----------|------|------|---------|
+| Approach A |        |      |      |         |
+| Approach B |        |      |      |         |
+| Approach C |        |      |      |         |
+
+---
+
+## Common Scenarios
+
+**Scenario 1: [Description]**
+→ Use: [Approach]
+→ Because: [Reasoning]
+
+**Scenario 2: [Description]**
+→ Use: [Approach]
+→ Because: [Reasoning]
+
+---
+
+## ❌ Anti-Patterns & Pitfalls
+
+### Anti-Pattern 1: [Name]
+
+**What it looks like:**
+```typescript
+// Bad code example
+```
+
+**Why it's wrong:**
+- Reason 1
+- Reason 2
+
+**Do this instead:**
+```typescript
+// Good code example
+```
+
+---
+
+### Anti-Pattern 2: [Name]
+
+**What it looks like:**
+```typescript
+// Bad code example
+```
+
+**Why it's wrong:**
+- Reason 1
+- Reason 2
+
+**Do this instead:**
+```typescript
+// Good code example
+```
+
+---
+
+## Quick Reference Checklist
+
+**Before using [TOPIC]:**
+- [ ] Check 1
+- [ ] Check 2
+- [ ] Check 3
+
+**Common gotchas:**
+- ⚠️ Watch out for X
+- ⚠️ Remember Y
+- ⚠️ Don't forget Z
+
+**Resources:**
+- [Link to docs]
+- [Link to examples]
+
+---
+
+# Meta-Reflection
+
+## What I Learned
+
+**Core Understanding:**
+
+[What is the main thing you now understand that you didn't before?]
+
+**Surprises:**
+
+[What was unexpected or counterintuitive?]
+
+**Still Unclear:**
+
+[What remains fuzzy? (Be honest)]
+
+---
+
+## Skill Export Checklist
+
+- [ ] Create `.claude/skills/[SKILL_NAME]/` directory
+- [ ] Write `SKILL.md` with expert re-encoding content
+- [ ] Add code examples as separate files if needed
+- [ ] Test skill by using it in a real scenario
+- [ ] Archive this notebook as reference
+
+---
+
+## Success Validation
+
+**Can you now:**
+- [ ] Explain this topic clearly to a novice?
+- [ ] Explain this topic precisely to an expert?
+- [ ] Identify when to use vs not use this?
+- [ ] Spot anti-patterns in real code?
+- [ ] Implement this without constant reference to docs?
+
+If all boxes are checked: **Understanding validated ✅**
