@@ -37,10 +37,23 @@ export class NotebookServer {
       throw new Error('language must be "javascript" or "typescript"');
     }
 
+    // Validate template parameter if provided
+    const ALLOWED_TEMPLATES = ["sequential-feynman"];
+    if (template !== undefined) {
+      if (typeof template !== "string") {
+        throw new Error("template must be a string");
+      }
+      if (!ALLOWED_TEMPLATES.includes(template)) {
+        throw new Error(
+          `Invalid template: "${template}". Available templates: ${ALLOWED_TEMPLATES.join(", ")}`
+        );
+      }
+    }
+
     let notebook: any;
 
     // Create from template if provided
-    if (template && typeof template === "string") {
+    if (template) {
       notebook = await this.stateManager.createNotebookFromTemplate(
         title,
         language as CodeLanguage,
