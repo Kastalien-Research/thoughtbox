@@ -14,14 +14,13 @@
   },
   "files": [
     "dist",
-    "templates",
     "README.md",
     "LICENSE"
   ],
   "scripts": {
     "dev": "smithery dev",
     "build": "npm run build:stdio && npm run build:http",
-    "build:stdio": "tsc && shx cp -r src/resources dist/ && shx cp -r templates dist/ && shx chmod +x dist/*.js",
+    "build:stdio": "tsc && shx cp -r src/resources dist/ && shx cp -r src/templates dist/ && shx chmod +x dist/*.js",
     "build:http": "smithery build",
     "start": "npm run start:http",
     "start:http": "node .smithery/index.cjs",
