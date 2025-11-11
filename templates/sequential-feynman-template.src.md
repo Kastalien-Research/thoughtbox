@@ -203,15 +203,14 @@
 
 ---
 
-```python
-# If applicable: Concrete code example demonstrating the concept
+```typescript
+// If applicable: Concrete code example demonstrating the concept
 
-# Example:
-# [Show actual working code that demonstrates what you just explained]
+// Example:
+// [Show actual working code that demonstrates what you just explained]
 
-# Expected output:
-# [What should happen when this runs?]
-```
+// Expected output:
+// [What should happen when this runs?]
 
 ---
 
