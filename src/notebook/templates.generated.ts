@@ -218,6 +218,7 @@ export const TEMPLATES = {
 
 // Expected output:
 // [What should happen when this runs?]
+\`\`\`
 
 ---
 
