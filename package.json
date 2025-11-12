@@ -14,19 +14,24 @@
   },
   "files": [
     "dist",
+    "templates",
     "README.md",
     "LICENSE"
   ],
   "scripts": {
-    "dev": "smithery dev",
+    "embed-templates": "tsx scripts/embed-templates.ts",
+    "dev": "npm run embed-templates && smithery dev",
     "build": "npm run build:stdio && npm run build:http",
-    "build:stdio": "tsc && shx cp -r src/resources dist/ && shx chmod +x dist/*.js",
-    "build:http": "smithery build",
+    "build:stdio": "npm run embed-templates && tsc && shx cp -r src/resources dist/ && shx cp -r templates dist/ && shx chmod +x dist/*.js",
+    "build:http": "npm run embed-templates && smithery build",
     "start": "npm run start:http",
     "start:http": "node .smithery/index.cjs",
     "start:stdio": "node dist/index.js",
     "prepublishOnly": "npm run build:stdio",
     "watch": "tsc --watch"
+  },
+  "engines": {
+    "node": ">=22.0.0"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.20.0",
@@ -40,6 +45,7 @@
     "@types/node": "^22.18.12",
     "@types/yargs": "^17.0.32",
     "shx": "^0.3.4",
+    "tsx": "^4.20.6",
     "typescript": "^5.3.3"
   }
 }

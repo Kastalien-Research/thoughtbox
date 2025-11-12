@@ -18,6 +18,7 @@ import {
   type ExecutionResult,
 } from "./execution.js";
 import { encode, decode, createEmptyNotebook } from "./encoding.js";
+import { getTemplate, AVAILABLE_TEMPLATES } from "./templates.generated.js";
 
 /**
  * Sanitize and validate a file path to prevent path traversal attacks
@@ -83,13 +84,75 @@ export class NotebookStateManager {
   }
 
   /**
-   * Load a notebook from .src.md file
+   * Create a notebook from a template
    */
-  async loadNotebook(srcmdPath: string): Promise<Notebook> {
-    // Sanitize path to prevent directory traversal
-    const safePath = sanitizePath(srcmdPath, process.cwd());
-    const content = await fs.readFile(safePath, "utf8");
-    const notebook = decode(content);
+  async createNotebookFromTemplate(
+    title: string,
+    language: CodeLanguage,
+    templateName: string
+  ): Promise<Notebook> {
+    // Load template content from embedded templates
+    let templateContent: string;
+    try {
+      templateContent = getTemplate(templateName);
+    } catch (error) {
+      const available = AVAILABLE_TEMPLATES.join(', ');
+      throw new Error(
+        `Template "${templateName}" not found. Available templates: ${available}`
+      );
+    }
+
+    // Substitute placeholders
+    const date = new Date().toISOString().split("T")[0]; // YYYY-MM-DD format
+    const populatedContent = templateContent
+      .replace(/\[TOPIC\]/g, title)
+      .replace(/\[DATE\]/g, date)
+      .replace(/\[LANGUAGE\]/g, language);
+
+    // Decode the populated template
+    const notebook = decode(populatedContent);
+
+    // Override metadata with provided values
+    notebook.language = language;
+    if (language === "typescript" && !notebook["tsconfig.json"]) {
+      const { buildDefaultTsconfig } = await import("./types.js");
+      notebook["tsconfig.json"] = buildDefaultTsconfig();
+    }
+
+    // Create notebook directory
+    const notebookDir = path.join(this.tempDir, notebook.id);
+    await fs.mkdir(notebookDir, { recursive: true });
+    await fs.mkdir(path.join(notebookDir, "src"), { recursive: true });
+
+    // Write files to disk
+    await this.writeNotebookToDisk(notebook, notebookDir);
+
+    // Store in memory
+    this.notebooks.set(notebook.id, notebook);
+    this.notebookDirs.set(notebook.id, notebookDir);
+
+    return notebook;
+  }
+
+  /**
+   * Load a notebook from path or content
+   */
+  async loadNotebook(
+    source: { path: string } | { content: string }
+  ): Promise<Notebook> {
+    let notebookContent: string;
+
+    // Determine source
+    if ("path" in source) {
+      // Sanitize path to prevent directory traversal
+      const safePath = sanitizePath(source.path, process.cwd());
+      notebookContent = await fs.readFile(safePath, "utf8");
+    } else {
+      notebookContent = source.content;
+    }
+
+    // Decode from .src.md format
+    const notebook = decode(notebookContent);
 
     // Create notebook directory
     const notebookDir = path.join(this.tempDir, notebook.id);
@@ -282,23 +345,28 @@ export class NotebookStateManager {
 
   /**
    * Export notebook to .src.md format
+   * Always returns content string, optionally writes to path
    */
   async exportNotebook(
     notebookId: string,
-    outputPath: string
+    path?: string
   ): Promise<string> {
     const notebook = this.notebooks.get(notebookId);
     if (!notebook) {
       throw new Error(`Notebook ${notebookId} not found`);
     }
 
-    // Sanitize output path to prevent directory traversal
-    const safePath = sanitizePath(outputPath, process.cwd());
+    // Always encode to content string
+    const content = encode(notebook);
 
-    const srcmd = encode(notebook);
-    await fs.writeFile(safePath, srcmd, "utf8");
+    // If path provided, write to filesystem
+    if (path) {
+      const safePath = sanitizePath(path, process.cwd());
+      await fs.writeFile(safePath, content, "utf8");
+    }
 
-    return safePath;
+    // Always return content
+    return content;
   }
 
   /**

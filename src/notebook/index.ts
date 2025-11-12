@@ -8,6 +8,7 @@ import {
   getOperationNames,
   getOperationsCatalog,
 } from "./operations.js";
+import { AVAILABLE_TEMPLATES } from "./templates.generated.js";
 
 /**
  * Notebook Server - MCP tool handlers for headless Srcbook notebooks
@@ -27,7 +28,7 @@ export class NotebookServer {
    * Handle notebook_create tool call
    */
   async handleCreateNotebook(args: any): Promise<any> {
-    const { title, language } = args;
+    const { title, language, template } = args;
 
     if (!title || typeof title !== "string") {
       throw new Error("title is required and must be a string");
@@ -37,16 +38,40 @@ export class NotebookServer {
       throw new Error('language must be "javascript" or "typescript"');
     }
 
-    const notebook = await this.stateManager.createNotebook(
-      title,
-      language as CodeLanguage
-    );
+    // Validate template parameter if provided
+    if (template !== undefined) {
+      if (typeof template !== "string") {
+        throw new Error("template must be a string");
+      }
+      if (!AVAILABLE_TEMPLATES.includes(template as any)) {
+        throw new Error(
+          `Invalid template: "${template}". Available templates: ${AVAILABLE_TEMPLATES.join(", ")}`
+        );
+      }
+    }
+
+    let notebook: any;
+
+    // Create from template if provided
+    if (template) {
+      notebook = await this.stateManager.createNotebookFromTemplate(
+        title,
+        language as CodeLanguage,
+        template
+      );
+    } else {
+      // Create blank notebook
+      notebook = await this.stateManager.createNotebook(
+        title,
+        language as CodeLanguage
+      );
+    }
 
     return {
       success: true,
       notebook: {
         id: notebook.id,
-        title: notebook.cells.find((c) => c.type === "title")?.text || title,
+        title: notebook.cells.find((c: Cell) => c.type === "title")?.text || title,
         language: notebook.language,
         cellCount: notebook.cells.length,
         createdAt: notebook.createdAt,
@@ -77,13 +102,26 @@ export class NotebookServer {
    * Handle notebook_load tool call
    */
   async handleLoadNotebook(args: any): Promise<any> {
-    const { path } = args;
+    const { path, content } = args;
 
-    if (!path || typeof path !== "string") {
-      throw new Error("path is required and must be a string");
+    // Validate: exactly one of path or content required
+    const hasPath = path !== undefined && typeof path === "string";
+    const hasContent = content !== undefined && typeof content === "string";
+
+    if (!hasPath && !hasContent) {
+      throw new Error("Either 'path' or 'content' parameter is required");
     }
 
-    const notebook = await this.stateManager.loadNotebook(path);
+    if (hasPath && hasContent) {
+      throw new Error(
+        "Cannot provide both 'path' and 'content' parameters. Choose one."
+      );
+    }
+
+    // Load notebook from appropriate source
+    const notebook = await this.stateManager.loadNotebook(
+      hasPath ? { path } : { content }
+    );
 
     return {
       success: true,
@@ -348,16 +386,25 @@ export class NotebookServer {
       throw new Error("notebookId is required and must be a string");
     }
 
-    if (!path || typeof path !== "string") {
-      throw new Error("path is required and must be a string");
+    if (path !== undefined && typeof path !== "string") {
+      throw new Error("path must be a string if provided");
     }
 
-    const outputPath = await this.stateManager.exportNotebook(notebookId, path);
+    // Always get content, optionally write to path
+    const content = await this.stateManager.exportNotebook(notebookId, path);
 
-    return {
+    // Build response
+    const response: any = {
       success: true,
-      path: outputPath,
+      content, // Always include content
     };
+
+    // If path was provided, include it in response
+    if (path) {
+      response.path = path;
+    }
+
+    return response;
   }
 
   /**
@@ -487,8 +534,13 @@ export const NOTEBOOK_TOOL: Tool = {
 Create, manage, and execute interactive notebooks with markdown documentation and executable code cells.
 Each notebook runs in an isolated environment with its own package.json and workspace.
 
+✨ NEW: Pre-structured templates for guided workflows
+- Use template: "sequential-feynman" for deep learning with Feynman Technique
+- Templates provide scaffolded cells, metacognitive prompts, and progress tracking
+- Perfect for complex topics requiring validated understanding
+
 Available operations:
-- create: Create a new notebook
+- create: Create a new notebook (optionally from template)
 - list: List all active notebooks
 - load: Load notebook from .src.md file
 - add_cell: Add cell (title/markdown/code)
@@ -501,8 +553,11 @@ Available operations:
 
 Common operation examples:
 
-Create a notebook:
+Create a blank notebook:
 { operation: "create", args: { title: "My Analysis", language: "typescript" } }
+
+Create from Sequential Feynman template:
+{ operation: "create", args: { title: "React Server Components", language: "typescript", template: "sequential-feynman" } }
 
 Add a code cell:
 { operation: "add_cell", args: { notebookId: "abc123", cellType: "code", content: "console.log('hello')", filename: "example.ts" } }
@@ -520,7 +575,8 @@ When to use:
 - Building reproducible code examples
 - Creating step-by-step tutorials
 - Developing and testing code snippets
-- Prototyping with immediate feedback`,
+- Prototyping with immediate feedback
+- Deep learning workflows (with templates)`,
   inputSchema: {
     type: "object",
     properties: {

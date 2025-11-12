@@ -30,6 +30,9 @@ package-lock.json
 
 # Local documentation (source files for bundled content)
 local-docs/
+docs/
 
 # Improvement opps
 improvement-recs/
+smithery-docs/
+mcp-ts-template/
