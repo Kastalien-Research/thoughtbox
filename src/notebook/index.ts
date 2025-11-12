@@ -8,6 +8,7 @@ import {
   getOperationNames,
   getOperationsCatalog,
 } from "./operations.js";
+import { AVAILABLE_TEMPLATES } from "./templates.generated.js";
 
 /**
  * Notebook Server - MCP tool handlers for headless Srcbook notebooks
@@ -38,14 +39,13 @@ export class NotebookServer {
     }
 
     // Validate template parameter if provided
-    const ALLOWED_TEMPLATES = ["sequential-feynman"];
     if (template !== undefined) {
       if (typeof template !== "string") {
         throw new Error("template must be a string");
       }
-      if (!ALLOWED_TEMPLATES.includes(template)) {
+      if (!AVAILABLE_TEMPLATES.includes(template as any)) {
         throw new Error(
-          `Invalid template: "${template}". Available templates: ${ALLOWED_TEMPLATES.join(", ")}`
+          `Invalid template: "${template}". Available templates: ${AVAILABLE_TEMPLATES.join(", ")}`
         );
       }
     }

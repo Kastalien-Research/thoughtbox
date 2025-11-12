@@ -1,7 +1,6 @@
 import * as fs from "fs/promises";
 import * as path from "path";
 import * as os from "os";
-import { fileURLToPath } from "url";
 import type {
   Notebook,
   Cell,
@@ -19,6 +18,7 @@ import {
   type ExecutionResult,
 } from "./execution.js";
 import { encode, decode, createEmptyNotebook } from "./encoding.js";
+import { getTemplate, AVAILABLE_TEMPLATES } from "./templates.generated.js";
 
 /**
  * Sanitize and validate a file path to prevent path traversal attacks
@@ -91,18 +91,14 @@ export class NotebookStateManager {
     language: CodeLanguage,
     templateName: string
   ): Promise<Notebook> {
-    // Resolve template path using ESM-native URL-based resolution
-    const templatePath = fileURLToPath(
-      new URL(`../../templates/${templateName}-template.src.md`, import.meta.url)
-    );
-
-    // Load template content
+    // Load template content from embedded templates
     let templateContent: string;
     try {
-      templateContent = await fs.readFile(templatePath, "utf8");
+      templateContent = getTemplate(templateName);
     } catch (error) {
+      const available = AVAILABLE_TEMPLATES.join(', ');
       throw new Error(
-        `Template '${templateName}' not found at ${templatePath}`
+        `Template "${templateName}" not found. Available templates: ${available}`
       );
     }
 
