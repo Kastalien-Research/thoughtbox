@@ -102,13 +102,26 @@ export class NotebookServer {
    * Handle notebook_load tool call
    */
   async handleLoadNotebook(args: any): Promise<any> {
-    const { path } = args;
+    const { path, content } = args;
 
-    if (!path || typeof path !== "string") {
-      throw new Error("path is required and must be a string");
+    // Validate: exactly one of path or content required
+    const hasPath = path !== undefined && typeof path === "string";
+    const hasContent = content !== undefined && typeof content === "string";
+
+    if (!hasPath && !hasContent) {
+      throw new Error("Either 'path' or 'content' parameter is required");
     }
 
-    const notebook = await this.stateManager.loadNotebook(path);
+    if (hasPath && hasContent) {
+      throw new Error(
+        "Cannot provide both 'path' and 'content' parameters. Choose one."
+      );
+    }
+
+    // Load notebook from appropriate source
+    const notebook = await this.stateManager.loadNotebook(
+      hasPath ? { path } : { content }
+    );
 
     return {
       success: true,
@@ -373,16 +386,25 @@ export class NotebookServer {
       throw new Error("notebookId is required and must be a string");
     }
 
-    if (!path || typeof path !== "string") {
-      throw new Error("path is required and must be a string");
+    if (path !== undefined && typeof path !== "string") {
+      throw new Error("path must be a string if provided");
     }
 
-    const outputPath = await this.stateManager.exportNotebook(notebookId, path);
+    // Always get content, optionally write to path
+    const content = await this.stateManager.exportNotebook(notebookId, path);
 
-    return {
+    // Build response
+    const response: any = {
       success: true,
-      path: outputPath,
+      content, // Always include content
     };
+
+    // If path was provided, include it in response
+    if (path) {
+      response.path = path;
+    }
+
+    return response;
   }
 
   /**

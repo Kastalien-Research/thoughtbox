@@ -59,17 +59,28 @@ export const NOTEBOOK_OPERATIONS: OperationDefinition[] = [
   {
     name: "load",
     title: "Load Notebook",
-    description: "Load a notebook from a .src.md file (Srcbook format)",
+    description: `Load a notebook from .src.md format.
+
+Accepts either a filesystem path OR content string (exactly one required).
+
+- STDIO mode: Provide 'path' to read from local filesystem
+- HTTP mode: Provide 'content' string (e.g., from previous export)
+
+Both approaches create an identical in-memory notebook.`,
     category: "notebook-management",
     inputSchema: {
       type: "object",
       properties: {
         path: {
           type: "string",
-          description: "Path to .src.md file",
+          description: "Filesystem path to .src.md file (option 1)",
+        },
+        content: {
+          type: "string",
+          description: "Raw .src.md file content as string (option 2)",
         },
       },
-      required: ["path"],
+      oneOf: [{ required: ["path"] }, { required: ["content"] }],
     },
     example: {
       path: "/path/to/notebook.src.md",
@@ -232,21 +243,29 @@ export const NOTEBOOK_OPERATIONS: OperationDefinition[] = [
   {
     name: "export",
     title: "Export Notebook",
-    description: "Export a notebook to .src.md format (Srcbook-compatible)",
+    description: `Export a notebook to .src.md format.
+
+Always returns the notebook content as a string. Optionally writes to a filesystem path if provided.
+
+- STDIO mode: Provide 'path' to write to local filesystem (content still returned)
+- HTTP mode: Omit 'path', use returned 'content' directly
+
+Both modes always receive the content, ensuring transport transparency.`,
     category: "notebook-management",
     inputSchema: {
       type: "object",
       properties: {
         notebookId: {
           type: "string",
-          description: "Notebook ID",
+          description: "The ID of the notebook to export",
         },
         path: {
           type: "string",
-          description: "Output file path for .src.md file",
+          description:
+            "Optional: Filesystem path to write .src.md file (typically used in STDIO mode)",
         },
       },
-      required: ["notebookId", "path"],
+      required: ["notebookId"],
     },
     example: {
       notebookId: "abc123",

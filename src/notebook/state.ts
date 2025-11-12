@@ -135,13 +135,24 @@ export class NotebookStateManager {
   }
 
   /**
-   * Load a notebook from .src.md file
+   * Load a notebook from path or content
    */
-  async loadNotebook(srcmdPath: string): Promise<Notebook> {
-    // Sanitize path to prevent directory traversal
-    const safePath = sanitizePath(srcmdPath, process.cwd());
-    const content = await fs.readFile(safePath, "utf8");
-    const notebook = decode(content);
+  async loadNotebook(
+    source: { path: string } | { content: string }
+  ): Promise<Notebook> {
+    let notebookContent: string;
+
+    // Determine source
+    if ("path" in source) {
+      // Sanitize path to prevent directory traversal
+      const safePath = sanitizePath(source.path, process.cwd());
+      notebookContent = await fs.readFile(safePath, "utf8");
+    } else {
+      notebookContent = source.content;
+    }
+
+    // Decode from .src.md format
+    const notebook = decode(notebookContent);
 
     // Create notebook directory
     const notebookDir = path.join(this.tempDir, notebook.id);
@@ -334,23 +345,28 @@ export class NotebookStateManager {
 
   /**
    * Export notebook to .src.md format
+   * Always returns content string, optionally writes to path
    */
   async exportNotebook(
     notebookId: string,
-    outputPath: string
+    path?: string
   ): Promise<string> {
     const notebook = this.notebooks.get(notebookId);
     if (!notebook) {
       throw new Error(`Notebook ${notebookId} not found`);
     }
 
-    // Sanitize output path to prevent directory traversal
-    const safePath = sanitizePath(outputPath, process.cwd());
+    // Always encode to content string
+    const content = encode(notebook);
 
-    const srcmd = encode(notebook);
-    await fs.writeFile(safePath, srcmd, "utf8");
+    // If path provided, write to filesystem
+    if (path) {
+      const safePath = sanitizePath(path, process.cwd());
+      await fs.writeFile(safePath, content, "utf8");
+    }
 
-    return safePath;
+    // Always return content
+    return content;
   }
 
   /**
