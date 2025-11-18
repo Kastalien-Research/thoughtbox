@@ -6,15 +6,36 @@ Successor to Waldzell AI's Clear Thought.
 
 ## Features
 
-- Break down complex problems into manageable steps
-- Revise and refine thoughts as understanding deepens
-- Branch into alternative paths of reasoning
-- Adjust the total number of thoughts dynamically
-- Generate and verify solution hypotheses
+- **Structured Thinking**: Break down complex problems with forward, backward, and branching reasoning patterns
+- **Literate Programming**: Interactive notebooks with executable TypeScript/JavaScript cells
+- **Mental Models**: 15 reasoning prompts organized by use case (debugging, planning, decision-making, etc.)
+- **Browsable Resources**: URI hierarchy for progressive disclosure of capabilities
 
-## Tool
+## Tools
 
 ### thoughtbox
+
+Facilitates a detailed, step-by-step thinking process for problem-solving and analysis.
+
+### notebook
+
+Literate programming toolhost for creating and executing interactive notebooks with TypeScript/JavaScript.
+
+**Operations:** `create`, `list`, `load`, `add_cell`, `update_cell`, `run_cell`, `install_deps`, `list_cells`, `get_cell`, `export`
+
+### mental_models
+
+Access 15 mental models for structured reasoning, organized by 9 tags.
+
+**Operations:** `get_model`, `list_models`, `list_tags`, `get_capability_graph`
+
+**Tags:** `debugging`, `planning`, `decision-making`, `risk-analysis`, `estimation`, `prioritization`, `communication`, `architecture`, `validation`
+
+**Models:** rubber-duck, five-whys, pre-mortem, assumption-surfacing, steelmanning, trade-off-matrix, fermi-estimation, abstraction-laddering, decomposition, adversarial-thinking, opportunity-cost, constraint-relaxation, time-horizon-shifting, impact-effort-grid, inversion
+
+---
+
+## thoughtbox Tool Details
 
 Facilitates a detailed, step-by-step thinking process for problem-solving and analysis.
 
@@ -164,6 +185,44 @@ npm run build:http
 # Start development server with interactive playground
 npm run dev
 ```
+
+### Docker
+
+Run Thoughtbox as an HTTP server in Docker for testing or production:
+
+```bash
+# Build and run with docker-compose
+docker-compose up -d
+
+# Or build and run manually
+docker build -t thoughtbox .
+docker run -d -p 3000:3000 -v ~/.thoughtbox:/root/.thoughtbox thoughtbox
+```
+
+**Configuration:**
+
+- `HOST_BIND` - Bind address (default: `127.0.0.1`)
+- `DISABLE_THOUGHT_LOGGING` - Disable stderr output (default: `true`)
+
+Data persists to `~/.thoughtbox/` on host with the following structure:
+
+```
+~/.thoughtbox/
+├── mental-models/          # Synced from embedded content at startup
+│   ├── debugging/
+│   │   ├── rubber-duck.md
+│   │   └── five-whys.md
+│   ├── planning/
+│   │   ├── pre-mortem.md
+│   │   └── ...
+│   └── ...                 # All 9 tag directories
+├── notebooks/              # Notebook workspaces
+└── memory/
+    └── graph.jsonl         # Knowledge graph persistence
+```
+
+Filesystem paths mirror URI hierarchy:
+- `thoughtbox://mental-models/debugging/rubber-duck` → `~/.thoughtbox/mental-models/debugging/rubber-duck.md`
 
 ### Scripts
 
