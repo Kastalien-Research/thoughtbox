@@ -334,6 +334,12 @@ export default function createServer({
   const notebookServer = new NotebookServer();
   const mentalModelsServer = new MentalModelsServer();
 
+  // Sync mental models to filesystem for inspection
+  // URI: thoughtbox://mental-models/{tag}/{model} → ~/.thoughtbox/mental-models/{tag}/{model}.md
+  mentalModelsServer.syncToFilesystem().catch((err) => {
+    console.error("Failed to sync mental models to filesystem:", err);
+  });
+
   // Note: NotebookServer uses lazy initialization - temp directories created on first use
 
   server.setRequestHandler(ListToolsRequestSchema, async () => ({
