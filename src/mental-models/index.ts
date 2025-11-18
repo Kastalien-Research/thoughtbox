@@ -7,6 +7,9 @@
  */
 
 import { Tool } from "@modelcontextprotocol/sdk/types.js";
+import * as fs from "fs";
+import * as path from "path";
+import * as os from "os";
 import {
   MENTAL_MODELS,
   TAG_DEFINITIONS,
@@ -29,6 +32,46 @@ import {
  * Mental Models Server
  */
 export class MentalModelsServer {
+  private baseDir: string;
+
+  constructor() {
+    this.baseDir = path.join(os.homedir(), ".thoughtbox", "mental-models");
+  }
+
+  /**
+   * Sync embedded mental models to filesystem for inspection
+   * Creates tag directories and writes model files
+   * URI: thoughtbox://mental-models/{tag}/{model} → ~/.thoughtbox/mental-models/{tag}/{model}.md
+   */
+  async syncToFilesystem(): Promise<void> {
+    // Create base directory
+    await fs.promises.mkdir(this.baseDir, { recursive: true });
+
+    // Create tag directories and write models
+    for (const tag of TAG_DEFINITIONS) {
+      const tagDir = path.join(this.baseDir, tag.name);
+      await fs.promises.mkdir(tagDir, { recursive: true });
+
+      // Write each model that has this tag
+      const modelsWithTag = getModelsByTag(tag.name);
+      for (const model of modelsWithTag) {
+        const filePath = path.join(tagDir, `${model.name}.md`);
+
+        // Build file content with frontmatter
+        const content = `---
+name: ${model.name}
+title: ${model.title}
+tags: [${model.tags.join(", ")}]
+uri: thoughtbox://mental-models/${tag.name}/${model.name}
+---
+
+${model.content}`;
+
+        await fs.promises.writeFile(filePath, content, "utf-8");
+      }
+    }
+  }
+
   /**
    * Process a mental_models tool call
    */
