@@ -19,6 +19,13 @@ import { PATTERNS_COOKBOOK } from "./resources/patterns-cookbook-content.js";
 import { SERVER_ARCHITECTURE_GUIDE } from "./resources/server-architecture-content.js";
 import { NotebookServer, NOTEBOOK_TOOL } from "./notebook/index.js";
 import {
+  MentalModelsServer,
+  MENTAL_MODELS_TOOL,
+  getMentalModelsResources,
+  getMentalModelsResourceTemplates,
+  getMentalModelsResourceContent,
+} from "./mental-models/index.js";
+import {
   LIST_MCP_ASSETS_PROMPT,
   getListMcpAssetsContent,
   INTERLEAVED_THINKING_PROMPT,
@@ -325,11 +332,12 @@ export default function createServer({
 
   const thinkingServer = new ClearThoughtServer(config.disableThoughtLogging);
   const notebookServer = new NotebookServer();
+  const mentalModelsServer = new MentalModelsServer();
 
   // Note: NotebookServer uses lazy initialization - temp directories created on first use
 
   server.setRequestHandler(ListToolsRequestSchema, async () => ({
-    tools: [CLEAR_THOUGHT_TOOL, NOTEBOOK_TOOL],
+    tools: [CLEAR_THOUGHT_TOOL, NOTEBOOK_TOOL, MENTAL_MODELS_TOOL],
   }));
 
   server.setRequestHandler(CallToolRequestSchema, async (request) => {
@@ -361,6 +369,32 @@ export default function createServer({
       }
 
       return notebookServer.processTool(operation, args || {});
+    }
+
+    // Handle mental_models toolhost dispatcher
+    if (request.params.name === "mental_models") {
+      const { operation, args } = request.params.arguments as any;
+
+      if (!operation || typeof operation !== "string") {
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify(
+                {
+                  success: false,
+                  error: "operation parameter is required and must be a string",
+                },
+                null,
+                2
+              ),
+            },
+          ],
+          isError: true,
+        };
+      }
+
+      return mentalModelsServer.processTool(operation, args || {});
     }
 
     return {
@@ -460,12 +494,27 @@ export default function createServer({
         description: "Interactive notebook explaining Thoughtbox MCP server architecture and implementation patterns",
         mimeType: "text/markdown",
       },
+      {
+        uri: "thoughtbox://mental-models/operations",
+        name: "Mental Models Operations Catalog",
+        description: "Complete catalog of mental models, tags, and operations",
+        mimeType: "application/json",
+      },
+      // Mental models browsable hierarchy
+      ...getMentalModelsResources(),
     ],
   }));
 
   // Resource template handlers
   server.setRequestHandler(ListResourceTemplatesRequestSchema, async () => {
-    return getInterleavedResourceTemplates();
+    const interleavedTemplates = getInterleavedResourceTemplates();
+    const mentalModelsTemplates = getMentalModelsResourceTemplates();
+    return {
+      resourceTemplates: [
+        ...interleavedTemplates.resourceTemplates,
+        ...mentalModelsTemplates.resourceTemplates,
+      ],
+    };
   });
 
   server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
@@ -519,6 +568,29 @@ export default function createServer({
           },
         ],
       };
+    }
+
+    if (uri === "thoughtbox://mental-models/operations") {
+      const catalog = mentalModelsServer.getOperationsCatalog();
+      return {
+        contents: [
+          {
+            uri,
+            mimeType: "application/json",
+            text: catalog,
+          },
+        ],
+      };
+    }
+
+    // Handle mental models browsable hierarchy
+    if (uri.startsWith("thoughtbox://mental-models")) {
+      const content = getMentalModelsResourceContent(uri);
+      if (content) {
+        return {
+          contents: [content],
+        };
+      }
     }
 
     // Handle interleaved thinking resource templates
