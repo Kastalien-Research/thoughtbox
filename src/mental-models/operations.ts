@@ -312,6 +312,7 @@ Operations:
 - get_model: Retrieve a specific mental model prompt
 - list_models: List available models (optionally filtered by tag)
 - list_tags: List all available tags with descriptions
+- get_capability_graph: Get structured data for knowledge graph initialization
 
 Available tags: ${tags.join(", ")}
 

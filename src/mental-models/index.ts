@@ -555,9 +555,13 @@ export function getMentalModelsResourceContent(uri: string): {
   if (!modelName) {
     const models = getModelsByTag(tagName);
     const tagDef = TAG_DEFINITIONS.find((t) => t.name === tagName);
+    // Defensive check - should never happen since we validated tagName above
+    if (!tagDef) {
+      return null;
+    }
     const listing = {
       tag: tagName,
-      description: tagDef?.description,
+      description: tagDef.description,
       uri: `thoughtbox://mental-models/${tagName}`,
       models: models.map((m) => ({
         name: m.name,
