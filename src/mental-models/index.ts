@@ -44,21 +44,36 @@ export class MentalModelsServer {
    * URI: thoughtbox://mental-models/{tag}/{model} → ~/.thoughtbox/mental-models/{tag}/{model}.md
    */
   async syncToFilesystem(): Promise<void> {
+    const failedSyncs: Array<{ tag: string; model: string; error: string }> = [];
+
     // Create base directory
-    await fs.promises.mkdir(this.baseDir, { recursive: true });
+    try {
+      await fs.promises.mkdir(this.baseDir, { recursive: true });
+    } catch (err) {
+      console.error(`Failed to create base directory ${this.baseDir}:`, err);
+      throw err; // Base directory creation is critical
+    }
 
     // Create tag directories and write models
     for (const tag of TAG_DEFINITIONS) {
       const tagDir = path.join(this.baseDir, tag.name);
-      await fs.promises.mkdir(tagDir, { recursive: true });
+      
+      try {
+        await fs.promises.mkdir(tagDir, { recursive: true });
+      } catch (err) {
+        console.error(`Failed to create tag directory ${tagDir}:`, err);
+        // Continue to next tag if directory creation fails
+        continue;
+      }
 
       // Write each model that has this tag
       const modelsWithTag = getModelsByTag(tag.name);
       for (const model of modelsWithTag) {
         const filePath = path.join(tagDir, `${model.name}.md`);
 
-        // Build file content with frontmatter
-        const content = `---
+        try {
+          // Build file content with frontmatter
+          const content = `---
 name: ${model.name}
 title: ${model.title}
 tags: [${model.tags.join(", ")}]
@@ -67,8 +82,31 @@ uri: thoughtbox://mental-models/${tag.name}/${model.name}
 
 ${model.content}`;
 
-        await fs.promises.writeFile(filePath, content, "utf-8");
+          await fs.promises.writeFile(filePath, content, "utf-8");
+        } catch (err) {
+          const errorMsg = err instanceof Error ? err.message : String(err);
+          failedSyncs.push({
+            tag: tag.name,
+            model: model.name,
+            error: errorMsg,
+          });
+          console.error(
+            `Failed to write model ${model.name} in tag ${tag.name}:`,
+            errorMsg
+          );
+          // Continue to next model even if this one fails
+        }
       }
+    }
+
+    // Log summary of failed syncs if any
+    if (failedSyncs.length > 0) {
+      console.error(
+        `Mental models sync completed with ${failedSyncs.length} failure(s):`
+      );
+      failedSyncs.forEach(({ tag, model, error }) => {
+        console.error(`  - ${tag}/${model}: ${error}`);
+      });
     }
   }
 
