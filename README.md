@@ -2,19 +2,18 @@
 
 [![smithery badge](https://smithery.ai/badge/@Kastalien-Research/clear-thought-two)](https://smithery.ai/server/@Kastalien-Research/clear-thought-two)
 
-Successor to Waldzell AI's Clear Thought.
+MCP server providing cognitive enhancement tools for LLM agents: structured reasoning, mental models, and literate programming notebooks.
 
 ## Features
 
-- Break down complex problems into manageable steps
-- Revise and refine thoughts as understanding deepens
-- Branch into alternative paths of reasoning
-- Adjust the total number of thoughts dynamically
-- Generate and verify solution hypotheses
+- **Thoughtbox Tool**: Step-by-step reasoning with branching, revision, and dynamic planning
+- **Mental Models**: 15 structured reasoning frameworks (rubber-duck, five-whys, pre-mortem, etc.)
+- **Notebook Tool**: Literate programming with JavaScript/TypeScript execution
+- **Patterns Cookbook**: 6 core reasoning patterns with examples and best practices
 
-## Tool
+## Tools
 
-### thoughtbox
+### 1. `thoughtbox` - Step-by-Step Reasoning
 
 Facilitates a detailed, step-by-step thinking process for problem-solving and analysis.
 
@@ -79,15 +78,59 @@ Start with thought N (your desired end state) and work backward to thought 1 (st
 
 Combine approaches or explore alternatives using revision and branch parameters for complex multi-faceted problems.
 
+### 2. `notebook` - Literate Programming
+
+Create, manage, and execute interactive notebooks with JavaScript/TypeScript.
+
+**Features:**
+- Isolated execution environments per notebook
+- Full package.json support with `install_deps` operation
+- Sequential Feynman template for deep learning workflows
+- Export notebooks as .src.md files
+
+**Operations:**
+- `create` - Create new notebook
+- `add_cell` - Add markdown or code cells
+- `run_cell` - Execute code with output capture
+- `export` - Export to .src.md format
+- `list`, `load`, `update_cell`, `get_cell`, `list_cells`
+
+### 3. `mental_models` - Structured Reasoning Frameworks
+
+Access 15 mental models that provide process scaffolds for how to think about problems.
+
+**Available Models:**
+- `rubber-duck`, `five-whys`, `pre-mortem`, `assumption-surfacing`
+- `steelmanning`, `trade-off-matrix`, `fermi-estimation`
+- `abstraction-laddering`, `decomposition`, `adversarial-thinking`
+- `opportunity-cost`, `constraint-relaxation`, `time-horizon-shifting`
+- `impact-effort-grid`, `inversion`
+
+**Operations:**
+- `get_model` - Retrieve specific mental model prompt
+- `list_models` - List all models (optionally filter by tag)
+- `list_tags` - Show available tags (debugging, planning, decision-making, etc.)
+- `get_capability_graph` - Get structured data for knowledge graphs
+
 ## Installation
+
+### Installing via NPM
+
+```bash
+npm install -g @kastalien-research/thoughtbox
+```
+
+## Usage
 
 ### Installing via Smithery
 
-To install Thoughtbox (beta) automatically via [Smithery](https://smithery.ai/server/@Kastalien-Research/clear-thought-two):
+To install via [Smithery](https://smithery.ai/server/@Kastalien-Research/clear-thought-two):
 
 ```bash
 npx -y @smithery/cli install @Kastalien-Research/clear-thought-two
 ```
+
+> **Note**: Smithery deployment uses the name `@Kastalien-Research/clear-thought-two` while the NPM package is `@kastalien-research/thoughtbox`.
 
 Thoughtbox supports both **STDIO** (for local development) and **HTTP** (for production deployments) transports.
 
@@ -100,9 +143,9 @@ Add to your `claude_desktop_config.json`:
 ```json
 {
   "mcpServers": {
-    "clear-thought-two": {
+    "thoughtbox": {
       "command": "npx",
-      "args": ["-y", "clear-thought-two"]
+      "args": ["-y", "@kastalien-research/thoughtbox"]
     }
   }
 }
@@ -120,9 +163,9 @@ Add to `.vscode/mcp.json` or User Settings:
 {
   "mcp": {
     "servers": {
-      "clear-thought-two": {
+      "thoughtbox": {
         "command": "npx",
-        "args": ["-y", "clear-thought-two"]
+        "args": ["-y", "@kastalien-research/thoughtbox"]
       }
     }
   }

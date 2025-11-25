@@ -54,16 +54,33 @@ srcbook/
 # Local documentation (source files for bundled content)
 local-docs/
 smithery-docs/
+mcp-specs/
 
 # Improvement opps
 improvement-recs/
+.tessl/
+.thoughtbox/
+adat.md
 
 # Claude Code plugins
 .claude-plugin/
 
 # Development documentation
 docs/
+specs/
 
-# Note: specs/ folder contains architectural specifications and should be committed
-# However, generated template files should optionally be ignored (can commit for convenience)
+# Analysis and blog posts (local development artifacts)
+adat.md
+glassBead-thoughtbox-blog.md
+NOTEBOOK_CAPABILITIES_REPORT.md
+NOTEBOOK_DUAL_TRANSPORT_ANALYSIS.md
+CLEANUP_REPORT.md
+
+# Tessl configuration (local usage only)
+tessl.json
+
+# IDE-specific configurations
+.cursor/
+
+# Note: generated template files should optionally be ignored (can commit for convenience)
 # src/notebook/templates.generated.ts

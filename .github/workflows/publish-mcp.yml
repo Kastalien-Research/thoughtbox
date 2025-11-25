@@ -1,0 +1,93 @@
+name: Publish to NPM and MCP Registry
+
+on:
+  push:
+    tags: ["v*"]  # Trigger on version tags like v1.0.0
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write  # Required for OIDC authentication
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          registry-url: "https://registry.npmjs.org"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check for cyclic dependencies
+        run: npm run check:cycles
+
+      - name: Build package
+        run: npm run build
+
+      - name: Extract version from tag
+        id: version
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/v}
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Publishing version: $VERSION"
+
+      - name: Update server.json version
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          # Use Node.js to update JSON to avoid jq dependency
+          node -e "
+            const fs = require('fs');
+            const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+            const server = JSON.parse(fs.readFileSync('server.json', 'utf8'));
+            server.version = pkg.version;
+            server.packages[0].version = pkg.version;
+            fs.writeFileSync('server.json', JSON.stringify(server, null, 2) + '\n');
+          "
+
+      - name: Verify versions are synchronized
+        run: |
+          PKG_VERSION=$(node -p "require('./package.json').version")
+          SERVER_VERSION=$(node -p "require('./server.json').version")
+          if [ "$PKG_VERSION" != "$SERVER_VERSION" ]; then
+            echo "Error: Version mismatch between package.json ($PKG_VERSION) and server.json ($SERVER_VERSION)"
+            exit 1
+          fi
+          echo "✓ Versions synchronized: $PKG_VERSION"
+
+      - name: Publish to NPM
+        run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Install MCP Publisher
+        run: |
+          curl -L "https://github.com/modelcontextprotocol/registry/releases/download/v1.0.0/mcp-publisher_1.0.0_linux_amd64.tar.gz" | tar xz mcp-publisher
+          chmod +x mcp-publisher
+
+      - name: Login to MCP Registry
+        run: ./mcp-publisher login github-oidc
+
+      - name: Publish to MCP Registry
+        run: ./mcp-publisher publish
+
+      - name: Create GitHub Release
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const version = '${{ steps.version.outputs.version }}';
+            await github.rest.repos.createRelease({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              tag_name: `v${version}`,
+              name: `Release v${version}`,
+              body: `## Published to MCP Registry\n\nVersion ${version} has been published to:\n- NPM: https://www.npmjs.com/package/@kastalien-research/thoughtbox\n- MCP Registry: https://registry.modelcontextprotocol.io\n\nInstall with:\n\`\`\`bash\nnpm install -g @kastalien-research/thoughtbox\n\`\`\``,
+              draft: false,
+              prerelease: false
+            });
