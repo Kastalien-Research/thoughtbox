@@ -194,24 +194,6 @@ Visit the [Thoughtbox page on Smithery](https://smithery.ai/server/@Kastalien-Re
 
 - `DISABLE_THOUGHT_LOGGING=true` - Disable thought logging to stderr
 
-### HTTP Transport (Production Deployment)
-
-Thoughtbox can be deployed as a scalable HTTP server using [Smithery](https://smithery.ai).
-
-**Benefits:**
-
-- Streamable HTTP transport for better performance
-- Automatic containerization and deployment
-- Interactive development playground
-- Built-in configuration management
-
-**Deploy to Smithery:**
-
-1. Visit [smithery.ai/new](https://smithery.ai/new)
-2. Connect your GitHub repository
-3. Configure `disableThoughtLogging` setting as needed
-4. Deploy!
-
 ## Development
 
 ### Local Development
@@ -220,11 +202,8 @@ Thoughtbox can be deployed as a scalable HTTP server using [Smithery](https://sm
 # Install dependencies
 npm install
 
-# Build for STDIO (backward compatible)
-npm run build:stdio
-
-# Build for HTTP (Smithery deployment)
-npm run build:http
+# Build (compiles both stdio and http entry points)
+npm run build
 
 # Start development server with interactive playground
 npm run dev
@@ -233,11 +212,12 @@ npm run dev
 ### Scripts
 
 - `npm run dev` - Start Smithery development server with interactive playground
-- `npm run build` - Build for production (defaults to HTTP)
-- `npm run build:stdio` - Compile TypeScript for STDIO usage
-- `npm run build:http` - Build for Smithery HTTP deployment
-- `npm run start:http` - Run the Smithery-built HTTP server
-- `npm run start:stdio` - Run the compiled STDIO version locally
+- `npm run build` - Build for production (runs `build:local`)
+- `npm run build:local` - Compile TypeScript (produces both `dist/index.js` and `dist/http.js`)
+- `npm run build:smithery` - Build for Smithery HTTP deployment
+- `npm run start` - Run the HTTP server locally
+- `npm run start:stdio` - Run the STDIO version locally
+- `npm run start:smithery` - Run the Smithery-built server
 - `npm run watch` - Watch mode for development
 
 ## License
