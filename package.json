@@ -1,6 +1,6 @@
 {
   "name": "@kastalien-research/thoughtbox",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "MCP server providing cognitive enhancement tools for LLM agents: structured reasoning, mental models, and literate programming notebooks",
   "mcpName": "io.github.kastalien-research/thoughtbox",
   "license": "MIT",
