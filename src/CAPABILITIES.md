@@ -1,7 +1,7 @@
 # Thoughtbox MCP Server - Capabilities
 
 > Auto-generated documentation of all server capabilities.
-> Generated: 2025-11-25T03:18:30.904Z
+> Generated: 2025-11-25T03:23:08.037Z
 
 ## Overview
 
