@@ -1,7 +1,7 @@
 # Thoughtbox MCP Server - Capabilities
 
 > Auto-generated documentation of all server capabilities.
-> Generated: 2025-11-24T01:39:43.703Z
+> Generated: 2025-11-25T03:01:31.823Z
 
 ## Overview
 
@@ -15,7 +15,7 @@ Thoughtbox is an MCP server that provides cognitive enhancement tools for LLM ag
 
 ## Tools
 
-The server provides 4 tools:
+The server provides 3 tools:
 
 ### 1. `thoughtbox` - Step-by-Step Thinking
 
@@ -126,47 +126,6 @@ Mental models are process scaffolds that tell you HOW to think about a problem, 
 | `impact-effort-grid` | Impact/Effort Grid | prioritization |
 | `inversion` | Inversion | risk-analysis, planning |
 
-### 4. `fitness` - Reasoning Quality Evaluation
-
-Access fitness function prompts for evaluating reasoning quality.
-
-Each fitness function provides a complete evaluation guide with process steps, metrics to examine, and scoring rubrics. Use these to assess the quality of reasoning chains.
-
-Use for:
-- Self-evaluation of reasoning quality
-- Identifying anti-patterns in thinking
-- Calibrating estimation accuracy
-- Improving reasoning habits
-
-#### Available Operations (5)
-
-| Operation | Category | Description |
-|-----------|----------|-------------|
-| `list_functions` | discovery | List all available fitness function prompts, optionally filtered by dimension |
-| `get_function` | retrieval | Retrieve a specific fitness function prompt by name |
-| `list_dimensions` | discovery | List all fitness evaluation dimensions with descriptions |
-| `list_tags` | discovery | List all tags used to categorize fitness functions |
-| `get_catalog` | discovery | Get the complete fitness function catalog with all functions and dimensions |
-
-#### Evaluation Dimensions (4)
-
-| Dimension | Description |
-|-----------|-------------|
-| `structural` | Calibration, exploration, efficiency - computed from session structure |
-| `semantic` | Coherence, coverage, consistency - requires content analysis |
-| `process` | Pattern appropriateness, anti-patterns - evaluates reasoning behavior |
-| `outcome` | Task success, prediction accuracy - requires external feedback |
-
-#### Fitness Functions (5)
-
-| Name | Title | Dimension | Tags |
-|------|-------|-----------|------|
-| `calibration-check` | Calibration Check | structural | estimation, efficiency, planning |
-| `exploration-assessment` | Exploration Assessment | structural | exploration, branching, synthesis, decision-making |
-| `coherence-analysis` | Coherence Analysis | semantic | coherence, logic, flow, consistency |
-| `pattern-appropriateness` | Pattern Appropriateness | process | patterns, strategy, methodology, planning |
-| `anti-pattern-detection` | Anti-Pattern Detection | process | anti-patterns, quality, failure-modes, debugging |
-
 ---
 
 ## Prompts
@@ -205,8 +164,6 @@ No arguments required.
 | `thoughtbox://architecture` | Server Architecture Guide | text/markdown |
 | `thoughtbox://mental-models/operations` | Mental Models Operations Catalog | application/json |
 | `thoughtbox://mental-models` | Mental Models Root | application/json |
-| `thoughtbox://fitness` | Fitness Functions Directory | application/json |
-| `thoughtbox://fitness/operations` | Fitness Operations Catalog | application/json |
 
 ### Tag-based Resources
 
@@ -227,7 +184,6 @@ No arguments required.
 | `thoughtbox://mental-models/{tag}/{model}` | Browse mental models by tag |
 | `thoughtbox://mental-models/{tag}` | List models under a specific tag |
 | `thoughtbox://interleaved/{mode}` | IRCoT-style interleaved reasoning guides (modes: research, analysis, development) |
-| `thoughtbox://fitness/{function}` | Get a specific fitness function prompt by name |
 
 ---
 
@@ -466,13 +422,11 @@ Install npm dependencies defined in the notebook's package.json
 
 ## Summary Statistics
 
-- **Tools:** 4 (thoughtbox, notebook, mental_models, fitness)
+- **Tools:** 3 (thoughtbox, notebook, mental_models)
 - **Notebook Operations:** 10
 - **Mental Models Operations:** 4
 - **Mental Models:** 15
 - **Tags:** 9
-- **Fitness Operations:** 5
-- **Fitness Functions:** 5
 - **Prompts:** 2
-- **Static Resources:** 8+
-- **Resource Templates:** 4
+- **Static Resources:** 6+
+- **Resource Templates:** 3
