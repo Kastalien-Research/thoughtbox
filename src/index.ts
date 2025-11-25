@@ -630,7 +630,7 @@ async function runServer() {
   console.error("Thoughtbox MCP Server running on stdio");
 }
 
-// Auto-run for STDIO usage (dist/index.js is never imported, only executed)
+// Run STDIO server for backward compatibility
 runServer().catch((error) => {
   console.error("Fatal error running server:", error);
   process.exit(1);
