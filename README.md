@@ -186,11 +186,7 @@ npm install -g @kastalien-research/thoughtbox
 
 #### Smithery
 
-To install via [Smithery](https://smithery.ai/server/@Kastalien-Research/clear-thought-two):
-
-```bash
-npx -y @smithery/cli install @Kastalien-Research/clear-thought-two
-```
+Visit the [Thoughtbox page on Smithery](https://smithery.ai/server/@Kastalien-Research/clear-thought-two) for one-click installation instructions specific to your MCP client.
 
 > **Note**: Smithery deployment uses the name `@Kastalien-Research/clear-thought-two` while the NPM package is `@kastalien-research/thoughtbox`.
 
