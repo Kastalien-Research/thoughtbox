@@ -9,7 +9,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       id-token: write  # Required for OIDC authentication
-      contents: read
+      contents: write  # Required for creating GitHub releases
 
     steps:
       - name: Checkout code
