@@ -529,54 +529,13 @@ export class NotebookServer {
  */
 export const NOTEBOOK_TOOL: Tool = {
   name: "notebook",
-  description: `Notebook toolhost for literate programming with JavaScript/TypeScript.
+  description: `Executable documentation environment. Use for building reproducible code examples, tutorials, or prototypes—especially when you lack a sandbox or when preserving code-as-documentation adds value.
 
-Create, manage, and execute interactive notebooks with markdown documentation and executable code cells.
-Each notebook runs in an isolated environment with its own package.json and workspace.
+Creates isolated JavaScript/TypeScript notebooks with markdown and executable cells. Each notebook gets its own workspace and package.json.
 
-✨ NEW: Pre-structured templates for guided workflows
-- Use template: "sequential-feynman" for deep learning with Feynman Technique
-- Templates provide scaffolded cells, metacognitive prompts, and progress tracking
-- Perfect for complex topics requiring validated understanding
+Operations: create, list, load, add_cell, update_cell, run_cell, install_deps, list_cells, get_cell, export
 
-Available operations:
-- create: Create a new notebook (optionally from template)
-- list: List all active notebooks
-- load: Load notebook from .src.md file
-- add_cell: Add cell (title/markdown/code)
-- update_cell: Update cell content
-- run_cell: Execute code cell
-- install_deps: Install npm dependencies
-- list_cells: List all cells in notebook
-- get_cell: Get cell details
-- export: Export notebook to .src.md
-
-Common operation examples:
-
-Create a blank notebook:
-{ operation: "create", args: { title: "My Analysis", language: "typescript" } }
-
-Create from Sequential Feynman template:
-{ operation: "create", args: { title: "React Server Components", language: "typescript", template: "sequential-feynman" } }
-
-Add a code cell:
-{ operation: "add_cell", args: { notebookId: "abc123", cellType: "code", content: "console.log('hello')", filename: "example.ts" } }
-
-Run a cell:
-{ operation: "run_cell", args: { notebookId: "abc123", cellId: "cell_456" } }
-
-List notebooks:
-{ operation: "list", args: {} }
-
-For detailed schemas of all operations, see the thoughtbox://notebook/operations resource.
-
-When to use:
-- Writing executable documentation
-- Building reproducible code examples
-- Creating step-by-step tutorials
-- Developing and testing code snippets
-- Prototyping with immediate feedback
-- Deep learning workflows (with templates)`,
+Templates available (e.g., "sequential-feynman"). See thoughtbox://notebook/operations for schemas.`,
   inputSchema: {
     type: "object",
     properties: {

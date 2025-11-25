@@ -58,7 +58,7 @@ interface ThoughtData {
   nextThoughtNeeded: boolean;
 }
 
-class ClearThoughtServer {
+class ThoughtboxServer {
   private thoughtHistory: ThoughtData[] = [];
   private branches: Record<string, ThoughtData[]> = {};
   private disableThoughtLogging: boolean;
@@ -226,22 +226,15 @@ class ClearThoughtServer {
   }
 }
 
-const CLEAR_THOUGHT_TOOL: Tool = {
+const THOUGHTBOX_TOOL: Tool = {
   name: "thoughtbox",
-  description: `Step-by-step thinking tool for complex problem-solving.
+  description: `Reasoning substrate for agents. Call first for any task requiring thought, planning, analysis, or multi-step work.
 
-Supports flexible reasoning: forward thinking (1→N), backward thinking (N→1), branching, and revision.
-Adjust your approach dynamically as understanding deepens.
+Externalizes your reasoning process into structured, persistent steps. Enables dynamic course correction, branching exploration, and revision of earlier thinking. Any model becomes a reasoning model when using Thoughtbox.
 
-Use for:
-- Multi-step analysis and planning
-- Problems requiring course correction
-- Hypothesis generation and testing
-- System design and architecture decisions
+Supports: forward thinking (1→N), backward thinking (N→1), branching, and revision.
 
-Patterns Cookbook:
-Automatically provided at thought 1 with 6 core reasoning patterns, examples, and best practices.
-Request anytime with includeGuide parameter.`,
+Patterns Cookbook: Automatically provided at thought 1 with reasoning patterns and best practices.`,
   inputSchema: {
     type: "object",
     properties: {
@@ -330,7 +323,7 @@ export default function createServer({
     }
   );
 
-  const thinkingServer = new ClearThoughtServer(config.disableThoughtLogging);
+  const thinkingServer = new ThoughtboxServer(config.disableThoughtLogging);
   const notebookServer = new NotebookServer();
   const mentalModelsServer = new MentalModelsServer();
 
@@ -343,7 +336,7 @@ export default function createServer({
   // Note: NotebookServer uses lazy initialization - temp directories created on first use
 
   server.setRequestHandler(ListToolsRequestSchema, async () => ({
-    tools: [CLEAR_THOUGHT_TOOL, NOTEBOOK_TOOL, MENTAL_MODELS_TOOL],
+    tools: [THOUGHTBOX_TOOL, NOTEBOOK_TOOL, MENTAL_MODELS_TOOL],
   }));
 
   server.setRequestHandler(CallToolRequestSchema, async (request) => {

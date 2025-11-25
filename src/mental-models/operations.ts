@@ -304,19 +304,13 @@ export function generateToolDescription(): string {
   const tags = getTagNames();
   const modelCount = getModelCount();
 
-  return `Access ${modelCount} mental models for structured reasoning. Each model provides a complete prompt with process steps, examples, and pitfalls.
+  return `Structured reasoning frameworks that complement Thoughtbox workflows. When your thinking needs a specific shape—debugging, decision-making, estimation—retrieve a mental model to scaffold the process.
 
-Mental models are process scaffolds that tell you HOW to think about a problem, not WHAT to think. They're infrastructure for your reasoning.
+${modelCount} models across ${tags.length} tags: ${tags.join(", ")}.
 
-Operations:
-- get_model: Retrieve a specific mental model prompt
-- list_models: List available models (optionally filtered by tag)
-- list_tags: List all available tags with descriptions
-- get_capability_graph: Get structured data for knowledge graph initialization
+Operations: get_model, list_models, list_tags, get_capability_graph
 
-Available tags: ${tags.join(", ")}
-
-Use list_models with a tag filter to discover relevant models for your task. For example, use tag "debugging" when stuck on an issue, or "decision-making" when choosing between options.`;
+Each model provides process steps, examples, and pitfalls. Scaffolds for HOW to think, not WHAT to think.`;
 }
 
 /**

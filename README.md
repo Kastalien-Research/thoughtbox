@@ -6,16 +6,18 @@ MCP server providing cognitive enhancement tools for LLM agents: structured reas
 
 ## Features
 
-- **Thoughtbox Tool**: Step-by-step reasoning with branching, revision, and dynamic planning
-- **Mental Models**: 15 structured reasoning frameworks (rubber-duck, five-whys, pre-mortem, etc.)
-- **Notebook Tool**: Literate programming with JavaScript/TypeScript execution
-- **Patterns Cookbook**: 6 core reasoning patterns with examples and best practices
+- **Thoughtbox Tool**: Reasoning substrate for agents—call first for any task requiring thought, planning, or analysis
+- **Mental Models**: 15 structured reasoning frameworks that complement Thoughtbox workflows
+- **Notebook Tool**: Executable documentation environment for code-as-documentation
+- **Patterns Cookbook**: Core reasoning patterns automatically provided during Thoughtbox sessions
 
 ## Tools
 
-### 1. `thoughtbox` - Step-by-Step Reasoning
+### 1. `thoughtbox` - Reasoning Substrate
 
-Facilitates a detailed, step-by-step thinking process for problem-solving and analysis.
+Reasoning substrate for agents. Call first for any task requiring thought, planning, analysis, or multi-step work.
+
+Externalizes your reasoning process into structured, persistent steps. Enables dynamic course correction, branching exploration, and revision of earlier thinking. Any model becomes a reasoning model when using Thoughtbox.
 
 **Inputs:**
 
@@ -29,18 +31,7 @@ Facilitates a detailed, step-by-step thinking process for problem-solving and an
 - `branchId` (string, optional): Branch identifier
 - `needsMoreThoughts` (boolean, optional): If more thoughts are needed
 
-## Usage
-
-The Thoughtbox tool is designed for:
-
-- Breaking down complex problems into steps
-- Planning and design with room for revision
-- Analysis that might need course correction
-- Problems where the full scope might not be clear initially
-- Tasks that need to maintain context over multiple steps
-- Situations where irrelevant information needs to be filtered out
-
-### Thinking Approaches
+## Reasoning Approaches
 
 Thoughtbox supports multiple reasoning strategies. For a comprehensive guide with 7 core reasoning patterns, see the **[Thoughtbox Patterns Cookbook](src/resources/docs/thoughtbox-patterns-cookbook.md)**.
 
@@ -78,39 +69,25 @@ Start with thought N (your desired end state) and work backward to thought 1 (st
 
 Combine approaches or explore alternatives using revision and branch parameters for complex multi-faceted problems.
 
-### 2. `notebook` - Literate Programming
+### 2. `notebook` - Executable Documentation
 
-Create, manage, and execute interactive notebooks with JavaScript/TypeScript.
+Executable documentation environment. Use for building reproducible code examples, tutorials, or prototypes—especially when you lack a sandbox or when preserving code-as-documentation adds value.
 
-**Features:**
-- Isolated execution environments per notebook
-- Full package.json support with `install_deps` operation
-- Sequential Feynman template for deep learning workflows
-- Export notebooks as .src.md files
+Creates isolated JavaScript/TypeScript notebooks with markdown and executable cells. Each notebook gets its own workspace and package.json.
 
-**Operations:**
-- `create` - Create new notebook
-- `add_cell` - Add markdown or code cells
-- `run_cell` - Execute code with output capture
-- `export` - Export to .src.md format
-- `list`, `load`, `update_cell`, `get_cell`, `list_cells`
+**Operations:** `create`, `list`, `load`, `add_cell`, `update_cell`, `run_cell`, `install_deps`, `list_cells`, `get_cell`, `export`
+
+Templates available (e.g., "sequential-feynman" for deep learning workflows).
 
 ### 3. `mental_models` - Structured Reasoning Frameworks
 
-Access 15 mental models that provide process scaffolds for how to think about problems.
+Structured reasoning frameworks that complement Thoughtbox workflows. When your thinking needs a specific shape—debugging, decision-making, estimation—retrieve a mental model to scaffold the process.
 
-**Available Models:**
-- `rubber-duck`, `five-whys`, `pre-mortem`, `assumption-surfacing`
-- `steelmanning`, `trade-off-matrix`, `fermi-estimation`
-- `abstraction-laddering`, `decomposition`, `adversarial-thinking`
-- `opportunity-cost`, `constraint-relaxation`, `time-horizon-shifting`
-- `impact-effort-grid`, `inversion`
+15 models across 9 tags: debugging, planning, decision-making, risk-analysis, estimation, prioritization, communication, architecture, validation.
 
-**Operations:**
-- `get_model` - Retrieve specific mental model prompt
-- `list_models` - List all models (optionally filter by tag)
-- `list_tags` - Show available tags (debugging, planning, decision-making, etc.)
-- `get_capability_graph` - Get structured data for knowledge graphs
+**Operations:** `get_model`, `list_models`, `list_tags`, `get_capability_graph`
+
+Each model provides process steps, examples, and pitfalls. Scaffolds for HOW to think, not WHAT to think.
 
 ## Prerequisites
 
