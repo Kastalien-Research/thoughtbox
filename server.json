@@ -6,12 +6,12 @@
     "url": "https://github.com/Kastalien-Research/thoughtbox",
     "source": "github"
   },
-  "version": "1.0.2",
+  "version": "1.0.3",
   "packages": [
     {
       "registryType": "npm",
       "identifier": "@kastalien-research/thoughtbox",
-      "version": "1.0.2",
+      "version": "1.0.3",
       "transport": {
         "type": "stdio"
       }
