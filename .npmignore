@@ -31,6 +31,7 @@ package-lock.json
 # Local documentation (source files for bundled content)
 local-docs/
 docs/
+specs/
 
 # Improvement opps
 improvement-recs/
