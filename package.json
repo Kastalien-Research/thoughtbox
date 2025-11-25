@@ -1,14 +1,32 @@
 {
   "name": "@kastalien-research/thoughtbox",
   "version": "1.0.1",
-  "description": "Thoughtbox",
+  "description": "MCP server providing cognitive enhancement tools for LLM agents: structured reasoning, mental models, and literate programming notebooks",
   "mcpName": "io.github.kastalien-research/thoughtbox",
   "license": "MIT",
   "author": "glassBead at Kastalien Research",
-  "homepage": "https://github.com/Kastalien-Research",
+  "homepage": "https://github.com/Kastalien-Research/thoughtbox",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Kastalien-Research/thoughtbox.git"
+  },
   "bugs": "https://github.com/Kastalien-Research/thoughtbox/issues",
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "mcp-server",
+    "reasoning",
+    "thoughtbox",
+    "mental-models",
+    "notebook",
+    "cognitive-tools",
+    "ai",
+    "llm"
+  ],
   "type": "module",
-  "module": "src/index.ts",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "bin": {
     "thoughtbox": "./dist/index.js"
   },
@@ -44,7 +62,6 @@
     "chalk": "^5.6.0",
     "cors": "^2.8.5",
     "express": "^5.1.0",
-    "yargs": "^18.0.0",
     "zod": "^3.25.76"
   },
   "devDependencies": {
