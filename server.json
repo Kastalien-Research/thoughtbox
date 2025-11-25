@@ -1,6 +1,6 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-10-17/server.schema.json",
-  "name": "io.github.kastalien-research/thoughtbox",
+  "name": "io.github.Kastalien-Research/thoughtbox",
   "description": "Extended reasoning with structured processes, persistence, and workflow guidance",
   "repository": {
     "url": "https://github.com/Kastalien-Research/thoughtbox",
