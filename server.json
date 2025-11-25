@@ -1,29 +1,20 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-10-17/server.schema.json",
-  "name": "io.github.Kastalien-Research/thoughtbox",
-  "description": "Thoughtbox",
+  "name": "io.github.kastalien-research/thoughtbox",
+  "description": "Extended reasoning with structured processes, persistence, and workflow guidance",
   "repository": {
     "url": "https://github.com/Kastalien-Research/thoughtbox",
     "source": "github"
   },
-  "version": "1.0.0",
+  "version": "1.0.1",
   "packages": [
     {
       "registryType": "npm",
       "identifier": "@kastalien-research/thoughtbox",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "transport": {
         "type": "stdio"
-      },
-      "environmentVariables": [
-        {
-          "description": "Your API key for the service",
-          "isRequired": false,
-          "format": "string",
-          "isSecret": true,
-          "name": "YOUR_API_KEY"
-        }
-      ]
+      }
     }
   ]
 }

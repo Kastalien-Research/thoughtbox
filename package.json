@@ -2,7 +2,7 @@
   "name": "@kastalien-research/thoughtbox",
   "version": "1.0.1",
   "description": "Thoughtbox",
-  "mcpName": "io.github.Kastalien-Research/thoughtbox",
+  "mcpName": "io.github.kastalien-research/thoughtbox",
   "license": "MIT",
   "author": "glassBead at Kastalien Research",
   "homepage": "https://github.com/Kastalien-Research",
@@ -20,15 +20,21 @@
   ],
   "scripts": {
     "embed-templates": "tsx scripts/embed-templates.ts",
+    "generate-capabilities": "tsx scripts/generate-capabilities.ts",
     "dev": "npm run embed-templates && smithery dev",
-    "build": "npm run build:stdio && npm run build:http",
-    "build:stdio": "npm run embed-templates && tsc && shx cp -r src/resources dist/ && shx cp -r templates dist/ && shx chmod +x dist/*.js",
-    "build:http": "npm run embed-templates && smithery build",
-    "start": "npm run start:http",
-    "start:http": "node .smithery/index.cjs",
+    "build": "npm run check:cycles && npm run build:stdio && npm run build:http-local",
+    "build:stdio": "npm run embed-templates && npm run generate-capabilities && tsc && shx cp -r src/resources dist/ && shx cp -r templates dist/ && shx chmod +x dist/*.js",
+    "build:http-local": "npm run build:stdio",
+    "build:http-smithery": "npm run embed-templates && npm run generate-capabilities && smithery build",
+    "start": "npm run start:http-local",
+    "start:http-local": "node dist/http.js",
+    "start:http-smithery": "node .smithery/index.cjs",
     "start:stdio": "node dist/index.js",
     "prepublishOnly": "npm run build:stdio",
-    "watch": "tsc --watch"
+    "watch": "tsc --watch",
+    "check:cycles": "./scripts/check-cycles.sh",
+    "check:cycles:strict": "./scripts/check-cycles.sh --strict",
+    "prepare": "husky"
   },
   "engines": {
     "node": ">=22.0.0"
@@ -36,14 +42,20 @@
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.20.0",
     "chalk": "^5.6.0",
+    "cors": "^2.8.5",
+    "express": "^5.1.0",
     "yargs": "^18.0.0",
     "zod": "^3.25.76"
   },
   "devDependencies": {
     "@smithery/cli": "^1.6.2",
     "@smithery/sdk": "^1.7.4",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.5",
     "@types/node": "^22.18.12",
     "@types/yargs": "^17.0.32",
+    "husky": "^9.1.6",
+    "madge": "^8.0.0",
     "shx": "^0.3.4",
     "tsx": "^4.20.6",
     "typescript": "^5.3.3"

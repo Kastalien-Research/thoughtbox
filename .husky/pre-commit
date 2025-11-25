@@ -1,0 +1,5 @@
+#!/bin/sh
+. "$(dirname "$0")/_/husky.sh"
+
+# Check for cyclic dependencies before commit
+npm run check:cycles
