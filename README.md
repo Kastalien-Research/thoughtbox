@@ -112,33 +112,25 @@ Access 15 mental models that provide process scaffolds for how to think about pr
 - `list_tags` - Show available tags (debugging, planning, decision-making, etc.)
 - `get_capability_graph` - Get structured data for knowledge graphs
 
+## Prerequisites
+
+- [Node.js](https://nodejs.org/) version 22 or higher
+
 ## Installation
 
-### Installing via NPM
+### Quick Start
+
+Run directly without installation:
 
 ```bash
-npm install -g @kastalien-research/thoughtbox
+npx -y @kastalien-research/thoughtbox
 ```
 
-## Usage
+### Configure Your MCP Client
 
-### Installing via Smithery
+#### Cline
 
-To install via [Smithery](https://smithery.ai/server/@Kastalien-Research/clear-thought-two):
-
-```bash
-npx -y @smithery/cli install @Kastalien-Research/clear-thought-two
-```
-
-> **Note**: Smithery deployment uses the name `@Kastalien-Research/clear-thought-two` while the NPM package is `@kastalien-research/thoughtbox`.
-
-Thoughtbox supports both **STDIO** (for local development) and **HTTP** (for production deployments) transports.
-
-### STDIO Transport (Local Development)
-
-#### Claude Desktop
-
-Add to your `claude_desktop_config.json`:
+Add to your Cline MCP settings (click MCP Servers icon → Configure → Configure MCP Servers):
 
 ```json
 {
@@ -151,26 +143,60 @@ Add to your `claude_desktop_config.json`:
 }
 ```
 
-**Environment Variables:**
+#### Claude Desktop
 
-- `DISABLE_THOUGHT_LOGGING=true` - Disable thought logging to stderr
+Add to your `claude_desktop_config.json`:
 
-#### VS Code (Cline)
-
-Add to `.vscode/mcp.json` or User Settings:
+- **macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
+- **Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
 
 ```json
 {
-  "mcp": {
-    "servers": {
-      "thoughtbox": {
-        "command": "npx",
-        "args": ["-y", "@kastalien-research/thoughtbox"]
-      }
+  "mcpServers": {
+    "thoughtbox": {
+      "command": "npx",
+      "args": ["-y", "@kastalien-research/thoughtbox"]
     }
   }
 }
 ```
+
+#### VS Code (GitHub Copilot)
+
+Add to `.vscode/mcp.json` in your workspace:
+
+```json
+{
+  "servers": {
+    "thoughtbox": {
+      "command": "npx",
+      "args": ["-y", "@kastalien-research/thoughtbox"]
+    }
+  }
+}
+```
+
+### Alternative Installation Methods
+
+#### Global Installation (npm)
+
+```bash
+npm install -g @kastalien-research/thoughtbox
+```
+
+#### Smithery
+
+To install via [Smithery](https://smithery.ai/server/@Kastalien-Research/clear-thought-two):
+
+```bash
+npx -y @smithery/cli install @Kastalien-Research/clear-thought-two
+```
+
+> **Note**: Smithery deployment uses the name `@Kastalien-Research/clear-thought-two` while the NPM package is `@kastalien-research/thoughtbox`.
+
+### Environment Variables
+
+- `DISABLE_THOUGHT_LOGGING=true` - Disable thought logging to stderr
 
 ### HTTP Transport (Production Deployment)
 
