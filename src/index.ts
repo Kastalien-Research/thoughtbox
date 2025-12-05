@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+import { writeFileSync } from "fs";
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import {
@@ -55,6 +56,7 @@ interface ThoughtData {
   branchId?: string;
   needsMoreThoughts?: boolean;
   includeGuide?: boolean;
+  includeChart?: boolean;
   nextThoughtNeeded: boolean;
 }
 
@@ -63,8 +65,10 @@ class ClearThoughtServer {
   private branches: Record<string, ThoughtData[]> = {};
   private disableThoughtLogging: boolean;
   private patternsCookbook: string;
+  private sessionTimestamp: string;
 
   constructor(disableThoughtLogging: boolean = false) {
+    this.sessionTimestamp = Date.now().toString();
     this.disableThoughtLogging = disableThoughtLogging;
     // Use imported cookbook content (works for both STDIO and HTTP builds)
     this.patternsCookbook = PATTERNS_COOKBOOK;
@@ -97,6 +101,7 @@ class ClearThoughtServer {
       branchId: data.branchId as string | undefined,
       needsMoreThoughts: data.needsMoreThoughts as boolean | undefined,
       includeGuide: data.includeGuide as boolean | undefined,
+      includeChart: data.includeChart as boolean | undefined,
     };
   }
 
@@ -136,10 +141,165 @@ class ClearThoughtServer {
 └${border}┘`;
   }
 
-  public processThought(input: unknown): {
+  /**
+   * Format a compact inline summary of the reasoning chain.
+   * Shows thought number, type indicator, and truncated first line.
+   */
+  private formatCompactChain(thoughts: ThoughtData[]): string {
+    return thoughts
+      .map((t) => {
+        const typeIndicator = t.isRevision
+          ? "↩"
+          : t.branchFromThought
+            ? "⑂"
+            : "→";
+        const firstLine = t.thought.split("\n")[0].slice(0, 50);
+        const ellipsis = t.thought.split("\n")[0].length > 50 ? "..." : "";
+        return `T${t.thoughtNumber}${typeIndicator}: ${firstLine}${ellipsis}`;
+      })
+      .join("\n");
+  }
+
+  /**
+   * Format the full reasoning chain as markdown for file export.
+   */
+  private formatFullChain(thoughts: ThoughtData[]): string {
+    const lines = ["# Thoughtbox Reasoning Chain", ""];
+
+    for (const t of thoughts) {
+      let header = `## Thought ${t.thoughtNumber}/${t.totalThoughts}`;
+      if (t.isRevision && t.revisesThought) {
+        header += ` (Revision of T${t.revisesThought})`;
+      } else if (t.branchFromThought && t.branchId) {
+        header += ` (Branch "${t.branchId}" from T${t.branchFromThought})`;
+      }
+
+      lines.push(header);
+      lines.push("");
+      lines.push(t.thought);
+      lines.push("");
+      lines.push(
+        `*Status: ${t.nextThoughtNeeded ? "More thoughts needed" : "Complete"}*`
+      );
+      lines.push("");
+      lines.push("---");
+      lines.push("");
+    }
+
+    return lines.join("\n");
+  }
+
+  /**
+   * Generate Mermaid flowchart from reasoning chain.
+   */
+  private generateReasoningChart(thoughts: ThoughtData[]): string {
+    const mermaid = ["flowchart TD"];
+
+    // Add nodes
+    for (const t of thoughts) {
+      const label = t.thought
+        .split("\n")[0]
+        .slice(0, 40)
+        .replace(/"/g, "'")
+        .replace(/[[\]{}()<>]/g, "");
+      const shape = t.isRevision ? "((" : t.branchFromThought ? "{{" : "[";
+      const end = t.isRevision ? "))" : t.branchFromThought ? "}}" : "]";
+      mermaid.push(`  T${t.thoughtNumber}${shape}"${label}"${end}`);
+    }
+
+    // Add edges
+    for (let i = 1; i < thoughts.length; i++) {
+      const t = thoughts[i];
+      const prev = thoughts[i - 1];
+      if (t.isRevision && t.revisesThought) {
+        mermaid.push(`  T${t.thoughtNumber} -.->|revises| T${t.revisesThought}`);
+      } else if (t.branchFromThought) {
+        mermaid.push(
+          `  T${t.branchFromThought} ==>|branch| T${t.thoughtNumber}`
+        );
+      } else {
+        mermaid.push(`  T${prev.thoughtNumber} --> T${t.thoughtNumber}`);
+      }
+    }
+
+    // Wrap in HTML with Mermaid CDN
+    const mermaidCode = mermaid.join("\n");
+    return `<!DOCTYPE html>
+<html><head>
+<meta charset="UTF-8">
+<title>Reasoning Flow</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<style>
+  body { font-family: system-ui, sans-serif; max-width: 900px; margin: 0 auto; padding: 20px; }
+  h1 { color: #2c3e50; }
+  .mermaid { background: #f8f9fa; padding: 20px; border-radius: 8px; }
+</style>
+</head><body>
+<h1>Reasoning Flow</h1>
+<p>Generated from ${thoughts.length} thoughts</p>
+<div class="mermaid">
+${mermaidCode}
+</div>
+<script>mermaid.initialize({startOnLoad:true,theme:'default'})</script>
+</body></html>`;
+  }
+
+  private generateThoughtDashboardHtml(): string {
+    const thoughts = this.thoughtHistory.map((t) => {
+      let typeClass = "thought";
+      let typeLabel = "Thought";
+      if (t.isRevision) {
+        typeClass = "revision";
+        typeLabel = "Revision";
+      } else if (t.branchFromThought) {
+        typeClass = "branch";
+        typeLabel = "Branch";
+      }
+
+      return `
+        <div class="card ${typeClass}">
+          <div class="header">
+            <span class="badge ${typeClass}">${typeLabel}</span>
+            <span class="number">#${t.thoughtNumber}</span>
+            ${t.revisesThought ? `<span class="ref">Revises #${t.revisesThought}</span>` : ""}
+            ${t.branchFromThought ? `<span class="ref">From #${t.branchFromThought}</span>` : ""}
+          </div>
+          <div class="content">${t.thought}</div>
+          <div class="footer">
+            <span class="status">${t.nextThoughtNeeded ? "More needed" : "Complete"}</span>
+          </div>
+        </div>
+      `;
+    }).join("");
+
+    return `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <style>
+          body { font-family: system-ui, sans-serif; padding: 20px; background: #f0f0f0; }
+          .card { background: white; border-radius: 8px; padding: 16px; margin-bottom: 16px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+          .header { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; font-size: 0.9em; color: #666; }
+          .badge { padding: 2px 8px; border-radius: 4px; font-weight: bold; font-size: 0.8em; text-transform: uppercase; }
+          .thought .badge { background: #e3f2fd; color: #1565c0; }
+          .revision .badge { background: #fff3e0; color: #ef6c00; }
+          .branch .badge { background: #e8f5e9; color: #2e7d32; }
+          .content { white-space: pre-wrap; line-height: 1.5; }
+          .footer { margin-top: 12px; font-size: 0.8em; color: #999; border-top: 1px solid #eee; padding-top: 8px; }
+        </style>
+      </head>
+      <body>
+        <h1>Thinking Process</h1>
+        ${thoughts}
+      </body>
+      </html>
+    `;
+  }
+
+  public async processThought(input: unknown): Promise<{
     content: Array<any>;
     isError?: boolean;
-  } {
+  }> {
     try {
       const validatedInput = this.validateThoughtData(input);
 
@@ -179,6 +339,35 @@ class ClearThoughtServer {
         },
       ];
 
+      // Include reasoning chain summary at thought 2 and N-1
+      // Gives agents using forward (thought 2) or backward (N-1) reasoning a chance to review their chain
+      const isSecondThought = validatedInput.thoughtNumber === 2;
+      const isPenultimate =
+        validatedInput.thoughtNumber === validatedInput.totalThoughts - 1;
+      const shouldIncludeChain = isSecondThought || isPenultimate;
+
+      if (shouldIncludeChain) {
+        // Write full chain to file for detailed inspection
+        const fullChain = this.formatFullChain(this.thoughtHistory);
+        const chainFilePath = `/tmp/thoughtbox-reasoning-${this.sessionTimestamp}.md`;
+        writeFileSync(chainFilePath, fullChain);
+
+        // Build compact summary for inline display
+        const compactChain = this.formatCompactChain(this.thoughtHistory);
+
+        if (isSecondThought) {
+          content.push({
+            type: "text",
+            text: `## Reasoning Chain\n\n${compactChain}\n\nFull history: ${chainFilePath}\n\n*You can branch from any thought or revise previous thoughts as you progress.*`,
+          });
+        } else if (isPenultimate) {
+          content.push({
+            type: "text",
+            text: `## Reasoning Chain (Review Before Finalizing)\n\n${compactChain}\n\nFull history: ${chainFilePath}\n\n*Consider: Are there gaps? Should you revise any earlier thoughts? Branch to explore alternatives?*`,
+          });
+        }
+      }
+
       // Include patterns cookbook as embedded resource when:
       // 1. At the start (thoughtNumber === 1)
       // 2. At the end (thoughtNumber === totalThoughts)
@@ -201,6 +390,22 @@ class ClearThoughtServer {
               priority: 0.9,
             },
           },
+        });
+      }
+
+      // Generate Mermaid chart when requested on final thought
+      if (
+        validatedInput.includeChart &&
+        !validatedInput.nextThoughtNeeded &&
+        this.thoughtHistory.length > 0
+      ) {
+        const chartHtml = this.generateReasoningChart(this.thoughtHistory);
+        const chartPath = `/tmp/thoughtbox-chart-${this.sessionTimestamp}.html`;
+        writeFileSync(chartPath, chartHtml);
+
+        content.push({
+          type: "text",
+          text: `\n📊 Reasoning chart: ${chartPath}\nView with: open ${chartPath}`,
         });
       }
 
@@ -291,6 +496,11 @@ Request anytime with includeGuide parameter.`,
         type: "boolean",
         description:
           "Request the patterns cookbook guide as embedded resource (also provided automatically at thought 1 and final thought)",
+      },
+      includeChart: {
+        type: "boolean",
+        description:
+          "Generate visual Mermaid flowchart of reasoning process (returns file path to HTML)",
       },
     },
     required: [

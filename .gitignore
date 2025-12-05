@@ -55,6 +55,7 @@ srcbook/
 local-docs/
 smithery-docs/
 mcp-specs/
+mcp-ui/
 
 # Improvement opps
 improvement-recs/
@@ -68,6 +69,11 @@ adat.md
 # Development documentation
 docs/
 specs/
+mcp-spec/
+mcp-ui/
+mcp-ui/CLAUDE.md
+ai_docs/
+reflections/
 
 # Analysis and blog posts (local development artifacts)
 adat.md
