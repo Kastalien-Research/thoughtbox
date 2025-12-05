@@ -56,6 +56,7 @@
     "node": ">=22.0.0"
   },
   "dependencies": {
+    "@mcp-ui/server": "5.16.1",
     "@modelcontextprotocol/sdk": "1.20.0",
     "chalk": "^5.6.0",
     "cors": "^2.8.5",
