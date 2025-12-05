@@ -1,13 +1,13 @@
 # Thoughtbox MCP Server - Capabilities
 
 > Auto-generated documentation of all server capabilities.
-> Generated: 2025-12-05T09:01:42.068Z
+> Generated: 2025-12-05T22:26:24.825Z
 
 ## Overview
 
 **Package:** `@kastalien-research/thoughtbox`
 **MCP Name:** `io.github.Kastalien-Research/thoughtbox`
-**Version:** 1.0.3
+**Version:** 1.0.1
 
 Thoughtbox is an MCP server that provides cognitive enhancement tools for LLM agents. It offers infrastructure for structured reasoning, not intelligence - the server serves process scaffolds that tell agents HOW to think, not WHAT to think.
 
@@ -42,9 +42,8 @@ Use for:
 | `revisesThought` | integer | No | Which thought is being reconsidered |
 | `branchFromThought` | integer | No | Branching point thought number |
 | `branchId` | string | No | Branch identifier |
-| `needsMoreThoughts` | boolean | No | Indicates whether the estimated `totalThoughts` should be increased for the current task |
-| `includeGuide` | boolean | No | Request the patterns cookbook guide as embedded resource (also provided automatically at thought 1 and final thought) |
-| `includeChart` | boolean | No | Generate visual Mermaid flowchart of reasoning process (returns file path to HTML) |
+| `needsMoreThoughts` | boolean | No | If more thoughts are needed |
+| `includeGuide` | boolean | No | Request the patterns cookbook guide as embedded resource |
 
 ### 2. `notebook` - Literate Programming Toolhost
 
@@ -424,7 +423,6 @@ Install npm dependencies defined in the notebook's package.json
 ## Summary Statistics
 
 - **Tools:** 3 (thoughtbox, notebook, mental_models)
-- **Thoughtbox Parameters:** 10 (4 required, 6 optional)
 - **Notebook Operations:** 10
 - **Mental Models Operations:** 4
 - **Mental Models:** 15
