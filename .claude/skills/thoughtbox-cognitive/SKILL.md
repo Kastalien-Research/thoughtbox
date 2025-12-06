@@ -15,9 +15,12 @@ Orchestrate the three Thoughtbox MCP tools for structured reasoning.
 - **Deep learning** → Sequential Feynman notebook template
 - **Research tasks** → interleaved reasoning loops
 
+---
+
 ## Tools Quick Reference
 
-### thoughtbox
+### thoughtbox — Non-Linear Reasoning
+
 ```javascript
 thoughtbox({
   thought: "...",
@@ -31,18 +34,102 @@ thoughtbox({
 })
 ```
 
-### mental_models
+**7 Thinking Patterns:**
+
+| Pattern | Direction | Use When |
+|---------|-----------|----------|
+| Forward | 1→N | Exploring, brainstorming, discovery |
+| Backward | N→1 | Known goal, planning, working from success |
+| Branching | Fork at N | Comparing options, parallel exploration |
+| Revision | Update N | New info, error found, refined understanding |
+| Interleaved | Think↔Act | Tool-coordinated tasks, adaptive execution |
+| First Principles | Break→Rebuild | Challenging assumptions, innovation |
+| Meta-Reflection | Step back | Every 20-30 thoughts, assess approach |
+
+### mental_models — Structured Reasoning Schemas
+
 ```javascript
-mental_models({ operation: "list_models", args: { tag: "debugging" } })
 mental_models({ operation: "get_model", args: { model: "five-whys" } })
+mental_models({ operation: "list_models", args: { tag: "debugging" } })
+mental_models({ operation: "list_tags" })
+mental_models({ operation: "get_capability_graph" })  // For knowledge graph init
 ```
 
-### notebook
+**15 Models:**
+
+| Model | Purpose | Tags |
+|-------|---------|------|
+| rubber-duck | Explain to find issues | debugging, communication |
+| five-whys | Drill to root cause | debugging, validation |
+| pre-mortem | Imagine failure, work backward | risk-analysis, planning |
+| assumption-surfacing | Expose hidden assumptions | validation, planning |
+| steelmanning | Strongest opposing view | decision-making, validation |
+| trade-off-matrix | Map competing concerns | decision-making, prioritization |
+| fermi-estimation | Order-of-magnitude estimates | estimation |
+| abstraction-laddering | Move up/down abstraction | architecture, communication |
+| decomposition | Break into tractable pieces | planning, architecture |
+| adversarial-thinking | Attacker mindset | risk-analysis, validation |
+| opportunity-cost | What you give up | decision-making, prioritization |
+| constraint-relaxation | Remove constraints, explore, reapply | planning, architecture |
+| time-horizon-shifting | Evaluate at 1wk/1yr/10yr | planning, decision-making |
+| impact-effort-grid | Plot impact vs effort | prioritization |
+| inversion | Avoid failure paths | risk-analysis, planning |
+
+**9 Tags:** debugging, planning, decision-making, risk-analysis, estimation, prioritization, communication, architecture, validation
+
+### notebook — Literate Programming
+
 ```javascript
 notebook({ operation: "create", args: { title: "...", language: "typescript", template: "sequential-feynman" }})
 notebook({ operation: "add_cell", args: { notebookId: "...", cellType: "code", content: "...", filename: "test.ts" }})
 notebook({ operation: "run_cell", args: { notebookId: "...", cellId: "..." }})
 ```
+
+**10 Operations:**
+
+| Operation | Category | Purpose |
+|-----------|----------|---------|
+| create | management | New notebook (optionally with template) |
+| list | management | All active notebooks |
+| load | management | Load from .src.md (path or content) |
+| export | management | Export to .src.md |
+| add_cell | cells | Add title/markdown/code cell |
+| update_cell | cells | Update existing cell |
+| list_cells | cells | List all cells with metadata |
+| get_cell | cells | Cell details including execution results |
+| run_cell | execution | Execute code cell, capture output |
+| install_deps | execution | Install npm dependencies |
+
+**Sequential Feynman Template** — 4 phases for deep learning:
+1. Research & Synthesis
+2. Feynman Explanation (simple terms)
+3. Refinement Cycles (find gaps, iterate)
+4. Expert Re-encoding
+
+---
+
+## Prompts
+
+| Prompt | Purpose |
+|--------|---------|
+| `list_mcp_assets()` | Overview of all tools, resources, quickstart |
+| `interleaved-thinking(task, thoughts_limit, clear_folder)` | IRCoT-style multi-phase execution |
+
+---
+
+## Interleaved Modes
+
+Access via resource: `thoughtbox://interleaved/{mode}`
+
+| Mode | When | Required Capabilities |
+|------|------|----------------------|
+| research | Literature review, info gathering, synthesis | thoughtbox, retrieval/search |
+| analysis | Deep examination, pattern recognition | thoughtbox (retrieval optional) |
+| development | Code implementation, debugging | thoughtbox, code access, execution |
+
+**5-Phase Process:** Tooling Inventory → Sufficiency Assessment → Strategy → Execution Loop → Final Answer
+
+---
 
 ## Orchestration Patterns
 
@@ -82,7 +169,9 @@ WHILE task incomplete:
 END
 ```
 
-## Model Selection
+---
+
+## Model Selection Guide
 
 | Problem | Models | Pattern |
 |---------|--------|---------|
@@ -92,15 +181,7 @@ END
 | Risk assessment | pre-mortem, adversarial-thinking, inversion | Branch |
 | Understanding topic | fermi-estimation, abstraction-laddering | Feynman notebook |
 
-## Thinking Pattern Selection
-
-| Pattern | Use When |
-|---------|----------|
-| Forward (1→N) | Exploring, brainstorming |
-| Backward (N→1) | Known goal, planning |
-| Branching | Comparing options |
-| Revision | New information |
-| Interleaved | Tool-coordinated tasks |
+---
 
 ## Anti-Patterns
 
@@ -109,10 +190,13 @@ END
 - Revising without forward progress
 - Premature convergence before exploring alternatives
 
-## MCP Resources
+---
 
-Access detailed content directly from MCP:
+## MCP Resources (On-Demand Details)
+
 - Patterns cookbook: `thoughtbox({ includeGuide: true, ... })`
-- Mental model details: `mental_models({ operation: "get_model", args: { model: "..." } })`
-- All models: `mental_models({ operation: "list_models" })`
+- Mental model content: `mental_models({ operation: "get_model", args: { model: "..." } })`
+- All models/tags: `mental_models({ operation: "list_models" })` / `list_tags`
+- Capability graph: `mental_models({ operation: "get_capability_graph" })`
 - Notebook operations: resource `thoughtbox://notebook/operations`
+- Interleaved guides: resource `thoughtbox://interleaved/{mode}`

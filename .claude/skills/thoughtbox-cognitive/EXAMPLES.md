@@ -18,6 +18,7 @@ thoughtbox({ thought: "ROOT: No secret reload mechanism", thoughtNumber: 1, next
 // 3. Validate with notebook
 notebook({ operation: "create", args: { title: "JWT Debug", language: "typescript" }})
 notebook({ operation: "add_cell", args: { notebookId: "...", cellType: "code", content: "// Simulation proving hypothesis", filename: "validate.ts" }})
+notebook({ operation: "run_cell", args: { notebookId: "...", cellId: "..." }})
 ```
 
 ## Example 2: Architecture Decision
@@ -40,10 +41,10 @@ mental_models({ operation: "get_model", args: { model: "trade-off-matrix" } })
 thoughtbox({ thought: "DECISION: Timescale Cloud - balances performance, cost, operability", thoughtNumber: 8, nextThoughtNeeded: false })
 ```
 
-## Example 3: Deep Learning
+## Example 3: Deep Learning (Sequential Feynman)
 
 ```javascript
-// 1. Create Feynman notebook
+// 1. Create Feynman notebook with template
 notebook({ operation: "create", args: { title: "React Server Components", language: "typescript", template: "sequential-feynman" }})
 
 // 2. Use thoughtbox for refinement analysis
@@ -74,4 +75,41 @@ thoughtbox({ thought: "INTEGRATE: Found 5 key patterns, documenting...", thought
 
 // Phase 4: Finalize
 thoughtbox({ thought: "COMPLETE: Guide ready, validated against docs", thoughtNumber: 10, nextThoughtNeeded: false })
+```
+
+## Example 5: First Principles Innovation
+
+```javascript
+// 1. Challenge assumptions
+mental_models({ operation: "get_model", args: { model: "assumption-surfacing" } })
+
+// 2. Break down to fundamentals
+thoughtbox({ thought: "What IS auth? Identity verification + access control", thoughtNumber: 1, totalThoughts: 6, ... })
+thoughtbox({ thought: "Identity: something you know/have/are", thoughtNumber: 2, ... })
+thoughtbox({ thought: "Access: permissions mapped to verified identity", thoughtNumber: 3, ... })
+
+// 3. Rebuild from first principles
+thoughtbox({ thought: "From fundamentals: need verification + permission systems", thoughtNumber: 4, ... })
+thoughtbox({ thought: "Novel approach: capability-based tokens, not role-based", thoughtNumber: 5, ... })
+thoughtbox({ thought: "SYNTHESIS: Macaroon-style auth tokens", thoughtNumber: 6, nextThoughtNeeded: false })
+```
+
+## Example 6: Meta-Reflection
+
+```javascript
+// After 25 thoughts of complex analysis...
+thoughtbox({ thought: "META-REFLECT: Am I converging or spinning? Review branches...", thoughtNumber: 26, totalThoughts: 40, ... })
+thoughtbox({ thought: "ASSESSMENT: 3 branches explored, sql-branch most promising, nosql abandoned", thoughtNumber: 27, ... })
+thoughtbox({ thought: "ADJUST: Reduce totalThoughts to 35, focus on sql-branch refinement", thoughtNumber: 28, totalThoughts: 35, ... })
+```
+
+## Example 7: Knowledge Graph Initialization
+
+```javascript
+// 1. Get structured capability graph
+mental_models({ operation: "get_capability_graph" })
+
+// 2. Returns entities and relations ready for memory tools
+// Use with memory_create_entities and memory_create_relations
+// Makes all Thoughtbox capabilities salient in knowledge graph
 ```
