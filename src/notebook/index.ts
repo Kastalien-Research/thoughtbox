@@ -592,9 +592,8 @@ When to use:
     },
     required: ["operation"],
   },
-  annotations: {
-    audience: ["assistant"],
-    priority: 0.8,
+  annotations: {},
+  _meta: {
     available_operations: getOperationNames(),
     docs: "thoughtbox://notebook/operations",
     quickstart: "prompt://list_mcp_assets",

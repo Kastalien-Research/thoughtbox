@@ -45,7 +45,7 @@ The server consists of three main components:
 │  └──────────────────────────────────────┘  │
 │              ↓          ↓                   │
 │  ┌─────────────────┐  ┌─────────────────┐  │
-│  │ ClearThought    │  │ NotebookServer  │  │
+│  │ Thoughtbox      │  │ NotebookServer  │  │
 │  │ Server          │  │                 │  │
 │  │                 │  │ - State Manager │  │
 │  │ - History       │  │ - Execution     │  │

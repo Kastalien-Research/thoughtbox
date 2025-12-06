@@ -457,8 +457,6 @@ export const MENTAL_MODELS_TOOL: Tool = {
     required: ["operation"],
   },
   annotations: {
-    audience: ["assistant"],
-    priority: 0.7,
     readOnlyHint: true,
     destructiveHint: false,
     idempotentHint: true,
