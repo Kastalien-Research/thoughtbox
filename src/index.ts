@@ -259,16 +259,6 @@ class ThoughtboxServer {
         this.branches = {};
       }
 
-      // Update in-memory state
-      this.thoughtHistory.push(validatedInput);
-
-      if (validatedInput.branchFromThought && validatedInput.branchId) {
-        if (!this.branches[validatedInput.branchId]) {
-          this.branches[validatedInput.branchId] = [];
-        }
-        this.branches[validatedInput.branchId].push(validatedInput);
-      }
-
       // Persist to storage if session is active
       if (this.currentSessionId) {
         // Validate session exists before persisting
@@ -317,11 +307,31 @@ class ThoughtboxServer {
           await this.storage.saveThought(this.currentSessionId, thoughtData);
         }
 
+        // Update in-memory state AFTER successful persistence
+        this.thoughtHistory.push(validatedInput);
+
+        if (validatedInput.branchFromThought && validatedInput.branchId) {
+          if (!this.branches[validatedInput.branchId]) {
+            this.branches[validatedInput.branchId] = [];
+          }
+          this.branches[validatedInput.branchId].push(validatedInput);
+        }
+
         // Update session metadata
         await this.storage.updateSession(this.currentSessionId, {
           thoughtCount: this.thoughtHistory.filter(t => !t.branchId).length,
           branchCount: Object.keys(this.branches).length,
         });
+      } else {
+        // No active session - update in-memory state only
+        this.thoughtHistory.push(validatedInput);
+
+        if (validatedInput.branchFromThought && validatedInput.branchId) {
+          if (!this.branches[validatedInput.branchId]) {
+            this.branches[validatedInput.branchId] = [];
+          }
+          this.branches[validatedInput.branchId].push(validatedInput);
+        }
       }
 
       // End session when reasoning is complete
