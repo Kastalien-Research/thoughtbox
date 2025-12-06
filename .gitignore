@@ -35,8 +35,9 @@ claude-code-docs-two/
 .mcp.github.json
 mcp-ts-template/
 
-# Claude Code configuration and local data
-.claude/
+# Claude Code configuration and local data (except skills which are shared)
+.claude/*
+!.claude/skills/
 
 # Roo configuration and local data
 .roo/
