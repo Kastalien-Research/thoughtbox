@@ -250,6 +250,28 @@ class ThoughtboxServer {
 
       // Persist to storage if session is active
       if (this.currentSessionId) {
+        // Validate session exists before persisting
+        const sessionExists = await this.storage.getSession(this.currentSessionId);
+        if (!sessionExists) {
+          return {
+            content: [
+              {
+                type: "text",
+                text: JSON.stringify(
+                  {
+                    error: `Session ${this.currentSessionId} no longer exists. It may have been deleted or the session ID is corrupted. Please start a new reasoning session by using thoughtNumber: 1.`,
+                    status: "failed",
+                    sessionId: this.currentSessionId,
+                  },
+                  null,
+                  2
+                ),
+              },
+            ],
+            isError: true,
+          };
+        }
+
         const thoughtData: PersistentThoughtData = {
           thought: validatedInput.thought,
           thoughtNumber: validatedInput.thoughtNumber,
