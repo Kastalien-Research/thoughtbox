@@ -283,6 +283,20 @@ class ThoughtboxServer {
           };
         }
 
+        // Calculate updated counts for session metadata BEFORE any persistence
+        // This ensures we know what the final state will be
+        const isBranchThought = !!validatedInput.branchId;
+        const newThoughtCount = isBranchThought
+          ? this.thoughtHistory.filter(t => !t.branchId).length
+          : this.thoughtHistory.filter(t => !t.branchId).length + 1;
+        
+        const willCreateNewBranch = validatedInput.branchFromThought &&
+                                    validatedInput.branchId &&
+                                    !this.branches[validatedInput.branchId];
+        const newBranchCount = willCreateNewBranch
+          ? Object.keys(this.branches).length + 1
+          : Object.keys(this.branches).length;
+
         const thoughtData: PersistentThoughtData = {
           thought: validatedInput.thought,
           thoughtNumber: validatedInput.thoughtNumber,
@@ -308,20 +322,6 @@ class ThoughtboxServer {
         } else {
           await this.storage.saveThought(this.currentSessionId, thoughtData);
         }
-
-        // Calculate updated counts for session metadata
-        // Note: We calculate based on what the state WILL be after adding this thought
-        const isBranchThought = !!validatedInput.branchId;
-        const newThoughtCount = isBranchThought
-          ? this.thoughtHistory.filter(t => !t.branchId).length
-          : this.thoughtHistory.filter(t => !t.branchId).length + 1;
-        
-        const willCreateNewBranch = validatedInput.branchFromThought &&
-                                    validatedInput.branchId &&
-                                    !this.branches[validatedInput.branchId];
-        const newBranchCount = willCreateNewBranch
-          ? Object.keys(this.branches).length + 1
-          : Object.keys(this.branches).length;
 
         // Update session metadata
         await this.storage.updateSession(this.currentSessionId, {
