@@ -23,6 +23,7 @@ import type {
   SessionFilter,
   ThoughtData,
   SessionManifest,
+  IntegrityValidationResult,
 } from './types.js';
 
 // =============================================================================
@@ -325,21 +326,30 @@ export class FileSystemStorage implements ThoughtboxStorage {
   }
 
   async getThoughts(sessionId: string): Promise<ThoughtData[]> {
-    const manifest = await this.readManifest(sessionId);
-    const sessionDir = path.join(this.dataDir, 'sessions', sessionId);
+    try {
+      const manifest = await this.readManifest(sessionId);
+      const sessionDir = path.join(this.dataDir, 'sessions', sessionId);
 
-    const thoughts: ThoughtData[] = [];
-    for (const file of manifest.thoughtFiles) {
-      const thoughtPath = path.join(sessionDir, 'thoughts', file);
-      try {
-        const content = await fs.readFile(thoughtPath, 'utf-8');
-        thoughts.push(JSON.parse(content));
-      } catch {
-        // Skip missing files
+      const thoughts: ThoughtData[] = [];
+      for (const file of manifest.thoughtFiles) {
+        const thoughtPath = path.join(sessionDir, 'thoughts', file);
+        try {
+          const content = await fs.readFile(thoughtPath, 'utf-8');
+          thoughts.push(JSON.parse(content));
+        } catch (err) {
+          // Log warning but continue - individual files may be missing
+          console.error(`Warning: Failed to read thought file ${file} for session ${sessionId}:`, (err as Error).message);
+        }
       }
-    }
 
-    return thoughts.sort((a, b) => a.thoughtNumber - b.thoughtNumber);
+      return thoughts.sort((a, b) => a.thoughtNumber - b.thoughtNumber);
+    } catch (err) {
+      // If manifest is missing or corrupted, throw a clear error
+      throw new Error(
+        `Failed to load thoughts for session ${sessionId}: ${(err as Error).message}. ` +
+        `The session may be corrupted. Use validateSessionIntegrity() to diagnose.`
+      );
+    }
   }
 
   async getThought(
@@ -359,7 +369,7 @@ export class FileSystemStorage implements ThoughtboxStorage {
       const content = await fs.readFile(thoughtPath, 'utf-8');
       return JSON.parse(content);
     } catch (err) {
-      if ((err as NodeJS.ErrnoException).code === 'ENOENT') return null;
+      if ((err as { code?: string }).code === 'ENOENT') return null;
       throw err;
     }
   }
@@ -525,6 +535,109 @@ export class FileSystemStorage implements ThoughtboxStorage {
   }
 
   // ===========================================================================
+  // Integrity Operations
+  // ===========================================================================
+
+  async validateSessionIntegrity(sessionId: string): Promise<IntegrityValidationResult> {
+    const result: IntegrityValidationResult = {
+      valid: true,
+      sessionExists: false,
+      manifestExists: false,
+      manifestValid: false,
+      missingThoughtFiles: [],
+      missingBranchFiles: {},
+      errors: [],
+    };
+
+    const sessionDir = path.join(this.dataDir, 'sessions', sessionId);
+
+    // 1. Check if session directory exists
+    try {
+      await fs.access(sessionDir);
+      result.sessionExists = true;
+    } catch {
+      result.valid = false;
+      result.errors.push(`Session directory not found: ${sessionDir}`);
+      return result; // No point checking further
+    }
+
+    // 2. Check if manifest exists and is valid
+    const manifestPath = path.join(sessionDir, 'manifest.json');
+    let manifest: SessionManifest | null = null;
+    
+    try {
+      await fs.access(manifestPath);
+      result.manifestExists = true;
+      
+      const content = await fs.readFile(manifestPath, 'utf-8');
+      manifest = JSON.parse(content);
+      result.manifestValid = true;
+    } catch (err) {
+      result.valid = false;
+      if (!result.manifestExists) {
+        result.errors.push(`Manifest file not found: ${manifestPath}`);
+      } else {
+        result.errors.push(`Manifest file is corrupted or invalid JSON: ${(err as Error).message}`);
+      }
+      return result; // Can't validate files without manifest
+    }
+
+    // TypeScript guard: manifest is guaranteed to be non-null here
+    if (!manifest) {
+      result.errors.push('Unexpected error: manifest is null after validation');
+      return result;
+    }
+
+    // 3. Check if thought files referenced in manifest exist
+    const thoughtsDir = path.join(sessionDir, 'thoughts');
+    for (const file of manifest.thoughtFiles) {
+      const thoughtPath = path.join(thoughtsDir, file);
+      try {
+        await fs.access(thoughtPath);
+      } catch {
+        result.valid = false;
+        result.missingThoughtFiles.push(file);
+      }
+    }
+
+    // 4. Check if branch files referenced in manifest exist
+    for (const [branchId, files] of Object.entries(manifest.branchFiles)) {
+      const branchDir = path.join(sessionDir, 'branches', branchId);
+      const missingFiles: string[] = [];
+      
+      for (const file of files) {
+        const branchThoughtPath = path.join(branchDir, file);
+        try {
+          await fs.access(branchThoughtPath);
+        } catch {
+          result.valid = false;
+          missingFiles.push(file);
+        }
+      }
+      
+      if (missingFiles.length > 0) {
+        result.missingBranchFiles[branchId] = missingFiles;
+      }
+    }
+
+    // 5. Add summary error if files are missing
+    if (result.missingThoughtFiles.length > 0) {
+      result.errors.push(
+        `Missing ${result.missingThoughtFiles.length} thought file(s): ${result.missingThoughtFiles.join(', ')}`
+      );
+    }
+    
+    const missingBranchCount = Object.keys(result.missingBranchFiles).length;
+    if (missingBranchCount > 0) {
+      result.errors.push(
+        `Missing files in ${missingBranchCount} branch(es)`
+      );
+    }
+
+    return result;
+  }
+
+  // ===========================================================================
   // Private Helpers
   // ===========================================================================
 
@@ -580,8 +693,22 @@ export class FileSystemStorage implements ThoughtboxStorage {
       sessionId,
       'manifest.json'
     );
-    const content = await fs.readFile(manifestPath, 'utf-8');
-    return JSON.parse(content);
+    
+    try {
+      const content = await fs.readFile(manifestPath, 'utf-8');
+      return JSON.parse(content);
+    } catch (err) {
+      const error = err as { code?: string; message: string };
+      if (error.code === 'ENOENT') {
+        throw new Error(
+          `Session manifest not found for session ${sessionId}. ` +
+          `The session may be corrupted. Path: ${manifestPath}`
+        );
+      }
+      throw new Error(
+        `Failed to read session manifest for ${sessionId}: ${error.message}`
+      );
+    }
   }
 
   private async writeManifest(

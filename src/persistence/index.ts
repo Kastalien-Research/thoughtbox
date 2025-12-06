@@ -14,6 +14,7 @@ export type {
   ThoughtInput,
   SessionManifest,
   ThoughtboxStorage,
+  IntegrityValidationResult,
 } from './types.js';
 
 // Storage implementation

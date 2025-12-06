@@ -119,29 +119,50 @@ class ThoughtboxServer {
    */
   async loadSession(sessionId: string): Promise<void> {
     const session = await this.storage.getSession(sessionId);
-    if (!session) throw new Error(`Session ${sessionId} not found`);
+    if (!session) throw new Error(`Session ${sessionId} not found in database`);
+
+    // Validate filesystem integrity before loading
+    const integrity = await this.storage.validateSessionIntegrity(sessionId);
+    if (!integrity.valid) {
+      const errorDetails = integrity.errors.join('; ');
+      throw new Error(
+        `Cannot load session ${sessionId}: Filesystem corruption detected. ${errorDetails}\n\n` +
+        `Recovery options:\n` +
+        `1. Delete the corrupted session using the storage API\n` +
+        `2. Manually inspect/repair files in the session directory\n` +
+        `3. Start a new reasoning session`
+      );
+    }
 
     this.currentSessionId = sessionId;
 
     // Load thoughts into memory
-    const thoughts = await this.storage.getThoughts(sessionId);
-    this.thoughtHistory = thoughts.map((t) => ({
-      thought: t.thought,
-      thoughtNumber: t.thoughtNumber,
-      totalThoughts: t.totalThoughts,
-      nextThoughtNeeded: t.nextThoughtNeeded,
-      isRevision: t.isRevision,
-      revisesThought: t.revisesThought,
-      branchFromThought: t.branchFromThought,
-      branchId: t.branchId,
-      needsMoreThoughts: t.needsMoreThoughts,
-      includeGuide: t.includeGuide,
-    }));
+    try {
+      const thoughts = await this.storage.getThoughts(sessionId);
+      this.thoughtHistory = thoughts.map((t) => ({
+        thought: t.thought,
+        thoughtNumber: t.thoughtNumber,
+        totalThoughts: t.totalThoughts,
+        nextThoughtNeeded: t.nextThoughtNeeded,
+        isRevision: t.isRevision,
+        revisesThought: t.revisesThought,
+        branchFromThought: t.branchFromThought,
+        branchId: t.branchId,
+        needsMoreThoughts: t.needsMoreThoughts,
+        includeGuide: t.includeGuide,
+      }));
 
-    // Update lastAccessedAt
-    await this.storage.updateSession(sessionId, {
-      lastAccessedAt: new Date(),
-    });
+      // Update lastAccessedAt
+      await this.storage.updateSession(sessionId, {
+        lastAccessedAt: new Date(),
+      });
+    } catch (err) {
+      // Clear the session ID if loading failed
+      this.currentSessionId = null;
+      throw new Error(
+        `Failed to load session ${sessionId}: ${(err as Error).message}`
+      );
+    }
   }
 
   private validateThoughtData(input: unknown): ThoughtData {

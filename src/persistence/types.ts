@@ -92,6 +92,23 @@ export interface ThoughtInput extends ThoughtData {
 }
 
 // =============================================================================
+// Filesystem Integrity Types
+// =============================================================================
+
+/**
+ * Result of filesystem integrity validation
+ */
+export interface IntegrityValidationResult {
+  valid: boolean;
+  sessionExists: boolean;
+  manifestExists: boolean;
+  manifestValid: boolean;
+  missingThoughtFiles: string[];
+  missingBranchFiles: Record<string, string[]>;
+  errors: string[];
+}
+
+// =============================================================================
 // Manifest Types
 // =============================================================================
 
@@ -216,4 +233,14 @@ export interface ThoughtboxStorage {
    * Export session to specified format
    */
   exportSession(sessionId: string, format: 'json' | 'markdown'): Promise<string>;
+
+  // ---------------------------------------------------------------------------
+  // Integrity Operations
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Validate filesystem integrity for a session
+   * Checks if session directory, manifest, and thought files exist
+   */
+  validateSessionIntegrity(sessionId: string): Promise<IntegrityValidationResult>;
 }
