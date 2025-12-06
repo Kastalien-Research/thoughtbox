@@ -32,6 +32,7 @@ import type {
 export class FileSystemStorage implements ThoughtboxStorage {
   private dbInstance: DatabaseInstance | null = null;
   private dataDir: string;
+  private manifestLocks: Map<string, Promise<void>> = new Map();
 
   constructor(dataDir?: string) {
     this.dataDir = dataDir || getDataDir();
@@ -312,13 +313,15 @@ export class FileSystemStorage implements ThoughtboxStorage {
     await fs.writeFile(tempPath, JSON.stringify(enrichedThought, null, 2), 'utf-8');
     await fs.rename(tempPath, thoughtPath);
 
-    // Update manifest
-    const manifest = await this.readManifest(sessionId);
-    if (!manifest.thoughtFiles.includes(thoughtFile)) {
-      manifest.thoughtFiles.push(thoughtFile);
-      manifest.thoughtFiles.sort();
-      await this.writeManifest(sessionId, manifest);
-    }
+    // Update manifest atomically to prevent race conditions
+    await this.withManifestLock(sessionId, async () => {
+      const manifest = await this.readManifest(sessionId);
+      if (!manifest.thoughtFiles.includes(thoughtFile)) {
+        manifest.thoughtFiles.push(thoughtFile);
+        manifest.thoughtFiles.sort();
+        await this.writeManifest(sessionId, manifest);
+      }
+    });
   }
 
   async getThoughts(sessionId: string): Promise<ThoughtData[]> {
@@ -386,16 +389,18 @@ export class FileSystemStorage implements ThoughtboxStorage {
     await fs.writeFile(tempPath, JSON.stringify(enrichedThought, null, 2), 'utf-8');
     await fs.rename(tempPath, thoughtPath);
 
-    // Update manifest
-    const manifest = await this.readManifest(sessionId);
-    if (!manifest.branchFiles[branchId]) {
-      manifest.branchFiles[branchId] = [];
-    }
-    if (!manifest.branchFiles[branchId].includes(thoughtFile)) {
-      manifest.branchFiles[branchId].push(thoughtFile);
-      manifest.branchFiles[branchId].sort();
-      await this.writeManifest(sessionId, manifest);
-    }
+    // Update manifest atomically to prevent race conditions
+    await this.withManifestLock(sessionId, async () => {
+      const manifest = await this.readManifest(sessionId);
+      if (!manifest.branchFiles[branchId]) {
+        manifest.branchFiles[branchId] = [];
+      }
+      if (!manifest.branchFiles[branchId].includes(thoughtFile)) {
+        manifest.branchFiles[branchId].push(thoughtFile);
+        manifest.branchFiles[branchId].sort();
+        await this.writeManifest(sessionId, manifest);
+      }
+    });
   }
 
   async getBranch(sessionId: string, branchId: string): Promise<ThoughtData[]> {
@@ -522,6 +527,37 @@ export class FileSystemStorage implements ThoughtboxStorage {
   // ===========================================================================
   // Private Helpers
   // ===========================================================================
+
+  /**
+   * Executes a manifest operation atomically to prevent race conditions.
+   * Ensures only one operation per session runs at a time.
+   */
+  private async withManifestLock<T>(
+    sessionId: string,
+    operation: () => Promise<T>
+  ): Promise<T> {
+    // Wait for any existing operation on this session to complete
+    const existingLock = this.manifestLocks.get(sessionId);
+    if (existingLock) {
+      await existingLock;
+    }
+
+    // Create a new lock for this operation
+    let resolveLock: () => void;
+    const lockPromise = new Promise<void>((resolve) => {
+      resolveLock = resolve;
+    });
+    this.manifestLocks.set(sessionId, lockPromise);
+
+    try {
+      // Execute the operation
+      return await operation();
+    } finally {
+      // Release the lock
+      resolveLock!();
+      this.manifestLocks.delete(sessionId);
+    }
+  }
 
   private rowToSession(row: schema.SessionRow): Session {
     return {
