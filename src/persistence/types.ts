@@ -65,6 +65,9 @@ export interface SessionFilter {
 
 /**
  * Individual thought data stored as JSON file
+ *
+ * Note: The timestamp field is always present after persistence.
+ * The storage layer automatically adds it if not provided when saving.
  */
 export interface ThoughtData {
   thought: string;
@@ -77,7 +80,7 @@ export interface ThoughtData {
   branchId?: string;
   needsMoreThoughts?: boolean;
   includeGuide?: boolean;
-  timestamp?: string; // ISO 8601
+  timestamp: string; // ISO 8601 - always present after persistence
 }
 
 /**

@@ -283,6 +283,7 @@ class ThoughtboxServer {
           branchId: validatedInput.branchId,
           needsMoreThoughts: validatedInput.needsMoreThoughts,
           includeGuide: validatedInput.includeGuide,
+          timestamp: new Date().toISOString(),
         };
 
         if (validatedInput.branchId) {
