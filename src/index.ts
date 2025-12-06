@@ -297,6 +297,8 @@ class ThoughtboxServer {
           timestamp: new Date().toISOString(),
         };
 
+        // Perform ALL persistence operations BEFORE updating in-memory state
+        // This ensures consistency: if any persistence fails, in-memory state remains unchanged
         if (validatedInput.branchId) {
           await this.storage.saveBranchThought(
             this.currentSessionId,
@@ -307,7 +309,27 @@ class ThoughtboxServer {
           await this.storage.saveThought(this.currentSessionId, thoughtData);
         }
 
-        // Update in-memory state AFTER successful persistence
+        // Calculate updated counts for session metadata
+        // Note: We calculate based on what the state WILL be after adding this thought
+        const isBranchThought = !!validatedInput.branchId;
+        const newThoughtCount = isBranchThought
+          ? this.thoughtHistory.filter(t => !t.branchId).length
+          : this.thoughtHistory.filter(t => !t.branchId).length + 1;
+        
+        const willCreateNewBranch = validatedInput.branchFromThought &&
+                                    validatedInput.branchId &&
+                                    !this.branches[validatedInput.branchId];
+        const newBranchCount = willCreateNewBranch
+          ? Object.keys(this.branches).length + 1
+          : Object.keys(this.branches).length;
+
+        // Update session metadata
+        await this.storage.updateSession(this.currentSessionId, {
+          thoughtCount: newThoughtCount,
+          branchCount: newBranchCount,
+        });
+
+        // Update in-memory state AFTER all persistence operations succeed
         this.thoughtHistory.push(validatedInput);
 
         if (validatedInput.branchFromThought && validatedInput.branchId) {
@@ -316,12 +338,6 @@ class ThoughtboxServer {
           }
           this.branches[validatedInput.branchId].push(validatedInput);
         }
-
-        // Update session metadata
-        await this.storage.updateSession(this.currentSessionId, {
-          thoughtCount: this.thoughtHistory.filter(t => !t.branchId).length,
-          branchCount: Object.keys(this.branches).length,
-        });
       } else {
         // No active session - update in-memory state only
         this.thoughtHistory.push(validatedInput);
