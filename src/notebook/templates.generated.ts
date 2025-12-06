@@ -238,11 +238,11 @@ export const TEMPLATES = {
 
 ---
 
-# Phase 3: Refinement Through Clear Thought Analysis
+# Phase 3: Refinement Through Thoughtbox Analysis
 
 *This section tracks three refinement cycles. Each cycle has:*
 - Pre-analysis questions to focus attention
-- Space for clear_thought analysis results
+- Space for thoughtbox analysis results
 - Action items for refinement
 - Post-refinement validation
 
@@ -259,14 +259,14 @@ export const TEMPLATES = {
 - Missing critical examples
 - Broken or weak analogies
 
-**Prompt for clear_thought:**
+**Prompt for thoughtbox:**
 > "Analyzing this Feynman explanation of [TOPIC] to identify technical errors, major conceptual gaps, unclear sections, and missing critical examples. Will be thorough and critical."
 
 ---
 
 ### Issues Identified
 
-*After running clear_thought, document what needs fixing:*
+*After running thoughtbox, document what needs fixing:*
 
 #### Technical Errors
 1.
@@ -322,7 +322,7 @@ export const TEMPLATES = {
 - Strength and consistency of analogies
 - Integration between sections
 
-**Prompt for clear_thought:**
+**Prompt for thoughtbox:**
 > "Reviewing refined notebook for [TOPIC]. Will assess flow, clarity of technical concepts, completeness of coverage, and whether language is appropriate for an intelligent college freshman."
 
 ---
@@ -384,7 +384,7 @@ export const TEMPLATES = {
 - No remaining gaps or confusions
 - Ready for expert re-encoding?
 
-**Prompt for clear_thought:**
+**Prompt for thoughtbox:**
 > "Final validation of [TOPIC] notebook. Will check overall coherence, consistency of analogies, readability, engagement, and confirm no gaps remain."
 
 ---

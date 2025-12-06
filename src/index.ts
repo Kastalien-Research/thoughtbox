@@ -68,7 +68,7 @@ interface ThoughtData {
   sessionTags?: string[];
 }
 
-class ClearThoughtServer {
+class ThoughtboxServer {
   private thoughtHistory: ThoughtData[] = [];
   private branches: Record<string, ThoughtData[]> = {};
   private disableThoughtLogging: boolean;
@@ -469,7 +469,7 @@ export default async function createServer({
     }
   );
 
-  const thinkingServer = new ClearThoughtServer(config.disableThoughtLogging);
+  const thinkingServer = new ThoughtboxServer(config.disableThoughtLogging);
   const notebookServer = new NotebookServer();
   const mentalModelsServer = new MentalModelsServer();
 
