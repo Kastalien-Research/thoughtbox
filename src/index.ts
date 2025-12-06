@@ -275,7 +275,7 @@ class ThoughtboxServer {
 
         // Update session metadata
         await this.storage.updateSession(this.currentSessionId, {
-          thoughtCount: this.thoughtHistory.length,
+          thoughtCount: this.thoughtHistory.filter(t => !t.branchId).length,
           branchCount: Object.keys(this.branches).length,
         });
       }
