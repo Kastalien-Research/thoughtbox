@@ -4,6 +4,7 @@ import express from "express";
 import cors from "cors";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import createServer from "./index.js";
+import { closeDatabase } from "./persistence/index.js";
 
 const app = express();
 app.use(express.json());
@@ -27,7 +28,7 @@ app.get("/health", (req, res) => {
     status: "ok",
     transport: "streamable-http",
     server: "thoughtbox",
-    version: "1.0.1",
+    version: "1.1.0",
     persistence: "enabled",
   });
 });
@@ -99,7 +100,7 @@ async function start() {
     },
   });
 
-  const port = parseInt(process.env.PORT || "3000");
+  const port = parseInt(process.env.PORT || "1729");
   app.listen(port, () => {
     console.log(
       `Thoughtbox MCP Server running on http://localhost:${port}/mcp`
@@ -109,7 +110,20 @@ async function start() {
   });
 }
 
+// Graceful shutdown handlers
+function setupGracefulShutdown() {
+  const shutdown = (signal: string) => {
+    console.log(`Received ${signal}, shutting down gracefully...`);
+    closeDatabase();
+    process.exit(0);
+  };
+
+  process.on("SIGTERM", () => shutdown("SIGTERM"));
+  process.on("SIGINT", () => shutdown("SIGINT"));
+}
+
 // Start the server
+setupGracefulShutdown();
 start().catch((error) => {
   console.error("Fatal error starting server:", error);
   process.exit(1);

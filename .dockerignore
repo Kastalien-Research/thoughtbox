@@ -1,33 +1,118 @@
+# =============================================================================
+# Docker Build Exclusions
+# =============================================================================
+# These files and directories are excluded from the Docker build context
+# to reduce image size and build time.
+
+# =============================================================================
+# Build Artifacts & Dependencies
+# =============================================================================
 node_modules
-npm-debug.log
+dist
+.smithery
 *.log
+npm-debug.log
+
+# =============================================================================
+# Version Control & CI
+# =============================================================================
 .git
+.github
 .gitignore
-coverage
-.nyc_output
+
+# =============================================================================
+# IDE & Editor Configuration
+# =============================================================================
+.vscode
+.idea
+.cursor
 .DS_Store
+
+# =============================================================================
+# Environment & Secrets
+# =============================================================================
 .env
+.env.*
 .env.local
 .env.development.local
 .env.test.local
 .env.production.local
+cc_mcp_config.json
+.mcp.json
+.mcp.github.json
+
+# =============================================================================
+# Reference Projects (NOT part of Thoughtbox)
+# =============================================================================
+# Srcbook - reference implementation, not needed in build
+srcbook/
+
+# =============================================================================
+# Development & Documentation (local only)
+# =============================================================================
+# Documentation directories
+docs/
+specs/
+local-docs/
+smithery-docs/
+mcp-specs/
+
+# Development reports and analysis
+*.md
+!README.md
+improvement-recs/
+adat.md
+glassBead-thoughtbox-blog.md
+NOTEBOOK_CAPABILITIES_REPORT.md
+NOTEBOOK_DUAL_TRANSPORT_ANALYSIS.md
+CLEANUP_REPORT.md
+DOCKER_ARCHITECTURE.md
+INTEGRATION.md
+CLAUDE.md
+AGENTS.md
+llms-install.md
+
+# Test notebooks (development artifacts)
+*.src.md
+
+# =============================================================================
+# Claude Code & IDE Tool Configuration
+# =============================================================================
+.claude/
+.claude-plugin/
+.roo/
+.roomodes
+.rooskills
+.tessl/
+tessl.json
+.thoughtbox/
+.interleaved-thinking/
+
+# =============================================================================
+# Testing
+# =============================================================================
+tests/
+coverage/
+.nyc_output
 test-results
-tests
 jest.config.js
 *.test.ts
 *.spec.ts
-.github
-.vscode
-.idea
-*.md
-!README.md
-trees
-ai_docs
-examples
-INTEGRATION.md
-CLAUDE.md
+
+# =============================================================================
+# Build Configuration (drizzle.config not needed in runtime)
+# =============================================================================
 smithery.yaml
 cspell.json
-local-docs
+drizzle.config.ts
+# Note: tsconfig.json IS needed for build stage
 
-improvement-recs/
+# =============================================================================
+# Lock files (use package-lock.json, not pnpm)
+# =============================================================================
+pnpm-lock.yaml
+
+# =============================================================================
+# Logs
+# =============================================================================
+logs/
