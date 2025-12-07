@@ -1,7 +1,11 @@
-#!/usr/bin/env node
+/**
+ * Thoughtbox MCP Server - Core Module
+ * 
+ * This module exports the MCP server factory function used by http.ts.
+ * Transport: Streamable HTTP only (WebSocket support planned for future).
+ */
 
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
-import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
@@ -92,7 +96,7 @@ class ThoughtboxServer {
     storage?: ThoughtboxStorage
   ) {
     this.disableThoughtLogging = disableThoughtLogging;
-    // Use imported cookbook content (works for both STDIO and HTTP builds)
+    // Use imported cookbook content
     this.patternsCookbook = PATTERNS_COOKBOOK;
     // Use provided storage or create default FileSystemStorage
     this.storage = storage || new FileSystemStorage();
@@ -909,27 +913,3 @@ export default async function createServer({
 
   return server;
 }
-
-// STDIO transport for backward compatibility
-async function runServer() {
-  // Get configuration from environment variable (backward compatible)
-  const disableThoughtLogging =
-    (process.env.DISABLE_THOUGHT_LOGGING || "").toLowerCase() === "true";
-
-  // Create server using the exported function (now async)
-  const server = await createServer({
-    config: {
-      disableThoughtLogging,
-    },
-  });
-
-  const transport = new StdioServerTransport();
-  await server.connect(transport);
-  console.error("Thoughtbox MCP Server running on stdio");
-}
-
-// Auto-run for STDIO usage (dist/index.js is never imported, only executed)
-runServer().catch((error) => {
-  console.error("Fatal error running server:", error);
-  process.exit(1);
-});
