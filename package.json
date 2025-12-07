@@ -52,6 +52,8 @@
     "check:cycles:strict": "./scripts/check-cycles.sh --strict",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx src/persistence/db/migrate.ts",
+    "db:status": "./scripts/db-migrate.sh status",
+    "db:drop": "./scripts/db-migrate.sh drop",
     "prepare": "husky"
   },
   "engines": {

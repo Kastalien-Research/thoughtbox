@@ -1,6 +1,3 @@
--- Add knowledge patterns table for The Garden
--- Migration: 0002_knowledge_patterns
-
 CREATE TABLE `patterns` (
 	`id` text PRIMARY KEY NOT NULL,
 	`title` text NOT NULL,
@@ -11,3 +8,6 @@ CREATE TABLE `patterns` (
 	`created_at` integer DEFAULT (unixepoch() * 1000) NOT NULL,
 	`updated_at` integer DEFAULT (unixepoch() * 1000) NOT NULL
 );
+--> statement-breakpoint
+ALTER TABLE `config` ADD `session_partition_granularity` text DEFAULT 'monthly' NOT NULL;--> statement-breakpoint
+ALTER TABLE `sessions` ADD `partition_path` text;
