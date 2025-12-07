@@ -25,6 +25,14 @@ export const config = sqliteTable('config', {
   })
     .notNull()
     .default(false),
+  /**
+   * Time partitioning granularity for session directories.
+   * Valid values: 'monthly', 'weekly', 'daily', 'none'
+   * @default 'monthly'
+   */
+  sessionPartitionGranularity: text('session_partition_granularity')
+    .notNull()
+    .default('monthly'),
   createdAt: integer('created_at', { mode: 'timestamp_ms' })
     .notNull()
     .default(sql`(unixepoch() * 1000)`),
@@ -47,6 +55,12 @@ export const sessions = sqliteTable('sessions', {
   tags: text('tags').notNull().default('[]'), // JSON array
   thoughtCount: integer('thought_count').notNull().default(0),
   branchCount: integer('branch_count').notNull().default(0),
+  /**
+   * Time partition path for this session (e.g., '2025-12' for monthly).
+   * Used to locate the session directory on filesystem.
+   * Null for legacy sessions created before time-partitioning.
+   */
+  partitionPath: text('partition_path'),
   createdAt: integer('created_at', { mode: 'timestamp_ms' })
     .notNull()
     .default(sql`(unixepoch() * 1000)`),
@@ -82,6 +96,34 @@ export const notebooks = sqliteTable('notebooks', {
 });
 
 // =============================================================================
+// Knowledge Patterns Table
+// =============================================================================
+
+/**
+ * Knowledge patterns index for search and discovery
+ *
+ * Each pattern represents extracted heuristics from successful sessions.
+ * Actual content is stored as Markdown files in the filesystem.
+ */
+export const patterns = sqliteTable('patterns', {
+  /** Unique slug identifier (e.g., 'debugging-race-conditions') */
+  id: text('id').primaryKey(),
+  title: text('title').notNull(),
+  description: text('description').notNull(),
+  tags: text('tags').notNull().default('[]'), // JSON array
+  /** Session IDs this pattern was derived from */
+  derivedFromSessions: text('derived_from_sessions').default('[]'), // JSON array
+  /** Agent ID that created this pattern */
+  createdBy: text('created_by'),
+  createdAt: integer('created_at', { mode: 'timestamp_ms' })
+    .notNull()
+    .default(sql`(unixepoch() * 1000)`),
+  updatedAt: integer('updated_at', { mode: 'timestamp_ms' })
+    .notNull()
+    .default(sql`(unixepoch() * 1000)`),
+});
+
+// =============================================================================
 // Type Inference
 // =============================================================================
 
@@ -93,3 +135,6 @@ export type SessionInsert = typeof sessions.$inferInsert;
 
 export type NotebookRow = typeof notebooks.$inferSelect;
 export type NotebookInsert = typeof notebooks.$inferInsert;
+
+export type PatternRow = typeof patterns.$inferSelect;
+export type PatternInsert = typeof patterns.$inferInsert;

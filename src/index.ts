@@ -26,6 +26,13 @@ import {
   getMentalModelsResourceContent,
 } from "./mental-models/index.js";
 import {
+  KnowledgeServer,
+  KNOWLEDGE_TOOL,
+  getKnowledgeResources,
+  getKnowledgeResourceTemplates,
+  getKnowledgeResourceContent,
+} from "./knowledge/index.js";
+import {
   LIST_MCP_ASSETS_PROMPT,
   getListMcpAssetsContent,
   INTERLEAVED_THINKING_PROMPT,
@@ -35,6 +42,7 @@ import {
 } from "./prompts/index.js";
 import {
   FileSystemStorage,
+  KnowledgeStorage,
   type ThoughtboxStorage,
   type Session,
   type SessionFilter,
@@ -542,6 +550,10 @@ export default async function createServer({
   const thinkingServer = new ThoughtboxServer(config.disableThoughtLogging);
   const notebookServer = new NotebookServer();
   const mentalModelsServer = new MentalModelsServer();
+  const knowledgeServer = new KnowledgeServer();
+  
+  // Shared knowledge storage instance for resource handlers
+  const knowledgeStorage = new KnowledgeStorage();
 
   // Initialize persistence layer
   try {
@@ -550,6 +562,15 @@ export default async function createServer({
   } catch (err) {
     console.error("Failed to initialize persistence layer:", err);
     // Continue without persistence - in-memory mode
+  }
+
+  // Initialize knowledge server
+  try {
+    await knowledgeServer.initialize();
+    await knowledgeStorage.initialize();
+    console.error("Knowledge Zone initialized");
+  } catch (err) {
+    console.error("Failed to initialize Knowledge Zone:", err);
   }
 
   // Sync mental models to filesystem for inspection
@@ -561,7 +582,7 @@ export default async function createServer({
   // Note: NotebookServer uses lazy initialization - temp directories created on first use
 
   server.setRequestHandler(ListToolsRequestSchema, async () => ({
-    tools: [CLEAR_THOUGHT_TOOL, NOTEBOOK_TOOL, MENTAL_MODELS_TOOL],
+    tools: [CLEAR_THOUGHT_TOOL, NOTEBOOK_TOOL, MENTAL_MODELS_TOOL, KNOWLEDGE_TOOL],
   }));
 
   server.setRequestHandler(CallToolRequestSchema, async (request) => {
@@ -619,6 +640,32 @@ export default async function createServer({
       }
 
       return mentalModelsServer.processTool(operation, args || {});
+    }
+
+    // Handle knowledge toolhost dispatcher
+    if (request.params.name === "knowledge") {
+      const { operation, args } = request.params.arguments as any;
+
+      if (!operation || typeof operation !== "string") {
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify(
+                {
+                  success: false,
+                  error: "operation parameter is required and must be a string",
+                },
+                null,
+                2
+              ),
+            },
+          ],
+          isError: true,
+        };
+      }
+
+      return knowledgeServer.processTool(operation, args || {});
     }
 
     return {
@@ -726,6 +773,8 @@ export default async function createServer({
       },
       // Mental models browsable hierarchy
       ...getMentalModelsResources(),
+      // Knowledge Zone resources
+      ...getKnowledgeResources(),
     ],
   }));
 
@@ -733,10 +782,12 @@ export default async function createServer({
   server.setRequestHandler(ListResourceTemplatesRequestSchema, async () => {
     const interleavedTemplates = getInterleavedResourceTemplates();
     const mentalModelsTemplates = getMentalModelsResourceTemplates();
+    const knowledgeTemplates = getKnowledgeResourceTemplates();
     return {
       resourceTemplates: [
         ...interleavedTemplates.resourceTemplates,
         ...mentalModelsTemplates.resourceTemplates,
+        ...knowledgeTemplates.resourceTemplates,
       ],
     };
   });
@@ -828,6 +879,28 @@ export default async function createServer({
         throw new Error(
           error instanceof Error ? error.message : String(error)
         );
+      }
+    }
+
+    // Handle knowledge zone resources
+    if (uri === "thoughtbox://knowledge/operations") {
+      return {
+        contents: [
+          {
+            uri,
+            mimeType: "application/json",
+            text: knowledgeServer.getOperationsCatalog(),
+          },
+        ],
+      };
+    }
+
+    if (uri.startsWith("thoughtbox://knowledge")) {
+      const content = await getKnowledgeResourceContent(uri, knowledgeStorage);
+      if (content) {
+        return {
+          contents: [content],
+        };
       }
     }
 

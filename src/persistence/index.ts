@@ -15,10 +15,18 @@ export type {
   SessionManifest,
   ThoughtboxStorage,
   IntegrityValidationResult,
+  TimePartitionGranularity,
+  // Knowledge Zone types
+  KnowledgePattern,
+  CreatePatternParams,
+  UpdatePatternParams,
+  PatternFilter,
+  ScratchpadNote,
 } from './types.js';
 
-// Storage implementation
+// Storage implementations
 export { FileSystemStorage } from './storage.js';
+export { KnowledgeStorage } from './knowledge-storage.js';
 
 // Database utilities
 export {
