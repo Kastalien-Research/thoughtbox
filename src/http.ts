@@ -101,21 +101,26 @@ async function start() {
   });
 
   const port = parseInt(process.env.PORT || "1729");
-  app.listen(port, () => {
+  const server = app.listen(port, () => {
     console.log(
       `Thoughtbox MCP Server running on http://localhost:${port}/mcp`
     );
     console.log(`Health check: http://localhost:${port}/health`);
     console.log(`Data directory: ${process.env.THOUGHTBOX_DATA_DIR || "~/.thoughtbox"}`);
   });
+
+  // Setup graceful shutdown after server is created
+  setupGracefulShutdown(server);
 }
 
 // Graceful shutdown handlers
-function setupGracefulShutdown() {
+function setupGracefulShutdown(server: ReturnType<typeof app.listen>) {
   const shutdown = (signal: string) => {
     console.log(`Received ${signal}, shutting down gracefully...`);
-    closeDatabase();
-    process.exit(0);
+    server.close(() => {
+      closeDatabase();
+      process.exit(0);
+    });
   };
 
   process.on("SIGTERM", () => shutdown("SIGTERM"));
@@ -123,7 +128,6 @@ function setupGracefulShutdown() {
 }
 
 // Start the server
-setupGracefulShutdown();
 start().catch((error) => {
   console.error("Fatal error starting server:", error);
   process.exit(1);
