@@ -39,7 +39,7 @@ app.get("/mcp", (req, res) => {
     status: "ok",
     server: {
       name: "thoughtbox-server",
-      version: "1.0.0",
+      version: "1.1.0",
       transport: "streamable-http",
       mode: "stateless",
       persistence: "enabled",
