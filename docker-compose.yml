@@ -1,0 +1,68 @@
+# =============================================================================
+# Thoughtbox MCP Server - Docker Compose Configuration
+# =============================================================================
+#
+# Quick Start:
+#   docker-compose up -d        # Start in background
+#   docker-compose logs -f      # View logs
+#   docker-compose down         # Stop (data preserved)
+#
+# MCP Client Configuration:
+#   {
+#     "mcpServers": {
+#       "thoughtbox": {
+#         "url": "http://localhost:1729/mcp",
+#         "transport": "streamable-http"
+#       }
+#     }
+#   }
+#
+# IMPORTANT: Single-agent usage only. One MCP client at a time.
+# =============================================================================
+
+services:
+  thoughtbox:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: thoughtbox
+
+    # Port binding - localhost only by default (secure)
+    # To expose on network: HOST_BIND=0.0.0.0 docker-compose up
+    ports:
+      - '${HOST_BIND:-127.0.0.1}:1729:1729'
+
+    # Volume mount - data persists on host filesystem
+    # Creates ~/.thoughtbox if it doesn't exist
+    volumes:
+      - type: bind
+        source: ~/.thoughtbox
+        target: /root/.thoughtbox
+        bind:
+          create_host_path: true
+
+    # Environment configuration
+    environment:
+      - NODE_ENV=production
+      - PORT=1729
+      - THOUGHTBOX_DATA_DIR=/root/.thoughtbox
+      - DISABLE_THOUGHT_LOGGING=${DISABLE_THOUGHT_LOGGING:-false}
+
+    # Restart policy - restart unless explicitly stopped
+    restart: unless-stopped
+
+    # Resource limits (optional, adjust as needed)
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 128M
+
+    # Health check defined in Dockerfile, but can override here
+    # healthcheck:
+    #   test: ["CMD", "wget", "--spider", "-q", "http://localhost:1729/health"]
+    #   interval: 30s
+    #   timeout: 3s
+    #   retries: 3
+    #   start_period: 5s

@@ -527,7 +527,7 @@ export default async function createServer({
   const server = new Server(
     {
       name: "thoughtbox-server",
-      version: "1.0.0",
+      version: "1.1.0",
     },
     {
       capabilities: {
