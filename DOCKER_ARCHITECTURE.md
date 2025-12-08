@@ -65,7 +65,7 @@ docker-compose down
 │   │   │   ┌─────────────┐   ┌────────┴────────┐   ┌─────────────────┐ │ │   │
 │   │   │   │   SQLite    │   │   Persistence   │   │   Mental        │ │ │   │
 │   │   │   │   Database  │   │   Layer         │   │   Models        │ │ │   │
-│   │   │   │             │   │                 │   │                 │ │ │   │
+│   │   │   │   (WAL)     │   │                 │   │                 │ │ │   │
 │   │   │   └──────┬──────┘   └─────────────────┘   └─────────────────┘ │ │   │
 │   │   │          │                                                    │ │   │
 │   │   └──────────┼────────────────────────────────────────────────────┘ │   │
@@ -79,11 +79,10 @@ docker-compose down
 │   ┌──────────────▼──────────┐                                               │
 │   │  ~/.thoughtbox          │  (Host Path)                                  │
 │   │  ├── thoughtbox.db      │  SQLite database                              │
-│   │  └── sessions/          │  Reasoning session storage                    │
-│   │      └── {session-id}/                                                  │
-│   │          ├── manifest.json                                              │
-│   │          └── thoughts/                                                  │
-│   │              └── 001.json                                               │
+│   │  ├── sessions/          │  Reasoning session storage                    │
+│   │  │   └── {YYYY-MM}/     │  Time partitions (e.g. 2024-03)               │
+│   │  │       └── {uuid}/    │  Individual session                           │
+│   │  └── notebooks/         │  Notebook storage                             │
 │   └─────────────────────────┘                                               │
 │                                                                             │
 │   MCP Client ──────────────────► http://localhost:1729/mcp                  │
@@ -98,7 +97,7 @@ docker-compose down
 
 This deployment enforces **one active MCP client at a time** for the following reasons:
 
-1. **SQLite Locking**: SQLite in default journal mode allows only one writer at a time. Concurrent writes from multiple agents would cause lock contention and potential data corruption.
+1. **SQLite Locking**: While WAL mode is enabled for better concurrency, complex multi-writer scenarios can still encounter contention without a dedicated coordinator.
 
 2. **Session State**: The reasoning engine maintains in-memory session state that isn't designed for concurrent modification by multiple agents.
 
@@ -110,8 +109,8 @@ This deployment enforces **one active MCP client at a time** for the following r
 
 If multiple MCP clients attempt to connect simultaneously:
 
-- **Read operations**: Generally safe, may see stale data
-- **Write operations**: Will block or fail due to SQLite locks
+- **Read operations**: Generally safe (WAL mode enabled)
+- **Write operations**: May block or fail if locking contention occurs
 - **Session conflicts**: Second agent may overwrite first agent's thoughts
 
 ### Recommendations
@@ -129,12 +128,10 @@ If multiple MCP clients attempt to connect simultaneously:
 
 Multi-agent concurrent access is on the roadmap. Required infrastructure:
 
-### Phase 1: SQLite WAL Mode
-```typescript
-// Enable Write-Ahead Logging for concurrent reads
-db.pragma('journal_mode = WAL');
-db.pragma('busy_timeout = 5000');
-```
+### Phase 1: SQLite WAL Mode (Completed)
+- Write-Ahead Logging is enabled by default
+- Allows concurrent readers while writing
+- Improved durability and performance
 
 ### Phase 2: Session Isolation
 - Session-level locking (one agent per session)
@@ -159,16 +156,23 @@ db.pragma('busy_timeout = 5000');
 
 ### Data Directory Structure
 
+Thoughtbox uses a time-partitioned directory structure to efficiently handle large numbers of sessions.
+
 ```
 ~/.thoughtbox/                          # THOUGHTBOX_DATA_DIR
 ├── thoughtbox.db                       # SQLite: config, session index
-└── sessions/                           # Reasoning chain storage
-    └── {session-id}/
-        ├── manifest.json               # Session metadata
-        └── thoughts/                   # Individual thought files
-            ├── 001.json
-            ├── 002.json
-            └── ...
+├── sessions/                           # Reasoning chain storage
+│   ├── .session-index.jsonl            # Append-only log
+│   └── {YYYY-MM}/                      # Time partition (default: monthly)
+│       └── {session-id}/
+│           ├── manifest.json           # Session metadata
+│           ├── thoughts/               # Individual thought files
+│           │   ├── 001.json
+│           │   └── ...
+│           └── branches/               # Alternative paths
+└── knowledge/                          # Knowledge Zone
+    ├── patterns/
+    └── scratchpad/
 ```
 
 ### Benefits of Mounted Volumes
@@ -324,8 +328,10 @@ cp -r ~/.thoughtbox ~/thoughtbox-backup-$(date +%Y%m%d)
 sqlite3 ~/.thoughtbox/thoughtbox.db ".tables"
 sqlite3 ~/.thoughtbox/thoughtbox.db "SELECT * FROM sessions;"
 
-# View a thought chain
-cat ~/.thoughtbox/sessions/{session-id}/thoughts/001.json | jq
+# View a thought chain (note the partition path)
+# Default partition is YYYY-MM
+YEAR_MONTH=$(date +%Y-%m)
+cat ~/.thoughtbox/sessions/$YEAR_MONTH/{session-id}/thoughts/001.json | jq
 ```
 
 ---

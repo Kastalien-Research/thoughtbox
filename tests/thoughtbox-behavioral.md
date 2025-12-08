@@ -153,7 +153,7 @@ Workflows for Claude to execute when verifying the thoughtbox thinking tool func
 3. Complete thought 3 with nextThoughtNeeded: true (leave session open)
 4. Restart the server (docker-compose down && docker-compose up)
 5. Verify session data persisted in filesystem:
-   - Check `~/.thoughtbox/sessions/{sessionId}/`
+   - Check `~/.thoughtbox/sessions/{YYYY-MM}/{sessionId}/`
    - Verify thought files exist: `thought-001.json`, etc.
 
 **Expected:** SQLite tracks sessions, filesystem stores thought content
@@ -180,7 +180,7 @@ Execute by calling the `thoughtbox` MCP tool with specified parameters. The tool
 
 **Session data persists to:**
 - SQLite database: `~/.thoughtbox/thoughtbox.db` (session metadata)
-- Filesystem: `~/.thoughtbox/sessions/{sessionId}/` (thought content)
+- Filesystem: `~/.thoughtbox/sessions/{YYYY-MM}/{sessionId}/` (thought content)
 
 **For a clean slate:**
 - Delete `~/.thoughtbox/sessions/` directory
