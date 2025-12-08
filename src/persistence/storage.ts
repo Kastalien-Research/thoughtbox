@@ -24,7 +24,60 @@ import type {
   ThoughtData,
   SessionManifest,
   IntegrityValidationResult,
+  TimePartitionGranularity,
 } from './types.js';
+
+// =============================================================================
+// Time Partitioning Helpers
+// =============================================================================
+
+/**
+ * Compute the partition path for a given date and granularity.
+ * 
+ * @param date - The date to compute the partition for
+ * @param granularity - The partitioning granularity
+ * @returns The partition path (e.g., '2025-12' for monthly) or empty string for 'none'
+ */
+function computePartitionPath(
+  date: Date,
+  granularity: TimePartitionGranularity
+): string {
+  switch (granularity) {
+    case 'monthly':
+      // Format: YYYY-MM (e.g., '2025-12')
+      return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+    
+    case 'weekly': {
+      // Format: YYYY-Www (e.g., '2025-W50')
+      // ISO week calculation
+      const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+      const dayNum = d.getUTCDay() || 7;
+      d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+      const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+      const weekNo = Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
+      return `${d.getUTCFullYear()}-W${String(weekNo).padStart(2, '0')}`;
+    }
+    
+    case 'daily':
+      // Format: YYYY-MM-DD (e.g., '2025-12-07')
+      return date.toISOString().split('T')[0];
+    
+    case 'none':
+    default:
+      return '';
+  }
+}
+
+/**
+ * Session index entry for the JSONL session log
+ */
+interface SessionIndexEntry {
+  id: string;
+  partitionPath: string;
+  title: string;
+  action: 'create' | 'update' | 'delete';
+  timestamp: string;
+}
 
 // =============================================================================
 // FileSystemStorage Implementation
@@ -34,9 +87,46 @@ export class FileSystemStorage implements ThoughtboxStorage {
   private dbInstance: DatabaseInstance | null = null;
   private dataDir: string;
   private manifestLocks: Map<string, Promise<void>> = new Map();
+  private cachedGranularity: TimePartitionGranularity = 'monthly';
 
   constructor(dataDir?: string) {
     this.dataDir = dataDir || getDataDir();
+  }
+
+  // ===========================================================================
+  // Session Index JSONL
+  // ===========================================================================
+
+  /**
+   * Append an entry to the session index JSONL file.
+   * This provides crash recovery without scanning all directories.
+   */
+  private async appendSessionIndex(entry: SessionIndexEntry): Promise<void> {
+    const indexPath = path.join(this.dataDir, 'sessions', '.session-index.jsonl');
+    const line = JSON.stringify(entry) + '\n';
+    await fs.appendFile(indexPath, line, 'utf-8');
+  }
+
+  /**
+   * Get the session directory path, accounting for time partitioning.
+   * 
+   * @param sessionId - The session UUID
+   * @param partitionPath - The partition path (e.g., '2025-12') or undefined for legacy
+   */
+  private getSessionDir(sessionId: string, partitionPath?: string): string {
+    if (partitionPath) {
+      return path.join(this.dataDir, 'sessions', partitionPath, sessionId);
+    }
+    // Legacy path (no partitioning)
+    return path.join(this.dataDir, 'sessions', sessionId);
+  }
+
+  /**
+   * Get the current time partition granularity from config.
+   */
+  private async getPartitionGranularity(): Promise<TimePartitionGranularity> {
+    const config = await this.getConfig();
+    return config?.sessionPartitionGranularity || 'monthly';
   }
 
   private get db() {
@@ -55,6 +145,10 @@ export class FileSystemStorage implements ThoughtboxStorage {
     await fs.mkdir(this.dataDir, { recursive: true });
     await fs.mkdir(path.join(this.dataDir, 'sessions'), { recursive: true });
     await fs.mkdir(path.join(this.dataDir, 'notebooks'), { recursive: true });
+    // Knowledge zone directories (The Garden)
+    await fs.mkdir(path.join(this.dataDir, 'knowledge'), { recursive: true });
+    await fs.mkdir(path.join(this.dataDir, 'knowledge', 'patterns'), { recursive: true });
+    await fs.mkdir(path.join(this.dataDir, 'knowledge', 'scratchpad'), { recursive: true });
 
     // 2. Initialize database connection
     this.dbInstance = getDatabase(this.dataDir);
@@ -69,8 +163,12 @@ export class FileSystemStorage implements ThoughtboxStorage {
         installId: randomUUID(),
         dataDir: this.dataDir,
         disableThoughtLogging: false,
+        sessionPartitionGranularity: 'monthly',
       });
     }
+
+    // 5. Cache the partition granularity for performance
+    this.cachedGranularity = (await this.getConfig())?.sessionPartitionGranularity || 'monthly';
   }
 
   // ===========================================================================
@@ -87,6 +185,7 @@ export class FileSystemStorage implements ThoughtboxStorage {
       installId: row.installId,
       dataDir: row.dataDir,
       disableThoughtLogging: row.disableThoughtLogging,
+      sessionPartitionGranularity: (row.sessionPartitionGranularity as TimePartitionGranularity) || 'monthly',
       createdAt: new Date(row.createdAt),
     };
   }
@@ -100,6 +199,7 @@ export class FileSystemStorage implements ThoughtboxStorage {
         installId: attrs.installId || randomUUID(),
         dataDir: attrs.dataDir || this.dataDir,
         disableThoughtLogging: attrs.disableThoughtLogging ?? false,
+        sessionPartitionGranularity: attrs.sessionPartitionGranularity || 'monthly',
       };
       await this.db.insert(schema.config).values(newConfig);
       return { ...newConfig, createdAt: new Date() };
@@ -111,8 +211,15 @@ export class FileSystemStorage implements ThoughtboxStorage {
         .set({
           dataDir: updated.dataDir,
           disableThoughtLogging: updated.disableThoughtLogging,
+          sessionPartitionGranularity: updated.sessionPartitionGranularity,
         })
         .where(eq(schema.config.installId, existing.installId));
+      
+      // Update cached granularity if it changed
+      if (attrs.sessionPartitionGranularity) {
+        this.cachedGranularity = attrs.sessionPartitionGranularity;
+      }
+      
       return updated;
     }
   }
@@ -125,6 +232,9 @@ export class FileSystemStorage implements ThoughtboxStorage {
     const id = randomUUID();
     const now = new Date();
 
+    // Compute partition path based on current granularity setting
+    const partitionPath = computePartitionPath(now, this.cachedGranularity);
+
     const session: Session = {
       id,
       title: params.title,
@@ -132,6 +242,7 @@ export class FileSystemStorage implements ThoughtboxStorage {
       tags: params.tags || [],
       thoughtCount: 0,
       branchCount: 0,
+      partitionPath: partitionPath || undefined,
       createdAt: now,
       updatedAt: now,
       lastAccessedAt: now,
@@ -145,10 +256,11 @@ export class FileSystemStorage implements ThoughtboxStorage {
       tags: JSON.stringify(session.tags),
       thoughtCount: 0,
       branchCount: 0,
+      partitionPath: partitionPath || null,
     });
 
-    // 2. Create filesystem structure
-    const sessionDir = path.join(this.dataDir, 'sessions', id);
+    // 2. Create filesystem structure (time-partitioned)
+    const sessionDir = this.getSessionDir(id, partitionPath || undefined);
     await fs.mkdir(sessionDir, { recursive: true });
     await fs.mkdir(path.join(sessionDir, 'thoughts'), { recursive: true });
     await fs.mkdir(path.join(sessionDir, 'branches'), { recursive: true });
@@ -168,7 +280,16 @@ export class FileSystemStorage implements ThoughtboxStorage {
         updatedAt: session.updatedAt.toISOString(),
       },
     };
-    await this.writeManifest(id, manifest);
+    await this.writeManifestToDir(sessionDir, manifest);
+
+    // 4. Append to session index for crash recovery
+    await this.appendSessionIndex({
+      id,
+      partitionPath: partitionPath || '',
+      title: session.title,
+      action: 'create',
+      timestamp: now.toISOString(),
+    });
 
     return session;
   }
@@ -206,9 +327,10 @@ export class FileSystemStorage implements ThoughtboxStorage {
       })
       .where(eq(schema.sessions.id, id));
 
-    // Update manifest metadata
+    // Update manifest metadata using session's partition path
+    const sessionDir = this.getSessionDir(id, existing.partitionPath);
     try {
-      const manifest = await this.readManifest(id);
+      const manifest = await this.readManifestFromDir(sessionDir, id);
       manifest.metadata = {
         title: updated.title,
         description: updated.description,
@@ -216,7 +338,7 @@ export class FileSystemStorage implements ThoughtboxStorage {
         createdAt: updated.createdAt.toISOString(),
         updatedAt: updated.updatedAt.toISOString(),
       };
-      await this.writeManifest(id, manifest);
+      await this.writeManifestToDir(sessionDir, manifest);
     } catch {
       // Manifest may not exist yet for edge cases
     }
@@ -225,14 +347,27 @@ export class FileSystemStorage implements ThoughtboxStorage {
   }
 
   async deleteSession(id: string): Promise<void> {
+    // Get session to find partition path before deletion
+    const session = await this.getSession(id);
+    const partitionPath = session?.partitionPath;
+
     // 1. Delete from SQLite
     await this.db
       .delete(schema.sessions)
       .where(eq(schema.sessions.id, id));
 
-    // 2. Delete filesystem directory
-    const sessionDir = path.join(this.dataDir, 'sessions', id);
+    // 2. Delete filesystem directory (using partition path if available)
+    const sessionDir = this.getSessionDir(id, partitionPath);
     await fs.rm(sessionDir, { recursive: true, force: true });
+
+    // 3. Append to session index for audit trail
+    await this.appendSessionIndex({
+      id,
+      partitionPath: partitionPath || '',
+      title: session?.title || 'unknown',
+      action: 'delete',
+      timestamp: new Date().toISOString(),
+    });
   }
 
   async listSessions(filter?: SessionFilter): Promise<Session[]> {
@@ -299,7 +434,10 @@ export class FileSystemStorage implements ThoughtboxStorage {
   // ===========================================================================
 
   async saveThought(sessionId: string, thought: ThoughtData): Promise<void> {
-    const sessionDir = path.join(this.dataDir, 'sessions', sessionId);
+    // Look up session to get partition path
+    const session = await this.getSession(sessionId);
+    const sessionDir = this.getSessionDir(sessionId, session?.partitionPath);
+    
     const thoughtFile = `${String(thought.thoughtNumber).padStart(3, '0')}.json`;
     const thoughtPath = path.join(sessionDir, 'thoughts', thoughtFile);
 
@@ -316,19 +454,21 @@ export class FileSystemStorage implements ThoughtboxStorage {
 
     // Update manifest atomically to prevent race conditions
     await this.withManifestLock(sessionId, async () => {
-      const manifest = await this.readManifest(sessionId);
+      const manifest = await this.readManifestFromDir(sessionDir, sessionId);
       if (!manifest.thoughtFiles.includes(thoughtFile)) {
         manifest.thoughtFiles.push(thoughtFile);
         manifest.thoughtFiles.sort();
-        await this.writeManifest(sessionId, manifest);
+        await this.writeManifestToDir(sessionDir, manifest);
       }
     });
   }
 
   async getThoughts(sessionId: string): Promise<ThoughtData[]> {
     try {
-      const manifest = await this.readManifest(sessionId);
-      const sessionDir = path.join(this.dataDir, 'sessions', sessionId);
+      // Look up session to get partition path
+      const session = await this.getSession(sessionId);
+      const sessionDir = this.getSessionDir(sessionId, session?.partitionPath);
+      const manifest = await this.readManifestFromDir(sessionDir, sessionId);
 
       const thoughts: ThoughtData[] = [];
       for (const file of manifest.thoughtFiles) {
@@ -356,14 +496,12 @@ export class FileSystemStorage implements ThoughtboxStorage {
     sessionId: string,
     thoughtNumber: number
   ): Promise<ThoughtData | null> {
+    // Look up session to get partition path
+    const session = await this.getSession(sessionId);
+    const sessionDir = this.getSessionDir(sessionId, session?.partitionPath);
+    
     const thoughtFile = `${String(thoughtNumber).padStart(3, '0')}.json`;
-    const thoughtPath = path.join(
-      this.dataDir,
-      'sessions',
-      sessionId,
-      'thoughts',
-      thoughtFile
-    );
+    const thoughtPath = path.join(sessionDir, 'thoughts', thoughtFile);
 
     try {
       const content = await fs.readFile(thoughtPath, 'utf-8');
@@ -379,7 +517,9 @@ export class FileSystemStorage implements ThoughtboxStorage {
     branchId: string,
     thought: ThoughtData
   ): Promise<void> {
-    const sessionDir = path.join(this.dataDir, 'sessions', sessionId);
+    // Look up session to get partition path
+    const session = await this.getSession(sessionId);
+    const sessionDir = this.getSessionDir(sessionId, session?.partitionPath);
     const branchDir = path.join(sessionDir, 'branches', branchId);
 
     // Ensure branch directory exists
@@ -401,28 +541,26 @@ export class FileSystemStorage implements ThoughtboxStorage {
 
     // Update manifest atomically to prevent race conditions
     await this.withManifestLock(sessionId, async () => {
-      const manifest = await this.readManifest(sessionId);
+      const manifest = await this.readManifestFromDir(sessionDir, sessionId);
       if (!manifest.branchFiles[branchId]) {
         manifest.branchFiles[branchId] = [];
       }
       if (!manifest.branchFiles[branchId].includes(thoughtFile)) {
         manifest.branchFiles[branchId].push(thoughtFile);
         manifest.branchFiles[branchId].sort();
-        await this.writeManifest(sessionId, manifest);
+        await this.writeManifestToDir(sessionDir, manifest);
       }
     });
   }
 
   async getBranch(sessionId: string, branchId: string): Promise<ThoughtData[]> {
-    const manifest = await this.readManifest(sessionId);
+    // Look up session to get partition path
+    const session = await this.getSession(sessionId);
+    const sessionDir = this.getSessionDir(sessionId, session?.partitionPath);
+    
+    const manifest = await this.readManifestFromDir(sessionDir, sessionId);
     const branchFiles = manifest.branchFiles[branchId] || [];
-    const branchDir = path.join(
-      this.dataDir,
-      'sessions',
-      sessionId,
-      'branches',
-      branchId
-    );
+    const branchDir = path.join(sessionDir, 'branches', branchId);
 
     const thoughts: ThoughtData[] = [];
     for (const file of branchFiles) {
@@ -449,8 +587,9 @@ export class FileSystemStorage implements ThoughtboxStorage {
     const session = await this.getSession(sessionId);
     if (!session) throw new Error(`Session ${sessionId} not found`);
 
+    const sessionDir = this.getSessionDir(sessionId, session.partitionPath);
     const thoughts = await this.getThoughts(sessionId);
-    const manifest = await this.readManifest(sessionId);
+    const manifest = await this.readManifestFromDir(sessionDir, sessionId);
 
     if (format === 'json') {
       return JSON.stringify(
@@ -521,14 +660,8 @@ export class FileSystemStorage implements ThoughtboxStorage {
 
     const exportContent = lines.join('\n');
 
-    // Optionally save to exports directory
-    const exportPath = path.join(
-      this.dataDir,
-      'sessions',
-      sessionId,
-      'exports',
-      'reasoning-chain.md'
-    );
+    // Save to exports directory (using partition-aware path)
+    const exportPath = path.join(sessionDir, 'exports', 'reasoning-chain.md');
     await fs.writeFile(exportPath, exportContent, 'utf-8');
 
     return exportContent;
@@ -549,7 +682,9 @@ export class FileSystemStorage implements ThoughtboxStorage {
       errors: [],
     };
 
-    const sessionDir = path.join(this.dataDir, 'sessions', sessionId);
+    // Look up session to get partition path
+    const session = await this.getSession(sessionId);
+    const sessionDir = this.getSessionDir(sessionId, session?.partitionPath);
 
     // 1. Check if session directory exists
     try {
@@ -680,19 +815,29 @@ export class FileSystemStorage implements ThoughtboxStorage {
       tags: JSON.parse(row.tags),
       thoughtCount: row.thoughtCount,
       branchCount: row.branchCount,
+      partitionPath: row.partitionPath ?? undefined,
       createdAt: new Date(row.createdAt),
       updatedAt: new Date(row.updatedAt),
       lastAccessedAt: new Date(row.lastAccessedAt),
     };
   }
 
+  /**
+   * Read manifest from a session directory.
+   * Looks up the session's partition path from DB if not provided.
+   */
   private async readManifest(sessionId: string): Promise<SessionManifest> {
-    const manifestPath = path.join(
-      this.dataDir,
-      'sessions',
-      sessionId,
-      'manifest.json'
-    );
+    // Look up session to get partition path
+    const session = await this.getSession(sessionId);
+    const sessionDir = this.getSessionDir(sessionId, session?.partitionPath);
+    return this.readManifestFromDir(sessionDir, sessionId);
+  }
+
+  /**
+   * Read manifest directly from a session directory path.
+   */
+  private async readManifestFromDir(sessionDir: string, sessionId: string): Promise<SessionManifest> {
+    const manifestPath = path.join(sessionDir, 'manifest.json');
     
     try {
       const content = await fs.readFile(manifestPath, 'utf-8');
@@ -711,16 +856,28 @@ export class FileSystemStorage implements ThoughtboxStorage {
     }
   }
 
+  /**
+   * Write manifest to a session directory.
+   * Looks up the session's partition path from DB if not provided.
+   */
   private async writeManifest(
     sessionId: string,
     manifest: SessionManifest
   ): Promise<void> {
-    const manifestPath = path.join(
-      this.dataDir,
-      'sessions',
-      sessionId,
-      'manifest.json'
-    );
+    // Look up session to get partition path
+    const session = await this.getSession(sessionId);
+    const sessionDir = this.getSessionDir(sessionId, session?.partitionPath);
+    await this.writeManifestToDir(sessionDir, manifest);
+  }
+
+  /**
+   * Write manifest directly to a session directory path.
+   */
+  private async writeManifestToDir(
+    sessionDir: string,
+    manifest: SessionManifest
+  ): Promise<void> {
+    const manifestPath = path.join(sessionDir, 'manifest.json');
 
     // Atomic write using temp file + rename
     const tempPath = `${manifestPath}.tmp`;

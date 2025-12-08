@@ -10,12 +10,27 @@
 // =============================================================================
 
 /**
+ * Time partitioning granularity for session storage
+ */
+export type TimePartitionGranularity = 'monthly' | 'weekly' | 'daily' | 'none';
+
+/**
  * Server configuration stored in SQLite (single row)
  */
 export interface Config {
   installId: string;
   dataDir: string;
   disableThoughtLogging: boolean;
+  /**
+   * Time partitioning granularity for session directories.
+   * - 'monthly': sessions/2025-12/{uuid}/ (recommended)
+   * - 'weekly': sessions/2025-W50/{uuid}/
+   * - 'daily': sessions/2025-12-07/{uuid}/
+   * - 'none': sessions/{uuid}/ (legacy, no partitioning)
+   * 
+   * @default 'monthly'
+   */
+  sessionPartitionGranularity: TimePartitionGranularity;
   createdAt: Date;
 }
 
@@ -33,6 +48,12 @@ export interface Session {
   tags: string[];
   thoughtCount: number;
   branchCount: number;
+  /**
+   * Time partition path for this session (e.g., '2025-12' for monthly).
+   * Used to locate the session directory on filesystem.
+   * Null for legacy sessions created before time-partitioning.
+   */
+  partitionPath?: string;
   createdAt: Date;
   updatedAt: Date;
   lastAccessedAt: Date;
@@ -128,6 +149,83 @@ export interface SessionManifest {
     createdAt: string; // ISO 8601
     updatedAt: string; // ISO 8601
   };
+}
+
+// =============================================================================
+// Knowledge Zone Types (The Garden)
+// =============================================================================
+
+/**
+ * A knowledge pattern extracted from successful reasoning sessions.
+ * Stored as Markdown files with YAML frontmatter in /knowledge/patterns/
+ */
+export interface KnowledgePattern {
+  /** Unique slug identifier (e.g., 'debugging-race-conditions') */
+  id: string;
+  /** Human-readable title */
+  title: string;
+  /** Brief description of the pattern */
+  description: string;
+  /** Tags for categorization and search */
+  tags: string[];
+  /** The main content in Markdown format */
+  content: string;
+  /** Session IDs this pattern was derived from (if any) */
+  derivedFromSessions?: string[];
+  /** Agent ID that created this pattern (for multi-agent scenarios) */
+  createdBy?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+/**
+ * Parameters for creating a new knowledge pattern
+ */
+export interface CreatePatternParams {
+  title: string;
+  description: string;
+  tags?: string[];
+  content: string;
+  derivedFromSessions?: string[];
+  createdBy?: string;
+}
+
+/**
+ * Parameters for updating an existing pattern
+ */
+export interface UpdatePatternParams {
+  title?: string;
+  description?: string;
+  tags?: string[];
+  content?: string;
+  derivedFromSessions?: string[];
+}
+
+/**
+ * Filter options for listing patterns
+ */
+export interface PatternFilter {
+  tags?: string[];
+  search?: string;
+  limit?: number;
+  offset?: number;
+  sortBy?: 'createdAt' | 'updatedAt' | 'title';
+  sortOrder?: 'asc' | 'desc';
+}
+
+/**
+ * A scratchpad note for temporary collaborative work.
+ * Stored in /knowledge/scratchpad/
+ */
+export interface ScratchpadNote {
+  /** Topic slug identifier */
+  id: string;
+  /** Human-readable title */
+  title: string;
+  /** The note content in Markdown format */
+  content: string;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 // =============================================================================

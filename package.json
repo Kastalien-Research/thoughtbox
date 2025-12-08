@@ -28,7 +28,7 @@
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "bin": {
-    "thoughtbox": "./dist/index.js"
+    "thoughtbox": "./dist/http.js"
   },
   "files": [
     "dist",
@@ -44,7 +44,6 @@
     "build:local": "npm run embed-templates && npm run generate-capabilities && tsc && shx cp -r src/resources dist/ && shx cp -r templates dist/ && shx chmod +x dist/*.js",
     "build:smithery": "npm run embed-templates && npm run generate-capabilities && smithery build",
     "start": "node dist/http.js",
-    "start:stdio": "node dist/index.js",
     "start:smithery": "node .smithery/index.cjs",
     "prepublishOnly": "npm run build:local",
     "watch": "tsc --watch",
@@ -52,6 +51,8 @@
     "check:cycles:strict": "./scripts/check-cycles.sh --strict",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx src/persistence/db/migrate.ts",
+    "db:status": "./scripts/db-migrate.sh status",
+    "db:drop": "./scripts/db-migrate.sh drop",
     "prepare": "husky"
   },
   "engines": {

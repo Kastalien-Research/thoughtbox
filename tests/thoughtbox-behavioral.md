@@ -2,7 +2,11 @@
 
 Workflows for Claude to execute when verifying the thoughtbox thinking tool functions correctly.
 
-## Test 1: Basic Forward Thinking Flow
+---
+
+## Core Reasoning Tests
+
+### Test 1: Basic Forward Thinking Flow
 
 **Goal:** Verify sequential thought progression works.
 
@@ -17,7 +21,7 @@ Workflows for Claude to execute when verifying the thoughtbox thinking tool func
 
 ---
 
-## Test 2: Backward Thinking Flow
+### Test 2: Backward Thinking Flow
 
 **Goal:** Verify goal-driven reasoning (N→1) works.
 
@@ -30,7 +34,7 @@ Workflows for Claude to execute when verifying the thoughtbox thinking tool func
 
 ---
 
-## Test 3: Branching Flow
+### Test 3: Branching Flow
 
 **Goal:** Verify parallel exploration works.
 
@@ -45,7 +49,7 @@ Workflows for Claude to execute when verifying the thoughtbox thinking tool func
 
 ---
 
-## Test 4: Revision Flow
+### Test 4: Revision Flow
 
 **Goal:** Verify updating previous thoughts works.
 
@@ -58,7 +62,7 @@ Workflows for Claude to execute when verifying the thoughtbox thinking tool func
 
 ---
 
-## Test 5: Guide Request Flow
+### Test 5: Guide Request Flow
 
 **Goal:** Verify on-demand patterns cookbook.
 
@@ -71,7 +75,7 @@ Workflows for Claude to execute when verifying the thoughtbox thinking tool func
 
 ---
 
-## Test 6: Dynamic Adjustment Flow
+### Test 6: Dynamic Adjustment Flow
 
 **Goal:** Verify totalThoughts can be adjusted.
 
@@ -85,7 +89,7 @@ Workflows for Claude to execute when verifying the thoughtbox thinking tool func
 
 ---
 
-## Test 7: Validation Flow
+### Test 7: Validation Flow
 
 **Goal:** Verify input validation.
 
@@ -99,6 +103,85 @@ Workflows for Claude to execute when verifying the thoughtbox thinking tool func
 
 ---
 
+## Session Persistence Tests
+
+### Test 8: Auto-Session Creation Flow
+
+**Goal:** Verify sessions are auto-created on thought 1.
+
+**Steps:**
+1. Call `thoughtbox` with thought 1 of 5, no sessionTitle
+2. Verify response includes `sessionId` (UUID)
+3. Continue thoughts 2-5
+4. Verify same `sessionId` returned throughout
+5. When nextThoughtNeeded: false, verify sessionId becomes null (session ended)
+
+**Expected:** Session auto-created, persists through chain, ends on completion
+
+---
+
+### Test 9: Custom Session Metadata Flow
+
+**Goal:** Verify session title and tags work.
+
+**Steps:**
+1. Call `thoughtbox` with thought 1 and:
+   ```json
+   {
+     "thought": "...",
+     "thoughtNumber": 1,
+     "totalThoughts": 3,
+     "nextThoughtNeeded": true,
+     "sessionTitle": "Debugging API Timeout",
+     "sessionTags": ["debugging", "api", "production"]
+   }
+   ```
+2. Verify session created with custom title
+3. Complete the session (thought 3, nextThoughtNeeded: false)
+
+**Expected:** Session has custom title and tags for later discovery
+
+---
+
+### Test 10: Session Persistence Flow
+
+**Goal:** Verify thoughts survive server restart.
+
+**Steps:**
+1. Start a reasoning session (thoughts 1-3)
+2. Note the sessionId
+3. Complete thought 3 with nextThoughtNeeded: true (leave session open)
+4. Restart the server (docker-compose down && docker-compose up)
+5. Verify session data persisted in filesystem:
+   - Check `~/.thoughtbox/sessions/{YYYY-MM}/{sessionId}/`
+   - Verify thought files exist: `thought-001.json`, etc.
+
+**Expected:** SQLite tracks sessions, filesystem stores thought content
+
+---
+
+### Test 11: Session Integrity Flow
+
+**Goal:** Verify corrupted sessions are detected.
+
+**Steps:**
+1. Create a session with thoughts
+2. Manually corrupt or delete a thought file from filesystem
+3. Attempt to load the session
+4. Verify error message indicates corruption with recovery options
+
+**Expected:** Integrity validation prevents loading corrupted sessions
+
+---
+
 ## Running These Tests
 
 Execute by calling the `thoughtbox` MCP tool with specified parameters. The tool outputs to stderr for visual display; verify JSON response matches expectations.
+
+**Session data persists to:**
+- SQLite database: `~/.thoughtbox/thoughtbox.db` (session metadata)
+- Filesystem: `~/.thoughtbox/sessions/{YYYY-MM}/{sessionId}/` (thought content)
+
+**For a clean slate:**
+- Delete `~/.thoughtbox/sessions/` directory
+- Or use the db management scripts to clear session data
