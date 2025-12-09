@@ -25,8 +25,8 @@ export type {
   ExportOptions,
 } from './types.js';
 
-// Storage implementation (InMemoryStorage exported as FileSystemStorage for compatibility)
-export { InMemoryStorage, FileSystemStorage, LinkedThoughtStore } from './storage.js';
+// Storage implementation
+export { InMemoryStorage, LinkedThoughtStore } from './storage.js';
 
 // Session exporter
 export { SessionExporter } from './export.js';

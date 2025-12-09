@@ -26,7 +26,7 @@ import {
   getInterleavedResourceTemplates,
 } from "./prompts/index.js";
 import {
-  FileSystemStorage,
+  InMemoryStorage,
   SessionExporter,
   type ThoughtboxStorage,
   type Session,
@@ -126,8 +126,8 @@ class ThoughtboxServer {
     this.mcpSessionId = mcpSessionId || null;
     // Use imported cookbook content (works for both STDIO and HTTP builds)
     this.patternsCookbook = PATTERNS_COOKBOOK;
-    // Use provided storage or create default FileSystemStorage
-    this.storage = storage || new FileSystemStorage();
+    // Use provided storage or create default InMemoryStorage
+    this.storage = storage || new InMemoryStorage();
   }
 
   /**
@@ -442,18 +442,21 @@ class ThoughtboxServer {
       if (!validatedInput.nextThoughtNeeded && this.currentSessionId) {
         // Auto-export before session ends
         let exportPath: string | null = null;
+        let exportError: string | null = null;
         try {
           exportPath = await this.autoExportSession(this.currentSessionId);
         } catch (err) {
-          // Log but don't fail the thought - export is best-effort
-          console.error(`Auto-export failed: ${(err as Error).message}`);
+          // Capture error but don't close session if export fails
+          exportError = (err as Error).message;
+          console.error(`Auto-export failed: ${exportError}`);
         }
 
-        const closingSessionId = this.currentSessionId;
-        this.currentSessionId = null;
-
-        // Include export info in response if successful
+        // Only close session if export succeeded
         if (exportPath) {
+          const closingSessionId = this.currentSessionId;
+          this.currentSessionId = null;
+
+          // Include export info in response
           return {
             content: [
               {
@@ -469,6 +472,28 @@ class ThoughtboxServer {
                     sessionClosed: true,
                     closedSessionId: closingSessionId,
                     exportPath,
+                  },
+                  null,
+                  2
+                ),
+              },
+            ],
+          };
+        } else if (exportError) {
+          // Export failed - session remains open
+          return {
+            content: [
+              {
+                type: "text",
+                text: JSON.stringify(
+                  {
+                    thoughtNumber: validatedInput.thoughtNumber,
+                    totalThoughts: validatedInput.totalThoughts,
+                    nextThoughtNeeded: validatedInput.nextThoughtNeeded,
+                    branches: Object.keys(this.branches),
+                    thoughtHistoryLength: this.thoughtHistory.length,
+                    sessionId: this.currentSessionId,
+                    warning: `Auto-export failed: ${exportError}. Session remains open. You can manually export using the export_reasoning_chain tool.`,
                   },
                   null,
                   2

@@ -411,6 +411,11 @@ export interface ThoughtboxStorage {
    */
   exportSession(sessionId: string, format: 'json' | 'markdown'): Promise<string>;
 
+  /**
+   * Export session as linked node structure (for filesystem export)
+   */
+  toLinkedExport(sessionId: string): Promise<SessionExport>;
+
   // ---------------------------------------------------------------------------
   // Integrity Operations
   // ---------------------------------------------------------------------------

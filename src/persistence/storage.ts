@@ -570,6 +570,3 @@ export class InMemoryStorage implements ThoughtboxStorage {
     };
   }
 }
-
-// Export as default for backward compatibility
-export { InMemoryStorage as FileSystemStorage };
