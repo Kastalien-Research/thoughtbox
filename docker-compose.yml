@@ -47,6 +47,9 @@ services:
       - PORT=1729
       - THOUGHTBOX_DATA_DIR=/root/.thoughtbox
       - DISABLE_THOUGHT_LOGGING=${DISABLE_THOUGHT_LOGGING:-false}
+      # Optional: Set AUTH_TOKEN to enable bearer token authentication
+      # For local testing, you can define AUTH_TOKEN in your shell or in a .env file next to this compose file
+      - AUTH_TOKEN=${AUTH_TOKEN:-}
 
     # Restart policy - restart unless explicitly stopped
     restart: unless-stopped
