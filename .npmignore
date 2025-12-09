@@ -1,40 +1,100 @@
-# Secrets
-cc_mcp_config.json
+# =============================================================================
+# NPM Package Exclusions
+# =============================================================================
+# These files are excluded from the published npm package.
+# The package.json "files" field is the allowlist; this is the blocklist.
 
-# Development/Build artifacts (Smithery-specific)
+# =============================================================================
+# Secrets
+# =============================================================================
+cc_mcp_config.json
+.mcp.json
+.mcp.github.json
+.env
+.env.*
+
+# =============================================================================
+# Source Code (only dist/ is published)
+# =============================================================================
 src/
+tsconfig.json
+drizzle.config.ts
+
+# =============================================================================
+# Reference Projects (NOT part of Thoughtbox)
+# =============================================================================
+srcbook/
+
+# =============================================================================
+# Development/Build Artifacts
+# =============================================================================
 .smithery/
 smithery.yaml
-tsconfig.json
 .dockerignore
+Dockerfile
+docker-compose.yml
 
-# Documentation (not needed by NPM users)
+# =============================================================================
+# Documentation (local development only)
+# =============================================================================
+docs/
+specs/
+local-docs/
+smithery-docs/
+mcp-specs/
 ai_docs/
 CLAUDE.md
+AGENTS.md
 REASONING_PATTERNS_REPORT.md
-.devcontainer/
+DOCKER_ARCHITECTURE.md
+NOTEBOOK_CAPABILITIES_REPORT.md
+NOTEBOOK_DUAL_TRANSPORT_ANALYSIS.md
+CLEANUP_REPORT.md
+llms-install.md
+adat.md
+glassBead-thoughtbox-blog.md
 
-# Project-specific files
+# Test notebooks
+*.src.md
+
+# =============================================================================
+# IDE & Tool Configuration
+# =============================================================================
 .claude/
+.claude-plugin/
 .roo/
 .roomodes
 logs/
 sdk
 
-# Git files
+# =============================================================================
+# Version Control
+# =============================================================================
 .git/
+.github/
 .gitignore
+.husky/
 
-# Package management
+# =============================================================================
+# Dependencies & Lock Files
+# =============================================================================
 node_modules/
 package-lock.json
+pnpm-lock.yaml
 
-# Local documentation (source files for bundled content)
-local-docs/
-docs/
-specs/
-
-# Improvement opps
+# =============================================================================
+# Logs & Reports
+# =============================================================================
+logs/
 improvement-recs/
-smithery-docs/
-mcp-ts-template/
+
+# =============================================================================
+# Testing
+# =============================================================================
+tests/
+coverage/
+.nyc_output
+test-results
+jest.config.js
+*.test.ts
+*.spec.ts

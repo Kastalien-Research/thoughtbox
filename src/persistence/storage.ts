@@ -242,6 +242,7 @@ export class InMemoryStorage implements ThoughtboxStorage {
         installId: randomUUID(),
         dataDir: ':memory:',
         disableThoughtLogging: false,
+        sessionPartitionGranularity: 'monthly',
         createdAt: new Date(),
       };
     }
@@ -261,6 +262,7 @@ export class InMemoryStorage implements ThoughtboxStorage {
         installId: attrs.installId || randomUUID(),
         dataDir: attrs.dataDir || ':memory:',
         disableThoughtLogging: attrs.disableThoughtLogging ?? false,
+        sessionPartitionGranularity: attrs.sessionPartitionGranularity || 'monthly',
         createdAt: new Date(),
       };
     } else {

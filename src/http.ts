@@ -4,7 +4,6 @@ import express from "express";
 import cors from "cors";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import createServer from "./index.js";
-import { closeDatabase } from "./persistence/index.js";
 
 const app = express();
 app.use(express.json());
@@ -118,7 +117,6 @@ function setupGracefulShutdown(server: ReturnType<typeof app.listen>) {
   const shutdown = (signal: string) => {
     console.log(`Received ${signal}, shutting down gracefully...`);
     server.close(() => {
-      closeDatabase();
       process.exit(0);
     });
   };
