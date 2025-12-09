@@ -25,7 +25,7 @@
   ],
   "type": "module",
   "main": "./dist/index.js",
-  "module": "./dist/index.js",
+  "module": "src/index.ts",
   "types": "./dist/index.d.ts",
   "bin": {
     "thoughtbox": "./dist/http.js"
@@ -44,15 +44,13 @@
     "build:local": "npm run embed-templates && npm run generate-capabilities && tsc && shx cp -r src/resources dist/ && shx cp -r templates dist/ && shx chmod +x dist/*.js",
     "build:smithery": "npm run embed-templates && npm run generate-capabilities && smithery build",
     "start": "node dist/http.js",
+    "start:stateful": "node dist/http-stateful.js",
+    "start:stdio": "node dist/index.js",
     "start:smithery": "node .smithery/index.cjs",
     "prepublishOnly": "npm run build:local",
     "watch": "tsc --watch",
     "check:cycles": "./scripts/check-cycles.sh",
     "check:cycles:strict": "./scripts/check-cycles.sh --strict",
-    "db:generate": "drizzle-kit generate",
-    "db:migrate": "tsx src/persistence/db/migrate.ts",
-    "db:status": "./scripts/db-migrate.sh status",
-    "db:drop": "./scripts/db-migrate.sh drop",
     "prepare": "husky"
   },
   "engines": {
@@ -60,22 +58,19 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.24.3",
-    "better-sqlite3": "^11.7.0",
+    "@smithery/sdk": "^1.7.5",
     "chalk": "^5.6.0",
     "cors": "^2.8.5",
-    "drizzle-orm": "^0.38.3",
     "express": "^5.1.0",
-    "zod": "^3.25.76"
+    "zod": "^3.25.76",
+    "zod-to-json-schema": "^3.24.5"
   },
   "devDependencies": {
     "@smithery/cli": "^1.6.2",
-    "@smithery/sdk": "^1.7.4",
-    "@types/better-sqlite3": "^7.6.12",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.5",
     "@types/node": "^22.18.12",
     "@types/yargs": "^17.0.32",
-    "drizzle-kit": "^0.30.1",
     "husky": "^9.1.6",
     "madge": "^8.0.0",
     "shx": "^0.3.4",

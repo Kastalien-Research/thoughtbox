@@ -1,8 +1,8 @@
 /**
  * Persistence Layer Type Definitions
  *
- * Defines interfaces for the SQLite + filesystem hybrid storage pattern.
- * SQLite stores queryable metadata, filesystem stores human-readable content.
+ * Defines interfaces for the in-memory storage pattern.
+ * Data persists for the lifetime of the server process.
  */
 
 // =============================================================================
@@ -15,7 +15,7 @@
 export type TimePartitionGranularity = 'monthly' | 'weekly' | 'daily' | 'none';
 
 /**
- * Server configuration stored in SQLite (single row)
+ * Server configuration (in-memory)
  */
 export interface Config {
   installId: string;
@@ -110,6 +110,85 @@ export interface ThoughtData {
 export interface ThoughtInput extends ThoughtData {
   sessionTitle?: string;
   sessionTags?: string[];
+}
+
+// =============================================================================
+// Linked Node Types (for doubly-linked list storage)
+// =============================================================================
+
+/**
+ * Unique identifier for a thought node
+ * Format: "{sessionId}:{thoughtNumber}"
+ */
+export type ThoughtNodeId = string;
+
+/**
+ * Doubly-linked thought node with tree structure support
+ *
+ * Each thought becomes a node in a linked list. The `next` field is an array
+ * to support tree structures where a single thought can branch into multiple
+ * alternative paths.
+ */
+export interface ThoughtNode {
+  /** Unique identifier (format: "{sessionId}:{thoughtNumber}") */
+  id: ThoughtNodeId;
+
+  /** Original thought data (unchanged from ThoughtData) */
+  data: ThoughtData;
+
+  /** ID of previous thought in sequence (null for first thought) */
+  prev: ThoughtNodeId | null;
+
+  /** IDs of next thoughts (array enables tree structure for branches) */
+  next: ThoughtNodeId[];
+
+  /** ID of node this thought revises (null if not a revision) */
+  revisesNode: ThoughtNodeId | null;
+
+  /** ID of node this branches from (null if on main chain) */
+  branchOrigin: ThoughtNodeId | null;
+
+  /** Branch identifier (null if on main chain) */
+  branchId: string | null;
+}
+
+/**
+ * Computed indexes for reverse lookups (not persisted, rebuilt on load)
+ */
+export interface ThoughtIndexes {
+  /** Maps node ID to list of nodes that revise it */
+  revisedBy: Map<ThoughtNodeId, ThoughtNodeId[]>;
+
+  /** Maps node ID to list of branch nodes that fork from it */
+  branchChildren: Map<ThoughtNodeId, ThoughtNodeId[]>;
+}
+
+/**
+ * Export format for linked reasoning sessions (v1.0)
+ */
+export interface SessionExport {
+  /** Schema version */
+  version: '1.0';
+
+  /** Session metadata */
+  session: Session;
+
+  /** All thought nodes with linked structure */
+  nodes: ThoughtNode[];
+
+  /** ISO 8601 timestamp of export */
+  exportedAt: string;
+}
+
+/**
+ * Options for exporting a session
+ */
+export interface ExportOptions {
+  /** Session ID to export */
+  sessionId: string;
+
+  /** Custom export directory (default: ~/.thoughtbox/exports/) */
+  destination?: string;
 }
 
 // =============================================================================
@@ -331,6 +410,11 @@ export interface ThoughtboxStorage {
    * Export session to specified format
    */
   exportSession(sessionId: string, format: 'json' | 'markdown'): Promise<string>;
+
+  /**
+   * Export session as linked node structure (for filesystem export)
+   */
+  toLinkedExport(sessionId: string): Promise<SessionExport>;
 
   // ---------------------------------------------------------------------------
   // Integrity Operations

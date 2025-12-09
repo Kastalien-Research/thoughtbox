@@ -64,14 +64,8 @@ glassBead-thoughtbox-blog.md
 .claude-plugin/
 .roo/
 .roomodes
-.rooskills
-.tessl/
-tessl.json
-.thoughtbox/
-.interleaved-thinking/
-.devcontainer/
-.cursor/
-.vscode/
+logs/
+sdk
 
 # =============================================================================
 # Version Control

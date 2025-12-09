@@ -2,6 +2,7 @@
  * Persistence Module Exports
  *
  * Central export point for the Thoughtbox persistence layer.
+ * Uses in-memory storage for simplicity.
  */
 
 // Types
@@ -16,29 +17,16 @@ export type {
   ThoughtboxStorage,
   IntegrityValidationResult,
   TimePartitionGranularity,
-  // Knowledge Zone types
-  KnowledgePattern,
-  CreatePatternParams,
-  UpdatePatternParams,
-  PatternFilter,
-  ScratchpadNote,
+  // Linked node types
+  ThoughtNodeId,
+  ThoughtNode,
+  ThoughtIndexes,
+  SessionExport,
+  ExportOptions,
 } from './types.js';
 
-// Storage implementations
-export { FileSystemStorage } from './storage.js';
-export { KnowledgeStorage } from './knowledge-storage.js';
+// Storage implementation (in-memory only)
+export { InMemoryStorage, LinkedThoughtStore } from './storage.js';
 
-// Database utilities
-export {
-  getDatabase,
-  getDataDir,
-  closeDatabase,
-  resetDatabase,
-  type DatabaseInstance,
-} from './db/index.js';
-
-// Migrations
-export { runMigrations } from './db/migrate.js';
-
-// Schema (for direct database access if needed)
-export * as schema from './db/schema.js';
+// Session exporter
+export { SessionExporter } from './export.js';
