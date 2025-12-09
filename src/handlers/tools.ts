@@ -3,6 +3,7 @@ import { Tool, CallToolRequest } from "@modelcontextprotocol/sdk/types.js";
 import { NotebookServer, NOTEBOOK_TOOL } from "../notebook/index.js";
 import { MentalModelsServer, MENTAL_MODELS_TOOL } from "../mental-models/index.js";
 import { KnowledgeServer, KNOWLEDGE_TOOL } from "../knowledge/index.js";
+import { ThoughtboxServer } from "../thinking/index.js";
 
 // Re-export the clear thought tool definition from the main file or move it here.
 // For now, I'll copy the structure or import it if I can extract it.
@@ -116,7 +117,7 @@ export async function handleListTools() {
 export async function handleCallTool(
     request: CallToolRequest,
     servers: {
-        thinking: any; // Using any for now to avoid circular dependency issues, will fix types later
+        thinking: ThoughtboxServer;
         notebook: NotebookServer;
         mentalModels: MentalModelsServer;
         knowledge: KnowledgeServer;
