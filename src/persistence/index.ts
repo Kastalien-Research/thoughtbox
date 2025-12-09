@@ -17,13 +17,16 @@ export type {
   ThoughtboxStorage,
   IntegrityValidationResult,
   TimePartitionGranularity,
-  // Knowledge Zone types
-  KnowledgePattern,
-  CreatePatternParams,
-  UpdatePatternParams,
-  PatternFilter,
-  ScratchpadNote,
+  // Linked node types
+  ThoughtNodeId,
+  ThoughtNode,
+  ThoughtIndexes,
+  SessionExport,
+  ExportOptions,
 } from './types.js';
 
 // Storage implementation (InMemoryStorage exported as FileSystemStorage for compatibility)
-export { InMemoryStorage, FileSystemStorage } from './storage.js';
+export { InMemoryStorage, FileSystemStorage, LinkedThoughtStore } from './storage.js';
+
+// Session exporter
+export { SessionExporter } from './export.js';

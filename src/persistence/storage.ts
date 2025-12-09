@@ -16,7 +16,207 @@ import type {
   SessionFilter,
   ThoughtData,
   IntegrityValidationResult,
+  ThoughtNode,
+  ThoughtNodeId,
+  SessionExport,
 } from './types.js';
+
+// =============================================================================
+// LinkedThoughtStore - Doubly-linked list storage for reasoning chains
+// =============================================================================
+
+/**
+ * Manages thoughts as a doubly-linked list with Map index for O(1) lookups.
+ * Supports tree structures via array-based `next` pointers for branching.
+ */
+export class LinkedThoughtStore {
+  /** All nodes indexed by ID for O(1) lookup */
+  private nodes: Map<ThoughtNodeId, ThoughtNode> = new Map();
+
+  /** First node ID for each session */
+  private sessionHead: Map<string, ThoughtNodeId> = new Map();
+
+  /** Last node ID for each session (most recently added on main chain) */
+  private sessionTail: Map<string, ThoughtNodeId> = new Map();
+
+  /** Computed index: nodeId -> list of nodes that revise it */
+  private revisedByIndex: Map<ThoughtNodeId, ThoughtNodeId[]> = new Map();
+
+  /** Computed index: nodeId -> list of branch nodes that fork from it */
+  private branchChildrenIndex: Map<ThoughtNodeId, ThoughtNodeId[]> = new Map();
+
+  /**
+   * Generate a node ID from session ID and thought number
+   */
+  private generateNodeId(sessionId: string, thoughtNumber: number): ThoughtNodeId {
+    return `${sessionId}:${thoughtNumber}`;
+  }
+
+  /**
+   * Initialize storage for a new session
+   */
+  initSession(sessionId: string): void {
+    // Nothing to initialize - nodes will be created on demand
+  }
+
+  /**
+   * Clear all data for a session
+   */
+  clearSession(sessionId: string): void {
+    // Remove all nodes belonging to this session
+    for (const [nodeId, node] of this.nodes) {
+      if (nodeId.startsWith(`${sessionId}:`)) {
+        this.nodes.delete(nodeId);
+        this.revisedByIndex.delete(nodeId);
+        this.branchChildrenIndex.delete(nodeId);
+      }
+    }
+    this.sessionHead.delete(sessionId);
+    this.sessionTail.delete(sessionId);
+  }
+
+  /**
+   * Add a new thought node to the linked structure
+   */
+  addNode(sessionId: string, data: ThoughtData): ThoughtNode {
+    const nodeId = this.generateNodeId(sessionId, data.thoughtNumber);
+
+    // Determine previous node
+    let prevNodeId: ThoughtNodeId | null = null;
+    if (data.branchFromThought) {
+      // Branching: prev is the branch origin
+      prevNodeId = this.generateNodeId(sessionId, data.branchFromThought);
+    } else {
+      // Sequential: prev is the last node added to this session (maintains valid chain with gaps)
+      const tailId = this.sessionTail.get(sessionId);
+      if (tailId) {
+        prevNodeId = tailId;
+      }
+    }
+
+    // Create the node
+    const node: ThoughtNode = {
+      id: nodeId,
+      data,
+      prev: prevNodeId,
+      next: [],
+      revisesNode: data.revisesThought
+        ? this.generateNodeId(sessionId, data.revisesThought)
+        : null,
+      branchOrigin: data.branchFromThought
+        ? this.generateNodeId(sessionId, data.branchFromThought)
+        : null,
+      branchId: data.branchId || null,
+    };
+
+    // Store the node
+    this.nodes.set(nodeId, node);
+
+    // Update previous node's `next` array (if it exists)
+    if (prevNodeId) {
+      const prevNode = this.nodes.get(prevNodeId);
+      if (prevNode && !prevNode.next.includes(nodeId)) {
+        prevNode.next.push(nodeId);
+      }
+    }
+
+    // Update head/tail tracking
+    // Set head if this is the first node for this session (supports backward thinking)
+    if (!this.sessionHead.has(sessionId) && !data.branchId) {
+      this.sessionHead.set(sessionId, nodeId);
+    }
+    // Update tail for main chain nodes (non-branch)
+    if (!data.branchId) {
+      this.sessionTail.set(sessionId, nodeId);
+    }
+
+    // Update computed indexes
+    if (node.revisesNode) {
+      const revisions = this.revisedByIndex.get(node.revisesNode) || [];
+      if (!revisions.includes(nodeId)) {
+        revisions.push(nodeId);
+        this.revisedByIndex.set(node.revisesNode, revisions);
+      }
+    }
+    if (node.branchOrigin) {
+      const children = this.branchChildrenIndex.get(node.branchOrigin) || [];
+      if (!children.includes(nodeId)) {
+        children.push(nodeId);
+        this.branchChildrenIndex.set(node.branchOrigin, children);
+      }
+    }
+
+    return node;
+  }
+
+  /**
+   * Get a node by ID
+   */
+  getNode(id: ThoughtNodeId): ThoughtNode | null {
+    return this.nodes.get(id) || null;
+  }
+
+  /**
+   * Get all nodes for a session, ordered by thought number
+   */
+  getSessionNodes(sessionId: string): ThoughtNode[] {
+    const nodes: ThoughtNode[] = [];
+    for (const [nodeId, node] of this.nodes) {
+      if (nodeId.startsWith(`${sessionId}:`)) {
+        nodes.push(node);
+      }
+    }
+    return nodes.sort((a, b) => a.data.thoughtNumber - b.data.thoughtNumber);
+  }
+
+  /**
+   * Get nodes that revise a given node
+   */
+  getRevisionsOf(nodeId: ThoughtNodeId): ThoughtNodeId[] {
+    return this.revisedByIndex.get(nodeId) || [];
+  }
+
+  /**
+   * Get branch nodes that fork from a given node
+   */
+  getBranchesFrom(nodeId: ThoughtNodeId): ThoughtNodeId[] {
+    return this.branchChildrenIndex.get(nodeId) || [];
+  }
+
+  /**
+   * Rebuild computed indexes from node data
+   * Call this after loading nodes from external source
+   */
+  rebuildIndexes(): void {
+    this.revisedByIndex.clear();
+    this.branchChildrenIndex.clear();
+
+    for (const [nodeId, node] of this.nodes) {
+      if (node.revisesNode) {
+        const revisions = this.revisedByIndex.get(node.revisesNode) || [];
+        revisions.push(nodeId);
+        this.revisedByIndex.set(node.revisesNode, revisions);
+      }
+      if (node.branchOrigin) {
+        const children = this.branchChildrenIndex.get(node.branchOrigin) || [];
+        children.push(nodeId);
+        this.branchChildrenIndex.set(node.branchOrigin, children);
+      }
+    }
+  }
+
+  /**
+   * Convert session to export format
+   */
+  toExportFormat(sessionId: string, session: Session): SessionExport {
+    return {
+      version: '1.0',
+      session,
+      nodes: this.getSessionNodes(sessionId),
+      exportedAt: new Date().toISOString(),
+    };
+  }
+}
 
 // =============================================================================
 // InMemoryStorage Implementation
@@ -27,6 +227,9 @@ export class InMemoryStorage implements ThoughtboxStorage {
   private sessions: Map<string, Session> = new Map();
   private thoughts: Map<string, ThoughtData[]> = new Map(); // sessionId -> thoughts
   private branches: Map<string, Map<string, ThoughtData[]>> = new Map(); // sessionId -> branchId -> thoughts
+
+  /** Linked node storage for export */
+  private linkedStore: LinkedThoughtStore = new LinkedThoughtStore();
 
   // ===========================================================================
   // Initialization
@@ -110,6 +313,7 @@ export class InMemoryStorage implements ThoughtboxStorage {
     this.sessions.delete(id);
     this.thoughts.delete(id);
     this.branches.delete(id);
+    this.linkedStore.clearSession(id);
   }
 
   async listSessions(filter?: SessionFilter): Promise<Session[]> {
@@ -187,6 +391,9 @@ export class InMemoryStorage implements ThoughtboxStorage {
     };
 
     sessionThoughts.push(enrichedThought);
+
+    // Also add to linked store for export
+    this.linkedStore.addNode(sessionId, enrichedThought);
   }
 
   async getThoughts(sessionId: string): Promise<ThoughtData[]> {
@@ -231,6 +438,9 @@ export class InMemoryStorage implements ThoughtboxStorage {
     };
 
     branchThoughts.push(enrichedThought);
+
+    // Also add to linked store for export
+    this.linkedStore.addNode(sessionId, enrichedThought);
   }
 
   async getBranch(sessionId: string, branchId: string): Promise<ThoughtData[]> {
@@ -329,6 +539,16 @@ export class InMemoryStorage implements ThoughtboxStorage {
     }
 
     return lines.join('\n');
+  }
+
+  /**
+   * Export session as linked node structure (for filesystem export)
+   */
+  async toLinkedExport(sessionId: string): Promise<SessionExport> {
+    const session = await this.getSession(sessionId);
+    if (!session) throw new Error(`Session ${sessionId} not found`);
+
+    return this.linkedStore.toExportFormat(sessionId, session);
   }
 
   // ===========================================================================
