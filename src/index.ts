@@ -34,6 +34,11 @@ import {
   type ThoughtData as PersistentThoughtData,
   type SessionExport,
 } from "./persistence/index.js";
+import {
+  createInitFlow,
+  type IInitHandler,
+  type SessionIndex,
+} from "./init/index.js";
 
 // Configuration schema for Smithery
 // Note: Using .default() means the field is always present after parsing,
@@ -694,6 +699,20 @@ export default async function createServer(
     // Continue without persistence - in-memory mode
   }
 
+  // Initialize init flow (session index from exports)
+  let initHandler: IInitHandler | null = null;
+  try {
+    const { handler, stats, errors } = await createInitFlow();
+    initHandler = handler;
+    logger.info(`Init flow index built: ${stats.sessionsIndexed} sessions, ${stats.projectsFound} projects, ${stats.tasksFound} tasks (${stats.buildTimeMs}ms)`);
+    if (errors.length > 0) {
+      logger.warn(`Init flow index encountered ${errors.length} errors during build`);
+    }
+  } catch (err) {
+    logger.error("Failed to initialize init flow:", err);
+    // Continue without init flow
+  }
+
   // Sync mental models to filesystem for inspection
   // URI: thoughtbox://mental-models/{tag}/{model} → ~/.thoughtbox/mental-models/{tag}/{model}.md
   mentalModelsServer.syncToFilesystem().catch((err) => {
@@ -920,10 +939,80 @@ export default async function createServer(
     }
   );
 
+  // Init flow resources using path segments
+  // Helper to extract string from template param (can be string | string[])
+  const str = (val: string | string[] | undefined): string | undefined =>
+    Array.isArray(val) ? val[0] : val;
+
+  // Helper to validate mode param
+  const asMode = (val: string | undefined): 'new' | 'continue' | undefined =>
+    val === 'new' || val === 'continue' ? val : undefined;
+
+  // Helper for init handler fallback
+  const handleInit = (params: { mode?: 'new' | 'continue'; project?: string; task?: string; aspect?: string }) => {
+    if (!initHandler) {
+      return {
+        uri: "thoughtbox://init",
+        mimeType: "text/markdown",
+        text: `# Thoughtbox Init\n\nSession index not available. You can start using tools directly.\n\n## Available Tools\n\n- \`thoughtbox\` — Step-by-step reasoning\n- \`notebook\` — Literate programming notebooks\n- \`mental_models\` — Structured reasoning frameworks`
+      };
+    }
+    return initHandler.handle(params);
+  };
+
+  // Entry point (static resource)
+  server.registerResource("init", "thoughtbox://init", {
+    description: "Initialize Thoughtbox session - entry point",
+    mimeType: "text/markdown"
+  }, async (uri) => ({
+    contents: [handleInit({})]
+  }));
+
+  // Mode selection: thoughtbox://init/{mode}
+  server.registerResource(
+    "init-mode",
+    new ResourceTemplate("thoughtbox://init/{mode}", { list: undefined }),
+    { description: "Init flow mode selection", mimeType: "text/markdown" },
+    async (uri, params) => ({
+      contents: [handleInit({ mode: asMode(str(params.mode)) })]
+    })
+  );
+
+  // Project selection: thoughtbox://init/{mode}/{project}
+  server.registerResource(
+    "init-project",
+    new ResourceTemplate("thoughtbox://init/{mode}/{project}", { list: undefined }),
+    { description: "Init flow project selection", mimeType: "text/markdown" },
+    async (uri, params) => ({
+      contents: [handleInit({ mode: asMode(str(params.mode)), project: str(params.project) })]
+    })
+  );
+
+  // Task selection: thoughtbox://init/{mode}/{project}/{task}
+  server.registerResource(
+    "init-task",
+    new ResourceTemplate("thoughtbox://init/{mode}/{project}/{task}", { list: undefined }),
+    { description: "Init flow task selection", mimeType: "text/markdown" },
+    async (uri, params) => ({
+      contents: [handleInit({ mode: asMode(str(params.mode)), project: str(params.project), task: str(params.task) })]
+    })
+  );
+
+  // Aspect selection (terminal state): thoughtbox://init/{mode}/{project}/{task}/{aspect}
+  server.registerResource(
+    "init-aspect",
+    new ResourceTemplate("thoughtbox://init/{mode}/{project}/{task}/{aspect}", { list: undefined }),
+    { description: "Init flow context loaded", mimeType: "text/markdown" },
+    async (uri, params) => ({
+      contents: [handleInit({ mode: asMode(str(params.mode)), project: str(params.project), task: str(params.task), aspect: str(params.aspect) })]
+    })
+  );
+
   // Escape hatch: Use server.server for ListResourcesRequestSchema to include dynamic resources
   // McpServer's registerResource doesn't support dynamic resource lists from getMentalModelsResources()
   server.server.setRequestHandler(ListResourcesRequestSchema, async () => ({
     resources: [
+      { uri: "thoughtbox://init", name: "Thoughtbox Init Flow", description: "Initialize Thoughtbox session with context loading - start here for guided navigation", mimeType: "text/markdown" },
       { uri: "system://status", name: "Notebook Server Status", description: "Health snapshot of the notebook server", mimeType: "application/json" },
       { uri: "thoughtbox://notebook/operations", name: "Notebook Operations Catalog", description: "Complete catalog of notebook operations with schemas and examples", mimeType: "application/json" },
       { uri: "thoughtbox://patterns-cookbook", name: "Thoughtbox Patterns Cookbook", description: "Guide to core reasoning patterns for thoughtbox tool", mimeType: "text/markdown" },
@@ -938,6 +1027,31 @@ export default async function createServer(
   // McpServer's registerResource doesn't preserve annotations and custom metadata from original templates
   server.server.setRequestHandler(ListResourceTemplatesRequestSchema, async () => ({
     resourceTemplates: [
+      // Init flow resource templates (path-based hierarchy)
+      {
+        uriTemplate: "thoughtbox://init/{mode}",
+        name: "Init Mode Selection",
+        description: "Select new or continue mode",
+        mimeType: "text/markdown",
+      },
+      {
+        uriTemplate: "thoughtbox://init/{mode}/{project}",
+        name: "Init Project Selection",
+        description: "Select project for context",
+        mimeType: "text/markdown",
+      },
+      {
+        uriTemplate: "thoughtbox://init/{mode}/{project}/{task}",
+        name: "Init Task Selection",
+        description: "Select task within project",
+        mimeType: "text/markdown",
+      },
+      {
+        uriTemplate: "thoughtbox://init/{mode}/{project}/{task}/{aspect}",
+        name: "Init Context Loaded",
+        description: "Context loaded - ready to work",
+        mimeType: "text/markdown",
+      },
       ...getInterleavedResourceTemplates().resourceTemplates,
       ...getMentalModelsResourceTemplates().resourceTemplates,
     ],
