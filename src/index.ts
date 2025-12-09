@@ -1,52 +1,32 @@
-/**
- * Thoughtbox MCP Server - Core Module
- * 
- * This module exports the MCP server factory function used by http.ts.
- * Transport: Streamable HTTP only (WebSocket support planned for future).
- */
+#!/usr/bin/env node
 
-import { Server } from "@modelcontextprotocol/sdk/server/index.js";
-import {
-  CallToolRequestSchema,
-  ListToolsRequestSchema,
-  ListPromptsRequestSchema,
-  GetPromptRequestSchema,
-  ListResourcesRequestSchema,
-  ReadResourceRequestSchema,
-  ListResourceTemplatesRequestSchema,
-  Tool,
-} from "@modelcontextprotocol/sdk/types.js";
+import { McpServer, ResourceTemplate } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { ListResourcesRequestSchema, ListResourceTemplatesRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 // Fixed chalk import for ESM
 import chalk from "chalk";
 import { z } from "zod";
 import { PATTERNS_COOKBOOK } from "./resources/patterns-cookbook-content.js";
 import { SERVER_ARCHITECTURE_GUIDE } from "./resources/server-architecture-content.js";
 import { NotebookServer, NOTEBOOK_TOOL } from "./notebook/index.js";
+import { getOperationNames } from "./notebook/operations.js";
 import {
   MentalModelsServer,
   MENTAL_MODELS_TOOL,
   getMentalModelsResources,
-  getMentalModelsResourceTemplates,
   getMentalModelsResourceContent,
+  getMentalModelsResourceTemplates,
 } from "./mental-models/index.js";
-import {
-  KnowledgeServer,
-  KNOWLEDGE_TOOL,
-  getKnowledgeResources,
-  getKnowledgeResourceTemplates,
-  getKnowledgeResourceContent,
-} from "./knowledge/index.js";
 import {
   LIST_MCP_ASSETS_PROMPT,
   getListMcpAssetsContent,
   INTERLEAVED_THINKING_PROMPT,
   getInterleavedThinkingContent,
-  getInterleavedResourceTemplates,
   getInterleavedGuideForUri,
+  getInterleavedResourceTemplates,
 } from "./prompts/index.js";
 import {
   FileSystemStorage,
-  KnowledgeStorage,
   type ThoughtboxStorage,
   type Session,
   type SessionFilter,
@@ -54,15 +34,51 @@ import {
 } from "./persistence/index.js";
 
 // Configuration schema for Smithery
+// Note: Using .default() means the field is always present after parsing,
+// but callers providing raw objects need to include the field or use configSchema.parse()
 export const configSchema = z.object({
   disableThoughtLogging: z
     .boolean()
-    .optional()
     .default(false)
     .describe(
       "Disable thought output to stderr (useful for production deployments)"
     ),
+  // Session management options (for stateful mode)
+  autoCreateSession: z
+    .boolean()
+    .default(true)
+    .describe("Auto-create reasoning session on first thought"),
+  reasoningSessionId: z
+    .string()
+    .optional()
+    .describe("Pre-load a specific reasoning session on server start"),
 });
+
+// Parsed config type (with defaults applied)
+export type ServerConfig = z.infer<typeof configSchema>;
+
+// Input config type (before parsing, allows omitting fields with defaults)
+export type ServerConfigInput = z.input<typeof configSchema>;
+
+// Logger interface for Smithery SDK compatibility
+export interface Logger {
+  debug(message: string, ...args: unknown[]): void;
+  info(message: string, ...args: unknown[]): void;
+  warn(message: string, ...args: unknown[]): void;
+  error(message: string, ...args: unknown[]): void;
+}
+
+// Server factory arguments (Smithery SDK stateful pattern)
+export interface CreateServerArgs {
+  sessionId: string;  // MCP connection session ID (ephemeral)
+  config: ServerConfigInput;
+  logger: Logger;
+}
+
+// Legacy args for stateless mode (backward compatibility)
+export interface LegacyServerArgs {
+  config: ServerConfigInput;
+}
 
 interface ThoughtData {
   thought: string;
@@ -86,20 +102,32 @@ class ThoughtboxServer {
   private disableThoughtLogging: boolean;
   private patternsCookbook: string;
 
+  // MCP session ID (ephemeral, per-connection isolation)
+  private mcpSessionId: string | null = null;
+
   // Persistence layer
   private storage: ThoughtboxStorage;
-  private currentSessionId: string | null = null;
+  private currentSessionId: string | null = null;  // Reasoning session ID (persistent)
   private initialized: boolean = false;
 
   constructor(
     disableThoughtLogging: boolean = false,
-    storage?: ThoughtboxStorage
+    storage?: ThoughtboxStorage,
+    mcpSessionId?: string
   ) {
     this.disableThoughtLogging = disableThoughtLogging;
-    // Use imported cookbook content
+    this.mcpSessionId = mcpSessionId || null;
+    // Use imported cookbook content (works for both STDIO and HTTP builds)
     this.patternsCookbook = PATTERNS_COOKBOOK;
     // Use provided storage or create default FileSystemStorage
     this.storage = storage || new FileSystemStorage();
+  }
+
+  /**
+   * Get the MCP session ID (for client isolation in stateful mode)
+   */
+  getMcpSessionId(): string | null {
+    return this.mcpSessionId;
   }
 
   /**
@@ -438,7 +466,7 @@ class ThoughtboxServer {
   }
 }
 
-const CLEAR_THOUGHT_TOOL: Tool = {
+const CLEAR_THOUGHT_TOOL = {
   name: "thoughtbox",
   description: `Step-by-step thinking tool for complex problem-solving.
 
@@ -530,386 +558,279 @@ Request anytime with includeGuide parameter.`,
   },
 };
 
-// Exported server creation function for Smithery HTTP transport
-export default async function createServer({
-  config,
-}: {
-  config: z.infer<typeof configSchema>;
-}) {
-  const server = new Server(
-    {
-      name: "thoughtbox-server",
-      version: "1.1.0",
-    },
-    {
-      capabilities: {
-        tools: {},
-        prompts: {},
-        resources: {},
-        resourceTemplates: {},
-      },
-    }
-  );
+// Default logger for non-stateful mode
+const defaultLogger: Logger = {
+  debug: (msg, ...args) => console.error(`[DEBUG] ${msg}`, ...args),
+  info: (msg, ...args) => console.error(`[INFO] ${msg}`, ...args),
+  warn: (msg, ...args) => console.error(`[WARN] ${msg}`, ...args),
+  error: (msg, ...args) => console.error(`[ERROR] ${msg}`, ...args),
+};
 
-  const thinkingServer = new ThoughtboxServer(config.disableThoughtLogging);
+// Overloaded function signatures for both stateful and stateless modes
+export default async function createServer(
+  args: CreateServerArgs | LegacyServerArgs
+): Promise<McpServer> {
+  // Normalize arguments for both stateful and stateless modes
+  const sessionId = 'sessionId' in args ? args.sessionId : undefined;
+  // Parse config to apply defaults
+  const config = configSchema.parse(args.config);
+  const logger = 'logger' in args ? args.logger : defaultLogger;
+
+  const server = new McpServer({
+    name: "thoughtbox-server",
+    version: "1.0.0",
+  });
+
+  // Create server instances with MCP session ID for client isolation
+  const thinkingServer = new ThoughtboxServer(
+    config.disableThoughtLogging,
+    undefined,  // Use default storage
+    sessionId   // MCP session ID for isolation
+  );
   const notebookServer = new NotebookServer();
   const mentalModelsServer = new MentalModelsServer();
-  const knowledgeServer = new KnowledgeServer();
-  
-  // Shared knowledge storage instance for resource handlers
-  const knowledgeStorage = new KnowledgeStorage();
+
+  // Log server creation in stateful mode
+  if (sessionId) {
+    logger.info(`Creating server for MCP session: ${sessionId}`);
+  }
 
   // Initialize persistence layer
   try {
     await thinkingServer.initialize();
-    console.error("Persistence layer initialized");
+    logger.info("Persistence layer initialized");
+    
+    // Pre-load a specific reasoning session if configured
+    if (config.reasoningSessionId) {
+      try {
+        await thinkingServer.loadSession(config.reasoningSessionId);
+        logger.info(`Pre-loaded reasoning session: ${config.reasoningSessionId}`);
+      } catch (loadErr) {
+        logger.warn(`Failed to pre-load reasoning session ${config.reasoningSessionId}:`, loadErr);
+        // Continue without pre-loaded session
+      }
+    }
   } catch (err) {
-    console.error("Failed to initialize persistence layer:", err);
+    logger.error("Failed to initialize persistence layer:", err);
     // Continue without persistence - in-memory mode
-  }
-
-  // Initialize knowledge server
-  try {
-    await knowledgeServer.initialize();
-    await knowledgeStorage.initialize();
-    console.error("Knowledge Zone initialized");
-  } catch (err) {
-    console.error("Failed to initialize Knowledge Zone:", err);
   }
 
   // Sync mental models to filesystem for inspection
   // URI: thoughtbox://mental-models/{tag}/{model} → ~/.thoughtbox/mental-models/{tag}/{model}.md
   mentalModelsServer.syncToFilesystem().catch((err) => {
-    console.error("Failed to sync mental models to filesystem:", err);
+    logger.error("Failed to sync mental models to filesystem:", err);
   });
 
   // Note: NotebookServer uses lazy initialization - temp directories created on first use
 
-  server.setRequestHandler(ListToolsRequestSchema, async () => ({
-    tools: [CLEAR_THOUGHT_TOOL, NOTEBOOK_TOOL, MENTAL_MODELS_TOOL, KNOWLEDGE_TOOL],
+  // Register tools using McpServer's registerTool API
+  server.registerTool("thoughtbox", {
+    description: CLEAR_THOUGHT_TOOL.description,
+    inputSchema: z.object({
+      thought: z.string().describe("Your current thinking step"),
+      nextThoughtNeeded: z.boolean().describe("Whether another thought step is needed"),
+      thoughtNumber: z.number().int().min(1).describe("Current thought number (can be 1→N for forward thinking, or N→1 for backward/goal-driven thinking)"),
+      totalThoughts: z.number().int().min(1).describe("Estimated total thoughts needed (for backward thinking, start with thoughtNumber = totalThoughts)"),
+      isRevision: z.boolean().optional().describe("Whether this revises previous thinking"),
+      revisesThought: z.number().int().min(1).optional().describe("Which thought is being reconsidered"),
+      branchFromThought: z.number().int().min(1).optional().describe("Branching point thought number"),
+      branchId: z.string().optional().describe("Branch identifier"),
+      needsMoreThoughts: z.boolean().optional().describe("If more thoughts are needed"),
+      includeGuide: z.boolean().optional().describe("Request the patterns cookbook guide as embedded resource (also provided automatically at thought 1 and final thought)"),
+      sessionTitle: z.string().optional().describe("Title for the reasoning session (used at thought 1 for auto-create). Defaults to timestamp-based title."),
+      sessionTags: z.array(z.string()).optional().describe("Tags for the reasoning session (used at thought 1 for auto-create). Enables cross-chat discovery."),
+    }),
+    annotations: CLEAR_THOUGHT_TOOL.annotations,
+  }, async (args) => {
+    return await thinkingServer.processThought(args);
+  });
+
+  server.registerTool("notebook", {
+    description: NOTEBOOK_TOOL.description,
+    inputSchema: z.object({
+      operation: z.enum(getOperationNames() as [string, ...string[]]).describe("The notebook operation to execute"),
+      args: z.record(z.unknown()).optional().describe("Arguments for the operation (varies by operation)"),
+    }),
+    annotations: NOTEBOOK_TOOL.annotations,
+    _meta: NOTEBOOK_TOOL._meta,
+  }, async ({ operation, args }) => {
+    return notebookServer.processTool(operation, args || {});
+  });
+
+  server.registerTool("mental_models", {
+    description: MENTAL_MODELS_TOOL.description,
+    inputSchema: z.object({
+      operation: z.enum(["get_model", "list_models", "list_tags", "get_capability_graph"]).describe("The operation to execute"),
+      args: z.object({
+        model: z.string().optional().describe("Name of the mental model to retrieve (for get_model)"),
+        tag: z.string().optional().describe("Tag to filter models by (for list_models)"),
+      }).optional().describe("Arguments for the operation"),
+    }),
+    annotations: MENTAL_MODELS_TOOL.annotations,
+  }, async ({ operation, args }) => {
+    const result = await mentalModelsServer.processTool(operation, args || {});
+    // Transform content to have proper literal types for McpServer
+    const content: Array<{ type: "text"; text: string }> = result.content
+      .filter((c): c is { type: string; text: string } => c.type === "text" && typeof c.text === "string")
+      .map(c => ({ type: "text" as const, text: c.text }));
+    return { content, isError: result.isError };
+  });
+
+  // Register prompts using McpServer's registerPrompt API
+  server.registerPrompt("list_mcp_assets", {
+    description: LIST_MCP_ASSETS_PROMPT.description,
+  }, async () => ({
+    messages: [{
+      role: "assistant" as const,
+      content: { type: "text" as const, text: getListMcpAssetsContent() },
+    }],
   }));
 
-  server.setRequestHandler(CallToolRequestSchema, async (request) => {
-    if (request.params.name === "thoughtbox") {
-      return await thinkingServer.processThought(request.params.arguments);
+  server.registerPrompt("interleaved-thinking", {
+    description: INTERLEAVED_THINKING_PROMPT.description,
+    argsSchema: {
+      task: z.string().describe("The task to reason about"),
+      thoughts_limit: z.string().optional().describe("Maximum number of thoughts"),
+      clear_folder: z.string().optional().describe("Whether to clear folder (true/false)"),
+    },
+  }, async (args) => {
+    // Validate required argument (defensive check - Zod schema should enforce this)
+    if (!args.task) {
+      throw new Error("Missing required argument: task");
     }
-
-    // Handle notebook toolhost dispatcher
-    if (request.params.name === "notebook") {
-      const { operation, args } = request.params.arguments as any;
-
-      if (!operation || typeof operation !== "string") {
-        return {
-          content: [
-            {
-              type: "text",
-              text: JSON.stringify(
-                {
-                  success: false,
-                  error: "operation parameter is required and must be a string",
-                },
-                null,
-                2
-              ),
-            },
-          ],
-          isError: true,
-        };
-      }
-
-      return notebookServer.processTool(operation, args || {});
-    }
-
-    // Handle mental_models toolhost dispatcher
-    if (request.params.name === "mental_models") {
-      const { operation, args } = request.params.arguments as any;
-
-      if (!operation || typeof operation !== "string") {
-        return {
-          content: [
-            {
-              type: "text",
-              text: JSON.stringify(
-                {
-                  success: false,
-                  error: "operation parameter is required and must be a string",
-                },
-                null,
-                2
-              ),
-            },
-          ],
-          isError: true,
-        };
-      }
-
-      return mentalModelsServer.processTool(operation, args || {});
-    }
-
-    // Handle knowledge toolhost dispatcher
-    if (request.params.name === "knowledge") {
-      const { operation, args } = request.params.arguments as any;
-
-      if (!operation || typeof operation !== "string") {
-        return {
-          content: [
-            {
-              type: "text",
-              text: JSON.stringify(
-                {
-                  success: false,
-                  error: "operation parameter is required and must be a string",
-                },
-                null,
-                2
-              ),
-            },
-          ],
-          isError: true,
-        };
-      }
-
-      return knowledgeServer.processTool(operation, args || {});
-    }
-
+    const content = getInterleavedThinkingContent({
+      task: args.task,
+      thoughts_limit: args.thoughts_limit ? parseInt(args.thoughts_limit, 10) : undefined,
+      clear_folder: args.clear_folder === "true",
+    });
     return {
-      content: [
-        {
-          type: "text",
-          text: `Unknown tool: ${request.params.name}`,
-        },
-      ],
-      isError: true,
+      messages: [{
+        role: "user" as const,
+        content: { type: "text" as const, text: content },
+      }],
     };
   });
 
-  server.setRequestHandler(ListPromptsRequestSchema, async () => ({
-    prompts: [LIST_MCP_ASSETS_PROMPT, INTERLEAVED_THINKING_PROMPT],
+  // Register static resources using McpServer's registerResource API
+  server.registerResource("status", "system://status", {
+    description: "Health snapshot of the notebook server",
+    mimeType: "application/json",
+  }, async (uri) => ({
+    contents: [{ uri: uri.toString(), mimeType: "application/json", text: JSON.stringify(notebookServer.getStatus(), null, 2) }],
   }));
 
-  server.setRequestHandler(GetPromptRequestSchema, async (request) => {
-    if (request.params.name === "list_mcp_assets") {
-      return {
-        description: LIST_MCP_ASSETS_PROMPT.description,
-        messages: [
-          {
-            role: "assistant",
-            content: {
-              type: "text",
-              text: getListMcpAssetsContent(),
-            },
-          },
-        ],
-      };
-    }
+  server.registerResource("notebook-operations", "thoughtbox://notebook/operations", {
+    description: "Complete catalog of notebook operations with schemas and examples",
+    mimeType: "application/json",
+  }, async (uri) => ({
+    contents: [{ uri: uri.toString(), mimeType: "application/json", text: notebookServer.getOperationsCatalog() }],
+  }));
 
-    if (request.params.name === "interleaved-thinking") {
-      // Extract arguments - MCP spec says arguments values are always strings
-      const args = request.params.arguments ?? {};
-      const task = args.task;
-      
-      if (!task) {
-        throw new Error("Missing required argument 'task'");
-      }
+  server.registerResource("patterns-cookbook", "thoughtbox://patterns-cookbook", {
+    description: "Guide to core reasoning patterns for thoughtbox tool",
+    mimeType: "text/markdown",
+  }, async (uri) => ({
+    contents: [{ uri: uri.toString(), mimeType: "text/markdown", text: PATTERNS_COOKBOOK }],
+  }));
 
-      // Convert string arguments to proper types
-      const thoughts_limit = args.thoughts_limit 
-        ? parseInt(args.thoughts_limit, 10) 
-        : undefined;
-      const clear_folder = args.clear_folder === "true";
+  server.registerResource("architecture", "thoughtbox://architecture", {
+    description: "Interactive notebook explaining Thoughtbox MCP server architecture and implementation patterns",
+    mimeType: "text/markdown",
+  }, async (uri) => ({
+    contents: [{ uri: uri.toString(), mimeType: "text/markdown", text: SERVER_ARCHITECTURE_GUIDE }],
+  }));
 
-      // Get the prompt content with variable substitution
-      const content = getInterleavedThinkingContent({
-        task: String(task),
-        thoughts_limit,
-        clear_folder,
-      });
+  server.registerResource("mental-models-operations", "thoughtbox://mental-models/operations", {
+    description: "Complete catalog of mental models, tags, and operations",
+    mimeType: "application/json",
+  }, async (uri) => ({
+    contents: [{ uri: uri.toString(), mimeType: "application/json", text: mentalModelsServer.getOperationsCatalog() }],
+  }));
 
-      return {
-        description: INTERLEAVED_THINKING_PROMPT.description,
-        messages: [
-          {
-            role: "user",
-            content: {
-              type: "text",
-              text: content,
-            },
-          },
-        ],
-      };
-    }
+  // Register resource templates
+  server.registerResource(
+    "interleaved-guide",
+    new ResourceTemplate("thoughtbox://interleaved/{guide}", { list: undefined }),
+    { description: "Interleaved thinking guides", mimeType: "text/markdown" },
+    async (uri, { guide }) => ({
+      contents: [getInterleavedGuideForUri(`thoughtbox://interleaved/${guide}`)],
+    })
+  );
 
-    throw new Error(`Unknown prompt: ${request.params.name}`);
+  // Mental models root directory (static resource)
+  server.registerResource("mental-models-root", "thoughtbox://mental-models", {
+    description: "Mental models root directory",
+    mimeType: "application/json",
+  }, async (uri) => {
+    const content = getMentalModelsResourceContent(uri.toString());
+    if (!content) throw new Error(`Unknown resource: ${uri}`);
+    return { contents: [content] };
   });
 
-  // Resource handlers
-  server.setRequestHandler(ListResourcesRequestSchema, async () => ({
+  // Mental models tag directory (template with single path segment)
+  server.registerResource(
+    "mental-models-tag",
+    new ResourceTemplate("thoughtbox://mental-models/{tag}", { list: undefined }),
+    { description: "Mental models by tag", mimeType: "application/json" },
+    async (uri, { tag }) => {
+      const content = getMentalModelsResourceContent(uri.toString());
+      if (!content) throw new Error(`Unknown resource: ${uri}`);
+      return { contents: [content] };
+    }
+  );
+
+  // Mental model content (template with tag/model path)
+  server.registerResource(
+    "mental-model-by-tag",
+    new ResourceTemplate("thoughtbox://mental-models/{tag}/{model}", { list: undefined }),
+    { description: "Mental model content by tag path", mimeType: "text/markdown" },
+    async (uri, { tag, model }) => {
+      const content = getMentalModelsResourceContent(uri.toString());
+      if (!content) throw new Error(`Unknown resource: ${uri}`);
+      return { contents: [content] };
+    }
+  );
+
+  // Escape hatch: Use server.server for ListResourcesRequestSchema to include dynamic resources
+  // McpServer's registerResource doesn't support dynamic resource lists from getMentalModelsResources()
+  server.server.setRequestHandler(ListResourcesRequestSchema, async () => ({
     resources: [
-      {
-        uri: "system://status",
-        name: "Notebook Server Status",
-        description: "Health snapshot of the notebook server",
-        mimeType: "application/json",
-      },
-      {
-        uri: "thoughtbox://notebook/operations",
-        name: "Notebook Operations Catalog",
-        description: "Complete catalog of notebook operations with schemas and examples",
-        mimeType: "application/json",
-      },
-      {
-        uri: "thoughtbox://patterns-cookbook",
-        name: "Thoughtbox Patterns Cookbook",
-        description: "Guide to core reasoning patterns for thoughtbox tool",
-        mimeType: "text/markdown",
-      },
-      {
-        uri: "thoughtbox://architecture",
-        name: "Server Architecture Guide",
-        description: "Interactive notebook explaining Thoughtbox MCP server architecture and implementation patterns",
-        mimeType: "text/markdown",
-      },
-      {
-        uri: "thoughtbox://mental-models/operations",
-        name: "Mental Models Operations Catalog",
-        description: "Complete catalog of mental models, tags, and operations",
-        mimeType: "application/json",
-      },
-      // Mental models browsable hierarchy
+      { uri: "system://status", name: "Notebook Server Status", description: "Health snapshot of the notebook server", mimeType: "application/json" },
+      { uri: "thoughtbox://notebook/operations", name: "Notebook Operations Catalog", description: "Complete catalog of notebook operations with schemas and examples", mimeType: "application/json" },
+      { uri: "thoughtbox://patterns-cookbook", name: "Thoughtbox Patterns Cookbook", description: "Guide to core reasoning patterns for thoughtbox tool", mimeType: "text/markdown" },
+      { uri: "thoughtbox://architecture", name: "Server Architecture Guide", description: "Interactive notebook explaining Thoughtbox MCP server architecture and implementation patterns", mimeType: "text/markdown" },
+      { uri: "thoughtbox://mental-models/operations", name: "Mental Models Operations Catalog", description: "Complete catalog of mental models, tags, and operations", mimeType: "application/json" },
+      // Dynamic mental models browsable hierarchy
       ...getMentalModelsResources(),
-      // Knowledge Zone resources
-      ...getKnowledgeResources(),
     ],
   }));
 
-  // Resource template handlers
-  server.setRequestHandler(ListResourceTemplatesRequestSchema, async () => {
-    const interleavedTemplates = getInterleavedResourceTemplates();
-    const mentalModelsTemplates = getMentalModelsResourceTemplates();
-    const knowledgeTemplates = getKnowledgeResourceTemplates();
-    return {
-      resourceTemplates: [
-        ...interleavedTemplates.resourceTemplates,
-        ...mentalModelsTemplates.resourceTemplates,
-        ...knowledgeTemplates.resourceTemplates,
-      ],
-    };
-  });
-
-  server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
-    const uri = request.params.uri;
-
-    if (uri === "system://status") {
-      const status = notebookServer.getStatus();
-      return {
-        contents: [
-          {
-            uri,
-            mimeType: "application/json",
-            text: JSON.stringify(status, null, 2),
-          },
-        ],
-      };
-    }
-
-    if (uri === "thoughtbox://notebook/operations") {
-      const catalog = notebookServer.getOperationsCatalog();
-      return {
-        contents: [
-          {
-            uri,
-            mimeType: "application/json",
-            text: catalog,
-          },
-        ],
-      };
-    }
-
-    if (uri === "thoughtbox://patterns-cookbook") {
-      return {
-        contents: [
-          {
-            uri,
-            mimeType: "text/markdown",
-            text: PATTERNS_COOKBOOK,
-          },
-        ],
-      };
-    }
-
-    if (uri === "thoughtbox://architecture") {
-      return {
-        contents: [
-          {
-            uri,
-            mimeType: "text/markdown",
-            text: SERVER_ARCHITECTURE_GUIDE,
-          },
-        ],
-      };
-    }
-
-    if (uri === "thoughtbox://mental-models/operations") {
-      const catalog = mentalModelsServer.getOperationsCatalog();
-      return {
-        contents: [
-          {
-            uri,
-            mimeType: "application/json",
-            text: catalog,
-          },
-        ],
-      };
-    }
-
-    // Handle mental models browsable hierarchy
-    if (uri.startsWith("thoughtbox://mental-models")) {
-      const content = getMentalModelsResourceContent(uri);
-      if (content) {
-        return {
-          contents: [content],
-        };
-      }
-    }
-
-    // Handle interleaved thinking resource templates
-    if (uri.startsWith("thoughtbox://interleaved/")) {
-      try {
-        const resource = getInterleavedGuideForUri(uri);
-        return {
-          contents: [resource],
-        };
-      } catch (error) {
-        throw new Error(
-          error instanceof Error ? error.message : String(error)
-        );
-      }
-    }
-
-    // Handle knowledge zone resources
-    if (uri === "thoughtbox://knowledge/operations") {
-      return {
-        contents: [
-          {
-            uri,
-            mimeType: "application/json",
-            text: knowledgeServer.getOperationsCatalog(),
-          },
-        ],
-      };
-    }
-
-    if (uri.startsWith("thoughtbox://knowledge")) {
-      const content = await getKnowledgeResourceContent(uri, knowledgeStorage);
-      if (content) {
-        return {
-          contents: [content],
-        };
-      }
-    }
-
-    throw new Error(`Unknown resource: ${uri}`);
-  });
+  // Escape hatch: Use server.server for ListResourceTemplatesRequestSchema to preserve template metadata
+  // McpServer's registerResource doesn't preserve annotations and custom metadata from original templates
+  server.server.setRequestHandler(ListResourceTemplatesRequestSchema, async () => ({
+    resourceTemplates: [
+      ...getInterleavedResourceTemplates().resourceTemplates,
+      ...getMentalModelsResourceTemplates().resourceTemplates,
+    ],
+  }));
 
   return server;
+}
+
+// STDIO transport runner (exported for stdio.ts entry point)
+export async function runStdioServer() {
+  // Get configuration from environment variable (backward compatible)
+  const disableThoughtLogging =
+    (process.env.DISABLE_THOUGHT_LOGGING || "").toLowerCase() === "true";
+
+  // Create server using the exported function
+  const server = await createServer({
+    config: {
+      disableThoughtLogging,
+    },
+  });
+
+  const transport = new StdioServerTransport();
+  await server.connect(transport);
+  console.error("Thoughtbox MCP Server running on stdio");
 }

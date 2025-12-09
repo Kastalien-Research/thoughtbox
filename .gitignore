@@ -55,6 +55,7 @@ srcbook/
 local-docs/
 smithery-docs/
 mcp-specs/
+sdk/
 
 # Improvement opps
 improvement-recs/

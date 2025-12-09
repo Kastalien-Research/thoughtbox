@@ -1,8 +1,8 @@
 /**
  * Persistence Layer Type Definitions
  *
- * Defines interfaces for the SQLite + filesystem hybrid storage pattern.
- * SQLite stores queryable metadata, filesystem stores human-readable content.
+ * Defines interfaces for the in-memory storage pattern.
+ * Data persists for the lifetime of the server process.
  */
 
 // =============================================================================
@@ -15,7 +15,7 @@
 export type TimePartitionGranularity = 'monthly' | 'weekly' | 'daily' | 'none';
 
 /**
- * Server configuration stored in SQLite (single row)
+ * Server configuration (in-memory)
  */
 export interface Config {
   installId: string;
