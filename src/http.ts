@@ -14,10 +14,46 @@ app.use(
   cors({
     origin: "*",
     methods: ["GET", "POST", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Mcp-Session-Id"],
+    allowedHeaders: ["Content-Type", "Mcp-Session-Id", "Authorization"],
     exposedHeaders: ["Mcp-Session-Id"],
   })
 );
+
+// Authentication middleware
+// If AUTH_TOKEN is set, require Bearer token on all /mcp endpoints
+const AUTH_TOKEN = process.env.AUTH_TOKEN;
+if (AUTH_TOKEN) {
+  app.use("/mcp", (req, res, next) => {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return res.status(401).json({
+        jsonrpc: "2.0",
+        error: {
+          code: -32001,
+          message: "Unauthorized: Missing or invalid Authorization header",
+        },
+        id: null,
+      });
+    }
+    
+    const token = authHeader.substring(7); // Remove "Bearer " prefix
+    if (token !== AUTH_TOKEN) {
+      return res.status(403).json({
+        jsonrpc: "2.0",
+        error: {
+          code: -32002,
+          message: "Forbidden: Invalid token",
+        },
+        id: null,
+      });
+    }
+    
+    next();
+  });
+  console.log("🔒 Authentication enabled: Bearer token required for /mcp endpoints");
+} else {
+  console.log("⚠️  Authentication disabled: Set AUTH_TOKEN to enable");
+}
 
 // MCP server instance (initialized on startup)
 let mcpServer: Awaited<ReturnType<typeof createServer>>;
