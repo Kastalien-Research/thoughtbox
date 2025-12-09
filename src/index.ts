@@ -27,10 +27,12 @@ import {
 } from "./prompts/index.js";
 import {
   FileSystemStorage,
+  SessionExporter,
   type ThoughtboxStorage,
   type Session,
   type SessionFilter,
   type ThoughtData as PersistentThoughtData,
+  type SessionExport,
 } from "./persistence/index.js";
 
 // Configuration schema for Smithery
@@ -205,6 +207,47 @@ class ThoughtboxServer {
     }
   }
 
+  /**
+   * Auto-export session to filesystem when it closes
+   * @returns Path to exported file
+   */
+  private async autoExportSession(sessionId: string): Promise<string> {
+    // Get linked export data from storage
+    const exportData = await (this.storage as any).toLinkedExport(sessionId);
+
+    // Export to filesystem
+    const exporter = new SessionExporter();
+    return exporter.export(exportData, sessionId);
+  }
+
+  /**
+   * Export a reasoning session to filesystem as linked JSON
+   * Public method for manual export via tool
+   */
+  async exportReasoningChain(
+    sessionId: string,
+    destination?: string
+  ): Promise<{ path: string; session: Session; nodeCount: number }> {
+    // Get session to verify it exists
+    const session = await this.storage.getSession(sessionId);
+    if (!session) {
+      throw new Error(`Session ${sessionId} not found`);
+    }
+
+    // Get linked export data
+    const exportData = await (this.storage as any).toLinkedExport(sessionId);
+
+    // Export to filesystem
+    const exporter = new SessionExporter();
+    const exportPath = await exporter.export(exportData, sessionId, destination);
+
+    return {
+      path: exportPath,
+      session,
+      nodeCount: exportData.nodes.length,
+    };
+  }
+
   private validateThoughtData(input: unknown): ThoughtData {
     const data = input as Record<string, unknown>;
 
@@ -285,8 +328,8 @@ class ThoughtboxServer {
         validatedInput.totalThoughts = validatedInput.thoughtNumber;
       }
 
-      // Auto-create session on thought 1 (if no session active)
-      if (validatedInput.thoughtNumber === 1 && !this.currentSessionId) {
+      // Auto-create session on first thought (if no session active)
+      if (!this.currentSessionId) {
         const session = await this.storage.createSession({
           title:
             validatedInput.sessionTitle ||
@@ -392,7 +435,43 @@ class ThoughtboxServer {
 
       // End session when reasoning is complete
       if (!validatedInput.nextThoughtNeeded && this.currentSessionId) {
+        // Auto-export before session ends
+        let exportPath: string | null = null;
+        try {
+          exportPath = await this.autoExportSession(this.currentSessionId);
+        } catch (err) {
+          // Log but don't fail the thought - export is best-effort
+          console.error(`Auto-export failed: ${(err as Error).message}`);
+        }
+
+        const closingSessionId = this.currentSessionId;
         this.currentSessionId = null;
+
+        // Include export info in response if successful
+        if (exportPath) {
+          return {
+            content: [
+              {
+                type: "text",
+                text: JSON.stringify(
+                  {
+                    thoughtNumber: validatedInput.thoughtNumber,
+                    totalThoughts: validatedInput.totalThoughts,
+                    nextThoughtNeeded: validatedInput.nextThoughtNeeded,
+                    branches: Object.keys(this.branches),
+                    thoughtHistoryLength: this.thoughtHistory.length,
+                    sessionId: null,
+                    sessionClosed: true,
+                    closedSessionId: closingSessionId,
+                    exportPath,
+                  },
+                  null,
+                  2
+                ),
+              },
+            ],
+          };
+        }
       }
 
       if (!this.disableThoughtLogging) {
@@ -674,6 +753,56 @@ export default async function createServer(
       .filter((c): c is { type: string; text: string } => c.type === "text" && typeof c.text === "string")
       .map(c => ({ type: "text" as const, text: c.text }));
     return { content, isError: result.isError };
+  });
+
+  // Export reasoning chain tool
+  server.registerTool("export_reasoning_chain", {
+    description: "Export a reasoning session to filesystem as linked JSON structure. Useful for persisting reasoning chains, sharing sessions, or archiving completed work.",
+    inputSchema: z.object({
+      sessionId: z.string().optional().describe("Session ID to export (uses current session if omitted)"),
+      destination: z.string().optional().describe("Custom export directory path (default: ~/.thoughtbox/exports/)"),
+    }),
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+    },
+  }, async ({ sessionId, destination }) => {
+    const targetSession = sessionId || thinkingServer.getCurrentSessionId();
+    if (!targetSession) {
+      return {
+        content: [{
+          type: "text" as const,
+          text: JSON.stringify({ error: "No active session to export. Provide a sessionId or start a reasoning session first." }, null, 2),
+        }],
+        isError: true,
+      };
+    }
+
+    try {
+      const result = await thinkingServer.exportReasoningChain(targetSession, destination);
+      return {
+        content: [{
+          type: "text" as const,
+          text: JSON.stringify({
+            success: true,
+            exportPath: result.path,
+            sessionId: result.session.id,
+            sessionTitle: result.session.title,
+            nodeCount: result.nodeCount,
+            exportedAt: new Date().toISOString(),
+          }, null, 2),
+        }],
+      };
+    } catch (err) {
+      return {
+        content: [{
+          type: "text" as const,
+          text: JSON.stringify({ error: (err as Error).message }, null, 2),
+        }],
+        isError: true,
+      };
+    }
   });
 
   // Register prompts using McpServer's registerPrompt API
