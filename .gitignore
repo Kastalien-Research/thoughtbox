@@ -81,6 +81,8 @@ tessl.json
 
 # IDE-specific configurations
 .cursor/
+.cursorignore
+*.code-workspace
 
 # Note: generated template files should optionally be ignored (can commit for convenience)
 # src/notebook/templates.generated.ts
