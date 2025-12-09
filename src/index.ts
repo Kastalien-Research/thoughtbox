@@ -834,3 +834,6 @@ export async function runStdioServer() {
   await server.connect(transport);
   console.error("Thoughtbox MCP Server running on stdio");
 }
+
+// Auto-run when executed directly
+runStdioServer();
