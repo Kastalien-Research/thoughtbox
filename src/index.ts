@@ -441,18 +441,8 @@ class ThoughtboxServer {
       // End session when reasoning is complete
       if (!validatedInput.nextThoughtNeeded && this.currentSessionId) {
         // Auto-export before session ends
-        let exportPath: string | null = null;
-        let exportError: string | null = null;
         try {
-          exportPath = await this.autoExportSession(this.currentSessionId);
-        } catch (err) {
-          // Capture error but don't close session if export fails
-          exportError = (err as Error).message;
-          console.error(`Auto-export failed: ${exportError}`);
-        }
-
-        // Only close session if export succeeded
-        if (exportPath) {
+          const exportPath = await this.autoExportSession(this.currentSessionId);
           const closingSessionId = this.currentSessionId;
           this.currentSessionId = null;
 
@@ -479,8 +469,11 @@ class ThoughtboxServer {
               },
             ],
           };
-        } else if (exportError) {
-          // Export failed - session remains open
+        } catch (err) {
+          // Export failed - session remains open to prevent data loss
+          const exportError = (err as Error).message;
+          console.error(`Auto-export failed: ${exportError}`);
+          
           return {
             content: [
               {
@@ -493,7 +486,7 @@ class ThoughtboxServer {
                     branches: Object.keys(this.branches),
                     thoughtHistoryLength: this.thoughtHistory.length,
                     sessionId: this.currentSessionId,
-                    warning: `Auto-export failed: ${exportError}. Session remains open. You can manually export using the export_reasoning_chain tool.`,
+                    warning: `Auto-export failed: ${exportError}. Session remains open to prevent data loss. You can manually export using the export_reasoning_chain tool.`,
                   },
                   null,
                   2

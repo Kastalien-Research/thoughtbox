@@ -25,7 +25,7 @@ export type {
   ExportOptions,
 } from './types.js';
 
-// Storage implementation
+// Storage implementation (in-memory only)
 export { InMemoryStorage, LinkedThoughtStore } from './storage.js';
 
 // Session exporter
