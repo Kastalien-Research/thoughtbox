@@ -14,36 +14,13 @@ import {
   ListResourcesRequestSchema,
   ReadResourceRequestSchema,
   ListResourceTemplatesRequestSchema,
-  Tool,
 } from "@modelcontextprotocol/sdk/types.js";
-// Fixed chalk import for ESM
 import chalk from "chalk";
 import { z } from "zod";
 import { PATTERNS_COOKBOOK } from "./resources/patterns-cookbook-content.js";
-import { SERVER_ARCHITECTURE_GUIDE } from "./resources/server-architecture-content.js";
-import { NotebookServer, NOTEBOOK_TOOL } from "./notebook/index.js";
-import {
-  MentalModelsServer,
-  MENTAL_MODELS_TOOL,
-  getMentalModelsResources,
-  getMentalModelsResourceTemplates,
-  getMentalModelsResourceContent,
-} from "./mental-models/index.js";
-import {
-  KnowledgeServer,
-  KNOWLEDGE_TOOL,
-  getKnowledgeResources,
-  getKnowledgeResourceTemplates,
-  getKnowledgeResourceContent,
-} from "./knowledge/index.js";
-import {
-  LIST_MCP_ASSETS_PROMPT,
-  getListMcpAssetsContent,
-  INTERLEAVED_THINKING_PROMPT,
-  getInterleavedThinkingContent,
-  getInterleavedResourceTemplates,
-  getInterleavedGuideForUri,
-} from "./prompts/index.js";
+import { NotebookServer } from "./notebook/index.js";
+import { MentalModelsServer } from "./mental-models/index.js";
+import { KnowledgeServer } from "./knowledge/index.js";
 import {
   FileSystemStorage,
   KnowledgeStorage,
@@ -52,6 +29,13 @@ import {
   type SessionFilter,
   type ThoughtData as PersistentThoughtData,
 } from "./persistence/index.js";
+import { handleListTools, handleCallTool } from "./handlers/tools.js";
+import { handleListPrompts, handleGetPrompt } from "./handlers/prompts.js";
+import {
+  handleListResources,
+  handleListResourceTemplates,
+  handleReadResource,
+} from "./handlers/resources.js";
 
 // Configuration schema for Smithery
 export const configSchema = z.object({
@@ -80,7 +64,7 @@ interface ThoughtData {
   sessionTags?: string[];
 }
 
-class ThoughtboxServer {
+export class ThoughtboxServer {
   private thoughtHistory: ThoughtData[] = [];
   private branches: Record<string, ThoughtData[]> = {};
   private disableThoughtLogging: boolean;
@@ -438,97 +422,6 @@ class ThoughtboxServer {
   }
 }
 
-const CLEAR_THOUGHT_TOOL: Tool = {
-  name: "thoughtbox",
-  description: `Step-by-step thinking tool for complex problem-solving.
-
-Supports flexible reasoning: forward thinking (1→N), backward thinking (N→1), branching, and revision.
-Adjust your approach dynamically as understanding deepens.
-
-Use for:
-- Multi-step analysis and planning
-- Problems requiring course correction
-- Hypothesis generation and testing
-- System design and architecture decisions
-
-Patterns Cookbook:
-Automatically provided at thought 1 with 6 core reasoning patterns, examples, and best practices.
-Request anytime with includeGuide parameter.`,
-  inputSchema: {
-    type: "object",
-    properties: {
-      thought: {
-        type: "string",
-        description: "Your current thinking step",
-      },
-      nextThoughtNeeded: {
-        type: "boolean",
-        description: "Whether another thought step is needed",
-      },
-      thoughtNumber: {
-        type: "integer",
-        description:
-          "Current thought number (can be 1→N for forward thinking, or N→1 for backward/goal-driven thinking)",
-        minimum: 1,
-      },
-      totalThoughts: {
-        type: "integer",
-        description:
-          "Estimated total thoughts needed (for backward thinking, start with thoughtNumber = totalThoughts)",
-        minimum: 1,
-      },
-      isRevision: {
-        type: "boolean",
-        description: "Whether this revises previous thinking",
-      },
-      revisesThought: {
-        type: "integer",
-        description: "Which thought is being reconsidered",
-        minimum: 1,
-      },
-      branchFromThought: {
-        type: "integer",
-        description: "Branching point thought number",
-        minimum: 1,
-      },
-      branchId: {
-        type: "string",
-        description: "Branch identifier",
-      },
-      needsMoreThoughts: {
-        type: "boolean",
-        description: "If more thoughts are needed",
-      },
-      includeGuide: {
-        type: "boolean",
-        description:
-          "Request the patterns cookbook guide as embedded resource (also provided automatically at thought 1 and final thought)",
-      },
-      sessionTitle: {
-        type: "string",
-        description:
-          "Title for the reasoning session (used at thought 1 for auto-create). Defaults to timestamp-based title.",
-      },
-      sessionTags: {
-        type: "array",
-        items: { type: "string" },
-        description:
-          "Tags for the reasoning session (used at thought 1 for auto-create). Enables cross-chat discovery.",
-      },
-    },
-    required: [
-      "thought",
-      "nextThoughtNeeded",
-      "thoughtNumber",
-      "totalThoughts",
-    ],
-  },
-  annotations: {
-    readOnlyHint: false,
-    destructiveHint: false,
-    idempotentHint: false,
-  },
-};
 
 // Exported server creation function for Smithery HTTP transport
 export default async function createServer({
@@ -555,8 +448,6 @@ export default async function createServer({
   const notebookServer = new NotebookServer();
   const mentalModelsServer = new MentalModelsServer();
   const knowledgeServer = new KnowledgeServer();
-  
-  // Shared knowledge storage instance for resource handlers
   const knowledgeStorage = new KnowledgeStorage();
 
   // Initialize persistence layer
@@ -578,338 +469,41 @@ export default async function createServer({
   }
 
   // Sync mental models to filesystem for inspection
-  // URI: thoughtbox://mental-models/{tag}/{model} → ~/.thoughtbox/mental-models/{tag}/{model}.md
   mentalModelsServer.syncToFilesystem().catch((err) => {
     console.error("Failed to sync mental models to filesystem:", err);
   });
 
-  // Note: NotebookServer uses lazy initialization - temp directories created on first use
+  // Register handlers using extracted functions
+  server.setRequestHandler(ListToolsRequestSchema, handleListTools);
 
-  server.setRequestHandler(ListToolsRequestSchema, async () => ({
-    tools: [CLEAR_THOUGHT_TOOL, NOTEBOOK_TOOL, MENTAL_MODELS_TOOL, KNOWLEDGE_TOOL],
-  }));
+  server.setRequestHandler(CallToolRequestSchema, async (request) =>
+    handleCallTool(request, {
+      thinking: thinkingServer,
+      notebook: notebookServer,
+      mentalModels: mentalModelsServer,
+      knowledge: knowledgeServer,
+    })
+  );
 
-  server.setRequestHandler(CallToolRequestSchema, async (request) => {
-    if (request.params.name === "thoughtbox") {
-      return await thinkingServer.processThought(request.params.arguments);
-    }
+  server.setRequestHandler(ListPromptsRequestSchema, handleListPrompts);
 
-    // Handle notebook toolhost dispatcher
-    if (request.params.name === "notebook") {
-      const { operation, args } = request.params.arguments as any;
+  server.setRequestHandler(GetPromptRequestSchema, handleGetPrompt);
 
-      if (!operation || typeof operation !== "string") {
-        return {
-          content: [
-            {
-              type: "text",
-              text: JSON.stringify(
-                {
-                  success: false,
-                  error: "operation parameter is required and must be a string",
-                },
-                null,
-                2
-              ),
-            },
-          ],
-          isError: true,
-        };
-      }
+  server.setRequestHandler(ListResourcesRequestSchema, handleListResources);
 
-      return notebookServer.processTool(operation, args || {});
-    }
+  server.setRequestHandler(
+    ListResourceTemplatesRequestSchema,
+    handleListResourceTemplates
+  );
 
-    // Handle mental_models toolhost dispatcher
-    if (request.params.name === "mental_models") {
-      const { operation, args } = request.params.arguments as any;
-
-      if (!operation || typeof operation !== "string") {
-        return {
-          content: [
-            {
-              type: "text",
-              text: JSON.stringify(
-                {
-                  success: false,
-                  error: "operation parameter is required and must be a string",
-                },
-                null,
-                2
-              ),
-            },
-          ],
-          isError: true,
-        };
-      }
-
-      return mentalModelsServer.processTool(operation, args || {});
-    }
-
-    // Handle knowledge toolhost dispatcher
-    if (request.params.name === "knowledge") {
-      const { operation, args } = request.params.arguments as any;
-
-      if (!operation || typeof operation !== "string") {
-        return {
-          content: [
-            {
-              type: "text",
-              text: JSON.stringify(
-                {
-                  success: false,
-                  error: "operation parameter is required and must be a string",
-                },
-                null,
-                2
-              ),
-            },
-          ],
-          isError: true,
-        };
-      }
-
-      return knowledgeServer.processTool(operation, args || {});
-    }
-
-    return {
-      content: [
-        {
-          type: "text",
-          text: `Unknown tool: ${request.params.name}`,
-        },
-      ],
-      isError: true,
-    };
-  });
-
-  server.setRequestHandler(ListPromptsRequestSchema, async () => ({
-    prompts: [LIST_MCP_ASSETS_PROMPT, INTERLEAVED_THINKING_PROMPT],
-  }));
-
-  server.setRequestHandler(GetPromptRequestSchema, async (request) => {
-    if (request.params.name === "list_mcp_assets") {
-      return {
-        description: LIST_MCP_ASSETS_PROMPT.description,
-        messages: [
-          {
-            role: "assistant",
-            content: {
-              type: "text",
-              text: getListMcpAssetsContent(),
-            },
-          },
-        ],
-      };
-    }
-
-    if (request.params.name === "interleaved-thinking") {
-      // Extract arguments - MCP spec says arguments values are always strings
-      const args = request.params.arguments ?? {};
-      const task = args.task;
-      
-      if (!task) {
-        throw new Error("Missing required argument 'task'");
-      }
-
-      // Convert string arguments to proper types
-      const thoughts_limit = args.thoughts_limit 
-        ? parseInt(args.thoughts_limit, 10) 
-        : undefined;
-      const clear_folder = args.clear_folder === "true";
-
-      // Get the prompt content with variable substitution
-      const content = getInterleavedThinkingContent({
-        task: String(task),
-        thoughts_limit,
-        clear_folder,
-      });
-
-      return {
-        description: INTERLEAVED_THINKING_PROMPT.description,
-        messages: [
-          {
-            role: "user",
-            content: {
-              type: "text",
-              text: content,
-            },
-          },
-        ],
-      };
-    }
-
-    throw new Error(`Unknown prompt: ${request.params.name}`);
-  });
-
-  // Resource handlers
-  server.setRequestHandler(ListResourcesRequestSchema, async () => ({
-    resources: [
-      {
-        uri: "system://status",
-        name: "Notebook Server Status",
-        description: "Health snapshot of the notebook server",
-        mimeType: "application/json",
-      },
-      {
-        uri: "thoughtbox://notebook/operations",
-        name: "Notebook Operations Catalog",
-        description: "Complete catalog of notebook operations with schemas and examples",
-        mimeType: "application/json",
-      },
-      {
-        uri: "thoughtbox://patterns-cookbook",
-        name: "Thoughtbox Patterns Cookbook",
-        description: "Guide to core reasoning patterns for thoughtbox tool",
-        mimeType: "text/markdown",
-      },
-      {
-        uri: "thoughtbox://architecture",
-        name: "Server Architecture Guide",
-        description: "Interactive notebook explaining Thoughtbox MCP server architecture and implementation patterns",
-        mimeType: "text/markdown",
-      },
-      {
-        uri: "thoughtbox://mental-models/operations",
-        name: "Mental Models Operations Catalog",
-        description: "Complete catalog of mental models, tags, and operations",
-        mimeType: "application/json",
-      },
-      // Mental models browsable hierarchy
-      ...getMentalModelsResources(),
-      // Knowledge Zone resources
-      ...getKnowledgeResources(),
-    ],
-  }));
-
-  // Resource template handlers
-  server.setRequestHandler(ListResourceTemplatesRequestSchema, async () => {
-    const interleavedTemplates = getInterleavedResourceTemplates();
-    const mentalModelsTemplates = getMentalModelsResourceTemplates();
-    const knowledgeTemplates = getKnowledgeResourceTemplates();
-    return {
-      resourceTemplates: [
-        ...interleavedTemplates.resourceTemplates,
-        ...mentalModelsTemplates.resourceTemplates,
-        ...knowledgeTemplates.resourceTemplates,
-      ],
-    };
-  });
-
-  server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
-    const uri = request.params.uri;
-
-    if (uri === "system://status") {
-      const status = notebookServer.getStatus();
-      return {
-        contents: [
-          {
-            uri,
-            mimeType: "application/json",
-            text: JSON.stringify(status, null, 2),
-          },
-        ],
-      };
-    }
-
-    if (uri === "thoughtbox://notebook/operations") {
-      const catalog = notebookServer.getOperationsCatalog();
-      return {
-        contents: [
-          {
-            uri,
-            mimeType: "application/json",
-            text: catalog,
-          },
-        ],
-      };
-    }
-
-    if (uri === "thoughtbox://patterns-cookbook") {
-      return {
-        contents: [
-          {
-            uri,
-            mimeType: "text/markdown",
-            text: PATTERNS_COOKBOOK,
-          },
-        ],
-      };
-    }
-
-    if (uri === "thoughtbox://architecture") {
-      return {
-        contents: [
-          {
-            uri,
-            mimeType: "text/markdown",
-            text: SERVER_ARCHITECTURE_GUIDE,
-          },
-        ],
-      };
-    }
-
-    if (uri === "thoughtbox://mental-models/operations") {
-      const catalog = mentalModelsServer.getOperationsCatalog();
-      return {
-        contents: [
-          {
-            uri,
-            mimeType: "application/json",
-            text: catalog,
-          },
-        ],
-      };
-    }
-
-    // Handle mental models browsable hierarchy
-    if (uri.startsWith("thoughtbox://mental-models")) {
-      const content = getMentalModelsResourceContent(uri);
-      if (content) {
-        return {
-          contents: [content],
-        };
-      }
-    }
-
-    // Handle interleaved thinking resource templates
-    if (uri.startsWith("thoughtbox://interleaved/")) {
-      try {
-        const resource = getInterleavedGuideForUri(uri);
-        return {
-          contents: [resource],
-        };
-      } catch (error) {
-        throw new Error(
-          error instanceof Error ? error.message : String(error)
-        );
-      }
-    }
-
-    // Handle knowledge zone resources
-    if (uri === "thoughtbox://knowledge/operations") {
-      return {
-        contents: [
-          {
-            uri,
-            mimeType: "application/json",
-            text: knowledgeServer.getOperationsCatalog(),
-          },
-        ],
-      };
-    }
-
-    if (uri.startsWith("thoughtbox://knowledge")) {
-      const content = await getKnowledgeResourceContent(uri, knowledgeStorage);
-      if (content) {
-        return {
-          contents: [content],
-        };
-      }
-    }
-
-    throw new Error(`Unknown resource: ${uri}`);
-  });
+  server.setRequestHandler(ReadResourceRequestSchema, async (request) =>
+    handleReadResource(request, {
+      notebook: notebookServer,
+      mentalModels: mentalModelsServer,
+      knowledge: knowledgeServer,
+      knowledgeStorage,
+    })
+  );
 
   return server;
 }
