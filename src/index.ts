@@ -40,6 +40,14 @@ import {
   type IInitHandler,
   type SessionIndex,
 } from "./init/index.js";
+import {
+  thoughtEmitter,
+  loadObservatoryConfig,
+  createObservatoryServer,
+  type Thought as ObservatoryThought,
+  type Session as ObservatorySession,
+  type ObservatoryServer,
+} from "./observatory/index.js";
 
 // Configuration schema for Smithery
 // Note: Using .default() means the field is always present after parsing,
@@ -346,6 +354,23 @@ class ThoughtboxServer {
         // Clear in-memory state for new session
         this.thoughtHistory = [];
         this.branches = {};
+
+        // Observatory: Emit session started event
+        if (thoughtEmitter.hasListeners()) {
+          try {
+            thoughtEmitter.emitSessionStarted({
+              session: {
+                id: session.id,
+                title: session.title,
+                tags: session.tags || [],
+                createdAt: session.createdAt.toISOString(),
+                status: 'active',
+              },
+            });
+          } catch (e) {
+            console.warn('[Observatory] Session start emit failed:', e instanceof Error ? e.message : e);
+          }
+        }
       }
 
       // Persist to storage if session is active
@@ -427,6 +452,55 @@ class ThoughtboxServer {
           }
           this.branches[validatedInput.branchId].push(validatedInput);
         }
+
+        // Observatory: Fire-and-forget event emission
+        // This block NEVER throws - failures are logged and swallowed
+        if (thoughtEmitter.hasListeners()) {
+          const observatoryThought: ObservatoryThought = {
+            id: `${this.currentSessionId}-${validatedInput.thoughtNumber}`,
+            thoughtNumber: validatedInput.thoughtNumber,
+            totalThoughts: validatedInput.totalThoughts,
+            thought: validatedInput.thought,
+            nextThoughtNeeded: validatedInput.nextThoughtNeeded,
+            timestamp: thoughtData.timestamp,
+            isRevision: validatedInput.isRevision,
+            revisesThought: validatedInput.revisesThought,
+            branchId: validatedInput.branchId,
+            branchFromThought: validatedInput.branchFromThought,
+          };
+
+          const parentId = validatedInput.thoughtNumber > 1
+            ? `${this.currentSessionId}-${validatedInput.thoughtNumber - 1}`
+            : null;
+
+          try {
+            if (validatedInput.isRevision && validatedInput.revisesThought) {
+              thoughtEmitter.emitThoughtRevised({
+                sessionId: this.currentSessionId,
+                thought: observatoryThought,
+                parentId,
+                originalThoughtNumber: validatedInput.revisesThought,
+              });
+            } else if (validatedInput.branchFromThought && validatedInput.branchId) {
+              thoughtEmitter.emitThoughtBranched({
+                sessionId: this.currentSessionId,
+                thought: observatoryThought,
+                parentId,
+                branchId: validatedInput.branchId,
+                fromThoughtNumber: validatedInput.branchFromThought,
+              });
+            } else {
+              thoughtEmitter.emitThoughtAdded({
+                sessionId: this.currentSessionId,
+                thought: observatoryThought,
+                parentId,
+              });
+            }
+          } catch (e) {
+            // Swallow any errors - observatory must never affect reasoning
+            console.warn('[Observatory] Emit failed:', e instanceof Error ? e.message : e);
+          }
+        }
       } else {
         // No active session - update in-memory state only
         this.thoughtHistory.push(validatedInput);
@@ -441,6 +515,18 @@ class ThoughtboxServer {
 
       // End session when reasoning is complete
       if (!validatedInput.nextThoughtNeeded && this.currentSessionId) {
+        // Observatory: Emit session ended event
+        if (thoughtEmitter.hasListeners()) {
+          try {
+            thoughtEmitter.emitSessionEnded({
+              sessionId: this.currentSessionId,
+              finalThoughtCount: this.thoughtHistory.length,
+            });
+          } catch (e) {
+            console.warn('[Observatory] Session end emit failed:', e instanceof Error ? e.message : e);
+          }
+        }
+
         // Auto-export before session ends
         try {
           const exportPath = await this.autoExportSession(this.currentSessionId);
@@ -1088,9 +1174,26 @@ export async function runStdioServer() {
     },
   });
 
+  // Start Observatory server if enabled
+  let observatoryServer: ObservatoryServer | null = null;
+  const observatoryConfig = loadObservatoryConfig();
+  if (observatoryConfig.enabled) {
+    observatoryServer = createObservatoryServer(observatoryConfig);
+    await observatoryServer.start();
+    console.error(`[Observatory] Server started on port ${observatoryConfig.port}`);
+  }
+
   const transport = new StdioServerTransport();
   await server.connect(transport);
   console.error("Thoughtbox MCP Server running on stdio");
+
+  // Graceful shutdown
+  process.on('SIGTERM', async () => {
+    if (observatoryServer?.isRunning()) {
+      await observatoryServer.stop();
+    }
+    process.exit(0);
+  });
 }
 
 // Auto-run when executed directly
