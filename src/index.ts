@@ -977,7 +977,7 @@ export default function createServer(
 
   // Entry point (static resource)
   server.registerResource("init", "thoughtbox://init", {
-    description: "Initialize Thoughtbox session - entry point",
+    description: "START HERE: Initialize Thoughtbox session before using other tools. Loads context from previous sessions and guides you through project/task selection.",
     mimeType: "text/markdown"
   }, async (uri) => ({
     contents: [handleInit({})]
@@ -1027,7 +1027,7 @@ export default function createServer(
   // McpServer's registerResource doesn't support dynamic resource lists from getMentalModelsResources()
   server.server.setRequestHandler(ListResourcesRequestSchema, async () => ({
     resources: [
-      { uri: "thoughtbox://init", name: "Thoughtbox Init Flow", description: "Initialize Thoughtbox session with context loading - start here for guided navigation", mimeType: "text/markdown" },
+      { uri: "thoughtbox://init", name: "Thoughtbox Init Flow", description: "START HERE FIRST: Read this resource before using any Thoughtbox tools. Initializes session context and loads previous work for continuity.", mimeType: "text/markdown" },
       { uri: "system://status", name: "Notebook Server Status", description: "Health snapshot of the notebook server", mimeType: "application/json" },
       { uri: "thoughtbox://notebook/operations", name: "Notebook Operations Catalog", description: "Complete catalog of notebook operations with schemas and examples", mimeType: "application/json" },
       { uri: "thoughtbox://patterns-cookbook", name: "Thoughtbox Patterns Cookbook", description: "Guide to core reasoning patterns for thoughtbox tool", mimeType: "text/markdown" },
