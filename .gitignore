@@ -85,3 +85,5 @@ tessl.json
 
 # Note: generated template files should optionally be ignored (can commit for convenience)
 # src/notebook/templates.generated.ts
+
+mcp-servers/

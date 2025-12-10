@@ -91,8 +91,8 @@ app.delete("/mcp", (req, res) => {
 
 // Startup function
 async function start() {
-  // Create the MCP server with default config (now async)
-  mcpServer = await createServer({
+  // Create the MCP server with default config (synchronous factory)
+  mcpServer = createServer({
     config: {
       disableThoughtLogging:
         (process.env.DISABLE_THOUGHT_LOGGING || "").toLowerCase() === "true",

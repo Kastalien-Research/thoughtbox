@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import { McpServer, ResourceTemplate } from "@modelcontextprotocol/sdk/server/mcp.js";
+import type { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { ListResourcesRequestSchema, ListResourceTemplatesRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 // Fixed chalk import for ESM
@@ -668,10 +669,10 @@ const defaultLogger: Logger = {
   error: (msg, ...args) => console.error(`[ERROR] ${msg}`, ...args),
 };
 
-// Overloaded function signatures for both stateful and stateless modes
-export default async function createServer(
+// Server factory - must be synchronous for Smithery SDK compatibility
+export default function createServer(
   args: CreateServerArgs | LegacyServerArgs
-): Promise<McpServer> {
+): Server {
   // Normalize arguments for both stateful and stateless modes
   const sessionId = 'sessionId' in args ? args.sessionId : undefined;
   // Parse config to apply defaults
@@ -697,41 +698,37 @@ export default async function createServer(
     logger.info(`Creating server for MCP session: ${sessionId}`);
   }
 
-  // Initialize persistence layer
-  try {
-    await thinkingServer.initialize();
+  // Initialize persistence layer (fire-and-forget for sync factory)
+  // Handlers are resilient to uninitialized state
+  thinkingServer.initialize().then(() => {
     logger.info("Persistence layer initialized");
     
     // Pre-load a specific reasoning session if configured
     if (config.reasoningSessionId) {
-      try {
-        await thinkingServer.loadSession(config.reasoningSessionId);
-        logger.info(`Pre-loaded reasoning session: ${config.reasoningSessionId}`);
-      } catch (loadErr) {
-        logger.warn(`Failed to pre-load reasoning session ${config.reasoningSessionId}:`, loadErr);
-        // Continue without pre-loaded session
-      }
+      thinkingServer.loadSession(config.reasoningSessionId)
+        .then(() => logger.info(`Pre-loaded reasoning session: ${config.reasoningSessionId}`))
+        .catch((loadErr) => logger.warn(`Failed to pre-load reasoning session ${config.reasoningSessionId}:`, loadErr));
     }
-  } catch (err) {
+  }).catch((err) => {
     logger.error("Failed to initialize persistence layer:", err);
     // Continue without persistence - in-memory mode
-  }
+  });
 
-  // Initialize init flow (session index from exports)
+  // Initialize init flow (fire-and-forget for sync factory)
+  // handleInit() has fallback for when initHandler is null
   let initHandler: IInitHandler | null = null;
-  try {
-    const { handler, stats, errors } = await createInitFlow();
+  createInitFlow().then(({ handler, stats, errors }) => {
     initHandler = handler;
     logger.info(`Init flow index built: ${stats.sessionsIndexed} sessions, ${stats.projectsFound} projects, ${stats.tasksFound} tasks (${stats.buildTimeMs}ms)`);
     if (errors.length > 0) {
       logger.warn(`Init flow index encountered ${errors.length} errors during build`);
     }
-  } catch (err) {
+  }).catch((err) => {
     logger.error("Failed to initialize init flow:", err);
     // Continue without init flow
-  }
+  });
 
-  // Sync mental models to filesystem for inspection
+  // Sync mental models to filesystem for inspection (fire-and-forget)
   // URI: thoughtbox://mental-models/{tag}/{model} → ~/.thoughtbox/mental-models/{tag}/{model}.md
   mentalModelsServer.syncToFilesystem().catch((err) => {
     logger.error("Failed to sync mental models to filesystem:", err);
@@ -1075,7 +1072,7 @@ export default async function createServer(
     ],
   }));
 
-  return server;
+  return server.server;
 }
 
 // STDIO transport runner (exported for stdio.ts entry point)
@@ -1084,8 +1081,8 @@ export async function runStdioServer() {
   const disableThoughtLogging =
     (process.env.DISABLE_THOUGHT_LOGGING || "").toLowerCase() === "true";
 
-  // Create server using the exported function
-  const server = await createServer({
+  // Create server using the exported function (now synchronous)
+  const server = createServer({
     config: {
       disableThoughtLogging,
     },

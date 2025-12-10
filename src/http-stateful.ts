@@ -16,14 +16,13 @@
 import { createStatefulServer } from '@smithery/sdk/server/stateful.js';
 import createServer, { configSchema, type CreateServerArgs } from './index.js';
 
-// Wrapper to handle async server creation with Smithery SDK types
-// The SDK's createStatefulServer accepts async factory functions
-const serverFactory = async (args: CreateServerArgs) => {
-  return await createServer(args);
+// Server factory for Smithery SDK - returns low-level Server (synchronous)
+const serverFactory = (args: CreateServerArgs) => {
+  return createServer(args);
 };
 
 // Create stateful server with Smithery SDK
-const { app } = createStatefulServer(serverFactory as any, {
+const { app } = createStatefulServer(serverFactory, {
   schema: configSchema,
 });
 

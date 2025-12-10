@@ -98,3 +98,5 @@ test-results
 jest.config.js
 *.test.ts
 *.spec.ts
+
+mcp-servers/
