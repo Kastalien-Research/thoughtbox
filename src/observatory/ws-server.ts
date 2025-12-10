@@ -111,11 +111,11 @@ export class WebSocketServer {
       console.log(`[Observatory] WebSocket server attached to HTTP server`);
     }
 
-    this.wss.on("connection", (socket, request) => {
+    this.wss.on("connection", (socket: WebSocket, request: IncomingMessage) => {
       this.handleConnection(socket, request);
     });
 
-    this.wss.on("error", (err) => {
+    this.wss.on("error", (err: Error) => {
       console.error("[Observatory] WebSocket server error:", err);
     });
   }
@@ -136,7 +136,7 @@ export class WebSocketServer {
       }
       this.connections.clear();
 
-      this.wss.close((err) => {
+      this.wss.close((err?: Error) => {
         if (err) {
           reject(err);
         } else {
@@ -161,18 +161,18 @@ export class WebSocketServer {
 
     console.log(`[Observatory] Client connected: ${connectionId}`);
 
-    socket.on("message", (data) => {
+    socket.on("message", (data: WebSocket.RawData) => {
       this.handleMessage(connection, data);
     });
 
-    socket.on("close", (code, reason) => {
+    socket.on("close", (code: number, reason: Buffer) => {
       this.connections.delete(connectionId);
       console.log(
         `[Observatory] Client disconnected: ${connectionId} (code: ${code})`
       );
     });
 
-    socket.on("error", (err) => {
+    socket.on("error", (err: Error) => {
       console.error(`[Observatory] Client error (${connectionId}):`, err);
     });
   }
