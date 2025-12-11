@@ -15,8 +15,8 @@ export const ObservatoryConfigSchema = z.object({
   /** Enable the observatory server (default: false) */
   enabled: z.boolean().default(false),
 
-  /** Port for WebSocket server (default: 3001) */
-  port: z.number().int().positive().default(3001),
+  /** Port for WebSocket server (default: 1729 - the taxicab number) */
+  port: z.number().int().positive().default(1729),
 
   /** Allowed CORS origins (default: ['*']) */
   cors: z.array(z.string()).optional().default(["*"]),
