@@ -68,6 +68,11 @@ export class WebSocketServer {
   private connections: Map<string, ClientConnection> = new Map();
   private channels: Channel[] = [];
   private connectionCounter = 0;
+  private maxConnections: number;
+
+  constructor(maxConnections: number = 100) {
+    this.maxConnections = maxConnections;
+  }
 
   /**
    * Register a channel for handling specific topic patterns
@@ -151,6 +156,13 @@ export class WebSocketServer {
    * Handle a new WebSocket connection
    */
   private handleConnection(socket: WebSocket, request: IncomingMessage): void {
+    // Enforce max connections limit
+    if (this.connections.size >= this.maxConnections) {
+      console.warn(`[Observatory] Connection rejected: max connections (${this.maxConnections}) reached`);
+      socket.close(1008, "Server at maximum capacity");
+      return;
+    }
+
     const connectionId = `conn_${++this.connectionCounter}`;
     const connection: ClientConnection = {
       socket,

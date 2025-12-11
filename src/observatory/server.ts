@@ -150,8 +150,8 @@ export function createObservatoryServer(
       // Create HTTP server
       httpServer = createServer(handleHttpRequest);
 
-      // Create WebSocket server
-      wss = new WebSocketServer();
+      // Create WebSocket server with max connections limit
+      wss = new WebSocketServer(config.maxConnections);
 
       // Register channels
       const reasoningChannel = createReasoningChannel(wss);

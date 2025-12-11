@@ -39,34 +39,56 @@ class InMemorySessionStore implements SessionStore {
   private sessions: Map<string, Session> = new Map();
   private thoughts: Map<string, Thought[]> = new Map();
   private branches: Map<string, Record<string, Branch>> = new Map();
+  private updateQueue: Promise<void> = Promise.resolve();
+  private readonly MAX_SESSIONS = 1000; // Prevent unbounded growth
+
+  /**
+   * Queue an update operation to prevent race conditions
+   */
+  private queueUpdate<T>(operation: () => T | Promise<T>): Promise<T> {
+    const queued = this.updateQueue.then(() => operation());
+    this.updateQueue = queued.then(() => {}, () => {}); // Continue queue even on error
+    return queued;
+  }
 
   setSession(session: Session): void {
-    this.sessions.set(session.id, session);
-    if (!this.thoughts.has(session.id)) {
-      this.thoughts.set(session.id, []);
-    }
-    if (!this.branches.has(session.id)) {
-      this.branches.set(session.id, {});
-    }
+    this.queueUpdate(() => {
+      this.sessions.set(session.id, session);
+      if (!this.thoughts.has(session.id)) {
+        this.thoughts.set(session.id, []);
+      }
+      if (!this.branches.has(session.id)) {
+        this.branches.set(session.id, {});
+      }
+      
+      // Cleanup old sessions if we exceed the limit
+      if (this.sessions.size > this.MAX_SESSIONS) {
+        this.cleanupOldSessions();
+      }
+    });
   }
 
   addThought(sessionId: string, thought: Thought): void {
-    const thoughts = this.thoughts.get(sessionId) || [];
-    thoughts.push(thought);
-    this.thoughts.set(sessionId, thoughts);
+    this.queueUpdate(() => {
+      const thoughts = this.thoughts.get(sessionId) || [];
+      thoughts.push(thought);
+      this.thoughts.set(sessionId, thoughts);
+    });
   }
 
   addBranchThought(sessionId: string, branchId: string, thought: Thought): void {
-    const branches = this.branches.get(sessionId) || {};
-    if (!branches[branchId]) {
-      branches[branchId] = {
-        id: branchId,
-        fromThoughtNumber: thought.branchFromThought || 0,
-        thoughts: [],
-      };
-    }
-    branches[branchId].thoughts.push(thought);
-    this.branches.set(sessionId, branches);
+    this.queueUpdate(() => {
+      const branches = this.branches.get(sessionId) || {};
+      if (!branches[branchId]) {
+        branches[branchId] = {
+          id: branchId,
+          fromThoughtNumber: thought.branchFromThought || 0,
+          thoughts: [],
+        };
+      }
+      branches[branchId].thoughts.push(thought);
+      this.branches.set(sessionId, branches);
+    });
   }
 
   async getSession(sessionId: string): Promise<Session | null> {
@@ -89,6 +111,52 @@ class InMemorySessionStore implements SessionStore {
 
   getAllSessions(): Session[] {
     return Array.from(this.sessions.values());
+  }
+
+  /**
+   * Clean up old completed/abandoned sessions to prevent memory leaks
+   * Keeps the most recent sessions up to MAX_SESSIONS limit
+   */
+  private cleanupOldSessions(): void {
+    const sessions = Array.from(this.sessions.values());
+    
+    // Sort by creation time (oldest first)
+    sessions.sort((a, b) => {
+      const timeA = new Date(a.createdAt).getTime();
+      const timeB = new Date(b.createdAt).getTime();
+      return timeA - timeB;
+    });
+
+    // Remove oldest completed/abandoned sessions until we're under the limit
+    const toRemove = sessions.length - this.MAX_SESSIONS;
+    let removed = 0;
+    
+    for (const session of sessions) {
+      if (removed >= toRemove) break;
+      
+      // Only remove completed or abandoned sessions, keep active ones
+      if (session.status === "completed" || session.status === "abandoned") {
+        this.sessions.delete(session.id);
+        this.thoughts.delete(session.id);
+        this.branches.delete(session.id);
+        removed++;
+      }
+    }
+    
+    if (removed > 0) {
+      console.log(`[Observatory] Cleaned up ${removed} old sessions`);
+    }
+  }
+
+  /**
+   * Manually clean up a specific session
+   */
+  cleanupSession(sessionId: string): void {
+    this.queueUpdate(() => {
+      this.sessions.delete(sessionId);
+      this.thoughts.delete(sessionId);
+      this.branches.delete(sessionId);
+    });
   }
 }
 
@@ -163,8 +231,17 @@ export function createReasoningChannel(wss: WebSocketServer): Channel {
     sessionStore.setSession(data.session);
   });
 
-  thoughtEmitter.on("session:ended", (data) => {
+  thoughtEmitter.on("session:ended", async (data) => {
     const topic = `reasoning:${data.sessionId}`;
+    
+    // Update session status to completed
+    const session = await sessionStore.getSession(data.sessionId);
+    if (session) {
+      session.status = "completed";
+      session.completedAt = new Date().toISOString();
+      sessionStore.setSession(session);
+    }
+    
     wss.broadcast(topic, "session:ended", {
       sessionId: data.sessionId,
       finalThoughtCount: data.finalThoughtCount,
