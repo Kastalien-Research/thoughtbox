@@ -421,17 +421,9 @@
     function handleReasoningEvent(eventType, payload) {
       switch (eventType) {
         case 'session:snapshot':
-          state.thoughts = payload.session.thoughts || [];
-          state.branches = {};
-          // Group branches
-          for (const t of state.thoughts) {
-            if (t.branchId) {
-              if (!state.branches[t.branchId]) {
-                state.branches[t.branchId] = [];
-              }
-              state.branches[t.branchId].push(t);
-            }
-          }
+          // thoughts and branches are top-level in payload, not nested in session
+          state.thoughts = payload.thoughts || [];
+          state.branches = payload.branches || {};
           renderGraph();
           break;
         case 'thought:added':

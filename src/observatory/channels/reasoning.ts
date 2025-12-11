@@ -68,16 +68,16 @@ class InMemorySessionStore implements SessionStore {
     });
   }
 
-  addThought(sessionId: string, thought: Thought): void {
-    this.queueUpdate(() => {
+  addThought(sessionId: string, thought: Thought): Promise<void> {
+    return this.queueUpdate(() => {
       const thoughts = this.thoughts.get(sessionId) || [];
       thoughts.push(thought);
       this.thoughts.set(sessionId, thoughts);
     });
   }
 
-  addBranchThought(sessionId: string, branchId: string, thought: Thought): void {
-    this.queueUpdate(() => {
+  addBranchThought(sessionId: string, branchId: string, thought: Thought): Promise<void> {
+    return this.queueUpdate(() => {
       const branches = this.branches.get(sessionId) || {};
       if (!branches[branchId]) {
         branches[branchId] = {
@@ -184,6 +184,8 @@ export function createReasoningChannel(wss: WebSocketServer): Channel {
 
     const thoughts = await sessionStore.getThoughts(sessionId);
     const branches = await sessionStore.getBranches(sessionId);
+
+    console.log(`[Observatory] Sending snapshot for ${sessionId}: ${thoughts.length} thoughts`);
 
     send("session:snapshot", {
       session,
