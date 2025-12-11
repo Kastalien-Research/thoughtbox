@@ -1,0 +1,753 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Thoughtbox Observatory</title>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #0d1117;
+      color: #c9d1d9;
+      min-height: 100vh;
+    }
+
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 16px 24px;
+      border-bottom: 1px solid #30363d;
+      background: #161b22;
+    }
+
+    .header h1 {
+      font-size: 18px;
+      font-weight: 600;
+    }
+
+    .status {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 14px;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #f85149;
+    }
+
+    .status-dot.connected {
+      background: #3fb950;
+    }
+
+    .container {
+      padding: 24px;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    /* Session selector */
+    .session-selector {
+      margin-bottom: 24px;
+      padding: 16px;
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 6px;
+    }
+
+    .session-selector h2 {
+      font-size: 14px;
+      margin-bottom: 12px;
+      color: #8b949e;
+    }
+
+    .session-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .session-btn {
+      padding: 8px 16px;
+      background: #21262d;
+      border: 1px solid #30363d;
+      border-radius: 6px;
+      color: #c9d1d9;
+      cursor: pointer;
+      font-size: 13px;
+      transition: all 0.2s;
+    }
+
+    .session-btn:hover {
+      background: #30363d;
+      border-color: #8b949e;
+    }
+
+    .session-btn.active {
+      background: #238636;
+      border-color: #238636;
+    }
+
+    .no-sessions {
+      color: #8b949e;
+      font-size: 13px;
+    }
+
+    /* Graph view */
+    #graph-view {
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 6px;
+      padding: 24px;
+      min-height: 400px;
+    }
+
+    #graph-view h2 {
+      font-size: 14px;
+      margin-bottom: 16px;
+      color: #8b949e;
+    }
+
+    #mermaid-container {
+      background: #0d1117;
+      border-radius: 4px;
+      padding: 16px;
+      overflow-x: auto;
+    }
+
+    #mermaid-container svg {
+      max-width: 100%;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 48px;
+      color: #8b949e;
+    }
+
+    /* Detail view */
+    #detail-view {
+      display: none;
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 6px;
+    }
+
+    #detail-view.visible {
+      display: block;
+    }
+
+    .detail-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 16px 24px;
+      border-bottom: 1px solid #30363d;
+    }
+
+    .back-btn {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 16px;
+      background: #21262d;
+      border: 1px solid #30363d;
+      border-radius: 6px;
+      color: #c9d1d9;
+      cursor: pointer;
+      font-size: 13px;
+      text-decoration: none;
+    }
+
+    .back-btn:hover {
+      background: #30363d;
+    }
+
+    .thought-position {
+      font-size: 14px;
+      color: #8b949e;
+    }
+
+    .detail-content {
+      padding: 24px;
+    }
+
+    .detail-section {
+      margin-bottom: 24px;
+    }
+
+    .detail-section h3 {
+      font-size: 13px;
+      color: #8b949e;
+      margin-bottom: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .json-display {
+      background: #0d1117;
+      border: 1px solid #30363d;
+      border-radius: 6px;
+      padding: 16px;
+      overflow-x: auto;
+      font-family: "SF Mono", Monaco, "Cascadia Code", monospace;
+      font-size: 13px;
+      line-height: 1.5;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .detail-nav {
+      display: flex;
+      justify-content: space-between;
+      padding: 16px 24px;
+      border-top: 1px solid #30363d;
+    }
+
+    .nav-btn {
+      padding: 8px 16px;
+      background: #21262d;
+      border: 1px solid #30363d;
+      border-radius: 6px;
+      color: #c9d1d9;
+      cursor: pointer;
+      font-size: 13px;
+      text-decoration: none;
+    }
+
+    .nav-btn:hover:not(.disabled) {
+      background: #30363d;
+    }
+
+    .nav-btn.disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    /* Mermaid node styling overrides */
+    .mermaid .node rect {
+      fill: #238636 !important;
+      stroke: #3fb950 !important;
+    }
+
+    .mermaid .node.revision rect {
+      fill: #9e6a03 !important;
+      stroke: #d29922 !important;
+    }
+
+    .mermaid .edgePath path {
+      stroke: #8b949e !important;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>Thoughtbox Observatory</h1>
+    <div class="status">
+      <span id="status-text">Disconnected</span>
+      <div class="status-dot" id="status-dot"></div>
+    </div>
+  </div>
+
+  <div class="container">
+    <div class="session-selector">
+      <h2>Active Sessions</h2>
+      <div class="session-list" id="session-list">
+        <span class="no-sessions">No active sessions</span>
+      </div>
+    </div>
+
+    <div id="graph-view">
+      <h2>Live Reasoning Graph</h2>
+      <div id="mermaid-container">
+        <div class="empty-state">
+          <p>Select a session to view the reasoning graph</p>
+        </div>
+      </div>
+    </div>
+
+    <div id="detail-view">
+      <div class="detail-header">
+        <a href="#" class="back-btn" id="back-btn">
+          <span>&larr;</span> Back to Graph
+        </a>
+        <span class="thought-position" id="thought-position">Thought 1 of 1</span>
+      </div>
+      <div class="detail-content">
+        <div class="detail-section">
+          <h3>MCP Request</h3>
+          <pre class="json-display" id="mcp-request"></pre>
+        </div>
+      </div>
+      <div class="detail-nav">
+        <a href="#" class="nav-btn" id="prev-btn">&larr; Previous</a>
+        <a href="#" class="nav-btn" id="next-btn">Next &rarr;</a>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Initialize Mermaid
+    mermaid.initialize({
+      startOnLoad: false,
+      theme: 'dark',
+      flowchart: {
+        curve: 'basis',
+        nodeSpacing: 50,
+        rankSpacing: 50
+      },
+      securityLevel: 'loose' // Allow click handlers
+    });
+
+    // State
+    const state = {
+      connected: false,
+      ws: null,
+      sessions: [],
+      currentSessionId: null,
+      thoughts: [],
+      branches: {},
+      currentView: 'graph',
+      selectedThoughtId: null
+    };
+
+    // DOM Elements
+    const statusText = document.getElementById('status-text');
+    const statusDot = document.getElementById('status-dot');
+    const sessionList = document.getElementById('session-list');
+    const mermaidContainer = document.getElementById('mermaid-container');
+    const graphView = document.getElementById('graph-view');
+    const detailView = document.getElementById('detail-view');
+    const mcpRequest = document.getElementById('mcp-request');
+    const thoughtPosition = document.getElementById('thought-position');
+    const prevBtn = document.getElementById('prev-btn');
+    const nextBtn = document.getElementById('next-btn');
+    const backBtn = document.getElementById('back-btn');
+
+    // WebSocket connection
+    function connect() {
+      const wsUrl = 'ws://localhost:1729/ws';
+      console.log('Connecting to:', wsUrl);
+
+      state.ws = new WebSocket(wsUrl);
+
+      state.ws.onopen = () => {
+        console.log('WebSocket connected');
+        state.connected = true;
+        updateStatus();
+
+        // Subscribe to observatory channel for session list
+        send('observatory', 'subscribe', {});
+      };
+
+      state.ws.onclose = () => {
+        console.log('WebSocket disconnected');
+        state.connected = false;
+        updateStatus();
+
+        // Reconnect after 3 seconds
+        setTimeout(connect, 3000);
+      };
+
+      state.ws.onerror = (err) => {
+        console.error('WebSocket error:', err);
+      };
+
+      state.ws.onmessage = (event) => {
+        try {
+          const [topic, eventType, payload] = JSON.parse(event.data);
+          console.log('Received:', topic, eventType, payload);
+          handleMessage(topic, eventType, payload);
+        } catch (err) {
+          console.error('Failed to parse message:', err);
+        }
+      };
+    }
+
+    function send(topic, event, payload) {
+      if (state.ws && state.ws.readyState === WebSocket.OPEN) {
+        state.ws.send(JSON.stringify([topic, event, payload]));
+      }
+    }
+
+    function updateStatus() {
+      statusText.textContent = state.connected ? 'Connected' : 'Disconnected';
+      statusDot.classList.toggle('connected', state.connected);
+    }
+
+    // Message handlers
+    function handleMessage(topic, eventType, payload) {
+      if (topic === 'observatory') {
+        handleObservatoryEvent(eventType, payload);
+      } else if (topic.startsWith('reasoning:')) {
+        handleReasoningEvent(eventType, payload);
+      }
+    }
+
+    function handleObservatoryEvent(eventType, payload) {
+      switch (eventType) {
+        case 'sessions:list':
+          state.sessions = payload.sessions || [];
+          renderSessionList();
+          break;
+        case 'session:started':
+          if (!state.sessions.find(s => s.id === payload.session.id)) {
+            state.sessions.push(payload.session);
+            renderSessionList();
+          }
+          break;
+        case 'session:completed':
+        case 'session:abandoned':
+          const idx = state.sessions.findIndex(s => s.id === payload.sessionId);
+          if (idx !== -1) {
+            state.sessions[idx].status = eventType === 'session:completed' ? 'completed' : 'abandoned';
+            renderSessionList();
+          }
+          break;
+      }
+    }
+
+    function handleReasoningEvent(eventType, payload) {
+      switch (eventType) {
+        case 'session:snapshot':
+          state.thoughts = payload.session.thoughts || [];
+          state.branches = {};
+          // Group branches
+          for (const t of state.thoughts) {
+            if (t.branchId) {
+              if (!state.branches[t.branchId]) {
+                state.branches[t.branchId] = [];
+              }
+              state.branches[t.branchId].push(t);
+            }
+          }
+          renderGraph();
+          break;
+        case 'thought:added':
+        case 'thought:revised':
+        case 'thought:branched':
+          addThought(payload);
+          break;
+      }
+    }
+
+    function addThought(payload) {
+      const thought = {
+        ...payload.thought,
+        mcpRequest: payload.mcpRequest
+      };
+
+      // Check if thought already exists (by id)
+      const existingIdx = state.thoughts.findIndex(t => t.id === thought.id);
+      if (existingIdx !== -1) {
+        state.thoughts[existingIdx] = thought;
+      } else {
+        state.thoughts.push(thought);
+      }
+
+      // Handle branches
+      if (thought.branchId) {
+        if (!state.branches[thought.branchId]) {
+          state.branches[thought.branchId] = [];
+        }
+        const branchIdx = state.branches[thought.branchId].findIndex(t => t.id === thought.id);
+        if (branchIdx !== -1) {
+          state.branches[thought.branchId][branchIdx] = thought;
+        } else {
+          state.branches[thought.branchId].push(thought);
+        }
+      }
+
+      renderGraph();
+    }
+
+    // Session management
+    function renderSessionList() {
+      if (state.sessions.length === 0) {
+        sessionList.innerHTML = '<span class="no-sessions">No active sessions</span>';
+        return;
+      }
+
+      sessionList.innerHTML = state.sessions.map(session => `
+        <button class="session-btn ${state.currentSessionId === session.id ? 'active' : ''}"
+                data-session-id="${session.id}">
+          ${session.id.slice(0, 8)}... (${session.status || 'active'})
+        </button>
+      `).join('');
+
+      // Add click handlers
+      sessionList.querySelectorAll('.session-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          selectSession(btn.dataset.sessionId);
+        });
+      });
+    }
+
+    function selectSession(sessionId) {
+      // Unsubscribe from previous session
+      if (state.currentSessionId) {
+        send(`reasoning:${state.currentSessionId}`, 'unsubscribe', {});
+      }
+
+      state.currentSessionId = sessionId;
+      state.thoughts = [];
+      state.branches = {};
+
+      // Subscribe to new session
+      send(`reasoning:${sessionId}`, 'subscribe', {});
+
+      renderSessionList();
+      renderGraph();
+    }
+
+    // Graph rendering
+    async function renderGraph() {
+      if (!state.currentSessionId) {
+        mermaidContainer.innerHTML = '<div class="empty-state"><p>Select a session to view the reasoning graph</p></div>';
+        return;
+      }
+
+      if (state.thoughts.length === 0) {
+        mermaidContainer.innerHTML = '<div class="empty-state"><p>Waiting for thoughts...</p></div>';
+        return;
+      }
+
+      const diagram = generateMermaid();
+      console.log('Mermaid diagram:', diagram);
+
+      try {
+        // Clear previous
+        mermaidContainer.innerHTML = '<div class="mermaid">' + diagram + '</div>';
+
+        // Re-render
+        await mermaid.run({
+          nodes: mermaidContainer.querySelectorAll('.mermaid')
+        });
+
+        // Attach click handlers after render
+        attachNodeClickHandlers();
+      } catch (err) {
+        console.error('Mermaid render error:', err);
+        mermaidContainer.innerHTML = '<div class="empty-state"><p>Error rendering graph</p><pre>' + err.message + '</pre></div>';
+      }
+    }
+
+    function generateMermaid() {
+      // Separate main chain from branches
+      const mainChain = state.thoughts.filter(t => !t.branchId);
+      mainChain.sort((a, b) => a.thoughtNumber - b.thoughtNumber);
+
+      let diagram = 'flowchart LR\n';
+
+      // Main chain nodes and edges
+      for (let i = 0; i < mainChain.length; i++) {
+        const t = mainChain[i];
+        const nodeId = `T${t.thoughtNumber}`;
+        const label = t.isRevision ? `${t.thoughtNumber}*` : String(t.thoughtNumber);
+
+        diagram += `  ${nodeId}["${label}"]\n`;
+
+        if (i > 0) {
+          const prev = mainChain[i - 1];
+          diagram += `  T${prev.thoughtNumber} --> ${nodeId}\n`;
+        }
+
+        // Click handler - use callback function
+        diagram += `  click ${nodeId} thoughtClick\n`;
+      }
+
+      // Branch nodes
+      for (const [branchId, branchThoughts] of Object.entries(state.branches)) {
+        branchThoughts.sort((a, b) => a.thoughtNumber - b.thoughtNumber);
+
+        for (let i = 0; i < branchThoughts.length; i++) {
+          const t = branchThoughts[i];
+          const nodeId = `B${branchId.slice(0, 4)}_${t.thoughtNumber}`;
+          const label = `${t.thoughtNumber}${branchId.slice(0, 2)}`;
+
+          diagram += `  ${nodeId}["${label}"]\n`;
+
+          if (i === 0 && t.branchFromThought) {
+            // Connect to branch point
+            diagram += `  T${t.branchFromThought} --> ${nodeId}\n`;
+          } else if (i > 0) {
+            const prev = branchThoughts[i - 1];
+            const prevNodeId = `B${branchId.slice(0, 4)}_${prev.thoughtNumber}`;
+            diagram += `  ${prevNodeId} --> ${nodeId}\n`;
+          }
+
+          diagram += `  click ${nodeId} thoughtClick\n`;
+        }
+      }
+
+      return diagram;
+    }
+
+    function attachNodeClickHandlers() {
+      // Mermaid exposes click handlers via callback - we set up a global function
+      // and manually attach click events to SVG nodes
+      const nodes = mermaidContainer.querySelectorAll('.node');
+      nodes.forEach(node => {
+        node.style.cursor = 'pointer';
+        node.addEventListener('click', (e) => {
+          e.preventDefault();
+          const nodeId = node.id;
+          // Extract thought number from node ID
+          // Format: flowchart-T1-0 or flowchart-Babcd_1-0
+          const match = nodeId.match(/flowchart-(T|B\w+_)(\d+)/);
+          if (match) {
+            const thoughtNum = parseInt(match[2], 10);
+            const thought = state.thoughts.find(t => t.thoughtNumber === thoughtNum);
+            if (thought) {
+              window.location.hash = `/thought/${thought.id}`;
+            }
+          }
+        });
+      });
+    }
+
+    // Make callback available globally for Mermaid
+    window.thoughtClick = function(nodeId) {
+      // This gets called by Mermaid's click handler
+      console.log('Thought clicked:', nodeId);
+    };
+
+    // Detail view
+    function showThoughtDetail(thoughtId) {
+      const thought = state.thoughts.find(t => t.id === thoughtId);
+      if (!thought) {
+        console.warn('Thought not found:', thoughtId);
+        window.location.hash = '';
+        return;
+      }
+
+      state.currentView = 'detail';
+      state.selectedThoughtId = thoughtId;
+
+      // Update UI
+      graphView.style.display = 'none';
+      detailView.classList.add('visible');
+
+      // Position
+      const idx = state.thoughts.indexOf(thought);
+      thoughtPosition.textContent = `Thought ${thought.thoughtNumber} of ${state.thoughts.length}`;
+
+      // MCP Request
+      const mcpReq = thought.mcpRequest || {
+        tool: 'thoughtbox',
+        arguments: {
+          thought: thought.thought,
+          thoughtNumber: thought.thoughtNumber,
+          totalThoughts: thought.totalThoughts,
+          nextThoughtNeeded: thought.nextThoughtNeeded,
+          isRevision: thought.isRevision,
+          revisesThought: thought.revisesThought,
+          branchId: thought.branchId,
+          branchFromThought: thought.branchFromThought
+        }
+      };
+      mcpRequest.textContent = JSON.stringify(mcpReq, null, 2);
+
+      // Navigation
+      const sortedThoughts = [...state.thoughts].sort((a, b) => a.thoughtNumber - b.thoughtNumber);
+      const currentIdx = sortedThoughts.findIndex(t => t.id === thoughtId);
+
+      if (currentIdx > 0) {
+        prevBtn.href = `#/thought/${sortedThoughts[currentIdx - 1].id}`;
+        prevBtn.classList.remove('disabled');
+      } else {
+        prevBtn.href = '#';
+        prevBtn.classList.add('disabled');
+      }
+
+      if (currentIdx < sortedThoughts.length - 1) {
+        nextBtn.href = `#/thought/${sortedThoughts[currentIdx + 1].id}`;
+        nextBtn.classList.remove('disabled');
+      } else {
+        nextBtn.href = '#';
+        nextBtn.classList.add('disabled');
+      }
+    }
+
+    function showGraph() {
+      state.currentView = 'graph';
+      state.selectedThoughtId = null;
+
+      graphView.style.display = 'block';
+      detailView.classList.remove('visible');
+    }
+
+    // Hash routing
+    function handleHashChange() {
+      const hash = window.location.hash;
+
+      if (hash.startsWith('#/thought/')) {
+        const thoughtId = hash.slice(10); // Remove '#/thought/'
+        showThoughtDetail(thoughtId);
+      } else {
+        showGraph();
+      }
+    }
+
+    window.addEventListener('hashchange', handleHashChange);
+
+    // Back button
+    backBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      window.location.hash = '';
+    });
+
+    // Initialize
+    handleHashChange();
+    connect();
+
+    // Debug: Add some test data button (remove in production)
+    const debugBtn = document.createElement('button');
+    debugBtn.textContent = 'Add Test Thought';
+    debugBtn.style.cssText = 'position: fixed; bottom: 20px; right: 20px; padding: 10px; background: #238636; border: none; color: white; border-radius: 6px; cursor: pointer;';
+    debugBtn.addEventListener('click', () => {
+      const num = state.thoughts.length + 1;
+      addThought({
+        thought: {
+          id: `test-${num}`,
+          thoughtNumber: num,
+          totalThoughts: num,
+          thought: `This is test thought number ${num}. It contains some reasoning about the problem at hand.`,
+          nextThoughtNeeded: true,
+          timestamp: new Date().toISOString(),
+          isRevision: num % 3 === 0,
+          revisesThought: num % 3 === 0 ? num - 1 : undefined
+        },
+        mcpRequest: {
+          tool: 'thoughtbox',
+          arguments: {
+            thought: `This is test thought number ${num}`,
+            thoughtNumber: num,
+            totalThoughts: num,
+            nextThoughtNeeded: true
+          }
+        },
+        parentId: num > 1 ? `test-${num - 1}` : null
+      });
+
+      if (!state.currentSessionId) {
+        state.currentSessionId = 'test-session';
+        state.sessions = [{ id: 'test-session', status: 'active' }];
+        renderSessionList();
+      }
+    });
+    document.body.appendChild(debugBtn);
+  </script>
+</body>
+</html>
