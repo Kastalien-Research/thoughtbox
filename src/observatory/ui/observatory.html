@@ -1,0 +1,1283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Thoughtbox Observatory</title>
+  <style>
+    /* CSS Reset */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg-primary: #030712;
+      --bg-secondary: #111827;
+      --bg-tertiary: #1f2937;
+      --accent-primary: #10b981;
+      --accent-secondary: #059669;
+      --accent-light: #34d399;
+      --text-primary: #ffffff;
+      --text-secondary: #9ca3af;
+      --text-muted: #6b7280;
+      --border-color: rgba(31, 41, 55, 0.5);
+      --font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      --font-mono: ui-monospace, SFMono-Regular, 'SF Mono', Consolas, 'Liberation Mono', Menlo, monospace;
+    }
+
+    html, body {
+      height: 100%;
+      font-family: var(--font-family);
+      background: linear-gradient(135deg, var(--bg-primary) 0%, var(--bg-secondary) 50%, var(--bg-primary) 100%);
+      color: var(--text-primary);
+      overflow: hidden;
+    }
+
+    /* Utility Classes */
+    .flex { display: flex; }
+    .flex-col { flex-direction: column; }
+    .items-center { align-items: center; }
+    .justify-center { justify-content: center; }
+    .justify-between { justify-content: space-between; }
+    .gap-2 { gap: 0.5rem; }
+    .gap-3 { gap: 0.75rem; }
+    .gap-4 { gap: 1rem; }
+    .p-4 { padding: 1rem; }
+    .p-6 { padding: 1.5rem; }
+    .px-3 { padding-left: 0.75rem; padding-right: 0.75rem; }
+    .px-4 { padding-left: 1rem; padding-right: 1rem; }
+    .px-5 { padding-left: 1.25rem; padding-right: 1.25rem; }
+    .px-6 { padding-left: 1.5rem; padding-right: 1.5rem; }
+    .py-1 { padding-top: 0.25rem; padding-bottom: 0.25rem; }
+    .py-2 { padding-top: 0.5rem; padding-bottom: 0.5rem; }
+    .py-4 { padding-top: 1rem; padding-bottom: 1rem; }
+    .py-5 { padding-top: 1.25rem; padding-bottom: 1.25rem; }
+    .mb-3 { margin-bottom: 0.75rem; }
+    .mb-4 { margin-bottom: 1rem; }
+    .mb-6 { margin-bottom: 1.5rem; }
+    .ml-auto { margin-left: auto; }
+    .w-full { width: 100%; }
+    .h-full { height: 100%; }
+    .text-sm { font-size: 0.875rem; }
+    .text-xs { font-size: 0.75rem; }
+    .text-xl { font-size: 1.25rem; }
+    .font-bold { font-weight: 700; }
+    .font-medium { font-weight: 500; }
+    .font-semibold { font-weight: 600; }
+    .uppercase { text-transform: uppercase; }
+    .tracking-widest { letter-spacing: 0.1em; }
+    .tracking-tight { letter-spacing: -0.025em; }
+    .rounded-lg { border-radius: 0.5rem; }
+    .rounded-xl { border-radius: 0.75rem; }
+    .rounded-full { border-radius: 9999px; }
+    .overflow-hidden { overflow: hidden; }
+    .overflow-auto { overflow: auto; }
+    .relative { position: relative; }
+    .absolute { position: absolute; }
+    .inset-0 { top: 0; right: 0; bottom: 0; left: 0; }
+    .pointer-events-none { pointer-events: none; }
+    .cursor-pointer { cursor: pointer; }
+    .select-none { user-select: none; }
+    .transition-all { transition: all 0.3s ease; }
+    .hidden { display: none; }
+
+    /* Color utilities */
+    .text-white { color: #ffffff; }
+    .text-gray-300 { color: #d1d5db; }
+    .text-gray-400 { color: #9ca3af; }
+    .text-gray-500 { color: #6b7280; }
+    .text-emerald-400 { color: #34d399; }
+    .bg-gray-800 { background-color: #1f2937; }
+    .bg-gray-900 { background-color: #111827; }
+    .bg-gray-950 { background-color: #030712; }
+    .bg-emerald-500 { background-color: #10b981; }
+    .bg-emerald-600 { background-color: #059669; }
+    .border-gray-800 { border-color: #1f2937; }
+
+    /* Animations */
+    @keyframes scale-in {
+      0% { opacity: 0; transform: scale(0.8); }
+      100% { opacity: 1; transform: scale(1); }
+    }
+
+    @keyframes fade-in {
+      0% { opacity: 0; }
+      100% { opacity: 1; }
+    }
+
+    @keyframes shimmer {
+      0% { background-position: -200% center; }
+      100% { background-position: 200% center; }
+    }
+
+    @keyframes pulse-glow {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.6; }
+    }
+
+    @keyframes slide-up {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    @keyframes ping {
+      75%, 100% { transform: scale(2); opacity: 0; }
+    }
+
+    .animate-scale-in { animation: scale-in 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; }
+    .animate-fade-in { animation: fade-in 0.5s ease-out forwards; }
+    .animate-slide-up { animation: slide-up 0.4s ease-out forwards; }
+    .animate-pulse { animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+    .animate-ping { animation: ping 1s cubic-bezier(0, 0, 0.2, 1) infinite; }
+
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-track { background: rgba(0, 0, 0, 0.2); }
+    ::-webkit-scrollbar-thumb { background: rgba(16, 185, 129, 0.3); border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(16, 185, 129, 0.5); }
+
+    /* Component Styles */
+    #app {
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Header */
+    .header {
+      border-bottom: 1px solid var(--border-color);
+      backdrop-filter: blur(16px);
+      background: rgba(17, 24, 39, 0.5);
+      position: relative;
+    }
+
+    .header::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(to right, rgba(17, 24, 39, 0.5), rgba(17, 24, 39, 0.3), rgba(17, 24, 39, 0.5));
+    }
+
+    .header-content {
+      position: relative;
+      padding: 1rem 1.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .logo-bar {
+      height: 2rem;
+      width: 0.25rem;
+      background: linear-gradient(to bottom, var(--accent-light), var(--accent-secondary));
+      border-radius: 9999px;
+    }
+
+    .title {
+      font-size: 1.25rem;
+      font-weight: 700;
+      letter-spacing: -0.025em;
+      background: linear-gradient(to right, #fff, #d1d5db);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .status-badge {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.375rem 0.75rem;
+      border-radius: 9999px;
+      background: rgba(16, 185, 129, 0.1);
+      border: 1px solid rgba(16, 185, 129, 0.2);
+    }
+
+    .status-badge.disconnected {
+      background: rgba(239, 68, 68, 0.1);
+      border-color: rgba(239, 68, 68, 0.2);
+    }
+
+    .status-dot {
+      position: relative;
+      width: 0.5rem;
+      height: 0.5rem;
+      border-radius: 9999px;
+      background: var(--accent-primary);
+    }
+
+    .status-dot::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: 9999px;
+      background: var(--accent-primary);
+      animation: ping 1s cubic-bezier(0, 0, 0.2, 1) infinite;
+    }
+
+    .status-badge.disconnected .status-dot {
+      background: #ef4444;
+    }
+
+    .status-badge.disconnected .status-dot::after {
+      background: #ef4444;
+      animation: none;
+    }
+
+    .status-text {
+      font-size: 0.875rem;
+      color: var(--accent-light);
+      font-weight: 500;
+    }
+
+    .status-badge.disconnected .status-text {
+      color: #f87171;
+    }
+
+    /* Main Content */
+    .main {
+      flex: 1;
+      height: calc(100vh - 73px);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* Session Bar */
+    .session-bar {
+      border-bottom: 1px solid var(--border-color);
+      background: linear-gradient(to right, rgba(17, 24, 39, 0.3), rgba(17, 24, 39, 0.2), rgba(17, 24, 39, 0.3));
+      backdrop-filter: blur(4px);
+      padding: 1.25rem 1.5rem;
+    }
+
+    .section-label {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin-bottom: 0.75rem;
+    }
+
+    .section-line {
+      height: 0.125rem;
+      width: 1.5rem;
+      background: linear-gradient(to right, var(--accent-primary), transparent);
+    }
+
+    .section-title {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+    }
+
+    /* Session Selector */
+    .session-tabs {
+      display: flex;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+    }
+
+    .session-tab {
+      padding: 0.625rem 1.25rem;
+      border-radius: 0.5rem;
+      font-weight: 500;
+      transition: all 0.3s ease;
+      position: relative;
+      overflow: hidden;
+      background: rgba(31, 41, 55, 0.8);
+      color: var(--text-secondary);
+      border: none;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 0.875rem;
+    }
+
+    .session-tab:hover {
+      background: rgba(55, 65, 81, 0.8);
+      color: #e5e7eb;
+    }
+
+    .session-tab.active {
+      background: var(--accent-secondary);
+      color: white;
+      box-shadow: 0 0 20px rgba(16, 185, 129, 0.3), 0 4px 12px rgba(0, 0, 0, 0.4);
+    }
+
+    .session-tab.active::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+      background-size: 200% 100%;
+      animation: shimmer 3s infinite;
+      opacity: 0.3;
+    }
+
+    /* Empty State */
+    .empty-state {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      color: var(--text-muted);
+      text-align: center;
+      padding: 2rem;
+    }
+
+    .empty-state p {
+      max-width: 400px;
+      line-height: 1.6;
+    }
+
+    /* Graph Container */
+    .graph-wrapper {
+      flex: 1;
+      overflow: hidden;
+      padding: 1.5rem;
+    }
+
+    .graph-container {
+      position: relative;
+      background: linear-gradient(135deg, rgba(17, 24, 39, 0.3), rgba(17, 24, 39, 0.2), rgba(17, 24, 39, 0.3));
+      backdrop-filter: blur(4px);
+      border-radius: 0.75rem;
+      border: 1px solid var(--border-color);
+      height: 100%;
+      overflow: hidden;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+    }
+
+    .graph-container::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 6rem;
+      height: 6rem;
+      background: linear-gradient(135deg, rgba(16, 185, 129, 0.1), transparent);
+      border-top-left-radius: 0.75rem;
+    }
+
+    .graph-container::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      right: 0;
+      width: 6rem;
+      height: 6rem;
+      background: linear-gradient(315deg, rgba(16, 185, 129, 0.1), transparent);
+      border-bottom-right-radius: 0.75rem;
+    }
+
+    .graph-header {
+      position: relative;
+      padding: 1rem 1.5rem;
+      border-bottom: 1px solid var(--border-color);
+      background: rgba(17, 24, 39, 0.2);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .node-count {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+
+    .node-count-dot {
+      width: 0.375rem;
+      height: 0.375rem;
+      border-radius: 9999px;
+      background: var(--accent-primary);
+      animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    }
+
+    .graph-content {
+      position: relative;
+      height: calc(100% - 60px);
+      padding: 1.5rem;
+    }
+
+    .graph-svg {
+      width: 100%;
+      height: 100%;
+    }
+
+    /* Detail Panel */
+    .detail-panel {
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      background: linear-gradient(135deg, rgba(17, 24, 39, 0.5), rgba(17, 24, 39, 0.3), rgba(17, 24, 39, 0.5));
+      backdrop-filter: blur(4px);
+      animation: slide-up 0.4s ease-out forwards;
+    }
+
+    .detail-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 1rem 1.5rem;
+      border-bottom: 1px solid var(--border-color);
+      background: rgba(17, 24, 39, 0.3);
+    }
+
+    .back-btn {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      color: var(--text-secondary);
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 0.875rem;
+      font-weight: 500;
+      transition: all 0.3s ease;
+    }
+
+    .back-btn:hover {
+      color: white;
+    }
+
+    .back-btn:hover .back-arrow {
+      transform: translateX(-4px);
+    }
+
+    .back-arrow {
+      width: 1.25rem;
+      height: 1.25rem;
+      transition: transform 0.3s ease;
+    }
+
+    .progress-container {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .progress-bar {
+      width: 6rem;
+      height: 0.25rem;
+      background: var(--bg-tertiary);
+      border-radius: 9999px;
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(to right, var(--accent-primary), var(--accent-light));
+      border-radius: 9999px;
+      transition: width 0.5s ease;
+    }
+
+    .progress-text {
+      font-size: 0.875rem;
+      color: var(--text-secondary);
+      font-weight: 500;
+    }
+
+    .detail-content {
+      flex: 1;
+      overflow: auto;
+      padding: 1.5rem;
+    }
+
+    .detail-inner {
+      max-width: 56rem;
+      margin: 0 auto;
+    }
+
+    .code-block {
+      position: relative;
+    }
+
+    .code-block::before {
+      content: '';
+      position: absolute;
+      inset: -1px;
+      background: linear-gradient(to right, rgba(16, 185, 129, 0.2), rgba(16, 185, 129, 0.1), rgba(16, 185, 129, 0.2));
+      border-radius: 0.5rem;
+      filter: blur(4px);
+      opacity: 0;
+      transition: opacity 0.5s ease;
+    }
+
+    .code-block:hover::before {
+      opacity: 1;
+    }
+
+    .code-pre {
+      position: relative;
+      background: rgba(3, 7, 18, 0.9);
+      border-radius: 0.5rem;
+      padding: 1.5rem;
+      overflow-x: auto;
+      font-size: 0.875rem;
+      border: 1px solid var(--border-color);
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+    }
+
+    .code-pre code {
+      color: #d1d5db;
+      line-height: 1.6;
+      font-family: var(--font-mono);
+    }
+
+    /* Ambient Background */
+    .ambient-bg {
+      position: absolute;
+      inset: 0;
+      overflow: hidden;
+      pointer-events: none;
+    }
+
+    .ambient-orb {
+      position: absolute;
+      width: 24rem;
+      height: 24rem;
+      background: rgba(16, 185, 129, 0.05);
+      border-radius: 9999px;
+      filter: blur(48px);
+      animation: pulse-glow 8s ease-in-out infinite;
+    }
+
+    .ambient-orb.top-left {
+      top: 0;
+      left: 25%;
+    }
+
+    .ambient-orb.bottom-right {
+      bottom: 0;
+      right: 25%;
+      animation-delay: 4s;
+    }
+
+    /* SVG Node Styles */
+    .thought-node {
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+
+    .thought-node.new {
+      animation: scale-in 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+    }
+
+    .thought-node-rect {
+      transition: all 0.3s ease;
+    }
+
+    .thought-node-label {
+      font-size: 14px;
+      font-weight: 600;
+      fill: rgba(255, 255, 255, 0.9);
+      pointer-events: none;
+      user-select: none;
+    }
+
+    .thought-connection.new {
+      animation: fade-in 0.5s ease-out forwards;
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      .header-content { padding: 0.75rem 1rem; }
+      .session-bar { padding: 1rem; }
+      .graph-wrapper { padding: 1rem; }
+      .session-tabs { gap: 0.5rem; }
+      .session-tab { padding: 0.5rem 1rem; font-size: 0.8125rem; }
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <!-- Ambient Background -->
+    <div class="ambient-bg">
+      <div class="ambient-orb top-left"></div>
+      <div class="ambient-orb bottom-right"></div>
+    </div>
+
+    <!-- Header -->
+    <header class="header">
+      <div class="header-content">
+        <div class="flex items-center gap-3">
+          <div class="logo-bar"></div>
+          <h1 class="title">Thoughtbox Observatory</h1>
+        </div>
+        <div id="status-badge" class="status-badge disconnected">
+          <div class="status-dot"></div>
+          <span class="status-text">Connecting...</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main" id="main-content">
+      <!-- Graph View (default) -->
+      <div id="graph-view">
+        <!-- Session Bar -->
+        <div class="session-bar">
+          <div class="flex items-center justify-between mb-6">
+            <div>
+              <div class="section-label">
+                <div class="section-line"></div>
+                <h2 class="section-title">Active Sessions</h2>
+              </div>
+              <div id="session-tabs" class="session-tabs">
+                <!-- Sessions will be rendered here -->
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Graph Container -->
+        <div class="graph-wrapper">
+          <div class="graph-container">
+            <div class="graph-header">
+              <div class="section-label" style="margin-bottom: 0;">
+                <div class="section-line"></div>
+                <h2 class="section-title">Live Reasoning Graph</h2>
+              </div>
+              <div id="node-count" class="node-count hidden">
+                <div class="node-count-dot"></div>
+                <span id="node-count-text">0 nodes</span>
+              </div>
+            </div>
+            <div class="graph-content">
+              <div id="graph-empty" class="empty-state">
+                <p>No active session selected. Select a session above to view its reasoning graph, or wait for a new session to begin.</p>
+              </div>
+              <svg id="graph-svg" class="graph-svg hidden" preserveAspectRatio="xMidYMid meet">
+                <defs>
+                  <marker id="arrowhead" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+                    <polygon points="0 0, 10 3, 0 6" fill="#34d399" />
+                  </marker>
+                  <linearGradient id="connectionGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                    <stop offset="0%" stop-color="rgb(16, 185, 129)" stop-opacity="0.3" />
+                    <stop offset="50%" stop-color="rgb(16, 185, 129)" stop-opacity="0.6" />
+                    <stop offset="100%" stop-color="rgb(16, 185, 129)" stop-opacity="0.3" />
+                  </linearGradient>
+                </defs>
+                <g id="connections"></g>
+                <g id="nodes"></g>
+              </svg>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Detail View (hidden by default) -->
+      <div id="detail-view" class="detail-panel hidden">
+        <div class="detail-header">
+          <button id="back-btn" class="back-btn">
+            <svg class="back-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M19 12H5M12 19l-7-7 7-7" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <span>Back to Graph</span>
+          </button>
+          <div class="progress-container">
+            <div class="progress-bar">
+              <div id="progress-fill" class="progress-fill" style="width: 0%"></div>
+            </div>
+            <span id="progress-text" class="progress-text">Thought 0 of 0</span>
+          </div>
+        </div>
+        <div class="detail-content">
+          <div class="detail-inner">
+            <div class="section-label mb-4">
+              <div class="section-line"></div>
+              <h3 class="section-title">MCP Request</h3>
+            </div>
+            <div class="code-block">
+              <pre class="code-pre"><code id="detail-code"></code></pre>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    // ============================================================
+    // Observatory Client - WebSocket connection management
+    // ============================================================
+    class ObservatoryClient {
+      constructor() {
+        this.ws = null;
+        this.subscriptions = new Set();
+        this.handlers = new Map();
+        this.reconnectAttempts = 0;
+        this.maxReconnectAttempts = 10;
+        this.reconnectDelay = 1000;
+      }
+
+      connect(url) {
+        return new Promise((resolve, reject) => {
+          try {
+            this.ws = new WebSocket(url);
+
+            this.ws.onopen = () => {
+              console.log('[Observatory] Connected');
+              this.reconnectAttempts = 0;
+              this.reconnectDelay = 1000;
+              this.emit('connected');
+              resolve();
+            };
+
+            this.ws.onclose = (event) => {
+              console.log('[Observatory] Disconnected', event.code, event.reason);
+              this.emit('disconnected');
+              this.attemptReconnect(url);
+            };
+
+            this.ws.onerror = (error) => {
+              console.error('[Observatory] Error', error);
+              reject(error);
+            };
+
+            this.ws.onmessage = (event) => {
+              try {
+                const [topic, eventName, payload] = JSON.parse(event.data);
+                this.handleMessage(topic, eventName, payload);
+              } catch (err) {
+                console.error('[Observatory] Failed to parse message', err);
+              }
+            };
+          } catch (err) {
+            reject(err);
+          }
+        });
+      }
+
+      attemptReconnect(url) {
+        if (this.reconnectAttempts >= this.maxReconnectAttempts) {
+          console.log('[Observatory] Max reconnect attempts reached');
+          return;
+        }
+
+        this.reconnectAttempts++;
+        const delay = Math.min(this.reconnectDelay * Math.pow(2, this.reconnectAttempts - 1), 30000);
+
+        console.log(`[Observatory] Reconnecting in ${delay}ms (attempt ${this.reconnectAttempts})`);
+
+        setTimeout(() => {
+          this.connect(url).catch(() => {});
+        }, delay);
+      }
+
+      subscribe(topic) {
+        if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+          this.subscriptions.add(topic);
+          this.send(topic, 'subscribe', {});
+        }
+      }
+
+      unsubscribe(topic) {
+        if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+          this.subscriptions.delete(topic);
+          this.send(topic, 'unsubscribe', {});
+        }
+      }
+
+      send(topic, event, payload) {
+        if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+          this.ws.send(JSON.stringify([topic, event, payload]));
+        }
+      }
+
+      on(event, handler) {
+        if (!this.handlers.has(event)) {
+          this.handlers.set(event, []);
+        }
+        this.handlers.get(event).push(handler);
+      }
+
+      off(event, handler) {
+        if (this.handlers.has(event)) {
+          const handlers = this.handlers.get(event);
+          const index = handlers.indexOf(handler);
+          if (index > -1) handlers.splice(index, 1);
+        }
+      }
+
+      emit(event, data) {
+        if (this.handlers.has(event)) {
+          this.handlers.get(event).forEach(handler => handler(data));
+        }
+      }
+
+      handleMessage(topic, event, payload) {
+        // Emit topic-specific event
+        this.emit(`${topic}:${event}`, payload);
+
+        // Emit generic event
+        this.emit('message', { topic, event, payload });
+      }
+    }
+
+    // ============================================================
+    // State Management
+    // ============================================================
+    const state = {
+      connected: false,
+      sessions: [],
+      activeSessionId: null,
+      thoughts: new Map(),
+      branches: new Map(),
+      selectedNodeId: null,
+      viewMode: 'graph',
+      newNodeId: null
+    };
+
+    // ============================================================
+    // DOM Elements
+    // ============================================================
+    const elements = {
+      statusBadge: document.getElementById('status-badge'),
+      sessionTabs: document.getElementById('session-tabs'),
+      graphView: document.getElementById('graph-view'),
+      detailView: document.getElementById('detail-view'),
+      graphSvg: document.getElementById('graph-svg'),
+      graphEmpty: document.getElementById('graph-empty'),
+      nodeCount: document.getElementById('node-count'),
+      nodeCountText: document.getElementById('node-count-text'),
+      connectionsGroup: document.getElementById('connections'),
+      nodesGroup: document.getElementById('nodes'),
+      backBtn: document.getElementById('back-btn'),
+      progressFill: document.getElementById('progress-fill'),
+      progressText: document.getElementById('progress-text'),
+      detailCode: document.getElementById('detail-code')
+    };
+
+    // ============================================================
+    // Render Functions
+    // ============================================================
+    function updateConnectionStatus(connected) {
+      state.connected = connected;
+      const badge = elements.statusBadge;
+      const text = badge.querySelector('.status-text');
+
+      if (connected) {
+        badge.classList.remove('disconnected');
+        text.textContent = 'Connected';
+      } else {
+        badge.classList.add('disconnected');
+        text.textContent = 'Disconnected';
+      }
+    }
+
+    function renderSessions() {
+      const container = elements.sessionTabs;
+
+      if (state.sessions.length === 0) {
+        container.innerHTML = '<span style="color: var(--text-muted); font-size: 0.875rem;">No active sessions</span>';
+        return;
+      }
+
+      container.innerHTML = state.sessions.map(session => {
+        const isActive = session.id === state.activeSessionId;
+        const label = session.title || session.id.slice(0, 8);
+        return `
+          <button
+            class="session-tab ${isActive ? 'active' : ''}"
+            data-session-id="${session.id}"
+            tabindex="0"
+          >
+            <span style="position: relative; z-index: 10;">${label}</span>
+          </button>
+        `;
+      }).join('');
+
+      // Add click handlers
+      container.querySelectorAll('.session-tab').forEach(btn => {
+        btn.addEventListener('click', () => {
+          selectSession(btn.dataset.sessionId);
+        });
+        btn.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            selectSession(btn.dataset.sessionId);
+          }
+        });
+      });
+    }
+
+    function calculateNodePositions() {
+      const thoughts = Array.from(state.thoughts.values());
+      if (thoughts.length === 0) return [];
+
+      // Sort by thought number
+      thoughts.sort((a, b) => a.thoughtNumber - b.thoughtNumber);
+
+      // Track branch offsets
+      const branchOffsets = new Map();
+      let nextBranchOffset = 80;
+
+      return thoughts.map((thought, index) => {
+        const isBranch = thought.branchId && thought.branchId !== 'main';
+        let yOffset = 0;
+
+        if (isBranch) {
+          if (!branchOffsets.has(thought.branchId)) {
+            branchOffsets.set(thought.branchId, nextBranchOffset);
+            nextBranchOffset += 80;
+          }
+          yOffset = branchOffsets.get(thought.branchId);
+        }
+
+        return {
+          id: thought.id,
+          x: 100 + (thought.thoughtNumber - 1) * 120,
+          y: 200 + yOffset,
+          label: thought.thoughtNumber.toString(),
+          thought: thought,
+          parentId: thought.parentId || null,
+          branchId: thought.branchId
+        };
+      });
+    }
+
+    function renderGraph() {
+      const nodes = calculateNodePositions();
+
+      if (nodes.length === 0) {
+        elements.graphSvg.classList.add('hidden');
+        elements.graphEmpty.classList.remove('hidden');
+        elements.nodeCount.classList.add('hidden');
+        return;
+      }
+
+      elements.graphSvg.classList.remove('hidden');
+      elements.graphEmpty.classList.add('hidden');
+      elements.nodeCount.classList.remove('hidden');
+      elements.nodeCountText.textContent = `${nodes.length} nodes`;
+
+      // Calculate viewBox
+      const padding = 100;
+      const minX = Math.min(...nodes.map(n => n.x)) - padding;
+      const maxX = Math.max(...nodes.map(n => n.x)) + padding;
+      const minY = Math.min(...nodes.map(n => n.y)) - padding;
+      const maxY = Math.max(...nodes.map(n => n.y)) + padding;
+
+      elements.graphSvg.setAttribute('viewBox', `${minX} ${minY} ${maxX - minX} ${maxY - minY}`);
+
+      // Build node lookup
+      const nodeById = new Map(nodes.map(n => [n.id, n]));
+
+      // Render connections
+      const connections = [];
+      nodes.forEach(node => {
+        if (node.parentId && nodeById.has(node.parentId)) {
+          const parent = nodeById.get(node.parentId);
+          connections.push({ from: parent, to: node });
+        }
+      });
+
+      elements.connectionsGroup.innerHTML = connections.map(conn => {
+        const startX = conn.from.x + 30;
+        const startY = conn.from.y;
+        const endX = conn.to.x - 30;
+        const endY = conn.to.y;
+        const midX = (startX + endX) / 2;
+        const midY = (startY + endY) / 2;
+        const isNew = conn.to.id === state.newNodeId;
+
+        return `
+          <g class="thought-connection ${isNew ? 'new' : ''}">
+            <path
+              d="M ${startX} ${startY} Q ${midX} ${startY} ${midX} ${midY} T ${endX} ${endY}"
+              fill="none"
+              stroke="rgba(16, 185, 129, 0.2)"
+              stroke-width="4"
+              stroke-linecap="round"
+            />
+            <path
+              d="M ${startX} ${startY} Q ${midX} ${startY} ${midX} ${midY} T ${endX} ${endY}"
+              fill="none"
+              stroke="url(#connectionGradient)"
+              stroke-width="2"
+              stroke-linecap="round"
+              marker-end="url(#arrowhead)"
+              ${isNew ? 'stroke-dasharray="5,5"' : ''}
+            />
+          </g>
+        `;
+      }).join('');
+
+      // Render nodes
+      elements.nodesGroup.innerHTML = nodes.map(node => {
+        const isNew = node.id === state.newNodeId;
+        return `
+          <g class="thought-node ${isNew ? 'new' : ''}" data-node-id="${node.id}" tabindex="0">
+            <rect
+              x="${node.x - 30}"
+              y="${node.y - 20}"
+              width="60"
+              height="40"
+              rx="6"
+              class="thought-node-rect"
+              fill="#059669"
+              stroke="rgba(52, 211, 153, 0.5)"
+              stroke-width="2"
+              style="filter: drop-shadow(0 0 8px rgba(16, 185, 129, 0.4)) drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2));"
+            />
+            <rect
+              x="${node.x - 28}"
+              y="${node.y - 18}"
+              width="56"
+              height="2"
+              rx="1"
+              fill="rgba(255, 255, 255, 0.2)"
+              style="pointer-events: none;"
+            />
+            <text
+              x="${node.x}"
+              y="${node.y}"
+              text-anchor="middle"
+              dominant-baseline="middle"
+              class="thought-node-label"
+            >${node.label}</text>
+          </g>
+        `;
+      }).join('');
+
+      // Add hover and click handlers
+      elements.nodesGroup.querySelectorAll('.thought-node').forEach(nodeEl => {
+        const rect = nodeEl.querySelector('.thought-node-rect');
+
+        nodeEl.addEventListener('mouseenter', () => {
+          rect.setAttribute('fill', '#10b981');
+          rect.setAttribute('stroke', '#6ee7b7');
+          rect.style.filter = 'drop-shadow(0 0 16px rgba(16, 185, 129, 0.6)) drop-shadow(0 4px 8px rgba(0, 0, 0, 0.3))';
+        });
+
+        nodeEl.addEventListener('mouseleave', () => {
+          rect.setAttribute('fill', '#059669');
+          rect.setAttribute('stroke', 'rgba(52, 211, 153, 0.5)');
+          rect.style.filter = 'drop-shadow(0 0 8px rgba(16, 185, 129, 0.4)) drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2))';
+        });
+
+        nodeEl.addEventListener('click', () => {
+          showNodeDetail(nodeEl.dataset.nodeId);
+        });
+
+        nodeEl.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            showNodeDetail(nodeEl.dataset.nodeId);
+          }
+        });
+      });
+
+      // Clear new node highlight after animation
+      if (state.newNodeId) {
+        setTimeout(() => {
+          state.newNodeId = null;
+        }, 500);
+      }
+    }
+
+    function showNodeDetail(nodeId) {
+      const thought = state.thoughts.get(nodeId);
+      if (!thought) return;
+
+      state.selectedNodeId = nodeId;
+      state.viewMode = 'detail';
+
+      // Update view visibility
+      elements.graphView.classList.add('hidden');
+      elements.detailView.classList.remove('hidden');
+
+      // Update progress
+      const totalNodes = state.thoughts.size;
+      const nodeIndex = thought.thoughtNumber;
+      const progressPercent = (nodeIndex / totalNodes) * 100;
+
+      elements.progressFill.style.width = `${progressPercent}%`;
+      elements.progressText.innerHTML = `Thought <span style="color: var(--accent-light);">${nodeIndex}</span> of ${totalNodes}`;
+
+      // Update code display
+      const mcpData = {
+        thought: thought.thought,
+        thoughtNumber: thought.thoughtNumber,
+        totalThoughts: thought.totalThoughts,
+        nextThoughtNeeded: thought.nextThoughtNeeded,
+        branchId: thought.branchId,
+        branchFromThought: thought.branchFromThought
+      };
+
+      elements.detailCode.textContent = JSON.stringify(mcpData, null, 2);
+    }
+
+    function hideNodeDetail() {
+      state.selectedNodeId = null;
+      state.viewMode = 'graph';
+
+      elements.graphView.classList.remove('hidden');
+      elements.detailView.classList.add('hidden');
+    }
+
+    // ============================================================
+    // Session Management
+    // ============================================================
+    let currentSessionTopic = null;
+
+    function selectSession(sessionId) {
+      if (state.activeSessionId === sessionId) return;
+
+      // Unsubscribe from previous session
+      if (currentSessionTopic) {
+        client.unsubscribe(currentSessionTopic);
+      }
+
+      // Clear current thoughts
+      state.thoughts.clear();
+      state.branches.clear();
+      state.activeSessionId = sessionId;
+
+      // Subscribe to new session
+      currentSessionTopic = `reasoning:${sessionId}`;
+      client.subscribe(currentSessionTopic);
+
+      renderSessions();
+      renderGraph();
+    }
+
+    // ============================================================
+    // Initialize
+    // ============================================================
+    const client = new ObservatoryClient();
+
+    // Connection handlers
+    client.on('connected', () => {
+      updateConnectionStatus(true);
+      // Subscribe to observatory channel for session discovery
+      client.subscribe('observatory');
+    });
+
+    client.on('disconnected', () => {
+      updateConnectionStatus(false);
+    });
+
+    // Observatory channel events
+    client.on('observatory:subscribed', (payload) => {
+      console.log('[Observatory] Subscribed to observatory channel');
+    });
+
+    client.on('observatory:sessions:active', (payload) => {
+      console.log('[Observatory] Active sessions:', payload);
+      state.sessions = payload.sessions || [];
+      renderSessions();
+
+      // Auto-select first session if none selected
+      if (!state.activeSessionId && state.sessions.length > 0) {
+        selectSession(state.sessions[0].id);
+      }
+    });
+
+    client.on('observatory:session:started', (payload) => {
+      console.log('[Observatory] Session started:', payload);
+      const session = payload.session;
+      if (session && !state.sessions.find(s => s.id === session.id)) {
+        state.sessions.push(session);
+        renderSessions();
+
+        // Auto-select if no active session
+        if (!state.activeSessionId) {
+          selectSession(session.id);
+        }
+      }
+    });
+
+    client.on('observatory:session:ended', (payload) => {
+      console.log('[Observatory] Session ended:', payload);
+      // Keep session in list but could mark as ended
+    });
+
+    // Generic message handler for reasoning channel events
+    client.on('message', ({ topic, event, payload }) => {
+      if (!topic.startsWith('reasoning:')) return;
+
+      switch (event) {
+        case 'subscribed':
+          console.log('[Observatory] Subscribed to reasoning channel:', topic);
+          break;
+
+        case 'session:snapshot':
+          console.log('[Observatory] Session snapshot:', payload);
+          state.thoughts.clear();
+          state.branches.clear();
+
+          if (payload.thoughts) {
+            payload.thoughts.forEach(thought => {
+              state.thoughts.set(thought.id, thought);
+            });
+          }
+
+          if (payload.branches) {
+            payload.branches.forEach(branch => {
+              state.branches.set(branch.id, branch);
+            });
+          }
+
+          renderGraph();
+          break;
+
+        case 'thought:added':
+          console.log('[Observatory] Thought added:', payload);
+          if (payload.thought) {
+            state.newNodeId = payload.thought.id;
+            state.thoughts.set(payload.thought.id, payload.thought);
+            renderGraph();
+          }
+          break;
+
+        case 'thought:branched':
+          console.log('[Observatory] Thought branched:', payload);
+          if (payload.thought) {
+            state.newNodeId = payload.thought.id;
+            state.thoughts.set(payload.thought.id, payload.thought);
+            renderGraph();
+          }
+          break;
+
+        case 'session:ended':
+          console.log('[Observatory] Session ended:', payload);
+          break;
+
+        case 'error':
+          console.error('[Observatory] Error:', payload);
+          break;
+      }
+    });
+
+    // Back button handler
+    elements.backBtn.addEventListener('click', hideNodeDetail);
+
+    // Keyboard navigation
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && state.viewMode === 'detail') {
+        hideNodeDetail();
+      }
+    });
+
+    // Connect to WebSocket
+    const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const wsUrl = `${wsProtocol}//${window.location.host}`;
+
+    client.connect(wsUrl).catch(err => {
+      console.error('[Observatory] Initial connection failed:', err);
+    });
+
+    console.log('[Observatory] UI initialized');
+  </script>
+</body>
+</html>

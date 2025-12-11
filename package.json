@@ -41,7 +41,7 @@
     "generate-capabilities": "tsx scripts/generate-capabilities.ts",
     "dev": "npm run embed-templates && smithery dev",
     "build": "npm run check:cycles && npm run build:local",
-    "build:local": "npm run embed-templates && npm run generate-capabilities && tsc && shx cp -r src/resources dist/ && shx cp -r templates dist/ && shx chmod +x dist/*.js",
+    "build:local": "npm run embed-templates && npm run generate-capabilities && tsc && shx cp -r src/resources dist/ && shx cp -r templates dist/ && shx cp src/observatory/ui/*.html dist/observatory/ui/ && shx chmod +x dist/*.js",
     "build:smithery": "npm run embed-templates && npm run generate-capabilities && smithery build",
     "start": "node dist/http.js",
     "start:stateful": "node dist/http-stateful.js",

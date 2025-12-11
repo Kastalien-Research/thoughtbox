@@ -24,6 +24,7 @@ import { WebSocketServer } from "./ws-server.js";
 import { createReasoningChannel, sessionStore } from "./channels/reasoning.js";
 import { createObservatoryChannel } from "./channels/observatory.js";
 import type { ObservatoryConfig } from "./config.js";
+import { OBSERVATORY_HTML } from "./ui/index.js";
 
 /**
  * Observatory server instance
@@ -78,6 +79,16 @@ export function createObservatoryServer(
     }
 
     const url = new URL(req.url || "/", `http://${req.headers.host}`);
+
+    // Serve Observatory UI at root and /observatory
+    if (
+      (url.pathname === "/" || url.pathname === "/observatory") &&
+      req.method === "GET"
+    ) {
+      res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+      res.end(OBSERVATORY_HTML);
+      return;
+    }
 
     // Health endpoint
     if (url.pathname === "/api/health" && req.method === "GET") {
@@ -168,6 +179,9 @@ export function createObservatoryServer(
         httpServer!.listen(config.port, () => {
           console.log(
             `[Observatory] Server listening on port ${config.port}`
+          );
+          console.log(
+            `[Observatory] UI: http://localhost:${config.port}/`
           );
           console.log(
             `[Observatory] WebSocket: ws://localhost:${config.port}${config.path}`
