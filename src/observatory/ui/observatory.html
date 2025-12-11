@@ -860,6 +860,16 @@
     // ============================================================
     // Render Functions
     // ============================================================
+    
+    /**
+     * Escape HTML special characters to prevent XSS
+     */
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
     function updateConnectionStatus(connected) {
       state.connected = connected;
       const badge = elements.statusBadge;
@@ -885,13 +895,15 @@
       container.innerHTML = state.sessions.map(session => {
         const isActive = session.id === state.activeSessionId;
         const label = session.title || session.id.slice(0, 8);
+        const escapedLabel = escapeHtml(label);
+        const escapedId = escapeHtml(session.id);
         return `
           <button
             class="session-tab ${isActive ? 'active' : ''}"
-            data-session-id="${session.id}"
+            data-session-id="${escapedId}"
             tabindex="0"
           >
-            <span style="position: relative; z-index: 10;">${label}</span>
+            <span style="position: relative; z-index: 10;">${escapedLabel}</span>
           </button>
         `;
       }).join('');
