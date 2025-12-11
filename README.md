@@ -4,7 +4,7 @@
 
 Unlike ephemeral chain-of-thought prompting, Thoughtbox creates a **durable reasoning chain** — a ledger of thoughts that can be visualized, exported, and analyzed. Each thought is a node in a graph structure supporting forward thinking, backward planning, branching explorations, and mid-course revisions.
 
-![Thoughtbox Observatory](public/Screenshot%202025-12-11%20at%206.23.22%20AM.png)
+![Thoughtbox Observatory](public/Screenshot%202025-12-11%20at%206.23.22%%E2%80%AFAM.png)
 *Observatory UI showing a reasoning session with 14 thoughts and a branch exploration (purple nodes 13-14) forking from thought 5.*
 
 ## Core Concepts
