@@ -77,7 +77,7 @@
     .cursor-pointer { cursor: pointer; }
     .select-none { user-select: none; }
     .transition-all { transition: all 0.3s ease; }
-    .hidden { display: none; }
+    .hidden { display: none !important; }
 
     /* Color utilities */
     .text-white { color: #ffffff; }
@@ -348,7 +348,8 @@
       border-radius: 0.75rem;
       border: 1px solid var(--border-color);
       height: 100%;
-      overflow: hidden;
+      min-height: 400px;
+      overflow: auto;
       box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
     }
 
@@ -409,6 +410,7 @@
     .graph-svg {
       width: 100%;
       height: 100%;
+      min-height: 400px;
     }
 
     /* Detail Panel */
@@ -929,26 +931,16 @@
       // Sort by thought number
       thoughts.sort((a, b) => a.thoughtNumber - b.thoughtNumber);
 
-      // Track branch offsets
-      const branchOffsets = new Map();
-      let nextBranchOffset = 80;
+      // Simple horizontal layout - all nodes in a row
+      const baseY = 50;
+      const nodeSpacing = 140;
+      const nodeStartX = 50;
 
       return thoughts.map((thought, index) => {
-        const isBranch = thought.branchId && thought.branchId !== 'main';
-        let yOffset = 0;
-
-        if (isBranch) {
-          if (!branchOffsets.has(thought.branchId)) {
-            branchOffsets.set(thought.branchId, nextBranchOffset);
-            nextBranchOffset += 80;
-          }
-          yOffset = branchOffsets.get(thought.branchId);
-        }
-
         return {
           id: thought.id,
-          x: 100 + (thought.thoughtNumber - 1) * 120,
-          y: 200 + yOffset,
+          x: nodeStartX + (thought.thoughtNumber - 1) * nodeSpacing,
+          y: baseY,
           label: thought.thoughtNumber.toString(),
           thought: thought,
           parentId: thought.parentId || null,
@@ -972,14 +964,29 @@
       elements.nodeCount.classList.remove('hidden');
       elements.nodeCountText.textContent = `${nodes.length} nodes`;
 
-      // Calculate viewBox
-      const padding = 100;
-      const minX = Math.min(...nodes.map(n => n.x)) - padding;
-      const maxX = Math.max(...nodes.map(n => n.x)) + padding;
-      const minY = Math.min(...nodes.map(n => n.y)) - padding;
-      const maxY = Math.max(...nodes.map(n => n.y)) + padding;
+      // Calculate viewBox - fit around nodes but with minimum size to prevent huge nodes
+      const padding = 50;
+      const nodeRadius = 30; // Approximate node visual radius
+      const minViewBoxWidth = 800; // Minimum width so nodes don't get huge
+      const minViewBoxHeight = 200; // Minimum height
 
-      elements.graphSvg.setAttribute('viewBox', `${minX} ${minY} ${maxX - minX} ${maxY - minY}`);
+      const contentMinX = Math.min(...nodes.map(n => n.x)) - nodeRadius - padding;
+      const contentMaxX = Math.max(...nodes.map(n => n.x)) + nodeRadius + padding;
+      const contentMinY = Math.min(...nodes.map(n => n.y)) - nodeRadius - padding;
+      const contentMaxY = Math.max(...nodes.map(n => n.y)) + nodeRadius + padding;
+
+      const contentWidth = contentMaxX - contentMinX;
+      const contentHeight = contentMaxY - contentMinY;
+
+      // Use the larger of content size or minimum size
+      const width = Math.max(contentWidth, minViewBoxWidth);
+      const height = Math.max(contentHeight, minViewBoxHeight);
+
+      // Center the content within the viewBox if it's smaller than minimum
+      const viewBoxX = contentMinX - (width - contentWidth) / 2;
+      const viewBoxY = contentMinY - (height - contentHeight) / 2;
+
+      elements.graphSvg.setAttribute('viewBox', `${viewBoxX} ${viewBoxY} ${width} ${height}`);
 
       // Build node lookup
       const nodeById = new Map(nodes.map(n => [n.id, n]));
@@ -1200,11 +1207,20 @@
       const session = payload.session;
       if (session && !state.sessions.find(s => s.id === session.id)) {
         state.sessions.push(session);
-        renderSessions();
 
-        // Auto-select if no active session
+        // Immediately subscribe to this session's reasoning channel
+        // so we don't miss any thoughts while the UI updates
+        const topic = `reasoning:${session.id}`;
+        client.subscribe(topic);
+
+        // Auto-select this session (will skip re-subscribe since already subscribed)
         if (!state.activeSessionId) {
-          selectSession(session.id);
+          state.activeSessionId = session.id;
+          currentSessionTopic = topic;
+          renderSessions();
+          renderGraph();
+        } else {
+          renderSessions();
         }
       }
     });
@@ -1212,6 +1228,40 @@
     client.on('observatory:session:ended', (payload) => {
       console.log('[Observatory] Session ended:', payload);
       // Keep session in list but could mark as ended
+    });
+
+    // Handle thought:added broadcast on observatory channel
+    // This ensures we see thoughts immediately, even before reasoning subscription completes
+    client.on('observatory:thought:added', (payload) => {
+      console.log('[Observatory] Thought added (observatory channel):', payload);
+      if (!payload.thought || !payload.sessionId) return;
+
+      // If no active session, auto-activate this one
+      if (!state.activeSessionId) {
+        state.activeSessionId = payload.sessionId;
+        currentSessionTopic = `reasoning:${payload.sessionId}`;
+        client.subscribe(currentSessionTopic);
+
+        // Add session to list if not already there
+        if (!state.sessions.find(s => s.id === payload.sessionId)) {
+          state.sessions.push({
+            id: payload.sessionId,
+            title: `Reasoning session ${new Date().toISOString()}`,
+            status: 'active'
+          });
+          renderSessions();
+        }
+      }
+
+      // Process if this is for the active session
+      if (payload.sessionId === state.activeSessionId) {
+        payload.thought.parentId = payload.parentId;
+        if (!state.thoughts.has(payload.thought.id)) {
+          state.newNodeId = payload.thought.id;
+          state.thoughts.set(payload.thought.id, payload.thought);
+          renderGraph();
+        }
+      }
     });
 
     // Generic message handler for reasoning channel events
@@ -1246,6 +1296,8 @@
         case 'thought:added':
           console.log('[Observatory] Thought added:', payload);
           if (payload.thought) {
+            // Copy parentId from payload onto the thought object
+            payload.thought.parentId = payload.parentId;
             state.newNodeId = payload.thought.id;
             state.thoughts.set(payload.thought.id, payload.thought);
             renderGraph();
@@ -1255,6 +1307,10 @@
         case 'thought:branched':
           console.log('[Observatory] Thought branched:', payload);
           if (payload.thought) {
+            // Copy branch info and parentId from payload onto the thought object
+            payload.thought.parentId = payload.parentId;
+            payload.thought.branchId = payload.branchId;
+            payload.thought.branchFromThought = payload.fromThoughtNumber;
             state.newNodeId = payload.thought.id;
             state.thoughts.set(payload.thought.id, payload.thought);
             renderGraph();

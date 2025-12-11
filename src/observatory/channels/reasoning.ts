@@ -197,10 +197,18 @@ export function createReasoningChannel(wss: WebSocketServer): Channel {
   // Wire up emitter events to WebSocket broadcasts
   thoughtEmitter.on("thought:added", (data) => {
     const topic = `reasoning:${data.sessionId}`;
-    wss.broadcast(topic, "thought:added", {
+    const payload = {
       thought: data.thought,
       parentId: data.parentId,
-    });
+      sessionId: data.sessionId,
+    };
+
+    // Broadcast to reasoning channel subscribers
+    wss.broadcast(topic, "thought:added", payload);
+
+    // Also broadcast to observatory channel so new sessions get immediate updates
+    // This ensures clients see thought 1 even before subscription completes
+    wss.broadcast("observatory", "thought:added", payload);
 
     // Also store in memory
     sessionStore.addThought(data.sessionId, data.thought);
