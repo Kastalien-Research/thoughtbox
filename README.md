@@ -1,154 +1,126 @@
 # Thoughtbox
 
-[![smithery badge](https://smithery.ai/badge/@Kastalien-Research/clear-thought-two)](https://smithery.ai/server/@Kastalien-Research/clear-thought-two)
+**A reasoning ledger for AI agents.** Thoughtbox is an MCP server that provides structured reasoning tools, enabling agents to think step-by-step, branch into alternative explorations, revise earlier conclusions, and maintain a persistent record of their cognitive process.
 
-MCP server providing cognitive enhancement tools for LLM agents: structured reasoning, mental models, and literate programming notebooks.
+Unlike ephemeral chain-of-thought prompting, Thoughtbox creates a **durable reasoning chain** — a ledger of thoughts that can be visualized, exported, and analyzed. Each thought is a node in a graph structure supporting forward thinking, backward planning, branching explorations, and mid-course revisions.
+
+![Thoughtbox Observatory](public/Screenshot%202025-12-11%20at%206.23.22%20AM.png)
+*Observatory UI showing a reasoning session with 14 thoughts and a branch exploration (purple nodes 13-14) forking from thought 5.*
+
+## Core Concepts
+
+### The Reasoning Ledger
+
+Thoughtbox treats reasoning as **data**, not just process. Every thought is:
+
+- **Numbered**: Logical position in the reasoning chain (supports non-sequential addition)
+- **Timestamped**: When the thought was recorded
+- **Linked**: Connected to previous thoughts, branch origins, or revised thoughts
+- **Persistent**: Stored in sessions that survive across conversations
+- **Exportable**: Full reasoning chains can be exported as JSON or Markdown
+
+This creates an **auditable trail** of how conclusions were reached — invaluable for debugging agent behavior, understanding decision-making, and improving reasoning strategies.
+
+### Thinking Patterns
+
+Thoughtbox supports multiple reasoning strategies out of the box:
+
+| Pattern | Description | Use Case |
+|---------|-------------|----------|
+| **Forward Thinking** | Sequential 1→2→3→N progression | Exploration, discovery, open-ended analysis |
+| **Backward Thinking** | Start at goal (N), work back to start (1) | Planning, system design, working from known goals |
+| **Branching** | Fork into parallel explorations (A, B, C...) | Comparing alternatives, A/B scenarios |
+| **Revision** | Update earlier thoughts with new information | Error correction, refined understanding |
+| **Interleaved** | Alternate reasoning with tool actions | Tool-oriented tasks, adaptive execution |
+
+See the **[Patterns Cookbook](src/resources/docs/thoughtbox-patterns-cookbook.md)** for comprehensive examples.
 
 ## Features
 
-- **Thoughtbox Tool**: Step-by-step reasoning with branching, revision, and dynamic planning
-- **Mental Models**: 15 structured reasoning frameworks (rubber-duck, five-whys, pre-mortem, etc.)
-- **Notebook Tool**: Literate programming with JavaScript/TypeScript execution
-- **Patterns Cookbook**: 6 core reasoning patterns with examples and best practices
+### 1. Thoughtbox Tool — Structured Reasoning
 
-## Tools
+The core tool for step-by-step thinking with full graph capabilities.
 
-### 1. `thoughtbox` - Step-by-Step Reasoning
+```javascript
+// Simple forward thinking
+{ thought: "First, let's identify the problem...", thoughtNumber: 1, totalThoughts: 5, nextThoughtNeeded: true }
 
-Facilitates a detailed, step-by-step thinking process for problem-solving and analysis.
+// Branching to explore alternatives
+{ thought: "Option A: Use PostgreSQL...", thoughtNumber: 3, branchFromThought: 2, branchId: "sql-path", ... }
 
-**Inputs:**
+// Revising an earlier conclusion
+{ thought: "Actually, the root cause is...", thoughtNumber: 7, isRevision: true, revisesThought: 3, ... }
+```
 
+**Parameters:**
 - `thought` (string): The current thinking step
-- `nextThoughtNeeded` (boolean): Whether another thought step is needed
-- `thoughtNumber` (integer): Current thought number
-- `totalThoughts` (integer): Estimated total thoughts needed
-- `isRevision` (boolean, optional): Whether this revises previous thinking
-- `revisesThought` (integer, optional): Which thought is being reconsidered
-- `branchFromThought` (integer, optional): Branching point thought number
-- `branchId` (string, optional): Branch identifier
-- `needsMoreThoughts` (boolean, optional): If more thoughts are needed
+- `thoughtNumber` (integer): Logical position in the chain
+- `totalThoughts` (integer): Estimated total (adjustable)
+- `nextThoughtNeeded` (boolean): Continue thinking?
+- `branchFromThought` (integer): Fork point for branching
+- `branchId` (string): Branch identifier
+- `isRevision` (boolean): Marks revision of earlier thought
+- `revisesThought` (integer): Which thought is being revised
 
-## Usage
+### 2. Observatory — Real-Time Visualization
 
-The Thoughtbox tool is designed for:
+A built-in web UI for watching reasoning unfold in real-time.
 
-- Breaking down complex problems into steps
-- Planning and design with room for revision
-- Analysis that might need course correction
-- Problems where the full scope might not be clear initially
-- Tasks that need to maintain context over multiple steps
-- Situations where irrelevant information needs to be filtered out
+**Features:**
+- **Live Graph**: Watch thoughts appear as they're added
+- **Snake Layout**: Compact left-to-right flow with row wrapping
+- **Hierarchical Branches**: Branches collapse into clickable stub nodes (A, B, C...)
+- **Navigation**: Click stubs to explore branches, back button to return
+- **Detail Panel**: Click any node to view full thought content
+- **Multi-Session**: Switch between active reasoning sessions
 
-### Thinking Approaches
+**Access:** The Observatory is available at `http://localhost:1729` when the server is running.
 
-Thoughtbox supports multiple reasoning strategies. For a comprehensive guide with 7 core reasoning patterns, see the **[Thoughtbox Patterns Cookbook](src/resources/docs/thoughtbox-patterns-cookbook.md)**.
+### 3. Mental Models — Reasoning Frameworks
 
-Below are the three primary approaches:
+15 structured mental models that provide process scaffolds for different problem types.
 
-#### Forward Thinking (Traditional)
+**Available Models:**
+- `rubber-duck` — Explain to clarify thinking
+- `five-whys` — Root cause analysis
+- `pre-mortem` — Anticipate failures
+- `steelmanning` — Strengthen opposing arguments
+- `fermi-estimation` — Order-of-magnitude reasoning
+- `trade-off-matrix` — Multi-criteria decisions
+- `decomposition` — Break down complexity
+- `inversion` — Solve by avoiding failure
+- And 7 more...
 
-Start at thought 1 and work sequentially toward your conclusion. Best for exploration and discovery.
+**Operations:**
+- `get_model` — Retrieve a specific model's prompt
+- `list_models` — List all models (filter by tag)
+- `list_tags` — Available categories (debugging, planning, decision-making, etc.)
 
-**Example: "How can we improve user engagement?"**
+### 4. Notebook — Literate Programming
 
-- Thought 1: Analyze current engagement metrics (DAU/MAU ratio, session duration, bounce rate)
-- Thought 2: Identify patterns in user behavior (when do users drop off? what features are sticky?)
-- Thought 3: Survey top engagement drivers from user research and analytics
-- Thought 4: Brainstorm potential improvements (notifications, gamification, social features)
-- Thought 5: Evaluate each option against effort/impact matrix
-- Thought 6: Recommendation - implement personalized onboarding flow with progress tracking
-
-#### Backward Thinking (Goal-Driven)
-
-Start with thought N (your desired end state) and work backward to thought 1 (starting conditions). Best for planning and system design.
-
-**Example: "Design a caching strategy for a high-traffic API (10k req/s)"**
-
-- Thought 8: **Final state** - System handles 10,000 requests/second with <50ms p95 latency, 85%+ cache hit rate
-- Thought 7: To validate success, need monitoring: cache hit/miss rates, latency metrics, memory usage, eviction rates
-- Thought 6: Before monitoring, implement resilience: circuit breakers, fallback to database, graceful degradation
-- Thought 5: Before resilience, need cache invalidation strategy: TTL (1-5 min) + event-driven invalidation on writes
-- Thought 4: Before invalidation, implement caching layer: Redis cluster with connection pooling, LRU eviction
-- Thought 3: Before implementation, identify what to cache: analyze endpoint usage patterns, read/write ratios
-- Thought 2: Before analysis, establish baseline metrics: current throughput, latency distribution, query times
-- Thought 1: **Starting point** - Define success criteria and constraints (target latency, throughput, data freshness)
-
-#### Mixed/Branched Thinking
-
-Combine approaches or explore alternatives using revision and branch parameters for complex multi-faceted problems.
-
-### 2. `notebook` - Literate Programming
-
-Create, manage, and execute interactive notebooks with JavaScript/TypeScript.
+Interactive notebooks combining documentation with executable JavaScript/TypeScript.
 
 **Features:**
 - Isolated execution environments per notebook
-- Full package.json support with `install_deps` operation
+- Full package.json support with dependency installation
 - Sequential Feynman template for deep learning workflows
-- Export notebooks as .src.md files
+- Export to `.src.md` format
 
-**Operations:**
-- `create` - Create new notebook
-- `add_cell` - Add markdown or code cells
-- `run_cell` - Execute code with output capture
-- `export` - Export to .src.md format
-- `list`, `load`, `update_cell`, `get_cell`, `list_cells`
-
-### 3. `mental_models` - Structured Reasoning Frameworks
-
-Access 15 mental models that provide process scaffolds for how to think about problems.
-
-**Available Models:**
-- `rubber-duck`, `five-whys`, `pre-mortem`, `assumption-surfacing`
-- `steelmanning`, `trade-off-matrix`, `fermi-estimation`
-- `abstraction-laddering`, `decomposition`, `adversarial-thinking`
-- `opportunity-cost`, `constraint-relaxation`, `time-horizon-shifting`
-- `impact-effort-grid`, `inversion`
-
-**Operations:**
-- `get_model` - Retrieve specific mental model prompt
-- `list_models` - List all models (optionally filter by tag)
-- `list_tags` - Show available tags (debugging, planning, decision-making, etc.)
-- `get_capability_graph` - Get structured data for knowledge graphs
-
-## Prerequisites
-
-- [Node.js](https://nodejs.org/) version 22 or higher
+**Operations:** `create`, `add_cell`, `run_cell`, `export`, `list`, `load`, `update_cell`
 
 ## Installation
 
 ### Quick Start
 
-Run directly without installation:
-
 ```bash
 npx -y @kastalien-research/thoughtbox
 ```
 
-### Configure Your MCP Client
+### MCP Client Configuration
 
-#### Cline
+#### Claude Code
 
-Add to your Cline MCP settings (click MCP Servers icon → Configure → Configure MCP Servers):
-
-```json
-{
-  "mcpServers": {
-    "thoughtbox": {
-      "command": "npx",
-      "args": ["-y", "@kastalien-research/thoughtbox"]
-    }
-  }
-}
-```
-
-#### Claude Desktop
-
-Add to your `claude_desktop_config.json`:
-
-- **macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
-- **Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
+Add to your `~/.claude/settings.json` or project `.claude/settings.json`:
 
 ```json
 {
@@ -161,9 +133,9 @@ Add to your `claude_desktop_config.json`:
 }
 ```
 
-#### VS Code (GitHub Copilot)
+#### Cline / VS Code
 
-Add to `.vscode/mcp.json` in your workspace:
+Add to your MCP settings or `.vscode/mcp.json`:
 
 ```json
 {
@@ -176,50 +148,79 @@ Add to `.vscode/mcp.json` in your workspace:
 }
 ```
 
-### Alternative Installation Methods
+## Usage Examples
 
-#### Global Installation (npm)
+### Forward Thinking — Problem Analysis
 
-```bash
-npm install -g @kastalien-research/thoughtbox
+```text
+Thought 1: "Users report slow checkout. Let's analyze..."
+Thought 2: "Data shows 45s average, target is 10s..."
+Thought 3: "Root causes: 3 API calls, no caching..."
+Thought 4: "Options: Redis cache, query optimization, parallel calls..."
+Thought 5: "Recommendation: Implement Redis cache for product data"
 ```
 
-#### Smithery
+### Backward Thinking — System Design
 
-Visit the [Thoughtbox page on Smithery](https://smithery.ai/server/@Kastalien-Research/clear-thought-two) for one-click installation instructions specific to your MCP client.
+```text
+Thought 8: [GOAL] "System handles 10k req/s with <100ms latency"
+Thought 7: "Before that: monitoring and alerting operational"
+Thought 6: "Before that: resilience patterns implemented"
+Thought 5: "Before that: caching layer with invalidation"
+...
+Thought 1: [START] "Current state: 1k req/s, 500ms latency"
+```
 
-> **Note**: Smithery deployment uses the name `@Kastalien-Research/clear-thought-two` while the NPM package is `@kastalien-research/thoughtbox`.
+### Branching — Comparing Alternatives
 
-### Environment Variables
+```text
+Thought 4: "Need to choose database architecture..."
 
-- `DISABLE_THOUGHT_LOGGING=true` - Disable thought logging to stderr
+Branch A (thought 5): branchId="sql-path"
+  "PostgreSQL: ACID compliance, mature tooling, relational integrity"
+
+Branch B (thought 5): branchId="nosql-path"
+  "MongoDB: Flexible schema, horizontal scaling, document model"
+
+Thought 6: [SYNTHESIS] "Use PostgreSQL for transactions, MongoDB for analytics"
+```
+
+## Environment Variables
+
+- `DISABLE_THOUGHT_LOGGING=true` — Suppress thought logging to stderr
 
 ## Development
-
-### Local Development
 
 ```bash
 # Install dependencies
 npm install
 
-# Build (compiles both stdio and http entry points)
+# Build
 npm run build
 
-# Start development server with interactive playground
+# Development with hot reload
 npm run dev
+
+# Run the server
+npm start
 ```
 
-### Scripts
+## Architecture
 
-- `npm run dev` - Start Smithery development server with interactive playground
-- `npm run build` - Build for production (runs `build:local`)
-- `npm run build:local` - Compile TypeScript (produces both `dist/index.js` and `dist/http.js`)
-- `npm run build:smithery` - Build for Smithery HTTP deployment
-- `npm run start` - Run the HTTP server locally
-- `npm run start:stdio` - Run the STDIO version locally
-- `npm run start:smithery` - Run the Smithery-built server
-- `npm run watch` - Watch mode for development
+```text
+src/
+├── index.ts              # MCP server entry point
+├── persistence/          # Session and thought storage
+│   └── storage.ts        # In-memory storage with linked thought chains
+├── observatory/          # Real-time visualization
+│   ├── ui/               # Self-contained HTML/CSS/JS
+│   ├── ws-server.ts      # WebSocket server for live updates
+│   └── emitter.ts        # Event emission for thought changes
+├── mental-models/        # 15 reasoning frameworks
+├── notebook/             # Literate programming engine
+└── resources/            # Documentation and patterns cookbook
+```
 
 ## License
 
-This MCP server is licensed under the MIT License. This means you are free to use, modify, and distribute the software, subject to the terms and conditions of the MIT License. For more details, please see the LICENSE file in the project repository.
+MIT License — free to use, modify, and distribute.
