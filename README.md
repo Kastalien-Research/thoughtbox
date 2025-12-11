@@ -1,7 +1,5 @@
 # Thoughtbox
 
-[![smithery badge](https://smithery.ai/badge/@Kastalien-Research/clear-thought-two)](https://smithery.ai/server/@Kastalien-Research/clear-thought-two)
-
 **A reasoning ledger for AI agents.** Thoughtbox is an MCP server that provides structured reasoning tools, enabling agents to think step-by-step, branch into alternative explorations, revise earlier conclusions, and maintain a persistent record of their cognitive process.
 
 Unlike ephemeral chain-of-thought prompting, Thoughtbox creates a **durable reasoning chain** — a ledger of thoughts that can be visualized, exported, and analyzed. Each thought is a node in a graph structure supporting forward thinking, backward planning, branching explorations, and mid-course revisions.
@@ -76,7 +74,7 @@ A built-in web UI for watching reasoning unfold in real-time.
 - **Detail Panel**: Click any node to view full thought content
 - **Multi-Session**: Switch between active reasoning sessions
 
-**Access:** The Observatory runs on `http://localhost:3000` when using HTTP mode.
+**Access:** The Observatory is available at `http://localhost:1729` when the server is running.
 
 ### 3. Mental Models — Reasoning Frameworks
 
@@ -120,9 +118,9 @@ npx -y @kastalien-research/thoughtbox
 
 ### MCP Client Configuration
 
-#### Claude Desktop
+#### Claude Code
 
-Add to `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS) or `%APPDATA%\Claude\claude_desktop_config.json` (Windows):
+Add to your `~/.claude/settings.json` or project `.claude/settings.json`:
 
 ```json
 {
@@ -150,29 +148,11 @@ Add to your MCP settings or `.vscode/mcp.json`:
 }
 ```
 
-#### Smithery
-
-Visit [Thoughtbox on Smithery](https://smithery.ai/server/@Kastalien-Research/clear-thought-two) for one-click installation.
-
-> **Note**: Smithery uses `@Kastalien-Research/clear-thought-two`, NPM uses `@kastalien-research/thoughtbox`.
-
-### HTTP Mode with Observatory
-
-To use the Observatory UI, run in HTTP mode:
-
-```bash
-npx @kastalien-research/thoughtbox --http
-# or
-npm start
-```
-
-Then open `http://localhost:3000` to view the Observatory.
-
 ## Usage Examples
 
 ### Forward Thinking — Problem Analysis
 
-```
+```text
 Thought 1: "Users report slow checkout. Let's analyze..."
 Thought 2: "Data shows 45s average, target is 10s..."
 Thought 3: "Root causes: 3 API calls, no caching..."
@@ -182,7 +162,7 @@ Thought 5: "Recommendation: Implement Redis cache for product data"
 
 ### Backward Thinking — System Design
 
-```
+```text
 Thought 8: [GOAL] "System handles 10k req/s with <100ms latency"
 Thought 7: "Before that: monitoring and alerting operational"
 Thought 6: "Before that: resilience patterns implemented"
@@ -193,7 +173,7 @@ Thought 1: [START] "Current state: 1k req/s, 500ms latency"
 
 ### Branching — Comparing Alternatives
 
-```
+```text
 Thought 4: "Need to choose database architecture..."
 
 Branch A (thought 5): branchId="sql-path"
@@ -221,16 +201,13 @@ npm run build
 # Development with hot reload
 npm run dev
 
-# Run HTTP server with Observatory
+# Run the server
 npm start
-
-# Run STDIO mode
-npm run start:stdio
 ```
 
 ## Architecture
 
-```
+```text
 src/
 ├── index.ts              # MCP server entry point
 ├── persistence/          # Session and thought storage
