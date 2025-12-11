@@ -933,7 +933,7 @@
     // Layout constants
     const NODES_PER_ROW = 10;
     const NODE_SPACING_X = 120;
-    const ROW_HEIGHT = 120;
+    const ROW_HEIGHT = 80;
     const BRANCH_Y_OFFSET = 100;
     const NODE_START_X = 80;
     const NODE_START_Y = 60;
@@ -958,9 +958,8 @@
         const row = Math.floor(arrivalIndex / NODES_PER_ROW);
         const colIndex = arrivalIndex % NODES_PER_ROW;
 
-        // Snake pattern: even rows L→R, odd rows R→L
-        const isReverseRow = row % 2 === 1;
-        const col = isReverseRow ? (NODES_PER_ROW - 1 - colIndex) : colIndex;
+        // Snake pattern: all rows go L→R, but connection from row end wraps down to next row start
+        const col = colIndex;
 
         return {
           id: thought.id,
@@ -1103,18 +1102,19 @@
         return `M ${startX} ${startY} C ${startX} ${midY}, ${endX} ${midY}, ${endX} ${endY}`;
       }
 
-      // For cross-row connections (snake pattern)
+      // For cross-row connections (wrapping from right of row N to left of row N+1)
       if (conn.crossesRow) {
-        // Determine exit and entry points based on direction
-        const startX = goingRight ? from.x + nodeHalfWidth : from.x - nodeHalfWidth;
+        // Exit from right side of 'from' node, enter left side of 'to' node
+        const startX = from.x + nodeHalfWidth;
         const startY = from.y;
-        const endX = goingRight ? to.x - nodeHalfWidth : to.x + nodeHalfWidth;
+        const endX = to.x - nodeHalfWidth;
         const endY = to.y;
 
-        // Create a smooth S-curve that goes down then across
+        // Create smooth wrap-around curve: right → down → left
         const midY = (startY + endY) / 2;
+        const curveExtendX = 40; // How far right the curve extends before turning down
 
-        return `M ${startX} ${startY} C ${startX} ${midY}, ${endX} ${midY}, ${endX} ${endY}`;
+        return `M ${startX} ${startY} C ${startX + curveExtendX} ${startY}, ${endX - curveExtendX} ${endY}, ${endX} ${endY}`;
       }
 
       // Same-row connections - simple horizontal with slight curve
