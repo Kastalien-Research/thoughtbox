@@ -32,7 +32,7 @@ app.get('/health', (req, res) => {
     status: 'ok',
     transport: 'streamable-http',
     server: 'thoughtbox',
-    version: '1.0.1',
+    version: '1.2.0',
     mode: 'stateful',
     persistence: 'enabled',
     features: {
@@ -49,7 +49,7 @@ app.get('/info', (req, res) => {
     status: 'ok',
     server: {
       name: 'thoughtbox-server',
-      version: '1.0.0',
+      version: '1.2.0',
       transport: 'streamable-http',
       mode: 'stateful',
       persistence: 'enabled',

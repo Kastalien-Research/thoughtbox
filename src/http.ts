@@ -27,7 +27,7 @@ app.get("/health", (req, res) => {
     status: "ok",
     transport: "streamable-http",
     server: "thoughtbox",
-    version: "1.1.0",
+    version: "1.2.0",
     persistence: "enabled",
   });
 });
@@ -38,7 +38,7 @@ app.get("/mcp", (req, res) => {
     status: "ok",
     server: {
       name: "thoughtbox-server",
-      version: "1.1.0",
+      version: "1.2.0",
       transport: "streamable-http",
       mode: "stateless",
       persistence: "enabled",
