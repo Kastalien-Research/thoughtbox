@@ -386,6 +386,22 @@
       statusDot.classList.toggle('connected', state.connected);
     }
 
+    function normalizeBranches(branchesPayload) {
+      if (!branchesPayload) return {};
+
+      return Object.fromEntries(Object.entries(branchesPayload).map(([branchId, branchValue]) => {
+        if (Array.isArray(branchValue)) {
+          return [branchId, [...branchValue]];
+        }
+
+        if (branchValue && Array.isArray(branchValue.thoughts)) {
+          return [branchId, [...branchValue.thoughts]];
+        }
+
+        return [branchId, []];
+      }));
+    }
+
     // Message handlers
     function handleMessage(topic, eventType, payload) {
       if (topic === 'observatory') {
@@ -397,6 +413,7 @@
 
     function handleObservatoryEvent(eventType, payload) {
       switch (eventType) {
+        case 'sessions:active':
         case 'sessions:list':
           state.sessions = payload.sessions || [];
           renderSessionList();
@@ -415,6 +432,13 @@
             renderSessionList();
           }
           break;
+        case 'session:ended':
+          const endedIdx = state.sessions.findIndex(s => s.id === payload.sessionId);
+          if (endedIdx !== -1) {
+            state.sessions[endedIdx].status = 'completed';
+            renderSessionList();
+          }
+          break;
       }
     }
 
@@ -423,7 +447,7 @@
         case 'session:snapshot':
           // thoughts and branches are top-level in payload, not nested in session
           state.thoughts = payload.thoughts || [];
-          state.branches = payload.branches || {};
+          state.branches = normalizeBranches(payload.branches);
           renderGraph();
           break;
         case 'thought:added':
@@ -450,8 +474,8 @@
 
       // Handle branches
       if (thought.branchId) {
-        if (!state.branches[thought.branchId]) {
-          state.branches[thought.branchId] = [];
+        if (!Array.isArray(state.branches[thought.branchId])) {
+          state.branches[thought.branchId] = normalizeBranches({ [thought.branchId]: state.branches[thought.branchId] })[thought.branchId] || [];
         }
         const branchIdx = state.branches[thought.branchId].findIndex(t => t.id === thought.id);
         if (branchIdx !== -1) {
@@ -560,7 +584,8 @@
       }
 
       // Branch nodes
-      for (const [branchId, branchThoughts] of Object.entries(state.branches)) {
+      for (const [branchId, branchData] of Object.entries(state.branches)) {
+        const branchThoughts = Array.isArray(branchData) ? [...branchData] : [...(branchData?.thoughts || [])];
         branchThoughts.sort((a, b) => a.thoughtNumber - b.thoughtNumber);
 
         for (let i = 0; i < branchThoughts.length; i++) {
