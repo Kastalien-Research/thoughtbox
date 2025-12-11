@@ -659,8 +659,13 @@
               </div>
               <svg id="graph-svg" class="graph-svg hidden" preserveAspectRatio="xMidYMid meet">
                 <defs>
+                  <!-- Main chain arrowhead (emerald) -->
                   <marker id="arrowhead" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
                     <polygon points="0 0, 10 3, 0 6" fill="#34d399" />
+                  </marker>
+                  <!-- Branch arrowhead (purple) -->
+                  <marker id="arrowhead-branch" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+                    <polygon points="0 0, 10 3, 0 6" fill="#a855f7" />
                   </marker>
                   <linearGradient id="connectionGradient" x1="0%" y1="0%" x2="100%" y2="0%">
                     <stop offset="0%" stop-color="rgb(16, 185, 129)" stop-opacity="0.3" />
@@ -834,6 +839,7 @@
       activeSessionId: null,
       thoughts: new Map(),
       branches: new Map(),
+      arrivalOrder: [],  // Track thought IDs in order they arrived (for correct arrow direction)
       selectedNodeId: null,
       viewMode: 'graph',
       newNodeId: null
@@ -924,35 +930,211 @@
       });
     }
 
+    // Layout constants
+    const NODES_PER_ROW = 10;
+    const NODE_SPACING_X = 120;
+    const ROW_HEIGHT = 120;
+    const BRANCH_Y_OFFSET = 100;
+    const NODE_START_X = 80;
+    const NODE_START_Y = 60;
+
     function calculateNodePositions() {
-      const thoughts = Array.from(state.thoughts.values());
-      if (thoughts.length === 0) return [];
+      if (state.arrivalOrder.length === 0) return { mainNodes: [], branchNodes: [], connections: [] };
 
-      // Sort by thought number
-      thoughts.sort((a, b) => a.thoughtNumber - b.thoughtNumber);
+      // Separate main chain from branches using arrival order
+      const mainChainIds = state.arrivalOrder.filter(id => {
+        const t = state.thoughts.get(id);
+        return t && !t.branchId;
+      });
 
-      // Simple horizontal layout - all nodes in a row
-      const baseY = 50;
-      const nodeSpacing = 140;
-      const nodeStartX = 50;
+      const branchIds = state.arrivalOrder.filter(id => {
+        const t = state.thoughts.get(id);
+        return t && t.branchId;
+      });
 
-      return thoughts.map((thought, index) => {
+      // Position main chain nodes with snake layout
+      const mainNodes = mainChainIds.map((id, arrivalIndex) => {
+        const thought = state.thoughts.get(id);
+        const row = Math.floor(arrivalIndex / NODES_PER_ROW);
+        const colIndex = arrivalIndex % NODES_PER_ROW;
+
+        // Snake pattern: even rows L→R, odd rows R→L
+        const isReverseRow = row % 2 === 1;
+        const col = isReverseRow ? (NODES_PER_ROW - 1 - colIndex) : colIndex;
+
         return {
           id: thought.id,
-          x: nodeStartX + (thought.thoughtNumber - 1) * nodeSpacing,
-          y: baseY,
+          x: NODE_START_X + col * NODE_SPACING_X,
+          y: NODE_START_Y + row * ROW_HEIGHT,
           label: thought.thoughtNumber.toString(),
           thought: thought,
-          parentId: thought.parentId || null,
-          branchId: thought.branchId
+          arrivalIndex: arrivalIndex,
+          row: row,
+          col: col,
+          isBranch: false
         };
       });
+
+      // Group branches by branchId and position them
+      const branchGroups = new Map();
+      branchIds.forEach(id => {
+        const thought = state.thoughts.get(id);
+        if (!branchGroups.has(thought.branchId)) {
+          branchGroups.set(thought.branchId, []);
+        }
+        branchGroups.get(thought.branchId).push(thought);
+      });
+
+      // Create lookup for main chain positions by thoughtNumber
+      const mainNodeByThoughtNumber = new Map();
+      mainNodes.forEach(node => {
+        mainNodeByThoughtNumber.set(node.thought.thoughtNumber, node);
+      });
+
+      // Position branch nodes
+      const branchNodes = [];
+      let branchGroupIndex = 0;
+      branchGroups.forEach((branchThoughts, branchId) => {
+        // Sort branch thoughts by arrival order within the branch
+        branchThoughts.sort((a, b) => {
+          return state.arrivalOrder.indexOf(a.id) - state.arrivalOrder.indexOf(b.id);
+        });
+
+        // Find the origin node (where branch starts from)
+        const originThoughtNumber = branchThoughts[0].branchFromThought;
+        const originNode = mainNodeByThoughtNumber.get(originThoughtNumber);
+
+        // Calculate base Y for this branch group (below main chain)
+        const maxMainRow = mainNodes.length > 0 ? Math.max(...mainNodes.map(n => n.row)) : 0;
+        const branchBaseY = NODE_START_Y + (maxMainRow + 1) * ROW_HEIGHT + branchGroupIndex * BRANCH_Y_OFFSET;
+
+        // Position each thought in the branch
+        branchThoughts.forEach((thought, indexInBranch) => {
+          const originX = originNode ? originNode.x : NODE_START_X;
+
+          branchNodes.push({
+            id: thought.id,
+            x: originX + indexInBranch * NODE_SPACING_X,
+            y: branchBaseY,
+            label: thought.thoughtNumber.toString(),
+            thought: thought,
+            arrivalIndex: state.arrivalOrder.indexOf(thought.id),
+            row: -1, // Special marker for branch nodes
+            col: indexInBranch,
+            isBranch: true,
+            branchId: branchId,
+            branchOriginId: originNode ? originNode.id : null
+          });
+        });
+
+        branchGroupIndex++;
+      });
+
+      // Build connections based on arrival order (handles forward AND backward thinking correctly)
+      const connections = [];
+      const allNodes = [...mainNodes, ...branchNodes];
+      const nodeById = new Map(allNodes.map(n => [n.id, n]));
+
+      // Main chain connections: connect in arrival order
+      for (let i = 1; i < mainChainIds.length; i++) {
+        const fromNode = nodeById.get(mainChainIds[i - 1]);
+        const toNode = nodeById.get(mainChainIds[i]);
+        if (fromNode && toNode) {
+          connections.push({
+            from: fromNode,
+            to: toNode,
+            type: 'main',
+            crossesRow: fromNode.row !== toNode.row
+          });
+        }
+      }
+
+      // Branch connections: first node connects to origin, rest connect sequentially
+      branchGroups.forEach((branchThoughts, branchId) => {
+        const branchNodeList = branchNodes.filter(n => n.branchId === branchId);
+
+        // Connect first branch node to its origin
+        if (branchNodeList.length > 0 && branchNodeList[0].branchOriginId) {
+          const originNode = nodeById.get(branchNodeList[0].branchOriginId);
+          if (originNode) {
+            connections.push({
+              from: originNode,
+              to: branchNodeList[0],
+              type: 'branch-start'
+            });
+          }
+        }
+
+        // Connect branch nodes sequentially
+        for (let i = 1; i < branchNodeList.length; i++) {
+          connections.push({
+            from: branchNodeList[i - 1],
+            to: branchNodeList[i],
+            type: 'branch'
+          });
+        }
+      });
+
+      return { mainNodes, branchNodes, connections };
+    }
+
+    /**
+     * Generate SVG path for a connection between two nodes
+     * Handles same-row, cross-row (snake), and branch connections
+     */
+    function generateConnectionPath(conn) {
+      const from = conn.from;
+      const to = conn.to;
+      const nodeHalfWidth = 30;
+      const nodeHalfHeight = 20;
+
+      // Determine if arrow goes left or right
+      const goingRight = to.x > from.x;
+      const goingDown = to.y > from.y;
+
+      // For branch-start connections (going down to branch)
+      if (conn.type === 'branch-start') {
+        const startX = from.x;
+        const startY = from.y + nodeHalfHeight;
+        const endX = to.x;
+        const endY = to.y - nodeHalfHeight;
+        const midY = (startY + endY) / 2;
+
+        return `M ${startX} ${startY} C ${startX} ${midY}, ${endX} ${midY}, ${endX} ${endY}`;
+      }
+
+      // For cross-row connections (snake pattern)
+      if (conn.crossesRow) {
+        // Determine exit and entry points based on direction
+        const startX = goingRight ? from.x + nodeHalfWidth : from.x - nodeHalfWidth;
+        const startY = from.y;
+        const endX = goingRight ? to.x - nodeHalfWidth : to.x + nodeHalfWidth;
+        const endY = to.y;
+
+        // Create a smooth S-curve that goes down then across
+        const midY = (startY + endY) / 2;
+
+        return `M ${startX} ${startY} C ${startX} ${midY}, ${endX} ${midY}, ${endX} ${endY}`;
+      }
+
+      // Same-row connections - simple horizontal with slight curve
+      const startX = goingRight ? from.x + nodeHalfWidth : from.x - nodeHalfWidth;
+      const startY = from.y;
+      const endX = goingRight ? to.x - nodeHalfWidth : to.x + nodeHalfWidth;
+      const endY = to.y;
+
+      // Gentle curve for horizontal connections
+      const midX = (startX + endX) / 2;
+      const curveOffset = Math.abs(endX - startX) * 0.1;
+
+      return `M ${startX} ${startY} Q ${midX} ${startY - curveOffset}, ${endX} ${endY}`;
     }
 
     function renderGraph() {
-      const nodes = calculateNodePositions();
+      const { mainNodes, branchNodes, connections } = calculateNodePositions();
+      const allNodes = [...mainNodes, ...branchNodes];
 
-      if (nodes.length === 0) {
+      if (allNodes.length === 0) {
         elements.graphSvg.classList.add('hidden');
         elements.graphEmpty.classList.remove('hidden');
         elements.nodeCount.classList.add('hidden');
@@ -962,18 +1144,22 @@
       elements.graphSvg.classList.remove('hidden');
       elements.graphEmpty.classList.add('hidden');
       elements.nodeCount.classList.remove('hidden');
-      elements.nodeCountText.textContent = `${nodes.length} nodes`;
 
-      // Calculate viewBox - fit around nodes but with minimum size to prevent huge nodes
-      const padding = 50;
-      const nodeRadius = 30; // Approximate node visual radius
-      const minViewBoxWidth = 800; // Minimum width so nodes don't get huge
-      const minViewBoxHeight = 200; // Minimum height
+      const branchCount = new Set(branchNodes.map(n => n.branchId)).size;
+      const branchText = branchCount > 0 ? ` · ${branchCount} branch${branchCount > 1 ? 'es' : ''}` : '';
+      elements.nodeCountText.textContent = `${allNodes.length} nodes${branchText}`;
 
-      const contentMinX = Math.min(...nodes.map(n => n.x)) - nodeRadius - padding;
-      const contentMaxX = Math.max(...nodes.map(n => n.x)) + nodeRadius + padding;
-      const contentMinY = Math.min(...nodes.map(n => n.y)) - nodeRadius - padding;
-      const contentMaxY = Math.max(...nodes.map(n => n.y)) + nodeRadius + padding;
+      // Calculate viewBox - fit around all nodes with proper padding
+      const padding = 60;
+      const nodeHalfWidth = 30;
+      const nodeHalfHeight = 20;
+      const minViewBoxWidth = 900;
+      const minViewBoxHeight = 200;
+
+      const contentMinX = Math.min(...allNodes.map(n => n.x)) - nodeHalfWidth - padding;
+      const contentMaxX = Math.max(...allNodes.map(n => n.x)) + nodeHalfWidth + padding;
+      const contentMinY = Math.min(...allNodes.map(n => n.y)) - nodeHalfHeight - padding;
+      const contentMaxY = Math.max(...allNodes.map(n => n.y)) + nodeHalfHeight + padding;
 
       const contentWidth = contentMaxX - contentMinX;
       const contentHeight = contentMaxY - contentMinY;
@@ -982,60 +1168,57 @@
       const width = Math.max(contentWidth, minViewBoxWidth);
       const height = Math.max(contentHeight, minViewBoxHeight);
 
-      // Center the content within the viewBox if it's smaller than minimum
+      // Center the content within the viewBox
       const viewBoxX = contentMinX - (width - contentWidth) / 2;
       const viewBoxY = contentMinY - (height - contentHeight) / 2;
 
       elements.graphSvg.setAttribute('viewBox', `${viewBoxX} ${viewBoxY} ${width} ${height}`);
 
-      // Build node lookup
-      const nodeById = new Map(nodes.map(n => [n.id, n]));
-
-      // Render connections
-      const connections = [];
-      nodes.forEach(node => {
-        if (node.parentId && nodeById.has(node.parentId)) {
-          const parent = nodeById.get(node.parentId);
-          connections.push({ from: parent, to: node });
-        }
-      });
-
+      // Render connections with appropriate styling
       elements.connectionsGroup.innerHTML = connections.map(conn => {
-        const startX = conn.from.x + 30;
-        const startY = conn.from.y;
-        const endX = conn.to.x - 30;
-        const endY = conn.to.y;
-        const midX = (startX + endX) / 2;
-        const midY = (startY + endY) / 2;
+        const path = generateConnectionPath(conn);
         const isNew = conn.to.id === state.newNodeId;
+        const isBranch = conn.type === 'branch-start' || conn.type === 'branch';
+
+        // Different colors for branch connections
+        const strokeColor = isBranch ? 'rgba(168, 85, 247, 0.6)' : 'url(#connectionGradient)';
+        const glowColor = isBranch ? 'rgba(168, 85, 247, 0.2)' : 'rgba(16, 185, 129, 0.2)';
+        const arrowId = isBranch ? 'arrowhead-branch' : 'arrowhead';
 
         return `
-          <g class="thought-connection ${isNew ? 'new' : ''}">
+          <g class="thought-connection ${isNew ? 'new' : ''} ${isBranch ? 'branch-connection' : ''}">
             <path
-              d="M ${startX} ${startY} Q ${midX} ${startY} ${midX} ${midY} T ${endX} ${endY}"
+              d="${path}"
               fill="none"
-              stroke="rgba(16, 185, 129, 0.2)"
+              stroke="${glowColor}"
               stroke-width="4"
               stroke-linecap="round"
             />
             <path
-              d="M ${startX} ${startY} Q ${midX} ${startY} ${midX} ${midY} T ${endX} ${endY}"
+              d="${path}"
               fill="none"
-              stroke="url(#connectionGradient)"
+              stroke="${strokeColor}"
               stroke-width="2"
               stroke-linecap="round"
-              marker-end="url(#arrowhead)"
+              marker-end="url(#${arrowId})"
               ${isNew ? 'stroke-dasharray="5,5"' : ''}
             />
           </g>
         `;
       }).join('');
 
-      // Render nodes
-      elements.nodesGroup.innerHTML = nodes.map(node => {
+      // Render nodes with different styling for branches
+      elements.nodesGroup.innerHTML = allNodes.map(node => {
         const isNew = node.id === state.newNodeId;
+        const isBranch = node.isBranch;
+
+        // Different colors for branch nodes
+        const fillColor = isBranch ? '#7c3aed' : '#059669';
+        const strokeColor = isBranch ? 'rgba(167, 139, 250, 0.5)' : 'rgba(52, 211, 153, 0.5)';
+        const glowColor = isBranch ? 'rgba(124, 58, 237, 0.4)' : 'rgba(16, 185, 129, 0.4)';
+
         return `
-          <g class="thought-node ${isNew ? 'new' : ''}" data-node-id="${node.id}" tabindex="0">
+          <g class="thought-node ${isNew ? 'new' : ''} ${isBranch ? 'branch-node' : ''}" data-node-id="${node.id}" tabindex="0">
             <rect
               x="${node.x - 30}"
               y="${node.y - 20}"
@@ -1043,10 +1226,13 @@
               height="40"
               rx="6"
               class="thought-node-rect"
-              fill="#059669"
-              stroke="rgba(52, 211, 153, 0.5)"
+              fill="${fillColor}"
+              stroke="${strokeColor}"
               stroke-width="2"
-              style="filter: drop-shadow(0 0 8px rgba(16, 185, 129, 0.4)) drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2));"
+              data-default-fill="${fillColor}"
+              data-default-stroke="${strokeColor}"
+              data-is-branch="${isBranch}"
+              style="filter: drop-shadow(0 0 8px ${glowColor}) drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2));"
             />
             <rect
               x="${node.x - 28}"
@@ -1071,17 +1257,30 @@
       // Add hover and click handlers
       elements.nodesGroup.querySelectorAll('.thought-node').forEach(nodeEl => {
         const rect = nodeEl.querySelector('.thought-node-rect');
+        const isBranch = rect.dataset.isBranch === 'true';
+        const defaultFill = rect.dataset.defaultFill;
+        const defaultStroke = rect.dataset.defaultStroke;
+
+        // Hover colors
+        const hoverFill = isBranch ? '#8b5cf6' : '#10b981';
+        const hoverStroke = isBranch ? '#c4b5fd' : '#6ee7b7';
+        const hoverGlow = isBranch
+          ? 'drop-shadow(0 0 16px rgba(139, 92, 246, 0.6)) drop-shadow(0 4px 8px rgba(0, 0, 0, 0.3))'
+          : 'drop-shadow(0 0 16px rgba(16, 185, 129, 0.6)) drop-shadow(0 4px 8px rgba(0, 0, 0, 0.3))';
+        const defaultGlow = isBranch
+          ? 'drop-shadow(0 0 8px rgba(124, 58, 237, 0.4)) drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2))'
+          : 'drop-shadow(0 0 8px rgba(16, 185, 129, 0.4)) drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2))';
 
         nodeEl.addEventListener('mouseenter', () => {
-          rect.setAttribute('fill', '#10b981');
-          rect.setAttribute('stroke', '#6ee7b7');
-          rect.style.filter = 'drop-shadow(0 0 16px rgba(16, 185, 129, 0.6)) drop-shadow(0 4px 8px rgba(0, 0, 0, 0.3))';
+          rect.setAttribute('fill', hoverFill);
+          rect.setAttribute('stroke', hoverStroke);
+          rect.style.filter = hoverGlow;
         });
 
         nodeEl.addEventListener('mouseleave', () => {
-          rect.setAttribute('fill', '#059669');
-          rect.setAttribute('stroke', 'rgba(52, 211, 153, 0.5)');
-          rect.style.filter = 'drop-shadow(0 0 8px rgba(16, 185, 129, 0.4)) drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2))';
+          rect.setAttribute('fill', defaultFill);
+          rect.setAttribute('stroke', defaultStroke);
+          rect.style.filter = defaultGlow;
         });
 
         nodeEl.addEventListener('click', () => {
@@ -1157,9 +1356,10 @@
         client.unsubscribe(currentSessionTopic);
       }
 
-      // Clear current thoughts
+      // Clear current thoughts and arrival order
       state.thoughts.clear();
       state.branches.clear();
+      state.arrivalOrder = [];
       state.activeSessionId = sessionId;
 
       // Subscribe to new session
@@ -1259,6 +1459,7 @@
         if (!state.thoughts.has(payload.thought.id)) {
           state.newNodeId = payload.thought.id;
           state.thoughts.set(payload.thought.id, payload.thought);
+          state.arrivalOrder.push(payload.thought.id);  // Track arrival order
           renderGraph();
         }
       }
@@ -1277,10 +1478,19 @@
           console.log('[Observatory] Session snapshot:', payload);
           state.thoughts.clear();
           state.branches.clear();
+          state.arrivalOrder = [];  // Reset arrival order for new snapshot
 
           if (payload.thoughts) {
-            payload.thoughts.forEach(thought => {
+            // Sort by timestamp if available, otherwise by thoughtNumber
+            const sortedThoughts = [...payload.thoughts].sort((a, b) => {
+              if (a.timestamp && b.timestamp) {
+                return new Date(a.timestamp) - new Date(b.timestamp);
+              }
+              return a.thoughtNumber - b.thoughtNumber;
+            });
+            sortedThoughts.forEach(thought => {
               state.thoughts.set(thought.id, thought);
+              state.arrivalOrder.push(thought.id);  // Track arrival order
             });
           }
 
@@ -1300,6 +1510,9 @@
             payload.thought.parentId = payload.parentId;
             state.newNodeId = payload.thought.id;
             state.thoughts.set(payload.thought.id, payload.thought);
+            if (!state.arrivalOrder.includes(payload.thought.id)) {
+              state.arrivalOrder.push(payload.thought.id);  // Track arrival order
+            }
             renderGraph();
           }
           break;
@@ -1313,6 +1526,9 @@
             payload.thought.branchFromThought = payload.fromThoughtNumber;
             state.newNodeId = payload.thought.id;
             state.thoughts.set(payload.thought.id, payload.thought);
+            if (!state.arrivalOrder.includes(payload.thought.id)) {
+              state.arrivalOrder.push(payload.thought.id);  // Track arrival order
+            }
             renderGraph();
           }
           break;
