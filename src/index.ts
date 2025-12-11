@@ -456,8 +456,13 @@ class ThoughtboxServer {
         // Observatory: Fire-and-forget event emission
         // This block NEVER throws - failures are logged and swallowed
         if (thoughtEmitter.hasListeners()) {
+          // Generate unique ID - include branchId for branch thoughts to prevent collisions
+          const thoughtId = validatedInput.branchId
+            ? `${this.currentSessionId}-${validatedInput.branchId}-${validatedInput.thoughtNumber}`
+            : `${this.currentSessionId}-${validatedInput.thoughtNumber}`;
+
           const observatoryThought: ObservatoryThought = {
-            id: `${this.currentSessionId}-${validatedInput.thoughtNumber}`,
+            id: thoughtId,
             thoughtNumber: validatedInput.thoughtNumber,
             totalThoughts: validatedInput.totalThoughts,
             thought: validatedInput.thought,
