@@ -51,8 +51,8 @@ class InMemorySessionStore implements SessionStore {
     return queued;
   }
 
-  setSession(session: Session): void {
-    this.queueUpdate(() => {
+  setSession(session: Session): Promise<void> {
+    return this.queueUpdate(() => {
       this.sessions.set(session.id, session);
       if (!this.thoughts.has(session.id)) {
         this.thoughts.set(session.id, []);
@@ -239,7 +239,7 @@ export function createReasoningChannel(wss: WebSocketServer): Channel {
     if (session) {
       session.status = "completed";
       session.completedAt = new Date().toISOString();
-      sessionStore.setSession(session);
+      await sessionStore.setSession(session);
     }
     
     wss.broadcast(topic, "session:ended", {
