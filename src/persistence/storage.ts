@@ -46,9 +46,19 @@ export class LinkedThoughtStore {
   private branchChildrenIndex: Map<ThoughtNodeId, ThoughtNodeId[]> = new Map();
 
   /**
-   * Generate a node ID from session ID and thought number
+   * Generate a node ID from session ID, thought number, and optional branch ID.
+   *
+   * ThoughtNodeId format:
+   *   - Main chain thoughts: `${sessionId}:${thoughtNumber}`
+   *   - Branch thoughts: `${sessionId}:${branchId}:${thoughtNumber}`
+   *
+   * This ensures branch thoughts with the same thoughtNumber but different
+   * branchIds remain unique and don't overwrite each other.
    */
-  private generateNodeId(sessionId: string, thoughtNumber: number): ThoughtNodeId {
+  private generateNodeId(sessionId: string, thoughtNumber: number, branchId?: string | null): ThoughtNodeId {
+    if (branchId) {
+      return `${sessionId}:${branchId}:${thoughtNumber}`;
+    }
     return `${sessionId}:${thoughtNumber}`;
   }
 
@@ -79,15 +89,30 @@ export class LinkedThoughtStore {
    * Add a new thought node to the linked structure
    */
   addNode(sessionId: string, data: ThoughtData): ThoughtNode {
-    const nodeId = this.generateNodeId(sessionId, data.thoughtNumber);
+    // Generate node ID - include branchId for branch thoughts to ensure uniqueness
+    const nodeId = this.generateNodeId(sessionId, data.thoughtNumber, data.branchId);
 
     // Determine previous node
     let prevNodeId: ThoughtNodeId | null = null;
     if (data.branchFromThought) {
-      // Branching: prev is the branch origin
+      // Branching: prev is the branch origin (always on main chain, so no branchId)
       prevNodeId = this.generateNodeId(sessionId, data.branchFromThought);
+    } else if (data.branchId) {
+      // Continuing within a branch: find the previous thought in this same branch
+      // Look for the most recent node in this branch
+      let maxThoughtNum = 0;
+      let prevBranchNodeId: ThoughtNodeId | null = null;
+      for (const [existingId, existingNode] of this.nodes) {
+        if (existingNode.branchId === data.branchId &&
+            existingNode.data.thoughtNumber < data.thoughtNumber &&
+            existingNode.data.thoughtNumber > maxThoughtNum) {
+          maxThoughtNum = existingNode.data.thoughtNumber;
+          prevBranchNodeId = existingId;
+        }
+      }
+      prevNodeId = prevBranchNodeId;
     } else {
-      // Sequential: prev is the last node added to this session (maintains valid chain with gaps)
+      // Sequential on main chain: prev is the last node added to this session
       const tailId = this.sessionTail.get(sessionId);
       if (tailId) {
         prevNodeId = tailId;
@@ -100,9 +125,11 @@ export class LinkedThoughtStore {
       data,
       prev: prevNodeId,
       next: [],
+      // Revisions within a branch should resolve to the same branch's node
       revisesNode: data.revisesThought
-        ? this.generateNodeId(sessionId, data.revisesThought)
+        ? this.generateNodeId(sessionId, data.revisesThought, data.branchId)
         : null,
+      // Branch origin is always on the main chain (no branchId)
       branchOrigin: data.branchFromThought
         ? this.generateNodeId(sessionId, data.branchFromThought)
         : null,
