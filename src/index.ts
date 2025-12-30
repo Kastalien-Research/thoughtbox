@@ -48,6 +48,11 @@ import {
   type Session as ObservatorySession,
   type ObservatoryServer,
 } from "./observatory/index.js";
+import {
+  thickRead,
+  THICK_READ_TOOL,
+  type ThickReadDepth,
+} from "./thick-read.js";
 
 // Configuration schema for Smithery
 // Note: Using .default() means the field is always present after parsing,
@@ -853,7 +858,7 @@ export default function createServer(
     description: NOTEBOOK_TOOL.description,
     inputSchema: z.object({
       operation: z.enum(getOperationNames() as [string, ...string[]]).describe("The notebook operation to execute"),
-      args: z.record(z.unknown()).optional().describe("Arguments for the operation (varies by operation)"),
+      args: z.record(z.string(), z.unknown()).optional().describe("Arguments for the operation (varies by operation)"),
     }),
     annotations: NOTEBOOK_TOOL.annotations,
     _meta: NOTEBOOK_TOOL._meta,
@@ -917,6 +922,49 @@ export default function createServer(
             nodeCount: result.nodeCount,
             exportedAt: new Date().toISOString(),
           }, null, 2),
+        }],
+      };
+    } catch (err) {
+      return {
+        content: [{
+          type: "text" as const,
+          text: JSON.stringify({ error: (err as Error).message }, null, 2),
+        }],
+        isError: true,
+      };
+    }
+  });
+
+  // Thick Read tool - Grothendieck's Schemes for code comprehension
+  server.registerTool("thick_read", {
+    description: THICK_READ_TOOL.description,
+    inputSchema: z.object({
+      path: z.string().describe("Path to the file (absolute or relative to working directory)"),
+      depth: z.enum(["shallow", "standard", "deep"]).default("standard").describe("shallow: content + 3 recent commits. standard: + blame summary. deep: + full blame"),
+      lineRange: z.object({
+        start: z.number().describe("Start line (1-indexed)"),
+        end: z.number().describe("End line (1-indexed, inclusive)"),
+      }).optional().describe("Optional line range to focus on"),
+      maxCommits: z.number().default(5).describe("Maximum number of recent commits to include"),
+    }),
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
+  }, async (args) => {
+    try {
+      const result = await thickRead({
+        path: args.path,
+        depth: args.depth as ThickReadDepth,
+        lineRange: args.lineRange,
+        maxCommits: args.maxCommits,
+      });
+      return {
+        content: [{
+          type: "text" as const,
+          text: JSON.stringify(result, null, 2),
         }],
       };
     } catch (err) {

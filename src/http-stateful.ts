@@ -22,8 +22,10 @@ const serverFactory = (args: CreateServerArgs) => {
 };
 
 // Create stateful server with Smithery SDK
+// Note: Type assertion needed because Smithery SDK expects Zod 3 types
+// and we're using Zod 4. The schemas are compatible at runtime.
 const { app } = createStatefulServer(serverFactory, {
-  schema: configSchema,
+  schema: configSchema as any,
 });
 
 // Additional health check endpoint
