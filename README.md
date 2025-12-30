@@ -221,6 +221,15 @@ src/
 └── resources/            # Documentation and patterns cookbook
 ```
 
+## Contributing
+
+We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for:
+
+- Development setup
+- Commit conventions (optimized for `thick_read` code comprehension)
+- Testing with agentic scripts
+- Pull request process
+
 ## License
 
 MIT License — free to use, modify, and distribute.
