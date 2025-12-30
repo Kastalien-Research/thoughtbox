@@ -844,7 +844,11 @@ export default function createServer(
       sessionTitle: z.string().optional().describe("Title for the reasoning session (used at thought 1 for auto-create). Defaults to timestamp-based title."),
       sessionTags: z.array(z.string()).optional().describe("Tags for the reasoning session (used at thought 1 for auto-create). Enables cross-chat discovery."),
     }),
-    annotations: CLEAR_THOUGHT_TOOL.annotations,
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: false,
+      idempotentHint: false,
+    },
   }, async (args) => {
     return await thinkingServer.processThought(args);
   });
@@ -853,9 +857,13 @@ export default function createServer(
     description: NOTEBOOK_TOOL.description,
     inputSchema: z.object({
       operation: z.enum(getOperationNames() as [string, ...string[]]).describe("The notebook operation to execute"),
-      args: z.record(z.unknown()).optional().describe("Arguments for the operation (varies by operation)"),
+      args: z.record(z.string(), z.unknown()).optional().describe("Arguments for the operation (varies by operation)"),
     }),
-    annotations: NOTEBOOK_TOOL.annotations,
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: false,
+      idempotentHint: false,
+    },
     _meta: NOTEBOOK_TOOL._meta,
   }, async ({ operation, args }) => {
     return notebookServer.processTool(operation, args || {});

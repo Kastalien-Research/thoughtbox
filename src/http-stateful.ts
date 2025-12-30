@@ -13,7 +13,8 @@
  * persists across requests within the same MCP session.
  */
 
-import { createStatefulServer } from '@smithery/sdk/server/stateful.js';
+import { createStatefulServer } from '@smithery/sdk';
+import type { Request, Response } from 'express';
 import createServer, { configSchema, type CreateServerArgs } from './index.js';
 
 // Server factory for Smithery SDK - returns low-level Server (synchronous)
@@ -27,7 +28,7 @@ const { app } = createStatefulServer(serverFactory, {
 });
 
 // Additional health check endpoint
-app.get('/health', (req, res) => {
+app.get('/health', (req: Request, res: Response) => {
   res.json({
     status: 'ok',
     transport: 'streamable-http',
@@ -44,7 +45,7 @@ app.get('/health', (req, res) => {
 });
 
 // Server info endpoint (mirrors stateless mode but indicates stateful)
-app.get('/info', (req, res) => {
+app.get('/info', (req: Request, res: Response) => {
   res.json({
     status: 'ok',
     server: {
