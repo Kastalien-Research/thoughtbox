@@ -6,12 +6,13 @@
  * that explains WHY the code exists.
  */
 
-import { exec } from "child_process";
+import { exec, execFile } from "child_process";
 import { promisify } from "util";
 import * as fs from "fs/promises";
 import * as path from "path";
 
 const execAsync = promisify(exec);
+const execFileAsync = promisify(execFile);
 
 // Types
 
@@ -140,8 +141,11 @@ async function getRecentCommits(
 
     // Format: hash<NUL>author<NUL>date<NUL>subject<NUL>body<NUL><NUL>
     const format = "%H%x00%an%x00%ai%x00%s%x00%b%x00";
-    const { stdout } = await execAsync(
-      `git log -n ${maxCount} --format="${format}" -- "${filename}"`,
+    // Use execFileAsync to prevent shell injection - arguments are passed directly
+    // without shell interpolation, so malicious filenames can't execute commands
+    const { stdout } = await execFileAsync(
+      "git",
+      ["log", "-n", String(maxCount), `--format=${format}`, "--", filename],
       { cwd: dir, maxBuffer: 1024 * 1024 }
     );
 
@@ -227,12 +231,14 @@ async function getBlame(
     const dir = path.dirname(filePath);
     const filename = path.basename(filePath);
 
-    let cmd = `git blame --line-porcelain "${filename}"`;
+    // Build args array to prevent shell injection
+    const args = ["blame", "--line-porcelain"];
     if (lineRange) {
-      cmd = `git blame -L ${lineRange.start},${lineRange.end} --line-porcelain "${filename}"`;
+      args.push("-L", `${lineRange.start},${lineRange.end}`);
     }
+    args.push("--", filename);
 
-    const { stdout } = await execAsync(cmd, {
+    const { stdout } = await execFileAsync("git", args, {
       cwd: dir,
       maxBuffer: 10 * 1024 * 1024, // 10MB for large files
     });
@@ -315,14 +321,28 @@ export async function thickRead(input: ThickReadInput): Promise<ThickReadResult>
     throw new Error(`File not found: ${filePath}`);
   }
 
-  // Check if it's a binary file (simple heuristic)
-  const content = await fs.readFile(absolutePath, "utf-8");
-  if (content.includes("\0")) {
-    throw new Error(
-      `Binary file detected: ${filePath}. Use a different tool for binary files.`
-    );
+  // Check if it's a binary file by reading a small header first
+  // This prevents memory exhaustion on large binary files and handles
+  // invalid UTF-8 sequences gracefully
+  const HEADER_SIZE = 8192; // 8KB header check
+  const fileHandle = await fs.open(absolutePath, "r");
+  try {
+    const headerBuffer = Buffer.alloc(HEADER_SIZE);
+    const { bytesRead } = await fileHandle.read(headerBuffer, 0, HEADER_SIZE, 0);
+    const header = headerBuffer.subarray(0, bytesRead);
+
+    // Check for null bytes in header (binary indicator)
+    if (header.includes(0)) {
+      throw new Error(
+        `Binary file detected: ${filePath}. Use a different tool for binary files.`
+      );
+    }
+  } finally {
+    await fileHandle.close();
   }
 
+  // Now safe to read full file as UTF-8
+  const content = await fs.readFile(absolutePath, "utf-8");
   const lines = content.split("\n");
   const lineCount = lines.length;
 
