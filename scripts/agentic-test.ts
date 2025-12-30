@@ -102,7 +102,7 @@ const MENTAL_MODELS_TESTS = `
 - Should include at least 5 models
 
 ## Test 2: Get Specific Model
-**Action**: Call mental_models with operation "get_model", args { model: "first_principles" }
+**Action**: Call mental_models with operation "get_model", args { model: "five-whys" }
 **Expected**:
 - Returns detailed model information
 - Should include process steps or framework
@@ -257,6 +257,23 @@ async function runTestFromFile(filePath: string): Promise<TestResult> {
 // ============================================================================
 
 async function main() {
+  // Validate API key early with clear error message
+  if (!process.env.ANTHROPIC_API_KEY) {
+    console.error(`
+Error: ANTHROPIC_API_KEY environment variable is not set.
+
+The agentic test runner uses the Claude Agent SDK which requires an Anthropic API key.
+
+To fix this:
+  1. Get an API key from https://console.anthropic.com/
+  2. Set the environment variable:
+     export ANTHROPIC_API_KEY="your-api-key-here"
+  3. Or prefix the command:
+     ANTHROPIC_API_KEY="your-key" npm test
+`);
+    process.exit(1);
+  }
+
   const args = process.argv.slice(2);
 
   if (args.length === 0 || args.includes("--help") || args.includes("-h")) {
