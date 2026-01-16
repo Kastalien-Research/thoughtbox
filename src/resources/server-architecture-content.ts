@@ -13,10 +13,15 @@ export const SERVER_ARCHITECTURE_GUIDE = `<!-- srcbook:{"language":"typescript",
 
 ## Introduction
 
-Thoughtbox is an MCP (Model Context Protocol) server that provides cognitive enhancement tools for LLM agents. It exposes two main capabilities:
+Thoughtbox is an MCP (Model Context Protocol) server that provides cognitive enhancement tools for LLM agents. It exposes several capabilities through a progressive disclosure system:
 
-1. **thoughtbox** - A sequential thinking tool supporting 7 core reasoning patterns
-2. **notebook** - A literate programming toolhost for executable documentation
+1. **init** - Session initialization and context management (Stage 0)
+2. **thoughtbox_cipher** - Deep thinking primer that unlocks advanced tools (Stage 1)
+3. **session** - Session management and persistence (Stage 1)
+4. **thoughtbox** - Sequential thinking with 7 core reasoning patterns + autonomous critique (Stage 2)
+5. **notebook** - Literate programming toolhost for executable documentation (Stage 2)
+6. **mental_models** - Mental model application and analysis (Stage 3)
+7. **export_reasoning_chain** - Export sessions to filesystem (Stage 3)
 
 This notebook explores the architecture, implementation patterns, and design decisions behind the Thoughtbox server.
 
@@ -31,37 +36,50 @@ Thoughtbox leverages all three MCP primitives to create a powerful thinking envi
 
 ## Architecture Overview
 
-The server consists of three main components:
+The server consists of several interconnected components with progressive disclosure:
 
 \`\`\`
-┌─────────────────────────────────────────────┐
-│         Thoughtbox MCP Server               │
-│                                             │
-│  ┌──────────────────────────────────────┐  │
-│  │   MCP Protocol Layer (index.ts)      │  │
-│  │   - Request handlers                 │  │
-│  │   - Tool dispatch                    │  │
-│  │   - Resource management              │  │
-│  └──────────────────────────────────────┘  │
-│              ↓          ↓                   │
-│  ┌─────────────────┐  ┌─────────────────┐  │
-│  │ Thoughtbox      │  │ NotebookServer  │  │
-│  │ Server          │  │                 │  │
-│  │                 │  │ - State Manager │  │
-│  │ - History       │  │ - Execution     │  │
-│  │ - Branches      │  │ - Export        │  │
-│  │ - Formatting    │  │ - Operations    │  │
-│  └─────────────────┘  └─────────────────┘  │
-│                                             │
-└─────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────┐
+│                    Thoughtbox MCP Server                         │
+│                                                                  │
+│  ┌────────────────────────────────────────────────────────────┐ │
+│  │   MCP Protocol Layer (server-factory.ts)                   │ │
+│  │   - Request handlers    - Tool dispatch                    │ │
+│  │   - Resource management - Progressive disclosure           │ │
+│  └────────────────────────────────────────────────────────────┘ │
+│                              ↓                                   │
+│  ┌────────────────────────────────────────────────────────────┐ │
+│  │   ToolRegistry - Progressive Disclosure (tool-registry.ts) │ │
+│  │   STAGE_0 → STAGE_1 → STAGE_2 → STAGE_3_DOMAIN_ACTIVE      │ │
+│  └────────────────────────────────────────────────────────────┘ │
+│         ↓              ↓              ↓              ↓           │
+│  ┌───────────┐  ┌───────────┐  ┌───────────┐  ┌───────────┐    │
+│  │ InitHan-  │  │ Thought-  │  │ Notebook- │  │ MentalMo- │    │
+│  │ dler      │  │ Handler   │  │ Handler   │  │ delsHan-  │    │
+│  │           │  │           │  │           │  │ dler      │    │
+│  │ - State   │  │ - History │  │ - Cells   │  │           │    │
+│  │ - Context │  │ - Branch  │  │ - Execute │  │ - Models  │    │
+│  │ - Session │  │ - Critique│  │ - Export  │  │ - Apply   │    │
+│  └───────────┘  └───────────┘  └───────────┘  └───────────┘    │
+│         ↓              ↓              ↓              ↓           │
+│  ┌────────────────────────────────────────────────────────────┐ │
+│  │   Persistence Layer (FileSystemStorage / InMemoryStorage)  │ │
+│  │   - Sessions          - Thoughts (LinkedThoughtStore)      │ │
+│  │   - Atomic writes     - Project isolation                  │ │
+│  └────────────────────────────────────────────────────────────┘ │
+│                                                                  │
+└──────────────────────────────────────────────────────────────────┘
 \`\`\`
 
 ### Key Design Patterns
 
 1. **Toolhost Pattern**: Single \`notebook\` tool with operation dispatch vs 10 separate tools
-2. **Resource Embedding**: Responses include contextual documentation as embedded resources
-3. **Dual Transport**: Supports both stdio (CLI) and HTTP (Smithery) transports
-4. **Lazy Initialization**: Resources created on-demand, not at startup
+2. **Progressive Disclosure**: Tools unlock in 4 stages (init → cipher → reasoning → domain tools)
+3. **Resource Embedding**: Responses include contextual documentation as embedded resources
+4. **Dual Transport**: Supports both stdio (CLI) and HTTP transports
+5. **Lazy Initialization**: Resources created on-demand, not at startup
+6. **Autonomous Critique**: Optional LLM sampling for thought analysis via MCP sampling API
+7. **Persistent Sessions**: File-based storage with atomic writes and project isolation
 
 ###### mcp-protocol-flow.ts
 
