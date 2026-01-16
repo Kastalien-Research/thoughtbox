@@ -1,5 +1,4 @@
 import type { IndexSource } from '../interfaces.js';
-import type { SessionMetadata } from '../types.js';
 import type { SessionExport } from '../../persistence/types.js';
 
 /**
@@ -25,9 +24,5 @@ export class InMemoryIndexSource implements IndexSource {
 
   async close(): Promise<void> {
     // No-op
-  }
-
-  async fetchSessions(): Promise<SessionMetadata[]> {
-    return [];
   }
 }

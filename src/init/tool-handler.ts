@@ -222,10 +222,10 @@ export class InitToolHandler {
         return this.handleStartNew(sessionId, input.newWork);
 
       case 'list_roots':
-        return this.handleListRoots(sessionId);
+        return await this.handleListRoots(sessionId);
 
       case 'bind_root':
-        return this.handleBindRoot(sessionId, input.rootUri);
+        return await this.handleBindRoot(sessionId, input.rootUri);
 
       default:
         return {
