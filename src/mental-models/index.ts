@@ -29,9 +29,9 @@ import {
 } from "./types.js";
 
 /**
- * Mental Models Server
+ * Mental Models Handler
  */
-export class MentalModelsServer {
+export class MentalModelsHandler {
   private baseDir: string;
 
   constructor() {

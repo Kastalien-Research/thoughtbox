@@ -11,9 +11,9 @@ import {
 import { AVAILABLE_TEMPLATES } from "./templates.generated.js";
 
 /**
- * Notebook Server - MCP tool handlers for headless Srcbook notebooks
+ * Notebook Handler - MCP tool handlers for headless Srcbook notebooks
  */
-export class NotebookServer {
+export class NotebookHandler {
   private stateManager: NotebookStateManager;
 
   constructor(tempDir?: string) {
