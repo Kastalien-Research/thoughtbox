@@ -12,7 +12,8 @@ Thoughtbox uses a staged tool disclosure system to guide agents through proper i
 |-------|-----------------|---------|
 | **Stage 0** | `init` | Connection start |
 | **Stage 1** | + `thoughtbox_cipher`, `session` | `init(start_new)` or `init(load_context)` |
-| **Stage 2** | + `thoughtbox`, `notebook`, `mental_models` | `thoughtbox_cipher` call |
+| **Stage 2** | + `thoughtbox`, `notebook` | `thoughtbox_cipher` call |
+| **Stage 3** | + `mental_models`, `export_reasoning_chain` | Domain activation |
 
 This ensures agents establish proper session context before accessing advanced reasoning tools.
 

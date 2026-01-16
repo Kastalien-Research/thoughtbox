@@ -20,7 +20,8 @@ Thoughtbox is an MCP (Model Context Protocol) server that provides cognitive enh
 3. **session** - Session management and persistence (Stage 1)
 4. **thoughtbox** - Sequential thinking with 7 core reasoning patterns + autonomous critique (Stage 2)
 5. **notebook** - Literate programming toolhost for executable documentation (Stage 2)
-6. **mental_models** - Mental model application and analysis (Stage 2)
+6. **mental_models** - Mental model application and analysis (Stage 3)
+7. **export_reasoning_chain** - Export sessions to filesystem (Stage 3)
 
 This notebook explores the architecture, implementation patterns, and design decisions behind the Thoughtbox server.
 
@@ -49,7 +50,7 @@ The server consists of several interconnected components with progressive disclo
 │                              ↓                                   │
 │  ┌────────────────────────────────────────────────────────────┐ │
 │  │   ToolRegistry - Progressive Disclosure (tool-registry.ts) │ │
-│  │   STAGE_0_ENTRY → STAGE_1_INIT_COMPLETE → STAGE_2_CIPHER   │ │
+│  │   STAGE_0 → STAGE_1 → STAGE_2 → STAGE_3_DOMAIN_ACTIVE      │ │
 │  └────────────────────────────────────────────────────────────┘ │
 │         ↓              ↓              ↓              ↓           │
 │  ┌───────────┐  ┌───────────┐  ┌───────────┐  ┌───────────┐    │
@@ -73,7 +74,7 @@ The server consists of several interconnected components with progressive disclo
 ### Key Design Patterns
 
 1. **Toolhost Pattern**: Single \`notebook\` tool with operation dispatch vs 10 separate tools
-2. **Progressive Disclosure**: Tools unlock in stages (init → cipher → full toolkit)
+2. **Progressive Disclosure**: Tools unlock in 4 stages (init → cipher → reasoning → domain tools)
 3. **Resource Embedding**: Responses include contextual documentation as embedded resources
 4. **Dual Transport**: Supports both stdio (CLI) and HTTP transports
 5. **Lazy Initialization**: Resources created on-demand, not at startup
