@@ -46,6 +46,10 @@ export type {
   // Standard types
   StandardAspect,
   TimestampField,
+
+  // MCP Roots types (SPEC-011)
+  McpRoot,
+  McpServerWithRoots,
 } from './types.js';
 
 export { STANDARD_ASPECTS } from './types.js';
@@ -93,18 +97,43 @@ export {
 } from './index-builder.js';
 
 // ============================================================================
-// Init Handler
+// Init Handler (Resource-based - kept for Phase 1 migration)
 // ============================================================================
 
 export {
   // Core handler
   InitHandler,
-  
+
   // Helper functions
   parseInitUri,
   isTerminalState,
   getNextStates,
 } from './init-handler.js';
+
+// ============================================================================
+// Init Tool Handler (Tool-based - MCP 2025-11-25 spec)
+// ============================================================================
+
+export {
+  // Core tool handler
+  InitToolHandler,
+  INIT_TOOL,
+  initToolInputSchema,
+  getInitOperationNames,
+  type InitToolInput,
+  type InitToolHandlerConfig,
+} from './tool-handler.js';
+
+// ============================================================================
+// State Manager
+// ============================================================================
+
+export {
+  StateManager,
+  ConnectionStage,
+  type SessionState,
+  type BoundRoot,
+} from './state-manager.js';
 
 // ============================================================================
 // Renderers

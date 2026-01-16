@@ -420,3 +420,34 @@ export type RequireKeys<T, K extends keyof T> = Omit<T, K> & Required<Pick<T, K>
  * Helper to extract timestamp from session
  */
 export type TimestampField = 'createdAt' | 'updatedAt' | 'lastWorked';
+
+// =============================================================================
+// MCP Server Types (for Roots Support - SPEC-011)
+// =============================================================================
+
+/**
+ * MCP Root as returned by the client
+ * Represents a filesystem root the client has declared access to
+ */
+export interface McpRoot {
+  /** Root URI (e.g., file:///path/to/project) */
+  uri: string;
+  /** Optional human-readable name */
+  name?: string;
+}
+
+/**
+ * Minimal interface for MCP server capabilities needed by handlers.
+ * Avoids importing full SDK types while enabling root querying.
+ *
+ * MCP clients can declare filesystem roots they have access to.
+ * The server can query these roots to understand project boundaries
+ * and scope session context appropriately.
+ */
+export interface McpServerWithRoots {
+  /**
+   * Query the connected client for available filesystem roots.
+   * Returns empty array if client doesn't support roots.
+   */
+  listRoots?(): Promise<{ roots: McpRoot[] }>;
+}
