@@ -4,8 +4,14 @@ import {
   isValidMode,
   type InterleavedMode,
 } from "./contents/interleaved-template.js";
+import {
+  PARALLEL_VERIFICATION_CONTENT,
+  getParallelVerificationContent,
+  parseParallelParams,
+} from "./contents/parallel-verification.js";
 
 export { LIST_MCP_ASSETS_PROMPT, getListMcpAssetsContent } from "./list-mcp-assets.js";
+export { getParallelVerificationContent } from "./contents/parallel-verification.js";
 
 /**
  * MCP Prompt definition for interleaved thinking workflow
@@ -31,6 +37,24 @@ export const INTERLEAVED_THINKING_PROMPT = {
       description:
         "Whether to clear the .interleaved-thinking folder after completion, keeping only final-answer.md (default: false)",
       required: false,
+    },
+  ],
+};
+
+/**
+ * MCP Prompt definition for parallel verification workflow
+ */
+export const PARALLEL_VERIFICATION_PROMPT = {
+  name: "parallel-verification",
+  title: "Parallel-Verification-Workflow",
+  description:
+    "Execute parallel hypothesis exploration using Thoughtbox. Pass your task/question - optional max_branches param can be included or will default to 3.",
+  arguments: [
+    {
+      name: "input",
+      description:
+        "Your task/question. May include 'max_branches:N' or just describe the task.",
+      required: true,
     },
   ],
 };
