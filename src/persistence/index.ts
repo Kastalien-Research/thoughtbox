@@ -23,10 +23,18 @@ export type {
   ThoughtIndexes,
   SessionExport,
   ExportOptions,
+  // Session analysis types (for session toolhost)
+  SessionAnalysis,
+  ExtractedLearning,
 } from './types.js';
 
-// Storage implementation (in-memory only)
+// Storage implementations
 export { InMemoryStorage, LinkedThoughtStore } from './storage.js';
+export { FileSystemStorage } from './filesystem-storage.js';
 
 // Session exporter
 export { SessionExporter } from './export.js';
+
+// Migration utilities
+export { migrateExports, listExports } from './migration.js';
+export type { MigrationResult, MigrationSessionDetail, MigrationOptions } from './migration.js';

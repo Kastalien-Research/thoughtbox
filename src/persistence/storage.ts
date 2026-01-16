@@ -39,6 +39,12 @@ export class LinkedThoughtStore {
   /** Last node ID for each session (most recently added on main chain) */
   private sessionTail: Map<string, ThoughtNodeId> = new Map();
 
+  /** Session index: sessionId -> Set of all node IDs in that session */
+  private sessionIndex: Map<string, Set<ThoughtNodeId>> = new Map();
+
+  /** Branch index: sessionId -> Set of branch IDs */
+  private branchIndex: Map<string, Set<string>> = new Map();
+
   /** Computed index: nodeId -> list of nodes that revise it */
   private revisedByIndex: Map<ThoughtNodeId, ThoughtNodeId[]> = new Map();
 
@@ -73,9 +79,10 @@ export class LinkedThoughtStore {
    * Clear all data for a session
    */
   clearSession(sessionId: string): void {
-    // Remove all nodes belonging to this session
-    for (const [nodeId, node] of this.nodes) {
-      if (nodeId.startsWith(`${sessionId}:`)) {
+    // Get all node IDs for this session from index (O(1) vs iterating all nodes)
+    const nodeIds = this.sessionIndex.get(sessionId);
+    if (nodeIds) {
+      for (const nodeId of nodeIds) {
         this.nodes.delete(nodeId);
         this.revisedByIndex.delete(nodeId);
         this.branchChildrenIndex.delete(nodeId);
@@ -83,6 +90,8 @@ export class LinkedThoughtStore {
     }
     this.sessionHead.delete(sessionId);
     this.sessionTail.delete(sessionId);
+    this.sessionIndex.delete(sessionId);
+    this.branchIndex.delete(sessionId);
   }
 
   /**
@@ -139,6 +148,24 @@ export class LinkedThoughtStore {
     // Store the node
     this.nodes.set(nodeId, node);
 
+    // Update session index
+    let sessionNodes = this.sessionIndex.get(sessionId);
+    if (!sessionNodes) {
+      sessionNodes = new Set();
+      this.sessionIndex.set(sessionId, sessionNodes);
+    }
+    sessionNodes.add(nodeId);
+
+    // Update branch index if this is a branch thought
+    if (data.branchId) {
+      let branchIds = this.branchIndex.get(sessionId);
+      if (!branchIds) {
+        branchIds = new Set();
+        this.branchIndex.set(sessionId, branchIds);
+      }
+      branchIds.add(data.branchId);
+    }
+
     // Update previous node's `next` array (if it exists)
     if (prevNodeId) {
       const prevNode = this.nodes.get(prevNodeId);
@@ -187,13 +214,134 @@ export class LinkedThoughtStore {
    * Get all nodes for a session, ordered by thought number
    */
   getSessionNodes(sessionId: string): ThoughtNode[] {
+    const nodeIds = this.sessionIndex.get(sessionId);
+    if (!nodeIds) return [];
+
     const nodes: ThoughtNode[] = [];
-    for (const [nodeId, node] of this.nodes) {
-      if (nodeId.startsWith(`${sessionId}:`)) {
+    for (const nodeId of nodeIds) {
+      const node = this.nodes.get(nodeId);
+      if (node) nodes.push(node);
+    }
+    return nodes.sort((a, b) => a.data.thoughtNumber - b.data.thoughtNumber);
+  }
+
+  /**
+   * Get main chain thoughts only (no branches), ordered by thought number
+   */
+  getMainChainNodes(sessionId: string): ThoughtNode[] {
+    const nodeIds = this.sessionIndex.get(sessionId);
+    if (!nodeIds) return [];
+
+    const nodes: ThoughtNode[] = [];
+    for (const nodeId of nodeIds) {
+      const node = this.nodes.get(nodeId);
+      if (node && !node.branchId) {
         nodes.push(node);
       }
     }
     return nodes.sort((a, b) => a.data.thoughtNumber - b.data.thoughtNumber);
+  }
+
+  /**
+   * Get all thoughts for a specific branch, ordered by thought number
+   */
+  getBranchNodes(sessionId: string, branchId: string): ThoughtNode[] {
+    const nodeIds = this.sessionIndex.get(sessionId);
+    if (!nodeIds) return [];
+
+    const nodes: ThoughtNode[] = [];
+    for (const nodeId of nodeIds) {
+      const node = this.nodes.get(nodeId);
+      if (node && node.branchId === branchId) {
+        nodes.push(node);
+      }
+    }
+    return nodes.sort((a, b) => a.data.thoughtNumber - b.data.thoughtNumber);
+  }
+
+  /**
+   * Get all branch IDs for a session
+   */
+  getBranchIds(sessionId: string): string[] {
+    const branchIds = this.branchIndex.get(sessionId);
+    return branchIds ? Array.from(branchIds) : [];
+  }
+
+  /**
+   * Get a specific thought by session ID and thought number (main chain only)
+   */
+  getThoughtByNumber(sessionId: string, thoughtNumber: number, branchId?: string): ThoughtNode | null {
+    const nodeId = this.generateNodeId(sessionId, thoughtNumber, branchId);
+    return this.nodes.get(nodeId) || null;
+  }
+
+  /**
+   * Check if a session has any nodes
+   */
+  hasSession(sessionId: string): boolean {
+    const nodeIds = this.sessionIndex.get(sessionId);
+    return !!nodeIds && nodeIds.size > 0;
+  }
+
+  /**
+   * Get the count of main chain thoughts in a session
+   */
+  getMainChainCount(sessionId: string): number {
+    return this.getMainChainNodes(sessionId).length;
+  }
+
+  /**
+   * Get the count of branches in a session
+   */
+  getBranchCount(sessionId: string): number {
+    const branchIds = this.branchIndex.get(sessionId);
+    return branchIds ? branchIds.size : 0;
+  }
+
+  /**
+   * Load a node directly (for loading from file system)
+   */
+  loadNode(node: ThoughtNode): void {
+    // Extract session ID from node ID
+    const sessionId = node.id.split(':')[0];
+
+    // Store the node
+    this.nodes.set(node.id, node);
+
+    // Update session index
+    let sessionNodes = this.sessionIndex.get(sessionId);
+    if (!sessionNodes) {
+      sessionNodes = new Set();
+      this.sessionIndex.set(sessionId, sessionNodes);
+    }
+    sessionNodes.add(node.id);
+
+    // Update branch index if this is a branch thought
+    if (node.branchId) {
+      let branchIds = this.branchIndex.get(sessionId);
+      if (!branchIds) {
+        branchIds = new Set();
+        this.branchIndex.set(sessionId, branchIds);
+      }
+      branchIds.add(node.branchId);
+    }
+
+    // Update head/tail tracking (will be fixed by rebuildIndexes if needed)
+    if (!this.sessionHead.has(sessionId) && !node.branchId) {
+      this.sessionHead.set(sessionId, node.id);
+    }
+    if (!node.branchId) {
+      // Update tail to the node with highest thought number
+      const currentTail = this.sessionTail.get(sessionId);
+      if (!currentTail) {
+        this.sessionTail.set(sessionId, node.id);
+      } else {
+        const currentTailNode = this.nodes.get(currentTail);
+        if (currentTailNode && node.data.thoughtNumber > currentTailNode.data.thoughtNumber) {
+          this.sessionTail.set(sessionId, node.id);
+        }
+      }
+    }
   }
 
   /**
@@ -215,20 +363,74 @@ export class LinkedThoughtStore {
    * Call this after loading nodes from external source
    */
   rebuildIndexes(): void {
+    // Clear all computed indexes
     this.revisedByIndex.clear();
     this.branchChildrenIndex.clear();
+    this.sessionIndex.clear();
+    this.branchIndex.clear();
+    this.sessionHead.clear();
+    this.sessionTail.clear();
+
+    // Track head/tail candidates per session
+    const sessionHeadCandidates: Map<string, { id: ThoughtNodeId; num: number }> = new Map();
+    const sessionTailCandidates: Map<string, { id: ThoughtNodeId; num: number }> = new Map();
 
     for (const [nodeId, node] of this.nodes) {
+      // Extract session ID from node ID
+      const sessionId = nodeId.split(':')[0];
+
+      // Update session index
+      let sessionNodes = this.sessionIndex.get(sessionId);
+      if (!sessionNodes) {
+        sessionNodes = new Set();
+        this.sessionIndex.set(sessionId, sessionNodes);
+      }
+      sessionNodes.add(nodeId);
+
+      // Update branch index
+      if (node.branchId) {
+        let branchIds = this.branchIndex.get(sessionId);
+        if (!branchIds) {
+          branchIds = new Set();
+          this.branchIndex.set(sessionId, branchIds);
+        }
+        branchIds.add(node.branchId);
+      }
+
+      // Track head/tail for main chain nodes only
+      if (!node.branchId) {
+        const headCandidate = sessionHeadCandidates.get(sessionId);
+        if (!headCandidate || node.data.thoughtNumber < headCandidate.num) {
+          sessionHeadCandidates.set(sessionId, { id: nodeId, num: node.data.thoughtNumber });
+        }
+
+        const tailCandidate = sessionTailCandidates.get(sessionId);
+        if (!tailCandidate || node.data.thoughtNumber > tailCandidate.num) {
+          sessionTailCandidates.set(sessionId, { id: nodeId, num: node.data.thoughtNumber });
+        }
+      }
+
+      // Update revision index
       if (node.revisesNode) {
         const revisions = this.revisedByIndex.get(node.revisesNode) || [];
         revisions.push(nodeId);
         this.revisedByIndex.set(node.revisesNode, revisions);
       }
+
+      // Update branch children index
       if (node.branchOrigin) {
         const children = this.branchChildrenIndex.get(node.branchOrigin) || [];
         children.push(nodeId);
         this.branchChildrenIndex.set(node.branchOrigin, children);
       }
+    }
+
+    // Set head/tail from candidates
+    for (const [sessionId, candidate] of sessionHeadCandidates) {
+      this.sessionHead.set(sessionId, candidate.id);
+    }
+    for (const [sessionId, candidate] of sessionTailCandidates) {
+      this.sessionTail.set(sessionId, candidate.id);
     }
   }
 
@@ -252,10 +454,11 @@ export class LinkedThoughtStore {
 export class InMemoryStorage implements ThoughtboxStorage {
   private config: Config | null = null;
   private sessions: Map<string, Session> = new Map();
-  private thoughts: Map<string, ThoughtData[]> = new Map(); // sessionId -> thoughts
-  private branches: Map<string, Map<string, ThoughtData[]>> = new Map(); // sessionId -> branchId -> thoughts
 
-  /** Linked node storage for export */
+  /**
+   * LinkedThoughtStore is now the SOLE source of truth for thought data.
+   * No more double storage - queries go directly to the linked store.
+   */
   private linkedStore: LinkedThoughtStore = new LinkedThoughtStore();
 
   // ===========================================================================
@@ -319,8 +522,7 @@ export class InMemoryStorage implements ThoughtboxStorage {
     };
 
     this.sessions.set(id, session);
-    this.thoughts.set(id, []);
-    this.branches.set(id, new Map());
+    // No need to initialize linkedStore - nodes are created on demand
 
     return session;
   }
@@ -340,8 +542,6 @@ export class InMemoryStorage implements ThoughtboxStorage {
 
   async deleteSession(id: string): Promise<void> {
     this.sessions.delete(id);
-    this.thoughts.delete(id);
-    this.branches.delete(id);
     this.linkedStore.clearSession(id);
   }
 
@@ -408,8 +608,8 @@ export class InMemoryStorage implements ThoughtboxStorage {
   // ===========================================================================
 
   async saveThought(sessionId: string, thought: ThoughtData): Promise<void> {
-    const sessionThoughts = this.thoughts.get(sessionId);
-    if (!sessionThoughts) {
+    // Verify session exists
+    if (!this.sessions.has(sessionId)) {
       throw new Error(`Session ${sessionId} not found`);
     }
 
@@ -419,28 +619,22 @@ export class InMemoryStorage implements ThoughtboxStorage {
       timestamp: thought.timestamp || new Date().toISOString(),
     };
 
-    sessionThoughts.push(enrichedThought);
-
-    // Also add to linked store for export
+    // Add to linked store (sole source of truth)
     this.linkedStore.addNode(sessionId, enrichedThought);
   }
 
   async getThoughts(sessionId: string): Promise<ThoughtData[]> {
-    const sessionThoughts = this.thoughts.get(sessionId);
-    if (!sessionThoughts) {
-      return [];
-    }
-    return [...sessionThoughts].sort((a, b) => a.thoughtNumber - b.thoughtNumber);
+    // Get main chain nodes from linked store
+    const nodes = this.linkedStore.getMainChainNodes(sessionId);
+    return nodes.map(node => node.data);
   }
 
   async getThought(
     sessionId: string,
     thoughtNumber: number
   ): Promise<ThoughtData | null> {
-    const sessionThoughts = this.thoughts.get(sessionId);
-    if (!sessionThoughts) return null;
-    
-    return sessionThoughts.find((t) => t.thoughtNumber === thoughtNumber) || null;
+    const node = this.linkedStore.getThoughtByNumber(sessionId, thoughtNumber);
+    return node ? node.data : null;
   }
 
   async saveBranchThought(
@@ -448,38 +642,37 @@ export class InMemoryStorage implements ThoughtboxStorage {
     branchId: string,
     thought: ThoughtData
   ): Promise<void> {
-    let sessionBranches = this.branches.get(sessionId);
-    if (!sessionBranches) {
-      sessionBranches = new Map();
-      this.branches.set(sessionId, sessionBranches);
-    }
-
-    let branchThoughts = sessionBranches.get(branchId);
-    if (!branchThoughts) {
-      branchThoughts = [];
-      sessionBranches.set(branchId, branchThoughts);
+    // Verify session exists
+    if (!this.sessions.has(sessionId)) {
+      throw new Error(`Session ${sessionId} not found`);
     }
 
     // Add timestamp if not present
     const enrichedThought: ThoughtData = {
       ...thought,
+      branchId, // Ensure branchId is set
       timestamp: thought.timestamp || new Date().toISOString(),
     };
 
-    branchThoughts.push(enrichedThought);
-
-    // Also add to linked store for export
+    // Add to linked store (sole source of truth)
     this.linkedStore.addNode(sessionId, enrichedThought);
   }
 
   async getBranch(sessionId: string, branchId: string): Promise<ThoughtData[]> {
-    const sessionBranches = this.branches.get(sessionId);
-    if (!sessionBranches) return [];
-    
-    const branchThoughts = sessionBranches.get(branchId);
-    if (!branchThoughts) return [];
-    
-    return [...branchThoughts].sort((a, b) => a.thoughtNumber - b.thoughtNumber);
+    // Get branch nodes from linked store
+    const nodes = this.linkedStore.getBranchNodes(sessionId, branchId);
+    return nodes.map(node => node.data);
+  }
+
+  async updateThoughtCritique(
+    sessionId: string,
+    thoughtNumber: number,
+    critique: { text: string; model: string; timestamp: string }
+  ): Promise<void> {
+    const node = this.linkedStore.getThoughtByNumber(sessionId, thoughtNumber);
+    if (node) {
+      node.data.critique = critique;
+    }
   }
 
   // ===========================================================================
@@ -494,8 +687,7 @@ export class InMemoryStorage implements ThoughtboxStorage {
     if (!session) throw new Error(`Session ${sessionId} not found`);
 
     const thoughts = await this.getThoughts(sessionId);
-    const sessionBranches = this.branches.get(sessionId) || new Map();
-    const branchIds = Array.from(sessionBranches.keys());
+    const branchIds = this.linkedStore.getBranchIds(sessionId);
 
     if (format === 'json') {
       const branchData: Record<string, ThoughtData[]> = {};
