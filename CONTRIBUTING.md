@@ -2,6 +2,18 @@
 
 Thank you for your interest in contributing to Thoughtbox! This guide covers our development workflow, commit conventions, and testing approach.
 
+## Client Compatibility Note
+
+Thoughtbox is currently optimized for use with **Claude Code**. The MCP ecosystem includes many clients with varying levels of support for protocol capabilities — server features (prompts, resources, tools), client features (roots, sampling, elicitation), and behaviors like `listChanged` notifications. We're actively working on broader client compatibility, but this requires custom adaptations for different clients.
+
+**Areas where we especially welcome contributions:**
+- Client-specific adapters or compatibility layers
+- Documentation of client behavior differences
+- Bug reports from non-Claude Code clients (please include client name and version)
+- Testing across different MCP clients
+
+If you're interested in helping with client compatibility, see the `gateway/` directory for an example of how we handle clients that don't respond to `notifications/tools/list_changed` mid-turn.
+
 ## Development Setup
 
 ```bash
@@ -151,12 +163,22 @@ const TOOL_TESTS: Record<string, string> = {
 
 ```
 src/
-├── index.ts              # MCP server entry, tool registration
-├── persistence/          # Session and thought storage
+├── index.ts              # Entry point (stdio/HTTP transport selection)
+├── server-factory.ts     # MCP server factory with tool registration
+├── tool-registry.ts      # Progressive disclosure (stage-based tool enabling)
+├── tool-descriptions.ts  # Stage-specific tool descriptions
+├── thought-handler.ts    # Thoughtbox tool logic with critique support
+├── gateway/              # Always-on routing tool for streaming HTTP clients
+│   ├── gateway-handler.ts  # Routes to handlers with stage enforcement
+│   └── index.ts          # Module exports
+├── init/                 # Init workflow and state management
+│   ├── tool-handler.ts   # Init tool operations
+│   └── state-manager.ts  # Session state persistence
+├── sessions/             # Session tool handler
+├── persistence/          # Storage layer
 ├── observatory/          # Real-time visualization UI
 ├── mental-models/        # 15 reasoning frameworks
 ├── notebook/             # Literate programming engine
-├── thick-read.ts         # Git-context file reader
 └── resources/            # Documentation and patterns
 ```
 
@@ -164,6 +186,8 @@ Key principles:
 - **Tools are stateless handlers** that receive input and return results
 - **State lives in persistence layer** with session isolation
 - **Observatory is event-driven** via WebSocket for real-time updates
+- **Progressive disclosure** stages tools based on workflow progress
+- **Gateway pattern** provides always-on routing for clients that don't refresh tool lists
 
 ## Code Style
 

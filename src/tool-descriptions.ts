@@ -71,7 +71,9 @@ export const CIPHER_DESCRIPTIONS: Partial<Record<DisclosureStage, string>> = {
 
 IMPORTANT: Call this tool BEFORE using thoughtbox. The notation system significantly reduces token usage during multi-step reasoning.
 
-After calling this tool, the main thoughtbox reasoning tool will become available.`,
+After calling this tool, the main thoughtbox reasoning tool will become available.
+
+NOTE: Wait 2-3 seconds after calling this tool before using the newly unlocked tools. Progressive disclosure requires time to propagate.`,
 
   [DisclosureStage.STAGE_2_CIPHER_LOADED]: `Returns Thoughtbox's notation system for token-efficient reasoning.
 
@@ -146,6 +148,23 @@ export const EXPORT_DESCRIPTIONS: Partial<Record<DisclosureStage, string>> = {
 
 Useful for persisting reasoning chains, sharing sessions, or archiving completed work.`,
 };
+
+/**
+ * Gateway tool description (always available at Stage 0)
+ */
+export const GATEWAY_DESCRIPTION = `Always-available routing tool for Thoughtbox operations.
+
+Use this tool when other tools appear unavailable due to tool list not refreshing.
+Routes to: init, cipher, thoughtbox, notebook, session handlers.
+
+Operations:
+- get_state, list_sessions, navigate, load_context, start_new, list_roots, bind_root (init)
+- cipher (loads notation system)
+- thought (structured reasoning)
+- notebook (literate programming)
+- session (session management)
+
+Stage enforcement is handled internally - you'll get clear errors if calling operations too early.`;
 
 /**
  * Helper to get all descriptions for a tool

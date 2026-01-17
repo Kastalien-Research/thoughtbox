@@ -257,6 +257,41 @@ The guide is also automatically provided:
 
 ---
 
+## Accessing Thoughtbox
+
+### Direct Tool Access
+
+The standard way to use thoughtbox (when the tool is visible):
+
+\`\`\`javascript
+mcp__thoughtbox__thoughtbox({
+  thought: "Your reasoning step",
+  thoughtNumber: 1,
+  totalThoughts: 10,
+  nextThoughtNeeded: true
+});
+\`\`\`
+
+### Via Gateway (Always Available)
+
+If the \`thoughtbox\` tool appears unavailable (common with streaming HTTP clients that don't refresh tool lists), use the gateway:
+
+\`\`\`javascript
+mcp__thoughtbox__thoughtbox_gateway({
+  operation: 'thought',
+  args: {
+    thought: "Your reasoning step",
+    thoughtNumber: 1,
+    totalThoughts: 10,
+    nextThoughtNeeded: true
+  }
+});
+\`\`\`
+
+The gateway is always enabled at connection start and routes to the same thought handler internally. All patterns in this cookbook work identically via either access method.
+
+---
+
 ## Remember
 
 The tool doesn't tell you **how** to think - it provides **structure for** your thinking. Use it creatively, adapt it to your problem, and don't be constrained by apparent limitations. The flexibility is the power.

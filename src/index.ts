@@ -111,6 +111,9 @@ async function startHttpServer() {
   app.all("/mcp", async (req: Request, res: Response) => {
     const mcpSessionId = req.headers["mcp-session-id"] as string | undefined;
 
+    // Debug: log all incoming requests
+    console.error(`[MCP] ${req.method} request, session: ${mcpSessionId || 'new'}`);
+
     try {
       if (mcpSessionId && sessions.has(mcpSessionId)) {
         const entry = sessions.get(mcpSessionId)!;
@@ -180,7 +183,7 @@ async function startHttpServer() {
     })
   );
 
-  const port = parseInt(process.env.PORT || "3000", 10);
+  const port = parseInt(process.env.PORT || "1731", 10);
   const httpServer = app.listen(port, () => {
     console.log(`Thoughtbox MCP Server listening on port ${port}`);
   });
