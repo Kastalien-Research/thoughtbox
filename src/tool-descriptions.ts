@@ -150,12 +150,11 @@ Useful for persisting reasoning chains, sharing sessions, or archiving completed
 };
 
 /**
- * Gateway tool description (always available at Stage 0)
+ * Gateway tool description (the only registered MCP tool)
  */
-export const GATEWAY_DESCRIPTION = `Always-available routing tool for Thoughtbox operations.
+export const GATEWAY_DESCRIPTION = `Single entry point for all Thoughtbox operations.
 
-Use this tool when other tools appear unavailable due to tool list not refreshing.
-Routes to: init, cipher, thoughtbox, notebook, session handlers.
+Routes to all handlers: init, cipher, thought, notebook, session, mental_models, deep_analysis.
 
 Operations:
 - get_state, list_sessions, navigate, load_context, start_new, list_roots, bind_root (init)
@@ -163,6 +162,8 @@ Operations:
 - thought (structured reasoning)
 - notebook (literate programming)
 - session (session management)
+- mental_models (reasoning frameworks)
+- deep_analysis (session pattern analysis)
 
 Stage enforcement is handled internally - you'll get clear errors if calling operations too early.`;
 
