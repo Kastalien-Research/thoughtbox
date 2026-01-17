@@ -2,7 +2,42 @@
 
 **A reasoning ledger for AI agents.** Thoughtbox is an MCP server that provides structured reasoning tools, enabling agents to think step-by-step, branch into alternative explorations, revise earlier conclusions, and maintain a persistent record of their cognitive process.
 
-Unlike ephemeral chain-of-thought prompting, Thoughtbox creates a **durable reasoning chain** — a ledger of thoughts that can be visualized, exported, and analyzed. Each thought is a node in a graph structure supporting forward thinking, backward planning, branching explorations, and mid-course revisions.
+Unlike ephemeral chain-of-thought prompting, Thoughtbox creates a **durable reasoning chain** — a ledger of thoughts that can be visualized, exported, and analyzed. Each thought is a node in a graph structure supporting forward thinking, backward planning, branching explorations, mid-course revisions, and **autonomous critique via MCP sampling**.
+
+**Local-First:** Thoughtbox runs entirely on your machine. All reasoning data is stored locally at `~/.thoughtbox/` by default — nothing is sent to external servers. Your thought processes remain private and under your control.
+
+## Client Compatibility
+
+> **Note:** Thoughtbox is currently optimized for use with **Claude Code**. We are actively working on supporting additional MCP clients, but due to the wide variation in capability support across the Model Context Protocol ecosystem — server features (prompts, resources, tools), client features (roots, sampling, elicitation), and behaviors like `listChanged` notifications — we're having to implement custom adaptations for many clients. See the [gateway tool](#gateway-tool-always-available) for one such adaptation.
+
+If you're using a client other than Claude Code and encounter issues, please [open an issue](https://github.com/Kastalien-Research/thoughtbox/issues) describing your client and the problem — this helps us prioritize compatibility work.
+
+## Progressive Disclosure
+
+Thoughtbox uses a staged tool disclosure system to guide agents through proper initialization:
+
+| Stage | Tools Available | Trigger |
+|-------|-----------------|---------|
+| **Stage 0** | `init`, `thoughtbox_gateway` | Connection start |
+| **Stage 1** | + `thoughtbox_cipher`, `session` | `init(start_new)` or `init(load_context)` |
+| **Stage 2** | + `thoughtbox`, `notebook` | `thoughtbox_cipher` call |
+| **Stage 3** | + `mental_models`, `export_reasoning_chain` | Domain activation |
+
+This ensures agents establish proper session context before accessing advanced reasoning tools.
+
+### Gateway Tool (Always Available)
+
+The `thoughtbox_gateway` tool is always enabled and provides a routing mechanism for clients that don't refresh tool lists mid-turn (e.g., Claude Code over streaming HTTP). It routes to all handlers internally while enforcing stage requirements:
+
+```javascript
+// Call operations through gateway without waiting for tool list refresh
+{ operation: "get_state" }                    // → init handler
+{ operation: "start_new", args: {...} }       // → init handler, advances to Stage 1
+{ operation: "cipher" }                       // → cipher content, advances to Stage 2
+{ operation: "thought", args: {...} }         // → thoughtbox handler (requires Stage 2)
+```
+
+The gateway returns clear error messages when operations are called at the wrong stage.
 
 ![Thoughtbox Observatory](public/thoughtbox-observatory.png)
 *Observatory UI showing a reasoning session with 14 thoughts and a branch exploration (purple nodes 13-14) forking from thought 5.*
@@ -37,7 +72,34 @@ See the **[Patterns Cookbook](src/resources/docs/thoughtbox-patterns-cookbook.md
 
 ## Features
 
-### 1. Thoughtbox Tool — Structured Reasoning
+### 1. Init Tool — Session Management (Stage 0)
+
+The entry point for establishing session context.
+
+**Operations:**
+- `get_state` — Check current session state
+- `list_sessions` — Browse available sessions (filter by project, task, aspect)
+- `start_new` — Begin a new work session with project/task/aspect scoping
+- `load_context` — Resume an existing session
+- `navigate` — Move between project/task/aspect levels
+- `list_roots` — Query MCP roots from client
+- `bind_root` — Bind a root directory as project scope
+
+### 2. Thoughtbox Cipher — Deep Thinking Primer (Stage 1)
+
+A priming tool that prepares agents for structured reasoning. Calling this tool unlocks Stage 2 tools.
+
+### 3. Session Tool — Persistence & Export (Stage 1)
+
+Manage reasoning sessions with full persistence.
+
+**Operations:**
+- `list` — List all sessions
+- `get` — Retrieve session details
+- `export` — Export session as JSON or Markdown
+- `analyze` — Get session statistics and insights
+
+### 4. Thoughtbox Tool — Structured Reasoning (Stage 2)
 
 The core tool for step-by-step thinking with full graph capabilities.
 
@@ -50,6 +112,9 @@ The core tool for step-by-step thinking with full graph capabilities.
 
 // Revising an earlier conclusion
 { thought: "Actually, the root cause is...", thoughtNumber: 7, isRevision: true, revisesThought: 3, ... }
+
+// Request autonomous critique via MCP sampling
+{ thought: "This approach seems optimal...", thoughtNumber: 5, critique: true, ... }
 ```
 
 **Parameters:**
@@ -61,8 +126,11 @@ The core tool for step-by-step thinking with full graph capabilities.
 - `branchId` (string): Branch identifier
 - `isRevision` (boolean): Marks revision of earlier thought
 - `revisesThought` (integer): Which thought is being revised
+- `critique` (boolean): Request autonomous LLM critique via MCP sampling API
 
-### 2. Observatory — Real-Time Visualization
+**Autonomous Critique:** When `critique: true`, the server uses the MCP `sampling/createMessage` API to request an external LLM analysis of the current thought. The critique is returned in the response and persisted with the thought.
+
+### 5. Observatory — Real-Time Visualization
 
 A built-in web UI for watching reasoning unfold in real-time.
 
@@ -76,7 +144,7 @@ A built-in web UI for watching reasoning unfold in real-time.
 
 **Access:** The Observatory is available at `http://localhost:1729` when the server is running.
 
-### 3. Mental Models — Reasoning Frameworks
+### 6. Mental Models — Reasoning Frameworks (Stage 2)
 
 15 structured mental models that provide process scaffolds for different problem types.
 
@@ -96,7 +164,7 @@ A built-in web UI for watching reasoning unfold in real-time.
 - `list_models` — List all models (filter by tag)
 - `list_tags` — Available categories (debugging, planning, decision-making, etc.)
 
-### 4. Notebook — Literate Programming
+### 7. Notebook — Literate Programming (Stage 2)
 
 Interactive notebooks combining documentation with executable JavaScript/TypeScript.
 
@@ -187,7 +255,12 @@ Thought 6: [SYNTHESIS] "Use PostgreSQL for transactions, MongoDB for analytics"
 
 ## Environment Variables
 
-- `DISABLE_THOUGHT_LOGGING=true` — Suppress thought logging to stderr
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `DISABLE_THOUGHT_LOGGING` | Suppress thought logging to stderr | `false` |
+| `THOUGHTBOX_DATA_DIR` | Base directory for persistent storage | `~/.thoughtbox` |
+| `THOUGHTBOX_PROJECT` | Project scope for session isolation | `_default` |
+| `THOUGHTBOX_TRANSPORT` | Transport type (`stdio` or `http`) | `http` |
 
 ## Development
 
@@ -205,13 +278,40 @@ npm run dev
 npm start
 ```
 
+### Docker Compose
+
+A `docker-compose.yml` is included to run the HTTP MCP server and the Observatory UI together.
+
+```bash
+docker compose up --build
+```
+
+- HTTP MCP + health: http://localhost:1731/health
+- Observatory UI/WebSocket: http://localhost:1729/
+- OpenTelemetry Collector: ports 4317 (gRPC) and 4318 (HTTP) for Claude Code telemetry
+- Persistent data: stored in named volume `thoughtbox-data` at `/data/thoughtbox` (override with env vars like `THOUGHTBOX_PROJECT` or `THOUGHTBOX_DATA_DIR`).
+
 ## Architecture
 
 ```text
 src/
-├── index.ts              # MCP server entry point
-├── persistence/          # Session and thought storage
-│   └── storage.ts        # In-memory storage with linked thought chains
+├── index.ts              # Entry point (stdio/HTTP transport selection)
+├── server-factory.ts     # MCP server factory with tool registration
+├── tool-registry.ts      # Progressive disclosure (stage-based tool enabling)
+├── tool-descriptions.ts  # Stage-specific tool descriptions
+├── thought-handler.ts    # Thoughtbox tool logic with critique support
+├── gateway/              # Always-on routing tool
+│   ├── gateway-handler.ts  # Routes to handlers with stage enforcement
+│   └── index.ts          # Module exports
+├── init/                 # Init workflow and state management
+│   ├── tool-handler.ts   # Init tool operations
+│   └── state-manager.ts  # Session state persistence
+├── sessions/             # Session tool handler
+├── sampling/             # Autonomous critique via MCP sampling
+│   └── handler.ts        # SamplingHandler for LLM critique requests
+├── persistence/          # Storage layer
+│   ├── storage.ts        # InMemoryStorage with LinkedThoughtStore
+│   └── filesystem-storage.ts  # FileSystemStorage with atomic writes
 ├── observatory/          # Real-time visualization
 │   ├── ui/               # Self-contained HTML/CSS/JS
 │   ├── ws-server.ts      # WebSocket server for live updates
@@ -219,6 +319,26 @@ src/
 ├── mental-models/        # 15 reasoning frameworks
 ├── notebook/             # Literate programming engine
 └── resources/            # Documentation and patterns cookbook
+```
+
+### Storage
+
+Thoughtbox supports two storage backends:
+
+- **InMemoryStorage**: Default for development, uses `LinkedThoughtStore` for O(1) thought lookups
+- **FileSystemStorage**: Persistent storage with atomic writes and project isolation
+
+Data is stored at `~/.thoughtbox/` by default:
+```text
+~/.thoughtbox/
+├── config.json           # Global configuration
+└── projects/
+    └── {project}/
+        └── sessions/
+            └── {date}/
+                └── {session-id}/
+                    ├── manifest.json
+                    └── {thought-number}.json
 ```
 
 ## Contributing

@@ -57,7 +57,15 @@ import {
   NOTEBOOK_DESCRIPTIONS,
   getMentalModelsDescription,
   EXPORT_DESCRIPTIONS,
+  GATEWAY_DESCRIPTION,
 } from "./tool-descriptions.js";
+import {
+  GatewayHandler,
+  gatewayToolInputSchema,
+  GATEWAY_TOOL,
+} from "./gateway/index.js";
+import { SUBAGENT_SUMMARIZE_CONTENT } from "./resources/subagent-summarize-content.js";
+import { EVOLUTION_CHECK_CONTENT } from "./resources/evolution-check-content.js";
 
 // Configuration schema
 // Note: Using .default() means the field is always present after parsing.
@@ -217,10 +225,33 @@ export function createMcpServer(args: CreateMcpServerArgs = {}): McpServer {
   const config = configSchema.parse(args.config ?? {});
   const logger = args.logger ?? defaultLogger;
 
+  const THOUGHTBOX_INSTRUCTIONS = `START HERE: Use the \`init\` tool to set/restore scope before using other tools.
+
+Terminology:
+- "Tools" are top-level capabilities (e.g., \`init\`, \`thoughtbox\`, \`notebook\`).
+- "Operations" are sub-commands inside a tool (e.g., \`init.operation = "navigate"\`).
+
+What "project" means (scope boundary):
+- If your client supports MCP Roots: bind a root directory as your project boundary, optionally narrow with a path prefix.
+- If your client does not support Roots: choose a stable logical project name for tagging.
+
+Recommended workflow:
+1) Call \`init\` { "operation": "get_state" }.
+2) If Roots are supported, call \`init\` { "operation": "list_roots" } then \`init\` { "operation": "bind_root", ... }.
+3) Choose one: \`init\` → "start_new" (new work) or \`init\` → "list_sessions" then "load_context" (continue).
+4) Call \`thoughtbox_cipher\` early (especially before long reasoning).
+
+IMPORTANT - Progressive Disclosure:
+After calling \`init\` (start_new or load_context), \`thoughtbox_cipher\` and \`session\` tools will become available.
+After calling \`thoughtbox_cipher\`, \`thoughtbox\` and \`notebook\` tools will become available.
+If newly unlocked tools don't appear, use \`thoughtbox_gateway\` instead - it's always available and routes to all handlers with stage enforcement.`;
+
   const server = new McpServer({
     name: "thoughtbox-server",
     // Keep in sync with package.json version; avoid importing outside src/ (tsconfig rootDir)
     version: "1.2.2",
+  }, {
+    instructions: THOUGHTBOX_INSTRUCTIONS,
   });
 
   // Tool registry for progressive disclosure (SPEC-008)
@@ -304,7 +335,8 @@ export function createMcpServer(args: CreateMcpServerArgs = {}): McpServer {
       // Pass server.server for MCP roots support (SPEC-011 list_roots/bind_root operations)
       // server.server is the underlying Server class which has listRoots() method
       initToolHandler = new InitToolHandler({
-        index,
+        storage,  // Required: source of truth for sessions
+        index,    // Optional: cached hierarchy for navigation UI
         stateManager: initStateManager,
         toolRegistry,
         mcpSessionId: sessionId,
@@ -537,6 +569,10 @@ export function createMcpServer(args: CreateMcpServerArgs = {}): McpServer {
         const op = toolArgs.operation;
         if (op === 'load_context' || op === 'start_new') {
           toolRegistry.advanceToStage(DisclosureStage.STAGE_1_INIT_COMPLETE);
+          
+          // Notify client of tool list change
+          // Clients that don't refresh tool lists should use the gateway tool instead
+          server.sendToolListChanged();
         }
       }
 
@@ -578,8 +614,34 @@ export function createMcpServer(args: CreateMcpServerArgs = {}): McpServer {
     async () => {
       // Advance to Stage 2 when cipher is called
       toolRegistry.advanceToStage(DisclosureStage.STAGE_2_CIPHER_LOADED);
+      
+      // Notify client of tool list change
+      // Clients that don't refresh tool lists should use the gateway tool instead
+      server.sendToolListChanged();
+
+      const turnBoundaryInstruction = `
+
+---
+
+## ⚠️ STOP HERE - DO NOT CALL ANY MORE TOOLS IN THIS TURN
+
+New tools (\`thoughtbox\`, \`notebook\`, \`mental_models\`) are now available, but you must
+**end this turn and wait for the user to send another message** before calling them.
+
+If newly unlocked tools don't appear in your next turn, use \`thoughtbox_gateway\` instead:
+- \`thoughtbox_gateway({ operation: 'thought', args: {...} })\` routes to the thoughtbox handler
+- The gateway is always available and bypasses tool list refresh issues
+
+Immediate next actions for Claude:
+0) Ask the user to send any short message to start the next turn.
+1) In the next turn, call \`thoughtbox\` (or use gateway if unavailable).
+
+Tell the user: "Cipher loaded. Ready to begin reasoning - please send any message to proceed."
+
+In your NEXT turn (after user responds), you can use the \`thoughtbox\` tool to begin structured thinking.`;
+
       return {
-        content: [{ type: "text" as const, text: THOUGHTBOX_CIPHER }],
+        content: [{ type: "text" as const, text: THOUGHTBOX_CIPHER + turnBoundaryInstruction }],
       };
     }
   );
@@ -718,6 +780,79 @@ export function createMcpServer(args: CreateMcpServerArgs = {}): McpServer {
     exportTool,
     DisclosureStage.STAGE_3_DOMAIN_ACTIVE,
     EXPORT_DESCRIPTIONS
+  );
+
+  // =============================================================================
+  // Gateway Tool (Always-On Router)
+  // =============================================================================
+  // Gateway tool bypasses client tool list refresh issues by routing internally.
+  // It's always enabled at Stage 0 and enforces stages internally.
+
+  // Gateway handler will be created once initToolHandler is ready
+  let gatewayHandler: GatewayHandler | null = null;
+
+  const gatewayTool = server.registerTool(
+    "thoughtbox_gateway",
+    {
+      description: GATEWAY_DESCRIPTION,
+      inputSchema: gatewayToolInputSchema,
+      annotations: GATEWAY_TOOL.annotations,
+    },
+    async (toolArgs) => {
+      if (!gatewayHandler) {
+        // Gateway handler not ready - initToolHandler still initializing
+        // Create it now if initToolHandler is available
+        if (initToolHandler) {
+          gatewayHandler = new GatewayHandler({
+            toolRegistry,
+            initToolHandler,
+            thoughtHandler,
+            notebookHandler,
+            sessionHandler,
+            sendToolListChanged: () => server.sendToolListChanged(),
+          });
+        } else {
+          return {
+            content: [{
+              type: "text" as const,
+              text: JSON.stringify({
+                error: "Gateway tool not ready. Init handler is still initializing.",
+                suggestion: "Try again in a moment.",
+              }, null, 2),
+            }],
+            isError: true,
+          };
+        }
+      }
+
+      const result = await gatewayHandler.handle(toolArgs);
+
+      // Transform content to match McpServer expected types
+      const content = result.content.map((block) => {
+        if (block.type === "text") {
+          return { type: "text" as const, text: block.text };
+        } else if (block.type === "resource") {
+          return {
+            type: "resource" as const,
+            resource: {
+              uri: block.resource.uri,
+              mimeType: block.resource.mimeType,
+              text: block.resource.text,
+            },
+          };
+        }
+        return block;
+      });
+      return { content, isError: result.isError };
+    }
+  );
+
+  // Register gateway at Stage 0 - always enabled
+  toolRegistry.register(
+    "thoughtbox_gateway",
+    gatewayTool,
+    DisclosureStage.STAGE_0_ENTRY,
+    { [DisclosureStage.STAGE_0_ENTRY]: GATEWAY_DESCRIPTION }
   );
 
   // =============================================================================
@@ -929,6 +1064,132 @@ export function createMcpServer(args: CreateMcpServerArgs = {}): McpServer {
     }
   );
 
+  // Subagent Summarize prompt - RLM-style context isolation pattern
+  // Accessible in Claude Code as /mcp__thoughtbox__subagent-summarize
+  server.registerPrompt(
+    "subagent-summarize",
+    {
+      description: "Get instructions for using Claude Code's Task tool to retrieve and summarize Thoughtbox sessions with context isolation. Reduces context consumption by 10-40x.",
+      argsSchema: {
+        request: z.string().optional().describe("What you want to do with Thoughtbox sessions (e.g., 'summarize session abc-123', 'search for authentication discussions', 'synthesize all sessions about architecture')"),
+      },
+    },
+    async (args) => {
+      const request = args.request || "";
+
+      // Build contextual header based on the request
+      let contextHeader = `# ACTION REQUIRED: Execute Subagent Query
+
+**User Request**: "${request || "retrieve and summarize Thoughtbox sessions"}"
+
+## YOUR TASK
+
+You MUST now spawn a sub-agent using the Task tool to fulfill this request. This achieves context isolation - the sub-agent retrieves the data and returns only a summary, keeping your context clean.
+
+**Execute this Task tool call NOW:**
+
+\`\`\`json
+{
+  "tool": "Task",
+  "subagent_type": "general-purpose",
+  "description": "${request ? request.slice(0, 50) : "Query Thoughtbox sessions"}",
+  "prompt": "${request ? `Task: ${request}` : "Retrieve and summarize Thoughtbox session data."}\\n\\nSteps:\\n1. Call mcp__thoughtbox__init with operation 'get_state'\\n2. Call mcp__thoughtbox__thoughtbox_cipher (wait for tools to unlock)\\n3. Call mcp__thoughtbox__session with appropriate operation:\\n   - 'list' to see available sessions\\n   - 'get' with sessionId to retrieve specific session\\n   - 'search' with query to find relevant sessions\\n4. Process the data according to the request\\n\\nReturn ONLY your findings/summary. Do not include raw thought content."
+}
+\`\`\`
+
+---
+
+## Why This Pattern?
+
+`;
+
+      return {
+        messages: [
+          {
+            role: "user" as const,
+            content: {
+              type: "text" as const,
+              text: contextHeader + SUBAGENT_SUMMARIZE_CONTENT
+            },
+          },
+        ],
+      };
+    }
+  );
+
+  // Evolution Check prompt - A-Mem retroactive linking pattern
+  // Accessible in Claude Code as /mcp__thoughtbox__evolution-check
+  // ALSO accessible as resource at thoughtbox://prompts/evolution-check (unified pattern)
+  server.registerPrompt(
+    "evolution-check",
+    {
+      description: "Get instructions for checking which prior thoughts should be updated when a new insight is added. Uses sub-agent pattern for context isolation. Based on A-Mem paper.",
+      argsSchema: {
+        newThought: z.string().optional().describe("The new thought/insight that was just added"),
+        sessionId: z.string().optional().describe("Session ID containing prior thoughts to check"),
+        priorThoughts: z.string().optional().describe("Prior thoughts formatted as 'S1: ...\\nS2: ...' (alternative to sessionId)"),
+      },
+    },
+    async (args) => {
+      const newThought = args.newThought || "[YOUR NEW THOUGHT HERE]";
+      const priorThoughts = args.priorThoughts || "[PRIOR THOUGHTS - retrieve with session.get or pass directly]";
+
+      // Build contextual header with concrete Task tool invocation
+      const contextHeader = `# ACTION REQUIRED: Spawn Evolution Checker
+
+**New Thought**: "${newThought.slice(0, 100)}${newThought.length > 100 ? '...' : ''}"
+
+## YOUR TASK
+
+Spawn a Haiku sub-agent to evaluate which prior thoughts should be updated based on this new insight.
+
+**Execute this Task tool call NOW:**
+
+\`\`\`json
+{
+  "tool": "Task",
+  "subagent_type": "general-purpose",
+  "model": "haiku",
+  "description": "Check evolution candidates",
+  "prompt": "Evaluate which prior thoughts should be updated.\\n\\nNEW INSIGHT:\\n${newThought.replace(/"/g, '\\"').replace(/\n/g, '\\n')}\\n\\nPRIOR THOUGHTS:\\n${priorThoughts.replace(/"/g, '\\"').replace(/\n/g, '\\n')}\\n\\nFor each thought, respond ONLY with:\\nS1: [UPDATE|NO_UPDATE] - [brief reason if UPDATE]\\nS2: [UPDATE|NO_UPDATE] - [brief reason if UPDATE]\\n...\\n\\nBe selective. Only suggest UPDATE if the new insight meaningfully enriches context."
+}
+\`\`\`
+
+## Then Apply Revisions
+
+For each thought marked UPDATE, use:
+
+\`\`\`typescript
+mcp__thoughtbox__thoughtbox({
+  thought: "[REVISED content with new context]",
+  thoughtNumber: [N],
+  totalThoughts: [total],
+  nextThoughtNeeded: false,
+  isRevision: true,
+  revisesThought: [N]
+})
+\`\`\`
+
+---
+
+## Full Pattern Documentation
+
+`;
+
+      return {
+        messages: [
+          {
+            role: "user" as const,
+            content: {
+              type: "text" as const,
+              text: contextHeader + EVOLUTION_CHECK_CONTENT
+            },
+          },
+        ],
+      };
+    }
+  );
+
   // Register static resources using McpServer's registerResource API
   server.registerResource(
     "status",
@@ -1048,6 +1309,47 @@ export function createMcpServer(args: CreateMcpServerArgs = {}): McpServer {
           uri: uri.toString(),
           mimeType: "text/markdown",
           text: PARALLEL_VERIFICATION_CONTENT,
+        },
+      ],
+    })
+  );
+
+  // Unified prompt/resource: evolution-check
+  // Same content as the prompt, but addressable via URI
+  // This implements the unified pattern where prompts ARE resources
+  server.registerResource(
+    "evolution-check-prompt",
+    "thoughtbox://prompts/evolution-check",
+    {
+      description: "A-Mem retroactive linking pattern: check which prior thoughts should be updated when a new insight is added (same as evolution-check prompt)",
+      mimeType: "text/markdown",
+    },
+    async (uri) => ({
+      contents: [
+        {
+          uri: uri.toString(),
+          mimeType: "text/markdown",
+          text: EVOLUTION_CHECK_CONTENT,
+        },
+      ],
+    })
+  );
+
+  // Unified prompt/resource: subagent-summarize
+  // Same content as the prompt, but addressable via URI
+  server.registerResource(
+    "subagent-summarize-prompt",
+    "thoughtbox://prompts/subagent-summarize",
+    {
+      description: "RLM-style context isolation pattern: retrieve and summarize sessions without polluting conversation context (same as subagent-summarize prompt)",
+      mimeType: "text/markdown",
+    },
+    async (uri) => ({
+      contents: [
+        {
+          uri: uri.toString(),
+          mimeType: "text/markdown",
+          text: SUBAGENT_SUMMARIZE_CONTENT,
         },
       ],
     })
@@ -1269,6 +1571,21 @@ export function createMcpServer(args: CreateMcpServerArgs = {}): McpServer {
         name: "Parallel Verification Guide",
         description:
           "Workflow for parallel hypothesis exploration using Thoughtbox branching",
+        mimeType: "text/markdown",
+      },
+      // Unified prompt/resource pattern - prompts are also readable as resources
+      {
+        uri: "thoughtbox://prompts/evolution-check",
+        name: "Evolution Check Pattern (A-Mem)",
+        description:
+          "Check which prior thoughts should be updated when a new insight is added. Same content as evolution-check prompt.",
+        mimeType: "text/markdown",
+      },
+      {
+        uri: "thoughtbox://prompts/subagent-summarize",
+        name: "Subagent Summarize Pattern (RLM)",
+        description:
+          "Context isolation pattern for retrieving sessions. Same content as subagent-summarize prompt.",
         mimeType: "text/markdown",
       },
       {
