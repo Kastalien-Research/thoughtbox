@@ -165,12 +165,12 @@ Request anytime with includeGuide parameter.`,
       },
       branchFromThought: {
         type: "integer",
-        description: "Branching point thought number",
+        description: "The thought number to fork from when creating an alternative reasoning path. Required when using branchId. Example: fork from thought 5 to explore different approaches.",
         minimum: 1,
       },
       branchId: {
         type: "string",
-        description: "Branch identifier",
+        description: "Identifier for this alternative reasoning path (requires branchFromThought). Creates a structural fork, not a category tag. Multiple branches can share the same branchFromThought but must have unique branchIds.",
       },
       needsMoreThoughts: {
         type: "boolean",
@@ -404,8 +404,8 @@ If newly unlocked tools don't appear, use \`thoughtbox_gateway\` instead - it's 
           .int()
           .min(1)
           .optional()
-          .describe("Branching point thought number"),
-        branchId: z.string().optional().describe("Branch identifier"),
+          .describe("The thought number to fork from when creating an alternative reasoning path. Required when using branchId."),
+        branchId: z.string().optional().describe("Identifier for this alternative reasoning path (requires branchFromThought). Creates a structural fork, not a category tag."),
         needsMoreThoughts: z
           .boolean()
           .optional()

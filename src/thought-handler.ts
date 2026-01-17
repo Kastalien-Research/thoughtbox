@@ -209,6 +209,17 @@ export class ThoughtHandler {
       throw new Error("Invalid nextThoughtNeeded: must be a boolean");
     }
 
+    // Validate branching: branchId requires branchFromThought
+    // branchId is a structural fork identifier, not a category/tag
+    if (data.branchId && !data.branchFromThought) {
+      throw new Error(
+        "branchId requires branchFromThought. " +
+        "Branching creates an alternative reasoning path from a specific thought. " +
+        "Use branchFromThought to specify which thought number you're forking from. " +
+        "Example: { branchFromThought: 5, branchId: 'approach-a' }"
+      );
+    }
+
     return {
       thought: data.thought,
       thoughtNumber: data.thoughtNumber,
