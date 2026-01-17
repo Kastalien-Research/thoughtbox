@@ -4,6 +4,8 @@
 
 Unlike ephemeral chain-of-thought prompting, Thoughtbox creates a **durable reasoning chain** — a ledger of thoughts that can be visualized, exported, and analyzed. Each thought is a node in a graph structure supporting forward thinking, backward planning, branching explorations, mid-course revisions, and **autonomous critique via MCP sampling**.
 
+**Local-First:** Thoughtbox runs entirely on your machine. All reasoning data is stored locally at `~/.thoughtbox/` by default — nothing is sent to external servers. Your thought processes remain private and under your control.
+
 ## Client Compatibility
 
 > **Note:** Thoughtbox is currently optimized for use with **Claude Code**. We are actively working on supporting additional MCP clients, but due to the wide variation in capability support across the Model Context Protocol ecosystem — server features (prompts, resources, tools), client features (roots, sampling, elicitation), and behaviors like `listChanged` notifications — we're having to implement custom adaptations for many clients. See the [gateway tool](#gateway-tool-always-available) for one such adaptation.
