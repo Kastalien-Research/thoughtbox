@@ -11,13 +11,11 @@ import { z } from 'zod';
 import type {
   SessionIndex,
   SessionMetadata,
-  ProjectSummary,
   McpServerWithRoots,
-  McpRoot,
 } from './types.js';
-import { StateManager, ConnectionStage, type SessionState, type BoundRoot } from './state-manager.js';
-import type { IndexSource } from './interfaces.js';
-import { ToolRegistry, DisclosureStage } from '../tool-registry.js';
+import { StateManager, ConnectionStage, type BoundRoot, type SessionState } from './state-manager.js';
+import { ToolRegistry } from '../tool-registry.js';
+import type { ThoughtboxStorage, Session } from '../persistence/types.js';
 
 // =============================================================================
 // Tool Schema
@@ -58,7 +56,8 @@ export const initToolInputSchema = z.object({
 
   // For start_new
   newWork: z.object({
-    project: z.string(),
+    // Project can be omitted when a bound root provides the project name.
+    project: z.string().optional(),
     task: z.string().optional(),
     aspect: z.string().optional(),
     domain: z.string().optional().describe("Reasoning domain (e.g., 'debugging', 'planning', 'architecture') - unlocks domain-specific mental models"),
@@ -142,8 +141,10 @@ Each response includes an embedded resource with navigation state.`,
  * Configuration for InitToolHandler
  */
 export interface InitToolHandlerConfig {
-  /** Session index for navigation */
-  index: SessionIndex;
+  /** Storage for direct session access (required - source of truth) */
+  storage: ThoughtboxStorage;
+  /** Session index for navigation (optional - used for cached lookups) */
+  index?: SessionIndex;
   /** State manager for session state */
   stateManager?: StateManager;
   /** Tool registry for progressive disclosure */
@@ -161,42 +162,20 @@ export interface InitToolHandlerConfig {
  * Supports MCP roots for project scoping (SPEC-011).
  */
 export class InitToolHandler {
-  private index: SessionIndex;
+  private storage: ThoughtboxStorage;
+  private index: SessionIndex | null;
   private stateManager: StateManager;
   private toolRegistry: ToolRegistry | null;
   private mcpSessionId?: string;
   private mcpServer?: McpServerWithRoots;
 
-  constructor(config: InitToolHandlerConfig);
-  /** @deprecated Use config object instead */
-  constructor(
-    index: SessionIndex,
-    stateManager?: StateManager,
-    toolRegistry?: ToolRegistry,
-    mcpSessionId?: string
-  );
-  constructor(
-    indexOrConfig: SessionIndex | InitToolHandlerConfig,
-    stateManager?: StateManager,
-    toolRegistry?: ToolRegistry,
-    mcpSessionId?: string
-  ) {
-    // Support both old and new constructor signatures
-    if ('index' in indexOrConfig) {
-      // New config object style
-      this.index = indexOrConfig.index;
-      this.stateManager = indexOrConfig.stateManager || new StateManager();
-      this.toolRegistry = indexOrConfig.toolRegistry || null;
-      this.mcpSessionId = indexOrConfig.mcpSessionId;
-      this.mcpServer = indexOrConfig.mcpServer;
-    } else {
-      // Legacy positional arguments style
-      this.index = indexOrConfig;
-      this.stateManager = stateManager || new StateManager();
-      this.toolRegistry = toolRegistry || null;
-      this.mcpSessionId = mcpSessionId;
-      this.mcpServer = undefined;
-    }
+  constructor(config: InitToolHandlerConfig) {
+    this.storage = config.storage;
+    this.index = config.index || null;
+    this.stateManager = config.stateManager || new StateManager();
+    this.toolRegistry = config.toolRegistry || null;
+    this.mcpSessionId = config.mcpSessionId;
+    this.mcpServer = config.mcpServer;
   }
 
   /**
@@ -210,16 +189,16 @@ export class InitToolHandler {
         return this.handleGetState(sessionId);
 
       case 'list_sessions':
-        return this.handleListSessions(sessionId, input.filters);
+        return await this.handleListSessions(sessionId, input.filters);
 
       case 'navigate':
-        return this.handleNavigate(sessionId, input.target);
+        return await this.handleNavigate(sessionId, input.target);
 
       case 'load_context':
-        return this.handleLoadContext(sessionId, input.sessionId);
+        return await this.handleLoadContext(sessionId, input.sessionId);
 
       case 'start_new':
-        return this.handleStartNew(sessionId, input.newWork);
+        return await this.handleStartNew(sessionId, input.newWork);
 
       case 'list_roots':
         return this.handleListRoots(sessionId);
@@ -270,29 +249,42 @@ export class InitToolHandler {
 
   /**
    * list_sessions: List sessions with optional filtering
+   * Now reads from storage directly instead of exports-based index.
    */
-  private handleListSessions(
+  private async handleListSessions(
     sessionId: string,
     filters?: InitToolInput['filters']
-  ): ToolResponse {
+  ): Promise<ToolResponse> {
     // Update state to indicate init has started
     if (this.stateManager.getSessionStage(sessionId) === ConnectionStage.STAGE_1_UNINITIALIZED) {
       this.stateManager.updateSessionStage(sessionId, ConnectionStage.STAGE_2_INIT_STARTED);
     }
 
     const limit = filters?.limit ?? 20;
-    let sessions = Array.from(this.index.byId.values());
 
-    // Apply filters
+    // Build storage filter from init filters
+    const storageFilter: { tags?: string[] } = {};
+    const tagFilters: string[] = [];
     if (filters?.project) {
-      sessions = sessions.filter(s => s.project === filters.project);
+      tagFilters.push(`project:${filters.project}`);
     }
     if (filters?.task) {
-      sessions = sessions.filter(s => s.task === filters.task);
+      tagFilters.push(`task:${filters.task}`);
     }
     if (filters?.aspect) {
-      sessions = sessions.filter(s => s.aspect === filters.aspect);
+      tagFilters.push(`aspect:${filters.aspect}`);
     }
+    if (tagFilters.length > 0) {
+      storageFilter.tags = tagFilters;
+    }
+
+    // Get sessions from storage
+    const storageSessions = await this.storage.listSessions(storageFilter);
+
+    // Convert to SessionMetadata format
+    let sessions = storageSessions.map(s => this.sessionToMetadata(s));
+
+    // Apply search filter (storage doesn't support text search)
     if (filters?.search) {
       const searchLower = filters.search.toLowerCase();
       sessions = sessions.filter(s =>
@@ -324,12 +316,45 @@ export class InitToolHandler {
   }
 
   /**
+   * Convert a storage Session to SessionMetadata format.
+   * Parses project:, task:, aspect: tags into separate fields.
+   */
+  private sessionToMetadata(session: Session): SessionMetadata {
+    let project: string | null = null;
+    let task: string | null = null;
+    let aspect: string | null = null;
+
+    for (const tag of session.tags) {
+      if (tag.startsWith('project:')) {
+        project = tag.slice(8);
+      } else if (tag.startsWith('task:')) {
+        task = tag.slice(5);
+      } else if (tag.startsWith('aspect:')) {
+        aspect = tag.slice(7);
+      }
+    }
+
+    return {
+      id: session.id,
+      title: session.title,
+      project,
+      task,
+      aspect,
+      thoughtCount: session.thoughtCount,
+      createdAt: session.createdAt,
+      updatedAt: session.updatedAt,
+      exportPath: '', // Not relevant when reading from storage
+      lastConclusion: null, // Would need to load thoughts to get this
+    };
+  }
+
+  /**
    * navigate: Move to a project/task/aspect in the hierarchy
    */
-  private handleNavigate(
+  private async handleNavigate(
     sessionId: string,
     target?: InitToolInput['target']
-  ): ToolResponse {
+  ): Promise<ToolResponse> {
     if (!target) {
       return {
         content: [{
@@ -352,20 +377,27 @@ export class InitToolHandler {
       aspect: target.aspect,
     });
 
-    // Validate navigation target exists
-    if (target.project && !this.index.byProject.has(target.project)) {
-      return {
-        content: [{
-          type: 'text',
-          text: `Project not found: ${target.project}`,
-        }],
-        isError: true,
-      };
+    // Validate navigation target exists by querying storage
+    if (target.project) {
+      const projectSessions = await this.storage.listSessions({
+        tags: [`project:${target.project}`]
+      });
+      if (projectSessions.length === 0) {
+        return {
+          content: [{
+            type: 'text',
+            text: `Project not found: ${target.project}`,
+          }],
+          isError: true,
+        };
+      }
     }
 
     if (target.project && target.task) {
-      const taskKey = `${target.project}:${target.task}`;
-      if (!this.index.byTask.has(taskKey)) {
+      const taskSessions = await this.storage.listSessions({
+        tags: [`project:${target.project}`, `task:${target.task}`]
+      });
+      if (taskSessions.length === 0) {
         return {
           content: [{
             type: 'text',
@@ -377,7 +409,7 @@ export class InitToolHandler {
     }
 
     // Get sessions matching navigation target
-    const sessions = this.getSessionsForTarget(target);
+    const sessions = await this.getSessionsForTarget(target);
 
     // Build navigation context
     const contextText = this.buildNavigationContextText(target, sessions);
@@ -399,10 +431,10 @@ export class InitToolHandler {
   /**
    * load_context: Load full context for continuing a session
    */
-  private handleLoadContext(
+  private async handleLoadContext(
     sessionId: string,
     targetSessionId?: string
-  ): ToolResponse {
+  ): Promise<ToolResponse> {
     if (!targetSessionId) {
       return {
         content: [{
@@ -413,8 +445,9 @@ export class InitToolHandler {
       };
     }
 
-    const session = this.index.byId.get(targetSessionId);
-    if (!session) {
+    // Get session from storage
+    const storageSession = await this.storage.getSession(targetSessionId);
+    if (!storageSession) {
       return {
         content: [{
           type: 'text',
@@ -423,6 +456,9 @@ export class InitToolHandler {
         isError: true,
       };
     }
+
+    // Convert to SessionMetadata format
+    const session = this.sessionToMetadata(storageSession);
 
     // Update state to fully loaded
     this.stateManager.updateSessionState(sessionId, {
@@ -455,27 +491,62 @@ export class InitToolHandler {
 
   /**
    * start_new: Initialize new work with project/task/aspect
+   *
+   * If no project is provided but a root is bound, uses the bound root name as project.
+   * This ensures consistent project naming when using MCP roots for scoping.
    */
-  private handleStartNew(
+  private async handleStartNew(
     sessionId: string,
     newWork?: InitToolInput['newWork']
-  ): ToolResponse {
-    if (!newWork) {
+  ): Promise<ToolResponse> {
+    // Get bound root for fallback project name
+    const boundRoot = this.stateManager.getBoundRoot(sessionId);
+
+    // If a root is bound, it takes precedence; a provided project is ignored
+    // but noted back to the caller so the behavior is transparent.
+    const projectOverrideIgnored =
+      Boolean(boundRoot?.name) &&
+      Boolean(newWork?.project) &&
+      newWork!.project !== boundRoot!.name;
+
+    // Determine effective project: explicit > bound root > error
+    let effectiveProject: string;
+    if (boundRoot?.name) {
+      effectiveProject = boundRoot.name;
+    } else if (newWork?.project) {
+      effectiveProject = newWork.project;
+    } else if (boundRoot?.name) {
+      effectiveProject = boundRoot.name;
+    } else if (!newWork) {
       return {
         content: [{
           type: 'text',
-          text: 'start_new operation requires newWork parameter with at least project',
+          text: 'start_new operation requires newWork parameter with at least project, or bind a root first using bind_root',
+        }],
+        isError: true,
+      };
+    } else {
+      return {
+        content: [{
+          type: 'text',
+          text: 'start_new requires a project name. Either provide newWork.project or bind a root first using bind_root.',
         }],
         isError: true,
       };
     }
 
+    // Build effective newWork with resolved project
+    const effectiveNewWork = {
+      ...newWork,
+      project: effectiveProject,
+    };
+
     // Update state to fully loaded with new work context
     this.stateManager.updateSessionState(sessionId, {
       stage: ConnectionStage.STAGE_3_FULLY_LOADED,
-      project: newWork.project,
-      task: newWork.task,
-      aspect: newWork.aspect,
+      project: effectiveNewWork.project,
+      task: effectiveNewWork.task,
+      aspect: effectiveNewWork.aspect,
     });
 
     // NOTE: Stage advancement moved to server-factory.ts for error-safe pattern
@@ -483,21 +554,52 @@ export class InitToolHandler {
     // Domain-based Stage 3 advancement is also handled there
 
     // Find related sessions for context
-    const relatedSessions = this.getSessionsForTarget({
-      project: newWork.project,
-      task: newWork.task,
-      aspect: newWork.aspect,
+    const relatedSessions = await this.getSessionsForTarget({
+      project: effectiveNewWork.project,
+      task: effectiveNewWork.task,
+      aspect: effectiveNewWork.aspect,
     });
 
-    // Build response
-    const confirmText = this.buildNewWorkConfirmText(newWork, relatedSessions);
-    const suggestionsMarkdown = this.buildNewWorkSuggestionsMarkdown(newWork, relatedSessions);
+    // Compute counts at project/task/aspect granularity using storage queries
+    const projectSessions = await this.storage.listSessions({
+      tags: [`project:${effectiveNewWork.project}`],
+    });
+    const projectSessionCount = projectSessions.length;
+
+    let taskSessionCount = 0;
+    if (effectiveNewWork.task) {
+      const taskSessions = await this.storage.listSessions({
+        tags: [
+          `project:${effectiveNewWork.project}`,
+          `task:${effectiveNewWork.task}`,
+        ],
+      });
+      taskSessionCount = taskSessions.length;
+    }
+
+    const relatedCounts = {
+      projectCount: projectSessionCount,
+      taskCount: taskSessionCount,
+      aspectCount: relatedSessions.length,
+    };
+
+    // Build response with indication if project came from bound root
+    const projectSource = boundRoot ? 'bound-root' : newWork?.project ? 'explicit' : 'bound-root';
+    const confirmText = this.buildNewWorkConfirmText(
+      effectiveNewWork,
+      relatedSessions,
+      projectSource,
+      boundRoot,
+      relatedCounts,
+      projectOverrideIgnored ? `Project input "${newWork!.project}" was ignored because bound root "${boundRoot!.name}" is active.` : undefined
+    );
+    const suggestionsMarkdown = this.buildNewWorkSuggestionsMarkdown(effectiveNewWork, relatedSessions);
 
     return {
       content: [
         { type: 'text', text: confirmText },
         this.createEmbeddedResource(
-          `thoughtbox://init/new/${newWork.project}`,
+          `thoughtbox://init/new/${effectiveNewWork.project}`,
           suggestionsMarkdown,
           ['assistant'],
           0.9
@@ -775,13 +877,15 @@ export class InitToolHandler {
       }
     }
 
-    // Add available projects summary
-    lines.push('');
-    lines.push('## Available Projects');
-    lines.push('');
-    for (const project of this.index.projects.slice(0, 10)) {
-      const relTime = this.formatRelativeTime(project.lastWorked);
-      lines.push(`- **${project.name}** (${project.sessionCount} sessions, last: ${relTime})`);
+    // Add available projects summary (if index is available)
+    if (this.index && this.index.projects.length > 0) {
+      lines.push('');
+      lines.push('## Available Projects');
+      lines.push('');
+      for (const project of this.index.projects.slice(0, 10)) {
+        const relTime = this.formatRelativeTime(project.lastWorked);
+        lines.push(`- **${project.name}** (${project.sessionCount} sessions, last: ${relTime})`);
+      }
     }
 
     return lines.join('\n');
@@ -850,8 +954,8 @@ export class InitToolHandler {
     lines.push(`**Current path**: ${path || 'root'}`);
     lines.push('');
 
-    // Show hierarchy options if not fully drilled down
-    if (target.project && !target.task) {
+    // Show hierarchy options if not fully drilled down (requires index)
+    if (target.project && !target.task && this.index) {
       const project = this.index.projects.find(p => p.name === target.project);
       if (project && project.tasks.length > 0) {
         lines.push('## Available Tasks');
@@ -918,24 +1022,55 @@ export class InitToolHandler {
 
     lines.push('## Next Steps');
     lines.push('');
-    lines.push('Context is loaded. Use `thoughtbox` tool to continue reasoning.');
+    lines.push('**⚠️ STOP HERE - DO NOT CALL ANY MORE TOOLS IN THIS TURN**');
     lines.push('');
-    lines.push('Suggested approach:');
-    lines.push('1. Review the last conclusion above');
-    lines.push('2. Identify where to pick up');
-    lines.push('3. Begin with thought 1 or continue numbering');
+    lines.push('New tools (`thoughtbox_cipher`, `session`) are now available, but you must');
+    lines.push('**end this turn and wait for the user to send another message** before calling them.');
+    lines.push('If a tool seems missing, wait a few seconds and retry.');
+    lines.push('');
+    lines.push('Immediate next actions for Claude:');
+    lines.push('0) Ask the user to send any short message to start the next turn.');
+    lines.push('1) Call `thoughtbox_cipher`.');
+    lines.push('If the call fails with "not found" or "No such tool available: mcp__thoughtbox__thoughtbox_cipher", wait 5s and retry.');
+    lines.push('');
+    lines.push('Tell the user: "Session loaded. Ready to continue - please send any message to proceed."');
+    lines.push('');
+    lines.push('In your NEXT turn (after user responds), call `thoughtbox_cipher` to load the notation system.');
 
     return lines.join('\n');
   }
 
   private buildNewWorkConfirmText(
     newWork: NonNullable<InitToolInput['newWork']>,
-    relatedSessions: SessionMetadata[]
+    relatedSessions: SessionMetadata[],
+    projectSource?: 'explicit' | 'bound-root',
+    boundRoot?: BoundRoot,
+    relatedCounts?: { projectCount: number; taskCount: number; aspectCount: number },
+    overrideNotice?: string
   ): string {
     const path = [newWork.project, newWork.task, newWork.aspect]
       .filter(Boolean)
       .join('/');
-    return `Initialized new work context: ${path}\nFound ${relatedSessions.length} related prior sessions`;
+
+    let message = `Initialized new work context: ${path}`;
+
+    // Indicate if project was auto-derived from bound root
+    if (projectSource === 'bound-root' && boundRoot) {
+      message += `\nProject "${newWork.project}" derived from bound root: ${boundRoot.uri}`;
+    }
+    if (overrideNotice) {
+      message += `\n${overrideNotice}`;
+    }
+
+    if (relatedCounts) {
+      message += '\nRelated prior sessions:';
+      message += `\n- Project matches: ${relatedCounts.projectCount}`;
+      message += `\n- Task matches: ${relatedCounts.taskCount}${newWork.task ? '' : ' (task not specified)'}`;
+      message += `\n- Aspect matches: ${relatedCounts.aspectCount}${newWork.aspect ? '' : ' (aspect not specified)'}`;
+    } else {
+      message += `\nFound ${relatedSessions.length} related prior sessions`;
+    }
+    return message;
   }
 
   private buildNewWorkSuggestionsMarkdown(
@@ -953,7 +1088,20 @@ export class InitToolHandler {
 
     lines.push('## Getting Started');
     lines.push('');
-    lines.push('Use `thoughtbox` tool to begin reasoning.');
+    lines.push('**⚠️ STOP HERE - DO NOT CALL ANY MORE TOOLS IN THIS TURN**');
+    lines.push('');
+    lines.push('New tools (`thoughtbox_cipher`, `session`) are now available, but you must');
+    lines.push('**end this turn and wait for the user to send another message** before calling them.');
+    lines.push('If a tool seems missing, wait a few seconds and retry.');
+    lines.push('');
+    lines.push('Immediate next actions for Claude:');
+    lines.push('0) Ask the user to send any short message to start the next turn.');
+    lines.push('1) Call `thoughtbox_cipher`.');
+    lines.push('If the call fails with "not found" or "No such tool available: mcp__thoughtbox__thoughtbox_cipher", wait 5s and retry.');
+    lines.push('');
+    lines.push('Tell the user: "Work context initialized. Ready to begin - please send any message to proceed."');
+    lines.push('');
+    lines.push('In your NEXT turn (after user responds), call `thoughtbox_cipher` to load the notation system.');
     lines.push('');
     lines.push('Suggested session setup:');
     lines.push('```json');
@@ -987,24 +1135,32 @@ export class InitToolHandler {
   // Helper Methods - Data Access
   // ===========================================================================
 
-  private getSessionsForTarget(target: {
+  private async getSessionsForTarget(target: {
     project?: string;
     task?: string;
     aspect?: string;
-  }): SessionMetadata[] {
-    let sessions = Array.from(this.index.byId.values());
-
+  }): Promise<SessionMetadata[]> {
+    // Build tag filters
+    const tagFilters: string[] = [];
     if (target.project) {
-      sessions = sessions.filter(s => s.project === target.project);
+      tagFilters.push(`project:${target.project}`);
     }
     if (target.task) {
-      sessions = sessions.filter(s => s.task === target.task);
+      tagFilters.push(`task:${target.task}`);
     }
     if (target.aspect) {
-      sessions = sessions.filter(s => s.aspect === target.aspect);
+      tagFilters.push(`aspect:${target.aspect}`);
     }
 
-    return sessions.sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
+    // Query storage
+    const storageSessions = await this.storage.listSessions(
+      tagFilters.length > 0 ? { tags: tagFilters } : undefined
+    );
+
+    // Convert to SessionMetadata and sort
+    return storageSessions
+      .map(s => this.sessionToMetadata(s))
+      .sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
   }
 
   private formatRelativeTime(date: Date): string {

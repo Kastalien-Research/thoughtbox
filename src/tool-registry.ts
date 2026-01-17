@@ -93,6 +93,8 @@ export class ToolRegistry {
     const currentIdx = STAGE_ORDER.indexOf(this.currentStage);
     const targetIdx = STAGE_ORDER.indexOf(stage);
 
+    console.error(`[ToolRegistry] advanceToStage called: ${this.currentStage} → ${stage}`);
+
     if (targetIdx < currentIdx) {
       console.warn(
         `[ToolRegistry] Ignoring backward stage transition from ${this.currentStage} to ${stage}`
@@ -104,11 +106,16 @@ export class ToolRegistry {
     if (domain) this.activeDomain = domain;
 
     // Update all tools based on new stage
+    const enabledTools: string[] = [];
+    const disabledTools: string[] = [];
+
     for (const [name, entry] of this.tools) {
       const shouldEnable = this.shouldToolBeEnabled(entry);
+      const wasEnabled = entry.tool.enabled;
 
       if (shouldEnable) {
         entry.tool.enable();
+        if (!wasEnabled) enabledTools.push(name);
 
         // Update description for current stage (fall back through stages)
         const desc = this.getDescriptionForStage(entry, stage);
@@ -117,10 +124,15 @@ export class ToolRegistry {
         }
       } else {
         entry.tool.disable();
+        if (wasEnabled) disabledTools.push(name);
       }
     }
 
-    // SDK automatically emits notifications/tools/list_changed when tools are enabled/disabled
+    console.error(`[ToolRegistry] Stage ${stage}: enabled=[${enabledTools.join(', ')}], disabled=[${disabledTools.join(', ')}]`);
+    console.error(`[ToolRegistry] All enabled tools: [${this.getEnabledTools().join(', ')}]`);
+
+    // Note: Caller must explicitly call server.sendToolListChanged()
+    // after advanceToStage() for clients to see the change
   }
 
   /**
