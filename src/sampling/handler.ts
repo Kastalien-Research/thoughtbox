@@ -87,7 +87,7 @@ export class SamplingHandler {
             messages,
             systemPrompt: CRITIC_SYSTEM_PROMPT,
             modelPreferences: {
-              hints: [{ name: "claude-3-5-sonnet-20241022" }],
+              hints: [{ name: "claude-sonnet-4-5-20250929" }],
               intelligencePriority: 0.9,
               costPriority: 0.3,
             },

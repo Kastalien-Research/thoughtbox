@@ -18,7 +18,9 @@ You have received structural metrics for a reasoning session. To perform qualita
 
 ## Step 1: Review Session Content
 
-Use \`get_session\` to retrieve the full session with all thoughts if you haven't already.
+Use the \`session\` tool with operation \`get\` to retrieve the full session with all thoughts if you haven't already.
+
+> **Note**: If tools appear unavailable, use \`thoughtbox_gateway\` with operation \`session\` instead. The gateway is always enabled and routes to the session handler internally.
 
 ## Step 2: Identify Key Moments
 
@@ -39,7 +41,7 @@ For each key moment identified, consider:
 
 ## Step 4: Extract Learnings
 
-Use \`extract_learnings\` with your identified key moments:
+Use the \`session\` tool with operation \`extract_learnings\` and your identified key moments:
 
 \`\`\`json
 {
@@ -112,6 +114,8 @@ Extracted learnings feed into the DGM evolution system:
 - **Signals** append to \`.claude/rules/evolution/signals.jsonl\`
 
 Over time, successful patterns gain fitness and may be promoted to main rules.
+
+> **Note on paths**: The \`.claude/rules/evolution/\` paths refer to the Claude Code memory system directory structure, not Thoughtbox internal paths. These are filesystem paths where the calling Claude Code agent stores learnings for its own memory system. Thoughtbox extracts the learnings; the agent decides where to persist them.
 
 ---
 
