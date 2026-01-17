@@ -584,7 +584,11 @@ export class InitToolHandler {
     };
 
     // Build response with indication if project came from bound root
-    const projectSource = boundRoot ? 'bound-root' : newWork?.project ? 'explicit' : 'bound-root';
+    const projectSource = boundRoot?.name
+      ? 'bound-root'
+      : newWork?.project
+        ? 'explicit'
+        : 'bound-root';
     const confirmText = this.buildNewWorkConfirmText(
       effectiveNewWork,
       relatedSessions,
