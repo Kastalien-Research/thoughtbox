@@ -3,11 +3,9 @@ import { ListResourcesRequestSchema, ListResourceTemplatesRequestSchema } from "
 import { z } from "zod";
 import { PATTERNS_COOKBOOK } from "./resources/patterns-cookbook-content.js";
 import { SERVER_ARCHITECTURE_GUIDE } from "./resources/server-architecture-content.js";
-import { NotebookHandler, NOTEBOOK_TOOL } from "./notebook/index.js";
-import { getOperationNames } from "./notebook/operations.js";
+import { NotebookHandler } from "./notebook/index.js";
 import {
   MentalModelsHandler,
-  MENTAL_MODELS_TOOL,
   getMentalModelsResources,
   getMentalModelsResourceContent,
   getMentalModelsResourceTemplates,
@@ -29,20 +27,14 @@ import {
 import {
   InMemoryStorage,
   type ThoughtboxStorage,
-  type Session,
-  type ThoughtData,
 } from "./persistence/index.js";
 import {
   SessionHandler,
-  SESSION_TOOL,
-  getOperationNames as getSessionOperationNames,
 } from "./sessions/index.js";
 import {
   createInitFlow,
   type IInitHandler,
   InitToolHandler,
-  INIT_TOOL,
-  initToolInputSchema,
   StateManager,
 } from "./init/index.js";
 import { ThoughtHandler } from "./thought-handler.js";
@@ -50,13 +42,6 @@ import { SamplingHandler } from "./sampling/index.js";
 import { ToolRegistry, DisclosureStage } from "./tool-registry.js";
 import { DiscoveryRegistry } from "./discovery-registry.js";
 import {
-  INIT_DESCRIPTIONS,
-  CIPHER_DESCRIPTIONS,
-  SESSION_DESCRIPTION,
-  THOUGHTBOX_DESCRIPTIONS,
-  NOTEBOOK_DESCRIPTIONS,
-  getMentalModelsDescription,
-  EXPORT_DESCRIPTIONS,
   GATEWAY_DESCRIPTION,
 } from "./tool-descriptions.js";
 import {
@@ -225,26 +210,24 @@ export function createMcpServer(args: CreateMcpServerArgs = {}): McpServer {
   const config = configSchema.parse(args.config ?? {});
   const logger = args.logger ?? defaultLogger;
 
-  const THOUGHTBOX_INSTRUCTIONS = `START HERE: Use the \`init\` tool to set/restore scope before using other tools.
+  const THOUGHTBOX_INSTRUCTIONS = `START HERE: Use the \`thoughtbox_gateway\` tool to set/restore scope before using other operations.
 
 Terminology:
-- "Tools" are top-level capabilities (e.g., \`init\`, \`thoughtbox\`, \`notebook\`).
-- "Operations" are sub-commands inside a tool (e.g., \`init.operation = "navigate"\`).
+- "Operations" are sub-commands inside the gateway tool (e.g., \`thoughtbox_gateway.operation = "get_state"\`).
+- Operations map to handlers: init, cipher, thought, notebook, session, mental_models, deep_analysis.
 
 What "project" means (scope boundary):
 - If your client supports MCP Roots: bind a root directory as your project boundary, optionally narrow with a path prefix.
 - If your client does not support Roots: choose a stable logical project name for tagging.
 
 Recommended workflow:
-1) Call \`init\` { "operation": "get_state" }.
-2) If Roots are supported, call \`init\` { "operation": "list_roots" } then \`init\` { "operation": "bind_root", ... }.
-3) Choose one: \`init\` → "start_new" (new work) or \`init\` → "list_sessions" then "load_context" (continue).
-4) Call \`thoughtbox_cipher\` early (especially before long reasoning).
+1) Call \`thoughtbox_gateway\` { "operation": "get_state" }.
+2) If Roots are supported, call \`thoughtbox_gateway\` { "operation": "list_roots" } then { "operation": "bind_root", ... }.
+3) Choose one: \`thoughtbox_gateway\` { "operation": "start_new", ... } (new work) or { "operation": "list_sessions" } then { "operation": "load_context", ... } (continue).
+4) Call \`thoughtbox_gateway\` { "operation": "cipher" } early (especially before long reasoning).
+5) Use \`thoughtbox_gateway\` { "operation": "thought", args: {...} } for structured reasoning.
 
-IMPORTANT - Progressive Disclosure:
-After calling \`init\` (start_new or load_context), \`thoughtbox_cipher\` and \`session\` tools will become available.
-After calling \`thoughtbox_cipher\`, \`thoughtbox\` and \`notebook\` tools will become available.
-If newly unlocked tools don't appear, use \`thoughtbox_gateway\` instead - it's always available and routes to all handlers with stage enforcement.`;
+Progressive disclosure is enforced internally - you'll get clear errors if calling operations too early.`;
 
   const server = new McpServer({
     name: "thoughtbox-server",
@@ -731,56 +714,11 @@ In your NEXT turn (after user responds), you can use the \`thoughtbox\` tool to 
   );
 
   // =============================================================================
-  // Progressive Disclosure Registration
+  // Gateway-Only Tool Registration
   // =============================================================================
-  toolRegistry.register(
-    "init",
-    initTool,
-    DisclosureStage.STAGE_0_ENTRY,
-    INIT_DESCRIPTIONS
-  );
-
-  toolRegistry.register(
-    "thoughtbox_cipher",
-    cipherTool,
-    DisclosureStage.STAGE_1_INIT_COMPLETE,
-    CIPHER_DESCRIPTIONS
-  );
-
-  toolRegistry.register(
-    "session",
-    sessionTool,
-    DisclosureStage.STAGE_1_INIT_COMPLETE,
-    { [DisclosureStage.STAGE_1_INIT_COMPLETE]: SESSION_DESCRIPTION }
-  );
-
-  toolRegistry.register(
-    "thoughtbox",
-    thoughtboxTool,
-    DisclosureStage.STAGE_2_CIPHER_LOADED,
-    THOUGHTBOX_DESCRIPTIONS
-  );
-
-  toolRegistry.register(
-    "notebook",
-    notebookTool,
-    DisclosureStage.STAGE_2_CIPHER_LOADED,
-    NOTEBOOK_DESCRIPTIONS
-  );
-
-  toolRegistry.register(
-    "mental_models",
-    mentalModelsTool,
-    DisclosureStage.STAGE_3_DOMAIN_ACTIVE,
-    { [DisclosureStage.STAGE_3_DOMAIN_ACTIVE]: getMentalModelsDescription(null) }
-  );
-
-  toolRegistry.register(
-    "export_reasoning_chain",
-    exportTool,
-    DisclosureStage.STAGE_3_DOMAIN_ACTIVE,
-    EXPORT_DESCRIPTIONS
-  );
+  // All individual tools have been removed. The gateway is the sole entry point
+  // and routes to existing handlers with internal stage enforcement.
+  // =============================================================================
 
   // =============================================================================
   // Gateway Tool (Always-On Router)
@@ -809,6 +747,8 @@ In your NEXT turn (after user responds), you can use the \`thoughtbox\` tool to 
             thoughtHandler,
             notebookHandler,
             sessionHandler,
+            mentalModelsHandler,
+            storage,
             sendToolListChanged: () => server.sendToolListChanged(),
           });
         } else {
@@ -853,167 +793,6 @@ In your NEXT turn (after user responds), you can use the \`thoughtbox\` tool to 
     gatewayTool,
     DisclosureStage.STAGE_0_ENTRY,
     { [DisclosureStage.STAGE_0_ENTRY]: GATEWAY_DESCRIPTION }
-  );
-
-  // =============================================================================
-  // Operation-Based Tool Discovery (SPEC-009)
-  // =============================================================================
-  const sessionDeepAnalysisTool = server.registerTool(
-    "session_deep_analysis",
-    {
-      description:
-        "Deep analysis tool for reasoning sessions. Provides pattern extraction, cognitive load analysis, and decision point mapping. Use after running session.analyze to get detailed insights.",
-      inputSchema: z.object({
-        sessionId: z.string().describe("Session ID to analyze"),
-        analysisType: z
-          .enum(["patterns", "cognitive_load", "decision_points", "full"])
-          .describe("Type of deep analysis to perform"),
-        options: z
-          .object({
-            includeTimeline: z
-              .boolean()
-              .optional()
-              .describe("Include temporal analysis"),
-            compareWith: z
-              .array(z.string())
-              .optional()
-              .describe("Session IDs to compare against"),
-          })
-          .optional()
-          .describe("Analysis options"),
-      }),
-      annotations: {
-        readOnlyHint: true,
-        destructiveHint: false,
-        idempotentHint: true,
-      },
-    },
-    async ({ sessionId: analysisSessionId, analysisType, options }) => {
-      // Mark tool as used for auto-hide tracking
-      discoveryRegistry.markToolUsed("session_deep_analysis");
-
-      try {
-        const session = await storage.getSession(analysisSessionId);
-        if (!session) {
-          return {
-            content: [
-              {
-                type: "text" as const,
-                text: JSON.stringify(
-                  { error: `Session not found: ${analysisSessionId}` },
-                  null,
-                  2
-                ),
-              },
-            ],
-            isError: true,
-          };
-        }
-
-        // Fetch thoughts separately (not stored on Session object)
-        const thoughts: ThoughtData[] = await storage.getThoughts(analysisSessionId);
-
-        const result: Record<string, unknown> = {
-          sessionId: analysisSessionId,
-          analysisType,
-          timestamp: new Date().toISOString(),
-        };
-
-        if (analysisType === "patterns" || analysisType === "full") {
-          result.patterns = {
-            totalThoughts: thoughts.length,
-            revisionCount: thoughts.filter((t: ThoughtData) => t.isRevision).length,
-            branchCount: new Set(
-              thoughts
-                .filter((t: ThoughtData) => t.branchId)
-                .map((t: ThoughtData) => t.branchId)
-            ).size,
-            averageThoughtLength:
-              thoughts.length > 0
-                ? Math.round(
-                    thoughts.reduce(
-                      (sum: number, t: ThoughtData) => sum + t.thought.length,
-                      0
-                    ) / thoughts.length
-                  )
-                : 0,
-          };
-        }
-
-        if (analysisType === "cognitive_load" || analysisType === "full") {
-          result.cognitiveLoad = {
-            complexityScore: Math.min(
-              100,
-              thoughts.length * 5 + ((session.tags?.length || 0) as number) * 10
-            ),
-            depthIndicator: thoughts.reduce(
-              (max: number, t: ThoughtData) => Math.max(max, t.thoughtNumber),
-              0
-            ),
-            breadthIndicator: new Set(
-              thoughts.map((t: ThoughtData) => t.branchId || "main")
-            ).size,
-          };
-        }
-
-        if (analysisType === "decision_points" || analysisType === "full") {
-          result.decisionPoints = thoughts
-            .filter((t: ThoughtData) => t.isRevision || t.branchFromThought)
-            .map((t: ThoughtData) => ({
-              thoughtNumber: t.thoughtNumber,
-              type: t.isRevision ? "revision" : "branch",
-              reference: t.revisesThought || t.branchFromThought,
-            }));
-        }
-
-        if (options?.includeTimeline) {
-          result.timeline = {
-            createdAt: session.createdAt,
-            updatedAt: session.updatedAt,
-            durationEstimate: thoughts.length
-              ? `~${thoughts.length * 2} minutes`
-              : "unknown",
-          };
-        }
-
-        return {
-          content: [
-            { type: "text" as const, text: JSON.stringify(result, null, 2) },
-          ],
-        };
-      } catch (err) {
-        return {
-          content: [
-            {
-              type: "text" as const,
-              text: JSON.stringify({ error: (err as Error).message }, null, 2),
-            },
-          ],
-          isError: true,
-        };
-      }
-    }
-  );
-
-  discoveryRegistry.registerDiscoverableTool(
-    "session_deep_analysis",
-    sessionDeepAnalysisTool,
-    [
-      {
-        hubTool: "session",
-        operation: "analyze",
-        unlocksTools: ["session_deep_analysis"],
-        description: "Unlocks deep analysis capabilities for reasoning sessions",
-        requiredStage: DisclosureStage.STAGE_1_INIT_COMPLETE,
-      },
-    ],
-    {
-      discovered:
-        "Deep analysis tool for reasoning sessions. Provides pattern extraction, cognitive load analysis, and decision point mapping.",
-      hidden: "Advanced session analysis (unlock by calling session.analyze)",
-    },
-    // Auto-hide after 10 minutes of non-use
-    10 * 60 * 1000
   );
 
   // Register prompts using McpServer's registerPrompt API

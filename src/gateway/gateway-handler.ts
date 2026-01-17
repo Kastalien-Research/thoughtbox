@@ -15,6 +15,8 @@ import type { InitToolHandler, InitToolInput } from '../init/tool-handler.js';
 import type { ThoughtHandler } from '../thought-handler.js';
 import type { NotebookHandler } from '../notebook/index.js';
 import type { SessionHandler } from '../sessions/index.js';
+import type { MentalModelsHandler } from '../mental-models/index.js';
+import type { ThoughtboxStorage, ThoughtData } from '../persistence/index.js';
 import { THOUGHTBOX_CIPHER } from '../resources/thoughtbox-cipher-content.js';
 
 // =============================================================================
@@ -42,6 +44,10 @@ export const gatewayToolInputSchema = z.object({
     'notebook',
     // Session operation (Stage 1)
     'session',
+    // Mental models operation (Stage 2)
+    'mental_models',
+    // Deep analysis operation (Stage 1)
+    'deep_analysis',
   ]),
   args: z.record(z.string(), z.unknown()).optional().describe('Arguments passed to the underlying handler'),
 });
@@ -67,9 +73,11 @@ const OPERATION_REQUIRED_STAGE: Record<GatewayToolInput['operation'], Disclosure
   // Stage 1 operations
   cipher: DisclosureStage.STAGE_1_INIT_COMPLETE,
   session: DisclosureStage.STAGE_1_INIT_COMPLETE,
+  deep_analysis: DisclosureStage.STAGE_1_INIT_COMPLETE,
   // Stage 2 operations
   thought: DisclosureStage.STAGE_2_CIPHER_LOADED,
   notebook: DisclosureStage.STAGE_2_CIPHER_LOADED,
+  mental_models: DisclosureStage.STAGE_2_CIPHER_LOADED,
 };
 
 /**
@@ -87,6 +95,8 @@ const OPERATION_ADVANCES_TO: Record<GatewayToolInput['operation'], DisclosureSta
   session: null,
   thought: null,
   notebook: null,
+  mental_models: null,
+  deep_analysis: null,
 };
 
 /**
@@ -137,6 +147,9 @@ export interface GatewayHandlerConfig {
   thoughtHandler: ThoughtHandler;
   notebookHandler: NotebookHandler;
   sessionHandler: SessionHandler;
+  mentalModelsHandler: MentalModelsHandler;
+  /** Storage for deep analysis operations */
+  storage: ThoughtboxStorage;
   /** Callback to notify clients of tool list changes */
   sendToolListChanged?: () => void;
 }
@@ -150,6 +163,8 @@ export class GatewayHandler {
   private thoughtHandler: ThoughtHandler;
   private notebookHandler: NotebookHandler;
   private sessionHandler: SessionHandler;
+  private mentalModelsHandler: MentalModelsHandler;
+  private storage: ThoughtboxStorage;
   private sendToolListChanged?: () => void;
 
   constructor(config: GatewayHandlerConfig) {
@@ -158,6 +173,8 @@ export class GatewayHandler {
     this.thoughtHandler = config.thoughtHandler;
     this.notebookHandler = config.notebookHandler;
     this.sessionHandler = config.sessionHandler;
+    this.mentalModelsHandler = config.mentalModelsHandler;
+    this.storage = config.storage;
     this.sendToolListChanged = config.sendToolListChanged;
   }
 
@@ -208,6 +225,16 @@ export class GatewayHandler {
       // Session operation
       case 'session':
         result = await this.handleSession(args);
+        break;
+
+      // Mental models operation
+      case 'mental_models':
+        result = await this.handleMentalModels(args);
+        break;
+
+      // Deep analysis operation
+      case 'deep_analysis':
+        result = await this.handleDeepAnalysis(args);
         break;
 
       default:
@@ -400,6 +427,123 @@ Call \`thoughtbox_gateway\` with operation 'thought' to begin structured reasoni
 
     return this.sessionHandler.processTool(operation, operationArgs || {});
   }
+
+  private async handleMentalModels(args?: Record<string, unknown>): Promise<ToolResponse> {
+    if (!args || !args.operation) {
+      return {
+        content: [{ type: 'text', text: 'Mental models operation requires args with operation field' }],
+        isError: true,
+      };
+    }
+
+    const operation = args.operation as string;
+    const operationArgs = args.args as Record<string, unknown> | undefined;
+
+    const result = await this.mentalModelsHandler.processTool(operation, operationArgs || {});
+    // Transform content to have proper literal types
+    const content: Array<{ type: 'text'; text: string }> = result.content
+      .filter((c): c is { type: string; text: string } => c.type === 'text' && typeof c.text === 'string')
+      .map((c) => ({ type: 'text' as const, text: c.text }));
+    return { content, isError: result.isError };
+  }
+
+  private async handleDeepAnalysis(args?: Record<string, unknown>): Promise<ToolResponse> {
+    if (!args || !args.sessionId || !args.analysisType) {
+      return {
+        content: [{
+          type: 'text',
+          text: JSON.stringify({
+            error: 'Deep analysis requires sessionId and analysisType',
+            required: ['sessionId', 'analysisType'],
+            analysisTypes: ['patterns', 'cognitive_load', 'decision_points', 'full'],
+          }, null, 2),
+        }],
+        isError: true,
+      };
+    }
+
+    const sessionId = args.sessionId as string;
+    const analysisType = args.analysisType as 'patterns' | 'cognitive_load' | 'decision_points' | 'full';
+    const options = args.options as { includeTimeline?: boolean; compareWith?: string[] } | undefined;
+
+    try {
+      const session = await this.storage.getSession(sessionId);
+      if (!session) {
+        return {
+          content: [{
+            type: 'text',
+            text: JSON.stringify({ error: `Session not found: ${sessionId}` }, null, 2),
+          }],
+          isError: true,
+        };
+      }
+
+      // Fetch thoughts separately (not stored on Session object)
+      const thoughts: ThoughtData[] = await this.storage.getThoughts(sessionId);
+
+      const result: Record<string, unknown> = {
+        sessionId,
+        analysisType,
+        timestamp: new Date().toISOString(),
+      };
+
+      if (analysisType === 'patterns' || analysisType === 'full') {
+        result.patterns = {
+          totalThoughts: thoughts.length,
+          revisionCount: thoughts.filter((t: ThoughtData) => t.isRevision).length,
+          branchCount: new Set(
+            thoughts
+              .filter((t: ThoughtData) => t.branchId)
+              .map((t: ThoughtData) => t.branchId)
+          ).size,
+          averageThoughtLength:
+            thoughts.length > 0
+              ? Math.round(
+                  thoughts.reduce((sum: number, t: ThoughtData) => sum + t.thought.length, 0) / thoughts.length
+                )
+              : 0,
+        };
+      }
+
+      if (analysisType === 'cognitive_load' || analysisType === 'full') {
+        result.cognitiveLoad = {
+          complexityScore: Math.min(100, thoughts.length * 5 + ((session.tags?.length || 0) as number) * 10),
+          depthIndicator: thoughts.reduce((max: number, t: ThoughtData) => Math.max(max, t.thoughtNumber), 0),
+          breadthIndicator: new Set(thoughts.map((t: ThoughtData) => t.branchId || 'main')).size,
+        };
+      }
+
+      if (analysisType === 'decision_points' || analysisType === 'full') {
+        result.decisionPoints = thoughts
+          .filter((t: ThoughtData) => t.isRevision || t.branchFromThought)
+          .map((t: ThoughtData) => ({
+            thoughtNumber: t.thoughtNumber,
+            type: t.isRevision ? 'revision' : 'branch',
+            reference: t.revisesThought || t.branchFromThought,
+          }));
+      }
+
+      if (options?.includeTimeline) {
+        result.timeline = {
+          createdAt: session.createdAt,
+          updatedAt: session.updatedAt,
+          durationEstimate: thoughts.length ? `~${thoughts.length * 2} minutes` : 'unknown',
+        };
+      }
+
+      return {
+        content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
+      };
+    } catch (err) {
+      return {
+        content: [{
+          type: 'text',
+          text: JSON.stringify({ error: (err as Error).message }, null, 2),
+        }],
+        isError: true,
+      };
+    }
+  }
 }
 
 // =============================================================================
@@ -414,7 +558,7 @@ export const GATEWAY_TOOL = {
   description: `Always-available routing tool for Thoughtbox operations.
 
 Use this tool when other tools appear unavailable due to tool list not refreshing.
-Routes to: init, cipher, thoughtbox, notebook, session handlers.
+Routes to: init, cipher, thoughtbox, notebook, session, mental_models handlers.
 
 Operations:
 - get_state, list_sessions, navigate, load_context, start_new, list_roots, bind_root (init)
@@ -422,6 +566,8 @@ Operations:
 - thought (structured reasoning)
 - notebook (literate programming)
 - session (session management)
+- mental_models (reasoning frameworks)
+- deep_analysis (session pattern analysis)
 
 Stage enforcement is handled internally - you'll get clear errors if calling operations too early.`,
   annotations: {
