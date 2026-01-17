@@ -1,0 +1,21 @@
+{
+  "suite_id": "tool-discovery-pattern",
+  "created_at": "2026-01-14T00:00:00Z",
+  "current_phase": "design",
+  "phases": {
+    "design": { "status": "in_progress", "started_at": "2026-01-14T00:00:00Z" },
+    "validate": { "status": "pending" },
+    "orchestrate": { "status": "pending" }
+  },
+  "config": {
+    "output_folder": ".specs/",
+    "depth": "standard",
+    "max_specs": 5,
+    "strict_mode": false,
+    "deep_validation": false,
+    "budget": 100,
+    "max_iterations": 3,
+    "plan_only": false
+  },
+  "prompt": "Design a specification for 'tool discovery' pattern - tools that disclose/unlock other tools when specific operations are called. This extends SPEC-008 progressive disclosure to allow hub tools to expose specialized tools based on operation invocation, enabling many tools to be registered without overwhelming agent context windows."
+}
