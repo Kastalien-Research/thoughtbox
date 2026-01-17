@@ -1,0 +1,37 @@
+services:
+  thoughtbox:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: thoughtbox:local
+    ports:
+      - "1731:1731"
+      - "1729:1729"
+    environment:
+      NODE_ENV: production
+      PORT: 1731
+      THOUGHTBOX_DATA_DIR: /data/thoughtbox
+      THOUGHTBOX_PROJECT: _default
+      THOUGHTBOX_TRANSPORT: http
+      THOUGHTBOX_OBSERVATORY_ENABLED: "true"
+      THOUGHTBOX_OBSERVATORY_PORT: 1729
+      THOUGHTBOX_OBSERVATORY_CORS: "*"
+    volumes:
+      - thoughtbox-data:/data/thoughtbox
+    restart: unless-stopped
+
+  # OpenTelemetry Collector for Claude Code monitoring
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.96.0
+    command: ["--config=/etc/otel-collector-config.yaml"]
+    ports:
+      - "4317:4317"   # OTLP gRPC
+      - "4318:4318"   # OTLP HTTP
+    volumes:
+      - ./otel-collector/config.yaml:/etc/otel-collector-config.yaml:ro
+      - otel-logs:/tmp
+    restart: unless-stopped
+
+volumes:
+  thoughtbox-data:
+  otel-logs:

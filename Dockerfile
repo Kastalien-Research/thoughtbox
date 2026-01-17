@@ -46,9 +46,9 @@ ENV THOUGHTBOX_PROJECT=_default
 
 VOLUME ["/data/thoughtbox"]
 
-# Health check endpoint (use PORT env var, default 3000)
+# Health check endpoint (use PORT env var, default 1731)
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD node -e 'const port = process.env.PORT || "3000"; require("http").get(`http://localhost:${port}/health`, (r) => process.exit(r.statusCode === 200 ? 0 : 1))' || exit 1
+  CMD node -e 'const port = process.env.PORT || "1731"; require("http").get(`http://localhost:${port}/health`, (r) => process.exit(r.statusCode === 200 ? 0 : 1))' || exit 1
 
 # Start the HTTP server
 CMD ["node", "dist/index.js"]
