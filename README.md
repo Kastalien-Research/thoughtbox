@@ -10,12 +10,26 @@ Thoughtbox uses a staged tool disclosure system to guide agents through proper i
 
 | Stage | Tools Available | Trigger |
 |-------|-----------------|---------|
-| **Stage 0** | `init` | Connection start |
+| **Stage 0** | `init`, `thoughtbox_gateway` | Connection start |
 | **Stage 1** | + `thoughtbox_cipher`, `session` | `init(start_new)` or `init(load_context)` |
 | **Stage 2** | + `thoughtbox`, `notebook` | `thoughtbox_cipher` call |
 | **Stage 3** | + `mental_models`, `export_reasoning_chain` | Domain activation |
 
 This ensures agents establish proper session context before accessing advanced reasoning tools.
+
+### Gateway Tool (Always Available)
+
+The `thoughtbox_gateway` tool is always enabled and provides a routing mechanism for clients that don't refresh tool lists mid-turn (e.g., Claude Code over streaming HTTP). It routes to all handlers internally while enforcing stage requirements:
+
+```javascript
+// Call operations through gateway without waiting for tool list refresh
+{ operation: "get_state" }                    // → init handler
+{ operation: "start_new", args: {...} }       // → init handler, advances to Stage 1
+{ operation: "cipher" }                       // → cipher content, advances to Stage 2
+{ operation: "thought", args: {...} }         // → thoughtbox handler (requires Stage 2)
+```
+
+The gateway returns clear error messages when operations are called at the wrong stage.
 
 ![Thoughtbox Observatory](public/thoughtbox-observatory.png)
 *Observatory UI showing a reasoning session with 14 thoughts and a branch exploration (purple nodes 13-14) forking from thought 5.*
@@ -256,6 +270,19 @@ npm run dev
 npm start
 ```
 
+### Docker Compose
+
+A `docker-compose.yml` is included to run the HTTP MCP server and the Observatory UI together.
+
+```bash
+docker compose up --build
+```
+
+- HTTP MCP + health: http://localhost:1731/health
+- Observatory UI/WebSocket: http://localhost:1729/
+- OpenTelemetry Collector: ports 4317 (gRPC) and 4318 (HTTP) for Claude Code telemetry
+- Persistent data: stored in named volume `thoughtbox-data` at `/data/thoughtbox` (override with env vars like `THOUGHTBOX_PROJECT` or `THOUGHTBOX_DATA_DIR`).
+
 ## Architecture
 
 ```text
@@ -263,9 +290,13 @@ src/
 ├── index.ts              # Entry point (stdio/HTTP transport selection)
 ├── server-factory.ts     # MCP server factory with tool registration
 ├── tool-registry.ts      # Progressive disclosure (stage-based tool enabling)
+├── tool-descriptions.ts  # Stage-specific tool descriptions
 ├── thought-handler.ts    # Thoughtbox tool logic with critique support
+├── gateway/              # Always-on routing tool
+│   ├── gateway-handler.ts  # Routes to handlers with stage enforcement
+│   └── index.ts          # Module exports
 ├── init/                 # Init workflow and state management
-│   ├── init-handler.ts   # Init tool operations
+│   ├── tool-handler.ts   # Init tool operations
 │   └── state-manager.ts  # Session state persistence
 ├── sessions/             # Session tool handler
 ├── sampling/             # Autonomous critique via MCP sampling

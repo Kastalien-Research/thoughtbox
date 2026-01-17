@@ -151,12 +151,22 @@ const TOOL_TESTS: Record<string, string> = {
 
 ```
 src/
-├── index.ts              # MCP server entry, tool registration
-├── persistence/          # Session and thought storage
+├── index.ts              # Entry point (stdio/HTTP transport selection)
+├── server-factory.ts     # MCP server factory with tool registration
+├── tool-registry.ts      # Progressive disclosure (stage-based tool enabling)
+├── tool-descriptions.ts  # Stage-specific tool descriptions
+├── thought-handler.ts    # Thoughtbox tool logic with critique support
+├── gateway/              # Always-on routing tool for streaming HTTP clients
+│   ├── gateway-handler.ts  # Routes to handlers with stage enforcement
+│   └── index.ts          # Module exports
+├── init/                 # Init workflow and state management
+│   ├── tool-handler.ts   # Init tool operations
+│   └── state-manager.ts  # Session state persistence
+├── sessions/             # Session tool handler
+├── persistence/          # Storage layer
 ├── observatory/          # Real-time visualization UI
 ├── mental-models/        # 15 reasoning frameworks
 ├── notebook/             # Literate programming engine
-├── thick-read.ts         # Git-context file reader
 └── resources/            # Documentation and patterns
 ```
 
@@ -164,6 +174,8 @@ Key principles:
 - **Tools are stateless handlers** that receive input and return results
 - **State lives in persistence layer** with session isolation
 - **Observatory is event-driven** via WebSocket for real-time updates
+- **Progressive disclosure** stages tools based on workflow progress
+- **Gateway pattern** provides always-on routing for clients that don't refresh tool lists
 
 ## Code Style
 
