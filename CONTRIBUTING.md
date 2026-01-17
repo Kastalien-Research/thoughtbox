@@ -2,6 +2,18 @@
 
 Thank you for your interest in contributing to Thoughtbox! This guide covers our development workflow, commit conventions, and testing approach.
 
+## Client Compatibility Note
+
+Thoughtbox is currently optimized for use with **Claude Code**. The MCP ecosystem includes many clients with varying levels of support for protocol capabilities — server features (prompts, resources, tools), client features (roots, sampling, elicitation), and behaviors like `listChanged` notifications. We're actively working on broader client compatibility, but this requires custom adaptations for different clients.
+
+**Areas where we especially welcome contributions:**
+- Client-specific adapters or compatibility layers
+- Documentation of client behavior differences
+- Bug reports from non-Claude Code clients (please include client name and version)
+- Testing across different MCP clients
+
+If you're interested in helping with client compatibility, see the `gateway/` directory for an example of how we handle clients that don't respond to `notifications/tools/list_changed` mid-turn.
+
 ## Development Setup
 
 ```bash

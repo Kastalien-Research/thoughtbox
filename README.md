@@ -4,6 +4,12 @@
 
 Unlike ephemeral chain-of-thought prompting, Thoughtbox creates a **durable reasoning chain** — a ledger of thoughts that can be visualized, exported, and analyzed. Each thought is a node in a graph structure supporting forward thinking, backward planning, branching explorations, mid-course revisions, and **autonomous critique via MCP sampling**.
 
+## Client Compatibility
+
+> **Note:** Thoughtbox is currently optimized for use with **Claude Code**. We are actively working on supporting additional MCP clients, but due to the wide variation in capability support across the Model Context Protocol ecosystem — server features (prompts, resources, tools), client features (roots, sampling, elicitation), and behaviors like `listChanged` notifications — we're having to implement custom adaptations for many clients. See the [gateway tool](#gateway-tool-always-available) for one such adaptation.
+
+If you're using a client other than Claude Code and encounter issues, please [open an issue](https://github.com/Kastalien-Research/thoughtbox/issues) describing your client and the problem — this helps us prioritize compatibility work.
+
 ## Progressive Disclosure
 
 Thoughtbox uses a staged tool disclosure system to guide agents through proper initialization:
