@@ -241,10 +241,10 @@ Recommended workflow:
 3) Choose one: \`init\` → "start_new" (new work) or \`init\` → "list_sessions" then "load_context" (continue).
 4) Call \`thoughtbox_cipher\` early (especially before long reasoning).
 
-IMPORTANT - Progressive Disclosure Timing:
-After calling \`init\` (start_new or load_context), wait 2-3 seconds before calling \`thoughtbox_cipher\`.
-After calling \`thoughtbox_cipher\`, wait 2-3 seconds before calling \`thoughtbox\` or \`notebook\`.
-If tools appear "missing", refresh tool discovery or reconnect. If a \`tools/call\` fails with 'not found', retry after a short delay.`;
+IMPORTANT - Progressive Disclosure:
+After calling \`init\` (start_new or load_context), \`thoughtbox_cipher\` and \`session\` tools will become available.
+After calling \`thoughtbox_cipher\`, \`thoughtbox\` and \`notebook\` tools will become available.
+If newly unlocked tools don't appear, use \`thoughtbox_gateway\` instead - it's always available and routes to all handlers with stage enforcement.`;
 
   const server = new McpServer({
     name: "thoughtbox-server",
@@ -569,17 +569,10 @@ If tools appear "missing", refresh tool discovery or reconnect. If a \`tools/cal
         const op = toolArgs.operation;
         if (op === 'load_context' || op === 'start_new') {
           toolRegistry.advanceToStage(DisclosureStage.STAGE_1_INIT_COMPLETE);
-
-          // Explicitly notify client of tool list change (fan-out a few times for streamable HTTP)
-          for (let i = 0; i < 3; i++) {
-            server.sendToolListChanged();
-            if (i < 2) {
-              await new Promise(resolve => setTimeout(resolve, 3000));
-            }
-          }
-
-          // Longer delay to outlast Claude's slowest observed polling window
-          await new Promise(resolve => setTimeout(resolve, 20000));
+          
+          // Notify client of tool list change
+          // Clients that don't refresh tool lists should use the gateway tool instead
+          server.sendToolListChanged();
         }
       }
 
@@ -621,17 +614,10 @@ If tools appear "missing", refresh tool discovery or reconnect. If a \`tools/cal
     async () => {
       // Advance to Stage 2 when cipher is called
       toolRegistry.advanceToStage(DisclosureStage.STAGE_2_CIPHER_LOADED);
-
-      // Explicitly notify client of tool list change (fan-out a few times for streamable HTTP)
-      for (let i = 0; i < 3; i++) {
-        server.sendToolListChanged();
-        if (i < 2) {
-          await new Promise(resolve => setTimeout(resolve, 3000));
-        }
-      }
-
-      // Longer delay to outlast Claude's slowest observed polling window
-      await new Promise(resolve => setTimeout(resolve, 20000));
+      
+      // Notify client of tool list change
+      // Clients that don't refresh tool lists should use the gateway tool instead
+      server.sendToolListChanged();
 
       const turnBoundaryInstruction = `
 
@@ -641,12 +627,14 @@ If tools appear "missing", refresh tool discovery or reconnect. If a \`tools/cal
 
 New tools (\`thoughtbox\`, \`notebook\`, \`mental_models\`) are now available, but you must
 **end this turn and wait for the user to send another message** before calling them.
-If a tool seems missing, wait a few seconds and retry.
+
+If newly unlocked tools don't appear in your next turn, use \`thoughtbox_gateway\` instead:
+- \`thoughtbox_gateway({ operation: 'thought', args: {...} })\` routes to the thoughtbox handler
+- The gateway is always available and bypasses tool list refresh issues
 
 Immediate next actions for Claude:
 0) Ask the user to send any short message to start the next turn.
-1) Call \`thoughtbox\` (or \`notebook\` as needed).
-If the call fails with "not found" or "No such tool available: mcp__thoughtbox__thoughtbox_cipher", wait 5s and retry.
+1) In the next turn, call \`thoughtbox\` (or use gateway if unavailable).
 
 Tell the user: "Cipher loaded. Ready to begin reasoning - please send any message to proceed."
 

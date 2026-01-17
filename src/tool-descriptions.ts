@@ -73,7 +73,7 @@ IMPORTANT: Call this tool BEFORE using thoughtbox. The notation system significa
 
 After calling this tool, the main thoughtbox reasoning tool will become available.
 
-NOTE: Wait 2-3 seconds after calling this tool before using the newly unlocked tools. Progressive disclosure requires time to propagate.`,
+NOTE: If newly unlocked tools don't appear, use the 'thoughtbox_gateway' tool instead - it's always available and routes to the same handlers.`,
 
   [DisclosureStage.STAGE_2_CIPHER_LOADED]: `Returns Thoughtbox's notation system for token-efficient reasoning.
 
