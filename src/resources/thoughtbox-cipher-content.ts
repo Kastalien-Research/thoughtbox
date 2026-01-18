@@ -1,14 +1,49 @@
 /**
- * Thoughtbox Compression Cipher
+ * Thoughtbox Cipher Protocol
  *
- * A notation system for token-efficient reasoning. Agents can retrieve this
- * cipher via the `thoughtbox_cipher` tool and use it to reduce context window
- * consumption during extended reasoning chains.
+ * A formal protocol layer for structured reasoning. The cipher enables
+ * deterministic server-side parsing of thought structure—the server extracts
+ * IDs, types, references, and relationships without inference.
+ *
+ * The cipher is to Thoughtbox what HTTP verbs are to REST: a contract that
+ * enables protocol-compliant processing without intelligence on the server side.
  */
 
 export const THOUGHTBOX_CIPHER = `# Thoughtbox Compression Cipher
 
-A notation system for token-efficient reasoning. Agents can retrieve this cipher via the \`thoughtbox_cipher\` tool and use it to reduce context window consumption during extended reasoning chains.
+A formal protocol for structured reasoning. The cipher is not merely a compression format—it is a **protocol layer** that enables deterministic server-side processing of thought structure.
+
+---
+
+## The Cipher as Protocol
+
+The cipher sits in the same conceptual space as MCP itself:
+
+\`\`\`
+┌─────────────────────────────────┐
+│  Natural language intent        │  ← Intelligence (client/agent)
+├─────────────────────────────────┤
+│  Thoughtbox Cipher              │  ← Protocol (formal contract)
+├─────────────────────────────────┤
+│  MCP (tool calls, responses)    │  ← Protocol
+├─────────────────────────────────┤
+│  HTTP/Transport                 │  ← Protocol
+└─────────────────────────────────┘
+\`\`\`
+
+**Why this matters:**
+- Intelligence transforms intent into cipher (agent's job)
+- Everything below is protocol processing (deterministic)
+- Server can parse cipher without inference—just contract fulfillment
+- Using cipher = speaking the native protocol of Thoughtbox
+
+When you write \`S47|H|S45|API latency ↑ bc db regression\`, you are encoding structure explicitly. The server extracts thought number, type, references, and relationships through parsing, not interpretation.
+
+**The cipher enables:**
+- Auto-inference of thought structure (no manual tracking of thoughtNumber, totalThoughts)
+- Automatic link building from \`[SN]\` references
+- Revision detection from \`^[SN]\` markers
+- Relationship graphs from typed references
 
 ---
 
@@ -107,35 +142,84 @@ Append to any statement to indicate certainty level.
 
 High-frequency reasoning words compressed to short forms.
 
+### Logical Connectives
 | Abbrev | Expansion |
 |--------|-----------|
 | \`bc\` | because |
 | \`tf\` | therefore |
 | \`hw\` | however |
 | \`impl\` | implies/implication |
+| \`b/c\` | because |
+
+### Reasoning Terms
+| Abbrev | Expansion |
+|--------|-----------|
+| \`hyp\` | hypothesis |
+| \`ev\` | evidence |
+| \`assm\` | assume/assumption |
+| \`obs\` | observe/observation |
+| \`conf\` | confirm/confirmed |
+| \`contra\` | contradicts/contradiction |
+| \`rsn\` | reasoning/reason |
+| \`synth\` | synthesis/synthesize |
+| \`ptn\` | pattern |
+
+### State & Validation
+| Abbrev | Expansion |
+|--------|-----------|
 | \`req\` | requires/requirement |
 | \`dep\` | depends/dependency |
 | \`val\` | valid/validate |
 | \`inv\` | invalid/invalidate |
-| \`conf\` | confirm/confirmed |
-| \`contra\` | contradicts/contradiction |
-| \`assm\` | assume/assumption |
-| \`obs\` | observe/observation |
-| \`hyp\` | hypothesis |
-| \`ev\` | evidence |
 | \`prob\` | probability/problem |
 | \`sol\` | solution |
-| \`alt\` | alternative |
-| \`ctx\` | context |
+
+### Temporal & Position
+| Abbrev | Expansion |
+|--------|-----------|
 | \`prev\` | previous |
 | \`curr\` | current |
 | \`init\` | initial |
 | \`fin\` | final |
 | \`pt\` | point |
+| \`ctx\` | context |
+
+### Agent & System Terms
+| Abbrev | Expansion |
+|--------|-----------|
+| \`agt\` | agent |
+| \`cog\` | cognitive/cognition |
+| \`emb\` | embodiment/embodied |
+| \`cap\` | capability |
+| \`cfg\` | configuration |
+| \`sess\` | session |
+| \`mech\` | mechanism |
+| \`behav\` | behavior |
+| \`exp\` | experience |
+| \`struct\` | structure |
+| \`integ\` | integration |
+| \`trans\` | transition |
+
+### Comparisons & Modality
+| Abbrev | Expansion |
+|--------|-----------|
+| \`alt\` | alternative |
+| \`eg\` | example (e.g.) |
+| \`sim\` | similar |
+| \`diff\` | different |
+| \`spec\` | specific |
+| \`gen\` | general |
+| \`btwn\` | between |
+| \`w/in\` | within |
+| \`poss\` | possible |
+| \`nec\` | necessary |
+
+### Qualifiers
+| Abbrev | Expansion |
+|--------|-----------|
 | \`re:\` | regarding |
 | \`w/\` | with |
 | \`w/o\` | without |
-| \`b/c\` | because |
 | \`esp\` | especially |
 | \`approx\` | approximately |
 | \`sig\` | significant |
