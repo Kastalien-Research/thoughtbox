@@ -3,12 +3,13 @@ import { ListResourcesRequestSchema, ListResourceTemplatesRequestSchema } from "
 import { z } from "zod";
 import { PATTERNS_COOKBOOK } from "./resources/patterns-cookbook-content.js";
 import { SERVER_ARCHITECTURE_GUIDE } from "./resources/server-architecture-content.js";
-import { NotebookHandler } from "./notebook/index.js";
+import { NotebookHandler, NOTEBOOK_TOOL, getOperationNames } from "./notebook/index.js";
 import {
   MentalModelsHandler,
   getMentalModelsResources,
   getMentalModelsResourceContent,
   getMentalModelsResourceTemplates,
+  MENTAL_MODELS_TOOL,
 } from "./mental-models/index.js";
 import {
   LIST_MCP_ASSETS_PROMPT,
@@ -30,12 +31,16 @@ import {
 } from "./persistence/index.js";
 import {
   SessionHandler,
+  SESSION_TOOL,
+  getOperationNames as getSessionOperationNames,
 } from "./sessions/index.js";
 import {
   createInitFlow,
   type IInitHandler,
   InitToolHandler,
   StateManager,
+  INIT_TOOL,
+  initToolInputSchema,
 } from "./init/index.js";
 import { ThoughtHandler } from "./thought-handler.js";
 import { SamplingHandler } from "./sampling/index.js";
@@ -43,6 +48,12 @@ import { ToolRegistry, DisclosureStage } from "./tool-registry.js";
 import { DiscoveryRegistry } from "./discovery-registry.js";
 import {
   GATEWAY_DESCRIPTION,
+  THOUGHTBOX_DESCRIPTIONS,
+  NOTEBOOK_DESCRIPTIONS,
+  CIPHER_DESCRIPTIONS,
+  INIT_DESCRIPTIONS,
+  SESSION_DESCRIPTION,
+  getMentalModelsDescription,
 } from "./tool-descriptions.js";
 import {
   GatewayHandler,

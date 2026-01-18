@@ -8,6 +8,10 @@ import {
   getOperationNames,
   getOperationsCatalog,
 } from "./operations.js";
+
+// Re-export for use by server-factory
+export { getOperationNames };
+
 import { AVAILABLE_TEMPLATES } from "./templates.generated.js";
 
 /**
