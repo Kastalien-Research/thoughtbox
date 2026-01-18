@@ -67,15 +67,19 @@ Domain selection enables mental_models with structured reasoning frameworks filt
  * Cipher tool descriptions by stage
  */
 export const CIPHER_DESCRIPTIONS: Partial<Record<DisclosureStage, string>> = {
-  [DisclosureStage.STAGE_1_INIT_COMPLETE]: `Returns Thoughtbox's notation system for token-efficient reasoning.
+  [DisclosureStage.STAGE_1_INIT_COMPLETE]: `Returns Thoughtbox's formal protocol for structured reasoning.
 
-IMPORTANT: Call this tool BEFORE using thoughtbox. The notation system significantly reduces token usage during multi-step reasoning.
+The cipher is not just compression—it is a **protocol layer** that enables deterministic server-side processing. When you use the cipher correctly, the server can parse thought structure (IDs, types, references, revisions) without inference.
+
+IMPORTANT: Call this tool BEFORE using thoughtbox. The cipher is the native language of Thoughtbox.
 
 After calling this tool, the main thoughtbox reasoning tool will become available.
 
 NOTE: If newly unlocked tools don't appear, use the 'thoughtbox_gateway' tool instead - it's always available and routes to the same handlers.`,
 
-  [DisclosureStage.STAGE_2_CIPHER_LOADED]: `Returns Thoughtbox's notation system for token-efficient reasoning.
+  [DisclosureStage.STAGE_2_CIPHER_LOADED]: `Returns Thoughtbox's formal protocol for structured reasoning.
+
+The cipher is a protocol layer—like MCP itself. Using it enables automatic structure inference: thought numbers, references, revisions, and relationships are parsed deterministically from your cipher-encoded content.
 
 Reference material - you have already loaded this. Use for refreshing notation conventions during long sessions.`,
 };
