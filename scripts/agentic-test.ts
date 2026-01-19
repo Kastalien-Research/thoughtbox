@@ -9,7 +9,6 @@
  *
  * Usage:
  *   npx tsx scripts/agentic-test.ts [test-file.md]
- *   npx tsx scripts/agentic-test.ts --tool thick_read
  *   npx tsx scripts/agentic-test.ts --all
  *
  * The agent reasons about whether tool behavior matches expectations, providing
@@ -28,45 +27,6 @@ const PROJECT_ROOT = resolve(__dirname, "..");
 // ============================================================================
 // Behavioral Test Specifications
 // ============================================================================
-
-const THICK_READ_TESTS = `
-# Behavioral Tests: thick_read Tool
-
-## Test 1: Basic File Reading with Git Context
-**Action**: Call thick_read on src/index.ts with depth "standard"
-**Expected**:
-- Returns file content (non-empty string)
-- isGitRepo should be true (this is a git repository)
-- recentCommits array should have at least 1 commit
-- blame.summary should include author statistics
-**Verify**: Content contains "import" statements (it's a TypeScript file)
-
-## Test 2: Shallow Depth (Performance Mode)
-**Action**: Call thick_read on package.json with depth "shallow"
-**Expected**:
-- Returns file content with package name "@kastalien-research/thoughtbox"
-- recentCommits should have at most 3 entries (shallow limit)
-- blame should be undefined or minimal (skipped for performance)
-
-## Test 3: Non-Existent File Handling
-**Action**: Call thick_read on "this-file-does-not-exist.xyz"
-**Expected**:
-- Should return an error response
-- Error message should be clear and actionable
-- Should NOT crash or return undefined
-
-## Test 4: Line Range Filtering
-**Action**: Call thick_read on package.json with lineRange { start: 1, end: 10 }
-**Expected**:
-- Content should be limited to approximately 10 lines
-- Should include the opening brace and name field
-
-## Test 5: Deep Mode with Full Blame
-**Action**: Call thick_read on README.md with depth "deep"
-**Expected**:
-- blame.lines array should be present (per-line attribution)
-- Each blame line should have author, date, and commit info
-`;
 
 const THOUGHTBOX_TESTS = `
 # Behavioral Tests: thoughtbox Tool (Structured Reasoning)
@@ -116,7 +76,6 @@ const MENTAL_MODELS_TESTS = `
 `;
 
 const TEST_SUITES: Record<string, string> = {
-  "thick_read": THICK_READ_TESTS,
   "thoughtbox": THOUGHTBOX_TESTS,
   "mental_models": MENTAL_MODELS_TESTS,
 };
