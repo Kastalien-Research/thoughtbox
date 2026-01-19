@@ -1,0 +1,17 @@
+{
+  "id": "3a8f67aa-b3f3-4b90-b07f-f0cc4fed6665:educational/archaeology:34",
+  "data": {
+    "thought": "S34|H|S32|Educational Phenotype F2: 'Code Archaeology'. Notebook presents real open-source codebase. Guides learner through: (1) Understanding architecture (2) Finding bugs (3) Proposing improvements. Thoughtbox models expert developer reasoning. Container runs code, shows behavior. Observable: codebase map, learner exploration path, AI annotations. Use case: learning from production code, OSS onboarding, reverse engineering skills.",
+    "thoughtNumber": 34,
+    "totalThoughts": 200,
+    "nextThoughtNeeded": true,
+    "branchFromThought": 32,
+    "branchId": "educational/archaeology",
+    "timestamp": "2026-01-17T18:53:11.329Z"
+  },
+  "prev": "3a8f67aa-b3f3-4b90-b07f-f0cc4fed6665:32",
+  "next": [],
+  "revisesNode": null,
+  "branchOrigin": "3a8f67aa-b3f3-4b90-b07f-f0cc4fed6665:32",
+  "branchId": "educational/archaeology"
+}

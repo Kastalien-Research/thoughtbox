@@ -1,0 +1,16 @@
+{
+  "id": "3a8f67aa-b3f3-4b90-b07f-f0cc4fed6665:architecture/hmr:59",
+  "data": {
+    "thought": "S59: Architectural Pattern: 'Hot Module Replacement for Notebooks'. Edit cell → only affected subgraph re-executes. Preserves state in unaffected cells. Like HMR in web dev but for computation. Enables rapid iteration without full re-execution. Observatory streams granular update events. Combined with reactive dataflow: minimal recomputation on change.",
+    "thoughtNumber": 59,
+    "totalThoughts": 200,
+    "nextThoughtNeeded": true,
+    "branchId": "architecture/hmr",
+    "timestamp": "2026-01-17T18:57:35.893Z"
+  },
+  "prev": null,
+  "next": [],
+  "revisesNode": null,
+  "branchOrigin": null,
+  "branchId": "architecture/hmr"
+}

@@ -1,0 +1,15 @@
+{
+  "id": "261b754f-1dc1-4e54-95fe-c4d949b67f7d:71",
+  "data": {
+    "thought": "S71|I|S70|PROPRIOCEPTIVE FEEDBACK for Thoughtbox: What should I 'feel' about my reasoning state?\n\nCurrently I know: thought count (bc I track manually), session exists (bc I created it).\n\nWhat I DON'T feel but should:\n\n1) COHERENCE LEVEL - Are thoughts well-connected or fragmented? Graph density metric.\n\n2) COVERAGE - Have I explored problem space or circled same ideas? Semantic diversity measure.\n\n3) DEPTH vs BREADTH - Going deep on few topics or shallow on many? Balance indicator.\n\n4) REVISION DEBT - How many earlier thoughts might need updating? Staleness signal.\n\n5) CONFIDENCE GRADIENT - Where am I most/least certain? Uncertainty map.\n\n6) CONTRADICTION TENSION - Are there unresolved conflicts between thoughts? Inconsistency detector.\n\nThese would be FELT QUALITIES of my reasoning state. Like feeling tired vs alert, but for cognition.\n\nImpl: Analytics on thought graph, surfaced as compact status in responses.",
+    "thoughtNumber": 71,
+    "totalThoughts": 200,
+    "nextThoughtNeeded": true,
+    "timestamp": "2026-01-18T04:54:10.249Z"
+  },
+  "prev": null,
+  "next": [],
+  "revisesNode": null,
+  "branchOrigin": null,
+  "branchId": null
+}

@@ -1,0 +1,17 @@
+{
+  "id": "3a8f67aa-b3f3-4b90-b07f-f0cc4fed6665:reactive-container/ab-testing:14",
+  "data": {
+    "thought": "S14|H|S10|Reactive+Container Phenotype B4: 'A/B Experiment Runner'. On new feature flag event: spawns 2 containers (control + treatment). Each runs app variant, collects metrics. Thoughtbox analyzes statistical significance in real-time. Observable: side-by-side metrics, confidence intervals, reasoning about tradeoffs. Terminates experiment when significance reached. Use case: rapid product experimentation w/ AI-assisted interpretation.",
+    "thoughtNumber": 14,
+    "totalThoughts": 200,
+    "nextThoughtNeeded": true,
+    "branchFromThought": 10,
+    "branchId": "reactive-container/ab-testing",
+    "timestamp": "2026-01-17T18:50:32.882Z"
+  },
+  "prev": "3a8f67aa-b3f3-4b90-b07f-f0cc4fed6665:10",
+  "next": [],
+  "revisesNode": null,
+  "branchOrigin": "3a8f67aa-b3f3-4b90-b07f-f0cc4fed6665:10",
+  "branchId": "reactive-container/ab-testing"
+}

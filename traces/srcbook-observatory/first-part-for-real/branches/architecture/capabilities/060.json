@@ -1,0 +1,16 @@
+{
+  "id": "3a8f67aa-b3f3-4b90-b07f-f0cc4fed6665:architecture/capabilities:60",
+  "data": {
+    "thought": "S60: Architectural Pattern: 'Capability-Based Security'. Each cell runs with declared capabilities: network, filesystem, env vars, specific APIs. Principle of least privilege. User reviews capability manifest before execution. Container-use enforces isolation. Observatory shows which capabilities are active. Pattern: secure by default, explicit escalation.",
+    "thoughtNumber": 60,
+    "totalThoughts": 200,
+    "nextThoughtNeeded": true,
+    "branchId": "architecture/capabilities",
+    "timestamp": "2026-01-17T18:57:41.494Z"
+  },
+  "prev": null,
+  "next": [],
+  "revisesNode": null,
+  "branchOrigin": null,
+  "branchId": "architecture/capabilities"
+}

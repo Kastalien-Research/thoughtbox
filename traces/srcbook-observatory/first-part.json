@@ -1,0 +1,15 @@
+{
+  "id": "c6872905-ef84-4f4f-b53c-3d7a44449a4f:1",
+  "data": {
+    "thought": "Gateway test: verifying all operations work in sequence without turn boundaries",
+    "thoughtNumber": 1,
+    "totalThoughts": 1,
+    "nextThoughtNeeded": false,
+    "timestamp": "2026-01-17T12:50:22.413Z"
+  },
+  "prev": null,
+  "next": [],
+  "revisesNode": null,
+  "branchOrigin": null,
+  "branchId": null
+}

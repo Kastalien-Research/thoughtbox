@@ -1,0 +1,45 @@
+{
+  "suite_id": "distbook-phase-zero-mcp-execution",
+  "created": "2026-01-19T00:00:00Z",
+  "input": "plans/feat-distbook-phase-zero-mcp-execution.md",
+  "output_folder": ".specs/distbook-phase-zero/",
+  "flags": {
+    "depth": "standard",
+    "max_specs": 5,
+    "strict_mode": false,
+    "deep_validation": false,
+    "budget": 100,
+    "max_iterations": 3,
+    "plan_only": false,
+    "skip_design": false,
+    "skip_validation": false
+  },
+  "phases": {
+    "design": {
+      "status": "completed",
+      "started": "2026-01-19T00:00:00Z",
+      "completed": "2026-01-19T00:00:00Z"
+    },
+    "validate": {
+      "status": "completed",
+      "started": "2026-01-19T00:00:00Z",
+      "completed": "2026-01-19T00:00:00Z"
+    },
+    "orchestrate": {
+      "status": "pending_approval",
+      "started": null,
+      "completed": null
+    }
+  },
+  "artifacts": {
+    "specs_generated": [
+      "SPEC-DB-001-typescript-compilation-fix.md",
+      "SPEC-DB-002-session-accessor.md",
+      "SPEC-DB-003-buffered-execution.md",
+      "SPEC-DB-004-cell-execute-wiring.md",
+      "SPEC-DB-005-mcp-client-transport.md"
+    ],
+    "validation_report": ".specification-suite/validation/validation-report.md",
+    "orchestration_manifest": null
+  }
+}

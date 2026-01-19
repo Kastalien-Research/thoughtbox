@@ -1,0 +1,17 @@
+{
+  "id": "3a8f67aa-b3f3-4b90-b07f-f0cc4fed6665:hybrid/live-coding:42",
+  "data": {
+    "thought": "S42|H|S40|Hybrid Phenotype H2: 'Live Coding Performance Platform'. Combines: Creative (G1-G3) + Observatory (E3 collab) + Reactive (B3 playground). Multiple performers, each w/ notebook. Code → audio/visual in real-time. Observatory: unified stage view. Audience sees: code being written + output generated. Performers react to each other. Container: isolated audio/visual rendering per performer. Emergent: collaborative improvisation w/ code as instrument. Use case: algoraves, creative coding events, art installations.",
+    "thoughtNumber": 42,
+    "totalThoughts": 200,
+    "nextThoughtNeeded": true,
+    "branchFromThought": 40,
+    "branchId": "hybrid/live-coding",
+    "timestamp": "2026-01-17T18:54:15.409Z"
+  },
+  "prev": "3a8f67aa-b3f3-4b90-b07f-f0cc4fed6665:40",
+  "next": [],
+  "revisesNode": null,
+  "branchOrigin": "3a8f67aa-b3f3-4b90-b07f-f0cc4fed6665:40",
+  "branchId": "hybrid/live-coding"
+}

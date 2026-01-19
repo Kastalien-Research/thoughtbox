@@ -185,12 +185,8 @@ Begin testing now.`;
         systemPrompt,
         mcpServers: {
           thoughtbox: {
-            command: "node",
-            args: [join(PROJECT_ROOT, "dist/index.js")],
-            env: {
-              ...process.env,
-              NODE_ENV: "test",
-            },
+            type: "http",
+            url: "http://localhost:1731/mcp",
           },
         },
         permissionMode: "bypassPermissions",

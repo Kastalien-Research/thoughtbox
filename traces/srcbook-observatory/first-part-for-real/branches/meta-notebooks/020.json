@@ -1,0 +1,17 @@
+{
+  "id": "3a8f67aa-b3f3-4b90-b07f-f0cc4fed6665:meta-notebooks:20",
+  "data": {
+    "thought": "S20|P|S4|BRANCH D: Meta-notebooks. Highest novelty region. Core pattern: notebooks operating on notebooks. Self-reference, generation, optimization. Draws on: (1) Srcbook's .src.md format (serializable) (2) Thoughtbox's reasoning (meta-cognition) (3) Observatory's visualization (introspection). Key insight: if notebooks are code + reasoning, then meta-notebooks can reason about reasoning. Opens: self-improvement, notebook synthesis, reasoning optimization.",
+    "thoughtNumber": 20,
+    "totalThoughts": 200,
+    "nextThoughtNeeded": true,
+    "branchFromThought": 4,
+    "branchId": "meta-notebooks",
+    "timestamp": "2026-01-17T18:51:21.859Z"
+  },
+  "prev": "3a8f67aa-b3f3-4b90-b07f-f0cc4fed6665:4",
+  "next": [],
+  "revisesNode": null,
+  "branchOrigin": "3a8f67aa-b3f3-4b90-b07f-f0cc4fed6665:4",
+  "branchId": "meta-notebooks"
+}
