@@ -18,6 +18,7 @@ export interface ServiceHealth {
   active_connections?: number;
   targets_up?: number;
   targets_total?: number;
+  database?: string;
   error?: string;
 }
 
@@ -30,9 +31,10 @@ export interface HealthResult {
 export async function checkHealth(
   args: HealthArgs,
   prometheusClient: PrometheusClient,
-  thoughtboxUrl: string
+  thoughtboxUrl: string,
+  grafanaUrl: string
 ): Promise<HealthResult> {
-  const requestedServices = args.services ?? ['thoughtbox', 'sidecar', 'prometheus'];
+  const requestedServices = args.services ?? ['thoughtbox', 'sidecar', 'prometheus', 'grafana'];
   const services: Record<string, ServiceHealth> = {};
 
   const checks = await Promise.allSettled(
@@ -44,6 +46,8 @@ export async function checkHealth(
           return { name: service, health: await checkSidecar(prometheusClient) };
         case 'prometheus':
           return { name: service, health: await checkPrometheus(prometheusClient) };
+        case 'grafana':
+          return { name: service, health: await checkGrafana(grafanaUrl) };
         default:
           return { name: service, health: { status: 'unknown' as const, error: `Unknown service: ${service}` } };
       }
@@ -137,6 +141,28 @@ async function checkPrometheus(prometheusClient: PrometheusClient): Promise<Serv
       targets_up: upCount,
       targets_total: activeTargets.length,
     };
+  } catch (err) {
+    return { status: 'unhealthy', error: err instanceof Error ? err.message : 'Connection failed' };
+  }
+}
+
+async function checkGrafana(url: string): Promise<ServiceHealth> {
+  try {
+    // Grafana health endpoint: GET /api/health
+    // Returns: { "commit": "...", "database": "ok", "version": "11.0.0" }
+    const response = await fetch(`${url}/api/health`, {
+      signal: AbortSignal.timeout(5000),
+    });
+
+    if (response.ok) {
+      const data = await response.json().catch(() => ({}));
+      return {
+        status: data.database === 'ok' ? 'healthy' : 'unhealthy',
+        version: data.version ?? 'unknown',
+        database: data.database ?? 'unknown',
+      };
+    }
+    return { status: 'unhealthy', error: `HTTP ${response.status}` };
   } catch (err) {
     return { status: 'unhealthy', error: err instanceof Error ? err.message : 'Connection failed' };
   }

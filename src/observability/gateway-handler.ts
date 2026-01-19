@@ -183,7 +183,7 @@ export class ObservabilityGatewayHandler {
   }
 
   private async handleHealth(args: HealthArgs) {
-    return checkHealth(args, this.prometheusClient, this.thoughtboxUrl);
+    return checkHealth(args, this.prometheusClient, this.thoughtboxUrl, this.grafanaUrl);
   }
 
   private async handleMetrics(args: MetricsArgs) {
