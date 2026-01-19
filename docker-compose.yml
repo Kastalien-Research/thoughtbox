@@ -18,13 +18,16 @@ services:
       THOUGHTBOX_OBSERVATORY_ENABLED: "true"
       THOUGHTBOX_OBSERVATORY_PORT: 1729
       THOUGHTBOX_OBSERVATORY_CORS: "*"
+      # Observability gateway endpoints (Docker internal network)
+      PROMETHEUS_URL: http://prometheus:9090
+      GRAFANA_URL: http://grafana:3000
     volumes:
       - thoughtbox-data:/data/thoughtbox
     networks:
       - mcp-network
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "node", "-e", "fetch('http://localhost:1731/health').catch(()=>process.exit(1))"]
+      test: ["CMD", "node", "-e", "fetch('http://localhost:1731/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
       interval: 10s
       timeout: 5s
       retries: 3
