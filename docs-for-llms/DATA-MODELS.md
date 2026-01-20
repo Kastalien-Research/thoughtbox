@@ -189,9 +189,14 @@ ThoughtNode:
   properties:
     id:
       type: string
-      pattern: "^[a-f0-9-]+:[0-9]+$"
-      description: Format "{sessionId}:{thoughtNumber}"
-      example: "a1b2c3d4-e5f6-7890-abcd-ef1234567890:42"
+      pattern: "^[a-f0-9-]+(:[a-z0-9-]+)?:[0-9]+$"
+      description: |
+        Node ID format varies by thought type:
+        - Main chain: "{sessionId}:{thoughtNumber}"
+        - Branch: "{sessionId}:{branchId}:{thoughtNumber}"
+      examples:
+        - "a1b2c3d4-e5f6-7890-abcd-ef1234567890:42"           # Main chain thought 42
+        - "a1b2c3d4-e5f6-7890-abcd-ef1234567890:alt-approach:3"  # Branch thought 3
 
     data:
       $ref: "#/ThoughtData"
