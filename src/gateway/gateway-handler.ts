@@ -40,6 +40,10 @@ export const gatewayToolInputSchema = z.object({
     'cipher',
     // Thought operation (Stage 2)
     'thought',
+    // Read thoughts operation (Stage 2) - retrieve previous thoughts mid-session
+    'read_thoughts',
+    // Get structure operation (Stage 2) - get reasoning graph topology without content
+    'get_structure',
     // Notebook operation (Stage 2)
     'notebook',
     // Session operation (Stage 1)
@@ -76,6 +80,8 @@ const OPERATION_REQUIRED_STAGE: Record<GatewayToolInput['operation'], Disclosure
   deep_analysis: DisclosureStage.STAGE_1_INIT_COMPLETE,
   // Stage 2 operations
   thought: DisclosureStage.STAGE_2_CIPHER_LOADED,
+  read_thoughts: DisclosureStage.STAGE_2_CIPHER_LOADED,
+  get_structure: DisclosureStage.STAGE_2_CIPHER_LOADED,
   notebook: DisclosureStage.STAGE_2_CIPHER_LOADED,
   mental_models: DisclosureStage.STAGE_2_CIPHER_LOADED,
 };
@@ -94,6 +100,8 @@ const OPERATION_ADVANCES_TO: Record<GatewayToolInput['operation'], DisclosureSta
   cipher: DisclosureStage.STAGE_2_CIPHER_LOADED,
   session: null,
   thought: null,
+  read_thoughts: null,
+  get_structure: null,
   notebook: null,
   mental_models: null,
   deep_analysis: null,
@@ -215,6 +223,16 @@ export class GatewayHandler {
       // Thought operation
       case 'thought':
         result = await this.handleThought(args);
+        break;
+
+      // Read thoughts operation - retrieve previous thoughts mid-session
+      case 'read_thoughts':
+        result = await this.handleReadThoughts(args);
+        break;
+
+      // Get structure operation - reasoning graph topology
+      case 'get_structure':
+        result = await this.handleGetStructure(args);
         break;
 
       // Notebook operation
@@ -400,6 +418,230 @@ Call \`thoughtbox_gateway\` with operation 'thought' to begin structured reasoni
     return result;
   }
 
+  /**
+   * Handle read_thoughts operation - retrieve previous thoughts mid-session
+   *
+   * Supports multiple query modes:
+   * - { thoughtNumber: N } - get a single thought by number
+   * - { last: N } - get the last N thoughts
+   * - { range: [start, end] } - get thoughts in a range (inclusive)
+   * - { branchId: 'name' } - get all thoughts from a specific branch
+   * - { branchId: 'name', thoughtNumber: N } - get specific thought from branch
+   */
+  private async handleReadThoughts(args?: Record<string, unknown>): Promise<ToolResponse> {
+    // Get session ID - prefer explicit arg, fall back to thoughtHandler's current session
+    const explicitSessionId = args?.sessionId as string | undefined;
+    const sessionId = explicitSessionId || this.thoughtHandler.getCurrentSessionId();
+    if (!sessionId) {
+      return {
+        content: [{
+          type: 'text',
+          text: JSON.stringify({
+            error: 'No active reasoning session',
+            suggestion: 'Provide sessionId in args, or start a reasoning session first by calling thought operation',
+          }, null, 2),
+        }],
+        isError: true,
+      };
+    }
+
+    try {
+      // Parse query parameters
+      const thoughtNumber = args?.thoughtNumber as number | undefined;
+      const last = args?.last as number | undefined;
+      const range = args?.range as [number, number] | undefined;
+      const branchId = args?.branchId as string | undefined;
+
+      let thoughts: ThoughtData[] = [];
+      let queryDescription = '';
+
+      // Query mode: specific thought (with optional branch)
+      if (thoughtNumber !== undefined) {
+        const thought = await this.storage.getThought(sessionId, thoughtNumber);
+        if (thought) {
+          thoughts = [thought];
+          queryDescription = branchId
+            ? `thought ${thoughtNumber} from branch '${branchId}'`
+            : `thought ${thoughtNumber}`;
+        } else {
+          return {
+            content: [{
+              type: 'text',
+              text: JSON.stringify({
+                error: `Thought ${thoughtNumber} not found in session`,
+                sessionId,
+                branchId: branchId || null,
+              }, null, 2),
+            }],
+            isError: true,
+          };
+        }
+      }
+      // Query mode: branch thoughts
+      else if (branchId !== undefined) {
+        thoughts = await this.storage.getBranch(sessionId, branchId);
+        queryDescription = `all thoughts from branch '${branchId}'`;
+      }
+      // Query mode: last N thoughts
+      else if (last !== undefined) {
+        const allThoughts = await this.storage.getThoughts(sessionId);
+        thoughts = allThoughts.slice(-last);
+        queryDescription = `last ${last} thoughts`;
+      }
+      // Query mode: range of thoughts
+      else if (range !== undefined && Array.isArray(range) && range.length === 2) {
+        const [start, end] = range;
+        const allThoughts = await this.storage.getThoughts(sessionId);
+        thoughts = allThoughts.filter(t => t.thoughtNumber >= start && t.thoughtNumber <= end);
+        queryDescription = `thoughts ${start} to ${end}`;
+      }
+      // No query parameters - return recent context
+      else {
+        const allThoughts = await this.storage.getThoughts(sessionId);
+        thoughts = allThoughts.slice(-5);  // Default: last 5
+        queryDescription = 'last 5 thoughts (default)';
+      }
+
+      // Format response
+      const formattedThoughts = thoughts.map(t => ({
+        thoughtNumber: t.thoughtNumber,
+        thought: t.thought,
+        totalThoughts: t.totalThoughts,
+        isRevision: t.isRevision || false,
+        revisesThought: t.revisesThought,
+        branchId: t.branchId,
+        branchFromThought: t.branchFromThought,
+        timestamp: t.timestamp,
+      }));
+
+      return {
+        content: [{
+          type: 'text',
+          text: JSON.stringify({
+            sessionId,
+            query: queryDescription,
+            count: formattedThoughts.length,
+            thoughts: formattedThoughts,
+          }, null, 2),
+        }],
+      };
+    } catch (err) {
+      return {
+        content: [{
+          type: 'text',
+          text: JSON.stringify({ error: (err as Error).message }, null, 2),
+        }],
+        isError: true,
+      };
+    }
+  }
+
+  /**
+   * Handle get_structure operation - return reasoning graph topology without content
+   *
+   * Returns a compact representation of the reasoning structure:
+   * - Main chain: head, tail, length
+   * - Branches: id, fork point, length
+   * - Revisions: pairs of [thought, revises]
+   */
+  private async handleGetStructure(args?: Record<string, unknown>): Promise<ToolResponse> {
+    // Get session ID - prefer explicit arg, fall back to thoughtHandler's current session
+    const explicitSessionId = args?.sessionId as string | undefined;
+    const sessionId = explicitSessionId || this.thoughtHandler.getCurrentSessionId();
+    if (!sessionId) {
+      return {
+        content: [{
+          type: 'text',
+          text: JSON.stringify({
+            error: 'No active reasoning session',
+            suggestion: 'Provide sessionId in args, or start a reasoning session first by calling thought operation',
+          }, null, 2),
+        }],
+        isError: true,
+      };
+    }
+
+    try {
+      // Fetch all thoughts
+      const allThoughts = await this.storage.getThoughts(sessionId);
+
+      // Separate main chain from branches
+      const mainChainThoughts = allThoughts.filter(t => !t.branchId);
+      const branchThoughts = allThoughts.filter(t => t.branchId);
+
+      // Build main chain info
+      const mainChain = {
+        length: mainChainThoughts.length,
+        head: mainChainThoughts.length > 0 ? mainChainThoughts[0].thoughtNumber : null,
+        tail: mainChainThoughts.length > 0 ? mainChainThoughts[mainChainThoughts.length - 1].thoughtNumber : null,
+      };
+
+      // Build branch info - group by branchId
+      const branchMap = new Map<string, { forks: number; thoughts: number[]; length: number }>();
+      for (const thought of branchThoughts) {
+        if (!thought.branchId) continue;
+
+        let branch = branchMap.get(thought.branchId);
+        if (!branch) {
+          branch = {
+            forks: thought.branchFromThought || 0,
+            thoughts: [],
+            length: 0,
+          };
+          branchMap.set(thought.branchId, branch);
+        }
+        branch.thoughts.push(thought.thoughtNumber);
+        branch.length++;
+        // Update forks if this thought has branchFromThought
+        if (thought.branchFromThought && branch.forks === 0) {
+          branch.forks = thought.branchFromThought;
+        }
+      }
+
+      // Convert branch map to object
+      const branches: Record<string, { forks: number; range: [number, number]; length: number }> = {};
+      for (const [branchId, data] of branchMap) {
+        const sorted = data.thoughts.sort((a, b) => a - b);
+        branches[branchId] = {
+          forks: data.forks,
+          range: [sorted[0], sorted[sorted.length - 1]],
+          length: data.length,
+        };
+      }
+
+      // Build revisions list
+      const revisions: [number, number][] = allThoughts
+        .filter(t => t.isRevision && t.revisesThought)
+        .map(t => [t.thoughtNumber, t.revisesThought!]);
+
+      // Build response
+      const structure = {
+        sessionId,
+        totalThoughts: allThoughts.length,
+        mainChain,
+        branches,
+        branchCount: branchMap.size,
+        revisions,
+        revisionCount: revisions.length,
+      };
+
+      return {
+        content: [{
+          type: 'text',
+          text: JSON.stringify(structure, null, 2),
+        }],
+      };
+    } catch (err) {
+      return {
+        content: [{
+          type: 'text',
+          text: JSON.stringify({ error: (err as Error).message }, null, 2),
+        }],
+        isError: true,
+      };
+    }
+  }
+
   private async handleNotebook(args?: Record<string, unknown>): Promise<ToolResponse> {
     if (!args || !args.operation) {
       return {
@@ -564,10 +806,25 @@ Operations:
 - get_state, list_sessions, navigate, load_context, start_new, list_roots, bind_root (init)
 - cipher (loads notation system)
 - thought (structured reasoning)
+- read_thoughts (retrieve previous thoughts mid-session for re-reading)
+- get_structure (get reasoning graph topology without content)
 - notebook (literate programming)
 - session (session management)
 - mental_models (reasoning frameworks)
 - deep_analysis (session pattern analysis)
+
+read_thoughts usage (Stage 2 required):
+- { args: { thoughtNumber: N } } - get a single thought by number
+- { args: { last: N } } - get the last N thoughts
+- { args: { range: [start, end] } } - get thoughts in a range (inclusive)
+- { args: { branchId: 'name' } } - get all thoughts from a specific branch
+- { args: { sessionId: 'id' } } - optional, defaults to active session
+- No args returns last 5 thoughts as default context
+
+get_structure usage (Stage 2 required):
+- { args: { sessionId: 'id' } } - optional, defaults to active session
+- Response includes: mainChain (head/tail/length), branches (id/forks/range), revisions
+- Use to understand "shape" of reasoning before drilling into specific thoughts
 
 Stage enforcement is handled internally - you'll get clear errors if calling operations too early.`,
   annotations: {
