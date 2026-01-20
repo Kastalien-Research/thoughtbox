@@ -30,6 +30,8 @@ When AI agents reason through problems, that thinking typically vanishes after e
 
 - [**How Thoughtbox Works**](./core-concepts.md) — Sessions, thoughts, branches, and revisions
 - [**Progressive Disclosure**](./core-concepts.md#progressive-disclosure) — The staged tool system
+- [**Effective Reasoning**](./effective-reasoning.md) — Methodology guide for structured thinking
+- [**Glossary**](./glossary.md) — Terminology and concepts
 
 ### Reference
 
@@ -41,6 +43,7 @@ When AI agents reason through problems, that thinking typically vanishes after e
 
 - [**Architecture**](./architecture.md) — Technical deep-dive for contributors
 - [**Observability**](./observability.md) — Prometheus, Grafana, and real-time visualization
+- [**Future Work**](./FUTURE.md) — Planned documentation (schemas, standalone guides)
 
 ---
 
