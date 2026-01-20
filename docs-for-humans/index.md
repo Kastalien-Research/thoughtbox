@@ -91,7 +91,7 @@ Later, you can:
 
 ```bash
 # Install
-npm install -g @anthropic/thoughtbox
+npm install -g @kastalien-research/thoughtbox
 
 # Run with stdio (for Claude Code, Cursor, etc.)
 thoughtbox
