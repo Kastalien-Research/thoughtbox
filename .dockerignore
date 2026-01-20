@@ -65,6 +65,7 @@ self-improvement/
 traces/
 resources/
 
+
 # Development reports and analysis
 *.md
 !README.md

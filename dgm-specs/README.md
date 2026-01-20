@@ -204,6 +204,17 @@ This history serves multiple purposes:
 └─────────────────────────────────────────────────────────────────┘
 ```
 
+## Validation Philosophy
+
+**Direct use is the validation mechanism.** Don't build test harness scripts that spawn agents to call thoughtbox - that just measures agent interpretation noise, not server behavior.
+
+To validate thoughtbox works:
+1. Use it directly through MCP
+2. Observe results in Observatory
+3. Check that responses match expectations
+
+If you want to measure improvement, the signal comes from using thoughtbox on real tasks - not from artificial test scenarios run through an agent intermediary.
+
 ## For Agents Working in This Directory
 
 ### Reading

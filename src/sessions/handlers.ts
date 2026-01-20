@@ -192,9 +192,12 @@ export class SessionHandlers {
     let content: string;
 
     switch (format) {
-      case "json":
-        content = JSON.stringify({ session, thoughts }, null, 2);
+      case "json": {
+        // Use toLinkedExport to include full ThoughtNode[] with linkage (prev/next/revisesNode/branchOrigin)
+        const linkedExport = await this.storage.toLinkedExport(args.sessionId);
+        content = JSON.stringify(linkedExport, null, 2);
         break;
+      }
 
       case "cipher":
         content = this.exportAsCipher(session, thoughts, includeMetadata);

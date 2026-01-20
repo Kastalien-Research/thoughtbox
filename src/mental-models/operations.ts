@@ -1,5 +1,13 @@
 /**
  * Mental Models Registry and Operations Catalog
+ *
+ * TODO: Reimagine mental models to be more useful to agents.
+ * Current implementation provides generic reasoning scaffolds that may not
+ * deliver sufficient value in practice. Consider:
+ * - More agent-specific patterns (tool selection, error recovery, context management)
+ * - Integration with thoughtbox tool for guided reasoning workflows
+ * - Concrete examples tailored to MCP server use cases
+ * - Shorter, more actionable prompts vs. comprehensive guides
  */
 
 import {
