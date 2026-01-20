@@ -39,6 +39,12 @@ mcp-ts-template/
 .claude/*
 !.claude/skills/
 
+# Specifications and working artifacts (local development)
+.specs/
+.specification-suite/
+.claude-flow/
+.swarm/
+
 # Roo configuration and local data
 .roo/
 
