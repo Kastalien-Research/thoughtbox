@@ -25,6 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **persistence**: Add FileSystemStorage with atomic writes ([d6a18c0](../../commit/d6a18c03ccc5016b2667b7be661e3e0a5cd10da2))
 - complete nuanced frameworks in skill ([175225a](../../commit/175225a9b25912a965a0daadfc1c29d7080df0e9))
 - add thoughtbox-cognitive Claude skill ([67ee12d](../../commit/67ee12d1a95be3e3fc49c0eddf564d8b90c0b31c))
+- Add specification workflows, OODA loops MCP, and automated changelog ([f336a0d](../../commit/f336a0de7d6c805b95a8c05e1c0ae013b2da493b))
 
 ### Changed
 - Build pipeline now includes OODA loop embedding step (`npm run embed-loops`)
