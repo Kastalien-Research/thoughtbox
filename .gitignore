@@ -39,6 +39,12 @@ mcp-ts-template/
 .claude/*
 !.claude/skills/
 
+# Specifications and working artifacts (local development)
+.specs/
+.specification-suite/
+.claude-flow/
+.swarm/
+
 # Roo configuration and local data
 .roo/
 
@@ -88,3 +94,9 @@ tessl.json
 # src/notebook/templates.generated.ts
 
 mcp-servers/
+ai_docs/
+traces/
+kastalien-srcbook/
+.spec-orchestrator/
+.spec-validator/
+ai_docs/claude-platform-docs/

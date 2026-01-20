@@ -65,7 +65,7 @@ export interface ListModelsResponse {
     tags: string[];
   }>;
   count: number;
-  filter?: string;
+  filter?: string | string[];
 }
 
 /**

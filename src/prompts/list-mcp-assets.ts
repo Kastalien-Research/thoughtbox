@@ -1,8 +1,8 @@
 /**
  * MCP Prompt definition for listing server capabilities
  *
- * Dynamically generates content from the same source modules as
- * scripts/generate-capabilities.ts to ensure they stay in sync.
+ * Dynamically generates content from the source modules
+ * (notebook operations, mental models, etc.)
  */
 
 import { NOTEBOOK_OPERATIONS } from "../notebook/operations.js";
@@ -240,6 +240,5 @@ mental_models({
 - **Static Resources:** 6+
 - **Resource Templates:** 3
 
-For comprehensive documentation, see \`src/CAPABILITIES.md\`
 `;
 }

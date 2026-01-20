@@ -1,0 +1,17 @@
+{
+  "id": "3a8f67aa-b3f3-4b90-b07f-f0cc4fed6665:swarm-behaviors/stigmergy:9",
+  "data": {
+    "thought": "S9|H|S5|Swarm Phenotype A5: 'Stigmergic Knowledge Building'. Inspired by ant colony optimization. Notebooks leave 'pheromone traces' (annotations, links, weights) on shared knowledge graph. Other notebooks follow high-pheromone paths. No direct communication - coordination emerges from environment modification. Observable: knowledge graph evolving in Observatory. Use case: collaborative documentation, emergent ontology construction, distributed fact-checking.",
+    "thoughtNumber": 9,
+    "totalThoughts": 200,
+    "nextThoughtNeeded": true,
+    "branchFromThought": 5,
+    "branchId": "swarm-behaviors/stigmergy",
+    "timestamp": "2026-01-17T18:49:51.952Z"
+  },
+  "prev": "3a8f67aa-b3f3-4b90-b07f-f0cc4fed6665:5",
+  "next": [],
+  "revisesNode": null,
+  "branchOrigin": "3a8f67aa-b3f3-4b90-b07f-f0cc4fed6665:5",
+  "branchId": "swarm-behaviors/stigmergy"
+}

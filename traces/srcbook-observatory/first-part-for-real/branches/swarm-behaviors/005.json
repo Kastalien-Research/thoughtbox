@@ -1,0 +1,17 @@
+{
+  "id": "3a8f67aa-b3f3-4b90-b07f-f0cc4fed6665:swarm-behaviors:5",
+  "data": {
+    "thought": "S5|H|S4|BRANCH A: Swarm Behaviors. Core insight: notebooks as agents in distributed system. Each notebook = autonomous unit w/ (1) perception (inputs/events) (2) cognition (Thoughtbox reasoning) (3) action (code execution, tool calls). Swarm emerges when notebooks: share state via Observatory WS, coordinate via message passing, have complementary specializations. Phenotype A1: 'Research Swarm' - N notebooks each explore different aspects of topic, share findings via shared memory, synthesize collective knowledge.",
+    "thoughtNumber": 5,
+    "totalThoughts": 200,
+    "nextThoughtNeeded": true,
+    "branchFromThought": 4,
+    "branchId": "swarm-behaviors",
+    "timestamp": "2026-01-17T18:49:23.295Z"
+  },
+  "prev": "3a8f67aa-b3f3-4b90-b07f-f0cc4fed6665:4",
+  "next": [],
+  "revisesNode": null,
+  "branchOrigin": "3a8f67aa-b3f3-4b90-b07f-f0cc4fed6665:4",
+  "branchId": "swarm-behaviors"
+}

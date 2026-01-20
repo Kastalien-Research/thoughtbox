@@ -24,7 +24,7 @@ done
 echo "Checking for cyclic dependencies..."
 
 # Run madge to detect circular dependencies
-RESULT=$(npx --yes madge --circular --extensions ts src/ 2>&1)
+RESULT=$(npx --yes madge --circular --extensions ts src/ 2>&1) || true
 
 if echo "$RESULT" | grep -q "No circular dependency found"; then
     echo "✓ No cyclic dependencies detected"

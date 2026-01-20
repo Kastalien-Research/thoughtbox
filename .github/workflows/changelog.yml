@@ -1,0 +1,106 @@
+name: Update Changelog
+
+on:
+  pull_request:
+    types: [closed]
+    branches: [main]
+
+permissions:
+  contents: write
+  pull-requests: read
+
+jobs:
+  update-changelog:
+    # Only run if PR was merged (not closed without merge)
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history needed for git log
+          ref: main  # Checkout main branch
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Extract commits from PR
+        id: extract
+        run: |
+          # Get commits from this PR
+          git log --format="%H|%s|%an|%ad" \
+            ${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }} \
+            > pr-commits.txt
+
+          # Count commits
+          COMMIT_COUNT=$(wc -l < pr-commits.txt | tr -d ' ')
+          echo "commit_count=$COMMIT_COUNT" >> $GITHUB_OUTPUT
+
+          echo "Extracted $COMMIT_COUNT commits from PR #${{ github.event.pull_request.number }}"
+          cat pr-commits.txt
+
+      - name: Update changelog
+        if: steps.extract.outputs.commit_count > 0
+        run: |
+          npx tsx scripts/changelog-update.ts pr-commits.txt
+
+      - name: Check if changelog changed
+        id: check
+        run: |
+          if git diff --quiet CHANGELOG.md; then
+            echo "changed=false" >> $GITHUB_OUTPUT
+            echo "No changelog updates (no conventional commits found)"
+          else
+            echo "changed=true" >> $GITHUB_OUTPUT
+            echo "Changelog updated with new entries"
+          fi
+
+      - name: Commit and push changelog
+        if: steps.check.outputs.changed == 'true'
+        run: |
+          git config user.name "thoughtbox-bot[bot]"
+          git config user.email "thoughtbox-bot[bot]@users.noreply.github.com"
+
+          git add CHANGELOG.md
+
+          git commit -m "docs: Update changelog for PR #${{ github.event.pull_request.number }}
+
+          Auto-generated from conventional commits in merged PR.
+
+          PR: ${{ github.event.pull_request.title }}
+          Author: @${{ github.event.pull_request.user.login }}
+
+          Co-Authored-By: thoughtbox-bot[bot] <thoughtbox-bot[bot]@users.noreply.github.com>"
+
+          git push
+
+      - name: Comment on PR
+        if: steps.check.outputs.changed == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: '✅ Changelog updated automatically from conventional commits'
+            })
+
+      - name: Warn if no conventional commits
+        if: steps.extract.outputs.commit_count > 0 && steps.check.outputs.changed == 'false'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: '⚠️ No conventional commits found in this PR. Changelog not updated.\n\nUse format: `type(scope): description`\n\nExamples:\n- `feat(loops): Add new feature`\n- `fix(analytics): Resolve bug`\n\nSee [Conventional Commits](https://www.conventionalcommits.org/) for details.'
+            })

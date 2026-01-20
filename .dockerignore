@@ -46,6 +46,7 @@ cc_mcp_config.json
 # =============================================================================
 # Srcbook - reference implementation, not needed in build
 srcbook/
+kastalien-srcbook/
 
 # =============================================================================
 # Development & Documentation (local only)
@@ -53,9 +54,17 @@ srcbook/
 # Documentation directories
 docs/
 specs/
+.specs/
 local-docs/
 smithery-docs/
 mcp-specs/
+ai_docs/
+dgm-specs/
+plans/
+self-improvement/
+traces/
+resources/
+
 
 # Development reports and analysis
 *.md
@@ -75,11 +84,16 @@ llms-install.md
 # Test notebooks (development artifacts)
 *.src.md
 
+# Patch files
+*.patch
+
 # =============================================================================
 # Claude Code & IDE Tool Configuration
 # =============================================================================
 .claude/
 .claude-plugin/
+.claude-flow/
+.swarm/
 .roo/
 .roomodes
 .rooskills

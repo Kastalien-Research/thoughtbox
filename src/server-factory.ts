@@ -17,6 +17,14 @@ import {
   getInterleavedThinkingContent,
   getInterleavedGuideForUri,
   getInterleavedResourceTemplates,
+  SPEC_DESIGNER_PROMPT,
+  getSpecDesignerContent,
+  SPEC_VALIDATOR_PROMPT,
+  getSpecValidatorContent,
+  SPEC_ORCHESTRATOR_PROMPT,
+  getSpecOrchestratorContent,
+  SPECIFICATION_SUITE_PROMPT,
+  getSpecificationSuiteContent,
 } from "./prompts/index.js";
 import { THOUGHTBOX_CIPHER } from "./resources/thoughtbox-cipher-content.js";
 import { PARALLEL_VERIFICATION_CONTENT } from "./prompts/contents/parallel-verification.js";
@@ -55,6 +63,16 @@ import {
 } from "./observability/index.js";
 import { SUBAGENT_SUMMARIZE_CONTENT } from "./resources/subagent-summarize-content.js";
 import { EVOLUTION_CHECK_CONTENT } from "./resources/evolution-check-content.js";
+import { BEHAVIORAL_TESTS } from "./resources/behavioral-tests-content.js";
+import {
+  LOOPS_CATALOG,
+  getCategories,
+  getLoopsInCategory,
+  getLoop,
+  type Loop,
+  type LoopMetadata,
+} from "./resources/loops-content.js";
+import { ClaudeFolderIntegration } from "./claude-folder-integration.js";
 
 // Configuration schema
 // Note: Using .default() means the field is always present after parsing.
@@ -158,6 +176,14 @@ Progressive disclosure is enforced internally - you'll get clear errors if calli
   // Shared storage instance for this MCP server instance (used by thought + session tooling)
   // Use provided storage or default to InMemoryStorage
   const storage: ThoughtboxStorage = args.storage ?? new InMemoryStorage();
+
+  // Initialize .claude/ folder integration for usage analytics
+  const claudeFolder = new ClaudeFolderIntegration(process.cwd(), logger);
+
+  // Run startup aggregation (synchronous to ensure hot-loops.json is current)
+  claudeFolder.initialize().catch(err =>
+    logger.error('Failed to initialize .claude/ folder integration:', err)
+  );
 
   // Create server instances with MCP session ID for client isolation
   const thoughtHandler = new ThoughtHandler(
@@ -554,6 +580,209 @@ mcp__thoughtbox__thoughtbox({
     }
   );
 
+  // =============================================================================
+  // Behavioral Test Prompts (serve as /mcp__thoughtbox__test_* slash commands)
+  // =============================================================================
+  // These behavioral tests can be invoked as slash commands in Claude Code.
+  // The agent executes the tests directly and reports results.
+
+  server.registerPrompt(
+    "test-thoughtbox",
+    {
+      description: BEHAVIORAL_TESTS.thoughtbox.description,
+    },
+    async () => ({
+      messages: [
+        {
+          role: "user" as const,
+          content: { type: "text" as const, text: BEHAVIORAL_TESTS.thoughtbox.content },
+        },
+      ],
+    })
+  );
+
+  server.registerPrompt(
+    "test-notebook",
+    {
+      description: BEHAVIORAL_TESTS.notebook.description,
+    },
+    async () => ({
+      messages: [
+        {
+          role: "user" as const,
+          content: { type: "text" as const, text: BEHAVIORAL_TESTS.notebook.content },
+        },
+      ],
+    })
+  );
+
+  server.registerPrompt(
+    "test-mental-models",
+    {
+      description: BEHAVIORAL_TESTS.mentalModels.description,
+    },
+    async () => ({
+      messages: [
+        {
+          role: "user" as const,
+          content: { type: "text" as const, text: BEHAVIORAL_TESTS.mentalModels.content },
+        },
+      ],
+    })
+  );
+
+  server.registerPrompt(
+    "test-memory",
+    {
+      description: BEHAVIORAL_TESTS.memory.description,
+    },
+    async () => ({
+      messages: [
+        {
+          role: "user" as const,
+          content: { type: "text" as const, text: BEHAVIORAL_TESTS.memory.content },
+        },
+      ],
+    })
+  );
+
+  // Specification workflow prompts
+  server.registerPrompt(
+    "spec-designer",
+    {
+      description: SPEC_DESIGNER_PROMPT.description,
+      argsSchema: {
+        prompt: z.string().describe(SPEC_DESIGNER_PROMPT.arguments[0].description),
+        output_folder: z.string().optional().describe(SPEC_DESIGNER_PROMPT.arguments[1].description),
+        depth: z.string().optional().describe(SPEC_DESIGNER_PROMPT.arguments[2].description),
+        max_specs: z.string().optional().describe(SPEC_DESIGNER_PROMPT.arguments[3].description),
+        plan_only: z.string().optional().describe(SPEC_DESIGNER_PROMPT.arguments[4].description),
+      },
+    },
+    async (toolArgs) => {
+      if (!toolArgs.prompt) {
+        throw new Error("Missing required argument: prompt");
+      }
+      const content = getSpecDesignerContent({
+        prompt: toolArgs.prompt,
+        output_folder: toolArgs.output_folder,
+        depth: toolArgs.depth,
+        max_specs: toolArgs.max_specs,
+        plan_only: toolArgs.plan_only,
+      });
+      return {
+        messages: [
+          {
+            role: "user" as const,
+            content: { type: "text" as const, text: content },
+          },
+        ],
+      };
+    }
+  );
+
+  server.registerPrompt(
+    "spec-validator",
+    {
+      description: SPEC_VALIDATOR_PROMPT.description,
+      argsSchema: {
+        spec_path: z.string().describe(SPEC_VALIDATOR_PROMPT.arguments[0].description),
+        strict: z.string().optional().describe(SPEC_VALIDATOR_PROMPT.arguments[1].description),
+        deep: z.string().optional().describe(SPEC_VALIDATOR_PROMPT.arguments[2].description),
+        report_only: z.string().optional().describe(SPEC_VALIDATOR_PROMPT.arguments[3].description),
+      },
+    },
+    async (toolArgs) => {
+      if (!toolArgs.spec_path) {
+        throw new Error("Missing required argument: spec_path");
+      }
+      const content = getSpecValidatorContent({
+        spec_path: toolArgs.spec_path,
+        strict: toolArgs.strict,
+        deep: toolArgs.deep,
+        report_only: toolArgs.report_only,
+      });
+      return {
+        messages: [
+          {
+            role: "user" as const,
+            content: { type: "text" as const, text: content },
+          },
+        ],
+      };
+    }
+  );
+
+  server.registerPrompt(
+    "spec-orchestrator",
+    {
+      description: SPEC_ORCHESTRATOR_PROMPT.description,
+      argsSchema: {
+        spec_folder: z.string().describe(SPEC_ORCHESTRATOR_PROMPT.arguments[0].description),
+        budget: z.string().optional().describe(SPEC_ORCHESTRATOR_PROMPT.arguments[1].description),
+        max_iterations: z.string().optional().describe(SPEC_ORCHESTRATOR_PROMPT.arguments[2].description),
+        plan_only: z.string().optional().describe(SPEC_ORCHESTRATOR_PROMPT.arguments[3].description),
+      },
+    },
+    async (toolArgs) => {
+      if (!toolArgs.spec_folder) {
+        throw new Error("Missing required argument: spec_folder");
+      }
+      const content = getSpecOrchestratorContent({
+        spec_folder: toolArgs.spec_folder,
+        budget: toolArgs.budget,
+        max_iterations: toolArgs.max_iterations,
+        plan_only: toolArgs.plan_only,
+      });
+      return {
+        messages: [
+          {
+            role: "user" as const,
+            content: { type: "text" as const, text: content },
+          },
+        ],
+      };
+    }
+  );
+
+  server.registerPrompt(
+    "specification-suite",
+    {
+      description: SPECIFICATION_SUITE_PROMPT.description,
+      argsSchema: {
+        prompt_or_spec_path: z.string().describe(SPECIFICATION_SUITE_PROMPT.arguments[0].description),
+        output_folder: z.string().optional().describe(SPECIFICATION_SUITE_PROMPT.arguments[1].description),
+        depth: z.string().optional().describe(SPECIFICATION_SUITE_PROMPT.arguments[2].description),
+        budget: z.string().optional().describe(SPECIFICATION_SUITE_PROMPT.arguments[3].description),
+        plan_only: z.string().optional().describe(SPECIFICATION_SUITE_PROMPT.arguments[4].description),
+        skip_design: z.string().optional().describe(SPECIFICATION_SUITE_PROMPT.arguments[5].description),
+        skip_validation: z.string().optional().describe(SPECIFICATION_SUITE_PROMPT.arguments[6].description),
+      },
+    },
+    async (toolArgs) => {
+      if (!toolArgs.prompt_or_spec_path) {
+        throw new Error("Missing required argument: prompt_or_spec_path");
+      }
+      const content = getSpecificationSuiteContent({
+        prompt_or_spec_path: toolArgs.prompt_or_spec_path,
+        output_folder: toolArgs.output_folder,
+        depth: toolArgs.depth,
+        budget: toolArgs.budget,
+        plan_only: toolArgs.plan_only,
+        skip_design: toolArgs.skip_design,
+        skip_validation: toolArgs.skip_validation,
+      });
+      return {
+        messages: [
+          {
+            role: "user" as const,
+            content: { type: "text" as const, text: content },
+          },
+        ],
+      };
+    }
+  );
+
   // Register static resources using McpServer's registerResource API
   server.registerResource(
     "status",
@@ -714,6 +943,84 @@ mcp__thoughtbox__thoughtbox({
           uri: uri.toString(),
           mimeType: "text/markdown",
           text: SUBAGENT_SUMMARIZE_CONTENT,
+        },
+      ],
+    })
+  );
+
+  // =============================================================================
+  // Behavioral Test Resources (unified with prompts above)
+  // =============================================================================
+  // Same content as the test prompts, but also addressable via URI.
+  // This implements the unified pattern where prompts ARE resources.
+
+  server.registerResource(
+    "test-thoughtbox",
+    BEHAVIORAL_TESTS.thoughtbox.uri,
+    {
+      description: BEHAVIORAL_TESTS.thoughtbox.description,
+      mimeType: "text/markdown",
+    },
+    async (uri) => ({
+      contents: [
+        {
+          uri: uri.toString(),
+          mimeType: "text/markdown",
+          text: BEHAVIORAL_TESTS.thoughtbox.content,
+        },
+      ],
+    })
+  );
+
+  server.registerResource(
+    "test-notebook",
+    BEHAVIORAL_TESTS.notebook.uri,
+    {
+      description: BEHAVIORAL_TESTS.notebook.description,
+      mimeType: "text/markdown",
+    },
+    async (uri) => ({
+      contents: [
+        {
+          uri: uri.toString(),
+          mimeType: "text/markdown",
+          text: BEHAVIORAL_TESTS.notebook.content,
+        },
+      ],
+    })
+  );
+
+  server.registerResource(
+    "test-mental-models",
+    BEHAVIORAL_TESTS.mentalModels.uri,
+    {
+      description: BEHAVIORAL_TESTS.mentalModels.description,
+      mimeType: "text/markdown",
+    },
+    async (uri) => ({
+      contents: [
+        {
+          uri: uri.toString(),
+          mimeType: "text/markdown",
+          text: BEHAVIORAL_TESTS.mentalModels.content,
+        },
+      ],
+    })
+  );
+
+  server.registerResource(
+    "test-memory",
+    BEHAVIORAL_TESTS.memory.uri,
+    {
+      description: BEHAVIORAL_TESTS.memory.description,
+      mimeType: "text/markdown",
+    },
+    async (uri) => ({
+      contents: [
+        {
+          uri: uri.toString(),
+          mimeType: "text/markdown",
+          text: BEHAVIORAL_TESTS.memory.content,
         },
       ],
     })
@@ -882,6 +1189,183 @@ mcp__thoughtbox__thoughtbox({
     })
   );
 
+  // OODA Loops resource templates
+  server.registerResource(
+    "loops",
+    new ResourceTemplate("thoughtbox://loops/{category}/{name}", {
+      list: undefined,
+    }),
+    {
+      description: "OODA loop building blocks for workflow composition. Access specific loops by category and name.",
+      mimeType: "text/markdown",
+    },
+    async (uri, params) => {
+      const category = str(params.category);
+      const name = str(params.name);
+
+      if (!category || !name) {
+        return {
+          contents: [
+            {
+              uri: uri.toString(),
+              mimeType: "text/markdown",
+              text: `# Invalid Loop URI\n\nBoth category and name are required.\n\nFormat: \`thoughtbox://loops/{category}/{name}\`\n\nAvailable categories: ${getCategories().join(', ')}`,
+            },
+          ],
+        };
+      }
+
+      try {
+        const loop = getLoop(category, name);
+
+        // Record usage for analytics (async, non-blocking)
+        const loopUri = `${category}/${name}`;
+        claudeFolder.recordLoopAccess(loopUri, 'active-session', sessionId).catch(err =>
+          logger.debug('Failed to record loop access:', err)
+        );
+
+        return {
+          contents: [
+            {
+              uri: uri.toString(),
+              mimeType: "text/markdown",
+              text: loop.content,
+            },
+          ],
+        };
+      } catch (error) {
+        const categories = getCategories();
+        const errorMsg = error instanceof Error ? error.message : String(error);
+
+        // Return helpful error with available options
+        return {
+          contents: [
+            {
+              uri: uri.toString(),
+              mimeType: "text/markdown",
+              text: `# Loop Not Found\n\n**Error**: ${errorMsg}\n\n**Available categories**: ${categories.join(', ')}\n\nUse \`thoughtbox://loops/catalog\` to see all available loops.`,
+            },
+          ],
+        };
+      }
+    }
+  );
+
+  // Loops catalog resource (static, no template)
+  server.registerResource(
+    "loops-catalog",
+    "thoughtbox://loops/catalog",
+    {
+      description: "Complete catalog of OODA loop building blocks with metadata, classification, and composition rules",
+      mimeType: "application/json",
+    },
+    async (uri) => {
+      // Get hot loops for sorting (if available)
+      const hotLoops = await claudeFolder.getHotLoops();
+
+      // Build catalog JSON with metadata
+      const catalog: Record<string, unknown> = {
+        version: "1.0",
+        updated: new Date().toISOString(),
+        categories: {},
+      };
+
+      for (const category of getCategories()) {
+        const loops = getLoopsInCategory(category);
+        const categoryData: Record<string, unknown> = {
+          description: `${category.charAt(0).toUpperCase() + category.slice(1)} loops`,
+          loops: {},
+        };
+
+        // Build loop data array for sorting
+        const loopDataArray = loops.map(loopName => {
+          const loop = getLoop(category, loopName);
+          const loopUri = `${category}/${loopName}`;
+          const rank = hotLoops?.ranks[loopUri] || 999;
+
+          return {
+            name: loopName,
+            rank,
+            data: {
+              uri: `thoughtbox://loops/${category}/${loopName}`,
+              ...loop.metadata,
+              content_preview: loop.content.slice(0, 200) + (loop.content.length > 200 ? '...' : ''),
+              usage_rank: rank === 999 ? undefined : rank,
+            },
+          };
+        });
+
+        // Sort by usage rank (lower is better, 999 = not in top 10)
+        loopDataArray.sort((a, b) => a.rank - b.rank);
+
+        // Convert back to object
+        for (const item of loopDataArray) {
+          (categoryData.loops as Record<string, unknown>)[item.name] = item.data;
+        }
+
+        (catalog.categories as Record<string, unknown>)[category] = categoryData;
+      }
+
+      return {
+        contents: [
+          {
+            uri: uri.toString(),
+            mimeType: "application/json",
+            text: JSON.stringify(catalog, null, 2),
+          },
+        ],
+      };
+    }
+  );
+
+  // Loops analytics refresh resource
+  server.registerResource(
+    "loops-analytics-refresh",
+    "thoughtbox://loops/analytics/refresh",
+    {
+      description: "Trigger immediate aggregation of loop usage metrics. Returns updated hot loops and statistics.",
+      mimeType: "application/json",
+    },
+    async (uri) => {
+      const metrics = await claudeFolder.aggregateMetrics();
+
+      if (!metrics) {
+        return {
+          contents: [
+            {
+              uri: uri.toString(),
+              mimeType: "application/json",
+              text: JSON.stringify({
+                status: "unavailable",
+                reason: ".claude/ folder not found or no usage data",
+              }, null, 2),
+            },
+          ],
+        };
+      }
+
+      const hotLoops = await claudeFolder.getHotLoops();
+
+      return {
+        contents: [
+          {
+            uri: uri.toString(),
+            mimeType: "application/json",
+            text: JSON.stringify({
+              status: "refreshed",
+              metrics: {
+                totalAccesses: metrics.totalAccesses,
+                uniqueLoops: metrics.loopStats.size,
+                lastAggregated: metrics.lastAggregated,
+              },
+              hotLoops: hotLoops?.top_10 || [],
+            }, null, 2),
+          },
+        ],
+      };
+    }
+  );
+
   // Escape hatch: Use server.server for ListResourcesRequestSchema to include dynamic resources
   server.server.setRequestHandler(ListResourcesRequestSchema, async () => ({
     resources: [
@@ -952,10 +1436,47 @@ mcp__thoughtbox__thoughtbox({
           "Context isolation pattern for retrieving sessions. Same content as subagent-summarize prompt.",
         mimeType: "text/markdown",
       },
+      // Behavioral test resources (unified with test prompts)
+      {
+        uri: BEHAVIORAL_TESTS.thoughtbox.uri,
+        name: "Behavioral Tests: Thoughtbox",
+        description: BEHAVIORAL_TESTS.thoughtbox.description,
+        mimeType: "text/markdown",
+      },
+      {
+        uri: BEHAVIORAL_TESTS.notebook.uri,
+        name: "Behavioral Tests: Notebook",
+        description: BEHAVIORAL_TESTS.notebook.description,
+        mimeType: "text/markdown",
+      },
+      {
+        uri: BEHAVIORAL_TESTS.mentalModels.uri,
+        name: "Behavioral Tests: Mental Models",
+        description: BEHAVIORAL_TESTS.mentalModels.description,
+        mimeType: "text/markdown",
+      },
+      {
+        uri: BEHAVIORAL_TESTS.memory.uri,
+        name: "Behavioral Tests: Memory",
+        description: BEHAVIORAL_TESTS.memory.description,
+        mimeType: "text/markdown",
+      },
       {
         uri: "thoughtbox://mental-models/operations",
         name: "Mental Models Operations Catalog",
         description: "Complete catalog of mental models, tags, and operations",
+        mimeType: "application/json",
+      },
+      {
+        uri: "thoughtbox://loops/catalog",
+        name: "OODA Loops Catalog",
+        description: "Complete catalog of OODA loop building blocks with metadata, classification, and composition rules",
+        mimeType: "application/json",
+      },
+      {
+        uri: "thoughtbox://loops/analytics/refresh",
+        name: "Loop Analytics Refresh",
+        description: "Trigger immediate aggregation of loop usage metrics and return updated statistics",
         mimeType: "application/json",
       },
       // Dynamic mental models browsable hierarchy

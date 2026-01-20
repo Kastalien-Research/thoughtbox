@@ -1,0 +1,17 @@
+{
+  "id": "3a8f67aa-b3f3-4b90-b07f-f0cc4fed6665:swarm-behaviors/mapreduce:8",
+  "data": {
+    "thought": "S8|H|S5|Swarm Phenotype A4: 'Distributed MapReduce Reasoning'. Problem decomposed into N sub-problems. Each notebook = mapper (processes shard, produces partial result). Reducer notebook synthesizes. Observable topology in Observatory. Use case: large codebase analysis, multi-doc research synthesis, parallel hypothesis testing. Key innovation: reasoning parallelism, not just compute parallelism. Each mapper uses Thoughtbox independently, reducer does meta-reasoning on outputs.",
+    "thoughtNumber": 8,
+    "totalThoughts": 200,
+    "nextThoughtNeeded": true,
+    "branchFromThought": 5,
+    "branchId": "swarm-behaviors/mapreduce",
+    "timestamp": "2026-01-17T18:49:44.524Z"
+  },
+  "prev": "3a8f67aa-b3f3-4b90-b07f-f0cc4fed6665:5",
+  "next": [],
+  "revisesNode": null,
+  "branchOrigin": "3a8f67aa-b3f3-4b90-b07f-f0cc4fed6665:5",
+  "branchId": "swarm-behaviors/mapreduce"
+}

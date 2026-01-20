@@ -87,7 +87,7 @@ ${model.content}`;
         case "get_model":
           return this.handleGetModel(args.model);
         case "list_models":
-          return this.handleListModels(args.tag);
+          return this.handleListModels(args.tag, args.tags);
         case "list_tags":
           return this.handleListTags();
         case "get_capability_graph":
@@ -197,21 +197,26 @@ ${model.content}`;
   /**
    * Handle list_models operation
    */
-  private handleListModels(tag?: string): {
+  private handleListModels(tag?: string, tags?: string[]): {
     content: Array<{ type: string; text?: string; resource?: any }>;
     isError?: boolean;
   } {
     let models = MENTAL_MODELS;
 
-    if (tag) {
-      if (!getTagNames().includes(tag)) {
+    // Prefer tags array over single tag (backward compatibility)
+    const filterTags = tags || (tag ? [tag] : undefined);
+
+    if (filterTags && filterTags.length > 0) {
+      // Validate all tags exist
+      const invalidTags = filterTags.filter(t => !getTagNames().includes(t));
+      if (invalidTags.length > 0) {
         return {
           content: [
             {
               type: "text",
               text: JSON.stringify(
                 {
-                  error: `Unknown tag: ${tag}`,
+                  error: `Unknown tags: ${invalidTags.join(", ")}`,
                   availableTags: getTagNames(),
                 },
                 null,
@@ -222,7 +227,11 @@ ${model.content}`;
           isError: true,
         };
       }
-      models = getModelsByTag(tag);
+
+      // Filter models that have ALL specified tags (AND logic)
+      models = MENTAL_MODELS.filter(m =>
+        filterTags.every(tagName => m.tags.includes(tagName))
+      );
     }
 
     const response: ListModelsResponse = {
@@ -233,7 +242,7 @@ ${model.content}`;
         tags: m.tags,
       })),
       count: models.length,
-      filter: tag,
+      filter: filterTags,
     };
 
     return {
@@ -449,7 +458,15 @@ export const MENTAL_MODELS_TOOL: Tool = {
           tag: {
             type: "string",
             enum: getTagNames(),
-            description: "Tag to filter models by (for list_models)",
+            description: "Tag to filter models by (for list_models) - DEPRECATED, use tags instead",
+          },
+          tags: {
+            type: "array",
+            items: {
+              type: "string",
+              enum: getTagNames()
+            },
+            description: "Array of tags to filter models by (for list_models). Returns models matching ALL tags (AND logic).",
           },
         },
       },
