@@ -16,7 +16,7 @@ Get Thoughtbox running in under 5 minutes.
 ### Option 1: npm (Recommended)
 
 ```bash
-npm install -g @anthropic/thoughtbox
+npm install -g @kastalien-research/thoughtbox
 ```
 
 ### Option 2: From Source
