@@ -49,6 +49,10 @@ import {
   gatewayToolInputSchema,
   GATEWAY_TOOL,
 } from "./gateway/index.js";
+import {
+  ObservabilityGatewayHandler,
+  observabilityToolInputSchema,
+} from "./observability/index.js";
 import { SUBAGENT_SUMMARIZE_CONTENT } from "./resources/subagent-summarize-content.js";
 import { EVOLUTION_CHECK_CONTENT } from "./resources/evolution-check-content.js";
 
@@ -333,6 +337,47 @@ Progressive disclosure is enforced internally - you'll get clear errors if calli
     gatewayTool,
     DisclosureStage.STAGE_0_ENTRY,
     { [DisclosureStage.STAGE_0_ENTRY]: GATEWAY_DESCRIPTION }
+  );
+
+  // =============================================================================
+  // Observability Gateway Tool (Always-On, No Session Required)
+  // =============================================================================
+  // Separate tool for querying observability data (metrics, health, sessions, alerts).
+  // No progressive disclosure - always available, direct query access.
+
+  const OBSERVABILITY_DESCRIPTION = `Query system observability data including metrics, health status, active sessions, and alerts. No session initialization required - connect and query directly.
+
+Operations:
+- health: System and service health check
+- metrics: Instant Prometheus query (PromQL)
+- metrics_range: Range query over time
+- sessions: List active reasoning sessions
+- session_info: Get details about a specific session
+- alerts: Get active/firing Prometheus alerts
+- dashboard_url: Get Grafana dashboard URL`;
+
+  const observabilityHandler = new ObservabilityGatewayHandler({
+    storage,
+    prometheusUrl: process.env.PROMETHEUS_URL,
+    grafanaUrl: process.env.GRAFANA_URL,
+  });
+
+  server.registerTool(
+    "observability_gateway",
+    {
+      description: OBSERVABILITY_DESCRIPTION,
+      inputSchema: observabilityToolInputSchema,
+    },
+    async (toolArgs) => {
+      const result = await observabilityHandler.handle(toolArgs);
+      return {
+        content: result.content.map((block) => ({
+          type: "text" as const,
+          text: block.text,
+        })),
+        isError: result.isError,
+      };
+    }
   );
 
   // Register prompts using McpServer's registerPrompt API
