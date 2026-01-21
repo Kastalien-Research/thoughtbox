@@ -272,6 +272,26 @@ export class GatewayHandler {
           this.sendToolListChanged();
         }
       }
+
+      // SIL-103: Session Continuity - restore ThoughtHandler state on load_context
+      if (operation === 'load_context' && args?.sessionId) {
+        try {
+          const restoration = await this.thoughtHandler.restoreFromSession(args.sessionId as string);
+          // Append restoration info to the result
+          const restorationInfo = `\n\n**Session State Restored (SIL-103)**:\n- Thoughts: ${restoration.thoughtCount}\n- Current #: ${restoration.currentThoughtNumber}\n- Branches: ${restoration.branchCount}\n- Next thought will be #${restoration.currentThoughtNumber + 1}`;
+
+          // Find the text content block and append restoration info
+          for (const block of result.content) {
+            if (block.type === 'text') {
+              block.text += restorationInfo;
+              break;
+            }
+          }
+        } catch (err) {
+          console.warn(`[SIL-103] Session restoration failed: ${(err as Error).message}`);
+          // Don't fail the operation - load_context still worked, just without full state restoration
+        }
+      }
     }
 
     return result;
@@ -380,18 +400,18 @@ Call \`thoughtbox_gateway\` with operation 'thought' to begin structured reasoni
     }
 
     // Validate required thought parameters
+    // SIL-102: thoughtNumber and totalThoughts are now optional - server auto-assigns
     const thought = args.thought as string | undefined;
     const nextThoughtNeeded = args.nextThoughtNeeded as boolean | undefined;
-    const thoughtNumber = args.thoughtNumber as number | undefined;
-    const totalThoughts = args.totalThoughts as number | undefined;
 
-    if (!thought || nextThoughtNeeded === undefined || !thoughtNumber || !totalThoughts) {
+    if (!thought || nextThoughtNeeded === undefined) {
       return {
         content: [{
           type: 'text',
           text: JSON.stringify({
             error: 'Missing required parameters',
-            required: ['thought', 'nextThoughtNeeded', 'thoughtNumber', 'totalThoughts'],
+            required: ['thought', 'nextThoughtNeeded'],
+            optional: ['thoughtNumber', 'totalThoughts', 'verbose', 'branchId', 'branchFromThought', 'isRevision', 'revisesThought'],
             received: Object.keys(args),
           }, null, 2),
         }],
@@ -402,8 +422,9 @@ Call \`thoughtbox_gateway\` with operation 'thought' to begin structured reasoni
     const result = await this.thoughtHandler.processThought({
       thought,
       nextThoughtNeeded,
-      thoughtNumber,
-      totalThoughts,
+      // SIL-102: Pass thoughtNumber and totalThoughts as optional
+      thoughtNumber: args.thoughtNumber as number | undefined,
+      totalThoughts: args.totalThoughts as number | undefined,
       isRevision: args.isRevision as boolean | undefined,
       revisesThought: args.revisesThought as number | undefined,
       branchFromThought: args.branchFromThought as number | undefined,
@@ -413,6 +434,8 @@ Call \`thoughtbox_gateway\` with operation 'thought' to begin structured reasoni
       sessionTitle: args.sessionTitle as string | undefined,
       sessionTags: args.sessionTags as string[] | undefined,
       critique: args.critique as boolean | undefined,
+      // SIL-101: Pass verbose flag for minimal/full response mode
+      verbose: args.verbose as boolean | undefined,
     });
 
     return result;

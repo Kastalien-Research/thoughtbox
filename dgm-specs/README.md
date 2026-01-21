@@ -1,244 +1,180 @@
-# DGM Specs
+# DGM Integration Specifications
 
-**Darwin-Gödel Machine specifications for Thoughtbox's autonomous improvement loop.**
+This directory contains specifications for integrating Darwin Gödel Machine (DGM) self-improvement capabilities into Letta Code + Thoughtbox.
 
-This directory contains the targets, hypotheses, benchmarks, and history that drive Thoughtbox's self-improvement system. Agents read from and write to this directory as part of a continuous cycle: discover ideas → design experiments → run against external benchmarks → integrate successes → learn from failures.
+## Quick Start
 
-## Core Principle
+1. **Read**: [Inventory](./inventory.md) - Overview of all specs
+2. **Understand**: [Dependency Graph](./inventory.md#dependency-graph) - Implementation order
+3. **Begin**: [SPEC-DGM-001](./SPEC-DGM-001-mcp-client-local-mode.md) - First spec to implement
 
-The improvement loop optimizes against **external validation** - benchmarks and test suites that agents cannot manipulate. Real GitHub issues from real repositories. CI pipelines we don't control. The goal is genuine capability improvement, not metric gaming.
+## Implementation Defaults & Decisions (2026-01-15)
 
-## Directory Structure
+- **DGM state location**: `.dgm/` lives inside the project being modified (the codebase the DGM loop edits), not in Letta Code. Letta Code should only keep a small config pointer to the active project’s `.dgm/` root.
+- **Transport default**: Use HTTP/streamable HTTP as the primary MCP transport (matches production, works in Docker). STDIO is optional as a fallback adapter only if needed for in-process/local dev.
+- **Docker entry**: Expose `/mcp` (streamable HTTP) and `/health`; provide env toggles for transport/logging; mount/volume `.dgm/` so archives survive rebuilds; clear CMD/ENTRYPOINT to start the server.
+- **CI/CD gates**: Before accepting a DGM variant, gate on `lint + tests + dgm-validate` (archive consistency, metrics compute). For archive branches/tags, regenerate `ARCHIVE.md` and validate `.dgm/archive.json` schema. Optional: build image and run health check for Thoughtbox in the pipeline.
 
-```
-dgm-specs/
-├── README.md              # This file
-├── targets/               # What Thoughtbox should be good at (stable)
-├── hypotheses/            # Ideas to test (churns frequently)
-│   ├── active/            # Currently being evaluated
-│   └── tested/            # Completed experiments with results
-├── benchmarks/            # How we measure improvement
-│   └── registry.yaml      # Pointer to external suites + custom metrics
-└── history/               # Append-only run log
-    └── runs/              # One file per improvement cycle
-```
+## What is This?
 
-## Targets
+This spec suite documents the **end-state architecture** after implementing a self-improving agent system where:
 
-Targets define **what capabilities matter**. These change slowly and represent the north star for improvement efforts.
+- **Letta Code agent** can modify its own codebase
+- **Thoughtbox** can modify its own codebase
+- **Reflection sessions** identify improvement opportunities
+- **DGM loop** implements, tests, and validates improvements
+- **Git archive** tracks all variants and their performance
+- **CI/CD** provides safety guarantees
 
-Each target file should specify:
-- **Capability**: What Thoughtbox should be able to do
-- **Current state**: Honest assessment of where we are
-- **Success criteria**: How we'd know if we achieved it
-- **Measurement approach**: Which benchmarks apply
-
-Example targets:
-- Context retrieval quality (can agents find relevant prior reasoning?)
-- Reasoning chain coherence (do thought sequences make sense?)
-- Branch exploration utility (does branching actually help problem-solving?)
-- Recovery from corrupted state (can sessions resume gracefully?)
-
-## Hypotheses
-
-Hypotheses are **concrete ideas to test**. Each hypothesis proposes a specific change and predicts its effect.
-
-### Active Hypotheses
-
-Files in `hypotheses/active/` are queued for experimentation. Format:
-
-```markdown
-# Hypothesis: [Short name]
-
-## Proposed Change
-What specifically to modify in the codebase.
-
-## Predicted Effect
-What improvement we expect and why.
-
-## Experiment Design
-- Which benchmark(s) to run
-- Sample size / iterations
-- Success threshold
-- Estimated cost (tokens/time)
-
-## Source
-Where this idea came from (paper, repo, observation, prior experiment).
-```
-
-### Tested Hypotheses
-
-After evaluation, hypotheses move to `hypotheses/tested/` with results appended:
-
-```markdown
-## Results
-- **Outcome**: Accepted / Rejected / Inconclusive
-- **Benchmark scores**: [before] → [after]
-- **Cost**: Actual tokens/time consumed
-- **Observations**: What we learned beyond pass/fail
-- **Follow-up**: New hypotheses spawned, if any
-
-## Integration
-If accepted: PR link, commit hash, CLAUDE.md updates made.
-If rejected: Why, and what this rules out for future attempts.
-```
-
-## Benchmarks
-
-The `benchmarks/registry.yaml` file maps capability targets to concrete evaluation methods.
-
-```yaml
-benchmarks:
-  - name: swe-bench-lite
-    type: external
-    url: https://github.com/princeton-nlp/SWE-bench
-    targets: [context-retrieval, reasoning-coherence]
-    cost_estimate: "$0.50-2.00 per issue"
-    notes: "Use verified subset for faster iteration"
-
-  - name: langchain-issues
-    type: external-repo
-    url: https://github.com/langchain-ai/langchain
-    issue_filter: "label:bug created:>2024-01-01"
-    targets: [reasoning-coherence]
-    cost_estimate: "varies"
-    notes: "High agentic user base, good proxy for real-world"
-
-  - name: letta-context-bench
-    type: external
-    url: https://github.com/letta-ai/letta-evals
-    targets: [context-retrieval]
-    
-  - name: thoughtbox-behavioral
-    type: internal
-    path: tests/behavioral/
-    targets: [all]
-    notes: "Agentic test suite - agent-executed, semantically evaluated"
-```
-
-### Benchmark Selection Principles
-
-1. **External CI is the source of truth** - if we don't control the test suite, we can't game it
-2. **Agentic-heavy repos preferred** - LangChain, LlamaIndex, CrewAI issues reflect real agent usage patterns
-3. **Cost-aware iteration** - use cheaper benchmarks for exploration, expensive ones for validation
-4. **Multiple signals** - no single benchmark captures everything; triangulate
-
-## History
-
-The `history/runs/` directory contains one JSON file per improvement cycle:
-
-```json
-{
-  "run_id": "2026-01-19-001",
-  "started_at": "2026-01-19T14:30:00Z",
-  "completed_at": "2026-01-19T15:45:00Z",
-  "trigger": "scheduled | manual | event",
-  "hypothesis": "hypotheses/active/001-sampling-critique-frequency.md",
-  "benchmarks_run": ["swe-bench-lite", "thoughtbox-behavioral"],
-  "results": {
-    "swe-bench-lite": { "before": 0.32, "after": 0.35, "delta": "+0.03" },
-    "thoughtbox-behavioral": { "before": 0.89, "after": 0.91, "delta": "+0.02" }
-  },
-  "outcome": "accepted",
-  "tokens_consumed": 145000,
-  "cost_usd": 4.35,
-  "artifacts": {
-    "reasoning_trace": "https://github.com/.../actions/runs/.../artifacts/...",
-    "pr": "https://github.com/Kastalien-Research/thoughtbox/pull/57"
-  },
-  "notes": "Increasing critique frequency from every-5th to every-3rd thought improved coherence without significant cost increase."
-}
-```
-
-This history serves multiple purposes:
-- **Audit trail**: How did Thoughtbox get to its current state?
-- **Agent context**: What's been tried? What worked? What failed?
-- **Cost tracking**: Are we staying within budget?
-- **Pattern detection**: Are certain types of changes consistently effective?
-
-## How the Loop Works
+## Architecture Vision
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                     IMPROVEMENT CYCLE                           │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│  1. DISCOVER                                                    │
-│     - Scan arXiv for relevant papers                            │
-│     - Search GitHub for promising patterns                      │
-│     - Review history for patterns in what worked                │
-│     - Check targets for capability gaps                         │
-│                                                                 │
-│  2. HYPOTHESIZE                                                 │
-│     - Write hypothesis file with predicted effect               │
-│     - Design experiment with specific benchmarks                │
-│     - Estimate cost, set success threshold                      │
-│     - Move to hypotheses/active/                                │
-│                                                                 │
-│  3. EXPERIMENT                                                  │
-│     - Implement proposed change on feature branch               │
-│     - Run against external benchmarks                           │
-│     - Capture reasoning traces (Thoughtbox eating its own tail) │
-│     - Record all metrics                                        │
-│                                                                 │
-│  4. EVALUATE                                                    │
-│     - Compare before/after on benchmarks                        │
-│     - Check against success threshold                           │
-│     - Consider cost/benefit tradeoff                            │
-│     - Make accept/reject decision                               │
-│                                                                 │
-│  5. INTEGRATE (if accepted)                                     │
-│     - Open PR with implementation                               │
-│     - Update CLAUDE.md with learnings                           │
-│     - Move hypothesis to tested/ with results                   │
-│     - Update targets if capability improved                     │
-│     - Log run to history/                                       │
-│                                                                 │
-│  5. LEARN (if rejected)                                         │
-│     - Document why it failed                                    │
-│     - Note what this rules out                                  │
-│     - Spawn follow-up hypotheses if applicable                  │
-│     - Move hypothesis to tested/ with results                   │
-│     - Log run to history/                                       │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────┐
+│              DGM Self-Improvement System                 │
+│                                                          │
+│  ┌──────────────┐  MCP    ┌──────────────┐            │
+│  │ Letta Code   │◄────────►│ Thoughtbox   │            │
+│  │              │ Sampling │  (Docker)    │            │
+│  └──────┬───────┘          └──────┬───────┘            │
+│         │                         │                     │
+│         │    ┌────────────────────┘                     │
+│         │    │                                          │
+│         ▼    ▼                                          │
+│  ┌──────────────────────────────┐                      │
+│  │  Reflection Session          │                      │
+│  │  - Analyze traces            │                      │
+│  │  - Identify gaps             │                      │
+│  │  - Propose improvements      │                      │
+│  └──────────┬───────────────────┘                      │
+│             │                                           │
+│             ▼                                           │
+│  ┌──────────────────────────────┐                      │
+│  │  DGM Improvement Loop        │                      │
+│  │  1. Select parent (archive)  │                      │
+│  │  2. Implement modification   │                      │
+│  │  3. Generate tests           │                      │
+│  │  4. Validate                 │                      │
+│  │  5. Accept or reject         │                      │
+│  └──────────┬───────────────────┘                      │
+│             │                                           │
+│             ▼                                           │
+│  ┌──────────────────────────────┐                      │
+│  │  Git Archive                 │                      │
+│  │  - Variants as branches      │                      │
+│  │  - Performance metrics       │                      │
+│  │  - Lineage tracking          │                      │
+│  └──────────────────────────────┘                      │
+│                                                         │
+│  Safety Layer: CI/CD + Version Control                 │
+└─────────────────────────────────────────────────────────┘
 ```
 
-## Validation Philosophy
+## Key Concepts
 
-**Direct use is the validation mechanism.** Don't build test harness scripts that spawn agents to call thoughtbox - that just measures agent interpretation noise, not server behavior.
+### Darwin Gödel Machine (DGM)
 
-To validate thoughtbox works:
-1. Use it directly through MCP
-2. Observe results in Observatory
-3. Check that responses match expectations
+A self-improving system that:
+1. **Maintains an archive** of code variants (Git branches)
+2. **Selects parents** based on performance + novelty
+3. **Self-modifies** by editing its own code
+4. **Validates empirically** via tests and benchmarks
+5. **Accepts or rejects** based on results
+6. **Iterates continuously** to evolve capabilities
 
-If you want to measure improvement, the signal comes from using thoughtbox on real tasks - not from artificial test scenarios run through an agent intermediary.
+Inspired by [Sakana AI's Darwin Gödel Machine paper](https://arxiv.org/pdf/2505.22954).
 
-## For Agents Working in This Directory
+### Reflection-Driven Evolution
 
-### Reading
-- Always check `history/runs/` before proposing a hypothesis - don't repeat failed experiments without new information
-- Read `targets/` to understand what matters
-- Check `hypotheses/tested/` for context on what's been tried
+Unlike traditional DGM (continuous iteration), this system uses:
+- **Reflection sessions**: Dedicated time for meta-analysis
+- **Pattern identification**: Learn from actual task history
+- **Thoughtbox meta-reasoning**: Use reasoning tools to reason about reasoning
+- **Deliberate improvement**: Targeted capability additions
 
-### Writing
-- Hypothesis files should be complete enough that another agent could run the experiment
-- Be honest in results - rejected hypotheses are valuable data
-- Update CLAUDE.md when you learn something that will help future agents
-- Keep history entries machine-parseable (valid JSON)
+### Co-Evolving Benchmarks
 
-### Cost Awareness
-- Estimate before running
-- Prefer cheaper benchmarks for early validation
-- Expensive runs (>$10) should target high-confidence hypotheses
-- Track cumulative spend in history
+No fixed benchmark like SWE-bench. Instead:
+- **Metrics discovered** based on usage patterns
+- **Weights adjusted** as priorities change
+- **New metrics added** as capabilities emerge
+- **Natural selection**: What matters emerges from real use
 
-## Bootstrap State
+---
 
-This directory starts minimal. The first few cycles should:
-1. Establish baseline measurements on core benchmarks
-2. Document current capability gaps in targets
-3. Generate initial hypotheses from the research survey
+## Implementation Roadmap
 
-The system gets smarter as history accumulates.
+### Phase 1: Foundation (Week 1-2)
+- ✅ MCP client with STDIO/HTTP transports
+- ✅ Git-based archive system
+- ✅ Test generator skill
+
+### Phase 2: Integration (Week 3-4)
+- ✅ Bidirectional sampling (Thoughtbox ↔ Letta)
+- ✅ Reflection session framework
+- ✅ Co-evolving metrics
+
+### Phase 3: DGM Loop (Week 5-6)
+- ✅ Complete improvement loop
+- ✅ Validation and acceptance logic
+
+### Phase 4: Safety (Week 7-8)
+- ✅ CI/CD workflows
+- ✅ Docker automation
+- ✅ Monitoring and rollback
+
+**Total**: ~8 weeks for complete implementation
+
+---
+
+## File Organization
+
+```
+.specs/dgm-integration/
+├── README.md                    # This file
+├── inventory.md                 # Spec list and dependencies
+├── SPEC-DGM-001-*.md           # Individual specifications
+├── SPEC-DGM-002-*.md
+├── ...
+└── SPEC-DGM-009-*.md
+
+Implementation will create:
+letta-code-thoughtbox/src/
+├── mcp-client/                 # SPEC-DGM-001
+├── dgm/                        # SPEC-DGM-002, DGM-006
+├── reflection/                 # SPEC-DGM-003
+└── metrics/                    # SPEC-DGM-004
+
+.dgm/                          # Archive data (SPEC-DGM-002)
+├── archive.json
+├── metrics/
+└── config.json
+
+.github/workflows/             # SPEC-DGM-008
+├── dgm-validation.yml
+└── dgm-monitor.yml
+```
+
+---
+
+## Questions?
+
+- **What is DGM?** See [inventory.md](./inventory.md#overview)
+- **Where to start?** Begin with [SPEC-DGM-001](./SPEC-DGM-001-mcp-client-local-mode.md)
+- **Implementation order?** Follow [dependency graph](./inventory.md#dependency-graph)
+- **How long?** Estimated 8 weeks (see [roadmap](./inventory.md#implementation-sequence))
+
+---
+
+## Related Documents
+
+- [DGM Paper (Sakana AI)](https://arxiv.org/pdf/2505.22954)
+- [MCP Specification](../../ai_docs/mcp-docs-20251125/)
+- [Letta Docs](../../ai_docs/letta-docs/)
+- [Thoughtbox Architecture](../../thoughtbox/README.md)
+- [Alignment Roadmap](../../ALIGNMENT-ROADMAP.md)
+
+---
+
+**Generated by**: `/spec-designer` workflow  
+**Date**: 2026-01-15  
+**Session**: dgm-integration-2026-01-15

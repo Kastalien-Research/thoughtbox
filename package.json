@@ -56,7 +56,10 @@
     "prepare": "husky",
     "test": "npm run build:local && tsx scripts/agentic-test.ts --all",
     "test:tool": "npm run build:local && tsx scripts/agentic-test.ts --tool",
-    "test:quick": "tsx scripts/agentic-test.ts --tool"
+    "test:quick": "tsx scripts/agentic-test.ts --tool",
+    "benchmark": "tsx dgm-specs/harness/cli.ts run",
+    "benchmark:baseline": "tsx dgm-specs/harness/cli.ts baseline",
+    "benchmark:report": "tsx dgm-specs/harness/cli.ts report"
   },
   "engines": {
     "node": ">=22.0.0"
@@ -80,6 +83,7 @@
     "@types/node": "^22.18.12",
     "@types/ws": "^8.18.1",
     "@types/yargs": "^17.0.32",
+    "dotenv": "^17.2.3",
     "husky": "^9.1.6",
     "madge": "^8.0.0",
     "shx": "^0.3.4",
