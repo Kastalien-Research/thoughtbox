@@ -9,6 +9,7 @@ services:
       - "1731"
     ports:
       - "1729:1729"  # Observatory still public
+      - "1731:1731"  # MCP server
     environment:
       NODE_ENV: production
       PORT: 1731
@@ -34,15 +35,10 @@ services:
 
   # MCP Observability Sidecar (public MCP endpoint)
   mcp-sidecar:
-    image: node:20-slim
-    working_dir: /app
-    command: >
-      sh -c "npm install -g @anthropic-ai/mcp-sidecar-observability@latest 2>/dev/null ||
-             (git clone --depth 1 https://github.com/waldzellai/waldzell-mcp.git /tmp/waldzell &&
-              cd /tmp/waldzell/mcp-sidecar-observability &&
-              npm install && npm run build && npm start) ||
-             (echo 'Falling back to simple proxy' &&
-              npx http-proxy-cli -p 4000 -t http://thoughtbox:1731)"
+    build:
+      context: ./observability/mcp-sidecar-observability
+      dockerfile: Dockerfile
+    image: mcp-sidecar:local
     environment:
       MCP_UPSTREAM_URL: http://thoughtbox:1731
       MCP_UPSTREAM_NAME: thoughtbox

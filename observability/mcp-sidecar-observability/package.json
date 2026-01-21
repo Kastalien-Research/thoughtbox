@@ -1,0 +1,31 @@
+{
+  "name": "mcp-sidecar-observability",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "description": "Generic MCP observability sidecar - HTTP+SSE proxy with OpenTelemetry instrumentation",
+  "main": "dist/server.js",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/server.js",
+    "loadtest": "tsx scripts/loadtest.ts",
+    "test": "tsx --test test/**/*.test.ts"
+  },
+  "dependencies": {
+    "@opentelemetry/api": "^1.9.0",
+    "@opentelemetry/resources": "^2.0.1",
+    "@opentelemetry/sdk-metrics": "^2.0.1",
+    "@opentelemetry/sdk-node": "^0.203.0",
+    "@opentelemetry/exporter-metrics-otlp-http": "^0.203.0",
+    "fastify": "^5.0.0"
+  },
+  "devDependencies": {
+    "ts-node-dev": "^2.0.0",
+    "tsx": "^4.16.2",
+    "typescript": "^5.5.4",
+    "@types/node": "^20.0.0"
+  },
+  "engines": { "node": ">=20" },
+  "license": "Apache-2.0"
+}
