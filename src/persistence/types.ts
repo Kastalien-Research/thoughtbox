@@ -163,6 +163,32 @@ export interface ThoughtNode {
 
   /** Branch identifier (null if on main chain) */
   branchId: string | null;
+
+  /** SPEC-002: Revision metadata for tracking conceptual evolution */
+  revisionMetadata?: RevisionMetadata;
+}
+
+/**
+ * SPEC-002: Metadata tracking revision chains and semantic versioning
+ */
+export interface RevisionMetadata {
+  /** True if this thought has never revised another thought */
+  isOriginal: boolean;
+
+  /** True if this thought revises another thought */
+  isRevision: boolean;
+
+  /** Thought number this revises (null if isRevision=false) */
+  revisesThought: number | null;
+
+  /** Thought numbers that revised THIS thought (reverse pointers) */
+  revisedBy: number[];
+
+  /** Revision depth (0 = original, 1 = first revision, 2 = revision of revision, etc.) */
+  revisionDepth: number;
+
+  /** Unique ID grouping related revisions (all revisions of S1 share same chainId) */
+  revisionChainId: string;
 }
 
 /**
@@ -188,6 +214,9 @@ export interface SessionExport {
 
   /** All thought nodes with linked structure */
   nodes: ThoughtNode[];
+
+  /** Revision analysis (SPEC-002) */
+  revisionAnalysis?: any;
 
   /** ISO 8601 timestamp of export */
   exportedAt: string;

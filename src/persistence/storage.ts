@@ -19,6 +19,7 @@ import type {
   ThoughtNode,
   ThoughtNodeId,
   SessionExport,
+  RevisionMetadata,
 } from './types.js';
 
 // =============================================================================
@@ -436,13 +437,92 @@ export class LinkedThoughtStore {
 
   /**
    * Convert session to export format
+   * SPEC-002: Includes revision metadata for each node
    */
   toExportFormat(sessionId: string, session: Session): SessionExport {
+    const nodes = this.getSessionNodes(sessionId);
+
+    // SPEC-002: Build revision metadata
+    const { RevisionIndexBuilder } = require("../revision/revision-index.js");
+    const indexBuilder = new RevisionIndexBuilder();
+    const revisionIndex = indexBuilder.buildIndex(nodes);
+
+    // Attach revision metadata to each node
+    const nodesWithMetadata = nodes.map(node => ({
+      ...node,
+      revisionMetadata: revisionIndex.get(node.data.thoughtNumber),
+    }));
+
+    // SPEC-002: Calculate revision analysis for session
+    const revisions = Array.from(revisionIndex.values() as Iterable<RevisionMetadata>).filter(m => m.isRevision);
+    const revisionAnalysis = this.calculateRevisionAnalysis(nodes, revisionIndex);
+
     return {
       version: '1.0',
-      session,
-      nodes: this.getSessionNodes(sessionId),
+      session: session,
+      nodes: nodesWithMetadata,
+      revisionAnalysis,
       exportedAt: new Date().toISOString(),
+    };
+  }
+
+  /**
+   * SPEC-002: Calculate revision analysis metrics
+   */
+  private calculateRevisionAnalysis(
+    nodes: ThoughtNode[],
+    index: Map<number, RevisionMetadata>
+  ): any {
+    const revisions = Array.from(index.values()).filter((m) => m.isRevision);
+
+    if (revisions.length === 0) {
+      return {
+        totalRevisions: 0,
+        mostRevisedThought: null,
+        avgTemporalDistance: 0,
+        revisionDensity: 0,
+      };
+    }
+
+    // Find most-revised thought
+    const revisedByCounts = new Map<number, number>();
+    for (const metadata of index.values()) {
+      if (metadata.revisedBy.length > 0) {
+        revisedByCounts.set(metadata.revisesThought!, metadata.revisedBy.length);
+      }
+    }
+
+    let mostRevisedThought: { thoughtNumber: number; revisionCount: number } | null = null;
+    let maxCount = 0;
+    for (const [thoughtNum, count] of revisedByCounts.entries()) {
+      if (count > maxCount) {
+        maxCount = count;
+        mostRevisedThought = { thoughtNumber: thoughtNum, revisionCount: count };
+      }
+    }
+
+    // Calculate average temporal distance
+    let totalDistance = 0;
+    let distanceCount = 0;
+    for (const metadata of revisions) {
+      if (metadata.revisesThought !== null) {
+        const distance = metadata.revisesThought - (metadata.revisesThought || 0);
+        totalDistance += Math.abs(distance);
+        distanceCount++;
+      }
+    }
+    const avgTemporalDistance = distanceCount > 0 ? totalDistance / distanceCount : 0;
+
+    // Revision density (revisions per 100 thoughts)
+    const revisionDensity = nodes.length > 0
+      ? (revisions.length / nodes.length) * 100
+      : 0;
+
+    return {
+      totalRevisions: revisions.length,
+      mostRevisedThought,
+      avgTemporalDistance: Math.round(avgTemporalDistance * 10) / 10,
+      revisionDensity: Math.round(revisionDensity * 10) / 10,
     };
   }
 }
