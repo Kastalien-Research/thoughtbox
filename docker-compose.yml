@@ -40,7 +40,7 @@ services:
       dockerfile: Dockerfile
     image: mcp-sidecar:local
     environment:
-      MCP_UPSTREAM_URL: http://thoughtbox:1731
+      MCP_UPSTREAM_URL: http://thoughtbox:1731/mcp
       MCP_UPSTREAM_NAME: thoughtbox
       MCP_UPSTREAM_TIMEOUT_MS: 60000
       PORT: 4000
