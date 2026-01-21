@@ -26,6 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - complete nuanced frameworks in skill ([175225a](../../commit/175225a9b25912a965a0daadfc1c29d7080df0e9))
 - add thoughtbox-cognitive Claude skill ([67ee12d](../../commit/67ee12d1a95be3e3fc49c0eddf564d8b90c0b31c))
 - Add specification workflows, OODA loops MCP, and automated changelog ([f336a0d](../../commit/f336a0de7d6c805b95a8c05e1c0ae013b2da493b))
+- **sil**: Implement SIL bootstrap specs (100-104) ([d18589c](../../commit/d18589cffc0df312d0dba53fd0c38b9869f0e03b))
 
 ### Changed
 - Build pipeline now includes OODA loop embedding step (`npm run embed-loops`)
@@ -47,6 +48,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add missing imports in server-factory.ts ([22fad66](../../commit/22fad6635c6e9c0919f5b21976093056bbfa28d3))
 - Enforce branchId requires branchFromThought ([87b8691](../../commit/87b86918efff2501a088c27ed07aabceb83a5ab2))
 - **init**: Add missing await keywords and fix interface violation ([28f901e](../../commit/28f901eebde40b019019dde30408aec164e74f32))
+- **benchmark**: Correct start_new args in test configs ([dd90077](../../commit/dd900774611d034ab1ab338447a50782237c49d0))
+- **imports**: Update Logger import path in claude-folder-integration ([f5ae62c](../../commit/f5ae62cc7da4bbd2e5ddcd1ffc2ef281901c3289))
+- **changelog**: Add required permissions for PR comments in GitHub Action ([5b7c2da](../../commit/5b7c2daf041182a49c163ba32711ebc3e200eca3))
 ## [1.2.2] - 2026-01-15
 
 ### Added
