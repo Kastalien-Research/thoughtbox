@@ -43,6 +43,33 @@ import { EventEmitter } from "events";
 import type { Thought, Session } from "./schemas/thought.js";
 
 /**
+ * Improvement event types for SIL (Self-Improvement Loop)
+ * SPEC: SIL-001
+ */
+export type ImprovementEventType =
+  | "discovery"
+  | "filter"
+  | "experiment"
+  | "evaluate"
+  | "integrate"
+  | "cycle_start"
+  | "cycle_end";
+
+/**
+ * Improvement event data emitted during SIL cycles
+ * SPEC: SIL-001
+ */
+export interface ImprovementEvent {
+  type: ImprovementEventType;
+  timestamp: string;
+  iteration: number;
+  phase: string;
+  cost: number;
+  success: boolean;
+  metadata: Record<string, unknown>;
+}
+
+/**
  * Event types emitted by the ThoughtEmitter
  */
 export type ThoughtEmitterEvents = {
@@ -71,6 +98,11 @@ export type ThoughtEmitterEvents = {
     sessionId: string;
     finalThoughtCount: number;
   };
+  /**
+   * Improvement events from the Self-Improvement Loop (SIL)
+   * SPEC: SIL-001
+   */
+  "improvement:event": ImprovementEvent;
 };
 
 export type ThoughtEmitterEventName = keyof ThoughtEmitterEvents;
@@ -173,6 +205,17 @@ export class ThoughtEmitter extends EventEmitter {
    */
   emitSessionEnded(data: ThoughtEmitterEvents["session:ended"]): void {
     this.safeEmit("session:ended", data);
+  }
+
+  /**
+   * Emit an improvement:event
+   * SPEC: SIL-001
+   *
+   * Fire-and-forget: This method returns immediately.
+   * Listener errors are logged but never propagate.
+   */
+  emitImprovementEvent(data: ThoughtEmitterEvents["improvement:event"]): void {
+    this.safeEmit("improvement:event", data);
   }
 
   /**

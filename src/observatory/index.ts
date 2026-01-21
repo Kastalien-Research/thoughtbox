@@ -45,7 +45,15 @@ export {
   thoughtEmitter,
   type ThoughtEmitterEvents,
   type ThoughtEmitterEventName,
+  type ImprovementEvent,
+  type ImprovementEventType,
 } from "./emitter.js";
+
+// Improvement tracker (SIL-001)
+export {
+  ImprovementTracker,
+  improvementTracker,
+} from "./improvement-tracker.js";
 
 // Configuration
 export {
