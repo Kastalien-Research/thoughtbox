@@ -6,7 +6,7 @@
 
 export {
   ObservabilityGatewayHandler,
-  observabilityToolInputSchema,
+  ObservabilityInputSchema,
   type ObservabilityGatewayConfig,
   type ObservabilityInput,
   type ObservabilityOperation,

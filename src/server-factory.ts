@@ -60,7 +60,7 @@ import {
 } from "./gateway/index.js";
 import {
   ObservabilityGatewayHandler,
-  observabilityToolInputSchema,
+  ObservabilityInputSchema,
 } from "./observability/index.js";
 import { SUBAGENT_SUMMARIZE_CONTENT } from "./resources/subagent-summarize-content.js";
 import { EVOLUTION_CHECK_CONTENT } from "./resources/evolution-check-content.js";
@@ -400,9 +400,9 @@ Operations:
     "observability_gateway",
     {
       description: OBSERVABILITY_DESCRIPTION,
-      inputSchema: observabilityToolInputSchema,
+      inputSchema: ObservabilityInputSchema,
     },
-    async (toolArgs) => {
+    async (toolArgs: { operation: string; args?: Record<string, unknown> }) => {
       const result = await observabilityHandler.handle(toolArgs);
       return {
         content: result.content.map((block) => ({
