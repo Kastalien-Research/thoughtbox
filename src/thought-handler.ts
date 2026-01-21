@@ -13,11 +13,15 @@ import {
   type Thought as ObservatoryThought,
 } from "./observatory/index.js";
 import { SamplingHandler } from "./sampling/index.js";
+// SIL-104: Event stream for external consumers
+import type { ThoughtboxEventEmitter } from "./events/index.js";
 
 export interface ThoughtData {
   thought: string;
-  thoughtNumber: number;
-  totalThoughts: number;
+  // SIL-102: thoughtNumber is now optional - server auto-assigns if omitted
+  thoughtNumber?: number;
+  // SIL-102: totalThoughts is now optional - defaults to thoughtNumber if omitted
+  totalThoughts?: number;
   isRevision?: boolean;
   revisesThought?: number;
   branchFromThought?: number;
@@ -30,6 +34,8 @@ export interface ThoughtData {
   sessionTags?: string[];
   // Request autonomous critique of this thought (Phase 3: Sampling Loops)
   critique?: boolean;
+  // SIL-101: Verbose response mode - when false (default), return minimal response
+  verbose?: boolean;
 }
 
 export class ThoughtHandler {
@@ -48,6 +54,9 @@ export class ThoughtHandler {
 
   // Sampling handler for autonomous critique (Phase 3)
   private samplingHandler: SamplingHandler | null = null;
+
+  // SIL-104: Event emitter for external consumers (JSONL stream)
+  private eventEmitter: ThoughtboxEventEmitter | null = null;
 
   constructor(
     disableThoughtLogging: boolean = false,
@@ -85,6 +94,14 @@ export class ThoughtHandler {
    */
   setSamplingHandler(handler: SamplingHandler): void {
     this.samplingHandler = handler;
+  }
+
+  /**
+   * SIL-104: Set the event emitter for external JSONL event stream
+   * Uses deferred initialization pattern - emitter is set after server setup
+   */
+  setEventEmitter(emitter: ThoughtboxEventEmitter): void {
+    this.eventEmitter = emitter;
   }
 
   /**
@@ -186,6 +203,15 @@ export class ThoughtHandler {
     const exporter = new SessionExporter();
     const exportPath = await exporter.export(exportData, sessionId, destination);
 
+    // SIL-104: Emit export_requested event to external event stream
+    if (this.eventEmitter?.isEnabled()) {
+      this.eventEmitter.emitExportRequested({
+        sessionId,
+        exportPath,
+        nodeCount: exportData.nodes.length,
+      });
+    }
+
     return {
       path: exportPath,
       session,
@@ -193,17 +219,96 @@ export class ThoughtHandler {
     };
   }
 
-  private validateThoughtData(input: unknown): ThoughtData {
+  /**
+   * SIL-103: Restore handler state from an existing session
+   *
+   * When MCP connection resets, this method fully restores:
+   * - thoughtHistory (all thoughts)
+   * - branches (all branching data)
+   * - currentSessionId
+   *
+   * Note: currentThoughtNumber is calculated from thoughtHistory on each thought,
+   * so we just need to restore the history and the auto-assignment (SIL-102) handles the rest.
+   *
+   * Called by gateway when load_context specifies an existing session.
+   *
+   * @param sessionId - Session to restore from
+   * @returns Restoration summary for confirmation
+   */
+  async restoreFromSession(sessionId: string): Promise<{
+    thoughtCount: number;
+    currentThoughtNumber: number;
+    branchCount: number;
+    restored: boolean;
+  }> {
+    // 1. Verify session exists
+    const session = await this.storage.getSession(sessionId);
+    if (!session) {
+      throw new Error(`Session not found: ${sessionId}`);
+    }
+
+    // 2. Load all thoughts from storage (main chain)
+    const thoughts = await this.storage.getThoughts(sessionId);
+
+    // 3. Restore thought history
+    // Note: storage returns PersistentThoughtData, we map to local ThoughtData
+    this.thoughtHistory = thoughts.map((t) => ({
+      thought: t.thought,
+      thoughtNumber: t.thoughtNumber,
+      totalThoughts: t.totalThoughts ?? t.thoughtNumber,
+      nextThoughtNeeded: t.nextThoughtNeeded,
+      branchId: t.branchId,
+      branchFromThought: t.branchFromThought,
+      isRevision: t.isRevision,
+      revisesThought: t.revisesThought,
+    }));
+
+    // 4. Calculate current thought number (max in main chain)
+    // This is computed, not stored - SIL-102 auto-assignment will use this
+    const mainChainThoughts = this.thoughtHistory.filter(t => !t.branchId);
+    const currentThoughtNumber = mainChainThoughts.length > 0
+      ? Math.max(...mainChainThoughts.map(t => t.thoughtNumber ?? 0))
+      : 0;
+
+    // 5. Restore branches
+    this.branches = {};
+    for (const thought of this.thoughtHistory) {
+      if (thought.branchId) {
+        if (!this.branches[thought.branchId]) {
+          this.branches[thought.branchId] = [];
+        }
+        this.branches[thought.branchId].push(thought);
+      }
+    }
+
+    // 6. Set session ID
+    this.currentSessionId = sessionId;
+
+    // 7. Log restoration
+    const branchCount = Object.keys(this.branches).length;
+    console.log(`[SIL-103] Restored session ${sessionId}: ${thoughts.length} thoughts, current #${currentThoughtNumber}, ${branchCount} branches`);
+
+    return {
+      thoughtCount: thoughts.length,
+      currentThoughtNumber,
+      branchCount,
+      restored: true,
+    };
+  }
+
+  private validateThoughtData(input: unknown): ThoughtData & { thoughtNumber: number; totalThoughts: number } {
     const data = input as Record<string, unknown>;
 
     if (!data.thought || typeof data.thought !== "string") {
       throw new Error("Invalid thought: must be a string");
     }
-    if (!data.thoughtNumber || typeof data.thoughtNumber !== "number") {
-      throw new Error("Invalid thoughtNumber: must be a number");
+    // SIL-102: thoughtNumber is now optional - if provided, must be a number
+    if (data.thoughtNumber !== undefined && typeof data.thoughtNumber !== "number") {
+      throw new Error("Invalid thoughtNumber: when provided, must be a number");
     }
-    if (!data.totalThoughts || typeof data.totalThoughts !== "number") {
-      throw new Error("Invalid totalThoughts: must be a number");
+    // SIL-102: totalThoughts is now optional - if provided, must be a number
+    if (data.totalThoughts !== undefined && typeof data.totalThoughts !== "number") {
+      throw new Error("Invalid totalThoughts: when provided, must be a number");
     }
     if (typeof data.nextThoughtNeeded !== "boolean") {
       throw new Error("Invalid nextThoughtNeeded: must be a boolean");
@@ -220,10 +325,29 @@ export class ThoughtHandler {
       );
     }
 
+    // SIL-102: Auto-assign thoughtNumber if not provided
+    // Calculate next thought number from history (main chain thoughts only)
+    let thoughtNumber = data.thoughtNumber as number | undefined;
+    if (thoughtNumber === undefined) {
+      const mainChainThoughts = this.thoughtHistory.filter(t => !t.branchId);
+      if (mainChainThoughts.length === 0) {
+        thoughtNumber = 1; // First thought
+      } else {
+        const maxNumber = Math.max(...mainChainThoughts.map(t => t.thoughtNumber ?? 0));
+        thoughtNumber = maxNumber + 1;
+      }
+    }
+
+    // SIL-102: Auto-assign totalThoughts if not provided (set to current thoughtNumber)
+    let totalThoughts = data.totalThoughts as number | undefined;
+    if (totalThoughts === undefined) {
+      totalThoughts = thoughtNumber;
+    }
+
     return {
       thought: data.thought,
-      thoughtNumber: data.thoughtNumber,
-      totalThoughts: data.totalThoughts,
+      thoughtNumber,
+      totalThoughts,
       nextThoughtNeeded: data.nextThoughtNeeded,
       isRevision: data.isRevision as boolean | undefined,
       revisesThought: data.revisesThought as number | undefined,
@@ -236,6 +360,8 @@ export class ThoughtHandler {
       sessionTags: data.sessionTags as string[] | undefined,
       // Sampling critique
       critique: data.critique as boolean | undefined,
+      // SIL-101: Verbose mode (default false)
+      verbose: data.verbose as boolean | undefined,
     };
   }
 
@@ -314,6 +440,15 @@ export class ThoughtHandler {
           } catch (e) {
             console.warn('[Observatory] Session start emit failed:', e instanceof Error ? e.message : e);
           }
+        }
+
+        // SIL-104: Emit session_created event
+        if (this.eventEmitter?.isEnabled()) {
+          this.eventEmitter.emitSessionCreated({
+            sessionId: session.id,
+            title: session.title,
+            tags: session.tags,
+          });
         }
       }
 
@@ -459,12 +594,35 @@ export class ThoughtHandler {
           }
         }
 
+        // SIL-104: Emit thought_added and branch_created events
+        if (this.eventEmitter?.isEnabled()) {
+          // Track if thoughtNumber was auto-assigned (SIL-102)
+          const wasAutoAssigned = (input as Record<string, unknown>).thoughtNumber === undefined;
+
+          // Emit thought_added for all thoughts
+          this.eventEmitter.emitThoughtAdded({
+            sessionId: this.currentSessionId!,
+            thoughtNumber: validatedInput.thoughtNumber,
+            wasAutoAssigned,
+            thoughtPreview: validatedInput.thought.slice(0, 100) + (validatedInput.thought.length > 100 ? '...' : ''),
+          });
+
+          // Emit branch_created for new branches
+          if (willCreateNewBranch) {
+            this.eventEmitter.emitBranchCreated({
+              sessionId: this.currentSessionId!,
+              branchId: validatedInput.branchId!,
+              fromThoughtNumber: validatedInput.branchFromThought!,
+            });
+          }
+        }
+
         // Request critique if enabled and sampling handler available
         if (validatedInput.critique && this.samplingHandler) {
           try {
             // Build context from in-memory history (last 5 thoughts, excluding current)
             const context = this.thoughtHistory
-              .filter(t => t.thoughtNumber < validatedInput.thoughtNumber && !t.branchId)
+              .filter(t => (t.thoughtNumber ?? 0) < validatedInput.thoughtNumber && !t.branchId)
               .slice(-5)
               .map(({ critique: _, ...rest }) => ({
                 ...rest,
@@ -521,6 +679,15 @@ export class ThoughtHandler {
           } catch (e) {
             console.warn('[Observatory] Session end emit failed:', e instanceof Error ? e.message : e);
           }
+        }
+
+        // SIL-104: Emit session_completed event to external event stream
+        if (this.eventEmitter?.isEnabled()) {
+          this.eventEmitter.emitSessionCompleted({
+            sessionId: this.currentSessionId,
+            finalThoughtCount: this.thoughtHistory.length,
+            branchCount: Object.keys(this.branches).length,
+          });
         }
 
         // Auto-export before session ends
@@ -587,6 +754,30 @@ export class ThoughtHandler {
         console.error(formattedThought);
       }
 
+      // SIL-101: Check verbose flag - default is false (minimal response)
+      const isVerbose = validatedInput.verbose === true;
+
+      // SIL-101: Minimal response mode (default)
+      // When verbose is false, return only essential fields for token efficiency
+      if (!isVerbose) {
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify(
+                {
+                  thoughtNumber: validatedInput.thoughtNumber,
+                  sessionId: this.currentSessionId,
+                },
+                null,
+                2
+              ),
+            },
+          ],
+        };
+      }
+
+      // SIL-101: Verbose response mode - full response with all fields
       // Build response content array
       const content: Array<any> = [
         {

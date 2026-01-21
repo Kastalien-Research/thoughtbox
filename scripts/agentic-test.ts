@@ -15,6 +15,10 @@
  * semantic testing rather than brittle unit tests.
  */
 
+// Load .env file before anything else
+import { config } from "dotenv";
+config();
+
 import { query } from "@anthropic-ai/claude-agent-sdk";
 import { readFileSync, existsSync } from "fs";
 import { resolve, dirname, join } from "path";
@@ -29,47 +33,80 @@ const PROJECT_ROOT = resolve(__dirname, "..");
 // ============================================================================
 
 const THOUGHTBOX_TESTS = `
-# Behavioral Tests: thoughtbox Tool (Structured Reasoning)
+# Behavioral Tests: thoughtbox_gateway (Structured Reasoning)
+
+IMPORTANT: This server uses a single gateway tool called "thoughtbox_gateway". All operations go through this tool using the "operation" parameter, with additional arguments in the "args" parameter.
+
+## Test 0: Initialize Session (REQUIRED FIRST)
+**Action**: Call thoughtbox_gateway with operation "start_new", args { title: "Agentic Test Session" }
+**Expected**:
+- Returns session ID and confirmation
+- Advances to Stage 1 (init complete)
+- Without this, thought operations will fail
+
+## Test 0.5: Load Cipher (REQUIRED BEFORE THOUGHTS)
+**Action**: Call thoughtbox_gateway with operation "cipher"
+**Expected**:
+- Returns the notation system content
+- Advances to Stage 2 (cipher loaded)
+- Without this, thought operations will be rejected
 
 ## Test 1: Start New Reasoning Session
-**Action**: Call thoughtbox with thought "Analyzing test framework", thoughtNumber 1, totalThoughts 3, nextThoughtNeeded true
+**Action**: Call thoughtbox_gateway with operation "thought", args { thought: "Analyzing test framework", thoughtNumber: 1, totalThoughts: 3, nextThoughtNeeded: true }
 **Expected**:
 - Returns acknowledgment of thought recorded
-- Should create or reference a session
+- Response includes thoughtNumber 1
 - Response should include guidance or pattern suggestions
 
 ## Test 2: Continue Reasoning Chain
-**Action**: After Test 1, call thoughtbox with thought "Second step analysis", thoughtNumber 2, totalThoughts 3, nextThoughtNeeded true
+**Action**: Call thoughtbox_gateway with operation "thought", args { thought: "Second step analysis", thoughtNumber: 2, totalThoughts: 3, nextThoughtNeeded: true }
 **Expected**:
 - Should maintain context from previous thought
-- thoughtNumber should be accepted and recorded
+- thoughtNumber 2 should be accepted and recorded
 
 ## Test 3: Complete Reasoning Session
-**Action**: Call thoughtbox with thought "Final conclusion", thoughtNumber 3, totalThoughts 3, nextThoughtNeeded false
+**Action**: Call thoughtbox_gateway with operation "thought", args { thought: "Final conclusion", thoughtNumber: 3, totalThoughts: 3, nextThoughtNeeded: false }
 **Expected**:
 - Session should be marked complete
 - Should provide summary or final acknowledgment
 `;
 
 const MENTAL_MODELS_TESTS = `
-# Behavioral Tests: mental_models Tool
+# Behavioral Tests: thoughtbox_gateway - mental_models operation
+
+IMPORTANT: This server uses a single gateway tool called "thoughtbox_gateway". All operations go through this tool. The mental_models operation requires Stage 2 (cipher loaded).
+
+## Test 0: Initialize Session (REQUIRED FIRST)
+**Action**: Call thoughtbox_gateway with operation "start_new", args { title: "Mental Models Test Session" }
+**Expected**:
+- Returns session ID and confirmation
+- Advances to Stage 1 (init complete)
+
+## Test 0.5: Load Cipher (REQUIRED BEFORE MENTAL_MODELS)
+**Action**: Call thoughtbox_gateway with operation "cipher"
+**Expected**:
+- Returns the notation system content
+- Advances to Stage 2 (cipher loaded)
+- Without this, mental_models operations will be rejected
 
 ## Test 1: List Available Models
-**Action**: Call mental_models with operation "list_models"
+**Action**: Call thoughtbox_gateway with operation "mental_models", args { operation: "list_models" }
+Note: The args contain a nested "operation" field for the specific mental_models operation
 **Expected**:
 - Returns array of available mental models
 - Each model should have name and description
 - Should include at least 5 models
 
 ## Test 2: Get Specific Model
-**Action**: Call mental_models with operation "get_model", args { model: "five-whys" }
+**Action**: Call thoughtbox_gateway with operation "mental_models", args { operation: "get_model", args: { model: "five-whys" } }
+Note: Nested structure - outer args contains operation and inner args for that operation
 **Expected**:
 - Returns detailed model information
 - Should include process steps or framework
 - Should be actionable guidance
 
-## Test 3: List by Tag
-**Action**: Call mental_models with operation "list_models", args { tag: "debugging" }
+## Test 3: List Models by Tag
+**Action**: Call thoughtbox_gateway with operation "mental_models", args { operation: "list_models", args: { tag: "debugging" } }
 **Expected**:
 - Returns filtered list of models
 - All returned models should relate to debugging
@@ -98,16 +135,29 @@ async function runBehavioralTests(testSpec: string, toolName: string): Promise<T
 
   const systemPrompt = `You are a behavioral test agent for the ThoughtBox MCP server.
 
+CRITICAL: This server uses a SINGLE tool called "thoughtbox_gateway". All operations go through this tool.
+
+Tool Call Format:
+- Tool name: thoughtbox_gateway
+- Input structure: { "operation": "<operation_name>", "args": { ...arguments } }
+
+Example tool call for starting a session:
+thoughtbox_gateway({ "operation": "start_new", "args": { "title": "Test Session" } })
+
+Example tool call for a thought:
+thoughtbox_gateway({ "operation": "thought", "args": { "thought": "My analysis", "thoughtNumber": 1, "totalThoughts": 3, "nextThoughtNeeded": true } })
+
 Your job is to:
-1. Execute each test described in the test specification
-2. Invoke the appropriate MCP tools
+1. Execute each test described in the test specification IN ORDER (setup tests first!)
+2. Invoke thoughtbox_gateway with the correct operation and args
 3. Compare actual results against expected behavior
 4. Report PASS or FAIL for each test with clear reasoning
 
 Important guidelines:
+- ALWAYS run Test 0 (start_new) and Test 0.5 (cipher) FIRST before other tests
+- The server has progressive disclosure - without init and cipher, other operations will fail
 - Be precise about what you observe vs what was expected
 - If a test fails, explain WHY it failed
-- Consider edge cases and error handling
 - Tests are behavioral - focus on semantic correctness, not exact string matching
 
 After running all tests, provide a summary in this format:

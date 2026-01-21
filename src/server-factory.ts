@@ -46,6 +46,7 @@ import {
   StateManager,
 } from "./init/index.js";
 import { ThoughtHandler } from "./thought-handler.js";
+import { ThoughtboxEventEmitter } from "./events/index.js";
 import { SamplingHandler } from "./sampling/index.js";
 import { ToolRegistry, DisclosureStage } from "./tool-registry.js";
 import { DiscoveryRegistry } from "./discovery-registry.js";
@@ -96,12 +97,8 @@ export type ServerConfig = z.infer<typeof configSchema>;
 // Input config type (before parsing, allows omitting fields with defaults)
 export type ServerConfigInput = z.input<typeof configSchema>;
 
-export interface Logger {
-  debug(message: string, ...args: unknown[]): void;
-  info(message: string, ...args: unknown[]): void;
-  warn(message: string, ...args: unknown[]): void;
-  error(message: string, ...args: unknown[]): void;
-}
+import type { Logger } from './types.js';
+export type { Logger } from './types.js';
 
 export interface CreateMcpServerArgs {
   /** MCP connection session ID (if available) */
@@ -119,10 +116,10 @@ export interface CreateMcpServerArgs {
 }
 
 const defaultLogger: Logger = {
-  debug: (msg, ...args) => console.error(`[DEBUG] ${msg}`, ...args),
-  info: (msg, ...args) => console.error(`[INFO] ${msg}`, ...args),
-  warn: (msg, ...args) => console.error(`[WARN] ${msg}`, ...args),
-  error: (msg, ...args) => console.error(`[ERROR] ${msg}`, ...args),
+  debug(message: string, ...args: unknown[]) { console.error(`[DEBUG] ${message}`, ...args); },
+  info(message: string, ...args: unknown[]) { console.error(`[INFO] ${message}`, ...args); },
+  warn(message: string, ...args: unknown[]) { console.error(`[WARN] ${message}`, ...args); },
+  error(message: string, ...args: unknown[]) { console.error(`[ERROR] ${message}`, ...args); },
 };
 
 /**
@@ -193,6 +190,17 @@ Progressive disclosure is enforced internally - you'll get clear errors if calli
   // By the time thoughtbox tool is called with critique=true, transport is already connected
   const samplingHandler = new SamplingHandler(server.server as any);
   thoughtHandler.setSamplingHandler(samplingHandler);
+
+  // SIL-104: Wire up event emitter for external event stream (JSONL)
+  // Configuration via environment variables:
+  //   THOUGHTBOX_EVENTS_ENABLED=true - Enable event emission
+  //   THOUGHTBOX_EVENTS_DEST=stderr|stdout|<filepath> - Where to write events
+  const eventEmitter = new ThoughtboxEventEmitter({
+    enabled: process.env.THOUGHTBOX_EVENTS_ENABLED === 'true',
+    destination: process.env.THOUGHTBOX_EVENTS_DEST || 'stderr',
+    includeMcpSessionId: true,
+  }, sessionId);
+  thoughtHandler.setEventEmitter(eventEmitter);
 
   const notebookHandler = new NotebookHandler();
   const mentalModelsHandler = new MentalModelsHandler();
