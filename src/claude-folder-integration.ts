@@ -7,7 +7,7 @@
 
 import * as fs from 'fs/promises';
 import * as path from 'path';
-import type { Logger } from './server-factory.js';
+import type { Logger } from './types.js';
 
 export interface LoopAccessRecord {
   timestamp: string;
