@@ -3,12 +3,12 @@
  * Unit tests for ImprovementTracker
  * SPEC: SIL-001
  *
- * Run with: npx tsx src/observatory/improvement-tracker.test.ts
+ * Run with: npx tsx tests/unit/improvement-tracker.test.ts
  */
 
-import { ImprovementTracker, improvementTracker } from "./improvement-tracker.js";
-import { ThoughtEmitter } from "./emitter.js";
-import type { ImprovementEvent } from "./emitter.js";
+import { ImprovementTracker, improvementTracker } from "../../src/observatory/improvement-tracker.js";
+import { ThoughtEmitter } from "../../src/observatory/emitter.js";
+import type { ImprovementEvent } from "../../src/observatory/emitter.js";
 
 // =============================================================================
 // Test Utilities

@@ -3,7 +3,7 @@
  * Unit tests for Benchmark Suite Configuration Loader
  * SPEC: SIL-002
  *
- * Run with: npx tsx benchmarks/config-loader.test.ts
+ * Run with: npx tsx tests/unit/config-loader.test.ts
  */
 
 import {
@@ -16,7 +16,7 @@ import {
   getProctoringStatus,
   BenchmarkConfigSchema,
   type BenchmarkConfig,
-} from "./config-loader.js";
+} from "../../benchmarks/config-loader.js";
 import { writeFileSync, unlinkSync, mkdirSync, rmSync } from "fs";
 import { resolve, dirname } from "path";
 import { fileURLToPath } from "url";
