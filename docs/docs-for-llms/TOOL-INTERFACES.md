@@ -12,7 +12,10 @@ Complete tool interface specifications including the gateway router, individual 
 - [Gateway Architecture](#gateway-architecture)
 - [Gateway Tool](#gateway-tool)
 - [Thought Tool](#thought-tool)
+- [Read Thoughts Tool](#read-thoughts-tool)
+- [Get Structure Tool](#get-structure-tool)
 - [Session Tool](#session-tool)
+- [Deep Analysis Tool](#deep-analysis-tool)
 - [Notebook Tool](#notebook-tool)
 - [Mental Models Tool](#mental-models-tool)
 - [Storage Interface](#storage-interface)
@@ -55,7 +58,10 @@ flowchart TD
     Route -->|load_context| S0 --> Init
     Route -->|cipher| S1 --> Cipher
     Route -->|session| S1 --> Session
+    Route -->|deep_analysis| S1 --> Session
     Route -->|thought| S2 --> Thought
+    Route -->|read_thoughts| S2 --> Thought
+    Route -->|get_structure| S2 --> Thought
     Route -->|notebook| S2 --> Notebook
     Route -->|mental_models| S2 --> Mental
 ```
@@ -132,6 +138,21 @@ gateway_routes:
       - export
       - analyze
       - extract_learnings
+      - discovery  # SPEC-009
+
+  deep_analysis:
+    handler: sessions
+    minimum_stage: 1
+    advances_to: null
+    description: "Advanced session pattern analysis"
+    parameters:
+      sessionId:
+        type: string
+        required: true
+      analysisType:
+        type: string
+        enum: [patterns, cognitive_load, decision_points, full]
+        default: full
 
   # Stage 2 operations
   thought:
@@ -142,15 +163,18 @@ gateway_routes:
       thought:
         type: string
         required: true
-      thoughtNumber:
-        type: integer
-        required: true
-      totalThoughts:
-        type: integer
-        required: true
       nextThoughtNeeded:
         type: boolean
         required: true
+      # SIL-102: Optional - server auto-assigns if omitted
+      thoughtNumber:
+        type: integer
+        required: false
+        description: "Optional - server auto-assigns next sequential number if omitted"
+      totalThoughts:
+        type: integer
+        required: false
+        description: "Optional - defaults to thoughtNumber if omitted"
       isRevision:
         type: boolean
         required: false
@@ -166,6 +190,51 @@ gateway_routes:
       critique:
         type: boolean
         required: false
+      # SIL-101: Response mode
+      verbose:
+        type: boolean
+        required: false
+        default: false
+        description: "Return detailed response (default: minimal)"
+
+  read_thoughts:
+    handler: thought
+    minimum_stage: 2
+    advances_to: null
+    description: "Retrieve previous thoughts mid-session"
+    parameters:
+      thoughtNumber:
+        type: integer
+        required: false
+        description: "Get a single thought by number"
+      last:
+        type: integer
+        required: false
+        description: "Get the last N thoughts"
+      range:
+        type: array
+        items: integer
+        required: false
+        description: "Get thoughts in range [start, end]"
+      branchId:
+        type: string
+        required: false
+        description: "Get all thoughts from a branch"
+      sessionId:
+        type: string
+        required: false
+        description: "Defaults to active session"
+
+  get_structure:
+    handler: thought
+    minimum_stage: 2
+    advances_to: null
+    description: "Get reasoning graph topology without content"
+    parameters:
+      sessionId:
+        type: string
+        required: false
+        description: "Defaults to active session"
 
   notebook:
     handler: notebook
@@ -214,7 +283,10 @@ tool:
           - bind_root
           - cipher
           - session
+          - deep_analysis
           - thought
+          - read_thoughts
+          - get_structure
           - notebook
           - mental_models
 
@@ -235,21 +307,22 @@ tool:
     type: object
     required:
       - thought
-      - thoughtNumber
-      - totalThoughts
       - nextThoughtNeeded
     properties:
       thought:
         type: string
         description: "Reasoning content (can use cipher notation)"
+      nextThoughtNeeded:
+        type: boolean
+      # SIL-102: Optional - server auto-assigns if omitted
       thoughtNumber:
         type: integer
         minimum: 1
+        description: "Optional - server auto-assigns next sequential number"
       totalThoughts:
         type: integer
         minimum: 1
-      nextThoughtNeeded:
-        type: boolean
+        description: "Optional - defaults to thoughtNumber"
       isRevision:
         type: boolean
       revisesThought:
@@ -262,6 +335,81 @@ tool:
       critique:
         type: boolean
         description: "Request autonomous LLM critique"
+      # SIL-101: Response mode
+      verbose:
+        type: boolean
+        default: false
+        description: "Return detailed response (default: minimal)"
+```
+
+---
+
+## Read Thoughts Tool
+
+```yaml
+tool:
+  name: read_thoughts
+  access: "gateway { operation: 'read_thoughts', ... }"
+  description: "Retrieve previous thoughts mid-session"
+  minimum_stage: 2
+  inputSchema:
+    type: object
+    properties:
+      thoughtNumber:
+        type: integer
+        description: "Get a single thought by number"
+      last:
+        type: integer
+        description: "Get the last N thoughts (default: 5)"
+      range:
+        type: array
+        items: [integer, integer]
+        description: "Get thoughts in range [start, end] inclusive"
+      branchId:
+        type: string
+        description: "Get all thoughts from a specific branch"
+      sessionId:
+        type: string
+        description: "Optional - defaults to active session"
+  returns:
+    sessionId: string
+    query: string
+    count: integer
+    thoughts: ThoughtData[]
+```
+
+---
+
+## Get Structure Tool
+
+```yaml
+tool:
+  name: get_structure
+  access: "gateway { operation: 'get_structure', ... }"
+  description: "Get reasoning graph topology without content"
+  minimum_stage: 2
+  inputSchema:
+    type: object
+    properties:
+      sessionId:
+        type: string
+        description: "Optional - defaults to active session"
+  returns:
+    sessionId: string
+    totalThoughts: integer
+    mainChain:
+      length: integer
+      head: integer
+      tail: integer
+    branches:
+      type: object
+      additionalProperties:
+        forks: integer
+        range: [integer, integer]
+        length: integer
+    branchCount: integer
+    revisions: array
+    revisionCount: integer
 ```
 
 ---
@@ -310,15 +458,22 @@ tool:
           required: true
 
     export:
-      description: "Export session as JSON or Markdown"
+      description: "Export session as JSON, Markdown, or Cipher"
       parameters:
         sessionId:
           type: string
           required: true
         format:
           type: string
-          enum: [json, markdown]
+          enum: [json, markdown, cipher]
           default: json
+        includeMetadata:
+          type: boolean
+          default: true
+        resolveAnchors:
+          type: boolean
+          default: true
+          description: "SPEC-003: Resolve cross-session anchors"
 
     analyze:
       description: "Session statistics"
@@ -338,6 +493,88 @@ tool:
         sessionId:
           type: string
           required: true
+        keyMoments:
+          type: array
+          items:
+            type: object
+            properties:
+              thoughtNumber: integer
+              type: string  # insight, decision, pivot, revision
+              significance: integer  # 1-10
+              summary: string
+        targetTypes:
+          type: array
+          items:
+            type: string
+            enum: [pattern, anti-pattern, signal]
+          default: [signal]
+
+    discovery:
+      description: "SPEC-009: Manage dynamically discovered tools"
+      parameters:
+        action:
+          type: string
+          enum: [list, hide, show]
+          required: true
+        toolName:
+          type: string
+          description: "Required for hide/show actions"
+```
+
+---
+
+## Deep Analysis Tool
+
+```yaml
+tool:
+  name: deep_analysis
+  access: "gateway { operation: 'deep_analysis', ... }"
+  description: "Advanced session pattern analysis"
+  minimum_stage: 1
+  inputSchema:
+    type: object
+    required:
+      - sessionId
+    properties:
+      sessionId:
+        type: string
+      analysisType:
+        type: string
+        enum: [patterns, cognitive_load, decision_points, full]
+        default: full
+      options:
+        type: object
+        properties:
+          includeTimeline:
+            type: boolean
+            default: true
+          compareWith:
+            type: array
+            items: string
+            description: "Session IDs to compare against"
+  returns:
+    sessionId: string
+    analysisType: string
+    timestamp: string
+    patterns:
+      totalThoughts: integer
+      revisionCount: integer
+      branchCount: integer
+      averageThoughtLength: integer
+    cognitiveLoad:
+      complexityScore: integer  # 0-100
+      depthIndicator: integer
+      breadthIndicator: integer
+    decisionPoints:
+      type: array
+      items:
+        thoughtNumber: integer
+        type: string  # branch, revision
+        reference: integer
+    timeline:
+      createdAt: string
+      updatedAt: string
+      durationEstimate: string
 ```
 
 ---

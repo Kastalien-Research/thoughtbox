@@ -52,6 +52,29 @@ start_new → Active Session → (thoughts added) → Export/Archive
                 └──────── load_context ←────────────┘
 ```
 
+### Session Continuity (SIL-103)
+
+When an MCP connection resets (client disconnect, network interruption), Thoughtbox preserves session state:
+
+1. **On `load_context`:** The server calls `restoreFromSession(sessionId)` to rebuild state
+2. **Full reconstruction:** All thoughts, branches, and current position are restored
+3. **Seamless continuation:** The next thought continues from the correct number
+
+```json
+// Response from load_context includes restoration info
+{
+  "session": { ... },
+  "restorationInfo": {
+    "thoughtCount": 5,
+    "currentThoughtNumber": 5,
+    "branchCount": 1,
+    "message": "Next thought will be #6"
+  }
+}
+```
+
+This enables agents to pick up exactly where they left off, even across client restarts.
+
 ---
 
 ## Thoughts
@@ -62,13 +85,15 @@ A **thought** is a single reasoning step. It's the atomic unit of the ledger.
 
 ```typescript
 {
-  thought: string        // The actual reasoning content
-  thoughtNumber: number  // Position in the chain (1-indexed)
-  totalThoughts: number  // Estimated total for this session
-  nextThoughtNeeded: boolean  // More reasoning required?
+  thought: string               // Required: The actual reasoning content
+  nextThoughtNeeded: boolean    // Required: More reasoning required?
+
+  // Optional (SIL-102: server auto-assigns if omitted)
+  thoughtNumber?: number        // Position in the chain (1-indexed)
+  totalThoughts?: number        // Estimated total for this session
 
   // Automatically added
-  timestamp: string      // ISO 8601 datetime
+  timestamp: string             // ISO 8601 datetime
 }
 ```
 
@@ -80,7 +105,17 @@ Thoughts are numbered sequentially within a session:
 Thought 1 → Thought 2 → Thought 3 → Thought 4 → Thought 5
 ```
 
-The `totalThoughts` field is an **estimate** — agents can adjust as reasoning evolves.
+**Auto-Numbering (SIL-102):** Since v1.2, `thoughtNumber` and `totalThoughts` are **optional**. If omitted, the server automatically assigns the next sequential number. This simplifies client code:
+
+```json
+// Minimal thought - server assigns thoughtNumber: 1
+{ "thought": "Let me analyze this...", "nextThoughtNeeded": true }
+
+// Next thought - server assigns thoughtNumber: 2
+{ "thought": "Based on the logs...", "nextThoughtNeeded": true }
+```
+
+The `totalThoughts` field is an **estimate** — agents can adjust as reasoning evolves, or let the server default it to match `thoughtNumber`.
 
 ### Signaling Completion
 

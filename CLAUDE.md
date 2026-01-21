@@ -1,6 +1,9 @@
 # Claude Code Instructions
 
 @AGENTS.md
+@.claude/rules/RULES.md
+
+---
 
 ## CRITICAL: Always Verify
 

@@ -1,7 +1,7 @@
 # Thoughtbox Server Architecture
 
-> **Version:** 1.2.2
-> **Last Updated:** 2026-01-20
+> **Version:** 1.3.0
+> **Last Updated:** 2026-01-21
 > **Purpose:** Source of truth for Thoughtbox server architecture and data design
 
 ---
@@ -22,6 +22,9 @@
 Thoughtbox is an MCP (Model Context Protocol) server providing infrastructure for structured reasoning. It functions as a "reasoning ledger" for AI agents, enabling:
 
 - **Thought Chain Management**: Track reasoning across multiple thoughts with revisions and branches
+- **Auto-Numbering (SIL-102)**: Optional thought numbers - server auto-assigns if omitted
+- **Session Continuity (SIL-103)**: Seamless state restoration on reconnect via `restoreFromSession()`
+- **Event Streaming (SIL-104)**: JSONL event output for external consumers
 - **Progressive Disclosure**: Stage-based tool availability for guided agent onboarding
 - **Formal Protocol**: Cipher notation for deterministic server-side parsing
 - **Real-Time Visualization**: Observatory WebSocket server for live reasoning graphs
@@ -55,6 +58,7 @@ graph TB
             Sampling[Sampling Handler]
             Discovery[Discovery Registry]
             Emitter[Thought Emitter]
+            Events[Event Streamer SIL-104]
         end
     end
 
@@ -149,6 +153,8 @@ graph LR
         sampling[sampling/]
         observatory[observatory/]
         discovery[discovery-registry.ts]
+        events[events/]
+        references[references/]
     end
 
     index --> factory
@@ -163,8 +169,10 @@ graph LR
     thought --> persistence
     thought --> sampling
     thought --> observatory
+    thought --> events
     init --> persistence
     sessions --> persistence
+    sessions --> references
 ```
 
 ---
@@ -204,8 +212,8 @@ stateDiagram-v2
 | Stage | Name | Tools Available | Trigger |
 |-------|------|-----------------|---------|
 | **0** | Entry | `thoughtbox_gateway` | Connection start |
-| **1** | Init Complete | + `session` operations | `start_new` or `load_context` |
-| **2** | Cipher Loaded | + `thought`, `notebook`, `mental_models` | `cipher` operation |
+| **1** | Init Complete | + `session`, `deep_analysis` operations | `start_new` or `load_context` |
+| **2** | Cipher Loaded | + `thought`, `read_thoughts`, `get_structure`, `notebook`, `mental_models` | `cipher` operation |
 | **3** | Domain Active | + domain-filtered mental models | Domain selected |
 
 **Implementation:** `src/tool-registry.ts`
@@ -259,6 +267,87 @@ sequenceDiagram
     I->>S: advanceStage(1)
     I-->>A: Session loaded, Stage 1
 ```
+
+### Session Continuity (SIL-103)
+
+When an MCP connection resets (client disconnect, network interruption), Thoughtbox preserves session state:
+
+```mermaid
+sequenceDiagram
+    participant A as Agent
+    participant I as Init Handler
+    participant S as StateManager
+    participant L as LinkedStore
+    participant P as Persistence
+
+    Note over A,P: Reconnection with load_context
+    A->>I: load_context { sessionId: "..." }
+    I->>P: getSession(sessionId)
+    P-->>I: Session data
+    I->>S: setSessionId(sessionId)
+    I->>L: restoreFromSession(sessionId)
+    L->>P: getAllThoughts(sessionId)
+    P-->>L: All thought data
+    L->>L: Rebuild linked graph
+    L-->>I: Restoration complete
+    I->>S: advanceStage(1)
+    I-->>A: Session restored, ready to continue
+```
+
+**Key behaviors:**
+- Full thought chain reconstruction from persistence
+- Branch and revision links restored
+- Next thought number calculated automatically
+- Seamless continuation from last thought
+
+**Implementation:** `src/sessions/handlers.ts:restoreFromSession()`
+
+---
+
+## Event Streaming (SIL-104)
+
+External consumers can receive Thoughtbox events via JSONL streaming:
+
+```mermaid
+graph LR
+    subgraph "Thoughtbox Server"
+        TH[ThoughtHandler]
+        EE[EventEmitter]
+        Stream[Event Stream]
+    end
+
+    subgraph "Output Targets"
+        STDERR[stderr]
+        STDOUT[stdout]
+        FILE[File]
+    end
+
+    subgraph "Consumers"
+        Logger[Log Aggregator]
+        Monitor[Monitoring System]
+        Pipeline[Data Pipeline]
+    end
+
+    TH -->|emit| EE
+    EE --> Stream
+    Stream --> STDERR
+    Stream --> STDOUT
+    Stream --> FILE
+    STDERR --> Logger
+    STDOUT --> Monitor
+    FILE --> Pipeline
+```
+
+**Event Types:**
+- `thought_added` - New thought recorded
+- `thought_revised` - Thought revision created
+- `branch_created` - New branch started
+- `session_started` - New session created
+- `session_loaded` - Existing session loaded
+- `cipher_loaded` - Protocol notation loaded
+- `stage_changed` - Progressive disclosure stage advanced
+
+**Configuration:** See [CONFIGURATION.md](./CONFIGURATION.md#event-streaming)
 
 ---
 
@@ -365,8 +454,12 @@ FileSystemStorage uses temp files + atomic rename to prevent corruption.
 | Operation | Stage | Purpose | See |
 |-----------|-------|---------|-----|
 | `start_new` | 0 → 1 | Create new session | [TOOL-INTERFACES.md](./TOOL-INTERFACES.md#gateway-architecture) |
+| `load_context` | 0 → 1 | Resume existing session (SIL-103) | [TOOL-INTERFACES.md](./TOOL-INTERFACES.md#gateway-architecture) |
 | `cipher` | 1 → 2 | Load protocol notation | [CONFIGURATION.md](./CONFIGURATION.md#cipher-protocol) |
-| `thought` | 2 | Record reasoning step | [TOOL-INTERFACES.md](./TOOL-INTERFACES.md#thought-tool) |
+| `thought` | 2 | Record reasoning step (SIL-102 auto-number) | [TOOL-INTERFACES.md](./TOOL-INTERFACES.md#thought-tool) |
+| `read_thoughts` | 2 | Query thoughts from session | [TOOL-INTERFACES.md](./TOOL-INTERFACES.md#read-thoughts-tool) |
+| `get_structure` | 2 | Get reasoning graph topology | [TOOL-INTERFACES.md](./TOOL-INTERFACES.md#get-structure-tool) |
+| `deep_analysis` | 1 | Advanced session pattern analysis | [TOOL-INTERFACES.md](./TOOL-INTERFACES.md#deep-analysis-tool) |
 
 ### Configuration
 
@@ -375,6 +468,7 @@ FileSystemStorage uses temp files + atomic rename to prevent corruption.
 | `THOUGHTBOX_TRANSPORT` | `http` | [CONFIGURATION.md](./CONFIGURATION.md#environment-variables) |
 | `THOUGHTBOX_STORAGE` | `fs` | [CONFIGURATION.md](./CONFIGURATION.md#environment-variables) |
 | `PORT` | `1731` | [CONFIGURATION.md](./CONFIGURATION.md#environment-variables) |
+| `THOUGHTBOX_EVENT_OUTPUT` | `none` | [CONFIGURATION.md](./CONFIGURATION.md#event-streaming) |
 
 ---
 

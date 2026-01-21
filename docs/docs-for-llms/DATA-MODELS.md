@@ -15,6 +15,9 @@ Complete data model specifications for the Thoughtbox server. All schemas use YA
 - [Export & Integrity Types](#export--integrity-types) - SessionExport, SessionManifest, IntegrityValidationResult
 - [Knowledge Zone Types](#knowledge-zone-types) - KnowledgePattern, ScratchpadNote
 - [Session Analysis Types](#session-analysis-types) - SessionAnalysis, ExtractedLearning
+- [Thought Query Types](#thought-query-types) - ReadThoughtsQuery, ReadThoughtsResponse, GetStructureResponse
+- [Deep Analysis Types](#deep-analysis-types) - DeepAnalysisResult, SessionPatternAnalysis
+- [Event Streaming Types](#event-streaming-types) - ThoughtboxEvent (SIL-104)
 - [Notebook Types](#notebook-types) - Notebook, Cell variants
 - [Mental Models Types](#mental-models-types) - MentalModelDefinition, response types
 - [Observatory Types](#observatory-types) - Event payloads, WebSocket schemas
@@ -32,10 +35,8 @@ ThoughtData:
   type: object
   required:
     - thought
-    - thoughtNumber
-    - totalThoughts
     - nextThoughtNeeded
-    - timestamp
+    # Note: timestamp is auto-added by server, not required in input
   properties:
     thought:
       type: string
@@ -45,12 +46,16 @@ ThoughtData:
     thoughtNumber:
       type: integer
       minimum: 1
-      description: Position in the reasoning chain
+      description: |
+        Position in the reasoning chain.
+        SIL-102: Optional - server auto-assigns next sequential number if omitted.
 
     totalThoughts:
       type: integer
       minimum: 1
-      description: Estimated total thoughts for this reasoning
+      description: |
+        Estimated total thoughts for this reasoning.
+        SIL-102: Optional - server defaults to thoughtNumber if omitted.
 
     nextThoughtNeeded:
       type: boolean
@@ -899,6 +904,430 @@ ExtractedLearning:
               minimum: 1
               maximum: 10
               description: How proven/tested
+```
+
+---
+
+## Thought Query Types
+
+Types for `read_thoughts` and `get_structure` operations.
+
+### ReadThoughtsQuery
+
+```yaml
+# ReadThoughtsQuery - Query parameters for read_thoughts operation
+ReadThoughtsQuery:
+  type: object
+  description: |
+    Query modes (mutually exclusive):
+    - thoughtNumber: Get single specific thought
+    - last: Get N most recent thoughts
+    - range: Get thoughts in range [start, end]
+    - branchId: Get all thoughts in a branch
+    If no query specified, returns all thoughts in main chain.
+  properties:
+    thoughtNumber:
+      type: integer
+      minimum: 1
+      description: Get a specific thought by number
+
+    last:
+      type: integer
+      minimum: 1
+      description: Get the N most recent thoughts
+
+    range:
+      type: object
+      properties:
+        start:
+          type: integer
+          minimum: 1
+          description: Start of range (inclusive)
+        end:
+          type: integer
+          minimum: 1
+          description: End of range (inclusive)
+      required:
+        - start
+        - end
+
+    branchId:
+      type: string
+      pattern: "^[a-z0-9-]+$"
+      description: Get all thoughts in specified branch
+```
+
+### ReadThoughtsResponse
+
+```yaml
+# ReadThoughtsResponse - Response from read_thoughts operation
+ReadThoughtsResponse:
+  type: object
+  required:
+    - thoughts
+    - count
+    - sessionId
+  properties:
+    thoughts:
+      type: array
+      items:
+        $ref: "#/ThoughtData"
+      description: Retrieved thoughts
+
+    count:
+      type: integer
+      description: Number of thoughts returned
+
+    sessionId:
+      type: string
+      format: uuid
+      description: Session the thoughts belong to
+
+    query:
+      type: object
+      description: Echo of the query that was executed
+```
+
+### GetStructureResponse
+
+```yaml
+# GetStructureResponse - Response from get_structure operation
+GetStructureResponse:
+  type: object
+  required:
+    - sessionId
+    - mainChain
+    - branches
+    - revisions
+    - summary
+  properties:
+    sessionId:
+      type: string
+      format: uuid
+
+    mainChain:
+      type: object
+      required:
+        - count
+        - range
+      properties:
+        count:
+          type: integer
+          description: Total thoughts in main chain
+        range:
+          type: object
+          properties:
+            first:
+              type: integer
+              description: First thought number
+            last:
+              type: integer
+              description: Last thought number
+          required:
+            - first
+            - last
+
+    branches:
+      type: array
+      items:
+        type: object
+        required:
+          - id
+          - fromThought
+          - count
+        properties:
+          id:
+            type: string
+            description: Branch identifier
+          fromThought:
+            type: integer
+            description: Thought number branch originates from
+          count:
+            type: integer
+            description: Number of thoughts in branch
+
+    revisions:
+      type: array
+      items:
+        type: object
+        required:
+          - thoughtNumber
+          - revises
+        properties:
+          thoughtNumber:
+            type: integer
+            description: Revision thought number
+          revises:
+            type: integer
+            description: Original thought that was revised
+
+    summary:
+      type: object
+      required:
+        - totalThoughts
+        - totalBranches
+        - totalRevisions
+      properties:
+        totalThoughts:
+          type: integer
+        totalBranches:
+          type: integer
+        totalRevisions:
+          type: integer
+```
+
+---
+
+## Deep Analysis Types
+
+Types for `deep_analysis` advanced session analysis operation.
+
+### DeepAnalysisResult
+
+```yaml
+# DeepAnalysisResult - Response from deep_analysis operation
+DeepAnalysisResult:
+  type: object
+  required:
+    - sessionId
+    - patterns
+    - metrics
+    - insights
+    - analysisTimestamp
+  properties:
+    sessionId:
+      type: string
+      format: uuid
+
+    patterns:
+      $ref: "#/SessionPatternAnalysis"
+      description: Detected reasoning patterns
+
+    metrics:
+      type: object
+      required:
+        - cognitiveLoad
+        - linearityScore
+        - explorationDepth
+        - convergenceRate
+      properties:
+        cognitiveLoad:
+          type: number
+          minimum: 0
+          maximum: 1
+          description: Estimated complexity of reasoning
+
+        linearityScore:
+          type: number
+          minimum: 0
+          maximum: 1
+          description: How linear vs branching the reasoning was
+
+        explorationDepth:
+          type: integer
+          minimum: 0
+          description: Maximum branch depth reached
+
+        convergenceRate:
+          type: number
+          minimum: 0
+          maximum: 1
+          description: How often branches merged back to main
+
+    insights:
+      type: array
+      items:
+        type: object
+        required:
+          - type
+          - description
+          - confidence
+        properties:
+          type:
+            type: string
+            enum:
+              - pattern_detected
+              - anomaly
+              - optimization_suggestion
+              - quality_observation
+          description:
+            type: string
+          confidence:
+            type: number
+            minimum: 0
+            maximum: 1
+          relatedThoughts:
+            type: array
+            items:
+              type: integer
+
+    analysisTimestamp:
+      type: string
+      format: date-time
+```
+
+### SessionPatternAnalysis
+
+```yaml
+# SessionPatternAnalysis - Pattern detection results
+SessionPatternAnalysis:
+  type: object
+  required:
+    - dominantPattern
+    - allPatterns
+    - transitions
+  properties:
+    dominantPattern:
+      type: string
+      enum:
+        - linear          # Straight-line reasoning
+        - exploratory     # Heavy branching
+        - iterative       # Many revisions
+        - convergent      # Branches merge back
+        - divergent       # Branches don't merge
+      description: Most prominent reasoning pattern
+
+    allPatterns:
+      type: array
+      items:
+        type: object
+        required:
+          - pattern
+          - frequency
+        properties:
+          pattern:
+            type: string
+          frequency:
+            type: number
+            minimum: 0
+            maximum: 1
+
+    transitions:
+      type: array
+      items:
+        type: object
+        required:
+          - from
+          - to
+          - atThought
+        properties:
+          from:
+            type: string
+            description: Previous pattern
+          to:
+            type: string
+            description: New pattern
+          atThought:
+            type: integer
+            description: Thought number where transition occurred
+      description: Pattern changes during reasoning
+```
+
+---
+
+## Event Streaming Types
+
+Types for SIL-104 event streaming (JSONL output).
+
+### ThoughtboxEvent
+
+```yaml
+# ThoughtboxEvent - JSONL event format for external consumers
+ThoughtboxEvent:
+  type: object
+  required:
+    - type
+    - timestamp
+    - data
+  properties:
+    type:
+      type: string
+      enum:
+        - thought_added
+        - thought_revised
+        - branch_created
+        - session_started
+        - session_loaded
+        - session_exported
+        - cipher_loaded
+        - stage_changed
+      description: Event type identifier
+
+    timestamp:
+      type: string
+      format: date-time
+      description: ISO 8601 timestamp
+
+    sessionId:
+      type: string
+      format: uuid
+      nullable: true
+      description: Associated session (if applicable)
+
+    data:
+      type: object
+      description: Event-specific payload
+```
+
+### Event Payloads by Type
+
+```yaml
+# thought_added data payload
+ThoughtAddedEventData:
+  type: object
+  required:
+    - thoughtNumber
+    - thought
+    - nextThoughtNeeded
+  properties:
+    thoughtNumber:
+      type: integer
+    thought:
+      type: string
+      maxLength: 100
+      description: Truncated thought content
+    nextThoughtNeeded:
+      type: boolean
+    branchId:
+      type: string
+      nullable: true
+
+# session_started data payload
+SessionStartedEventData:
+  type: object
+  required:
+    - sessionId
+    - title
+  properties:
+    sessionId:
+      type: string
+      format: uuid
+    title:
+      type: string
+    tags:
+      type: array
+      items:
+        type: string
+
+# stage_changed data payload
+StageChangedEventData:
+  type: object
+  required:
+    - previousStage
+    - newStage
+    - trigger
+  properties:
+    previousStage:
+      type: integer
+      minimum: 0
+      maximum: 3
+    newStage:
+      type: integer
+      minimum: 0
+      maximum: 3
+    trigger:
+      type: string
+      description: Operation that caused the stage change
 ```
 
 ---

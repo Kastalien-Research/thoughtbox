@@ -1,7 +1,7 @@
 # Thoughtbox Configuration Reference
 
 > **Part of:** [Architecture Documentation](./ARCHITECTURE.md)
-> **Last Updated:** 2026-01-20
+> **Last Updated:** 2026-01-21
 
 Complete configuration reference including environment variables, server configuration, and appendices.
 
@@ -10,6 +10,7 @@ Complete configuration reference including environment variables, server configu
 ## Table of Contents
 
 - [Environment Variables](#environment-variables)
+- [Event Streaming](#event-streaming)
 - [Server Configuration Object](#server-configuration-object)
 - [Cipher Protocol](#cipher-protocol)
 - [Appendix: Mental Models Catalog](#appendix-mental-models-catalog)
@@ -74,6 +75,77 @@ environment_variables:
   THOUGHTBOX_OBSERVATORY_HTTP_API:
     default: false
     description: "Enable HTTP API endpoints"
+
+  # Event Streaming (SIL-104)
+  THOUGHTBOX_EVENT_OUTPUT:
+    default: "none"
+    values: ["none", "stderr", "stdout", "file"]
+    description: "JSONL event output destination"
+
+  THOUGHTBOX_EVENT_FILE:
+    default: null
+    description: "File path when EVENT_OUTPUT=file"
+
+  THOUGHTBOX_EVENT_TYPES:
+    default: "*"
+    description: "Comma-separated event types or * for all"
+    example: "thought_added,session_started,stage_changed"
+```
+
+---
+
+## Event Streaming
+
+SIL-104 enables JSONL event streaming for external consumers like log aggregators, monitoring systems, and data pipelines.
+
+### Configuration
+
+```yaml
+# Enable stderr streaming (good for log aggregation)
+THOUGHTBOX_EVENT_OUTPUT: stderr
+
+# Enable file streaming (good for batch processing)
+THOUGHTBOX_EVENT_OUTPUT: file
+THOUGHTBOX_EVENT_FILE: /var/log/thoughtbox/events.jsonl
+
+# Filter to specific events
+THOUGHTBOX_EVENT_TYPES: thought_added,session_started
+```
+
+### Event Types
+
+| Event Type | Description | Trigger |
+|------------|-------------|---------|
+| `thought_added` | New thought recorded | `thought` operation |
+| `thought_revised` | Thought revision created | `thought` with `isRevision: true` |
+| `branch_created` | New branch started | `thought` with `branchFromThought` |
+| `session_started` | New session created | `start_new` operation |
+| `session_loaded` | Existing session loaded | `load_context` operation |
+| `session_exported` | Session exported | `session.export` operation |
+| `cipher_loaded` | Protocol notation loaded | `cipher` operation |
+| `stage_changed` | Progressive disclosure advanced | Stage transition |
+
+### JSONL Format
+
+Each line is a self-contained JSON object:
+
+```jsonl
+{"type":"session_started","timestamp":"2026-01-21T10:00:00Z","sessionId":"abc-123","data":{"title":"Debug API"}}
+{"type":"thought_added","timestamp":"2026-01-21T10:00:05Z","sessionId":"abc-123","data":{"thoughtNumber":1,"thought":"Starting analysis..."}}
+{"type":"stage_changed","timestamp":"2026-01-21T10:00:10Z","sessionId":"abc-123","data":{"previousStage":1,"newStage":2,"trigger":"cipher"}}
+```
+
+### Consuming Events
+
+```bash
+# Tail live events
+tail -f /var/log/thoughtbox/events.jsonl | jq -c 'select(.type == "thought_added")'
+
+# Parse with jq
+cat events.jsonl | jq -s 'group_by(.sessionId) | map({session: .[0].sessionId, thoughts: length})'
+
+# Send to monitoring
+tail -f events.jsonl | nc monitoring.example.com 5140
 ```
 
 ---

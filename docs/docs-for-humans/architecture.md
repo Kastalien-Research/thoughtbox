@@ -96,6 +96,14 @@ src/
 ├── sampling/                # Autonomous critique
 │   └── handler.ts
 │
+├── events/                  # SIL-104: External event streaming
+│   ├── event-emitter.ts
+│   └── types.ts
+│
+├── references/              # SPEC-003: Cross-session anchors
+│   ├── anchor-parser.ts
+│   └── anchor-resolver.ts
+│
 ├── observability/           # Prometheus/Grafana
 │   └── gateway-handler.ts
 │
@@ -210,11 +218,11 @@ export class ToolRegistry {
       return DisclosureStage.ENTRY;
     }
     // Stage 1: After init
-    if (['load_context', 'start_new', 'cipher', 'session'].includes(operation)) {
+    if (['load_context', 'start_new', 'cipher', 'session', 'deep_analysis'].includes(operation)) {
       return DisclosureStage.INIT_COMPLETE;
     }
     // Stage 2: After cipher
-    if (['thought', 'notebook'].includes(operation)) {
+    if (['thought', 'read_thoughts', 'get_structure', 'notebook'].includes(operation)) {
       return DisclosureStage.CIPHER_LOADED;
     }
     // Stage 3: Domain operations
@@ -266,8 +274,14 @@ export class GatewayHandler {
         return this.getCipherContent();
       case 'thought':
         return this.thoughtHandler.handle(args);
+      case 'read_thoughts':  // Retrieve previous thoughts
+        return this.thoughtHandler.handleReadThoughts(args);
+      case 'get_structure':  // Get reasoning graph topology
+        return this.thoughtHandler.handleGetStructure(args);
       case 'session':
         return this.sessionHandler.handle(args);
+      case 'deep_analysis':  // Advanced session analysis
+        return this.sessionHandler.handleDeepAnalysis(args);
       case 'notebook':
         return this.notebookHandler.handle(args);
       case 'mental_models':
@@ -382,10 +396,13 @@ class FileSystemStorage implements ThoughtboxStorage {
 
 ## Thought Handler
 
-Core reasoning engine:
+Core reasoning engine with SIL-102 auto-numbering and SIL-103 session continuity:
 
 ```typescript
 export class ThoughtHandler {
+  private thoughtHistory: ThoughtData[] = [];
+  private currentThoughtNumber: number = 0;  // SIL-102: Track current position
+
   constructor(
     private storage: ThoughtboxStorage,
     private samplingHandler: SamplingHandler,
@@ -393,7 +410,11 @@ export class ThoughtHandler {
   ) {}
 
   async handle(params: ThoughtParams): Promise<ThoughtResult> {
-    const { thought, thoughtNumber, totalThoughts, nextThoughtNeeded } = params;
+    const { thought, nextThoughtNeeded } = params;
+
+    // SIL-102: Auto-assign thoughtNumber if omitted
+    const thoughtNumber = params.thoughtNumber ?? ++this.currentThoughtNumber;
+    const totalThoughts = params.totalThoughts ?? thoughtNumber;
 
     // 1. Create thought data
     const thoughtData: ThoughtData = {
@@ -494,6 +515,87 @@ You are a critical thinking assistant. Analyze the reasoning provided and identi
 Be constructive but thorough. Focus on strengthening the reasoning.
 `;
 ```
+
+---
+
+## Event Streaming (SIL-104)
+
+External consumers can subscribe to reasoning events via JSONL streaming:
+
+```typescript
+export class ThoughtboxEventEmitter {
+  private destination: 'stderr' | 'stdout' | string;
+
+  constructor() {
+    // Configure via environment
+    const dest = process.env.THOUGHTBOX_EVENTS_DEST ?? 'stderr';
+    this.destination = dest;
+  }
+
+  emit(type: EventType, payload: any): void {
+    if (!process.env.THOUGHTBOX_EVENTS_ENABLED) return;
+
+    const event = {
+      type,
+      timestamp: new Date().toISOString(),
+      mcpSessionId: this.mcpSessionId,  // For multi-client tracking
+      payload
+    };
+
+    const jsonl = JSON.stringify(event) + '\n';
+
+    if (this.destination === 'stderr') {
+      process.stderr.write(jsonl);
+    } else if (this.destination === 'stdout') {
+      process.stdout.write(jsonl);
+    } else {
+      // Write to file path
+      fs.appendFileSync(this.destination, jsonl);
+    }
+  }
+}
+
+// Event types
+type EventType =
+  | 'session_created'
+  | 'thought_added'
+  | 'branch_created'
+  | 'session_completed'
+  | 'export_requested';
+```
+
+**Configuration:**
+
+```bash
+THOUGHTBOX_EVENTS_ENABLED=true
+THOUGHTBOX_EVENTS_DEST=stderr|stdout|/path/to/events.jsonl
+```
+
+---
+
+## Session Restoration (SIL-103)
+
+On reconnect, sessions are fully restored:
+
+```typescript
+export class ThoughtHandler {
+  async restoreFromSession(sessionId: string): Promise<void> {
+    // Load all thoughts from storage
+    const thoughts = await this.storage.getThoughts(sessionId);
+
+    // Rebuild in-memory state
+    this.thoughtHistory = thoughts;
+    this.currentThoughtNumber = thoughts.length;
+
+    // Restore branch data
+    this.branches = this.groupByBranch(thoughts);
+
+    // Ready to continue from last position
+  }
+}
+```
+
+This is called automatically by `load_context` to enable seamless continuation across connection resets.
 
 ---
 
