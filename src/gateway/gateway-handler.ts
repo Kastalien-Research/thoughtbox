@@ -18,9 +18,7 @@ import type { SessionHandler } from '../sessions/index.js';
 import type { MentalModelsHandler } from '../mental-models/index.js';
 import type { ThoughtboxStorage, ThoughtData } from '../persistence/index.js';
 import { THOUGHTBOX_CIPHER } from '../resources/thoughtbox-cipher-content.js';
-// TEMPORARILY DISABLED: Knowledge module
-// import type { KnowledgeHandler } from '../knowledge/index.js';
-type KnowledgeHandler = any;
+import type { KnowledgeHandler } from '../knowledge/index.js';
 
 // =============================================================================
 // Schema

@@ -39,11 +39,10 @@ import {
 import {
   SessionHandler,
 } from "./sessions/index.js";
-// TEMPORARILY DISABLED: Knowledge module requires better-sqlite3 dependency
-// import {
-//   KnowledgeHandler,
-//   FileSystemKnowledgeStorage,
-// } from "./knowledge/index.js";
+import {
+  KnowledgeHandler,
+  FileSystemKnowledgeStorage,
+} from "./knowledge/index.js";
 import {
   createInitFlow,
   type IInitHandler,
@@ -220,23 +219,21 @@ Progressive disclosure is enforced internally - you'll get clear errors if calli
     discoveryRegistry,
   });
 
-  // TEMPORARILY DISABLED: Knowledge storage (requires better-sqlite3)
-  // TODO: Re-enable after adding better-sqlite3 to dependencies
-  // let knowledgeHandler: KnowledgeHandler | undefined;
-  // (async () => {
-  //   try {
-  //     const knowledgeStorage = new FileSystemKnowledgeStorage({
-  //       project: process.env.THOUGHTBOX_PROJECT || '_default',
-  //     });
-  //     await knowledgeStorage.initialize();
-  //     knowledgeHandler = new KnowledgeHandler(knowledgeStorage);
-  //     logger.info('Knowledge storage initialized');
-  //   } catch (error) {
-  //     // Knowledge storage is optional - log warning but continue
-  //     logger.warn(`Knowledge storage initialization failed (optional feature): ${error instanceof Error ? error.message : error}`);
-  //   }
-  // })();
-  const knowledgeHandler: any = undefined;
+  // Initialize knowledge storage (Phase 1: Optional feature)
+  let knowledgeHandler: KnowledgeHandler | undefined;
+  (async () => {
+    try {
+      const knowledgeStorage = new FileSystemKnowledgeStorage({
+        project: process.env.THOUGHTBOX_PROJECT || '_default',
+      });
+      await knowledgeStorage.initialize();
+      knowledgeHandler = new KnowledgeHandler(knowledgeStorage);
+      logger.info('Knowledge storage initialized');
+    } catch (error) {
+      // Knowledge storage is optional - log warning but continue
+      logger.warn(`Knowledge storage initialization failed (optional feature): ${error instanceof Error ? error.message : error}`);
+    }
+  })();
 
   // Log server creation when sessionId is available
   if (sessionId) {
