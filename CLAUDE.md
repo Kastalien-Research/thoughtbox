@@ -2,6 +2,30 @@
 
 @AGENTS.md
 
+## CRITICAL: Always Verify
+
+**NEVER say "probably", "maybe", "might be", "could be", or other conditional hedging.**
+
+Before making ANY claim about:
+- Whether a file exists
+- Whether code is present
+- Whether a feature works
+- Whether something was done
+
+You MUST verify it first using the appropriate tool (Read, Glob, Grep, Bash, etc.).
+
+**Do NOT:**
+- Assume something exists without checking
+- Claim something works without testing
+- Say "it should be there" without reading the file
+- Trust previous agents' claims without verification
+
+**DO:**
+- Read files before claiming they contain something
+- Run tests before claiming they pass
+- Check directory contents before claiming files exist
+- Verify configurations before claiming they're correct
+
 ## Commit Message Format (REQUIRED)
 
 **This project uses [Conventional Commits](https://www.conventionalcommits.org/)**
