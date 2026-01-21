@@ -411,14 +411,18 @@ export class ThoughtHandler {
   }> {
     // Serialize all thought processing through a promise queue
     // This prevents race conditions when concurrent requests arrive
-    const result = this.processingQueue
-      .then(() => this._processThoughtImpl(input))
-      .catch(() => this._processThoughtImpl(input)); // Continue queue even if one fails
+    const currentQueue = this.processingQueue;
 
-    // Update queue for next operation (fire-and-forget)
-    this.processingQueue = result.then(() => undefined).catch(() => undefined);
+    // Create promise for THIS operation (doesn't retry on failure)
+    const operation = currentQueue
+      .catch(() => undefined) // Recover from previous failure
+      .then(() => this._processThoughtImpl(input)); // Process THIS input
 
-    return result;
+    // Update queue for next operation (ensure queue continues even if this fails)
+    this.processingQueue = operation.catch(() => undefined);
+
+    // Return result of THIS operation
+    return operation;
   }
 
   private async _processThoughtImpl(input: unknown): Promise<{
