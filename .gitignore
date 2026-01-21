@@ -100,3 +100,4 @@ kastalien-srcbook/
 .spec-orchestrator/
 .spec-validator/
 ai_docs/claude-platform-docs/
+dgm-specs/history/runs/*.json
