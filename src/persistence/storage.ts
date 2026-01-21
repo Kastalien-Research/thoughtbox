@@ -487,8 +487,12 @@ export class LinkedThoughtStore {
     // Find most-revised thought
     const revisedByCounts = new Map<number, number>();
     for (const metadata of index.values()) {
-      if (metadata.revisedBy.length > 0) {
-        revisedByCounts.set(metadata.revisesThought!, metadata.revisedBy.length);
+      // Count how many times THIS thought was revised (not what it revises)
+      if (!metadata.isRevision && metadata.revisedBy.length > 0) {
+        const thoughtNum = nodes.find(n => n.revisionMetadata === metadata)?.data.thoughtNumber;
+        if (thoughtNum) {
+          revisedByCounts.set(thoughtNum, metadata.revisedBy.length);
+        }
       }
     }
 
@@ -501,12 +505,13 @@ export class LinkedThoughtStore {
       }
     }
 
-    // Calculate average temporal distance
+    // Calculate average temporal distance (thought number delta between revision and original)
     let totalDistance = 0;
     let distanceCount = 0;
-    for (const metadata of revisions) {
-      if (metadata.revisesThought !== null) {
-        const distance = metadata.revisesThought - (metadata.revisesThought || 0);
+    for (const node of nodes) {
+      if (node.revisionMetadata?.isRevision && node.revisionMetadata.revisesThought !== null) {
+        // Distance is the delta in thought numbers (measure of how far back revision reaches)
+        const distance = node.data.thoughtNumber - node.revisionMetadata.revisesThought;
         totalDistance += Math.abs(distance);
         distanceCount++;
       }

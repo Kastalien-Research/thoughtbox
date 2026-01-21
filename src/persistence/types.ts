@@ -203,18 +203,6 @@ export interface ThoughtIndexes {
 }
 
 /**
- * Revision metadata for a thought (SPEC-002)
- */
-export interface RevisionMetadata {
-  isOriginal: boolean;
-  isRevision: boolean;
-  revisesThought: number | null;
-  revisedBy: number[];
-  revisionDepth: number;
-  revisionChainId: string;
-}
-
-/**
  * Export format for linked reasoning sessions (v1.0)
  */
 export interface SessionExport {
