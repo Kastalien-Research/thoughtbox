@@ -589,6 +589,178 @@
       animation: fade-in 0.5s ease-out forwards;
     }
 
+    /* Multi-Agent Collaboration Styles */
+    .agent-pill {
+      padding: 0.375rem 0.75rem;
+      border-radius: 9999px;
+      font-size: 0.75rem;
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      gap: 0.375rem;
+      opacity: 0.6;
+      transition: all 0.3s;
+      border: 1px solid transparent;
+    }
+
+    .agent-pill.active {
+      opacity: 1;
+      box-shadow: 0 0 15px currentColor;
+    }
+
+    .agent-pill .dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: currentColor;
+    }
+
+    .agent-pill.active .dot {
+      animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    }
+
+    /* Agent role colors */
+    .agent-pill[data-role="orchestrator"] { color: #8b5cf6; border-color: rgba(139,92,246,0.2); background: rgba(139,92,246,0.1); }
+    .agent-pill[data-role="researcher"] { color: #3b82f6; border-color: rgba(59,130,246,0.2); background: rgba(59,130,246,0.1); }
+    .agent-pill[data-role="architect"] { color: #06b6d4; border-color: rgba(6,182,212,0.2); background: rgba(6,182,212,0.1); }
+    .agent-pill[data-role="implementer"] { color: #10b981; border-color: rgba(16,185,129,0.2); background: rgba(16,185,129,0.1); }
+    .agent-pill[data-role="reviewer"] { color: #f59e0b; border-color: rgba(245,158,11,0.2); background: rgba(245,158,11,0.1); }
+    .agent-pill[data-role="tester"] { color: #ef4444; border-color: rgba(239,68,68,0.2); background: rgba(239,68,68,0.1); }
+    .agent-pill[data-role="integrator"] { color: #ec4899; border-color: rgba(236,72,153,0.2); background: rgba(236,72,153,0.1); }
+    .agent-pill[data-role="critic"] { color: #6366f1; border-color: rgba(99,102,241,0.2); background: rgba(99,102,241,0.1); }
+    .agent-pill[data-role="unknown"] { color: #6b7280; border-color: rgba(107,114,128,0.2); background: rgba(107,114,128,0.1); }
+
+    /* Task Board */
+    .task-board {
+      position: fixed;
+      top: 80px;
+      right: 1rem;
+      width: 320px;
+      max-height: calc(100vh - 100px);
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 0.75rem;
+      overflow: hidden;
+      z-index: 100;
+      transition: transform 0.3s ease;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+    }
+
+    .task-board.collapsed {
+      transform: translateX(calc(100% + 1rem));
+    }
+
+    .task-board-header {
+      padding: 1rem;
+      background: rgba(16,185,129,0.1);
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .task-board-header h3 {
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin: 0;
+    }
+
+    .task-board-header .collapse-btn {
+      background: none;
+      border: none;
+      color: var(--text-secondary);
+      font-size: 1rem;
+      cursor: pointer;
+      padding: 0;
+      width: 20px;
+      height: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .task-board-content {
+      max-height: calc(100vh - 200px);
+      overflow-y: auto;
+    }
+
+    .task-card {
+      padding: 1rem;
+      border-bottom: 1px solid var(--border-color);
+      animation: slide-up 0.3s ease-out;
+    }
+
+    .task-title {
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 0.5rem;
+      font-size: 0.875rem;
+    }
+
+    .task-progress {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      margin: 0.5rem 0;
+    }
+
+    .progress-bar {
+      flex: 1;
+      height: 6px;
+      background: rgba(255,255,255,0.1);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #10b981, #34d399);
+      transition: width 0.5s ease;
+    }
+
+    .progress-text {
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+      min-width: 3rem;
+      text-align: right;
+    }
+
+    .task-subtasks {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-top: 0.5rem;
+    }
+
+    .subtask {
+      font-size: 0.75rem;
+      padding: 0.25rem 0.5rem;
+      border-radius: 0.25rem;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+
+    .subtask.completed { color: #10b981; border-color: rgba(16,185,129,0.3); }
+    .subtask.in_progress { color: #f59e0b; border-color: rgba(245,158,11,0.3); animation: pulse 2s infinite; }
+    .subtask.pending { color: #6b7280; opacity: 0.6; }
+
+    /* Thought Node SVG Attribution */
+    .thought-node[data-role] {
+      transition: all 0.3s;
+    }
+
+    .thought-node[data-role="orchestrator"] circle { fill: rgba(139,92,246,0.2); stroke: #8b5cf6; }
+    .thought-node[data-role="researcher"] circle { fill: rgba(59,130,246,0.2); stroke: #3b82f6; }
+    .thought-node[data-role="architect"] circle { fill: rgba(6,182,212,0.2); stroke: #06b6d4; }
+    .thought-node[data-role="implementer"] circle { fill: rgba(16,185,129,0.2); stroke: #10b981; }
+    .thought-node[data-role="reviewer"] circle { fill: rgba(245,158,11,0.2); stroke: #f59e0b; }
+    .thought-node[data-role="tester"] circle { fill: rgba(239,68,68,0.2); stroke: #ef4444; }
+    .thought-node[data-role="integrator"] circle { fill: rgba(236,72,153,0.2); stroke: #ec4899; }
+    .thought-node[data-role="critic"] circle { fill: rgba(99,102,241,0.2); stroke: #6366f1; }
+
     /* Responsive */
     @media (max-width: 768px) {
       .header-content { padding: 0.75rem 1rem; }
@@ -596,6 +768,8 @@
       .graph-wrapper { padding: 1rem; }
       .session-tabs { gap: 0.5rem; }
       .session-tab { padding: 0.5rem 1rem; font-size: 0.8125rem; }
+      .task-board { width: 280px; top: 70px; }
+      #agent-activity-bar { display: none !important; }
     }
   </style>
 </head>
@@ -614,9 +788,18 @@
           <div class="logo-bar"></div>
           <h1 class="title">Thoughtbox Observatory</h1>
         </div>
-        <div id="status-badge" class="status-badge disconnected">
-          <div class="status-dot"></div>
-          <span class="status-text">Connecting...</span>
+        <div class="flex items-center gap-4">
+          <!-- Agent Activity Indicators -->
+          <div id="agent-activity-bar" class="flex items-center gap-2" style="display: none;">
+            <span style="font-size: 0.75rem; color: #9ca3af; margin-right: 0.25rem;">👥 Active:</span>
+            <div id="agent-pills-container" class="flex items-center gap-2">
+              <!-- Agent pills rendered here dynamically -->
+            </div>
+          </div>
+          <div id="status-badge" class="status-badge disconnected">
+            <div class="status-dot"></div>
+            <span class="status-text">Connecting...</span>
+          </div>
         </div>
       </div>
     </header>
@@ -710,6 +893,17 @@
         </div>
       </div>
     </main>
+
+    <!-- Task Board (Fixed Position, Collapsible) -->
+    <div id="task-board" class="task-board collapsed">
+      <div class="task-board-header" onclick="window.toggleTaskBoard && window.toggleTaskBoard()">
+        <h3>🎯 Active Tasks</h3>
+        <button class="collapse-btn" aria-label="Toggle task board">[−]</button>
+      </div>
+      <div class="task-board-content" id="task-board-content">
+        <!-- Task cards rendered here dynamically -->
+      </div>
+    </div>
   </div>
 
   <script>
@@ -852,7 +1046,12 @@
       },
 
       // Branch metadata for stub rendering
-      branchRegistry: new Map() // branchId -> { label: 'A', originThoughtNumber, thoughtCount }
+      branchRegistry: new Map(), // branchId -> { label: 'A', originThoughtNumber, thoughtCount }
+
+      // Multi-agent collaboration state
+      agents: new Map(),        // agentId -> { role, status, lastActivity, taskId }
+      tasks: new Map(),          // taskId -> { title, progress, subtasks }
+      thoughtAgents: new Map()   // thoughtId -> agentRole (for attribution)
     };
 
     // Helper: Generate branch label from index (A, B, C, ..., Z, AA, AB, ...)
@@ -897,7 +1096,12 @@
       backBtn: document.getElementById('back-btn'),
       progressFill: document.getElementById('progress-fill'),
       progressText: document.getElementById('progress-text'),
-      detailCode: document.getElementById('detail-code')
+      detailCode: document.getElementById('detail-code'),
+      // Multi-agent collaboration elements
+      agentActivityBar: document.getElementById('agent-activity-bar'),
+      agentPillsContainer: document.getElementById('agent-pills-container'),
+      taskBoard: document.getElementById('task-board'),
+      taskBoardContent: document.getElementById('task-board-content')
     };
 
     // ============================================================
@@ -926,6 +1130,92 @@
         text.textContent = 'Disconnected';
       }
     }
+
+    // ============================================================
+    // Multi-Agent Collaboration Rendering
+    // ============================================================
+
+    function renderAgentBar() {
+      const container = elements.agentPillsContainer;
+      if (!container) return;
+
+      // Show activity bar if we have agents
+      if (state.agents.size > 0) {
+        elements.agentActivityBar.style.display = 'flex';
+      } else {
+        elements.agentActivityBar.style.display = 'none';
+        return;
+      }
+
+      container.innerHTML = '';
+
+      for (const [agentId, agent] of state.agents) {
+        const pill = document.createElement('div');
+        pill.className = `agent-pill ${agent.status}`;
+        pill.setAttribute('data-role', agent.role);
+        pill.innerHTML = `
+          <span class="dot ${agent.status === 'active' ? 'pulsing' : ''}"></span>
+          <span>${agent.role.charAt(0).toUpperCase() + agent.role.slice(1)}</span>
+        `;
+        container.appendChild(pill);
+      }
+    }
+
+    function renderTaskBoard() {
+      const container = elements.taskBoardContent;
+      if (!container) return;
+
+      // Show task board if we have tasks
+      if (state.tasks.size > 0) {
+        elements.taskBoard.classList.remove('collapsed');
+      } else {
+        return;
+      }
+
+      container.innerHTML = '';
+
+      for (const [taskId, task] of state.tasks) {
+        const card = document.createElement('div');
+        card.className = 'task-card';
+        card.setAttribute('data-task-id', taskId);
+
+        const progressPercent = Math.round(task.progress * 100);
+        const completedCount = task.subtasks.filter(st => st.status === 'completed').length;
+        const totalCount = task.subtasks.length;
+
+        card.innerHTML = `
+          <div class="task-title">${escapeHtml(task.title)}</div>
+          <div class="task-progress">
+            <div class="progress-bar">
+              <div class="progress-fill" style="width: ${progressPercent}%"></div>
+            </div>
+            <span class="progress-text">${progressPercent}% (${completedCount}/${totalCount})</span>
+          </div>
+          <div class="task-subtasks">
+            ${task.subtasks.map(st => `
+              <span class="subtask ${st.status}">
+                ${escapeHtml(st.title)} ${getSubtaskIcon(st.status)}
+              </span>
+            `).join('')}
+          </div>
+        `;
+
+        container.appendChild(card);
+      }
+    }
+
+    function getSubtaskIcon(status) {
+      switch (status) {
+        case 'completed': return '✓';
+        case 'in_progress': return '⏳';
+        case 'pending': return '⏸';
+        default: return '';
+      }
+    }
+
+    window.toggleTaskBoard = function() {
+      elements.taskBoard.classList.toggle('collapsed');
+    };
 
     function renderSessions() {
       const container = elements.sessionTabs;
@@ -1381,8 +1671,12 @@
         const strokeColor = isBranch ? 'rgba(167, 139, 250, 0.5)' : 'rgba(52, 211, 153, 0.5)';
         const glowColor = isBranch ? 'rgba(124, 58, 237, 0.4)' : 'rgba(16, 185, 129, 0.4)';
 
+        // Get agent role for this thought (if any)
+        const agentRole = state.thoughtAgents.get(node.id);
+        const roleAttr = agentRole ? ` data-role="${agentRole}"` : '';
+
         return `
-          <g class="thought-node ${isNew ? 'new' : ''} ${isBranch ? 'branch-node' : ''}" data-node-id="${node.id}" tabindex="0">
+          <g class="thought-node ${isNew ? 'new' : ''} ${isBranch ? 'branch-node' : ''}" data-node-id="${node.id}"${roleAttr} tabindex="0">
             <rect
               x="${node.x - 30}"
               y="${node.y - 20}"
@@ -1736,6 +2030,78 @@
       }
     });
 
+    // Multi-Agent Collaboration Event Handlers
+    client.on('agent:spawned', (payload) => {
+      console.log('[Observatory] Agent spawned:', payload);
+      state.agents.set(payload.agentId, {
+        role: payload.agentRole,
+        status: 'idle',
+        lastActivity: payload.timestamp,
+        taskId: payload.taskId
+      });
+      renderAgentBar();
+    });
+
+    client.on('agent:active', (payload) => {
+      console.log('[Observatory] Agent active:', payload);
+      const agent = state.agents.get(payload.agentId);
+      if (agent) {
+        agent.status = 'active';
+        agent.lastActivity = payload.timestamp;
+        renderAgentBar();
+      }
+    });
+
+    client.on('agent:idle', (payload) => {
+      console.log('[Observatory] Agent idle:', payload);
+      const agent = state.agents.get(payload.agentId);
+      if (agent) {
+        agent.status = 'idle';
+        agent.lastActivity = payload.timestamp;
+        renderAgentBar();
+      }
+    });
+
+    client.on('agent:completed', (payload) => {
+      console.log('[Observatory] Agent completed:', payload);
+      const agent = state.agents.get(payload.agentId);
+      if (agent) {
+        agent.status = 'completed';
+        agent.lastActivity = payload.timestamp;
+        renderAgentBar();
+      }
+    });
+
+    client.on('task:created', (payload) => {
+      console.log('[Observatory] Task created:', payload);
+      state.tasks.set(payload.taskId, {
+        title: payload.title,
+        progress: payload.progress,
+        subtasks: payload.subtasks || []
+      });
+      renderTaskBoard();
+    });
+
+    client.on('task:updated', (payload) => {
+      console.log('[Observatory] Task updated:', payload);
+      const task = state.tasks.get(payload.taskId);
+      if (task) {
+        task.progress = payload.progress;
+        task.subtasks = payload.subtasks;
+        renderTaskBoard();
+      }
+    });
+
+    client.on('task:completed', (payload) => {
+      console.log('[Observatory] Task completed:', payload);
+      const task = state.tasks.get(payload.taskId);
+      if (task) {
+        task.progress = 1.0;
+        task.subtasks.forEach(st => st.status = 'completed');
+        renderTaskBoard();
+      }
+    });
+
     // Generic message handler for reasoning channel events
     client.on('message', ({ topic, event, payload }) => {
       if (!topic.startsWith('reasoning:')) return;
@@ -1790,6 +2156,19 @@
             if (!state.arrivalOrder.includes(payload.thought.id)) {
               state.arrivalOrder.push(payload.thought.id);  // Track arrival order
             }
+
+            // Track agent attribution for collaborative reasoning visualization
+            if (payload.agentRole) {
+              state.thoughtAgents.set(payload.thought.id, payload.agentRole);
+            }
+
+            // Mark agent as active if present
+            if (payload.agentId && state.agents.has(payload.agentId)) {
+              state.agents.get(payload.agentId).status = 'active';
+              state.agents.get(payload.agentId).lastActivity = payload.thought.timestamp;
+              renderAgentBar();
+            }
+
             renderGraph();
           }
           break;
