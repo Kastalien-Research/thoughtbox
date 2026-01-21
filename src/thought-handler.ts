@@ -58,6 +58,10 @@ export class ThoughtHandler {
   // SIL-104: Event emitter for external consumers (JSONL stream)
   private eventEmitter: ThoughtboxEventEmitter | null = null;
 
+  // Processing queue to serialize concurrent thought operations
+  // Prevents race conditions when multiple thoughts arrive simultaneously
+  private processingQueue: Promise<void> = Promise.resolve();
+
   constructor(
     disableThoughtLogging: boolean = false,
     storage?: ThoughtboxStorage,
@@ -402,6 +406,22 @@ export class ThoughtHandler {
   }
 
   public async processThought(input: unknown): Promise<{
+    content: Array<any>;
+    isError?: boolean;
+  }> {
+    // Serialize all thought processing through a promise queue
+    // This prevents race conditions when concurrent requests arrive
+    const result = this.processingQueue
+      .then(() => this._processThoughtImpl(input))
+      .catch(() => this._processThoughtImpl(input)); // Continue queue even if one fails
+
+    // Update queue for next operation (fire-and-forget)
+    this.processingQueue = result.then(() => undefined).catch(() => undefined);
+
+    return result;
+  }
+
+  private async _processThoughtImpl(input: unknown): Promise<{
     content: Array<any>;
     isError?: boolean;
   }> {
