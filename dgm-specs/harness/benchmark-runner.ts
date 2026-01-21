@@ -48,7 +48,7 @@ export const TEST_CONFIGS: TestConfig[] = [
     toolhost: 'thoughtbox',
     description: 'Tests basic thought progression through gateway',
     steps: [
-      { operation: 'start_new', args: { title: 'Benchmark Session' }, expectedBehavior: 'Creates new session' },
+      { operation: 'start_new', args: { newWork: { project: 'benchmark' } }, expectedBehavior: 'Creates new session' },
       { operation: 'cipher', expectedBehavior: 'Loads notation system' },
       { operation: 'thought', args: { thought: 'Benchmark thought 1', thoughtNumber: 1, totalThoughts: 3, nextThoughtNeeded: true }, expectedBehavior: 'Records thought' },
       { operation: 'thought', args: { thought: 'Benchmark thought 2', thoughtNumber: 2, totalThoughts: 3, nextThoughtNeeded: true }, expectedBehavior: 'Continues chain' },
@@ -61,7 +61,7 @@ export const TEST_CONFIGS: TestConfig[] = [
     toolhost: 'mental_models',
     description: 'Tests mental models listing through gateway',
     steps: [
-      { operation: 'start_new', args: { title: 'Mental Models Benchmark' }, expectedBehavior: 'Creates new session' },
+      { operation: 'start_new', args: { newWork: { project: 'benchmark' } }, expectedBehavior: 'Creates new session' },
       { operation: 'cipher', expectedBehavior: 'Loads notation system' },
       { operation: 'mental_models', args: { operation: 'list_models' }, expectedBehavior: 'Returns model list' },
     ],
@@ -72,7 +72,7 @@ export const TEST_CONFIGS: TestConfig[] = [
     toolhost: 'mental_models',
     description: 'Tests getting a specific mental model',
     steps: [
-      { operation: 'start_new', args: { title: 'Mental Models Get Benchmark' }, expectedBehavior: 'Creates new session' },
+      { operation: 'start_new', args: { newWork: { project: 'benchmark' } }, expectedBehavior: 'Creates new session' },
       { operation: 'cipher', expectedBehavior: 'Loads notation system' },
       { operation: 'mental_models', args: { operation: 'get_model', args: { model: 'five-whys' } }, expectedBehavior: 'Returns model details' },
     ],

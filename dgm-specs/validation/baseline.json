@@ -1,55 +1,55 @@
 {
-  "runId": "run-2026-01-21T07-02-19-235Z-5b7c2da",
-  "timestamp": "2026-01-21T07:03:05.565Z",
-  "gitCommit": "5b7c2da",
+  "runId": "run-2026-01-21T07-36-02-630Z-f5ae62c",
+  "timestamp": "2026-01-21T07:36:54.661Z",
+  "gitCommit": "f5ae62c",
   "results": [
     {
       "testId": "thoughtbox-basic",
       "testName": "Thoughtbox Basic Flow",
       "toolhost": "thoughtbox",
-      "passed": false,
-      "duration_ms": 18211.236083000003,
-      "response_bytes": 725,
-      "tokens_estimated": 182,
-      "timestamp": "2026-01-21T07:02:37.458Z"
+      "passed": true,
+      "duration_ms": 21956.309583,
+      "response_bytes": 603,
+      "tokens_estimated": 151,
+      "timestamp": "2026-01-21T07:36:24.597Z"
     },
     {
       "testId": "mental-models-list",
       "testName": "Mental Models List Operation",
       "toolhost": "mental_models",
-      "passed": false,
-      "duration_ms": 11602.088875000001,
-      "response_bytes": 418,
-      "tokens_estimated": 105,
-      "timestamp": "2026-01-21T07:02:49.060Z"
+      "passed": true,
+      "duration_ms": 12090.021500000003,
+      "response_bytes": 135,
+      "tokens_estimated": 34,
+      "timestamp": "2026-01-21T07:36:36.687Z"
     },
     {
       "testId": "mental-models-get",
       "testName": "Mental Models Get Operation",
       "toolhost": "mental_models",
-      "passed": false,
-      "duration_ms": 10843.61625,
-      "response_bytes": 390,
-      "tokens_estimated": 98,
-      "timestamp": "2026-01-21T07:02:59.903Z"
+      "passed": true,
+      "duration_ms": 12007.874040999995,
+      "response_bytes": 112,
+      "tokens_estimated": 28,
+      "timestamp": "2026-01-21T07:36:48.695Z"
     },
     {
       "testId": "init-state",
       "testName": "Init State Check",
       "toolhost": "init",
       "passed": true,
-      "duration_ms": 5661.870625000003,
-      "response_bytes": 83,
-      "tokens_estimated": 21,
-      "timestamp": "2026-01-21T07:03:05.565Z"
+      "duration_ms": 5966.072165999998,
+      "response_bytes": 74,
+      "tokens_estimated": 19,
+      "timestamp": "2026-01-21T07:36:54.661Z"
     }
   ],
   "summary": {
     "total": 4,
-    "passed": 1,
-    "failed": 3,
-    "avg_duration_ms": 11579.702958250002,
-    "total_response_bytes": 1616,
-    "total_tokens_estimated": 406
+    "passed": 4,
+    "failed": 0,
+    "avg_duration_ms": 13005.069322499998,
+    "total_response_bytes": 924,
+    "total_tokens_estimated": 232
   }
 }
