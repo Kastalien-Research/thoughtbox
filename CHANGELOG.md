@@ -27,6 +27,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - add thoughtbox-cognitive Claude skill ([67ee12d](../../commit/67ee12d1a95be3e3fc49c0eddf564d8b90c0b31c))
 - Add specification workflows, OODA loops MCP, and automated changelog ([f336a0d](../../commit/f336a0de7d6c805b95a8c05e1c0ae013b2da493b))
 - **sil**: Implement SIL bootstrap specs (100-104) ([d18589c](../../commit/d18589cffc0df312d0dba53fd0c38b9869f0e03b))
+- **observatory**: Add semantic anchors, revision tracking, and event emission ([ba78b70](../../commit/ba78b70192cf05144fd64471675157b3da3c4883))
+- **persistence**: Add RevisionMetadata and revisionAnalysis to export ([273d6df](../../commit/273d6df590f01a63bcf8510a8d4b986d866e7d81))
+- **persistence**: Add revision metadata and linked thought store enhancements ([e9c15ed](../../commit/e9c15ed7b178dc5a78ebb3da5a4c2628533d5997))
 
 ### Changed
 - Build pipeline now includes OODA loop embedding step (`npm run embed-loops`)
@@ -53,6 +56,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **changelog**: Add required permissions for PR comments in GitHub Action ([5b7c2da](../../commit/5b7c2daf041182a49c163ba32711ebc3e200eca3))
 - **thought-handler**: Fix queue error handling to prevent retry loops ([79d057c](../../commit/79d057c675c98e85e283e87cca5fbb6d3554b8c9))
 - **thought-handler**: Serialize concurrent thought processing to prevent race condition ([22d6cc1](../../commit/22d6cc16aba64a01235eab621228ad3faecc4062))
+- **persistence**: Use index map for most-revised thought lookup ([4f948ce](../../commit/4f948ce0e73acb692e97a2b1ad91ba42eb68375a))
+- **persistence**: Fix revision analysis bugs and add missing modules ([b256915](../../commit/b2569151eb9a07befdd7d96a4e54c1474342d169))
 ## [1.2.2] - 2026-01-15
 
 ### Added
