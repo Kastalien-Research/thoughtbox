@@ -87,6 +87,10 @@ glassBead-thoughtbox-blog.md
 NOTEBOOK_CAPABILITIES_REPORT.md
 NOTEBOOK_DUAL_TRANSPORT_ANALYSIS.md
 CLEANUP_REPORT.md
+EXPLORATION_REPORT_MCP_Integration_Patterns.md
+MENTAL-MODELS-TAG-FIX-COMPLETE.md
+SESSION-2026-01-19-self-observable-reasoning.md
+SESSION-CHANGELOG-2026-01-19.md
 
 # Tessl configuration (local usage only)
 tessl.json
@@ -100,6 +104,7 @@ tessl.json
 mcp-servers/
 ai_docs/
 traces/
+plans/
 kastalien-srcbook/
 .spec-orchestrator/
 .spec-validator/
