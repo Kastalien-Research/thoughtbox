@@ -70,6 +70,20 @@ export interface ImprovementEvent {
 }
 
 /**
+ * Agent role type for multi-agent collaboration
+ */
+export type AgentRole =
+  | 'orchestrator'
+  | 'researcher'
+  | 'architect'
+  | 'implementer'
+  | 'reviewer'
+  | 'tester'
+  | 'integrator'
+  | 'critic'
+  | 'unknown';
+
+/**
  * Event types emitted by the ThoughtEmitter
  */
 export type ThoughtEmitterEvents = {
@@ -77,12 +91,17 @@ export type ThoughtEmitterEvents = {
     sessionId: string;
     thought: Thought;
     parentId: string | null;
+    agentId?: string;
+    agentRole?: AgentRole;
+    taskId?: string;
   };
   "thought:revised": {
     sessionId: string;
     thought: Thought;
     parentId: string | null;
     originalThoughtNumber: number;
+    agentId?: string;
+    agentRole?: AgentRole;
   };
   "thought:branched": {
     sessionId: string;
@@ -90,6 +109,8 @@ export type ThoughtEmitterEvents = {
     parentId: string | null;
     branchId: string;
     fromThoughtNumber: number;
+    agentId?: string;
+    agentRole?: AgentRole;
   };
   "session:started": {
     session: Session;
@@ -97,6 +118,60 @@ export type ThoughtEmitterEvents = {
   "session:ended": {
     sessionId: string;
     finalThoughtCount: number;
+  };
+  /**
+   * Agent lifecycle events for multi-agent collaboration visualization
+   */
+  "agent:spawned": {
+    agentId: string;
+    agentRole: AgentRole;
+    taskId?: string;
+    timestamp: string;
+  };
+  "agent:active": {
+    agentId: string;
+    agentRole: AgentRole;
+    timestamp: string;
+  };
+  "agent:idle": {
+    agentId: string;
+    timestamp: string;
+  };
+  "agent:completed": {
+    agentId: string;
+    taskId?: string;
+    timestamp: string;
+  };
+  /**
+   * Task lifecycle events for collaborative work tracking
+   */
+  "task:created": {
+    taskId: string;
+    title: string;
+    subtasks: Array<{
+      id: string;
+      title: string;
+      status: 'pending' | 'in_progress' | 'completed';
+      assignedTo?: string;
+    }>;
+    progress: number;
+    timestamp: string;
+  };
+  "task:updated": {
+    taskId: string;
+    title: string;
+    subtasks: Array<{
+      id: string;
+      title: string;
+      status: 'pending' | 'in_progress' | 'completed';
+      assignedTo?: string;
+    }>;
+    progress: number;
+    timestamp: string;
+  };
+  "task:completed": {
+    taskId: string;
+    timestamp: string;
   };
   /**
    * Improvement events from the Self-Improvement Loop (SIL)
@@ -216,6 +291,76 @@ export class ThoughtEmitter extends EventEmitter {
    */
   emitImprovementEvent(data: ThoughtEmitterEvents["improvement:event"]): void {
     this.safeEmit("improvement:event", data);
+  }
+
+  /**
+   * Emit an agent:spawned event
+   *
+   * Fire-and-forget: This method returns immediately.
+   * Listener errors are logged but never propagate.
+   */
+  emitAgentSpawned(data: ThoughtEmitterEvents["agent:spawned"]): void {
+    this.safeEmit("agent:spawned", data);
+  }
+
+  /**
+   * Emit an agent:active event
+   *
+   * Fire-and-forget: This method returns immediately.
+   * Listener errors are logged but never propagate.
+   */
+  emitAgentActive(data: ThoughtEmitterEvents["agent:active"]): void {
+    this.safeEmit("agent:active", data);
+  }
+
+  /**
+   * Emit an agent:idle event
+   *
+   * Fire-and-forget: This method returns immediately.
+   * Listener errors are logged but never propagate.
+   */
+  emitAgentIdle(data: ThoughtEmitterEvents["agent:idle"]): void {
+    this.safeEmit("agent:idle", data);
+  }
+
+  /**
+   * Emit an agent:completed event
+   *
+   * Fire-and-forget: This method returns immediately.
+   * Listener errors are logged but never propagate.
+   */
+  emitAgentCompleted(data: ThoughtEmitterEvents["agent:completed"]): void {
+    this.safeEmit("agent:completed", data);
+  }
+
+  /**
+   * Emit a task:created event
+   *
+   * Fire-and-forget: This method returns immediately.
+   * Listener errors are logged but never propagate.
+   */
+  emitTaskCreated(data: ThoughtEmitterEvents["task:created"]): void {
+    this.safeEmit("task:created", data);
+  }
+
+  /**
+   * Emit a task:updated event
+   *
+   * Fire-and-forget: This method returns immediately.
+   * Listener errors are logged but never propagate.
+   */
+  emitTaskUpdated(data: ThoughtEmitterEvents["task:updated"]): void {
+    this.safeEmit("task:updated", data);
+  }
+
+  /**
+   * Emit a task:completed event
+   *
+   * Fire-and-forget: This method returns immediately.
+   * Listener errors are logged but never propagate.
+   */
+  emitTaskCompleted(data: ThoughtEmitterEvents["task:completed"]): void {
+    this.safeEmit("task:completed", data);
   }
 
   /**
