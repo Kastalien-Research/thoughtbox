@@ -87,13 +87,12 @@ glassBead-thoughtbox-blog.md
 NOTEBOOK_CAPABILITIES_REPORT.md
 NOTEBOOK_DUAL_TRANSPORT_ANALYSIS.md
 CLEANUP_REPORT.md
-EXPLORATION_REPORT_MCP_Integration_Patterns.md
-MENTAL-MODELS-TAG-FIX-COMPLETE.md
-SESSION-2026-01-19-self-observable-reasoning.md
-SESSION-CHANGELOG-2026-01-19.md
+EXPLORATION_REPORT_*.md
+MENTAL-MODELS-*.md
+SESSION-*.md
+STATUS-REPORT-*.md
+uncommitted-changes-*.patch
 CHANGELOG-SYSTEM-IMPLEMENTATION.md
-STATUS-REPORT-2026-01-19.md
-uncommitted-changes-2026-01-17.patch
 
 # Tessl configuration (local usage only)
 tessl.json
