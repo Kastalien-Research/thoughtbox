@@ -419,7 +419,7 @@ export class ThoughtHandler {
       .then(() => this._processThoughtImpl(input)); // Process THIS input
 
     // Update queue for next operation (ensure queue continues even if this fails)
-    this.processingQueue = operation.catch(() => undefined);
+    this.processingQueue = operation.then(() => undefined, () => undefined);
 
     // Return result of THIS operation
     return operation;
