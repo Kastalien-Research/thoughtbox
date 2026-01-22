@@ -489,8 +489,8 @@ export class LinkedThoughtStore {
     for (const metadata of index.values()) {
       // Count how many times THIS thought was revised (not what it revises)
       if (!metadata.isRevision && metadata.revisedBy.length > 0) {
-        const thoughtNum = nodes.find(n => n.revisionMetadata === metadata)?.data.thoughtNumber;
-        if (thoughtNum) {
+        const thoughtNum = Array.from(index.entries()).find(([_, m]) => m === metadata)?.[0];
+        if (thoughtNum !== undefined) {
           revisedByCounts.set(thoughtNum, metadata.revisedBy.length);
         }
       }
