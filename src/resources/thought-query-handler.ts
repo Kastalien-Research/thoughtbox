@@ -255,7 +255,14 @@ export class ThoughtQueryHandler {
   /**
    * Convert ThoughtNode to simplified thought data
    */
-  private nodeToThought(node: ThoughtNode): any {
+  private nodeToThought(node: ThoughtNode): {
+    thoughtNumber: number;
+    thought: string;
+    timestamp: string;
+    type?: string;
+    isRevision: boolean;
+    branchId?: string | null;
+  } {
     return {
       thoughtNumber: node.data.thoughtNumber,
       thought: node.data.thought,
