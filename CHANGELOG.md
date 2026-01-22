@@ -58,6 +58,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **thought-handler**: Serialize concurrent thought processing to prevent race condition ([22d6cc1](../../commit/22d6cc16aba64a01235eab621228ad3faecc4062))
 - **persistence**: Use index map for most-revised thought lookup ([4f948ce](../../commit/4f948ce0e73acb692e97a2b1ad91ba42eb68375a))
 - **persistence**: Fix revision analysis bugs and add missing modules ([b256915](../../commit/b2569151eb9a07befdd7d96a4e54c1474342d169))
+- **docs**: Remove reference to non-existent .claude/rules/RULES.md ([3f91b85](../../commit/3f91b8501ad30609ddb0348497a688762cab5675))
 ## [1.2.2] - 2026-01-15
 
 ### Added
