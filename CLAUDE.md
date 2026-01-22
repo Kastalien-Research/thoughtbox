@@ -2,6 +2,8 @@
 
 @AGENTS.md
 
+---
+
 ## CRITICAL: Always Verify
 
 **NEVER say "probably", "maybe", "might be", "could be", or other conditional hedging.**

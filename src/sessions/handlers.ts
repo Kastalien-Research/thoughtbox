@@ -169,11 +169,13 @@ export class SessionHandlers {
 
   /**
    * Export a session to various formats
+   * SPEC-003: Includes cross-reference resolution
    */
   async handleExport(args: {
     sessionId: string;
     format?: "markdown" | "cipher" | "json";
     includeMetadata?: boolean;
+    resolveAnchors?: boolean;
   }): Promise<{
     sessionId: string;
     format: string;
@@ -181,6 +183,7 @@ export class SessionHandlers {
   }> {
     const format = args.format ?? "markdown";
     const includeMetadata = args.includeMetadata ?? true;
+    const resolveAnchors = args.resolveAnchors ?? true;
 
     const session = await this.storage.getSession(args.sessionId);
     if (!session) {
@@ -194,7 +197,15 @@ export class SessionHandlers {
     switch (format) {
       case "json": {
         // Use toLinkedExport to include full ThoughtNode[] with linkage (prev/next/revisesNode/branchOrigin)
+        // SPEC-002: Now includes revision metadata
         const linkedExport = await this.storage.toLinkedExport(args.sessionId);
+
+        // SPEC-003: Resolve cross-session anchors if requested
+        if (resolveAnchors) {
+          const crossReferences = await this.resolveAnchors(linkedExport.nodes);
+          (linkedExport as any).crossReferences = crossReferences;
+        }
+
         content = JSON.stringify(linkedExport, null, 2);
         break;
       }
@@ -214,6 +225,52 @@ export class SessionHandlers {
       format,
       content,
     };
+  }
+
+  /**
+   * SPEC-003: Resolve all anchors in session thoughts
+   */
+  private async resolveAnchors(nodes: any[]): Promise<any> {
+    const { AnchorParser } = await import("../references/anchor-parser.js");
+    const { AnchorResolver } = await import("../references/anchor-resolver.js");
+
+    const parser = new AnchorParser();
+    const resolver = new AnchorResolver(this.storage, this.loadAliases());
+
+    const allAnchors = new Map<number, any[]>();
+
+    for (const node of nodes) {
+      const anchors = parser.parse(node.data.thought);
+      if (anchors.length > 0) {
+        const resolved = await Promise.all(
+          anchors.map((a: any) => resolver.resolve(a))
+        );
+        allAnchors.set(node.data.thoughtNumber, resolved);
+      }
+    }
+
+    // Summarize
+    const allResolved = Array.from(allAnchors.values()).flat();
+
+    return {
+      anchorsFound: allAnchors.size,
+      resolved: allResolved.filter((a: any) => a.status === "resolved").length,
+      ambiguous: allResolved.filter((a: any) => a.status === "ambiguous").length,
+      unresolved: allResolved.filter((a: any) => a.status === "unresolved").length,
+      details: Array.from(allAnchors.entries()).map(([thoughtNum, anchors]) => ({
+        thoughtNumber: thoughtNum,
+        anchors,
+      })),
+    };
+  }
+
+  /**
+   * SPEC-003 D3: Load project-level aliases
+   */
+  private loadAliases(): Record<string, string> | undefined {
+    // TODO: Load from .thoughtbox/aliases.json
+    // For now, return undefined (no aliases configured)
+    return undefined;
   }
 
   /**

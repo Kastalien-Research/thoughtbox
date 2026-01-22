@@ -18,6 +18,7 @@ import type { SessionHandler } from '../sessions/index.js';
 import type { MentalModelsHandler } from '../mental-models/index.js';
 import type { ThoughtboxStorage, ThoughtData } from '../persistence/index.js';
 import { THOUGHTBOX_CIPHER } from '../resources/thoughtbox-cipher-content.js';
+import type { KnowledgeHandler } from '../knowledge/index.js';
 
 // =============================================================================
 // Schema
@@ -52,6 +53,8 @@ export const gatewayToolInputSchema = z.object({
     'mental_models',
     // Deep analysis operation (Stage 1)
     'deep_analysis',
+    // Knowledge operation (Stage 2) - knowledge graph memory
+    'knowledge',
   ]),
   args: z.record(z.string(), z.unknown()).optional().describe('Arguments passed to the underlying handler'),
 });
@@ -84,6 +87,7 @@ const OPERATION_REQUIRED_STAGE: Record<GatewayToolInput['operation'], Disclosure
   get_structure: DisclosureStage.STAGE_2_CIPHER_LOADED,
   notebook: DisclosureStage.STAGE_2_CIPHER_LOADED,
   mental_models: DisclosureStage.STAGE_2_CIPHER_LOADED,
+  knowledge: DisclosureStage.STAGE_2_CIPHER_LOADED,
 };
 
 /**
@@ -105,6 +109,7 @@ const OPERATION_ADVANCES_TO: Record<GatewayToolInput['operation'], DisclosureSta
   notebook: null,
   mental_models: null,
   deep_analysis: null,
+  knowledge: null,
 };
 
 /**
@@ -156,6 +161,7 @@ export interface GatewayHandlerConfig {
   notebookHandler: NotebookHandler;
   sessionHandler: SessionHandler;
   mentalModelsHandler: MentalModelsHandler;
+  knowledgeHandler?: KnowledgeHandler;
   /** Storage for deep analysis operations */
   storage: ThoughtboxStorage;
   /** Callback to notify clients of tool list changes */
@@ -172,6 +178,7 @@ export class GatewayHandler {
   private notebookHandler: NotebookHandler;
   private sessionHandler: SessionHandler;
   private mentalModelsHandler: MentalModelsHandler;
+  private knowledgeHandler?: KnowledgeHandler;
   private storage: ThoughtboxStorage;
   private sendToolListChanged?: () => void;
 
@@ -182,6 +189,7 @@ export class GatewayHandler {
     this.notebookHandler = config.notebookHandler;
     this.sessionHandler = config.sessionHandler;
     this.mentalModelsHandler = config.mentalModelsHandler;
+    this.knowledgeHandler = config.knowledgeHandler;
     this.storage = config.storage;
     this.sendToolListChanged = config.sendToolListChanged;
   }
@@ -253,6 +261,11 @@ export class GatewayHandler {
       // Deep analysis operation
       case 'deep_analysis':
         result = await this.handleDeepAnalysis(args);
+        break;
+
+      // Knowledge operation
+      case 'knowledge':
+        result = await this.handleKnowledge(args);
         break;
 
       default:
@@ -809,6 +822,46 @@ Call \`thoughtbox_gateway\` with operation 'thought' to begin structured reasoni
       };
     }
   }
+
+  /**
+   * Handle knowledge operation
+   */
+  private async handleKnowledge(args?: Record<string, unknown>): Promise<ToolResponse> {
+    if (!this.knowledgeHandler) {
+      return {
+        content: [{
+          type: 'text',
+          text: JSON.stringify({
+            error: 'Knowledge operations not enabled. Initialize knowledge storage in server configuration.',
+          }, null, 2),
+        }],
+        isError: true,
+      };
+    }
+
+    if (!args || !args.action) {
+      return {
+        content: [{
+          type: 'text',
+          text: JSON.stringify({
+            error: 'Knowledge operation requires args with action field',
+            available_actions: [
+              'create_entity',
+              'get_entity',
+              'list_entities',
+              'add_observation',
+              'create_relation',
+              'query_graph',
+              'stats',
+            ],
+          }, null, 2),
+        }],
+        isError: true,
+      };
+    }
+
+    return this.knowledgeHandler.processOperation(args as any);
+  }
 }
 
 // =============================================================================
@@ -823,7 +876,7 @@ export const GATEWAY_TOOL = {
   description: `Always-available routing tool for Thoughtbox operations.
 
 Use this tool when other tools appear unavailable due to tool list not refreshing.
-Routes to: init, cipher, thoughtbox, notebook, session, mental_models handlers.
+Routes to: init, cipher, thoughtbox, notebook, session, mental_models, knowledge handlers.
 
 Operations:
 - get_state, list_sessions, navigate, load_context, start_new, list_roots, bind_root (init)
@@ -835,6 +888,7 @@ Operations:
 - session (session management)
 - mental_models (reasoning frameworks)
 - deep_analysis (session pattern analysis)
+- knowledge (knowledge graph memory - Phase 1)
 
 read_thoughts usage (Stage 2 required):
 - { args: { thoughtNumber: N } } - get a single thought by number
@@ -848,6 +902,13 @@ get_structure usage (Stage 2 required):
 - { args: { sessionId: 'id' } } - optional, defaults to active session
 - Response includes: mainChain (head/tail/length), branches (id/forks/range), revisions
 - Use to understand "shape" of reasoning before drilling into specific thoughts
+
+knowledge usage (Stage 2 required):
+- { args: { action: 'create_entity', name, type, label, properties } } - create entity
+- { args: { action: 'add_observation', entity_id, content } } - add fact to entity
+- { args: { action: 'create_relation', from_id, to_id, relation_type } } - link entities
+- { args: { action: 'query_graph', start_entity_id, relation_types, max_depth } } - traverse graph
+- { args: { action: 'stats' } } - get entity/relation counts
 
 Stage enforcement is handled internally - you'll get clear errors if calling operations too early.`,
   annotations: {

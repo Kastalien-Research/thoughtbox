@@ -236,9 +236,11 @@ Add a thought to the current session.
   "operation": "thought",
   "args": {
     "thought": "The error occurs because...",     // Required: reasoning content
-    "thoughtNumber": 3,                           // Required: position in chain
-    "totalThoughts": 5,                           // Required: estimated total
     "nextThoughtNeeded": true,                    // Required: more to come?
+
+    // Optional (SIL-102: server auto-assigns if omitted)
+    "thoughtNumber": 3,                           // Position in chain
+    "totalThoughts": 5,                           // Estimated total
 
     // Optional: branching
     "branchFromThought": 2,                       // Fork from this thought
@@ -249,7 +251,10 @@ Add a thought to the current session.
     "revisesThought": 1,                          // Which thought to update
 
     // Optional: critique
-    "critique": true                              // Request autonomous critique
+    "critique": true,                             // Request autonomous critique
+
+    // Optional: response mode (SIL-101)
+    "verbose": false                              // Minimal response (default)
   }
 }
 ```
@@ -273,6 +278,88 @@ Add a thought to the current session.
     "model": "claude-sonnet-4-5-20250929",
     "timestamp": "2025-01-15T10:35:05Z"
   }
+}
+```
+
+> **Note (SIL-102):** `thoughtNumber` and `totalThoughts` are now optional. The server auto-assigns the next sequential number if omitted, making client code simpler.
+
+---
+
+### read_thoughts
+
+Retrieve previous thoughts mid-session for re-reading. **Requires Stage 2.**
+
+```json
+{
+  "operation": "read_thoughts",
+  "args": {
+    // Query modes (pick one):
+    "thoughtNumber": 3,              // Get a single thought by number
+    "last": 5,                       // Get the last N thoughts
+    "range": [2, 5],                 // Get thoughts 2-5 (inclusive)
+    "branchId": "alternative",       // Get all thoughts from a branch
+
+    // Optional:
+    "sessionId": "debug-auth-2025"   // Defaults to active session
+  }
+}
+```
+
+**Returns:**
+```json
+{
+  "sessionId": "debug-auth-2025-01",
+  "query": "last 5 thoughts",
+  "count": 5,
+  "thoughts": [
+    {
+      "thoughtNumber": 1,
+      "thought": "The 401 errors appear after token refresh...",
+      "totalThoughts": 5,
+      "isRevision": false,
+      "timestamp": "2025-01-15T10:30:00Z"
+    }
+  ]
+}
+```
+
+**Default behavior:** If no query args provided, returns the last 5 thoughts.
+
+---
+
+### get_structure
+
+Get the reasoning graph topology without content. **Requires Stage 2.** Useful for understanding the "shape" of reasoning before drilling into specific thoughts.
+
+```json
+{
+  "operation": "get_structure",
+  "args": {
+    "sessionId": "debug-auth-2025"   // Optional: defaults to active session
+  }
+}
+```
+
+**Returns:**
+```json
+{
+  "sessionId": "debug-auth-2025-01",
+  "totalThoughts": 12,
+  "mainChain": {
+    "length": 8,
+    "head": 1,
+    "tail": 8
+  },
+  "branches": {
+    "redis-approach": {
+      "forks": 3,
+      "range": [1, 3],
+      "length": 3
+    }
+  },
+  "branchCount": 1,
+  "revisions": [[6, 2]],
+  "revisionCount": 1
 }
 ```
 
@@ -329,7 +416,9 @@ Export session in various formats.
   "args": {
     "action": "export",
     "sessionId": "debug-auth-2025-01",
-    "format": "markdown"  // "markdown" | "json"
+    "format": "markdown",            // "markdown" | "json" | "cipher"
+    "includeMetadata": true,         // Optional: include session header
+    "resolveAnchors": true           // Optional (SPEC-003): resolve cross-references
   }
 }
 ```
@@ -353,14 +442,24 @@ The error occurs because...
 Tracing the code, I see...
 ```
 
-**JSON format:**
+**JSON format (SPEC-002):**
 ```json
 {
   "version": "1.0",
   "session": { ... },
   "nodes": [ ... ],
+  "crossReferences": { ... },
   "exportedAt": "2025-01-15T12:00:00Z"
 }
+```
+
+**Cipher format:** Compressed notation for efficient storage:
+```
+# Debug authentication flow
+T:debugging,auth N:7
+
+[1/7] O:The 401 errors appear after...
+[2/7] H:Token refresh timing issue...
 ```
 
 ---
@@ -399,6 +498,127 @@ Get statistics and quality metrics.
     "critiqueRequests": 2,
     "hasConvergence": true,
     "isComplete": true
+  }
+}
+```
+
+---
+
+### session: extract_learnings
+
+Extract patterns for DGM evolution.
+
+```json
+{
+  "operation": "session",
+  "args": {
+    "action": "extract_learnings",
+    "sessionId": "debug-auth-2025-01",
+    "keyMoments": [                     // Optional: client-identified key moments
+      { "thoughtNumber": 3, "type": "insight", "significance": 8 },
+      { "thoughtNumber": 5, "type": "revision", "summary": "Initial assumption was wrong" }
+    ],
+    "targetTypes": ["pattern", "anti-pattern", "signal"]  // Optional: filter types
+  }
+}
+```
+
+**Returns:**
+```json
+{
+  "sessionId": "debug-auth-2025-01",
+  "extractedCount": 3,
+  "learnings": [
+    {
+      "type": "pattern",
+      "content": "### Debug auth: Thought 3...",
+      "targetPath": ".claude/rules/evolution/experiments/debug-thought-3.md",
+      "metadata": {
+        "sourceSession": "debug-auth-2025-01",
+        "sourceThoughts": [3],
+        "extractedAt": "2025-01-15T12:00:00Z"
+      }
+    }
+  ]
+}
+```
+
+---
+
+### session: discovery (SPEC-009)
+
+Manage dynamically discovered tools.
+
+```json
+{
+  "operation": "session",
+  "args": {
+    "action": "discovery",
+    "action": "list"  // "list" | "hide" | "show"
+  }
+}
+```
+
+```json
+{
+  "operation": "session",
+  "args": {
+    "action": "discovery",
+    "action": "hide",
+    "toolName": "session_visualizer"
+  }
+}
+```
+
+---
+
+## Deep Analysis Operations
+
+Advanced session pattern analysis. **Requires Stage 1+.**
+
+### deep_analysis
+
+Perform deep structural analysis of a reasoning session.
+
+```json
+{
+  "operation": "deep_analysis",
+  "args": {
+    "sessionId": "debug-auth-2025-01",
+    "analysisType": "full",           // "patterns" | "cognitive_load" | "decision_points" | "full"
+    "options": {
+      "includeTimeline": true,        // Include time-based analysis
+      "compareWith": ["session-xyz"]  // Optional: compare with other sessions
+    }
+  }
+}
+```
+
+**Returns:**
+```json
+{
+  "sessionId": "debug-auth-2025-01",
+  "analysisType": "full",
+  "timestamp": "2025-01-15T12:00:00Z",
+  "patterns": {
+    "totalThoughts": 7,
+    "revisionCount": 1,
+    "branchCount": 2,
+    "averageThoughtLength": 245
+  },
+  "cognitiveLoad": {
+    "complexityScore": 65,
+    "depthIndicator": 7,
+    "breadthIndicator": 3
+  },
+  "decisionPoints": [
+    { "thoughtNumber": 3, "type": "branch", "reference": 2 },
+    { "thoughtNumber": 6, "type": "revision", "reference": 2 }
+  ],
+  "timeline": {
+    "createdAt": "2025-01-15T10:00:00Z",
+    "updatedAt": "2025-01-15T11:30:00Z",
+    "durationEstimate": "~14 minutes"
   }
 }
 ```
