@@ -19,6 +19,7 @@ import type { MentalModelsHandler } from '../mental-models/index.js';
 import type { ThoughtboxStorage, ThoughtData } from '../persistence/index.js';
 import { THOUGHTBOX_CIPHER } from '../resources/thoughtbox-cipher-content.js';
 import type { KnowledgeHandler } from '../knowledge/index.js';
+import type { TaskHandler } from '../tasks/handler.js';
 
 // =============================================================================
 // Schema
@@ -55,6 +56,8 @@ export const gatewayToolInputSchema = z.object({
     'deep_analysis',
     // Knowledge operation (Stage 2) - knowledge graph memory
     'knowledge',
+    // Task operation (Stage 2) - reasoning task orchestration
+    'task',
   ]),
   args: z.record(z.string(), z.unknown()).optional().describe('Arguments passed to the underlying handler'),
 });
@@ -88,6 +91,7 @@ const OPERATION_REQUIRED_STAGE: Record<GatewayToolInput['operation'], Disclosure
   notebook: DisclosureStage.STAGE_2_CIPHER_LOADED,
   mental_models: DisclosureStage.STAGE_2_CIPHER_LOADED,
   knowledge: DisclosureStage.STAGE_2_CIPHER_LOADED,
+  task: DisclosureStage.STAGE_2_CIPHER_LOADED,
 };
 
 /**
@@ -110,6 +114,7 @@ const OPERATION_ADVANCES_TO: Record<GatewayToolInput['operation'], DisclosureSta
   mental_models: null,
   deep_analysis: null,
   knowledge: null,
+  task: null,
 };
 
 /**
@@ -162,6 +167,7 @@ export interface GatewayHandlerConfig {
   sessionHandler: SessionHandler;
   mentalModelsHandler: MentalModelsHandler;
   knowledgeHandler?: KnowledgeHandler;
+  taskHandler?: TaskHandler;
   /** Storage for deep analysis operations */
   storage: ThoughtboxStorage;
   /** Callback to notify clients of tool list changes */
@@ -179,6 +185,7 @@ export class GatewayHandler {
   private sessionHandler: SessionHandler;
   private mentalModelsHandler: MentalModelsHandler;
   private knowledgeHandler?: KnowledgeHandler;
+  private taskHandler?: TaskHandler;
   private storage: ThoughtboxStorage;
   private sendToolListChanged?: () => void;
 
@@ -190,6 +197,7 @@ export class GatewayHandler {
     this.sessionHandler = config.sessionHandler;
     this.mentalModelsHandler = config.mentalModelsHandler;
     this.knowledgeHandler = config.knowledgeHandler;
+    this.taskHandler = config.taskHandler;
     this.storage = config.storage;
     this.sendToolListChanged = config.sendToolListChanged;
   }
@@ -266,6 +274,11 @@ export class GatewayHandler {
       // Knowledge operation
       case 'knowledge':
         result = await this.handleKnowledge(args);
+        break;
+
+      // Task operation
+      case 'task':
+        result = await this.handleTask(args);
         break;
 
       default:
@@ -862,6 +875,116 @@ Call \`thoughtbox_gateway\` with operation 'thought' to begin structured reasoni
 
     return this.knowledgeHandler.processOperation(args as any);
   }
+
+  /**
+   * Handle task operation
+   */
+  private async handleTask(args?: Record<string, unknown>): Promise<ToolResponse> {
+    if (!this.taskHandler) {
+      return {
+        content: [{
+          type: 'text',
+          text: JSON.stringify({
+            error: 'Task operations not enabled. TaskHandler not initialized.',
+          }, null, 2),
+        }],
+        isError: true,
+      };
+    }
+
+    if (!args || !args.action) {
+      return {
+        content: [{
+          type: 'text',
+          text: JSON.stringify({
+            error: 'Task operation requires args with action field',
+            available_actions: [
+              'create',
+              'get',
+              'list',
+              'update',
+              'check_criterion',
+              'add_note',
+              'spawn_session',
+              'link_session',
+              'claim',
+              'complete',
+              'archive',
+            ],
+          }, null, 2),
+        }],
+        isError: true,
+      };
+    }
+
+    const action = args.action as string;
+
+    try {
+      let result: any;
+
+      switch (action) {
+        case 'create':
+          result = await this.taskHandler.handleCreateTask(args as any);
+          break;
+        case 'get':
+          result = await this.taskHandler.handleGetTask(args.taskId as string);
+          break;
+        case 'list':
+          result = await this.taskHandler.handleListTasks(args.filters as any);
+          break;
+        case 'update':
+          result = await this.taskHandler.handleUpdateTask(args as any);
+          break;
+        case 'check_criterion':
+          result = await this.taskHandler.handleCheckCriterion(args as any);
+          break;
+        case 'add_note':
+          result = await this.taskHandler.handleAddNote(args as any);
+          break;
+        case 'spawn_session':
+          result = await this.taskHandler.handleSpawnSession(args as any);
+          break;
+        case 'link_session':
+          result = await this.taskHandler.handleLinkSession(args as any);
+          break;
+        case 'claim':
+          result = await this.taskHandler.handleClaim(args as any);
+          break;
+        case 'complete':
+          result = await this.taskHandler.handleComplete(args as any);
+          break;
+        case 'archive':
+          result = await this.taskHandler.handleArchive(args as any);
+          break;
+        default:
+          throw new Error(`Unknown task action: ${action}`);
+      }
+
+      return {
+        content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
+      };
+    } catch (err) {
+      // Check if it's a TaskOperationError
+      if (err && typeof err === 'object' && 'error' in err && 'code' in err && 'action' in err) {
+        return {
+          content: [{
+            type: 'text',
+            text: JSON.stringify(err, null, 2),
+          }],
+          isError: true,
+        };
+      }
+
+      // Generic error
+      return {
+        content: [{
+          type: 'text',
+          text: JSON.stringify({ error: (err as Error).message }, null, 2),
+        }],
+        isError: true,
+      };
+    }
+  }
 }
 
 // =============================================================================
@@ -876,7 +999,7 @@ export const GATEWAY_TOOL = {
   description: `Always-available routing tool for Thoughtbox operations.
 
 Use this tool when other tools appear unavailable due to tool list not refreshing.
-Routes to: init, cipher, thoughtbox, notebook, session, mental_models, knowledge handlers.
+Routes to: init, cipher, thoughtbox, notebook, session, mental_models, knowledge, task handlers.
 
 Operations:
 - get_state, list_sessions, navigate, load_context, start_new, list_roots, bind_root (init)
@@ -889,6 +1012,7 @@ Operations:
 - mental_models (reasoning frameworks)
 - deep_analysis (session pattern analysis)
 - knowledge (knowledge graph memory - Phase 1)
+- task (reasoning task orchestration - Phase 3)
 
 read_thoughts usage (Stage 2 required):
 - { args: { thoughtNumber: N } } - get a single thought by number
@@ -909,6 +1033,19 @@ knowledge usage (Stage 2 required):
 - { args: { action: 'create_relation', from_id, to_id, relation_type } } - link entities
 - { args: { action: 'query_graph', start_entity_id, relation_types, max_depth } } - traverse graph
 - { args: { action: 'stats' } } - get entity/relation counts
+
+task usage (Stage 2 required):
+- { args: { action: 'create', title, completionCriteria, ... } } - create new task
+- { args: { action: 'get', taskId } } - get task by ID
+- { args: { action: 'list', filters } } - list tasks with filters
+- { args: { action: 'update', taskId, title?, status?, ... } } - update task
+- { args: { action: 'check_criterion', taskId, criterionIndex } } - check completion criterion
+- { args: { action: 'add_note', taskId, content } } - add note to task
+- { args: { action: 'claim', taskId } } - assign task to current agent
+- { args: { action: 'complete', taskId } } - mark task completed
+- { args: { action: 'archive', taskId } } - archive completed task
+- { args: { action: 'spawn_session', taskId, role } } - create session for task
+- { args: { action: 'link_session', taskId, sessionId, role } } - link existing session
 
 Stage enforcement is handled internally - you'll get clear errors if calling operations too early.`,
   annotations: {
