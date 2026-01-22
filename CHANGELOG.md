@@ -45,6 +45,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **server**: Consolidate server factory and handlers ([5e83a29](../../commit/5e83a29ab28697f711c3251e10dce986c50264e7))
 - modularize skill into small-world network ([ba92f8b](../../commit/ba92f8b55ac704d533b874d4a1dd1c0c1f38e2e1))
 - optimize skill - remove 94% redundancy ([bf3c293](../../commit/bf3c29304358051214f0b1bd451535fd8d73dd39))
+- **tests**: Move test files from src/ to tests/unit/ ([dfd094e](../../commit/dfd094ed37bcc2d842f33879f62fd15840771dd5))
 
 ### Fixed
 - Support tag array filtering in mental models list_models ([7ed978e](../../commit/7ed978e40132cf395968fc8844296c1c471bc26e))
