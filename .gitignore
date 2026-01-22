@@ -68,6 +68,10 @@ sdk/
 improvement-recs/
 .tessl/
 .thoughtbox/
+# Knowledge graph: track JSONL, ignore SQLite index
+!.thoughtbox/**/memory/graph.jsonl
+.thoughtbox/**/memory/memory.db
+.thoughtbox/**/memory/.embedding-cache/
 adat.md
 
 # Claude Code plugins

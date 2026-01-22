@@ -128,7 +128,7 @@ async function startHttpServer() {
 
       const sessionId = mcpSessionId || crypto.randomUUID();
 
-      const server = createMcpServer({
+      const server = await createMcpServer({
         sessionId,
         storage, // Shared storage instance
         config: {
@@ -217,7 +217,7 @@ async function runStdioServer() {
   const disableThoughtLogging =
     (process.env.DISABLE_THOUGHT_LOGGING || "").toLowerCase() === "true";
 
-  const server = createMcpServer({
+  const server = await createMcpServer({
     storage,
     config: {
       disableThoughtLogging,
