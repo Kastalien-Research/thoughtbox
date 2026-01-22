@@ -20,6 +20,7 @@ import type {
   ThoughtNodeId,
   SessionExport,
   RevisionMetadata,
+  SessionTaskRole,
 } from './types.js';
 
 // =============================================================================
@@ -686,6 +687,38 @@ export class InMemoryStorage implements ThoughtboxStorage {
     }
 
     return sessions;
+  }
+
+  async linkToTask(sessionId: string, taskId: string, role: SessionTaskRole): Promise<void> {
+    const session = await this.getSession(sessionId);
+    if (!session) {
+      throw new Error(`Session not found: ${sessionId}`);
+    }
+
+    // Update session with task link
+    await this.updateSession(sessionId, {
+      taskId,
+      taskRole: role,
+    });
+  }
+
+  async unlinkFromTask(sessionId: string): Promise<void> {
+    const session = await this.getSession(sessionId);
+    if (!session) {
+      throw new Error(`Session not found: ${sessionId}`);
+    }
+
+    // Remove task link
+    await this.updateSession(sessionId, {
+      taskId: undefined,
+      taskRole: undefined,
+    });
+  }
+
+  async getSessionsByTask(taskId: string): Promise<Session[]> {
+    // Filter in-memory sessions by taskId
+    const sessions = Array.from(this.sessions.values());
+    return sessions.filter(s => s.taskId === taskId);
   }
 
   // ===========================================================================

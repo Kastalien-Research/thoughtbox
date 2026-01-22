@@ -39,6 +39,18 @@ export interface Config {
 // =============================================================================
 
 /**
+ * Session Task Role (from SPEC-REASONING-TASKS.md)
+ *
+ * Describes how a session relates to its linked task.
+ */
+export type SessionTaskRole =
+  | 'exploration'    // Understanding the problem
+  | 'planning'       // Designing the approach
+  | 'implementation' // Doing the work
+  | 'review'         // Validating results
+  | 'handoff';       // Transferring to another agent
+
+/**
  * Session metadata stored in SQLite for quick listing/search
  */
 export interface Session {
@@ -54,6 +66,16 @@ export interface Session {
    * Null for legacy sessions created before time-partitioning.
    */
   partitionPath?: string;
+  /**
+   * Task this session is working on (from SPEC-REASONING-TASKS.md)
+   * Undefined for sessions not linked to tasks (backward compatible).
+   */
+  taskId?: string;
+  /**
+   * How this session relates to its task (from SPEC-REASONING-TASKS.md)
+   * Undefined for sessions not linked to tasks (backward compatible).
+   */
+  taskRole?: SessionTaskRole;
   createdAt: Date;
   updatedAt: Date;
   lastAccessedAt: Date;
@@ -473,6 +495,27 @@ export interface ThoughtboxStorage {
    * List sessions with optional filtering
    */
   listSessions(filter?: SessionFilter): Promise<Session[]>;
+
+  /**
+   * Link a session to a task
+   * @param sessionId - Session to link
+   * @param taskId - Task to link to
+   * @param role - How the session relates to the task
+   */
+  linkToTask(sessionId: string, taskId: string, role: SessionTaskRole): Promise<void>;
+
+  /**
+   * Unlink a session from its task
+   * @param sessionId - Session to unlink
+   */
+  unlinkFromTask(sessionId: string): Promise<void>;
+
+  /**
+   * Get all sessions linked to a task
+   * @param taskId - Task to query
+   * @returns Array of sessions working on this task
+   */
+  getSessionsByTask(taskId: string): Promise<Session[]>;
 
   // ---------------------------------------------------------------------------
   // Thought Operations
