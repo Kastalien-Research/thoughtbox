@@ -51,6 +51,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **benchmark**: Correct start_new args in test configs ([dd90077](../../commit/dd900774611d034ab1ab338447a50782237c49d0))
 - **imports**: Update Logger import path in claude-folder-integration ([f5ae62c](../../commit/f5ae62cc7da4bbd2e5ddcd1ffc2ef281901c3289))
 - **changelog**: Add required permissions for PR comments in GitHub Action ([5b7c2da](../../commit/5b7c2daf041182a49c163ba32711ebc3e200eca3))
+- **thought-handler**: Fix queue error handling to prevent retry loops ([79d057c](../../commit/79d057c675c98e85e283e87cca5fbb6d3554b8c9))
+- **thought-handler**: Serialize concurrent thought processing to prevent race condition ([22d6cc1](../../commit/22d6cc16aba64a01235eab621228ad3faecc4062))
 ## [1.2.2] - 2026-01-15
 
 ### Added
