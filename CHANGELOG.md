@@ -30,6 +30,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **observatory**: Add semantic anchors, revision tracking, and event emission ([ba78b70](../../commit/ba78b70192cf05144fd64471675157b3da3c4883))
 - **persistence**: Add RevisionMetadata and revisionAnalysis to export ([273d6df](../../commit/273d6df590f01a63bcf8510a8d4b986d866e7d81))
 - **persistence**: Add revision metadata and linked thought store enhancements ([e9c15ed](../../commit/e9c15ed7b178dc5a78ebb3da5a4c2628533d5997))
+- **benchmarks**: Add SIL benchmark harness components ([39c0542](../../commit/39c0542be750b41f66be77ecb23417b5b3309b5a))
 
 ### Changed
 - Build pipeline now includes OODA loop embedding step (`npm run embed-loops`)
