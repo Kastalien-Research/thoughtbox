@@ -77,7 +77,7 @@ import {
   getLoop,
   type Loop,
   type LoopMetadata,
-} from "./resources/loops-content.js";
+} from "./loops.js";
 import { ClaudeFolderIntegration } from "./claude-folder-integration.js";
 
 // Configuration schema
@@ -1252,6 +1252,10 @@ mcp__thoughtbox__thoughtbox({
           logger.debug('Failed to record loop access:', err)
         );
 
+        if (!loop) {
+          throw new Error(`Loop not found: ${category}/${name}`);
+        }
+
         return {
           contents: [
             {
@@ -1310,6 +1314,10 @@ mcp__thoughtbox__thoughtbox({
           const loop = getLoop(category, loopName);
           const loopUri = `${category}/${loopName}`;
           const rank = hotLoops?.ranks[loopUri] || 999;
+
+          if (!loop) {
+            throw new Error(`Loop not found: ${category}/${loopName}`);
+          }
 
           return {
             name: loopName,
