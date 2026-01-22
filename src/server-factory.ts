@@ -137,7 +137,7 @@ const defaultLogger: Logger = {
  * - No HTTP listen
  * - No process signal handlers
  */
-export function createMcpServer(args: CreateMcpServerArgs = {}): McpServer {
+export async function createMcpServer(args: CreateMcpServerArgs = {}): Promise<McpServer> {
   const sessionId = args.sessionId;
   const config = configSchema.parse(args.config ?? {});
   const logger = args.logger ?? defaultLogger;
@@ -221,19 +221,17 @@ Progressive disclosure is enforced internally - you'll get clear errors if calli
 
   // Initialize knowledge storage (Phase 1: Optional feature)
   let knowledgeHandler: KnowledgeHandler | undefined;
-  (async () => {
-    try {
-      const knowledgeStorage = new FileSystemKnowledgeStorage({
-        project: process.env.THOUGHTBOX_PROJECT || '_default',
-      });
-      await knowledgeStorage.initialize();
-      knowledgeHandler = new KnowledgeHandler(knowledgeStorage);
-      logger.info('Knowledge storage initialized');
-    } catch (error) {
-      // Knowledge storage is optional - log warning but continue
-      logger.warn(`Knowledge storage initialization failed (optional feature): ${error instanceof Error ? error.message : error}`);
-    }
-  })();
+  try {
+    const knowledgeStorage = new FileSystemKnowledgeStorage({
+      project: process.env.THOUGHTBOX_PROJECT || '_default',
+    });
+    await knowledgeStorage.initialize();
+    knowledgeHandler = new KnowledgeHandler(knowledgeStorage);
+    logger.info('Knowledge storage initialized');
+  } catch (error) {
+    // Knowledge storage is optional - log warning but continue
+    logger.warn(`Knowledge storage initialization failed (optional feature): ${error instanceof Error ? error.message : error}`);
+  }
 
   // Log server creation when sessionId is available
   if (sessionId) {
