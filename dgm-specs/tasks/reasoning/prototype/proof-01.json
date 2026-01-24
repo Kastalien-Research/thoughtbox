@@ -1,0 +1,16 @@
+{
+  "id": "proof-01",
+  "category": "complex-reasoning",
+  "name": "Mathematical Proof Verification",
+  "prompt": "Consider the following proof that the square root of 2 is irrational:\n\n**Proof:**\n1. Assume √2 is rational\n2. Then √2 = a/b where a and b are integers with no common factors (reduced form)\n3. Squaring both sides: 2 = a²/b²\n4. Rearranging: 2b² = a²\n5. Therefore a² is even (since it equals 2b²)\n6. If a² is even, then a must be even (since odd × odd = odd)\n7. Since a is even, we can write a = 2k for some integer k\n8. Substituting: 2b² = (2k)² = 4k²\n9. Dividing by 2: b² = 2k²\n10. Therefore b² is even\n11. If b² is even, then b must be even\n12. But if both a and b are even, they have 2 as a common factor\n13. This contradicts our assumption that a/b is in reduced form\n14. Therefore our initial assumption must be false\n15. Therefore √2 is irrational ∎\n\n**Question:** Is this proof correct? If yes, explain why each step is valid. If no, identify the error and explain what's wrong.\n\nProvide a detailed analysis of the proof's logical structure.",
+  "correctAnswer": "yes",
+  "scoringRubric": {
+    "verified-each-step": 3,
+    "checked-logical-flow": 2,
+    "identified-proof-technique": 2,
+    "explained-contradiction": 2,
+    "correct-verdict": 1
+  },
+  "expectedThoughtboxBenefit": "Forward thinking for logical chain validation, branching to explore alternative interpretations",
+  "estimatedTokens": 40000
+}

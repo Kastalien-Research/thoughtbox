@@ -73,3 +73,20 @@ export interface TestStep {
   args?: Record<string, unknown>;
   expectedBehavior: string;
 }
+
+// Re-export reasoning evaluation types for convenience
+export type {
+  ReasoningTask,
+  ReasoningCategory,
+  ScoringRubric,
+  LLMJudgeMetric,
+  ProcessMetrics,
+  TaskScore,
+  ControlTrace,
+  TreatmentTrace,
+  ComparisonResult,
+  ComparisonBenchmarkRun,
+  ReasoningBaselineComparison,
+  ReasoningThresholds,
+} from './reasoning-types.js';
+export { DEFAULT_REASONING_THRESHOLDS } from './reasoning-types.js';

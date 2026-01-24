@@ -25,6 +25,21 @@ import {
   compareToBaseline,
   formatComparison,
 } from './baseline.js';
+import {
+  runReasoningComparisonSuite,
+  formatComparisonResults,
+} from './reasoning-runner.js';
+import {
+  loadReasoningBaseline,
+  saveReasoningBaseline,
+  saveReasoningToHistory,
+  compareToReasoningBaseline,
+  formatReasoningComparison,
+} from './reasoning-baseline.js';
+import {
+  PROTOTYPE_TASKS,
+  estimatePrototypeCost,
+} from './reasoning-tasks.js';
 
 const HELP_TEXT = `
 SIL Benchmark Harness CLI
@@ -40,6 +55,12 @@ Commands:
   list            List available test configurations
   help            Show this help message
 
+Reasoning Evaluation Commands:
+  reasoning-compare   Run reasoning quality comparison (with/without Thoughtbox)
+  reasoning-baseline  Establish reasoning evaluation baseline
+  reasoning-report    Compare reasoning evaluation to baseline
+  reasoning-list      List available reasoning tasks
+
 Options:
   --json          Output results as JSON
   --url <url>     MCP server URL (default: http://localhost:1731/mcp)
@@ -50,6 +71,12 @@ Examples:
 
   # Establish new baseline
   npx tsx dgm-specs/harness/cli.ts baseline
+
+  # Run reasoning evaluation
+  npx tsx dgm-specs/harness/cli.ts reasoning-compare
+
+  # Establish reasoning baseline
+  npx tsx dgm-specs/harness/cli.ts reasoning-baseline
 
   # Run with custom MCP URL
   npx tsx dgm-specs/harness/cli.ts run --url http://localhost:4000/mcp
@@ -66,7 +93,8 @@ async function main() {
   const mcpUrl = urlIndex !== -1 ? args[urlIndex + 1] : 'http://localhost:1731/mcp';
 
   // Validate API key early
-  if (!process.env.ANTHROPIC_API_KEY && command !== 'list' && command !== 'help' && command !== '--help' && command !== '-h') {
+  const commandsWithoutApiKey = ['list', 'reasoning-list', 'help', '--help', '-h'];
+  if (!process.env.ANTHROPIC_API_KEY && !commandsWithoutApiKey.includes(command) && command !== undefined) {
     console.error(`
 Error: ANTHROPIC_API_KEY environment variable is not set.
 
@@ -158,6 +186,93 @@ To fix this:
         console.log(`    Steps: ${config.steps.length}`);
         console.log('');
       }
+      break;
+    }
+
+    case 'reasoning-compare': {
+      const currentRun = await runReasoningComparisonSuite(PROTOTYPE_TASKS, mcpUrl);
+      const baseline = loadReasoningBaseline();
+
+      if (jsonOutput) {
+        if (baseline) {
+          const comparison = compareToReasoningBaseline(currentRun, baseline);
+          console.log(JSON.stringify({ run: currentRun, comparison }, null, 2));
+          process.exit(comparison.verdict === 'PASS' ? 0 : 1);
+        } else {
+          console.log(JSON.stringify({ run: currentRun, comparison: null }, null, 2));
+        }
+      } else {
+        console.log(formatComparisonResults(currentRun));
+        if (baseline) {
+          const comparison = compareToReasoningBaseline(currentRun, baseline);
+          console.log(formatReasoningComparison(comparison));
+          process.exit(comparison.verdict === 'PASS' ? 0 : 1);
+        } else {
+          console.log('\nNo reasoning baseline found. Run `npx tsx dgm-specs/harness/cli.ts reasoning-baseline` to establish one.\n');
+        }
+      }
+
+      // Save to history
+      saveReasoningToHistory(currentRun);
+      break;
+    }
+
+    case 'reasoning-baseline': {
+      console.log('Establishing new reasoning baseline...\n');
+      const run = await runReasoningComparisonSuite(PROTOTYPE_TASKS, mcpUrl);
+
+      if (jsonOutput) {
+        console.log(JSON.stringify(run, null, 2));
+      } else {
+        console.log(formatComparisonResults(run));
+      }
+
+      saveReasoningBaseline(run);
+      saveReasoningToHistory(run);
+
+      if (!jsonOutput) {
+        console.log(`\n✓ Reasoning baseline established: ${run.runId}`);
+        console.log('  Future runs will compare against this baseline.\n');
+      }
+      break;
+    }
+
+    case 'reasoning-report': {
+      const baseline = loadReasoningBaseline();
+      if (!baseline) {
+        console.error('No reasoning baseline found. Run `reasoning-baseline` command first.');
+        process.exit(1);
+      }
+
+      const currentRun = await runReasoningComparisonSuite(PROTOTYPE_TASKS, mcpUrl);
+      const comparison = compareToReasoningBaseline(currentRun, baseline);
+
+      if (jsonOutput) {
+        console.log(JSON.stringify({ baseline, current: currentRun, comparison }, null, 2));
+      } else {
+        console.log(formatComparisonResults(currentRun));
+        console.log(formatReasoningComparison(comparison));
+      }
+
+      saveReasoningToHistory(currentRun);
+      process.exit(comparison.verdict === 'PASS' ? 0 : 1);
+    }
+
+    case 'reasoning-list': {
+      console.log('\nAvailable Reasoning Tasks:\n');
+      for (const task of PROTOTYPE_TASKS) {
+        console.log(`  ${task.id}`);
+        console.log(`    Name: ${task.name}`);
+        console.log(`    Category: ${task.category}`);
+        console.log(`    Estimated tokens: ${task.estimatedTokens.toLocaleString()}`);
+        console.log('');
+      }
+
+      const costEstimate = estimatePrototypeCost();
+      console.log(`\nPrototype Suite Cost Estimate:`);
+      console.log(`  Per task: $${costEstimate.perTask.toFixed(3)}`);
+      console.log(`  Total:    $${costEstimate.total.toFixed(2)}`);
+      console.log('');
       break;
     }
 
