@@ -38,11 +38,10 @@
   ],
   "scripts": {
     "embed-templates": "tsx scripts/embed-templates.ts",
-    "embed-loops": "tsx scripts/embed-loops.ts",
-    "embed": "npm run embed-templates && npm run embed-loops",
+    "embed": "npm run embed-templates",
     "dev": "npm run embed && smithery dev",
     "build": "npm run check:cycles && npm run build:local",
-    "build:local": "npm run embed && tsc && shx cp -r src/resources dist/ && shx cp -r templates dist/ && shx cp src/observatory/ui/*.html dist/observatory/ui/ && shx chmod +x dist/*.js",
+    "build:local": "npm run embed && tsc && shx cp -r src/resources dist/ && shx cp -r src/loops dist/ && shx cp -r templates dist/ && shx cp src/observatory/ui/*.html dist/observatory/ui/ && shx chmod +x dist/*.js",
     "build:smithery": "npm run embed && smithery build",
     "start": "node dist/index.js",
     "start:stateful": "node dist/http-stateful.js",

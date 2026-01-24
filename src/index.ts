@@ -83,7 +83,7 @@ async function createStorage(): Promise<ThoughtboxStorage> {
 
 interface SessionEntry {
   transport: StreamableHTTPServerTransport;
-  server: ReturnType<typeof createMcpServer>;
+  server: Awaited<ReturnType<typeof createMcpServer>>;
 }
 
 async function maybeStartObservatory(): Promise<ObservatoryServer | null> {
