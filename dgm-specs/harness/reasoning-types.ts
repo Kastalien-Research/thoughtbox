@@ -193,3 +193,89 @@ export interface ReasoningThresholds {
 export const DEFAULT_REASONING_THRESHOLDS: ReasoningThresholds = {
   thoughtbox_advantage_decrease_max: 10,
 };
+
+/**
+ * Statistics for a metric across multiple runs
+ */
+export interface RunStatistics {
+  mean: number;
+  std: number;
+  median: number;
+  min: number;
+  max: number;
+  confidenceInterval: [number, number];  // [lower, upper] 95% CI
+  runs: number;  // Number of runs
+}
+
+/**
+ * Score statistics across multiple runs
+ */
+export interface TaskScoreStats {
+  correctness: RunStatistics;
+  qualityScore: RunStatistics;
+  processScore: RunStatistics;
+  overallScore: RunStatistics;
+}
+
+/**
+ * Comparison result with statistics from multiple runs
+ */
+export interface ComparisonResultWithStats {
+  taskId: string;
+  taskName: string;
+  category: ReasoningCategory;
+
+  // Individual runs
+  runs: ComparisonResult[];
+
+  // Aggregated statistics
+  control: {
+    scoreStats: TaskScoreStats;
+  };
+
+  treatment: {
+    scoreStats: TaskScoreStats;
+  };
+
+  delta: {
+    scoreStats: TaskScoreStats;
+    tTest: {
+      pValue: number;
+      significant: boolean;  // p < 0.05
+    };
+    effectSize: number;  // Cohen's d
+  };
+
+  thoughtboxImprovedConsistently: boolean;  // Improved in majority of runs
+  timestamp: string;
+}
+
+/**
+ * Multi-run benchmark suite result
+ */
+export interface MultiRunBenchmarkSuite {
+  runId: string;
+  timestamp: string;
+  gitCommit: string;
+  runsPerTask: number;
+
+  // Per-task results with statistics
+  results: ComparisonResultWithStats[];
+
+  // Aggregated summary
+  summary: {
+    totalTasks: number;
+    improvementCount: number;  // Tasks with positive delta (mean)
+    regressionCount: number;
+    noChangeCount: number;
+
+    // Average deltas across all tasks
+    avgCorrectnessGain: RunStatistics;
+    avgQualityGain: RunStatistics;
+    avgProcessGain: RunStatistics;
+    avgOverallGain: RunStatistics;
+
+    thoughtboxWinRate: number;  // Percentage (0-100)
+    totalCostEstimate: number;
+  };
+}

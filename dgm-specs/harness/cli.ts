@@ -27,7 +27,9 @@ import {
 } from './baseline.js';
 import {
   runReasoningComparisonSuite,
+  runMultiRunReasoningSuite,
   formatComparisonResults,
+  formatMultiRunResults,
 } from './reasoning-runner.js';
 import {
   loadReasoningBaseline,
@@ -64,6 +66,7 @@ Reasoning Evaluation Commands:
 Options:
   --json          Output results as JSON
   --url <url>     MCP server URL (default: http://localhost:1731/mcp)
+  --runs <n>      Number of runs per task for statistical validity (default: 1)
 
 Examples:
   # Run benchmarks and compare to baseline
@@ -74,6 +77,9 @@ Examples:
 
   # Run reasoning evaluation
   npx tsx dgm-specs/harness/cli.ts reasoning-compare
+
+  # Run reasoning evaluation with 5 runs per task (statistical mode)
+  npx tsx dgm-specs/harness/cli.ts reasoning-compare --runs 5
 
   # Establish reasoning baseline
   npx tsx dgm-specs/harness/cli.ts reasoning-baseline
@@ -91,6 +97,8 @@ async function main() {
   const jsonOutput = args.includes('--json');
   const urlIndex = args.indexOf('--url');
   const mcpUrl = urlIndex !== -1 ? args[urlIndex + 1] : 'http://localhost:1731/mcp';
+  const runsIndex = args.indexOf('--runs');
+  const numRuns = runsIndex !== -1 ? parseInt(args[runsIndex + 1], 10) : 1;
 
   // Validate API key early
   const commandsWithoutApiKey = ['list', 'reasoning-list', 'help', '--help', '-h'];
@@ -190,30 +198,47 @@ To fix this:
     }
 
     case 'reasoning-compare': {
-      const currentRun = await runReasoningComparisonSuite(PROTOTYPE_TASKS, mcpUrl);
-      const baseline = loadReasoningBaseline();
+      // Use multi-run mode if --runs > 1
+      if (numRuns > 1) {
+        const currentRun = await runMultiRunReasoningSuite(PROTOTYPE_TASKS, numRuns, mcpUrl);
 
-      if (jsonOutput) {
-        if (baseline) {
-          const comparison = compareToReasoningBaseline(currentRun, baseline);
-          console.log(JSON.stringify({ run: currentRun, comparison }, null, 2));
-          process.exit(comparison.verdict === 'PASS' ? 0 : 1);
+        if (jsonOutput) {
+          console.log(JSON.stringify({ run: currentRun }, null, 2));
         } else {
-          console.log(JSON.stringify({ run: currentRun, comparison: null }, null, 2));
+          console.log(formatMultiRunResults(currentRun));
+          console.log('\nNote: Multi-run mode does not support baseline comparison yet.');
+          console.log('      Use --runs 1 (or omit --runs) for baseline comparison.\n');
         }
+
+        // TODO: Implement multi-run baseline comparison
+        // For now, just display results without comparison
       } else {
-        console.log(formatComparisonResults(currentRun));
-        if (baseline) {
-          const comparison = compareToReasoningBaseline(currentRun, baseline);
-          console.log(formatReasoningComparison(comparison));
-          process.exit(comparison.verdict === 'PASS' ? 0 : 1);
-        } else {
-          console.log('\nNo reasoning baseline found. Run `npx tsx dgm-specs/harness/cli.ts reasoning-baseline` to establish one.\n');
-        }
-      }
+        // Single-run mode (original behavior)
+        const currentRun = await runReasoningComparisonSuite(PROTOTYPE_TASKS, mcpUrl);
+        const baseline = loadReasoningBaseline();
 
-      // Save to history
-      saveReasoningToHistory(currentRun);
+        if (jsonOutput) {
+          if (baseline) {
+            const comparison = compareToReasoningBaseline(currentRun, baseline);
+            console.log(JSON.stringify({ run: currentRun, comparison }, null, 2));
+            process.exit(comparison.verdict === 'PASS' ? 0 : 1);
+          } else {
+            console.log(JSON.stringify({ run: currentRun, comparison: null }, null, 2));
+          }
+        } else {
+          console.log(formatComparisonResults(currentRun));
+          if (baseline) {
+            const comparison = compareToReasoningBaseline(currentRun, baseline);
+            console.log(formatReasoningComparison(comparison));
+            process.exit(comparison.verdict === 'PASS' ? 0 : 1);
+          } else {
+            console.log('\nNo reasoning baseline found. Run `npx tsx dgm-specs/harness/cli.ts reasoning-baseline` to establish one.\n');
+          }
+        }
+
+        // Save to history
+        saveReasoningToHistory(currentRun);
+      }
       break;
     }
 

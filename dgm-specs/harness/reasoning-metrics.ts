@@ -92,30 +92,98 @@ async function evaluateExactMatch(
 }
 
 /**
+ * Grade a single rubric dimension using LLM
+ *
+ * Uses Haiku to semantically evaluate whether reasoning addressed a dimension.
+ * Returns a score from 1-10.
+ */
+async function gradeDimension(
+  dimension: string,
+  fullReasoning: string,
+  task: ReasoningTask
+): Promise<number> {
+  // Convert dimension-name to readable description
+  const dimensionDesc = dimension.split('-').join(' ');
+
+  const prompt = `Evaluate whether the following reasoning adequately addresses this criterion:
+
+CRITERION: ${dimensionDesc}
+
+TASK:
+${task.prompt}
+
+REASONING:
+${fullReasoning}
+
+Did the reasoning address "${dimensionDesc}"?
+
+Rate from 1-10 where:
+- 1-3: Not addressed or superficial treatment
+- 4-6: Partially addressed with some depth
+- 7-9: Well addressed with good detail
+- 10: Exceptionally thorough treatment
+
+Respond with ONLY a number from 1-10, no explanation.
+
+Score:`;
+
+  try {
+    const message = await anthropic.messages.create({
+      model: 'claude-3-5-haiku-20241022',
+      max_tokens: 10,  // Just need a number
+      temperature: 0.0,  // Deterministic
+      messages: [{
+        role: 'user',
+        content: prompt,
+      }],
+    });
+
+    const textContent = message.content.find(block => block.type === 'text');
+    if (!textContent || textContent.type !== 'text') {
+      console.warn(`No text content in dimension grading for: ${dimension}`);
+      return 5;  // Neutral score on error
+    }
+
+    const scoreText = textContent.text.trim();
+    const score = parseInt(scoreText, 10);
+
+    if (isNaN(score) || score < 1 || score > 10) {
+      console.warn(`Invalid score "${scoreText}" for dimension: ${dimension}`);
+      return 5;  // Neutral score on parse error
+    }
+
+    return score;
+
+  } catch (error) {
+    console.error(`LLM grading failed for dimension ${dimension}:`, error);
+    return 5;  // Neutral score on error
+  }
+}
+
+/**
  * Evaluate correctness using a rubric on full reasoning
  *
- * Uses keyword matching to check if rubric dimensions are addressed.
+ * Uses LLM to semantically evaluate each rubric dimension.
  * For rubric tasks, we evaluate the FULL reasoning, not an extracted snippet.
  */
-function evaluateRubric(
+async function evaluateRubric(
+  task: ReasoningTask,
   rubric: Record<string, number>,
   fullReasoning: string
-): number {
+): Promise<number> {
   const totalPoints = Object.values(rubric).reduce((sum, points) => sum + points, 0);
-  let earnedPoints = 0;
 
-  const reasoningLower = fullReasoning.toLowerCase();
+  // Grade all dimensions in parallel
+  const dimensionScores = await Promise.all(
+    Object.entries(rubric).map(async ([dimension, points]) => {
+      const score = await gradeDimension(dimension, fullReasoning, task);
+      // Normalize from 1-10 to 0-points (proportional)
+      const earnedPoints = ((score - 1) / 9) * points;  // Map 1-10 to 0-points
+      return earnedPoints;
+    })
+  );
 
-  // Check if reasoning addresses each rubric dimension
-  for (const [dimension, points] of Object.entries(rubric)) {
-    // Convert dimension name to searchable keywords
-    const keywords = dimension.split('-').map(k => k.toLowerCase());
-
-    // Award points if any keyword appears in the reasoning
-    if (keywords.some(kw => reasoningLower.includes(kw))) {
-      earnedPoints += points;
-    }
-  }
+  const earnedPoints = dimensionScores.reduce((sum, points) => sum + points, 0);
 
   return (earnedPoints / totalPoints) * 100;
 }
@@ -135,8 +203,8 @@ export async function evaluateCorrectness(
     // Exact-match task: Extract answer using LLM
     return await evaluateExactMatch(task, fullReasoning);
   } else if (task.scoringRubric) {
-    // Rubric task: Evaluate full reasoning directly
-    return evaluateRubric(task.scoringRubric, fullReasoning);
+    // Rubric task: Evaluate full reasoning with LLM grading
+    return await evaluateRubric(task, task.scoringRubric, fullReasoning);
   } else {
     // No correctness criteria defined, return 50 as neutral
     console.warn(`Task ${task.id} has no correctness criteria`);
