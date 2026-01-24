@@ -63,6 +63,9 @@ export interface ProcessMetrics {
   messageCount: number;
   avgMessageLength: number;
   hasStructuredThinking: boolean;
+  toolCallCount: number;                // NEW: total tool calls
+  thoughtboxToolCalls: number;          // NEW: Thoughtbox-specific tool calls
+  thoughtboxThoughtsRecorded: number;   // NEW: thoughts recorded via Thoughtbox
   transparencyScore: number;  // 0-100
 }
 
@@ -77,13 +80,60 @@ export interface TaskScore {
 }
 
 /**
+ * Tool call block from Claude Agent SDK
+ */
+export interface ToolCall {
+  type: 'tool_use';
+  id: string;
+  name: string;
+  input: any;
+  timestamp: string;
+}
+
+/**
+ * Tool result block from Claude Agent SDK
+ */
+export interface ToolResult {
+  type: 'tool_result';
+  tool_use_id: string;
+  content: any;
+  is_error?: boolean;
+  timestamp: string;
+}
+
+/**
+ * Message block (can be text, tool_use, or tool_result)
+ */
+export interface MessageBlock {
+  type: 'text' | 'tool_use' | 'tool_result';
+  content?: string;
+  id?: string;
+  name?: string;
+  input?: any;
+  tool_use_id?: string;
+  is_error?: boolean;
+  timestamp: string;
+}
+
+/**
+ * Thoughtbox session data extracted from actual tool calls
+ */
+export interface ThoughtboxSession {
+  sessionId: string;
+  thoughtsCount: number;
+  thoughts: Array<{ content: string; thoughtNumber: number }>;
+  mentalModelsUsed: string[];
+  branchesCreated: number;
+  toolCallsToThoughtbox: number;
+}
+
+/**
  * Control run trace (without Thoughtbox)
  */
 export interface ControlTrace {
-  assistantMessages: Array<{
-    content: string;
-    timestamp: string;
-  }>;
+  assistantMessages: MessageBlock[];
+  toolCalls: ToolCall[];
+  toolResults: ToolResult[];
   fullReasoning: string;       // All messages joined - used for quality judging
   finalAnswer: string;          // Extracted answer - used for correctness only
   duration_ms: number;
@@ -94,15 +144,8 @@ export interface ControlTrace {
  * Treatment run trace (with Thoughtbox)
  */
 export interface TreatmentTrace extends ControlTrace {
-  thoughtboxSession?: {
-    sessionId: string;
-    thoughts: Array<{
-      content: string;
-      thoughtNumber: number;
-    }>;
-    mentalModelsUsed: string[];
-    branchesCreated: number;
-  };
+  thoughtboxSession?: ThoughtboxSession;
+  thoughtboxUsed: boolean;  // Explicit flag - true if Thoughtbox MCP tools were called
 }
 
 /**
@@ -134,7 +177,9 @@ export interface ComparisonResult {
     overallScore: number;
   };
 
-  thoughtboxImproved: boolean;  // delta.overallScore > 0
+  thoughtboxImproved: boolean;  // thoughtboxUsed && delta.overallScore > 0
+  thoughtboxUsed: boolean;      // true if Thoughtbox MCP tools were called
+  comparisonValid: boolean;     // same as thoughtboxUsed - comparison only valid if Thoughtbox was used
   timestamp: string;
 }
 

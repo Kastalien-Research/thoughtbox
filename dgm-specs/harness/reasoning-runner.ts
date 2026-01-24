@@ -20,6 +20,10 @@ import type {
   ComparisonResultWithStats,
   MultiRunBenchmarkSuite,
   TaskScore,
+  MessageBlock,
+  ToolCall,
+  ToolResult,
+  ThoughtboxSession,
 } from './reasoning-types.js';
 import { judgeLLMQuality } from './reasoning-judge.js';
 import {
@@ -123,7 +127,9 @@ function extractFinalAnswer(messages: Array<{ content: string }>): string {
  */
 async function runControl(task: ReasoningTask): Promise<ControlTrace> {
   const startTime = performance.now();
-  const assistantMessages: Array<{ content: string; timestamp: string }> = [];
+  const assistantMessages: MessageBlock[] = [];
+  const toolCalls: ToolCall[] = [];
+  const toolResults: ToolResult[] = [];
   let totalBytes = 0;
 
   const systemPrompt = `You are a helpful AI assistant. Think step-by-step and show your reasoning clearly.`;
@@ -146,10 +152,32 @@ async function runControl(task: ReasoningTask): Promise<ControlTrace> {
         for (const block of message.message.content) {
           if ('text' in block && block.text) {
             assistantMessages.push({
+              type: 'text',
               content: block.text,
               timestamp: new Date().toISOString(),
             });
             totalBytes += block.text.length;
+          } else if ('type' in block && block.type === 'tool_use') {
+            // Capture tool calls
+            toolCalls.push({
+              type: 'tool_use',
+              id: block.id,
+              name: block.name,
+              input: block.input,
+              timestamp: new Date().toISOString(),
+            });
+          } else if ('type' in block && block.type === 'tool_result') {
+            // Capture tool results
+            toolResults.push({
+              type: 'tool_result',
+              tool_use_id: block.tool_use_id,
+              content: block.content,
+              is_error: block.is_error,
+              timestamp: new Date().toISOString(),
+            });
+          } else {
+            // Log unexpected block types for debugging
+            console.warn('Unexpected message block type in control:', block);
           }
         }
       }
@@ -160,11 +188,14 @@ async function runControl(task: ReasoningTask): Promise<ControlTrace> {
   }
 
   const duration_ms = performance.now() - startTime;
-  const fullReasoning = assistantMessages.map(m => m.content).join('\n\n');
-  const finalAnswer = extractFinalAnswer(assistantMessages);
+  const textMessages = assistantMessages.filter(m => m.type === 'text');
+  const fullReasoning = textMessages.map(m => m.content || '').join('\n\n');
+  const finalAnswer = extractFinalAnswer(textMessages.map(m => ({ content: m.content || '' })));
 
   return {
     assistantMessages,
+    toolCalls,
+    toolResults,
     fullReasoning,
     finalAnswer,
     duration_ms,
@@ -173,71 +204,66 @@ async function runControl(task: ReasoningTask): Promise<ControlTrace> {
 }
 
 /**
- * Extract Thoughtbox session data from agent messages
+ * Extract Thoughtbox session data from tool calls
  *
- * Attempts to parse session information from tool call patterns in the conversation.
- * This is a heuristic approach - full extraction would require direct storage access.
- *
- * Returns undefined if no Thoughtbox usage detected or data unavailable.
+ * CRITICAL: This function now reads actual tool_use blocks instead of searching text patterns.
+ * Returns undefined if Thoughtbox MCP tools were never invoked.
  */
 async function extractThoughtboxSession(
-  messages: Array<{ content: string; timestamp: string }>
-): Promise<{
-  sessionId: string;
-  thoughts: Array<{ content: string; thoughtNumber: number }>;
-  mentalModelsUsed: string[];
-  branchesCreated: number;
-} | undefined> {
+  toolCalls: ToolCall[],
+  sessionId?: string
+): Promise<ThoughtboxSession | undefined> {
   try {
-    // Heuristic: Look for signs of Thoughtbox usage in messages
-    // This is imperfect - real extraction would query the storage layer
+    // Filter for Thoughtbox MCP tool calls
+    const thoughtboxCalls = toolCalls.filter(call =>
+      call.name.startsWith('mcp__thoughtbox__') ||
+      call.name === 'thoughtbox_gateway'
+    );
 
-    const fullText = messages.map(m => m.content).join('\n');
-
-    // Check if Thoughtbox was mentioned or used
-    const hasThoughtboxMention = /thoughtbox|thought.*gateway|mental.*model/i.test(fullText);
-
-    if (!hasThoughtboxMention) {
-      return undefined;  // Thoughtbox not used
+    if (thoughtboxCalls.length === 0) {
+      // Thoughtbox MCP tools were never called
+      return undefined;
     }
 
-    // Try to extract thought patterns
-    // Look for numbered thoughts or structured thinking
-    const thoughtPatterns = fullText.match(/thought\s*#?(\d+)/gi) || [];
-    const thoughts: Array<{ content: string; thoughtNumber: number }> = [];
+    // Extract session ID from tool calls
+    const sessionIds = new Set(
+      thoughtboxCalls
+        .map(call => call.input?.sessionId)
+        .filter(id => id != null)
+    );
 
-    // Parse thoughts from messages (simplified)
-    thoughtPatterns.forEach((pattern, index) => {
-      thoughts.push({
-        content: `Thought ${index + 1}`,  // Placeholder - real extraction needs storage access
-        thoughtNumber: index + 1,
-      });
-    });
+    const extractedSessionId = sessionIds.size === 1
+      ? Array.from(sessionIds)[0]
+      : sessionId || `session-${Date.now()}`;
 
-    // Try to detect mental model usage
-    const mentalModelPatterns = /mental\s*model|framework|pattern/gi;
-    const mentalModelMatches = fullText.match(mentalModelPatterns) || [];
-    const mentalModelsUsed = Array.from(new Set(mentalModelMatches)).slice(0, 5);
+    // Count thoughts from 'thought' operation calls
+    const thoughtOperations = thoughtboxCalls.filter(
+      call => call.input?.operation === 'thought'
+    );
 
-    // Try to detect branching
-    const branchPatterns = /branch|alternative|diverge/gi;
-    const branchMatches = fullText.match(branchPatterns) || [];
-    const branchesCreated = Math.min(branchMatches.length, 3);  // Cap at 3
+    // Extract mental models used
+    const mentalModels = new Set(
+      thoughtboxCalls
+        .filter(call => call.input?.args?.mentalModel)
+        .map(call => call.input.args.mentalModel)
+    );
 
-    // Generate a session ID (placeholder - real ID would come from storage)
-    const sessionId = `session-${Date.now()}`;
+    // Count branch operations
+    const branchOperations = thoughtboxCalls.filter(
+      call => call.input?.args?.branchId || call.input?.args?.branchFromThought
+    );
 
-    // Only return session data if we detected actual usage
-    if (thoughts.length > 0 || mentalModelsUsed.length > 0 || branchesCreated > 0) {
-      return {
-        sessionId,
-        thoughts,
-        mentalModelsUsed,
-        branchesCreated,
-      };
-    }
-
-    return undefined;
+    return {
+      sessionId: extractedSessionId,
+      thoughtsCount: thoughtOperations.length,
+      thoughts: thoughtOperations.map((call, idx) => ({
+        content: call.input?.args?.text || `Thought ${idx + 1}`,
+        thoughtNumber: idx + 1,
+      })),
+      mentalModelsUsed: Array.from(mentalModels),
+      branchesCreated: branchOperations.length,
+      toolCallsToThoughtbox: thoughtboxCalls.length,
+    };
 
   } catch (error) {
     console.error('Failed to extract Thoughtbox session data:', error);
@@ -253,7 +279,9 @@ async function runTreatment(
   mcpUrl: string = 'http://localhost:1731/mcp'
 ): Promise<TreatmentTrace> {
   const startTime = performance.now();
-  const assistantMessages: Array<{ content: string; timestamp: string }> = [];
+  const assistantMessages: MessageBlock[] = [];
+  const toolCalls: ToolCall[] = [];
+  const toolResults: ToolResult[] = [];
   let totalBytes = 0;
 
   const systemPrompt = `You are a helpful AI assistant. Think step-by-step and show your reasoning clearly.
@@ -283,10 +311,32 @@ You have access to Thoughtbox, a structured thinking tool. Feel free to use it i
         for (const block of message.message.content) {
           if ('text' in block && block.text) {
             assistantMessages.push({
+              type: 'text',
               content: block.text,
               timestamp: new Date().toISOString(),
             });
             totalBytes += block.text.length;
+          } else if ('type' in block && block.type === 'tool_use') {
+            // Capture tool calls
+            toolCalls.push({
+              type: 'tool_use',
+              id: block.id,
+              name: block.name,
+              input: block.input,
+              timestamp: new Date().toISOString(),
+            });
+          } else if ('type' in block && block.type === 'tool_result') {
+            // Capture tool results
+            toolResults.push({
+              type: 'tool_result',
+              tool_use_id: block.tool_use_id,
+              content: block.content,
+              is_error: block.is_error,
+              timestamp: new Date().toISOString(),
+            });
+          } else {
+            // Log unexpected block types for debugging
+            console.warn('Unexpected message block type in treatment:', block);
           }
         }
       }
@@ -297,21 +347,43 @@ You have access to Thoughtbox, a structured thinking tool. Feel free to use it i
   }
 
   const duration_ms = performance.now() - startTime;
-  const fullReasoning = assistantMessages.map(m => m.content).join('\n\n');
-  const finalAnswer = extractFinalAnswer(assistantMessages);
+  const textMessages = assistantMessages.filter(m => m.type === 'text');
+  const fullReasoning = textMessages.map(m => m.content || '').join('\n\n');
+  const finalAnswer = extractFinalAnswer(textMessages.map(m => ({ content: m.content || '' })));
 
-  // Extract Thoughtbox session info
-  // NOTE: This requires manual extraction from Thoughtbox storage/logs
-  // For automatic extraction in future, would need MCP query capability
-  const thoughtboxSession = await extractThoughtboxSession(assistantMessages);
+  // Extract Thoughtbox session from ACTUAL TOOL CALLS
+  const thoughtboxSession = await extractThoughtboxSession(toolCalls);
+  const thoughtboxUsed = thoughtboxSession != null;
+
+  // VERIFICATION ASSERTION
+  if (toolCalls.length === 0) {
+    console.warn(`⚠️  WARNING: Treatment run for task ${task.id} captured ZERO tool calls.`);
+    console.warn(`   This likely means the LLM chose not to use any tools (including Thoughtbox).`);
+    console.warn(`   Consider making Thoughtbox usage more explicit in the prompt.`);
+  }
+
+  if (!thoughtboxUsed && toolCalls.length > 0) {
+    console.warn(`⚠️  WARNING: Treatment run for task ${task.id} made ${toolCalls.length} tool calls but NONE were to Thoughtbox.`);
+    console.warn(`   MCP server URL: ${mcpUrl}`);
+    console.warn(`   This run is NOT a valid test of Thoughtbox efficacy.`);
+  }
+
+  if (!thoughtboxUsed && toolCalls.length === 0) {
+    console.warn(`⚠️  WARNING: Treatment run for task ${task.id} never called Thoughtbox MCP.`);
+    console.warn(`   MCP server URL: ${mcpUrl}`);
+    console.warn(`   This run is NOT a valid test of Thoughtbox efficacy.`);
+  }
 
   return {
     assistantMessages,
+    toolCalls,
+    toolResults,
     fullReasoning,
     finalAnswer,
     duration_ms,
     tokensEstimated: Math.ceil(totalBytes / 4),
     thoughtboxSession,
+    thoughtboxUsed,
   };
 }
 
@@ -376,7 +448,18 @@ export async function runTaskComparison(
   console.log(`  Control:   ${controlScore.overallScore.toFixed(1)}`);
   console.log(`  Treatment: ${treatmentScore.overallScore.toFixed(1)}`);
   console.log(`  Delta:     ${delta.overallScore >= 0 ? '+' : ''}${delta.overallScore.toFixed(1)}`);
+
+  // Report Thoughtbox usage
+  if (treatmentTrace.thoughtboxUsed) {
+    console.log(`  ✓ Thoughtbox WAS used (${treatmentTrace.thoughtboxSession!.toolCallsToThoughtbox} MCP calls)`);
+  } else {
+    console.log(`  ✗ Thoughtbox NOT used (comparison invalid)`);
+  }
+
   console.log(`  ${delta.overallScore > 0 ? '✓ Thoughtbox improved' : delta.overallScore < 0 ? '✗ Thoughtbox regressed' : '- No significant change'}\n`);
+
+  const thoughtboxImproved = treatmentTrace.thoughtboxUsed && delta.overallScore > 0;
+  const comparisonValid = treatmentTrace.thoughtboxUsed;
 
   return {
     taskId: task.id,
@@ -400,7 +483,9 @@ export async function runTaskComparison(
       processScore: delta.processScore,
       overallScore: delta.overallScore,
     },
-    thoughtboxImproved: delta.overallScore > 0,
+    thoughtboxImproved,
+    thoughtboxUsed: treatmentTrace.thoughtboxUsed,
+    comparisonValid,
     timestamp: new Date().toISOString(),
   };
 }

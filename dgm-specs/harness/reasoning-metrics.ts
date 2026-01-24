@@ -219,16 +219,16 @@ export async function evaluateCorrectness(
  * This is intentionally a lower weight (10%) since quality judging is the primary signal.
  */
 export function calculateProcessMetricsControl(trace: ControlTrace): ProcessMetrics {
-  const messages = trace.assistantMessages;
-  const totalLength = messages.reduce((sum, msg) => sum + msg.content.length, 0);
-  const avgLength = messages.length > 0 ? totalLength / messages.length : 0;
-  const fullText = messages.map(m => m.content).join('\n');
+  const textMessages = trace.assistantMessages.filter(m => m.type === 'text');
+  const totalLength = textMessages.reduce((sum, msg) => sum + (msg.content?.length || 0), 0);
+  const avgLength = textMessages.length > 0 ? totalLength / textMessages.length : 0;
+  const fullText = textMessages.map(m => m.content || '').join('\n');
 
   // Check for structured thinking patterns (bullets, numbering, sections)
-  const hasStructuredThinking = messages.some(msg =>
-    /^[-*•]\s/m.test(msg.content) ||  // Bullet points
-    /^\d+\.\s/m.test(msg.content) ||  // Numbered lists
-    /^#{1,3}\s/m.test(msg.content)    // Headers
+  const hasStructuredThinking = textMessages.some(msg =>
+    /^[-*•]\s/m.test(msg.content || '') ||  // Bullet points
+    /^\d+\.\s/m.test(msg.content || '') ||  // Numbered lists
+    /^#{1,3}\s/m.test(msg.content || '')    // Headers
   );
 
   // Check for explicit reasoning markers (shows deliberate thinking)
@@ -250,9 +250,9 @@ export function calculateProcessMetricsControl(trace: ControlTrace): ProcessMetr
   if (hasReasoningMarkers) transparencyScore += 20;
 
   // Message count (max +15)
-  if (messages.length >= 5) transparencyScore += 15;
-  else if (messages.length >= 3) transparencyScore += 10;
-  else if (messages.length >= 2) transparencyScore += 5;
+  if (textMessages.length >= 5) transparencyScore += 15;
+  else if (textMessages.length >= 3) transparencyScore += 10;
+  else if (textMessages.length >= 2) transparencyScore += 5;
 
   // Average detail level (max +15)
   if (avgLength > 1000) transparencyScore += 15;
@@ -263,9 +263,12 @@ export function calculateProcessMetricsControl(trace: ControlTrace): ProcessMetr
   transparencyScore = Math.min(100, transparencyScore);
 
   return {
-    messageCount: messages.length,
+    messageCount: textMessages.length,
     avgMessageLength: avgLength,
     hasStructuredThinking,
+    toolCallCount: trace.toolCalls.length,
+    thoughtboxToolCalls: 0,  // Control has no Thoughtbox
+    thoughtboxThoughtsRecorded: 0,
     transparencyScore,
   };
 }
@@ -278,12 +281,17 @@ export function calculateProcessMetricsControl(trace: ControlTrace): ProcessMetr
 export function calculateProcessMetricsTreatment(trace: TreatmentTrace): ProcessMetrics {
   const baseMetrics = calculateProcessMetricsControl(trace);
 
+  // Override tool call counts with actual data
+  baseMetrics.toolCallCount = trace.toolCalls.length;
+  baseMetrics.thoughtboxToolCalls = trace.thoughtboxSession?.toolCallsToThoughtbox || 0;
+  baseMetrics.thoughtboxThoughtsRecorded = trace.thoughtboxSession?.thoughtsCount || 0;
+
   // Add Thoughtbox-specific metrics
   if (trace.thoughtboxSession) {
     const session = trace.thoughtboxSession;
 
     baseMetrics.thoughtboxUsage = {
-      thoughtsRecorded: session.thoughts.length,
+      thoughtsRecorded: session.thoughtsCount,
       mentalModelsUsed: session.mentalModelsUsed,
       branchesCreated: session.branchesCreated,
       sessionId: session.sessionId,
@@ -293,9 +301,9 @@ export function calculateProcessMetricsTreatment(trace: TreatmentTrace): Process
     let boost = 0;
 
     // Thoughts recorded (max +15)
-    if (session.thoughts.length >= 5) boost += 15;
-    else if (session.thoughts.length >= 3) boost += 10;
-    else if (session.thoughts.length >= 1) boost += 5;
+    if (session.thoughtsCount >= 5) boost += 15;
+    else if (session.thoughtsCount >= 3) boost += 10;
+    else if (session.thoughtsCount >= 1) boost += 5;
 
     // Mental models used (max +10)
     if (session.mentalModelsUsed.length >= 2) boost += 10;
