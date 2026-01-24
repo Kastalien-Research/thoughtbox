@@ -4,6 +4,7 @@
  * Calculates correctness, process transparency, and overall scores.
  */
 
+import Anthropic from '@anthropic-ai/sdk';
 import type {
   ReasoningTask,
   TaskScore,
@@ -13,36 +14,105 @@ import type {
   LLMJudgeMetric,
 } from './reasoning-types.js';
 
+const anthropic = new Anthropic({
+  apiKey: process.env.ANTHROPIC_API_KEY,
+});
+
 /**
- * Evaluate correctness for exact-match tasks
+ * Extract final answer from full reasoning using LLM
+ *
+ * Uses Haiku to semantically extract the answer, avoiding brittle regex.
+ * Cost: ~$0.001 per extraction (negligible compared to agent runs)
  */
-function evaluateExactMatch(correctAnswer: string, actualAnswer: string): number {
-  // Normalize whitespace and case for comparison
-  const normalize = (s: string) => s.trim().toLowerCase();
-  return normalize(correctAnswer) === normalize(actualAnswer) ? 100 : 0;
+async function extractAnswerWithLLM(
+  task: ReasoningTask,
+  fullReasoning: string
+): Promise<string> {
+  const prompt = `Extract ONLY the final answer from the following reasoning.
+
+TASK:
+${task.prompt}
+
+FULL REASONING:
+${fullReasoning}
+
+Instructions:
+- Respond with ONLY the final answer (e.g., "Alice", "yes", "ClickHouse", etc.)
+- Do NOT include explanation, justification, or additional text
+- Extract the conclusive answer, not intermediate steps
+- If multiple possible answers, extract the one the reasoning concludes with
+
+Final Answer:`;
+
+  try {
+    const message = await anthropic.messages.create({
+      model: 'claude-3-5-haiku-20241022',
+      max_tokens: 100,  // Answers should be short
+      temperature: 0.0,  // Deterministic
+      messages: [{
+        role: 'user',
+        content: prompt,
+      }],
+    });
+
+    const textContent = message.content.find(block => block.type === 'text');
+    if (!textContent || textContent.type !== 'text') {
+      throw new Error('No text content in extraction response');
+    }
+
+    return textContent.text.trim();
+  } catch (error) {
+    console.error('LLM extraction failed:', error);
+    // Fallback: return last paragraph of reasoning
+    const paragraphs = fullReasoning.split(/\n\n+/).filter(p => p.trim().length > 0);
+    return paragraphs[paragraphs.length - 1] || '';
+  }
 }
 
 /**
- * Evaluate correctness using a rubric
- * Returns percentage of total possible points
+ * Evaluate correctness for exact-match tasks using LLM-extracted answer
+ */
+async function evaluateExactMatch(
+  task: ReasoningTask,
+  fullReasoning: string
+): Promise<number> {
+  const extractedAnswer = await extractAnswerWithLLM(task, fullReasoning);
+  const correctAnswer = task.correctAnswer!;
+
+  // Normalize whitespace and case for comparison
+  const normalize = (s: string) => s.trim().toLowerCase();
+  const match = normalize(correctAnswer) === normalize(extractedAnswer);
+
+  // Also check if correct answer is contained in extracted answer (partial match)
+  const partialMatch = !match && normalize(extractedAnswer).includes(normalize(correctAnswer));
+
+  if (match) return 100;
+  if (partialMatch) return 75;  // Partial credit if answer is present but has extra text
+  return 0;
+}
+
+/**
+ * Evaluate correctness using a rubric on full reasoning
+ *
+ * Uses keyword matching to check if rubric dimensions are addressed.
+ * For rubric tasks, we evaluate the FULL reasoning, not an extracted snippet.
  */
 function evaluateRubric(
   rubric: Record<string, number>,
-  actualAnswer: string
+  fullReasoning: string
 ): number {
-  // For now, this is a simplified scoring based on keywords
-  // In a full implementation, you might want LLM-based rubric evaluation
   const totalPoints = Object.values(rubric).reduce((sum, points) => sum + points, 0);
   let earnedPoints = 0;
 
-  // Check if answer mentions each rubric dimension (naive keyword matching)
+  const reasoningLower = fullReasoning.toLowerCase();
+
+  // Check if reasoning addresses each rubric dimension
   for (const [dimension, points] of Object.entries(rubric)) {
     // Convert dimension name to searchable keywords
     const keywords = dimension.split('-').map(k => k.toLowerCase());
-    const answerLower = actualAnswer.toLowerCase();
 
-    // Award points if any keyword appears in the answer
-    if (keywords.some(kw => answerLower.includes(kw))) {
+    // Award points if any keyword appears in the reasoning
+    if (keywords.some(kw => reasoningLower.includes(kw))) {
       earnedPoints += points;
     }
   }
@@ -52,15 +122,21 @@ function evaluateRubric(
 
 /**
  * Evaluate correctness based on task configuration
+ *
+ * Two-track approach:
+ * - Exact-match tasks: Use LLM extraction (semantic, robust)
+ * - Rubric tasks: Evaluate full reasoning directly (no extraction needed)
  */
-export function evaluateCorrectness(
+export async function evaluateCorrectness(
   task: ReasoningTask,
-  actualAnswer: string
-): number {
+  fullReasoning: string
+): Promise<number> {
   if (task.correctAnswer) {
-    return evaluateExactMatch(task.correctAnswer, actualAnswer);
+    // Exact-match task: Extract answer using LLM
+    return await evaluateExactMatch(task, fullReasoning);
   } else if (task.scoringRubric) {
-    return evaluateRubric(task.scoringRubric, actualAnswer);
+    // Rubric task: Evaluate full reasoning directly
+    return evaluateRubric(task.scoringRubric, fullReasoning);
   } else {
     // No correctness criteria defined, return 50 as neutral
     console.warn(`Task ${task.id} has no correctness criteria`);
@@ -201,14 +277,16 @@ export function computeOverallScore(
 
 /**
  * Calculate complete task score from all metrics
+ *
+ * Now uses fullReasoning for both correctness and quality evaluation.
  */
-export function calculateTaskScore(
+export async function calculateTaskScore(
   task: ReasoningTask,
-  finalAnswer: string,
+  fullReasoning: string,
   llmJudge: LLMJudgeMetric,
   processMetrics: ProcessMetrics
-): TaskScore {
-  const correctness = evaluateCorrectness(task, finalAnswer);
+): Promise<TaskScore> {
+  const correctness = await evaluateCorrectness(task, fullReasoning);
   const qualityScore = llmJudge.overall;
   const processScore = processMetrics.transparencyScore;
 

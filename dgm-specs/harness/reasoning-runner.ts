@@ -264,19 +264,21 @@ export async function runTaskComparison(
   const controlProcessMetrics = calculateProcessMetricsControl(controlTrace);
   const treatmentProcessMetrics = calculateProcessMetricsTreatment(treatmentTrace);
 
-  // Overall scores
-  const controlScore = calculateTaskScore(
-    task,
-    controlTrace.finalAnswer,
-    controlJudge,
-    controlProcessMetrics
-  );
-  const treatmentScore = calculateTaskScore(
-    task,
-    treatmentTrace.finalAnswer,
-    treatmentJudge,
-    treatmentProcessMetrics
-  );
+  // Overall scores - now using fullReasoning for correctness evaluation
+  const [controlScore, treatmentScore] = await Promise.all([
+    calculateTaskScore(
+      task,
+      controlTrace.fullReasoning,
+      controlJudge,
+      controlProcessMetrics
+    ),
+    calculateTaskScore(
+      task,
+      treatmentTrace.fullReasoning,
+      treatmentJudge,
+      treatmentProcessMetrics
+    ),
+  ]);
 
   // Delta
   const delta = calculateScoreDelta(treatmentScore, controlScore);
