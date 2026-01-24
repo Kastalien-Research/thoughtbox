@@ -53,36 +53,54 @@ function generateRunId(): string {
 
 /**
  * Extract final answer from assistant messages
- * Looks for explicit answer markers or takes last substantial message
+ * Used for correctness evaluation only - NOT for quality judging
+ *
+ * Strategy:
+ * 1. Look for explicit answer markers (case insensitive, multi-line aware)
+ * 2. Fall back to last substantial paragraph
+ * 3. Last resort: last message content
  */
 function extractFinalAnswer(messages: Array<{ content: string }>): string {
+  if (messages.length === 0) return '';
+
   // Join all messages
   const fullText = messages.map(m => m.content).join('\n\n');
 
-  // Look for answer markers
+  // Look for explicit answer markers with better multi-line matching
+  // Capture everything after the marker until we hit another major section or end
   const answerMarkers = [
-    /(?:final )?answer:?\s*(.+?)(?:\n\n|\n$|$)/i,
-    /(?:the )?(?:solution|conclusion) is:?\s*(.+?)(?:\n\n|\n$|$)/i,
-    /(?:therefore|thus),?\s+(.+?)(?:\n\n|\n$|$)/i,
+    // "Final Answer: ..." or "Answer: ..." (capture rest of paragraph/section)
+    /(?:final\s+)?answer:?\s*\*?\*?(.+?)(?:\n\n|$)/is,
+    // "The solution is: ..." or "The answer is: ..."
+    /(?:the\s+)?(?:solution|answer|conclusion)\s+is:?\s*\*?\*?(.+?)(?:\n\n|$)/is,
+    // "Therefore, ..." (capture full sentence/paragraph)
+    /(?:therefore|thus|so)[,\s]+(.+?)(?:\n\n|$)/is,
   ];
 
   for (const marker of answerMarkers) {
     const match = fullText.match(marker);
     if (match && match[1]) {
-      return match[1].trim();
+      let extracted = match[1].trim();
+      // Clean up markdown formatting artifacts
+      extracted = extracted.replace(/\*\*$/, '').trim();
+      if (extracted.length > 10) {  // Ensure we got something substantial
+        return extracted;
+      }
     }
   }
 
-  // Fall back to last message with substantial content (> 50 chars)
-  for (let i = messages.length - 1; i >= 0; i--) {
-    const content = messages[i].content.trim();
-    if (content.length > 50) {
-      return content;
+  // Fall back to last substantial paragraph (split by double newlines)
+  const paragraphs = fullText.split(/\n\n+/).map(p => p.trim()).filter(p => p.length > 0);
+  for (let i = paragraphs.length - 1; i >= 0; i--) {
+    const para = paragraphs[i];
+    // Skip paragraphs that are just formatting or very short
+    if (para.length > 50 && !para.match(/^[*_\-=]+$/)) {
+      return para;
     }
   }
 
   // Last resort: return last message
-  return messages.length > 0 ? messages[messages.length - 1].content : '';
+  return messages[messages.length - 1].content.trim();
 }
 
 /**
@@ -127,10 +145,12 @@ async function runControl(task: ReasoningTask): Promise<ControlTrace> {
   }
 
   const duration_ms = performance.now() - startTime;
+  const fullReasoning = assistantMessages.map(m => m.content).join('\n\n');
   const finalAnswer = extractFinalAnswer(assistantMessages);
 
   return {
     assistantMessages,
+    fullReasoning,
     finalAnswer,
     duration_ms,
     tokensEstimated: Math.ceil(totalBytes / 4),
@@ -189,6 +209,7 @@ You have access to Thoughtbox, a structured thinking tool. Feel free to use it i
   }
 
   const duration_ms = performance.now() - startTime;
+  const fullReasoning = assistantMessages.map(m => m.content).join('\n\n');
   const finalAnswer = extractFinalAnswer(assistantMessages);
 
   // TODO: Extract Thoughtbox session info from MCP server
@@ -197,6 +218,7 @@ You have access to Thoughtbox, a structured thinking tool. Feel free to use it i
 
   return {
     assistantMessages,
+    fullReasoning,
     finalAnswer,
     duration_ms,
     tokensEstimated: Math.ceil(totalBytes / 4),
@@ -232,10 +254,10 @@ export async function runTaskComparison(
   // Evaluate both runs
   console.log('Evaluating quality...');
 
-  // LLM judge evaluation
+  // LLM judge evaluation - use FULL reasoning, not just extracted answer
   const [controlJudge, treatmentJudge] = await Promise.all([
-    judgeLLMQuality(task, controlTrace.finalAnswer),
-    judgeLLMQuality(task, treatmentTrace.finalAnswer),
+    judgeLLMQuality(task, controlTrace.fullReasoning),
+    judgeLLMQuality(task, treatmentTrace.fullReasoning),
   ]);
 
   // Process metrics

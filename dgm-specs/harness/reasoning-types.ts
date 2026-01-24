@@ -84,7 +84,8 @@ export interface ControlTrace {
     content: string;
     timestamp: string;
   }>;
-  finalAnswer: string;
+  fullReasoning: string;       // All messages joined - used for quality judging
+  finalAnswer: string;          // Extracted answer - used for correctness only
   duration_ms: number;
   tokensEstimated: number;
 }

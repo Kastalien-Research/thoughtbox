@@ -70,11 +70,15 @@ export function evaluateCorrectness(
 
 /**
  * Calculate process metrics from control trace
+ *
+ * Measures how transparent and structured the reasoning process is.
+ * This is intentionally a lower weight (10%) since quality judging is the primary signal.
  */
 export function calculateProcessMetricsControl(trace: ControlTrace): ProcessMetrics {
   const messages = trace.assistantMessages;
   const totalLength = messages.reduce((sum, msg) => sum + msg.content.length, 0);
   const avgLength = messages.length > 0 ? totalLength / messages.length : 0;
+  const fullText = messages.map(m => m.content).join('\n');
 
   // Check for structured thinking patterns (bullets, numbering, sections)
   const hasStructuredThinking = messages.some(msg =>
@@ -83,23 +87,49 @@ export function calculateProcessMetricsControl(trace: ControlTrace): ProcessMetr
     /^#{1,3}\s/m.test(msg.content)    // Headers
   );
 
-  // Base transparency score on message clarity
-  let transparencyScore = 50;  // Baseline
-  if (hasStructuredThinking) transparencyScore += 20;
-  if (messages.length > 3) transparencyScore += 10;  // Multiple reasoning steps
-  if (avgLength > 200) transparencyScore += 10;  // Detailed messages
-  if (avgLength > 500) transparencyScore += 10;  // Very detailed
+  // Check for explicit reasoning markers (shows deliberate thinking)
+  const hasReasoningMarkers = /(?:let me think|let's|first|second|consider|note that|importantly|however)/i.test(fullText);
+
+  // Check for step-by-step breakdown
+  const hasStepByStep = /step \d+/i.test(fullText) || /^\d+\.\s+/m.test(fullText);
+
+  // Build transparency score with more nuanced criteria
+  let transparencyScore = 30;  // Lower baseline (not everyone gets high score)
+
+  // Structured thinking (max +25)
+  if (hasStructuredThinking) {
+    if (hasStepByStep) transparencyScore += 25;
+    else transparencyScore += 15;
+  }
+
+  // Explicit reasoning (max +20)
+  if (hasReasoningMarkers) transparencyScore += 20;
+
+  // Message count (max +15)
+  if (messages.length >= 5) transparencyScore += 15;
+  else if (messages.length >= 3) transparencyScore += 10;
+  else if (messages.length >= 2) transparencyScore += 5;
+
+  // Average detail level (max +15)
+  if (avgLength > 1000) transparencyScore += 15;
+  else if (avgLength > 500) transparencyScore += 10;
+  else if (avgLength > 200) transparencyScore += 5;
+
+  // Cap at 100
+  transparencyScore = Math.min(100, transparencyScore);
 
   return {
     messageCount: messages.length,
     avgMessageLength: avgLength,
     hasStructuredThinking,
-    transparencyScore: Math.min(100, transparencyScore),
+    transparencyScore,
   };
 }
 
 /**
  * Calculate process metrics from treatment trace (with Thoughtbox)
+ *
+ * Awards additional transparency for actual Thoughtbox usage.
  */
 export function calculateProcessMetricsTreatment(trace: TreatmentTrace): ProcessMetrics {
   const baseMetrics = calculateProcessMetricsControl(trace);
@@ -115,11 +145,21 @@ export function calculateProcessMetricsTreatment(trace: TreatmentTrace): Process
       sessionId: session.sessionId,
     };
 
-    // Boost transparency score based on Thoughtbox usage
+    // Boost transparency score based on Thoughtbox usage (more graduated)
     let boost = 0;
-    if (session.thoughts.length > 0) boost += 20;
-    if (session.mentalModelsUsed.length > 0) boost += 10;
-    if (session.branchesCreated > 0) boost += 10;
+
+    // Thoughts recorded (max +15)
+    if (session.thoughts.length >= 5) boost += 15;
+    else if (session.thoughts.length >= 3) boost += 10;
+    else if (session.thoughts.length >= 1) boost += 5;
+
+    // Mental models used (max +10)
+    if (session.mentalModelsUsed.length >= 2) boost += 10;
+    else if (session.mentalModelsUsed.length >= 1) boost += 5;
+
+    // Branches created (max +10)
+    if (session.branchesCreated >= 2) boost += 10;
+    else if (session.branchesCreated >= 1) boost += 5;
 
     baseMetrics.transparencyScore = Math.min(100, baseMetrics.transparencyScore + boost);
   }
