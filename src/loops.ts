@@ -152,6 +152,7 @@ export function getCatalog(): LoopsCatalog {
  */
 export function clearCache(): void {
   cachedCatalog = null;
+  LOOPS_CATALOG = buildCatalog();
 }
 
-export const LOOPS_CATALOG = buildCatalog();
+export let LOOPS_CATALOG = buildCatalog();
