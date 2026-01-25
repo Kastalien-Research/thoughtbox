@@ -12,7 +12,9 @@
 import crypto from "node:crypto";
 import * as path from "node:path";
 import * as os from "node:os";
-import type { Request, Response } from "express";
+import { constants as fsConstants } from "node:fs";
+import * as fs from "node:fs/promises";
+import express, { type Request, type Response } from "express";
 import { createMcpExpressApp } from "@modelcontextprotocol/sdk/server/express.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
@@ -47,9 +49,11 @@ async function createStorage(): Promise<ThoughtboxStorage> {
   }
 
   // FileSystemStorage is the default for local-first
-  const baseDir =
-    process.env.THOUGHTBOX_DATA_DIR ||
-    path.join(os.homedir(), ".thoughtbox");
+  const baseDir = await resolveDataDir();
+  if (!process.env.THOUGHTBOX_DATA_DIR) {
+    process.env.THOUGHTBOX_DATA_DIR = baseDir;
+    console.error(`[Storage] THOUGHTBOX_DATA_DIR not set; using ${baseDir}`);
+  }
   const project = process.env.THOUGHTBOX_PROJECT || "_default";
 
   console.error(`[Storage] Using filesystem storage at ${baseDir}/projects/${project}/`);
@@ -81,6 +85,31 @@ async function createStorage(): Promise<ThoughtboxStorage> {
   return storage;
 }
 
+async function resolveDataDir(): Promise<string> {
+  const explicit = process.env.THOUGHTBOX_DATA_DIR;
+  if (explicit) return explicit;
+
+  const candidates = [
+    "/data/thoughtbox",
+    "/tmp/thoughtbox",
+    path.join(os.homedir(), ".thoughtbox"),
+  ];
+
+  for (const candidate of candidates) {
+    try {
+      await fs.mkdir(candidate, { recursive: true });
+      await fs.access(candidate, fsConstants.W_OK);
+      return candidate;
+    } catch {
+      // Try next candidate
+    }
+  }
+
+  throw new Error(
+    "No writable data directory found. Set THOUGHTBOX_DATA_DIR explicitly."
+  );
+}
+
 interface SessionEntry {
   transport: StreamableHTTPServerTransport;
   server: Awaited<ReturnType<typeof createMcpServer>>;
@@ -105,6 +134,7 @@ async function startHttpServer() {
   const app = createMcpExpressApp({
     host: process.env.HOST || "0.0.0.0",
   });
+  app.use(express.json({ limit: "10mb" }));
 
   const sessions = new Map<string, SessionEntry>();
 

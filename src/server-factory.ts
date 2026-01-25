@@ -227,6 +227,7 @@ Progressive disclosure is enforced internally - you'll get clear errors if calli
       const { KnowledgeHandler } = await import("./knowledge/handler.js");
       const { FileSystemKnowledgeStorage } = await import("./knowledge/storage.js");
       const knowledgeStorage = new FileSystemKnowledgeStorage({
+        basePath: process.env.THOUGHTBOX_DATA_DIR,
         project: process.env.THOUGHTBOX_PROJECT || "_default",
       });
       await knowledgeStorage.initialize();
