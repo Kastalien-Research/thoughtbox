@@ -218,10 +218,10 @@ Progressive disclosure is enforced internally - you'll get clear errors if calli
 
   // Initialize knowledge storage (Phase 1: Optional feature)
   let knowledgeHandler: KnowledgeHandlerType | undefined;
-  const knowledgeDisabled =
-    (process.env.THOUGHTBOX_KNOWLEDGE_DISABLED || "").toLowerCase() === "true";
-  if (knowledgeDisabled) {
-    logger.info("Knowledge storage disabled via THOUGHTBOX_KNOWLEDGE_DISABLED");
+  const knowledgeEnabled =
+    (process.env.THOUGHTBOX_KNOWLEDGE_ENABLED || "").toLowerCase() === "true";
+  if (!knowledgeEnabled) {
+    logger.info("Knowledge storage disabled (set THOUGHTBOX_KNOWLEDGE_ENABLED=true to enable)");
   } else {
     try {
       const { KnowledgeHandler } = await import("./knowledge/handler.js");

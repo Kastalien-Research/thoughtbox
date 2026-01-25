@@ -74,7 +74,6 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.24.3",
-    "better-sqlite3": "^11.0.0",
     "chalk": "^5.6.0",
     "cors": "^2.8.5",
     "express": "^5.1.0",
@@ -88,7 +87,6 @@
     "@anthropic-ai/claude-agent-sdk": "^0.1.76",
     "@anthropic-ai/sdk": "^0.39.0",
     "@smithery/cli": "^1.6.2",
-    "@types/better-sqlite3": "^7.6.13",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.5",
     "@types/node": "^22.18.12",

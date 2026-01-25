@@ -12,7 +12,6 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
 import { randomUUID } from 'node:crypto';
-import Database from 'better-sqlite3';
 import type {
   KnowledgeStorage,
   Entity,
@@ -45,7 +44,7 @@ export interface KnowledgeStorageOptions {
 export class FileSystemKnowledgeStorage implements KnowledgeStorage {
   private basePath: string;
   private project: string;
-  private db: Database.Database | null = null;
+  private db: { pragma: (value: string) => void; exec: (sql: string) => void; prepare: (sql: string) => any } | null = null;
   private initialized = false;
 
   constructor(options: KnowledgeStorageOptions = {}) {
@@ -92,8 +91,17 @@ export class FileSystemKnowledgeStorage implements KnowledgeStorage {
       fs.writeFileSync(jsonlPath, '', 'utf8');
     }
 
-    // Open SQLite database
-    this.db = new Database(this.getDbPath());
+    // Open SQLite database (lazy import to avoid native binding issues)
+    let DatabaseConstructor: any;
+    try {
+      const mod = await import('better-sqlite3');
+      DatabaseConstructor = (mod as any).default || mod;
+    } catch (error) {
+      throw new Error(
+        `Failed to load better-sqlite3. Ensure it is installed and compatible with this runtime. ${error instanceof Error ? error.message : String(error)}`
+      );
+    }
+    this.db = new DatabaseConstructor(this.getDbPath());
 
     // Enable foreign keys
     this.db.pragma('foreign_keys = ON');
