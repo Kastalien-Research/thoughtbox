@@ -112,3 +112,12 @@ kastalien-srcbook/
 .spec-validator/
 ai_docs/claude-platform-docs/
 dgm-specs/history/runs/*.json
+
+reasoning/
+dot-claude/
+dgm-specs/
+arXiv-2601.12538v1/
+papers/
+ruvector/
+self-improvement/
+benchmarks/
