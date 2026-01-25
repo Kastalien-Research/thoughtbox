@@ -39,10 +39,7 @@ import {
 import {
   SessionHandler,
 } from "./sessions/index.js";
-import {
-  KnowledgeHandler,
-  FileSystemKnowledgeStorage,
-} from "./knowledge/index.js";
+import type { KnowledgeHandler as KnowledgeHandlerType } from "./knowledge/handler.js";
 import {
   createInitFlow,
   type IInitHandler,
@@ -220,17 +217,29 @@ Progressive disclosure is enforced internally - you'll get clear errors if calli
   });
 
   // Initialize knowledge storage (Phase 1: Optional feature)
-  let knowledgeHandler: KnowledgeHandler | undefined;
-  try {
-    const knowledgeStorage = new FileSystemKnowledgeStorage({
-      project: process.env.THOUGHTBOX_PROJECT || '_default',
-    });
-    await knowledgeStorage.initialize();
-    knowledgeHandler = new KnowledgeHandler(knowledgeStorage);
-    logger.info('Knowledge storage initialized');
-  } catch (error) {
-    // Knowledge storage is optional - log warning but continue
-    logger.warn(`Knowledge storage initialization failed (optional feature): ${error instanceof Error ? error.message : error}`);
+  let knowledgeHandler: KnowledgeHandlerType | undefined;
+  const knowledgeDisabled =
+    (process.env.THOUGHTBOX_KNOWLEDGE_DISABLED || "").toLowerCase() === "true";
+  if (knowledgeDisabled) {
+    logger.info("Knowledge storage disabled via THOUGHTBOX_KNOWLEDGE_DISABLED");
+  } else {
+    try {
+      const { KnowledgeHandler } = await import("./knowledge/handler.js");
+      const { FileSystemKnowledgeStorage } = await import("./knowledge/storage.js");
+      const knowledgeStorage = new FileSystemKnowledgeStorage({
+        project: process.env.THOUGHTBOX_PROJECT || "_default",
+      });
+      await knowledgeStorage.initialize();
+      knowledgeHandler = new KnowledgeHandler(knowledgeStorage);
+      logger.info("Knowledge storage initialized");
+    } catch (error) {
+      // Knowledge storage is optional - log warning but continue
+      logger.warn(
+        `Knowledge storage initialization failed (optional feature): ${
+          error instanceof Error ? error.message : error
+        }`
+      );
+    }
   }
 
   // Log server creation when sessionId is available
