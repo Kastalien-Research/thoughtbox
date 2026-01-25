@@ -81,6 +81,12 @@ function buildCatalog(): LoopsCatalog {
 
   const catalog: LoopsCatalog = {};
 
+  if (!fs.existsSync(LOOPS_DIR)) {
+    console.error(`[Loops] Directory not found: ${LOOPS_DIR}`);
+    cachedCatalog = catalog;
+    return catalog;
+  }
+
   // Read all category directories
   const categories = fs.readdirSync(LOOPS_DIR, { withFileTypes: true })
     .filter(dirent => dirent.isDirectory())
@@ -147,5 +153,3 @@ export function getCatalog(): LoopsCatalog {
 export function clearCache(): void {
   cachedCatalog = null;
 }
-
-export const LOOPS_CATALOG = buildCatalog();

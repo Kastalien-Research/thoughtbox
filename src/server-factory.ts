@@ -68,7 +68,6 @@ import { SUBAGENT_SUMMARIZE_CONTENT } from "./resources/subagent-summarize-conte
 import { EVOLUTION_CHECK_CONTENT } from "./resources/evolution-check-content.js";
 import { BEHAVIORAL_TESTS } from "./resources/behavioral-tests-content.js";
 import {
-  LOOPS_CATALOG,
   getCategories,
   getLoopsInCategory,
   getLoop,
