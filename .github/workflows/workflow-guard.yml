@@ -1,0 +1,45 @@
+name: Workflow Guard
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  prevent-governance-deletion:
+    name: Prevent Governance Deletions
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Block governance changes without approval
+        run: |
+          if [ "${{ github.event_name }}" != "pull_request" ]; then
+            exit 0
+          fi
+
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            RANGE="${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }}"
+          else
+            RANGE="${{ github.event.before }}..${{ github.sha }}"
+          fi
+
+          GOVERNANCE_PATHS=".github CLAUDE.md AGENTS.md GOVERNANCE.md SECURITY.md"
+          CHANGED=$(git diff --name-status "$RANGE" -- $GOVERNANCE_PATHS | awk '{ print $2 }')
+          if [ -z "$CHANGED" ]; then
+            exit 0
+          fi
+
+          GH_TOKEN="${{ github.token }}"
+          LABELS=$(gh api repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/labels --jq '.[].name')
+          if echo "$LABELS" | grep -q '^governance-approved$'; then
+            exit 0
+          fi
+
+          echo "Error: governance files were changed without 'governance-approved' label:"
+          echo "$CHANGED"
+          exit 1
