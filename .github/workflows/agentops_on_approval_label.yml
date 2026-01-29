@@ -1,0 +1,124 @@
+name: AgentOps - On Approval Label
+
+on:
+  issues:
+    types: [labeled]
+
+permissions:
+  contents: write
+  issues: write
+  actions: write
+  pull-requests: write
+
+jobs:
+  detect-mode:
+    name: Detect Mode and Proposal
+    runs-on: ubuntu-latest
+    outputs:
+      should_run: ${{ steps.parse.outputs.should_run }}
+      mode: ${{ steps.parse.outputs.mode }}
+      proposal_id: ${{ steps.parse.outputs.proposal_id }}
+    steps:
+      - name: Parse label
+        id: parse
+        run: |
+          LABEL="${{ github.event.label.name }}"
+          echo "Label: $LABEL"
+
+          # Check for smoke:proposal-N or approved:proposal-N
+          if [[ "$LABEL" =~ ^smoke:(proposal-[0-9]+)$ ]]; then
+            echo "should_run=true" >> $GITHUB_OUTPUT
+            echo "mode=SMOKE" >> $GITHUB_OUTPUT
+            echo "proposal_id=${BASH_REMATCH[1]}" >> $GITHUB_OUTPUT
+            echo "✅ SMOKE mode triggered for ${BASH_REMATCH[1]}"
+          elif [[ "$LABEL" =~ ^approved:(proposal-[0-9]+)$ ]]; then
+            echo "should_run=true" >> $GITHUB_OUTPUT
+            echo "mode=REAL" >> $GITHUB_OUTPUT
+            echo "proposal_id=${BASH_REMATCH[1]}" >> $GITHUB_OUTPUT
+            echo "✅ REAL mode triggered for ${BASH_REMATCH[1]}"
+          else
+            echo "should_run=false" >> $GITHUB_OUTPUT
+            echo "ℹ️  Label not an approval trigger: $LABEL"
+          fi
+
+  implement:
+    name: Implement Proposal
+    needs: detect-mode
+    if: needs.detect-mode.outputs.should_run == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Configure git
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Run implementation
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_LABEL_NAME: ${{ github.event.label.name }}
+          LANGSMITH_API_KEY: ${{ secrets.LANGSMITH_API_KEY }}
+          LANGSMITH_PROJECT: agentops-thoughtbox-dev
+          LANGSMITH_ORG: ${{ secrets.LANGSMITH_ORG }}
+        run: |
+          tsx agentops/runner/cli.ts implement \
+            --proposal-id "${{ needs.detect-mode.outputs.proposal_id }}" \
+            --issue-number "${{ github.event.issue.number }}" \
+            --mode "${{ needs.detect-mode.outputs.mode }}"
+
+      - name: Push branch (REAL mode only)
+        if: needs.detect-mode.outputs.mode == 'REAL'
+        run: |
+          # Get branch name from implementation output
+          BRANCH=$(git branch --show-current)
+          if [ "$BRANCH" != "main" ] && [ "$BRANCH" != "${{ github.ref_name }}" ]; then
+            echo "Pushing branch: $BRANCH"
+            git push origin "$BRANCH"
+          else
+            echo "ℹ️  Still on base branch, no push needed"
+          fi
+
+      - name: Upload artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: implementation-${{ github.event.issue.number }}-${{ needs.detect-mode.outputs.proposal_id }}-${{ github.run_id }}
+          path: agentops/runs/*
+          retention-days: 30
+
+      - name: Post summary
+        if: always()
+        run: |
+          if [ -f agentops/runs/*/implementation_result.json ]; then
+            echo "## 🛠️ Implementation Summary" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            cat agentops/runs/*/implementation_result.json | jq -r '
+              "**Mode:** \(.mode)",
+              "**Proposal:** \(.proposal_id)",
+              "**Status:** \(.status)",
+              "**Recommendation:** \(.recommendation)",
+              "",
+              "### Changes",
+              "- Files changed: \(.files_changed | length)",
+              "- Tests: \(.test_results.passed) passed, \(.test_results.failed) failed",
+              "",
+              "### Links",
+              "- [Trace](\(.trace_url // "N/A"))",
+              "- [PR](\(.pr_url // "No PR created"))"
+            ' >> $GITHUB_STEP_SUMMARY
+          fi
