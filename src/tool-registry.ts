@@ -4,10 +4,21 @@
  * Manages staged visibility of tools based on workflow progression.
  * Uses MCP SDK's RegisteredTool enable/disable API.
  *
- * Stage 0 (Entry):        [init]
- * Stage 1 (Init Complete): [init, thoughtbox_cipher, session]
- * Stage 2 (Cipher Loaded): [init, thoughtbox_cipher, session, thoughtbox, notebook]
- * Stage 3 (Domain Active): [init, thoughtbox_cipher, session, thoughtbox, notebook, mental_models]
+ * IMPORTANT: DisclosureStage tracks WHAT operations are available (global operation visibility).
+ * This is separate from StateManager's ConnectionStage, which tracks WHERE you are
+ * (per-session navigation state).
+ *
+ * DisclosureStage = Operation availability (which gateway operations work)
+ * ConnectionStage = Navigation state (project/task/aspect, session loaded)
+ *
+ * NOTE: In practice, most operations are routed through thoughtbox_gateway, which is
+ * always enabled. This registry controls which gateway operations will succeed, not
+ * which tools appear in the client's tool list.
+ *
+ * Stage 0 (Entry):        gateway supports: get_state, list_sessions, navigate, start_new, load_context
+ * Stage 1 (Init Complete): gateway supports: + cipher, session, deep_analysis
+ * Stage 2 (Cipher Loaded): gateway supports: + thought, read_thoughts, get_structure, notebook, mental_models, knowledge
+ * Stage 3 (Domain Active): gateway supports: + domain-specific mental models
  *
  * @module src/tool-registry
  */
@@ -16,6 +27,9 @@ import type { RegisteredTool } from "@modelcontextprotocol/sdk/server/mcp.js";
 
 /**
  * Stages of progressive disclosure
+ *
+ * NOTE: This is WHAT operations are available through the gateway.
+ * See StateManager.ConnectionStage for WHERE you are in the workflow.
  */
 export enum DisclosureStage {
   STAGE_0_ENTRY = "entry",

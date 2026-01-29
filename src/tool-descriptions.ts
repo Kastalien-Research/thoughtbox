@@ -71,11 +71,7 @@ export const CIPHER_DESCRIPTIONS: Partial<Record<DisclosureStage, string>> = {
 
 The cipher is not just compression—it is a **protocol layer** that enables deterministic server-side processing. When you use the cipher correctly, the server can parse thought structure (IDs, types, references, revisions) without inference.
 
-IMPORTANT: Call this tool BEFORE using thoughtbox. The cipher is the native language of Thoughtbox.
-
-After calling this tool, the main thoughtbox reasoning tool will become available.
-
-NOTE: If newly unlocked tools don't appear, use the 'thoughtbox_gateway' tool instead - it's always available and routes to the same handlers.`,
+IMPORTANT: This is a disabled tool - use 'thoughtbox_gateway' with operation 'cipher' instead. The gateway is the primary interface for all Thoughtbox operations.`,
 
   [DisclosureStage.STAGE_2_CIPHER_LOADED]: `Returns Thoughtbox's formal protocol for structured reasoning.
 
@@ -168,8 +164,23 @@ Operations:
 - session (session management)
 - mental_models (reasoning frameworks)
 - deep_analysis (session pattern analysis)
+- knowledge (knowledge graph queries)
 
-Stage enforcement is handled internally - you'll get clear errors if calling operations too early.`;
+Stage enforcement is handled internally - you'll get clear errors if calling operations too early.
+
+---
+
+## Terminology
+
+- **Operations** = Sub-commands within gateway (e.g., "get_state", "cipher", "thought")
+- **Tools** = MCP tools visible to client: only "thoughtbox_gateway" is registered
+- **Resources** = Documentation at URIs like "thoughtbox://init"
+
+The gateway routes operations; it doesn't unlock tools. All operations are called through the gateway, which is always available. Stage progression controls which operations will succeed, not which tools appear in your client.
+
+## Gateway is Primary, Not Fallback
+
+Use the gateway for ALL Thoughtbox operations. Individual tool names like "thoughtbox_cipher" exist but are disabled - they redirect you to use the gateway instead. The gateway is the designed interface, not a workaround.`;
 
 /**
  * Helper to get all descriptions for a tool

@@ -18,6 +18,7 @@ import type { SessionHandler } from '../sessions/index.js';
 import type { MentalModelsHandler } from '../mental-models/index.js';
 import type { ThoughtboxStorage, ThoughtData } from '../persistence/index.js';
 import { THOUGHTBOX_CIPHER } from '../resources/thoughtbox-cipher-content.js';
+import { STAGE_2_OPERATIONS_SCHEMA } from '../resources/operation-schemas-content.js';
 import type { KnowledgeHandler } from '../knowledge/index.js';
 
 // =============================================================================
@@ -390,17 +391,32 @@ export class GatewayHandler {
   }
 
   private async handleCipher(): Promise<ToolResponse> {
-    const turnBoundaryInstruction = `
+    const nextStepsGuidance = `
 
 ---
 
 ## Next Steps
 
-The gateway tool now supports thought and notebook operations.
-Call \`thoughtbox_gateway\` with operation 'thought' to begin structured reasoning.`;
+Notation loaded. Available operations: \`thought\`, \`read_thoughts\`, \`get_structure\`, \`notebook\`, \`mental_models\`, \`knowledge\`
+
+**Next action:** Call \`thoughtbox_gateway\` with operation \`thought\` to begin structured reasoning:
+
+\`\`\`typescript
+thoughtbox_gateway({
+  operation: "thought",
+  args: {
+    thought: "Initial observation about the problem...",
+    nextThoughtNeeded: true
+  }
+})
+\`\`\`
+
+---
+
+${STAGE_2_OPERATIONS_SCHEMA}`;
 
     return {
-      content: [{ type: 'text', text: THOUGHTBOX_CIPHER + turnBoundaryInstruction }],
+      content: [{ type: 'text', text: THOUGHTBOX_CIPHER + nextStepsGuidance }],
     };
   }
 
