@@ -51,7 +51,7 @@ import {
 } from "./init/index.js";
 import { ThoughtHandler } from "./thought-handler.js";
 import { ThoughtboxEventEmitter } from "./events/index.js";
-import { SamplingHandler } from "./sampling/index.js";
+import { SamplingHandler, RLMOrchestrator } from "./sampling/index.js";
 import { ThoughtQueryHandler } from "./resources/thought-query-handler.js";
 import { ToolRegistry, DisclosureStage } from "./tool-registry.js";
 import { DiscoveryRegistry } from "./discovery-registry.js";
@@ -199,6 +199,10 @@ Progressive disclosure is enforced internally - you'll get clear errors if calli
   // By the time thoughtbox tool is called with critique=true, transport is already connected
   const samplingHandler = new SamplingHandler(server.server as any);
   thoughtHandler.setSamplingHandler(samplingHandler);
+
+  // Wire up RLM orchestrator (depth=1 via sampling)
+  const rlmOrchestrator = new RLMOrchestrator(samplingHandler);
+  thoughtHandler.setRlmOrchestrator(rlmOrchestrator);
 
   // SIL-104: Wire up event emitter for external event stream (JSONL)
   // Configuration via environment variables:

@@ -12,7 +12,7 @@ import {
   thoughtEmitter,
   type Thought as ObservatoryThought,
 } from "./observatory/index.js";
-import { SamplingHandler } from "./sampling/index.js";
+import { SamplingHandler, RLMOrchestrator } from "./sampling/index.js";
 // SIL-104: Event stream for external consumers
 import type { ThoughtboxEventEmitter } from "./events/index.js";
 
@@ -34,6 +34,10 @@ export interface ThoughtData {
   sessionTags?: string[];
   // Request autonomous critique of this thought (Phase 3: Sampling Loops)
   critique?: boolean;
+  // Request Recursive Language Model execution (depth=1)
+  rlm?: boolean;
+  // Query passed to the RLM loop (required when rlm is true)
+  rlmQuery?: string;
   // SIL-101: Verbose response mode - when false (default), return minimal response
   verbose?: boolean;
 }
@@ -54,6 +58,8 @@ export class ThoughtHandler {
 
   // Sampling handler for autonomous critique (Phase 3)
   private samplingHandler: SamplingHandler | null = null;
+  // RLM orchestrator for depth=1 recursive runs
+  private rlmOrchestrator: RLMOrchestrator | null = null;
 
   // SIL-104: Event emitter for external consumers (JSONL stream)
   private eventEmitter: ThoughtboxEventEmitter | null = null;
@@ -98,6 +104,13 @@ export class ThoughtHandler {
    */
   setSamplingHandler(handler: SamplingHandler): void {
     this.samplingHandler = handler;
+  }
+
+  /**
+   * Set the RLM orchestrator for recursive sampling
+   */
+  setRlmOrchestrator(orchestrator: RLMOrchestrator): void {
+    this.rlmOrchestrator = orchestrator;
   }
 
   /**
@@ -329,6 +342,11 @@ export class ThoughtHandler {
       );
     }
 
+    // RLM trigger requires a query payload
+    if (data.rlm && !data.rlmQuery) {
+      throw new Error("rlmQuery is required when rlm is true");
+    }
+
     // SIL-102: Auto-assign thoughtNumber if not provided
     // Calculate next thought number from history (main chain thoughts only)
     let thoughtNumber = data.thoughtNumber as number | undefined;
@@ -364,6 +382,9 @@ export class ThoughtHandler {
       sessionTags: data.sessionTags as string[] | undefined,
       // Sampling critique
       critique: data.critique as boolean | undefined,
+      // Recursive language model trigger
+      rlm: data.rlm as boolean | undefined,
+      rlmQuery: data.rlmQuery as string | undefined,
       // SIL-101: Verbose mode (default false)
       verbose: data.verbose as boolean | undefined,
     };
@@ -403,6 +424,65 @@ export class ThoughtHandler {
 ├${border}┤
 │ ${thought.padEnd(border.length - 2)} │
 └${border}┘`;
+  }
+
+  /**
+   * Build context bundle for RLM runs.
+   * Includes current session thoughts, a bounded view of prior sessions, and a placeholder for project corpus.
+   */
+  private async buildRlmContext(validatedInput: ThoughtData): Promise<Record<string, unknown>> {
+    const sessionThoughts = [
+      ...this.thoughtHistory.map((t) => ({
+        thoughtNumber: t.thoughtNumber,
+        branchId: t.branchId,
+        thought: t.thought,
+      })),
+      {
+        thoughtNumber: validatedInput.thoughtNumber,
+        branchId: validatedInput.branchId,
+        thought: validatedInput.thought,
+      },
+    ];
+
+    // Fetch a small number of prior sessions (most recent), excluding current
+    const priorSessions = await this.storage.listSessions({
+      sortBy: "updatedAt",
+      sortOrder: "desc",
+      limit: 3,
+    });
+
+    const priorSummaries: Array<Record<string, unknown>> = [];
+    for (const session of priorSessions) {
+      if (session.id === this.currentSessionId) continue;
+      try {
+        const thoughts = await this.storage.getThoughts(session.id);
+        const tail = thoughts.slice(-3).map((t) => ({
+          thoughtNumber: t.thoughtNumber,
+          thought: t.thought,
+        }));
+        priorSummaries.push({
+          sessionId: session.id,
+          title: session.title,
+          updatedAt: session.updatedAt,
+          samples: tail,
+        });
+      } catch (error) {
+        console.warn(`[Thoughtbox] Failed to load prior session ${session.id}:`, error);
+      }
+    }
+
+    return {
+      query: validatedInput.rlmQuery || validatedInput.thought,
+      session: {
+        sessionId: this.currentSessionId,
+        thoughts: sessionThoughts,
+      },
+      priorSessions: priorSummaries,
+      project: {
+        status: "not-attached",
+        note: "Attach project corpus/index when available.",
+      },
+    };
   }
 
   public async processThought(input: unknown): Promise<{
@@ -483,6 +563,8 @@ export class ThoughtHandler {
 
       // Critique result (populated if critique requested and sampling succeeds)
       let critiqueResult: { text: string; model: string; timestamp: string } | null = null;
+      // RLM result (populated if rlm requested and sampling succeeds)
+      let rlmResult: { text: string; model?: string; logs?: string[]; timestamp: string } | null = null;
 
       // Persist to storage if session is active
       if (this.currentSessionId) {
@@ -679,6 +761,52 @@ export class ThoughtHandler {
             }
           }
         }
+
+        // Request RLM if enabled and orchestrator available
+        if (validatedInput.rlm && this.samplingHandler) {
+          try {
+            if (!this.rlmOrchestrator) {
+              this.rlmOrchestrator = new RLMOrchestrator(this.samplingHandler);
+            }
+
+            const rlmContext = await this.buildRlmContext(validatedInput);
+            const rlmResponse = await this.rlmOrchestrator.run({
+              query: validatedInput.rlmQuery || validatedInput.thought,
+              context: rlmContext,
+              rootModelPreferences: {
+                hints: [{ name: "claude-sonnet-4-5-20250929" }],
+                intelligencePriority: 0.9,
+                costPriority: 0.4,
+              },
+              subModelPreferences: {
+                hints: [{ name: "claude-sonnet-4-5-20250929" }],
+                intelligencePriority: 0.7,
+                costPriority: 0.5,
+              },
+            });
+
+            rlmResult = {
+              text: rlmResponse.text,
+              model: rlmResponse.model,
+              logs: rlmResponse.logs,
+              timestamp: new Date().toISOString(),
+            };
+
+            // Persist RLM result in background (fire-and-forget)
+            this.storage
+              .updateThoughtRlmResult(
+                this.currentSessionId,
+                validatedInput.thoughtNumber,
+                { ...rlmResult }
+              )
+              .catch(err => console.error('[Thoughtbox] RLM persistence failed:', err));
+          } catch (error: unknown) {
+            const err = error as { code?: number; message?: string };
+            if (err.code !== -32601) {
+              console.error('[Thoughtbox] RLM request failed:', err.message || error);
+            }
+          }
+        }
       } else {
         // No active session - update in-memory state only
         this.thoughtHistory.push(validatedInput);
@@ -737,6 +865,7 @@ export class ThoughtHandler {
                     closedSessionId: closingSessionId,
                     exportPath,
                     ...(critiqueResult && { critique: critiqueResult }),
+                    ...(rlmResult && { rlmResult }),
                   },
                   null,
                   2
@@ -763,6 +892,7 @@ export class ThoughtHandler {
                     sessionId: this.currentSessionId,
                     warning: `Auto-export failed: ${exportError}. Session remains open to prevent data loss. You can manually export using the export_reasoning_chain tool.`,
                     ...(critiqueResult && { critique: critiqueResult }),
+                    ...(rlmResult && { rlmResult }),
                   },
                   null,
                   2
@@ -815,6 +945,7 @@ export class ThoughtHandler {
               thoughtHistoryLength: this.thoughtHistory.length,
               sessionId: this.currentSessionId,
               ...(critiqueResult && { critique: critiqueResult }),
+              ...(rlmResult && { rlmResult }),
             },
             null,
             2

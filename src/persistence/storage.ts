@@ -8,6 +8,7 @@
  */
 
 import { randomUUID } from 'crypto';
+import { RevisionIndexBuilder } from '../revision/revision-index.js';
 import type {
   ThoughtboxStorage,
   Config,
@@ -443,7 +444,6 @@ export class LinkedThoughtStore {
     const nodes = this.getSessionNodes(sessionId);
 
     // SPEC-002: Build revision metadata
-    const { RevisionIndexBuilder } = require("../revision/revision-index.js");
     const indexBuilder = new RevisionIndexBuilder();
     const revisionIndex = indexBuilder.buildIndex(nodes);
 
@@ -757,6 +757,17 @@ export class InMemoryStorage implements ThoughtboxStorage {
     const node = this.linkedStore.getThoughtByNumber(sessionId, thoughtNumber);
     if (node) {
       node.data.critique = critique;
+    }
+  }
+
+  async updateThoughtRlmResult(
+    sessionId: string,
+    thoughtNumber: number,
+    rlm: { text: string; model?: string; logs?: string[]; timestamp: string }
+  ): Promise<void> {
+    const node = this.linkedStore.getThoughtByNumber(sessionId, thoughtNumber);
+    if (node) {
+      node.data.rlmResult = rlm;
     }
   }
 

@@ -32,12 +32,12 @@ exporters:
   debug:
     verbosity: basic
   file/logs:
-    path: /tmp/claude-code-events.jsonl
+    path: /var/lib/otel/claude-code-events.jsonl
     rotation:
       max_megabytes: 100
       max_days: 7
   file/metrics:
-    path: /tmp/claude-code-metrics.jsonl
+    path: /var/lib/otel/claude-code-metrics.jsonl
     rotation:
       max_megabytes: 50
       max_days: 7

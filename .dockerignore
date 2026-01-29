@@ -64,6 +64,14 @@ plans/
 self-improvement/
 traces/
 resources/
+benchmarks/
+reasoning/
+papers/
+dot-claude/
+ruvector/
+observability/
+otel-collector/
+public/
 
 
 # Development reports and analysis
@@ -80,6 +88,12 @@ INTEGRATION.md
 CLAUDE.md
 AGENTS.md
 llms-install.md
+observatory-test.html
+server.json
+docker-compose.yml
+.npmignore
+.cursorignore
+.husky/
 
 # Test notebooks (development artifacts)
 *.src.md
