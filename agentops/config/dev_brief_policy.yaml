@@ -1,0 +1,23 @@
+# AgentOps Daily Dev Brief Policy Configuration
+# Defines constraints and quality requirements for proposal generation
+
+# Proposal Quantity
+max_proposals: 3
+min_proposals: 2
+
+# Signal Collection
+max_signal_items: 30
+
+# Evidence Requirements
+min_evidence_links_per_proposal: 1
+prefer_evidence_links_per_proposal: 3
+
+# Quality Gates
+require_touch_points: true
+require_test_plan: true
+require_rollback: true
+require_acceptance: true
+
+# Resource Limits
+max_llm_cost_usd: 10.0
+max_wall_clock_minutes: 30

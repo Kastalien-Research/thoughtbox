@@ -1,0 +1,60 @@
+repo:
+  enabled: true
+  lookback_hours: 24
+  max_commits: 20
+  max_issues: 20
+  issue_labels_preference: ["bug", "compat", "performance", "observatory", "docs"]
+
+arxiv:
+  enabled: true
+  max_results: 12
+  categories: ["cs.AI", "cs.LG", "cs.SE", "cs.CL"]
+  # Keep the query tight; better small and relevant than “all of arXiv”
+  query: '(agent OR agents OR "tool use" OR "code agent" OR workflow) AND (evaluation OR benchmark OR reliability OR "tool calling")'
+
+# Lab/company updates:
+# Option A: RSS endpoints
+# - OpenAI News page links an RSS endpoint at /news/rss.xml.  [oai_citation:0‡OpenAI](https://openai.com/news/)
+rss:
+  enabled: true
+  feeds:
+    - name: "OpenAI News"
+      url: "https://openai.com/news/rss.xml"
+      max_items: 10
+
+# Option B: HTML listing sources (more brittle, but works when RSS isn't available)
+# Anthropic newsroom is a good candidate for HTML-list parsing.  [oai_citation:1‡Anthropic](https://www.anthropic.com/news)
+#
+# Selector Maintenance Guide:
+# If a site stops returning signals:
+# 1. Open the site in browser
+# 2. Inspect a news/blog article element
+# 3. Update container/title/link selectors to match current HTML
+# 4. Set fallback_to_generic: true for safety
+# 5. Test with: npm run agentops:daily -- --dry-run
+html:
+  enabled: true
+  sources:
+    - name: "Anthropic Newsroom"
+      url: "https://www.anthropic.com/news"
+      max_items: 10
+      # Site uses client-side rendering, generic selectors work better
+      fallback_to_generic: true
+
+    - name: "Google Research Blog"
+      url: "https://research.google/blog/"
+      max_items: 10
+      # Site uses client-side rendering, generic selectors work better
+      fallback_to_generic: true
+
+    - name: "Google DeepMind News"
+      url: "https://deepmind.google/blog/"
+      max_items: 10
+      selectors:
+        container: "article.card-blog"
+        title: "h3"
+        link: "a"
+      fallback_to_generic: true
+
+# Notes:
+# The web tool had trouble fetching some RSS XML directly, but that doesn’t mean your Node fetch will fail; it’s often user-agent/header related. For OpenAI, the site itself links the RSS endpoint.

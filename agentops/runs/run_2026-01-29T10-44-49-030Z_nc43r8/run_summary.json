@@ -1,0 +1,53 @@
+{
+  "run_id": "run_2026-01-29T10-44-49-030Z_nc43r8",
+  "job_name": "thoughtbox_daily_proposals",
+  "job_version": "0.1.0",
+  "status": "SUCCEEDED",
+  "trigger": {
+    "type": "manual",
+    "source": "github_actions",
+    "event": "workflow_dispatch"
+  },
+  "repo": {
+    "url": "https://github.com/org/repo",
+    "ref": "main",
+    "git_sha": "dry-run-sha"
+  },
+  "started_at": "2026-01-29T10:44:49.030Z",
+  "ended_at": "2026-01-29T10:44:49.043Z",
+  "budgets": {
+    "max_llm_cost_usd": 10,
+    "max_wall_clock_minutes": 30,
+    "max_tool_calls": 200
+  },
+  "metrics": {
+    "llm_cost_usd": 0,
+    "wall_clock_seconds": 0,
+    "sources_scanned": 0,
+    "items_shortlisted": 8,
+    "proposals_emitted": 3
+  },
+  "artifact_index": [
+    {
+      "name": "digest_md",
+      "path": "digest.md"
+    },
+    {
+      "name": "proposals_json",
+      "path": "proposals.json"
+    },
+    {
+      "name": "issue_body_md",
+      "path": "issue_body.md"
+    },
+    {
+      "name": "run_summary_json",
+      "path": "run_summary.json"
+    }
+  ],
+  "links": {
+    "trace": "https://smith.langchain.com (tracing disabled)",
+    "workflow_run": "(dry run - no artifacts)"
+  },
+  "errors": []
+}

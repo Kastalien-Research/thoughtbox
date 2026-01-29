@@ -1,0 +1,124 @@
+{
+  "run_id": "run_2026-01-28T12-00-00Z_abcd1234",
+  "repo_ref": "main",
+  "git_sha": "9f3a0f4d0a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d",
+  "generated_at": "2026-01-28T12:06:40Z",
+  "proposals": [
+    {
+      "proposal_id": "proposal-1",
+      "title": "Add deterministic MCP client-simulation harness",
+      "category": "compatibility",
+      "effort_estimate": "M",
+      "risk": "low",
+      "evidence": [
+        "https://github.com/Kastalien-Research/thoughtbox/issues/123",
+        "https://github.com/Kastalien-Research/thoughtbox/commits/main"
+      ],
+      "why_now": [
+        "Improves confidence for unattended agent-driven PRs",
+        "Catches regressions in stage/tool-list behaviors across clients"
+      ],
+      "expected_impact": {
+        "users": [
+          "Claude Code",
+          "Cursor MCP clients",
+          "other MCP clients"
+        ],
+        "outcome": "Higher compatibility; fewer client-specific breakages; faster regressions detection"
+      },
+      "design_sketch": "Add eval runner that replays scripted scenarios against server, capturing invariants + latency; store reports as artifacts.",
+      "touch_points": [
+        "agentops/evals/*",
+        "src/server/* (if needed for test hooks)",
+        "docs/compatibility.md (optional)"
+      ],
+      "test_plan": [
+        "unit: scenario parser validates schema",
+        "integration: run 10 scenario scripts against local server",
+        "CI: ensure harness runs under GitHub Actions"
+      ],
+      "rollout": "Ship harness without changing runtime behavior; no prod impact.",
+      "rollback": "Delete harness folder and CI step; no runtime changes.",
+      "acceptance": [
+        ">= 10 scenarios passing on baseline",
+        "Harness produces eval_report.md with baseline vs candidate comparison"
+      ]
+    },
+    {
+      "proposal_id": "proposal-2",
+      "title": "Improve gateway stage error messages + add structured error codes",
+      "category": "reliability",
+      "effort_estimate": "S",
+      "risk": "medium",
+      "evidence": [
+        "https://github.com/Kastalien-Research/thoughtbox/issues/456"
+      ],
+      "why_now": [
+        "Agent workflows benefit from machine-readable errors",
+        "Reduces time-to-debug when clients call tools out-of-stage"
+      ],
+      "expected_impact": {
+        "users": [
+          "Any MCP client",
+          "Your own orchestrators"
+        ],
+        "outcome": "More deterministic retries; clearer user guidance"
+      },
+      "design_sketch": "Return {error_code, stage_required, stage_current} in errors; keep human-readable message.",
+      "touch_points": [
+        "src/gateway/*",
+        "src/stages/*",
+        "docs/api-errors.md"
+      ],
+      "test_plan": [
+        "unit: error object schema",
+        "integration: scenario scripts expecting error codes"
+      ],
+      "rollout": "Backward-compatible: keep existing message string; add fields.",
+      "rollback": "Remove extra fields if clients break.",
+      "acceptance": [
+        "Existing tests remain passing",
+        "New tests validate error_code presence in out-of-stage calls"
+      ]
+    },
+    {
+      "proposal_id": "proposal-3",
+      "title": "Observatory: add 'copy run bundle' export for debugging",
+      "category": "UX",
+      "effort_estimate": "M",
+      "risk": "low",
+      "evidence": [
+        "https://github.com/Kastalien-Research/thoughtbox/issues/789",
+        "https://github.com/Kastalien-Research/thoughtbox/pull/100"
+      ],
+      "why_now": [
+        "Shortens debugging cycles",
+        "Provides portable evidence for agent-run changes"
+      ],
+      "expected_impact": {
+        "users": [
+          "You",
+          "debuggers",
+          "future collaborators"
+        ],
+        "outcome": "Faster reproduction of bugs and regressions"
+      },
+      "design_sketch": "Export a zip-like bundle (or directory) containing session JSON, recent logs, and scenario replay script.",
+      "touch_points": [
+        "src/observatory/*",
+        "src/storage/*",
+        "docs/observatory.md"
+      ],
+      "test_plan": [
+        "unit: export includes required files",
+        "integration: export then replay against server"
+      ],
+      "rollout": "Feature flag if needed; dev-only initially.",
+      "rollback": "Remove export endpoint/UI control.",
+      "acceptance": [
+        "Bundle contains session JSON + last N events + metadata",
+        "Replay script runs and reproduces session invariants"
+      ]
+    }
+  ]
+}
