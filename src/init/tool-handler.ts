@@ -16,6 +16,7 @@ import type {
 import { StateManager, ConnectionStage, type BoundRoot, type SessionState } from './state-manager.js';
 import { ToolRegistry } from '../tool-registry.js';
 import type { ThoughtboxStorage, Session, ThoughtData } from '../persistence/types.js';
+import { STAGE_1_OPERATIONS_SCHEMA } from '../resources/operation-schemas-content.js';
 
 // =============================================================================
 // Tool Schema
@@ -1048,19 +1049,19 @@ export class InitToolHandler {
 
     lines.push('## Next Steps');
     lines.push('');
-    lines.push('**⚠️ STOP HERE - DO NOT CALL ANY MORE TOOLS IN THIS TURN**');
+    lines.push('The gateway now supports additional operations: `cipher`, `session`, `deep_analysis`');
     lines.push('');
-    lines.push('New tools (`thoughtbox_cipher`, `session`) are now available, but you must');
-    lines.push('**end this turn and wait for the user to send another message** before calling them.');
-    lines.push('If newly unlocked tools don\'t appear, use `thoughtbox_gateway({ operation: \'cipher\' })` instead.');
+    lines.push('**Next action:** Call `thoughtbox_gateway` with operation `cipher` to load the notation system:');
     lines.push('');
-    lines.push('Immediate next actions for Claude:');
-    lines.push('0) Ask the user to send any short message to start the next turn.');
-    lines.push('1) Call `thoughtbox_cipher` (or gateway if unavailable).');
+    lines.push('```typescript');
+    lines.push('thoughtbox_gateway({');
+    lines.push('  operation: "cipher"');
+    lines.push('})');
+    lines.push('```');
     lines.push('');
-    lines.push('Tell the user: "Session loaded. Ready to continue - please send any message to proceed."');
+    lines.push('---');
     lines.push('');
-    lines.push('In your NEXT turn (after user responds), call `thoughtbox_cipher` to load the notation system.');
+    lines.push(STAGE_1_OPERATIONS_SCHEMA);
 
     return lines.join('\n');
   }
@@ -1113,31 +1114,19 @@ export class InitToolHandler {
 
     lines.push('## Getting Started');
     lines.push('');
-    lines.push('**⚠️ STOP HERE - DO NOT CALL ANY MORE TOOLS IN THIS TURN**');
+    lines.push('The gateway now supports additional operations: `cipher`, `session`, `deep_analysis`');
     lines.push('');
-    lines.push('New tools (`thoughtbox_cipher`, `session`) are now available, but you must');
-    lines.push('**end this turn and wait for the user to send another message** before calling them.');
-    lines.push('If newly unlocked tools don\'t appear, use `thoughtbox_gateway({ operation: \'cipher\' })` instead.');
+    lines.push('**Next action:** Call `thoughtbox_gateway` with operation `cipher` to load the notation system:');
     lines.push('');
-    lines.push('Immediate next actions for Claude:');
-    lines.push('0) Ask the user to send any short message to start the next turn.');
-    lines.push('1) Call `thoughtbox_cipher` (or gateway if unavailable).');
-    lines.push('');
-    lines.push('Tell the user: "Work context initialized. Ready to begin - please send any message to proceed."');
-    lines.push('');
-    lines.push('In your NEXT turn (after user responds), call `thoughtbox_cipher` to load the notation system.');
-    lines.push('');
-    lines.push('Suggested session setup:');
-    lines.push('```json');
-    lines.push('{');
-    lines.push(`  "sessionTitle": "Work on ${newWork.project}${newWork.task ? '/' + newWork.task : ''}",`);
-    lines.push(`  "sessionTags": [`);
-    lines.push(`    "project:${newWork.project}"${newWork.task ? ',' : ''}`);
-    if (newWork.task) lines.push(`    "task:${newWork.task}"${newWork.aspect ? ',' : ''}`);
-    if (newWork.aspect) lines.push(`    "aspect:${newWork.aspect}"`);
-    lines.push(`  ]`);
-    lines.push('}');
+    lines.push('```typescript');
+    lines.push('thoughtbox_gateway({');
+    lines.push('  operation: "cipher"');
+    lines.push('})');
     lines.push('```');
+    lines.push('');
+    lines.push('---');
+    lines.push('');
+    lines.push(STAGE_1_OPERATIONS_SCHEMA);
     lines.push('');
 
     if (relatedSessions.length > 0) {
