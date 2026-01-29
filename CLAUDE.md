@@ -28,6 +28,43 @@ You MUST verify it first using the appropriate tool (Read, Glob, Grep, Bash, etc
 - Check directory contents before claiming files exist
 - Verify configurations before claiming they're correct
 
+## Branch Management (REQUIRED)
+
+**CRITICAL: Always create new branches for logically unrelated work**
+
+Before committing, verify the work is related to the current branch:
+
+**When to create a new branch:**
+- Commit addresses a different feature/fix than the branch name suggests
+- Commit would be confusing in the PR for the current branch
+- Work is independent of the current branch's purpose
+
+**How to create a new branch:**
+```bash
+# Check current branch
+git status
+
+# Create and switch to new branch
+git checkout -b <type>/<descriptive-name>
+
+# Examples:
+git checkout -b fix/broken-tests
+git checkout -b feat/new-feature
+git checkout -b docs/update-readme
+```
+
+**Branch naming convention:**
+- `feat/<name>` - New feature
+- `fix/<name>` - Bug fix
+- `docs/<name>` - Documentation changes
+- `refactor/<name>` - Code refactoring
+- `test/<name>` - Test-related changes
+- `chore/<name>` - Maintenance/tooling
+
+**Current branch:** Check git status before committing to ensure it matches your work.
+
+---
+
 ## Commit Message Format (REQUIRED)
 
 **This project uses [Conventional Commits](https://www.conventionalcommits.org/)**
