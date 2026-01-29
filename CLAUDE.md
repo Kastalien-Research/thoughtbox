@@ -34,15 +34,13 @@ You MUST verify it first using the appropriate tool (Read, Glob, Grep, Bash, etc
 
 1. ✅ Run `npm run build` to compile
 2. ✅ Commit the changes if appropriate
-3. ⚠️ **IMMEDIATELY ask user:** "Should I rebuild Docker to test these changes? This will require you to run `/mcp` to reconnect."
-
-**If user says yes:**
-4. Run: `docker-compose down && docker-compose build && docker-compose up -d`
-5. Tell user: "Docker rebuilt. Please run `/mcp` to reconnect to the MCP server."
-6. Wait for user to confirm reconnection before testing
+3. ✅ **ALWAYS rebuild Docker** - Run: `docker-compose down && docker-compose build && docker-compose up -d`
+4. ⚠️ Tell user: "Docker rebuilt. Please run `/mcp` to reconnect to the MCP server."
+5. Wait for user to confirm reconnection before testing
 
 **NEVER:**
-- Commit Thoughtbox MCP code changes without offering to rebuild and test
+- Ask if you should rebuild - ALWAYS rebuild after modifying MCP code
+- Commit Thoughtbox MCP code changes without rebuilding Docker
 - Assume the running MCP server has your new code (it doesn't until rebuild)
 - Try to test MCP operations before Docker rebuild (it's still running old code)
 
