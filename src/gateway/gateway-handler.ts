@@ -26,39 +26,225 @@ import type { KnowledgeHandler } from '../knowledge/index.js';
 // =============================================================================
 
 /**
- * Gateway tool input schema
+ * Gateway tool input schema with detailed operation-specific parameters
  */
-export const gatewayToolInputSchema = z.object({
-  operation: z.enum([
-    // Init operations (Stage 0)
-    'get_state',
-    'list_sessions',
-    'navigate',
-    'load_context',
-    'start_new',
-    'list_roots',
-    'bind_root',
-    // Cipher operation (Stage 1 → Stage 2)
-    'cipher',
-    // Thought operation (Stage 2)
-    'thought',
-    // Read thoughts operation (Stage 2) - retrieve previous thoughts mid-session
-    'read_thoughts',
-    // Get structure operation (Stage 2) - get reasoning graph topology without content
-    'get_structure',
-    // Notebook operation (Stage 2)
-    'notebook',
-    // Session operation (Stage 1)
-    'session',
-    // Mental models operation (Stage 2)
-    'mental_models',
-    // Deep analysis operation (Stage 1)
-    'deep_analysis',
-    // Knowledge operation (Stage 2) - knowledge graph memory
-    'knowledge',
-  ]),
-  args: z.record(z.string(), z.unknown()).optional().describe('Arguments passed to the underlying handler'),
-});
+export const gatewayToolInputSchema = z.discriminatedUnion('operation', [
+  // =============================================================================
+  // Init Operations (Stage 0) - Pattern 1: Direct Args
+  // =============================================================================
+  z.object({
+    operation: z.literal('get_state'),
+    args: z.object({}).optional(),
+  }),
+  z.object({
+    operation: z.literal('list_sessions'),
+    args: z.object({
+      limit: z.number().optional().describe('Maximum number of sessions to return (default: 10)'),
+      offset: z.number().optional().describe('Number of sessions to skip for pagination (default: 0)'),
+      tags: z.array(z.string()).optional().describe('Filter by tags (returns sessions matching ANY tag)'),
+    }).optional(),
+  }),
+  z.object({
+    operation: z.literal('navigate'),
+    args: z.object({
+      sessionId: z.string().describe('Session ID to navigate to'),
+    }),
+  }),
+  z.object({
+    operation: z.literal('load_context'),
+    args: z.object({
+      sessionId: z.string().describe('Session ID to load'),
+    }),
+  }),
+  z.object({
+    operation: z.literal('start_new'),
+    args: z.object({
+      newWork: z.object({
+        title: z.string().describe('Title describing the new reasoning session'),
+        tags: z.array(z.string()).optional().describe('Tags for categorizing the session'),
+        description: z.string().optional().describe('Optional description of the session purpose'),
+      }),
+    }),
+  }),
+  z.object({
+    operation: z.literal('list_roots'),
+    args: z.object({}).optional(),
+  }),
+  z.object({
+    operation: z.literal('bind_root'),
+    args: z.object({
+      rootUri: z.string().describe('Root URI to bind'),
+      pathPrefix: z.string().optional().describe('Optional path prefix within the root'),
+    }),
+  }),
+
+  // =============================================================================
+  // Cipher Operation (Stage 1 → Stage 2)
+  // =============================================================================
+  z.object({
+    operation: z.literal('cipher'),
+    args: z.object({}).optional(),
+  }),
+
+  // =============================================================================
+  // Thought Operation (Stage 2) - Pattern 1: Direct Args
+  // Note: branchId requires branchFromThought; revisesThought requires isRevision=true
+  // These interdependencies are validated at runtime in the handler
+  // =============================================================================
+  z.object({
+    operation: z.literal('thought'),
+    args: z.object({
+      thought: z.string().describe('The content of the thought'),
+      nextThoughtNeeded: z.boolean().describe('Whether another thought is needed after this one'),
+      thoughtNumber: z.number().optional().describe('Specific thought number (auto-assigned if omitted)'),
+      totalThoughts: z.number().optional().describe('Expected total number of thoughts'),
+      isRevision: z.boolean().optional().describe('Whether this thought revises a previous one'),
+      revisesThought: z.number().optional().describe('Thought number being revised (requires isRevision=true)'),
+      branchFromThought: z.number().optional().describe('Thought number to branch from'),
+      branchId: z.string().optional().describe('Branch identifier (requires branchFromThought)'),
+      needsMoreThoughts: z.boolean().optional().describe('Whether more thoughts are needed beyond current estimate'),
+      includeGuide: z.boolean().optional().describe('Whether to include reasoning guide in response'),
+      sessionTitle: z.string().optional().describe('Update session title'),
+      sessionTags: z.array(z.string()).optional().describe('Update session tags'),
+      critique: z.boolean().optional().describe('Request critique of the thought'),
+      verbose: z.boolean().optional().describe('Return full response (default) vs minimal response'),
+    }),
+  }),
+
+  // =============================================================================
+  // Read Thoughts Operation (Stage 2)
+  // =============================================================================
+  z.object({
+    operation: z.literal('read_thoughts'),
+    args: z.object({
+      sessionId: z.string().optional().describe('Session ID (defaults to active session)'),
+      thoughtNumber: z.number().optional().describe('Get specific thought by number'),
+      last: z.number().optional().describe('Get last N thoughts'),
+      range: z.tuple([z.number(), z.number()]).optional().describe('Get thoughts in range [start, end] inclusive'),
+      branchId: z.string().optional().describe('Get all thoughts from specific branch'),
+    }).optional(),
+  }),
+
+  // =============================================================================
+  // Get Structure Operation (Stage 2)
+  // =============================================================================
+  z.object({
+    operation: z.literal('get_structure'),
+    args: z.object({
+      sessionId: z.string().optional().describe('Session ID (defaults to active session)'),
+    }).optional(),
+  }),
+
+  // =============================================================================
+  // Notebook Operation (Stage 2) - Pattern 2: Nested Operation
+  // =============================================================================
+  z.object({
+    operation: z.literal('notebook'),
+    args: z.object({
+      operation: z.enum(['create', 'list', 'load', 'add_cell', 'update_cell', 'run_cell', 'install_deps', 'list_cells', 'get_cell', 'export']).describe('Notebook sub-operation'),
+      // Common parameters
+      notebookId: z.string().optional().describe('Notebook ID (required for most operations)'),
+      // create parameters
+      title: z.string().optional().describe('Notebook title (create)'),
+      language: z.enum(['javascript', 'typescript']).optional().describe('Programming language (create)'),
+      template: z.enum(['sequential-feynman']).optional().describe('Optional template (create)'),
+      // load/export parameters
+      path: z.string().optional().describe('Filesystem path (load/export)'),
+      content: z.string().optional().describe('Raw content string (load)'),
+      // cell parameters
+      cellId: z.string().optional().describe('Cell ID (update_cell, run_cell, get_cell)'),
+      cellType: z.enum(['title', 'markdown', 'code']).optional().describe('Cell type (add_cell)'),
+      filename: z.string().optional().describe('Filename for code cells (add_cell)'),
+      position: z.number().optional().describe('Cell position (add_cell)'),
+    }),
+  }),
+
+  // =============================================================================
+  // Session Operation (Stage 1) - Pattern 2: Nested Operation
+  // =============================================================================
+  z.object({
+    operation: z.literal('session'),
+    args: z.object({
+      operation: z.enum(['list', 'get', 'search', 'resume', 'export', 'analyze', 'extract_learnings', 'discovery']).describe('Session sub-operation'),
+      // Common parameters
+      sessionId: z.string().optional().describe('Session ID (required for get, resume, export, analyze, extract_learnings)'),
+      // list/search parameters
+      limit: z.number().optional().describe('Maximum results (list/search)'),
+      offset: z.number().optional().describe('Pagination offset (list)'),
+      tags: z.array(z.string()).optional().describe('Filter by tags (list)'),
+      query: z.string().optional().describe('Search query (search)'),
+      // export parameters
+      format: z.enum(['markdown', 'cipher', 'json']).optional().describe('Export format (export)'),
+      includeMetadata: z.boolean().optional().describe('Include metadata (export)'),
+      // extract_learnings parameters
+      keyMoments: z.array(z.object({
+        thoughtNumber: z.number(),
+        type: z.enum(['decision', 'pivot', 'insight', 'revision', 'branch']),
+        significance: z.number().optional(),
+        summary: z.string().optional(),
+      })).optional().describe('Key moments for pattern extraction (extract_learnings)'),
+      targetTypes: z.array(z.enum(['pattern', 'anti-pattern', 'signal'])).optional().describe('Learning types to extract (extract_learnings)'),
+      // discovery parameters
+      action: z.enum(['list', 'hide', 'show']).optional().describe('Discovery action (discovery)'),
+      toolName: z.string().optional().describe('Tool name for hide/show (discovery)'),
+    }),
+  }),
+
+  // =============================================================================
+  // Mental Models Operation (Stage 2) - Pattern 2: Nested Operation
+  // =============================================================================
+  z.object({
+    operation: z.literal('mental_models'),
+    args: z.object({
+      operation: z.enum(['get_model', 'list_models', 'list_tags', 'get_capability_graph']).describe('Mental models sub-operation'),
+      model: z.string().optional().describe('Model name (required for get_model)'),
+      tag: z.string().optional().describe('Filter by tag (list_models)'),
+    }),
+  }),
+
+  // =============================================================================
+  // Deep Analysis Operation (Stage 1)
+  // =============================================================================
+  z.object({
+    operation: z.literal('deep_analysis'),
+    args: z.object({
+      sessionId: z.string().describe('Session ID to analyze'),
+      analysisType: z.enum(['patterns', 'cognitive_load', 'decision_points', 'full']).describe('Type of analysis'),
+      options: z.object({
+        includeTimeline: z.boolean().optional(),
+        compareWith: z.array(z.string()).optional(),
+      }).optional(),
+    }),
+  }),
+
+  // =============================================================================
+  // Knowledge Operation (Stage 2) - Pattern 3: Nested Action
+  // =============================================================================
+  z.object({
+    operation: z.literal('knowledge'),
+    args: z.object({
+      action: z.enum(['create_entity', 'get_entity', 'list_entities', 'add_observation', 'create_relation', 'query_graph', 'stats']).describe('Knowledge graph action'),
+      // create_entity parameters
+      name: z.string().optional().describe('Entity name (create_entity)'),
+      type: z.enum(['Insight', 'Concept', 'Workflow', 'Decision', 'Agent']).optional().describe('Entity type (create_entity)'),
+      label: z.string().optional().describe('Entity label (create_entity)'),
+      properties: z.record(z.unknown()).optional().describe('Entity properties (create_entity)'),
+      // get_entity parameters
+      entity_id: z.string().optional().describe('Entity ID (get_entity, add_observation, query_graph)'),
+      // add_observation parameters
+      content: z.string().optional().describe('Observation content (add_observation)'),
+      source_session: z.string().optional().describe('Source session (add_observation)'),
+      // create_relation parameters
+      from_id: z.string().optional().describe('Source entity ID (create_relation)'),
+      to_id: z.string().optional().describe('Target entity ID (create_relation)'),
+      relation_type: z.enum(['RELATES_TO', 'BUILDS_ON', 'CONTRADICTS', 'EXTRACTED_FROM', 'APPLIED_IN', 'LEARNED_BY', 'DEPENDS_ON', 'SUPERSEDES', 'MERGED_FROM']).optional().describe('Relation type (create_relation)'),
+      // query_graph parameters
+      start_entity_id: z.string().optional().describe('Starting entity for traversal (query_graph)'),
+      relation_types: z.array(z.string()).optional().describe('Filter by relation types (query_graph)'),
+      max_depth: z.number().optional().describe('Maximum traversal depth (query_graph, default: 3)'),
+    }),
+  }),
+]);
 
 export type GatewayToolInput = z.infer<typeof gatewayToolInputSchema>;
 
@@ -67,9 +253,14 @@ export type GatewayToolInput = z.infer<typeof gatewayToolInputSchema>;
 // =============================================================================
 
 /**
+ * Type for operation names
+ */
+type OperationName = GatewayToolInput['operation'];
+
+/**
  * Required stage for each operation
  */
-const OPERATION_REQUIRED_STAGE: Record<GatewayToolInput['operation'], DisclosureStage> = {
+const OPERATION_REQUIRED_STAGE: Record<OperationName, DisclosureStage> = {
   // Stage 0 operations - always available
   get_state: DisclosureStage.STAGE_0_ENTRY,
   list_sessions: DisclosureStage.STAGE_0_ENTRY,
@@ -94,7 +285,7 @@ const OPERATION_REQUIRED_STAGE: Record<GatewayToolInput['operation'], Disclosure
 /**
  * Stage advancement per operation (null = no advancement)
  */
-const OPERATION_ADVANCES_TO: Record<GatewayToolInput['operation'], DisclosureStage | null> = {
+const OPERATION_ADVANCES_TO: Record<OperationName, DisclosureStage | null> = {
   get_state: null,
   list_sessions: null,
   navigate: null,
