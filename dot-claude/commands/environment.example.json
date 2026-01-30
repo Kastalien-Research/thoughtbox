@@ -1,0 +1,13 @@
+{
+  "servers": {
+    "clear-thought-onepointfive": {
+      "command": "node",
+      "args": ["/absolute/path/to/your/dist/index.js"],
+      "env": {
+        "SHINZO_TOKEN": "<YOUR_SHINZO_TOKEN>",
+        "SHINZO_ENDPOINT": "https://api.app.shinzo.ai/telemetry/ingest_http"
+      }
+    }
+  }
+}
+

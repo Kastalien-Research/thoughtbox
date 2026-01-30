@@ -1,0 +1,191 @@
+{
+  "timestamp": "2026-01-30T07:26:11.489Z",
+  "summary": {
+    "total": 22,
+    "passed": 0,
+    "failed": 20,
+    "skipped": 2,
+    "duration": 2
+  },
+  "services": {
+    "prometheus": true,
+    "grafana": true,
+    "observatory": false
+  },
+  "results": [
+    {
+      "name": "Observability Gateway - Check System Health",
+      "category": "Observability Gateway",
+      "passed": false,
+      "skipped": false,
+      "error": "server.request is not a function",
+      "duration": 1
+    },
+    {
+      "name": "Observability Gateway - Check Health of Specific Services",
+      "category": "Observability Gateway",
+      "passed": false,
+      "skipped": false,
+      "error": "server.request is not a function",
+      "duration": 0
+    },
+    {
+      "name": "Observability Gateway - Query Instant Metrics",
+      "category": "Observability Gateway",
+      "passed": false,
+      "skipped": false,
+      "error": "server.request is not a function",
+      "duration": 0
+    },
+    {
+      "name": "Observability Gateway - Query Time Series Metrics",
+      "category": "Observability Gateway",
+      "passed": false,
+      "skipped": false,
+      "error": "server.request is not a function",
+      "duration": 0
+    },
+    {
+      "name": "Observability Gateway - Query with Missing Required Parameters",
+      "category": "Observability Gateway",
+      "passed": false,
+      "skipped": false,
+      "error": "Error should mention missing query parameter",
+      "duration": 0
+    },
+    {
+      "name": "Observability Gateway - List Active Reasoning Sessions",
+      "category": "Observability Gateway",
+      "passed": false,
+      "skipped": false,
+      "error": "server.request is not a function",
+      "duration": 0
+    },
+    {
+      "name": "Observability Gateway - Get Alerts from Prometheus",
+      "category": "Observability Gateway",
+      "passed": false,
+      "skipped": false,
+      "error": "server.request is not a function",
+      "duration": 1
+    },
+    {
+      "name": "Observability Gateway - Generate Dashboard URL",
+      "category": "Observability Gateway",
+      "passed": false,
+      "skipped": false,
+      "error": "server.request is not a function",
+      "duration": 0
+    },
+    {
+      "name": "Observatory Events - Subscribe to Reasoning Channel",
+      "category": "Observatory Events",
+      "passed": false,
+      "skipped": true,
+      "duration": 0
+    },
+    {
+      "name": "Observatory Events - WebSocket Connection Limit",
+      "category": "Observatory Events",
+      "passed": false,
+      "skipped": true,
+      "duration": 0
+    },
+    {
+      "name": "Resource Templates - List All Resources",
+      "category": "Resource Templates",
+      "passed": false,
+      "skipped": false,
+      "error": "server.request is not a function",
+      "duration": 0
+    },
+    {
+      "name": "Resource Templates - List Resource Templates",
+      "category": "Resource Templates",
+      "passed": false,
+      "skipped": false,
+      "error": "server.request is not a function",
+      "duration": 0
+    },
+    {
+      "name": "Resource Templates - Read Static Resource",
+      "category": "Resource Templates",
+      "passed": false,
+      "skipped": false,
+      "error": "server.request is not a function",
+      "duration": 0
+    },
+    {
+      "name": "Resource Templates - Read Templated Resource - Interleaved Guide",
+      "category": "Resource Templates",
+      "passed": false,
+      "skipped": false,
+      "error": "server.request is not a function",
+      "duration": 0
+    },
+    {
+      "name": "Resource Templates - Read OODA Loop Content",
+      "category": "Resource Templates",
+      "passed": false,
+      "skipped": false,
+      "error": "server.request is not a function",
+      "duration": 0
+    },
+    {
+      "name": "Prompt Workflows - List Available Prompts",
+      "category": "Prompt Workflows",
+      "passed": false,
+      "skipped": false,
+      "error": "server.request is not a function",
+      "duration": 0
+    },
+    {
+      "name": "Prompt Workflows - Get Interleaved Thinking Prompt",
+      "category": "Prompt Workflows",
+      "passed": false,
+      "skipped": false,
+      "error": "server.request is not a function",
+      "duration": 0
+    },
+    {
+      "name": "Prompt Workflows - Get Spec Designer Prompt",
+      "category": "Prompt Workflows",
+      "passed": false,
+      "skipped": false,
+      "error": "server.request is not a function",
+      "duration": 0
+    },
+    {
+      "name": "Prompt Workflows - Get Spec Validator Prompt",
+      "category": "Prompt Workflows",
+      "passed": false,
+      "skipped": false,
+      "error": "server.request is not a function",
+      "duration": 0
+    },
+    {
+      "name": "Prompt Workflows - Get Spec Orchestrator Prompt",
+      "category": "Prompt Workflows",
+      "passed": false,
+      "skipped": false,
+      "error": "server.request is not a function",
+      "duration": 0
+    },
+    {
+      "name": "Prompt Workflows - Get Specification Suite Prompt",
+      "category": "Prompt Workflows",
+      "passed": false,
+      "skipped": false,
+      "error": "server.request is not a function",
+      "duration": 0
+    },
+    {
+      "name": "Prompt Workflows - Prompt with Missing Required Argument",
+      "category": "Prompt Workflows",
+      "passed": false,
+      "skipped": false,
+      "error": "Error should mention missing task argument",
+      "duration": 0
+    }
+  ]
+}

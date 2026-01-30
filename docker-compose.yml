@@ -69,6 +69,7 @@ services:
     command: ["--config=/etc/otelcol/config.yaml"]
     volumes:
       - ./otel-collector/config-with-prometheus.yaml:/etc/otelcol/config.yaml:ro
+      - otel-data:/var/lib/otel
     ports:
       - "4318:4318"
       - "8889:8889"
@@ -117,3 +118,4 @@ volumes:
   thoughtbox-data:
   prometheus-data:
   grafana-data:
+  otel-data:

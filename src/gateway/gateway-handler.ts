@@ -703,9 +703,9 @@ ${STAGE_2_OPERATIONS_SCHEMA}`;
     }
 
     const operation = args.operation as string;
-    const operationArgs = args.args as Record<string, unknown> | undefined;
+    const { operation: _, ...operationArgs } = args;
 
-    return this.notebookHandler.processTool(operation, operationArgs || {});
+    return this.notebookHandler.processTool(operation, operationArgs);
   }
 
   private async handleSession(args?: Record<string, unknown>): Promise<ToolResponse> {
@@ -717,7 +717,7 @@ ${STAGE_2_OPERATIONS_SCHEMA}`;
     }
 
     const operation = args.operation as string;
-    const operationArgs = args.args as Record<string, unknown> | undefined;
+    const { operation: _, ...operationArgs } = args;
 
     return this.sessionHandler.processTool(operation, operationArgs || {});
   }
@@ -731,9 +731,9 @@ ${STAGE_2_OPERATIONS_SCHEMA}`;
     }
 
     const operation = args.operation as string;
-    const operationArgs = args.args as Record<string, unknown> | undefined;
+    const { operation: _, ...operationArgs } = args;
 
-    const result = await this.mentalModelsHandler.processTool(operation, operationArgs || {});
+    const result = await this.mentalModelsHandler.processTool(operation, operationArgs);
     // Transform content to have proper literal types
     const content: Array<{ type: 'text'; text: string }> = result.content
       .filter((c): c is { type: string; text: string } => c.type === 'text' && typeof c.text === 'string')

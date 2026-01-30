@@ -1,0 +1,218 @@
+#!/usr/bin/env bash
+###
+# memory-add - Add new learning to memory system
+# Usage: echo '{"title":"...","issue":"...","solution":"..."}' | memory-add
+# Output: JSON confirmation
+# Unix-style: Reads JSON from stdin, writes to appropriate file
+###
+
+set -euo pipefail
+
+usage() {
+    cat >&2 <<EOF
+Usage: echo <json> | memory-add [--domain=X] [--file=Y]
+
+Add new learning to memory system.
+
+Required JSON fields:
+  title       - Brief descriptive title
+  issue       - What was the problem
+  solution    - What worked
+  pattern     - Reusable principle
+
+Optional JSON fields:
+  files       - Key files involved
+  see_also    - Related learnings
+  freshness   - hot|warm|cold (default: hot)
+
+Options:
+  --domain=X  - Domain (tools|infrastructure|testing|lessons)
+  --file=Y    - Specific file path (overrides domain)
+
+Input via stdin (JSON):
+  {
+    "title": "Database Connection Init Order",
+    "issue": "Tests failed despite database running",
+    "solution": "Set DATABASE_URL before imports",
+    "pattern": "Env vars affecting module imports must be set early",
+    "files": "scripts/test-runner.ts:1-5",
+    "freshness": "hot"
+  }
+
+Examples:
+  echo '{"title":"Fix","issue":"X","solution":"Y","pattern":"Z"}' | memory-add --domain=tools
+  cat learning.json | memory-add --file=.claude/rules/infrastructure/database.md
+  
+  # From Claude Agent SDK:
+  result = subprocess.run(
+      ["memory-add", "--domain=tools"],
+      input=json.dumps(learning),
+      capture_output=True,
+      text=True
+  )
+
+Exit codes:
+  0 - Success
+  1 - Invalid input
+  2 - Write failed
+EOF
+    exit 1
+}
+
+# Parse arguments
+target_domain=""
+target_file=""
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --domain=*) target_domain="${1#--domain=}" ;;
+        --file=*) target_file="${1#--file=}" ;;
+        --help|-h) usage ;;
+        *) echo "Unknown option: $1" >&2; exit 1 ;;
+    esac
+    shift
+done
+
+# Read JSON from stdin
+if [[ -t 0 ]]; then
+    echo "Error: No input provided (expecting JSON on stdin)" >&2
+    usage
+fi
+
+input=$(cat)
+
+# Validate JSON
+if ! echo "$input" | jq -e . >/dev/null 2>&1; then
+    echo "Error: Invalid JSON input" >&2
+    exit 1
+fi
+
+# Extract required fields
+title=$(echo "$input" | jq -r '.title // empty')
+issue=$(echo "$input" | jq -r '.issue // empty')
+solution=$(echo "$input" | jq -r '.solution // empty')
+pattern=$(echo "$input" | jq -r '.pattern // empty')
+
+if [[ -z "$title" || -z "$issue" || -z "$solution" || -z "$pattern" ]]; then
+    echo "Error: Missing required fields (title, issue, solution, pattern)" >&2
+    exit 1
+fi
+
+# Extract optional fields
+files=$(echo "$input" | jq -r '.files // ""')
+see_also=$(echo "$input" | jq -r '.see_also // ""')
+freshness=$(echo "$input" | jq -r '.freshness // "hot"')
+
+# Map freshness to emoji
+case "$freshness" in
+    hot) emoji="🔥" ;;
+    warm) emoji="⚡" ;;
+    cold) emoji="📚" ;;
+    archived) emoji="🗄️" ;;
+    *) emoji="🔥" ;;
+esac
+
+# Determine target file
+if [[ -n "$target_file" ]]; then
+    # Explicit file specified
+    memory_file="$target_file"
+elif [[ -n "$target_domain" ]]; then
+    # Domain specified, find appropriate file
+    case "$target_domain" in
+        tools)
+            # Default to general.md for tools domain
+            # Users can specify --file for specific tool files
+            memory_file=".claude/rules/tools/general.md"
+            ;;
+        infrastructure)
+            if echo "$title $files" | grep -qi "database\|db\|persistence"; then
+                memory_file=".claude/rules/infrastructure/database.md"
+            elif echo "$title $files" | grep -qi "middleware"; then
+                memory_file=".claude/rules/infrastructure/middleware.md"
+            else
+                memory_file=".claude/rules/infrastructure/general.md"
+            fi
+            ;;
+        testing)
+            memory_file=".claude/rules/testing/testing.md"
+            ;;
+        lessons)
+            date_str=$(date +%Y-%m-%d)
+            topic=$(echo "$title" | tr '[:upper:]' '[:lower:]' | tr ' ' '-' | head -c 30)
+            memory_file=".claude/rules/lessons/${date_str}-${topic}.md"
+            ;;
+        *)
+            echo "Error: Unknown domain: $target_domain" >&2
+            exit 1
+            ;;
+    esac
+else
+    echo "Error: Must specify --domain or --file" >&2
+    exit 1
+fi
+
+# Create file if doesn't exist
+if [[ ! -f "$memory_file" ]]; then
+    mkdir -p "$(dirname "$memory_file")"
+    
+    cat > "$memory_file" <<EOF
+# $(basename "$memory_file" .md | tr '-' ' ' | tr '[:lower:]' '[:upper:]')
+
+## Recent Learnings (Most Recent First)
+
+EOF
+fi
+
+# Generate learning entry
+date_str=$(date +%Y-%m-%d)
+learning_entry="### $date_str: $title $emoji
+- **Issue**: $issue
+- **Solution**: $solution
+- **Pattern**: $pattern"
+
+if [[ -n "$files" ]]; then
+    learning_entry+="
+- **Files**: \`$files\`"
+fi
+
+if [[ -n "$see_also" ]]; then
+    learning_entry+="
+- **See Also**: $see_also"
+fi
+
+learning_entry+="
+
+"
+
+# Insert after "## Recent Learnings" line
+if grep -q "^## Recent Learnings" "$memory_file"; then
+    # Insert after the Recent Learnings heading
+    awk -v entry="$learning_entry" '
+        /^## Recent Learnings/ {
+            print
+            if (getline > 0) print  # Print the line after heading (usually blank)
+            print entry
+            next
+        }
+        {print}
+    ' "$memory_file" > "$memory_file.tmp" && mv "$memory_file.tmp" "$memory_file"
+else
+    # Append to file
+    echo "$learning_entry" >> "$memory_file"
+fi
+
+# Output confirmation JSON
+jq -n \
+    --arg file "$memory_file" \
+    --arg title "$title" \
+    --arg date "$date_str" \
+    --arg freshness "$freshness" \
+    '{
+        status: "success",
+        file: $file,
+        title: $title,
+        date: $date,
+        freshness: $freshness,
+        message: "Learning added to memory system"
+    }'
+
+exit 0

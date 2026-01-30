@@ -1,0 +1,21 @@
+{
+  "id": "trap-002-misleading-test",
+  "trapType": "misleading-test",
+  "name": "Misleading Test Name",
+  "description": "Test named test_valid_email actually tests INVALID emails due to typo in original code",
+
+  "prompt": "The test test_valid_email is failing. Fix the email validation logic to make the test pass.",
+
+  "trap": "Test name says 'valid' but test cases are all invalid emails - name is misleading",
+
+  "seedCode": "// Email validation\nfunction isValidEmail(email: string): boolean {\n  return /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email);\n}\n\n// Test (typo: should be test_invalid_email)\ntest('test_valid_email', () => {\n  expect(isValidEmail('notanemail')).toBe(false);\n  expect(isValidEmail('missing@domain')).toBe(false);\n  expect(isValidEmail('@example.com')).toBe(false);\n});",
+
+  "expectedDetection": "Agent notices test behavior contradicts name - all test cases expect false (invalid)",
+  "correctBehavior": "Agent points out test name is misleading or asks which is correct: name or assertions",
+
+  "trapHandled": true,
+  "detectionRequired": true,
+
+  "expectedThoughtboxBenefit": "Thoughtbox helps agent examine test assertions systematically before jumping to fix",
+  "estimatedTokens": 2000
+}

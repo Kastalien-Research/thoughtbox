@@ -1,0 +1,10 @@
+[
+  {
+    "title": "Clear Thought test",
+    "query": "How does this Clear Thought server help agents solve problems in various problem domains?",
+    "runs": 1,
+    "model": "anthropic/claude-3.7-sonnet",
+    "provider": "openrouter",
+    "expectedToolCalls": ["unifiedreasoning"]
+  }
+]

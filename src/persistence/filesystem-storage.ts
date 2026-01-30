@@ -606,6 +606,26 @@ export class FileSystemStorage implements ThoughtboxStorage {
     }
   }
 
+  async updateThoughtRlmResult(
+    sessionId: string,
+    thoughtNumber: number,
+    rlm: { text: string; model?: string; logs?: string[]; timestamp: string }
+  ): Promise<void> {
+    // 1. Update in-memory LinkedThoughtStore
+    const node = this.linkedStore.getThoughtByNumber(sessionId, thoughtNumber);
+    if (!node) return;
+
+    node.data.rlmResult = rlm;
+
+    // 2. Write updated thought file to disk (atomic)
+    const session = this.sessions.get(sessionId);
+    if (session) {
+      const sessionDir = this.getSessionDir(sessionId, session.partitionPath);
+      const thoughtPath = this.getThoughtPath(sessionDir, thoughtNumber);
+      await this.atomicWriteJson(thoughtPath, node);
+    }
+  }
+
   private async updateManifestThought(sessionId: string, thoughtNumber: number): Promise<void> {
     const session = this.sessions.get(sessionId);
     if (!session) return;

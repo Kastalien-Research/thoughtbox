@@ -1,0 +1,139 @@
+#!/usr/bin/env bash
+###
+# memory-stats - Display memory system statistics
+# Usage: memory-stats [--json]
+# Output: Human-readable or JSON statistics
+# Unix-style: No side effects, pure query
+###
+
+set -euo pipefail
+
+output_json=false
+if [[ "${1:-}" == "--json" ]]; then
+    output_json=true
+fi
+
+usage() {
+    cat >&2 <<EOF
+Usage: memory-stats [--json]
+
+Display memory system statistics.
+
+Options:
+  --json    Output as JSON
+
+Statistics:
+  - Total memory files
+  - Learnings by freshness (hot/warm/cold/archived)
+  - Learnings by domain
+  - Recent activity
+  - Coverage gaps
+  - Repeated issues
+
+Examples:
+  memory-stats
+  memory-stats --json
+  memory-stats --json | jq '.by_freshness'
+
+Exit codes:
+  0 - Success
+EOF
+    exit 0
+}
+
+# Count memory files
+total_files=$(find .claude/rules -name "*.md" -type f -not -path "*/TEMPLATE.md" -not -path "*/README.md" 2>/dev/null | wc -l | tr -d ' ')
+
+# Count learnings by freshness
+hot_count=$(grep -r "🔥" .claude/rules 2>/dev/null | wc -l | tr -d ' ')
+warm_count=$(grep -r "⚡" .claude/rules 2>/dev/null | wc -l | tr -d ' ')
+cold_count=$(grep -r "📚" .claude/rules 2>/dev/null | wc -l | tr -d ' ')
+archived_count=$(grep -r "🗄️" .claude/rules 2>/dev/null | wc -l | tr -d ' ')
+total_learnings=$((hot_count + warm_count + cold_count + archived_count))
+
+# Count by domain
+tools_count=$(find .claude/rules/tools -name "*.md" 2>/dev/null | wc -l | tr -d ' ')
+infrastructure_count=$(find .claude/rules/infrastructure -name "*.md" 2>/dev/null | wc -l | tr -d ' ')
+testing_count=$(find .claude/rules/testing -name "*.md" 2>/dev/null | wc -l | tr -d ' ')
+lessons_count=$(find .claude/rules/lessons -name "*.md" 2>/dev/null | wc -l | tr -d ' ')
+
+# Recent activity (files modified in last 7 days)
+recent_updates=$(find .claude/rules -name "*.md" -type f -mtime -7 2>/dev/null | wc -l | tr -d ' ')
+
+# Calibration data (if exists)
+coverage_gaps=0
+repeated_issues=0
+if [[ -f .claude/state/memory-calibration.json ]]; then
+    coverage_gaps=$(jq '.coverage_gaps // [] | length' .claude/state/memory-calibration.json 2>/dev/null || echo "0")
+    repeated_issues=$(jq '.repeated_issues // [] | length' .claude/state/memory-calibration.json 2>/dev/null || echo "0")
+fi
+
+# Output
+if [[ "$output_json" == "true" ]]; then
+    jq -n \
+        --arg total_files "$total_files" \
+        --arg total_learnings "$total_learnings" \
+        --arg hot "$hot_count" \
+        --arg warm "$warm_count" \
+        --arg cold "$cold_count" \
+        --arg archived "$archived_count" \
+        --arg tools "$tools_count" \
+        --arg infrastructure "$infrastructure_count" \
+        --arg testing "$testing_count" \
+        --arg lessons "$lessons_count" \
+        --arg recent "$recent_updates" \
+        --arg gaps "$coverage_gaps" \
+        --arg issues "$repeated_issues" \
+        '{
+            total_files: ($total_files | tonumber),
+            total_learnings: ($total_learnings | tonumber),
+            by_freshness: {
+                hot: ($hot | tonumber),
+                warm: ($warm | tonumber),
+                cold: ($cold | tonumber),
+                archived: ($archived | tonumber)
+            },
+            by_domain: {
+                tools: ($tools | tonumber),
+                infrastructure: ($infrastructure | tonumber),
+                testing: ($testing | tonumber),
+                lessons: ($lessons | tonumber)
+            },
+            recent_updates: ($recent | tonumber),
+            calibration: {
+                coverage_gaps: ($gaps | tonumber),
+                repeated_issues: ($issues | tonumber)
+            }
+        }'
+else
+    cat <<EOF
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🧠 Memory System Statistics
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📂 Total Files:      $total_files
+📚 Total Learnings:  $total_learnings
+
+By Freshness:
+  🔥 Hot:            $hot_count
+  ⚡ Warm:           $warm_count
+  📚 Cold:           $cold_count
+  🗄️ Archived:       $archived_count
+
+By Domain:
+  🔧 Tools:          $tools_count files
+  🏗️ Infrastructure: $infrastructure_count files
+  🧪 Testing:        $testing_count files
+  💡 Lessons:        $lessons_count files
+
+📅 Recent Activity:  $recent_updates files updated (last 7 days)
+
+🎯 Calibration:
+  Coverage Gaps:     $coverage_gaps
+  Repeated Issues:   $repeated_issues
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+EOF
+fi
+
+exit 0

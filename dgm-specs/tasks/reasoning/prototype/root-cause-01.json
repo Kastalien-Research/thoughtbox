@@ -1,0 +1,16 @@
+{
+  "id": "root-cause-01",
+  "category": "debugging",
+  "name": "API Timeout Investigation",
+  "prompt": "An API endpoint that fetches user profiles is timing out after 30 seconds. The endpoint needs to:\n1. Fetch user data from database (typically 50ms)\n2. Fetch user preferences from cache (typically 10ms)\n3. Fetch recent activity from external analytics API (typically 200ms)\n4. Fetch notification count from notification service (typically 100ms)\n5. Combine all data and return response\n\nThe timeout started happening after the notification service was updated last week. Before that, the endpoint responded in under 500ms. No changes were made to the endpoint code itself.\n\nWhat is the most likely root cause of the timeout?\n\nUse a systematic debugging approach and explain your reasoning.",
+  "correctAnswer": "sequential external calls causing cumulative delays",
+  "scoringRubric": {
+    "analyzed-timing": 2,
+    "identified-change": 2,
+    "traced-dependencies": 2,
+    "explained-mechanism": 2,
+    "proposed-root-cause": 2
+  },
+  "expectedThoughtboxBenefit": "Five-whys mental model for root cause analysis, backward thinking to trace from symptom to cause",
+  "estimatedTokens": 35000
+}

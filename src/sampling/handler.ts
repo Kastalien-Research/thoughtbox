@@ -21,7 +21,7 @@ Be constructive, specific, and actionable in your critique. Focus on helping imp
 /**
  * Model preferences for sampling requests
  */
-interface ModelPreferences {
+export interface ModelPreferences {
   hints?: Array<{ name: string }>;
   intelligencePriority?: number;
   costPriority?: number;
@@ -30,14 +30,16 @@ interface ModelPreferences {
 /**
  * Sampling request parameters following MCP specification
  */
-interface SamplingParams {
-  messages: Array<{
-    role: "user" | "assistant";
-    content: {
-      type: "text";
-      text: string;
-    };
-  }>;
+export interface SamplingMessage {
+  role: "user" | "assistant" | "system";
+  content: {
+    type: "text";
+    text: string;
+  };
+}
+
+export interface SamplingParams {
+  messages: Array<SamplingMessage>;
   systemPrompt?: string;
   modelPreferences?: ModelPreferences;
   includeContext?: "thisServer" | "allServers" | "none";
@@ -47,7 +49,7 @@ interface SamplingParams {
 /**
  * Result from a sampling request
  */
-interface SamplingResult {
+export interface SamplingResult {
   role: "assistant";
   content: {
     type: "text";
@@ -66,6 +68,30 @@ export class SamplingHandler {
   ) {}
 
   /**
+   * Generic sampling request wrapper
+   */
+  async requestMessage(params: SamplingParams): Promise<SamplingResult> {
+    try {
+      const result = (await this.protocol.request(
+        {
+          method: "sampling/createMessage",
+          params,
+        },
+        null as any
+      )) as SamplingResult;
+
+      return result;
+    } catch (error: any) {
+      if (error.code === -32601) {
+        // METHOD_NOT_FOUND - client doesn't support sampling
+        throw error;
+      }
+
+      throw new Error(`Sampling request failed: ${error.message}`);
+    }
+  }
+
+  /**
    * Request a critique of a thought from the MCP client
    *
    * @param thought - The current thought to critique
@@ -79,36 +105,19 @@ export class SamplingHandler {
   ): Promise<string> {
     const messages = this.buildMessages(context, thought);
 
-    try {
-      const result = (await this.protocol.request(
-        {
-          method: "sampling/createMessage",
-          params: {
-            messages,
-            systemPrompt: CRITIC_SYSTEM_PROMPT,
-            modelPreferences: {
-              hints: [{ name: "claude-sonnet-4-5-20250929" }],
-              intelligencePriority: 0.9,
-              costPriority: 0.3,
-            },
-            includeContext: "thisServer",
-            maxTokens: 1000,
-          } as SamplingParams,
-        },
-        null as any
-      )) as SamplingResult;
+    const result = await this.requestMessage({
+      messages,
+      systemPrompt: CRITIC_SYSTEM_PROMPT,
+      modelPreferences: {
+        hints: [{ name: "claude-sonnet-4-5-20250929" }],
+        intelligencePriority: 0.9,
+        costPriority: 0.3,
+      },
+      includeContext: "thisServer",
+      maxTokens: 1000,
+    });
 
-      return result.content.text;
-    } catch (error: any) {
-      // Re-throw with consistent error code for graceful degradation
-      if (error.code === -32601) {
-        // METHOD_NOT_FOUND - client doesn't support sampling
-        throw error;
-      }
-
-      // Other errors should be wrapped
-      throw new Error(`Sampling request failed: ${error.message}`);
-    }
+    return result.content.text;
   }
 
   /**

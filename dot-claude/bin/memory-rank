@@ -1,0 +1,83 @@
+#!/usr/bin/env bash
+###
+# memory-rank - Rank memory query results by relevance
+# Usage: memory-query "term" | memory-rank
+# Output: JSON stream, sorted by score
+# Unix-style: Filter/transform in pipeline
+###
+
+set -euo pipefail
+
+# Scoring weights (can be overridden via env vars)
+WEIGHT_RELEVANCE="${MEMORY_RANK_RELEVANCE:-5}"
+WEIGHT_FRESHNESS="${MEMORY_RANK_FRESHNESS:-3}"
+WEIGHT_PATTERN="${MEMORY_RANK_PATTERN:-2}"
+
+usage() {
+    cat >&2 <<EOF
+Usage: memory-query "term" | memory-rank
+
+Rank memory results by relevance score.
+
+Scoring formula:
+  score = (relevance * $WEIGHT_RELEVANCE) + (freshness * $WEIGHT_FRESHNESS) + (has_pattern * $WEIGHT_PATTERN)
+
+Freshness values:
+  hot      = 4
+  warm     = 3
+  cold     = 2
+  archived = 1
+
+Environment variables:
+  MEMORY_RANK_RELEVANCE=N   Weight for term matches (default: 5)
+  MEMORY_RANK_FRESHNESS=N   Weight for freshness (default: 3)
+  MEMORY_RANK_PATTERN=N     Weight for having pattern (default: 2)
+
+Output: JSON stream, sorted by score (descending)
+
+Examples:
+  memory-query "firebase" | memory-rank
+  memory-query "error" | memory-rank | head -3
+  memory-query "timeout" | MEMORY_RANK_FRESHNESS=10 memory-rank
+
+Exit codes:
+  0 - Success
+  1 - No input
+EOF
+    exit 1
+}
+
+# Read all input into array
+results=()
+while IFS= read -r line; do
+    results+=("$line")
+done
+
+if [[ ${#results[@]} -eq 0 ]]; then
+    exit 1
+fi
+
+# Score and sort
+for result in "${results[@]}"; do
+    # Extract fields
+    relevance=$(echo "$result" | jq -r '.relevance')
+    freshness=$(echo "$result" | jq -r '.freshness')
+    has_pattern=$(echo "$result" | jq -r 'if .pattern != "" then 1 else 0 end')
+    
+    # Map freshness to numeric
+    case "$freshness" in
+        hot) freshness_score=4 ;;
+        warm) freshness_score=3 ;;
+        cold) freshness_score=2 ;;
+        archived) freshness_score=1 ;;
+        *) freshness_score=0 ;;
+    esac
+    
+    # Calculate score
+    score=$(( (relevance * WEIGHT_RELEVANCE) + (freshness_score * WEIGHT_FRESHNESS) + (has_pattern * WEIGHT_PATTERN) ))
+    
+    # Add score to result
+    echo "$result" | jq --arg score "$score" '. + {score: ($score | tonumber)}'
+done | jq -s 'sort_by(-.score) | .[]'
+
+exit 0

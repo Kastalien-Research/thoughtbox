@@ -1,0 +1,21 @@
+{
+  "id": "bug-loc-003-session-status",
+  "variant": "clean",
+  "name": "Session Status Update Race",
+  "description": "Broadcasting session:ended before awaiting status update causes observers to see stale state",
+
+  "gitCommit": "7a31190b671b523c2cb3ef8a1ea4470c17e494da~1",
+  "fixCommit": "7a31190b671b523c2cb3ef8a1ea4470c17e494da",
+
+  "errorMessage": "session:ended broadcast happens before database status update completes, causing race condition",
+
+  "affectedFiles": [
+    "src/observatory/channels/reasoning.ts"
+  ],
+  "correctFile": "src/observatory/channels/reasoning.ts",
+
+  "successCriteria": "Await session status update before broadcasting session:ended event",
+
+  "expectedThoughtboxBenefit": "Thoughtbox helps track async flow through observatory channels without distraction",
+  "estimatedTokens": 2000
+}

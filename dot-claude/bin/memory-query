@@ -1,0 +1,163 @@
+#!/usr/bin/env bash
+###
+# memory-query - Search memory system for patterns
+# Usage: memory-query <search-term> [options]
+# Output: JSON stream of matching learnings
+# Unix-style: Composable, pipeable, JSON output
+###
+
+set -euo pipefail
+
+# Parse arguments
+search_term="${1:-}"
+max_results="${MEMORY_QUERY_MAX:-10}"
+domain_filter="${MEMORY_QUERY_DOMAIN:-}"
+freshness_filter="${MEMORY_QUERY_FRESHNESS:-}"
+
+usage() {
+    cat >&2 <<EOF
+Usage: memory-query <search-term> [options]
+
+Search memory system for patterns and learnings.
+
+Options:
+  MEMORY_QUERY_MAX=N          Max results (default: 10)
+  MEMORY_QUERY_DOMAIN=X       Filter by domain (tools|infrastructure|testing|lessons)
+  MEMORY_QUERY_FRESHNESS=X    Filter by freshness (hot|warm|cold)
+
+Output: JSON stream (one object per line)
+
+Examples:
+  memory-query "firebase"
+  MEMORY_QUERY_DOMAIN=tools memory-query "timeout"
+  memory-query "session" | memory-rank | head -3
+  memory-query "error" | jq -r '.pattern'
+
+Exit codes:
+  0 - Success (results found)
+  1 - No results found
+  2 - Invalid arguments
+EOF
+    exit 2
+}
+
+# Validate input
+if [[ -z "$search_term" ]]; then
+    usage
+fi
+
+# Find all memory files
+memory_files=()
+if [[ -n "$domain_filter" ]]; then
+    mapfile -t memory_files < <(find .claude/rules/"$domain_filter" -name "*.md" -type f 2>/dev/null)
+else
+    mapfile -t memory_files < <(find .claude/rules -name "*.md" -type f -not -path "*/TEMPLATE.md" -not -path "*/README.md" 2>/dev/null)
+fi
+
+if [[ ${#memory_files[@]} -eq 0 ]]; then
+    echo '{"error": "No memory files found"}' >&2
+    exit 1
+fi
+
+# Search and output JSON stream
+found=0
+for file in "${memory_files[@]}"; do
+    # Extract domain from path
+    domain=$(echo "$file" | sed 's|.claude/rules/||; s|/.*||')
+    
+    # Search for term in file
+    if ! grep -qi "$search_term" "$file" 2>/dev/null; then
+        continue
+    fi
+    
+    # Extract learnings that match
+    while IFS= read -r line_num; do
+        # Get context around match (10 lines before, 20 lines after to capture full learning)
+        start=$((line_num - 10 < 1 ? 1 : line_num - 10))
+        end=$((line_num + 20))
+        
+        context=$(sed -n "${start},${end}p" "$file")
+        
+        # Extract learning block (### heading to next ### or end)
+        learning=$(echo "$context" | awk '
+            /^### [0-9]{4}-[0-9]{2}-[0-9]{2}:/ { in_learning=1; learning="" }
+            in_learning { learning = learning $0 "\n" }
+            in_learning && /^### [0-9]{4}-[0-9]{2}-[0-9]{2}:/ && NR > 1 { exit }
+            in_learning && /^## / { exit }
+            END { print learning }
+        ')
+        
+        if [[ -z "$learning" ]]; then
+            continue
+        fi
+        
+        # Extract metadata
+        title=$(echo "$learning" | grep -m1 "^### " | sed 's/^### [0-9]\{4\}-[0-9]\{2\}-[0-9]\{2\}: //; s/ 🔥//; s/ ⚡//; s/ 📚//; s/ 🗄️//')
+        date=$(echo "$learning" | grep -m1 "^### " | grep -oE "[0-9]{4}-[0-9]{2}-[0-9]{2}")
+        freshness=$(echo "$learning" | grep -m1 "^### " | grep -oE "🔥|⚡|📚|🗄️" || echo "")
+        
+        # Map emoji to text
+        case "$freshness" in
+            "🔥") freshness_text="hot" ;;
+            "⚡") freshness_text="warm" ;;
+            "📚") freshness_text="cold" ;;
+            "🗄️") freshness_text="archived" ;;
+            *) freshness_text="unknown" ;;
+        esac
+        
+        # Filter by freshness if requested
+        if [[ -n "$freshness_filter" && "$freshness_text" != "$freshness_filter" ]]; then
+            continue
+        fi
+        
+        issue=$(echo "$learning" | grep "^- \*\*Issue\*\*:" | sed 's/^- \*\*Issue\*\*: //')
+        solution=$(echo "$learning" | grep "^- \*\*Solution\*\*:" | sed 's/^- \*\*Solution\*\*: //')
+        pattern=$(echo "$learning" | grep "^- \*\*Pattern\*\*:" | sed 's/^- \*\*Pattern\*\*: //')
+        files=$(echo "$learning" | grep "^- \*\*Files\*\*:" | sed 's/^- \*\*Files\*\*: //')
+        
+        # Calculate relevance score (simple: count of search term occurrences)
+        relevance=$(echo "$learning" | grep -oi "$search_term" | wc -l | tr -d ' ')
+        
+        # Output JSON
+        jq -n \
+            --arg title "$title" \
+            --arg date "$date" \
+            --arg freshness "$freshness_text" \
+            --arg domain "$domain" \
+            --arg file "$file" \
+            --arg issue "$issue" \
+            --arg solution "$solution" \
+            --arg pattern "$pattern" \
+            --arg files "$files" \
+            --arg relevance "$relevance" \
+            --arg learning "$learning" \
+            '{
+                title: $title,
+                date: $date,
+                freshness: $freshness,
+                domain: $domain,
+                file: $file,
+                issue: $issue,
+                solution: $solution,
+                pattern: $pattern,
+                files: $files,
+                relevance: ($relevance | tonumber),
+                full_text: $learning
+            }'
+        
+        found=$((found + 1))
+        
+        # Limit results
+        if [[ $found -ge $max_results ]]; then
+            exit 0
+        fi
+        
+    done < <(grep -n -i "$search_term" "$file" | cut -d: -f1)
+done
+
+# Exit code based on results
+if [[ $found -eq 0 ]]; then
+    exit 1
+else
+    exit 0
+fi

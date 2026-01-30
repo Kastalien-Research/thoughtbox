@@ -1,0 +1,5 @@
+{
+  "anthropic": "<YOUR_ANTHROPIC_API_KEY>",
+  "openrouter": "<YOUR_OPENROUTER_API_KEY>"
+}
+

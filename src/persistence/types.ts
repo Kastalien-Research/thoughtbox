@@ -115,6 +115,20 @@ export interface ThoughtData {
     /** ISO 8601 timestamp when critique was generated */
     timestamp: string;
   };
+
+  /**
+   * Recursive Language Model (RLM) result metadata
+   */
+  rlmResult?: {
+    /** Final answer produced by the RLM loop */
+    text: string;
+    /** Model that generated the final answer */
+    model?: string;
+    /** Logs from REPL/sub-LLM calls */
+    logs?: string[];
+    /** ISO 8601 timestamp when result was generated */
+    timestamp: string;
+  };
 }
 
 /**
@@ -518,6 +532,15 @@ export interface ThoughtboxStorage {
     sessionId: string,
     thoughtNumber: number,
     critique: { text: string; model: string; timestamp: string }
+  ): Promise<void>;
+
+  /**
+   * Update RLM result for a thought
+   */
+  updateThoughtRlmResult(
+    sessionId: string,
+    thoughtNumber: number,
+    rlm: { text: string; model?: string; logs?: string[]; timestamp: string }
   ): Promise<void>;
 
   // ---------------------------------------------------------------------------

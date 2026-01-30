@@ -1,0 +1,123 @@
+#!/usr/bin/env bash
+###
+# memory-pipe - Common memory system pipelines
+# Usage: memory-pipe <pipeline-name> [args]
+# Output: Depends on pipeline
+# Unix-style: Composable pre-built pipelines
+###
+
+set -euo pipefail
+
+pipeline="${1:-}"
+shift || true
+
+usage() {
+    cat >&2 <<EOF
+Usage: memory-pipe <pipeline> [args]
+
+Pre-built pipelines for common memory operations.
+
+Pipelines:
+  search <term>         - Search and rank results
+  top <term> [N]        - Top N results (default: 5)
+  recent [N]            - N most recent learnings (default: 10)
+  gaps                  - Show coverage gaps
+  issues                - Show repeated issues
+  hot                   - Show hot learnings only
+  domain <name> <term>  - Search within domain
+
+Examples:
+  memory-pipe search "firebase"
+  memory-pipe top "timeout" 3
+  memory-pipe recent 5
+  memory-pipe gaps
+  memory-pipe hot
+  memory-pipe domain tools "execution"
+
+Exit codes:
+  0 - Success
+  1 - No results
+  2 - Invalid pipeline
+EOF
+    exit 2
+}
+
+case "$pipeline" in
+    search)
+        term="${1:-}"
+        if [[ -z "$term" ]]; then
+            echo "Error: search requires term" >&2
+            usage
+        fi
+        memory-query "$term" | memory-rank | memory-format --style=full
+        ;;
+    
+    top)
+        term="${1:-}"
+        count="${2:-5}"
+        if [[ -z "$term" ]]; then
+            echo "Error: top requires term" >&2
+            usage
+        fi
+        memory-query "$term" | memory-rank | head -"$count" | memory-format --style=compact
+        ;;
+    
+    recent)
+        count="${1:-10}"
+        # Get all learnings, sort by date, take recent
+        find .claude/rules -name "*.md" -type f \
+            -not -path "*/TEMPLATE.md" \
+            -not -path "*/README.md" \
+            -mtime -30 2>/dev/null \
+            | xargs grep -h "^### [0-9]\{4\}-" 2>/dev/null \
+            | sort -r \
+            | head -"$count" \
+            | sed 's/### //'
+        ;;
+    
+    gaps)
+        if [[ ! -f .claude/state/memory-calibration.json ]]; then
+            echo "No calibration data yet" >&2
+            exit 1
+        fi
+        echo "🎯 Coverage Gaps:"
+        jq -r '.coverage_gaps // [] | sort_by(-.access_count) | .[] | "  • \(.file) (\(.access_count)x accessed)"' \
+            .claude/state/memory-calibration.json
+        ;;
+    
+    issues)
+        if [[ ! -f .claude/state/memory-calibration.json ]]; then
+            echo "No calibration data yet" >&2
+            exit 1
+        fi
+        echo "🔁 Repeated Issues:"
+        jq -r '.repeated_issues // [] | sort_by(-.count) | .[] | "  • \(.error) (\(.count)x)"' \
+            .claude/state/memory-calibration.json
+        ;;
+    
+    hot)
+        echo "🔥 Hot Learnings (< 2 weeks):"
+        grep -r "^### .*🔥" .claude/rules 2>/dev/null | sed 's/.*### /  • /; s/ 🔥//'
+        ;;
+    
+    domain)
+        domain="${1:-}"
+        term="${2:-}"
+        if [[ -z "$domain" || -z "$term" ]]; then
+            echo "Error: domain requires domain and term" >&2
+            usage
+        fi
+        MEMORY_QUERY_DOMAIN="$domain" memory-query "$term" | memory-rank | memory-format
+        ;;
+    
+    ""|--help|-h)
+        usage
+        ;;
+    
+    *)
+        echo "Error: Unknown pipeline: $pipeline" >&2
+        usage
+        ;;
+esac
+
+exit 0
