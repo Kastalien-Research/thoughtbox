@@ -1,0 +1,79 @@
+name: AgentOps - Daily Thoughtbox Dev Brief
+
+on:
+  schedule:
+    # 06:30 AM America/Chicago = 11:30 UTC (standard time) or 12:30 UTC (DST)
+    # Using 11:30 UTC for standard time
+    - cron: '30 11 * * *'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Dry run (do not create issue)'
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+  issues: write
+  actions: write
+
+jobs:
+  generate-daily-brief:
+    name: Generate Daily Dev Brief
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 10  # Need some history for digest
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run daily dev brief
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          LANGSMITH_API_KEY: ${{ secrets.LANGSMITH_API_KEY }}
+          LANGSMITH_PROJECT: agentops-thoughtbox-dev
+          LANGSMITH_ORG: ${{ secrets.LANGSMITH_ORG }}
+        run: |
+          if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
+            tsx agentops/runner/cli.ts daily-dev-brief --dry-run
+          else
+            tsx agentops/runner/cli.ts daily-dev-brief
+          fi
+
+      - name: Upload artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: daily-brief-${{ github.run_id }}
+          path: agentops/runs/*
+          retention-days: 30
+
+      - name: Post summary
+        if: always()
+        run: |
+          if [ -f agentops/runs/*/run_summary.json ]; then
+            echo "## 🧠 Daily Dev Brief Summary" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            cat agentops/runs/*/run_summary.json | jq -r '
+              "**Run ID:** \(.run_id)",
+              "**Status:** \(.status)",
+              "**Proposals:** \(.metrics.proposals_emitted)",
+              "**Duration:** \(.metrics.wall_clock_seconds)s",
+              "",
+              "### Links",
+              "- [Trace](\(.links.trace // "N/A"))",
+              "- [Issue](\(.links.issue // "Dry run - no issue created"))"
+            ' >> $GITHUB_STEP_SUMMARY
+          fi

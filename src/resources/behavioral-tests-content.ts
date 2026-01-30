@@ -7,10 +7,12 @@ export const BEHAVIORAL_TESTS = {
   thoughtbox: {
     name: "test-thoughtbox",
     uri: "thoughtbox://tests/thoughtbox",
-    description: "Behavioral tests for the thoughtbox thinking tool (15 tests covering forward/backward thinking, branching, revisions, linked structure)",
+    description: "Behavioral tests for the thoughtbox thinking tool (17 tests covering forward/backward thinking, branching, revisions, linked structure, auto-assignment)",
     content: `# Thoughtbox Tool - Behavioral Tests
 
 Workflows for Claude to execute when verifying the thoughtbox thinking tool functions correctly.
+
+**Response Modes:** Default responses are minimal (thoughtNumber, sessionId). Set \`verbose: true\` to get full metadata including branches, revisions, and guides. Session exports always include full linked structure.
 
 ## Test 1: Basic Forward Thinking Flow
 
@@ -21,9 +23,9 @@ Workflows for Claude to execute when verifying the thoughtbox thinking tool func
 2. Verify response includes thoughtNumber, totalThoughts, nextThoughtNeeded
 3. Call thought 2 of 3
 4. Call thought 3 of 3 with nextThoughtNeeded: false
-5. Verify patterns cookbook is embedded at thought 1 and final thought
+5. Verify patterns cookbook is embedded at thought 1 (guide only at thought 1 or when \`includeGuide: true\`)
 
-**Expected:** Clean progression with guide at bookends
+**Expected:** Clean progression with guide at thought 1
 
 ---
 
@@ -53,10 +55,10 @@ Workflows for Claude to execute when verifying the thoughtbox thinking tool func
 1. Create thoughts 1-3 normally
 2. Branch from thought 2 with branchId "option-a", thoughtNumber 4
 3. Branch from thought 2 with branchId "option-b", thoughtNumber 4
-4. Verify response includes both branches in branches array
+4. Set \`verbose: true\` and verify response includes both branches in branches array
 5. Create synthesis thought 5
 
-**Expected:** Multiple branches tracked, can reference later
+**Expected:** Multiple branches tracked, visible in verbose responses
 
 ---
 
@@ -100,17 +102,18 @@ Workflows for Claude to execute when verifying the thoughtbox thinking tool func
 
 ---
 
-## Test 7: Validation Flow
+## Test 7: Validation Flow (SIL-102)
 
-**Goal:** Verify input validation.
+**Goal:** Verify input validation and auto-assignment behavior.
 
 **Steps:**
 1. Call without required field (thought) - should error
-2. Call without thoughtNumber - should error
-3. Call with thoughtNumber > totalThoughts - should auto-adjust totalThoughts
-4. Call with invalid types - should error with clear message
+2. Call without thoughtNumber - should auto-assign and succeed
+3. Verify thoughtNumber is assigned sequentially when omitted
+4. Call with thoughtNumber > totalThoughts - should auto-adjust totalThoughts
+5. Call with invalid types - should error with clear message
 
-**Expected:** Clear validation errors, graceful handling of edge cases
+**Expected:** Clear validation errors, auto-assignment for forward reasoning, graceful edge case handling
 
 ---
 
@@ -232,6 +235,35 @@ Workflows for Claude to execute when verifying the thoughtbox thinking tool func
 5. Export session
 
 **Expected:** Chain is contiguous (1←5←8←10) despite thought number gaps
+
+---
+
+## Test 16: Backward Thinking Requires Explicit thoughtNumber (SIL-102)
+
+**Goal:** Verify backward reasoning (N→1) requires explicit thought numbers.
+
+**Steps:**
+1. Create thought with \`thoughtNumber: 5, totalThoughts: 5\`
+2. Create thought with \`thoughtNumber: 4, totalThoughts: 5\`
+3. Omit thoughtNumber on next call - verify auto-assignment gives 6 (not 3)
+4. Verify backward progression requires explicit numbers to work correctly
+
+**Expected:** Auto-assignment always increments. Backward thinking needs explicit control.
+
+---
+
+## Test 17: Sparse Thought Gaps Work with Explicit Numbers (SIL-102)
+
+**Goal:** Verify sparse reasoning patterns work with explicit thought numbers.
+
+**Steps:**
+1. Create thought 1 of 10 (explicit)
+2. Create thought 5 of 10 (explicit - skipping 2-4)
+3. Create thought 8 of 10 (explicit - skipping 6-7)
+4. Omit thoughtNumber - verify auto-assignment gives 9 (next sequential)
+5. Verify chain maintains sparse pattern: 1→5→8→9
+
+**Expected:** Explicit numbers allow gaps. Auto-assignment picks up from highest.
 `
   },
 
@@ -463,141 +495,170 @@ Workflows for Claude to execute when verifying the mental_models toolhost functi
   },
 
   memory: {
-    name: "test-memory",
-    uri: "thoughtbox://tests/memory",
-    description: "Behavioral tests for the knowledge/memory toolhost (12 tests covering patterns, scratchpad, persistence)",
-    content: `# Knowledge Zone - Behavioral Tests
+    name: "test-knowledge",
+    uri: "thoughtbox://tests/knowledge",
+    description: "Behavioral tests for the knowledge graph toolhost (12 tests covering entities, relations, observations, graph queries)",
+    content: `# Knowledge Graph - Behavioral Tests
 
-Workflows for Claude to execute when verifying the knowledge toolhost functions correctly.
+Workflows for Claude to execute when verifying the knowledge graph functions correctly.
 
-The Knowledge Zone ("The Garden") has two areas:
-1. **Patterns** - Extracted heuristics from successful reasoning sessions (persistent)
-2. **Scratchpad** - Temporary collaborative working notes (ephemeral)
+The Knowledge Graph stores structured information as entities, relations, and observations that can be traversed and queried.
 
----
+**Available Operations:** \`create_entity\`, \`get_entity\`, \`list_entities\`, \`add_observation\`, \`create_relation\`, \`query_graph\`, \`stats\`
 
-## Pattern Tests
+**Entity Types:** Insight, Concept, Workflow, Decision, Agent
 
-### Test 1: Pattern Creation Flow
-
-**Goal:** Verify patterns can be created and retrieved.
-
-**Steps:**
-1. Call \`knowledge\` with operation \`create_pattern\`, args:
-   - title: "Test Pattern"
-   - description: "A test pattern for behavioral verification"
-   - content: "## Steps\\n\\n1. First step\\n2. Second step"
-   - tags: ["testing", "verification"]
-2. Verify response includes success: true, pattern id, pattern uri
-3. Call operation \`get_pattern\` with args: { id: "test-pattern" }
-4. Verify full pattern returned with content, tags, timestamps
-
-**Expected:** Pattern persisted as Markdown file, retrievable by ID
+**Relation Types:** RELATES_TO, BUILDS_ON, CONTRADICTS, EXTRACTED_FROM, APPLIED_IN, LEARNED_BY, DEPENDS_ON, SUPERSEDES, MERGED_FROM
 
 ---
 
-### Test 2: Pattern Update Flow
+## Entity Tests
 
-**Goal:** Verify patterns can be modified.
+### Test 1: Entity Creation Flow
+
+**Goal:** Verify entities can be created with different types.
 
 **Steps:**
-1. Create a pattern with initial content
-2. Call operation \`update_pattern\` with new content and tags
-3. Verify success response
-4. Call \`get_pattern\` to verify changes persisted
-5. Verify \`updatedAt\` timestamp changed
+1. Call \`knowledge\` with action \`create_entity\`, args:
+   - name: "test-insight-001"
+   - type: "Insight"
+   - label: "Always validate input at boundaries"
+   - properties: { domain: "security", confidence: 0.9 }
+2. Verify response includes entity_id, name, type, created_at
+3. Create another entity with type "Concept"
+4. Verify both entity types work
 
-**Expected:** Partial updates work, unchanged fields preserved
+**Expected:** Entities created with unique IDs, retrievable by ID
 
 ---
 
-### Test 3: Pattern Listing and Filtering Flow
+### Test 2: Entity Retrieval Flow
 
-**Goal:** Verify pattern discovery and search.
+**Goal:** Verify entities can be retrieved by ID.
 
 **Steps:**
-1. Create multiple patterns with different tags
-2. Call operation \`list_patterns\` with no args
-3. Verify all patterns returned
-4. Call \`list_patterns\` with args: { tags: ["debugging"] }
-5. Verify only patterns with debugging tag returned
+1. Create an entity and capture entity_id from response
+2. Call action \`get_entity\` with args: { entity_id: "<captured-id>" }
+3. Verify response includes full entity with all fields:
+   - id, name, type, label, properties
+   - created_at, updated_at, created_by
+   - visibility, access_count, importance_score
 
-**Expected:** Filtering by tags and search works correctly
+**Expected:** Full entity data returned with metadata
 
 ---
 
-### Test 4: Pattern Tags Discovery Flow
+### Test 3: Entity Listing and Filtering Flow
 
-**Goal:** Verify tag aggregation across patterns.
+**Goal:** Verify entity discovery with filters.
 
 **Steps:**
-1. Create patterns with various tags
-2. Call operation \`list_tags\`
-3. Verify response contains all unique tags used across patterns
-4. Verify no duplicate tags in response
+1. Create multiple entities with different types (Insight, Concept, Workflow)
+2. Call action \`list_entities\` with no filters
+3. Verify all entities returned with count
+4. Call \`list_entities\` with args: { types: ["Insight"] }
+5. Verify only Insight entities returned
+6. Call \`list_entities\` with args: { name_pattern: "test-" }
+7. Verify only entities matching pattern returned
 
-**Expected:** Complete tag inventory for navigation
+**Expected:** Filtering by type and name pattern works
 
 ---
 
-### Test 5: Pattern Deletion Flow
+### Test 4: Observation Addition Flow
 
-**Goal:** Verify patterns can be removed.
+**Goal:** Verify observations can be added to entities.
 
 **Steps:**
-1. Create a test pattern
-2. Verify it appears in \`list_patterns\`
-3. Call operation \`delete_pattern\` with args: { id: "test-pattern" }
-4. Verify success response
-5. Call \`get_pattern\` - should return error "not found"
+1. Create an entity
+2. Call action \`add_observation\` with args:
+   - entity_id: "<captured-id>"
+   - content: "This pattern was successfully applied in session ABC"
+   - source_session: "abc-123"
+3. Verify response includes observation_id, entity_id, added_at
+4. Add another observation to same entity
+5. Get entity and verify observations are accumulated
 
-**Expected:** Pattern removed from filesystem and listings
+**Expected:** Multiple observations can be added, tracked by timestamp
 
 ---
 
-## Scratchpad Tests
+## Relation Tests
 
-### Test 6: Scratchpad Write/Read Flow
+### Test 5: Relation Creation Flow
 
-**Goal:** Verify scratchpad notes can be created and read.
+**Goal:** Verify relations can link entities.
 
 **Steps:**
-1. Call \`knowledge\` with operation \`write_scratchpad\`, args:
-   - topic: "API Design Ideas"
-   - content: "## Current thinking\\n\\n- REST vs GraphQL"
-2. Verify response includes note id
-3. Call operation \`read_scratchpad\` with args: { id: "api-design-ideas" }
-4. Verify full content returned
+1. Create two entities (entity A and entity B)
+2. Call action \`create_relation\` with args:
+   - from_id: "<entity-a-id>"
+   - to_id: "<entity-b-id>"
+   - relation_type: "BUILDS_ON"
+   - properties: { strength: 0.8 }
+3. Verify response includes relation_id, from_id, to_id, type, created_at
+4. Create another relation with type "CONTRADICTS"
+5. Verify different relation types work
 
-**Expected:** Scratchpad notes persist during session
+**Expected:** Relations created with typed edges between entities
 
 ---
 
-### Test 7: Scratchpad Overwrite Flow
+### Test 6: Graph Query Flow
 
-**Goal:** Verify scratchpad updates replace content.
+**Goal:** Verify graph traversal works with depth limits.
 
 **Steps:**
-1. Create scratchpad note with initial content
-2. Call \`write_scratchpad\` with same topic, different content
-3. Call \`read_scratchpad\`
-4. Verify content is new content (not appended)
+1. Create a chain: Entity A → Entity B → Entity C
+   - Create 3 entities
+   - Create relation A→B (BUILDS_ON)
+   - Create relation B→C (BUILDS_ON)
+2. Call action \`query_graph\` with args:
+   - start_entity_id: "<entity-a-id>"
+   - max_depth: 2
+3. Verify response includes:
+   - entity_count: 3
+   - relation_count: 2
+   - entities array with all 3 entities
+   - relations array with both relations
 
-**Expected:** Write is idempotent - same topic overwrites
+**Expected:** Traversal follows edges up to max_depth
 
 ---
 
-### Test 8: Scratchpad Listing Flow
+### Test 7: Multi-Hop Graph Query
 
-**Goal:** Verify scratchpad discovery.
+**Goal:** Verify complex graph traversal.
 
 **Steps:**
-1. Create multiple scratchpad notes
-2. Call operation \`list_scratchpad\`
-3. Verify all notes returned with id, title, uri, updatedAt
-4. Verify sorted by most recently updated
+1. Create a tree structure:
+   - Root entity R
+   - R → A (BUILDS_ON)
+   - R → B (BUILDS_ON)
+   - A → C (DEPENDS_ON)
+   - B → D (DEPENDS_ON)
+2. Query from R with max_depth: 2
+3. Verify all 5 entities discovered
+4. Verify all 4 relations discovered
+5. Query with max_depth: 1
+6. Verify only R, A, B discovered (depth limit enforced)
 
-**Expected:** Complete scratchpad inventory
+**Expected:** Breadth-first traversal with configurable depth
+
+---
+
+### Test 8: Stats Operation Flow
+
+**Goal:** Verify graph statistics are accurate.
+
+**Steps:**
+1. Call action \`stats\` with no args
+2. Verify response includes entity count and relation count
+3. Create several entities and relations
+4. Call \`stats\` again
+5. Verify counts increased correctly
+
+**Expected:** Real-time statistics reflect current graph state
 
 ---
 
@@ -608,29 +669,76 @@ The Knowledge Zone ("The Garden") has two areas:
 **Goal:** Verify graceful error handling.
 
 **Steps:**
-1. Call \`create_pattern\` without required \`title\` - should error
-2. Call \`get_pattern\` with nonexistent ID - should return "not found"
-3. Call \`update_pattern\` with nonexistent ID - should error
-4. Call unknown operation - should error with list of valid operations
+1. Call \`create_entity\` without required field (name) - should error
+2. Call \`create_entity\` without type - should error
+3. Call \`get_entity\` with nonexistent entity_id - should error "Entity not found"
+4. Call \`create_relation\` with invalid from_id - should error
+5. Call unknown action - should error with available actions list
 
-**Expected:** Clear error messages, no data corruption
+**Expected:** Clear error messages, validation prevents bad data
+
+---
+
+## Advanced Query Tests
+
+### Test 10: Relation Type Filtering
+
+**Goal:** Verify queries can filter by relation type.
+
+**Steps:**
+1. Create entities A, B, C, D
+2. Create relations:
+   - A → B (BUILDS_ON)
+   - A → C (CONTRADICTS)
+   - A → D (RELATES_TO)
+3. Query from A with relation_types: ["BUILDS_ON"]
+4. Verify only B discovered (not C or D)
+5. Query with relation_types: ["BUILDS_ON", "CONTRADICTS"]
+6. Verify B and C discovered (not D)
+
+**Expected:** Relation type filters control traversal
 
 ---
 
 ## Persistence Tests
 
-### Test 10: Filesystem Persistence Flow
+### Test 11: Data Persistence Flow
 
-**Goal:** Verify data survives server restart.
+**Goal:** Verify data survives across sessions.
 
 **Steps:**
-1. Create patterns and scratchpad notes
-2. Note the data
-3. Restart the server
-4. Call \`list_patterns\` and \`list_scratchpad\`
-5. Verify all previously created data still present
+1. Create entities and relations
+2. Note the entity IDs
+3. Restart the server (if testing across restarts)
+4. Call \`list_entities\` and verify previous entities still present
+5. Call \`get_entity\` with previous IDs and verify data intact
 
-**Expected:** Markdown files in ~/.thoughtbox/knowledge/ persist across restarts
+**Expected:** SQLite database persists entities and relations
+
+---
+
+### Test 12: Complex Knowledge Structure
+
+**Goal:** Verify realistic knowledge graph usage.
+
+**Steps:**
+1. Create a learning scenario:
+   - Insight entity: "Orchestrator pattern reduces coupling"
+   - Concept entity: "Message Queue"
+   - Workflow entity: "Async Processing Pattern"
+   - Decision entity: "Use RabbitMQ over Kafka for this project"
+2. Create relations:
+   - Insight BUILDS_ON Concept
+   - Workflow DEPENDS_ON Concept
+   - Decision APPLIED_IN Workflow
+   - Insight EXTRACTED_FROM session_123
+3. Add observations to Insight:
+   - "Successfully used in project X"
+   - "Reduced latency by 40%"
+4. Query from Concept with max_depth: 2
+5. Verify entire knowledge cluster discovered
+
+**Expected:** Complex graphs support real-world knowledge modeling
 `
   }
 } as const;

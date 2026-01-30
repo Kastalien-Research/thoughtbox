@@ -3,6 +3,15 @@
  *
  * Tracks connection stage for each MCP session using Map-based storage.
  * Enables proper state machine semantics for the init tool workflow.
+ *
+ * IMPORTANT: ConnectionStage tracks WHERE you are (per-session navigation state).
+ * This is separate from ToolRegistry's DisclosureStage, which tracks WHAT operations
+ * are available (global operation visibility).
+ *
+ * ConnectionStage = Navigation state (project/task/aspect selected, session loaded)
+ * DisclosureStage = Operation availability (which gateway operations are enabled)
+ *
+ * Both systems must stay synchronized at key transition points (start_new, load_context).
  */
 
 /**
@@ -11,6 +20,9 @@
  * STAGE_1_UNINITIALIZED: No init tool call made yet
  * STAGE_2_INIT_STARTED: Agent has called init tool at least once
  * STAGE_3_FULLY_LOADED: Context fully loaded, ready for work
+ *
+ * NOTE: This is WHERE you are in the initialization flow.
+ * See ToolRegistry.DisclosureStage for WHAT operations are available.
  */
 export enum ConnectionStage {
   STAGE_1_UNINITIALIZED = 'stage_1',

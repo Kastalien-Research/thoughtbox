@@ -1,0 +1,38 @@
+{
+  "patterns": [],
+  "coverage_gaps": [],
+  "repeated_issues": [
+    {
+      "error": "Exit code N",
+      "count": 5,
+      "detected": "2026-01-29 06:07:02"
+    },
+    {
+      "error": "",
+      "count": 4,
+      "detected": "2026-01-29 06:07:02"
+    },
+    {
+      "error": "node:internal/modules/run_main:N",
+      "count": 3,
+      "detected": "2026-01-29 06:07:02"
+    },
+    {
+      "error": "Exit code N",
+      "count": 5,
+      "detected": "2026-01-29 06:08:00"
+    },
+    {
+      "error": "",
+      "count": 4,
+      "detected": "2026-01-29 06:08:00"
+    },
+    {
+      "error": "node:internal/modules/run_main:N",
+      "count": 3,
+      "detected": "2026-01-29 06:08:00"
+    }
+  ],
+  "discovery_times": [],
+  "last_analysis": "2026-01-29 06:08:00"
+}
