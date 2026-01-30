@@ -23,11 +23,17 @@ FROM node:22-slim
 
 WORKDIR /app
 
+# Install build tools for native modules
+RUN apt-get update && apt-get install -y python3 make g++ && rm -rf /var/lib/apt/lists/*
+
 # Copy package files
 COPY package*.json ./
 
 # Install production dependencies only (--ignore-scripts skips husky prepare)
 RUN npm ci --omit=dev --ignore-scripts
+
+# Rebuild native modules for Docker architecture
+RUN npm rebuild better-sqlite3
 
 # Copy built files from builder
 COPY --from=builder /app/dist ./dist
