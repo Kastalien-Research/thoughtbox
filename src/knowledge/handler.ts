@@ -117,10 +117,13 @@ export class KnowledgeHandler {
       throw new Error(`Entity not found: ${args.entity_id}`);
     }
 
+    // Fetch observations for this entity
+    const observations = await this.storage.getObservations(args.entity_id);
+
     return {
       content: [{
         type: 'text',
-        text: JSON.stringify(entity, null, 2),
+        text: JSON.stringify({ ...entity, observations }, null, 2),
       }],
     };
   }

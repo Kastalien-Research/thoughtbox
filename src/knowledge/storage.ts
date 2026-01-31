@@ -612,7 +612,7 @@ export class FileSystemKnowledgeStorage implements KnowledgeStorage {
     while (queue.length > 0) {
       const { id, depth } = queue.shift()!;
 
-      if (depth >= maxDepth) continue;
+      if (depth > maxDepth) continue;
 
       // Get entity
       const entity = await this.getEntity(id);
