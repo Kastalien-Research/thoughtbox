@@ -26,9 +26,179 @@ import type { KnowledgeHandler } from '../knowledge/index.js';
 // =============================================================================
 
 /**
- * Gateway tool input schema with detailed operation-specific parameters
+ * All available operations for the gateway tool.
+ * Used as enum values in the flat schema.
  */
-export const gatewayToolInputSchema = z.discriminatedUnion('operation', [
+const GATEWAY_OPERATIONS = [
+  'get_state',
+  'list_sessions',
+  'navigate',
+  'load_context',
+  'start_new',
+  'list_roots',
+  'bind_root',
+  'cipher',
+  'thought',
+  'read_thoughts',
+  'get_structure',
+  'notebook',
+  'session',
+  'mental_models',
+  'deep_analysis',
+  'knowledge',
+] as const;
+
+/**
+ * Gateway tool input schema - FLAT OBJECT SCHEMA
+ *
+ * NOTE: We use a flat object schema instead of discriminatedUnion because:
+ * The MCP SDK's normalizeObjectSchema() returns undefined for discriminated unions,
+ * causing the SDK to fall back to an empty object schema. This flat schema ensures
+ * the full args structure is visible to agents.
+ *
+ * Runtime validation based on operation is done in the handler.
+ */
+export const gatewayToolInputSchema = z.object({
+  operation: z.enum(GATEWAY_OPERATIONS).describe('The operation to perform'),
+  args: z.object({
+    // =============================================================================
+    // Init Operations Args (Stage 0)
+    // =============================================================================
+    // list_sessions filters
+    filters: z.object({
+      project: z.string().optional().describe('Filter by project name'),
+      task: z.string().optional().describe('Filter by task name'),
+      aspect: z.string().optional().describe('Filter by aspect name'),
+      search: z.string().optional().describe('Search query for session content'),
+      limit: z.number().optional().describe('Maximum number of results (default: 20)'),
+    }).optional().describe('Filters for list_sessions operation'),
+
+    // Common args used by multiple operations
+    limit: z.number().optional().describe('Maximum number of results to return'),
+    offset: z.number().optional().describe('Number of items to skip for pagination'),
+    tags: z.array(z.string()).optional().describe('Filter by tags'),
+
+    // navigate args
+    target: z.object({
+      project: z.string().optional().describe('Target project name'),
+      task: z.string().optional().describe('Target task name'),
+      aspect: z.string().optional().describe('Target aspect name'),
+    }).optional().describe('Navigation target for navigate operation'),
+
+    // load_context args
+    sessionId: z.string().optional().describe('Session ID to load'),
+
+    // start_new args
+    newWork: z.object({
+      project: z.string().optional().describe('Project name (required unless root is bound)'),
+      task: z.string().optional().describe('Task within the project'),
+      aspect: z.string().optional().describe('Aspect within the task'),
+      domain: z.string().optional().describe("Reasoning domain (e.g., 'debugging', 'planning', 'architecture') - unlocks domain-specific mental models"),
+    }).optional().describe('New work configuration for start_new operation'),
+
+    // bind_root args
+    rootUri: z.string().optional().describe('Root URI to bind (bind_root)'),
+    pathPrefix: z.string().optional().describe('Optional path prefix within the root (bind_root)'),
+
+    // =============================================================================
+    // Thought Operation Args (Stage 2)
+    // =============================================================================
+    thought: z.string().optional().describe('The content of the thought'),
+    nextThoughtNeeded: z.boolean().optional().describe('Whether another thought is needed after this one'),
+    thoughtNumber: z.number().optional().describe('Specific thought number (auto-assigned if omitted)'),
+    totalThoughts: z.number().optional().describe('Expected total number of thoughts'),
+    isRevision: z.boolean().optional().describe('Whether this thought revises a previous one'),
+    revisesThought: z.number().optional().describe('Thought number being revised (requires isRevision=true)'),
+    branchFromThought: z.number().optional().describe('Thought number to branch from'),
+    branchId: z.string().optional().describe('Branch identifier (requires branchFromThought)'),
+    needsMoreThoughts: z.boolean().optional().describe('Whether more thoughts are needed beyond current estimate'),
+    includeGuide: z.boolean().optional().describe('Whether to include reasoning guide in response'),
+    sessionTitle: z.string().optional().describe('Update session title'),
+    sessionTags: z.array(z.string()).optional().describe('Update session tags'),
+    critique: z.boolean().optional().describe('Request critique of the thought'),
+    verbose: z.boolean().optional().describe('Return full response (default) vs minimal response'),
+
+    // =============================================================================
+    // Read Thoughts Args (Stage 2)
+    // =============================================================================
+    last: z.number().optional().describe('Get last N thoughts (read_thoughts)'),
+    range: z.tuple([z.number(), z.number()]).optional().describe('Get thoughts in range [start, end] inclusive (read_thoughts)'),
+    // branchId already defined above
+
+    // =============================================================================
+    // Notebook Operation Args (Stage 2)
+    // =============================================================================
+    // Sub-operation for nested handlers
+    operation: z.string().optional().describe('Sub-operation for notebook/session/mental_models handlers'),
+    notebookId: z.string().optional().describe('Notebook ID (notebook operations)'),
+    title: z.string().optional().describe('Title (notebook create)'),
+    language: z.enum(['javascript', 'typescript']).optional().describe('Programming language (notebook create)'),
+    template: z.enum(['sequential-feynman']).optional().describe('Optional template (notebook create)'),
+    path: z.string().optional().describe('Filesystem path (notebook load/export)'),
+    content: z.string().optional().describe('Raw content string (notebook load, knowledge add_observation)'),
+    cellId: z.string().optional().describe('Cell ID (notebook update_cell, run_cell, get_cell)'),
+    cellType: z.enum(['title', 'markdown', 'code']).optional().describe('Cell type (notebook add_cell)'),
+    filename: z.string().optional().describe('Filename for code cells (notebook add_cell)'),
+    position: z.number().optional().describe('Cell position (notebook add_cell)'),
+
+    // =============================================================================
+    // Session Operation Args (Stage 1)
+    // =============================================================================
+    query: z.string().optional().describe('Search query (session search)'),
+    format: z.enum(['markdown', 'cipher', 'json']).optional().describe('Export format (session export)'),
+    includeMetadata: z.boolean().optional().describe('Include metadata (session export)'),
+    keyMoments: z.array(z.object({
+      thoughtNumber: z.number(),
+      type: z.enum(['decision', 'pivot', 'insight', 'revision', 'branch']),
+      significance: z.number().optional(),
+      summary: z.string().optional(),
+    })).optional().describe('Key moments for pattern extraction (session extract_learnings)'),
+    targetTypes: z.array(z.enum(['pattern', 'anti-pattern', 'signal'])).optional().describe('Learning types to extract (session extract_learnings)'),
+    action: z.enum(['list', 'hide', 'show']).optional().describe('Discovery action (session discovery)'),
+    toolName: z.string().optional().describe('Tool name for hide/show (session discovery)'),
+
+    // =============================================================================
+    // Mental Models Operation Args (Stage 2)
+    // =============================================================================
+    model: z.string().optional().describe('Model name (mental_models get_model)'),
+    tag: z.string().optional().describe('Filter by tag (mental_models list_models)'),
+
+    // =============================================================================
+    // Deep Analysis Operation Args (Stage 1)
+    // =============================================================================
+    analysisType: z.enum(['patterns', 'cognitive_load', 'decision_points', 'full']).optional().describe('Type of analysis (deep_analysis)'),
+    options: z.object({
+      includeTimeline: z.boolean().optional(),
+      compareWith: z.array(z.string()).optional(),
+    }).optional().describe('Analysis options (deep_analysis)'),
+
+    // =============================================================================
+    // Knowledge Operation Args (Stage 2)
+    // =============================================================================
+    // Sub-action for knowledge handler
+    // action is used instead of operation for knowledge
+    knowledgeAction: z.enum(['create_entity', 'get_entity', 'list_entities', 'add_observation', 'create_relation', 'query_graph', 'stats']).optional().describe('Knowledge graph action'),
+    name: z.string().optional().describe('Entity name (knowledge create_entity)'),
+    type: z.enum(['Insight', 'Concept', 'Workflow', 'Decision', 'Agent']).optional().describe('Entity type (knowledge create_entity)'),
+    label: z.string().optional().describe('Entity label (knowledge create_entity)'),
+    properties: z.record(z.unknown()).optional().describe('Entity properties (knowledge create_entity)'),
+    entity_id: z.string().optional().describe('Entity ID (knowledge get_entity, add_observation, query_graph)'),
+    source_session: z.string().optional().describe('Source session (knowledge add_observation)'),
+    from_id: z.string().optional().describe('Source entity ID (knowledge create_relation)'),
+    to_id: z.string().optional().describe('Target entity ID (knowledge create_relation)'),
+    relation_type: z.enum(['RELATES_TO', 'BUILDS_ON', 'CONTRADICTS', 'EXTRACTED_FROM', 'APPLIED_IN', 'LEARNED_BY', 'DEPENDS_ON', 'SUPERSEDES', 'MERGED_FROM']).optional().describe('Relation type (knowledge create_relation)'),
+    start_entity_id: z.string().optional().describe('Starting entity for traversal (knowledge query_graph)'),
+    relation_types: z.array(z.string()).optional().describe('Filter by relation types (knowledge query_graph)'),
+    max_depth: z.number().optional().describe('Maximum traversal depth (knowledge query_graph, default: 3)'),
+  }).optional().describe('Operation-specific arguments. Required fields depend on the operation.'),
+});
+
+/**
+ * Internal discriminated union for runtime validation.
+ * This provides strong typing for the handler while the flat schema above
+ * is used for MCP tool registration (which requires an object schema).
+ */
+const gatewayToolInputSchemaInternal = z.discriminatedUnion('operation', [
   // =============================================================================
   // Init Operations (Stage 0) - Pattern 1: Direct Args
   // =============================================================================
@@ -39,30 +209,43 @@ export const gatewayToolInputSchema = z.discriminatedUnion('operation', [
   z.object({
     operation: z.literal('list_sessions'),
     args: z.object({
-      limit: z.number().optional().describe('Maximum number of sessions to return (default: 10)'),
-      offset: z.number().optional().describe('Number of sessions to skip for pagination (default: 0)'),
-      tags: z.array(z.string()).optional().describe('Filter by tags (returns sessions matching ANY tag)'),
+      limit: z.number().optional(),
+      offset: z.number().optional(),
+      tags: z.array(z.string()).optional(),
+      filters: z.object({
+        project: z.string().optional(),
+        task: z.string().optional(),
+        aspect: z.string().optional(),
+        search: z.string().optional(),
+        limit: z.number().optional(),
+      }).optional(),
     }).optional(),
   }),
   z.object({
     operation: z.literal('navigate'),
     args: z.object({
-      sessionId: z.string().describe('Session ID to navigate to'),
+      target: z.object({
+        project: z.string().optional(),
+        task: z.string().optional(),
+        aspect: z.string().optional(),
+      }).optional(),
+      sessionId: z.string().optional(),
     }),
   }),
   z.object({
     operation: z.literal('load_context'),
     args: z.object({
-      sessionId: z.string().describe('Session ID to load'),
+      sessionId: z.string(),
     }),
   }),
   z.object({
     operation: z.literal('start_new'),
     args: z.object({
       newWork: z.object({
-        title: z.string().describe('Title describing the new reasoning session'),
-        tags: z.array(z.string()).optional().describe('Tags for categorizing the session'),
-        description: z.string().optional().describe('Optional description of the session purpose'),
+        project: z.string().optional(),
+        task: z.string().optional(),
+        aspect: z.string().optional(),
+        domain: z.string().optional(),
       }),
     }),
   }),
@@ -73,8 +256,8 @@ export const gatewayToolInputSchema = z.discriminatedUnion('operation', [
   z.object({
     operation: z.literal('bind_root'),
     args: z.object({
-      rootUri: z.string().describe('Root URI to bind'),
-      pathPrefix: z.string().optional().describe('Optional path prefix within the root'),
+      rootUri: z.string(),
+      pathPrefix: z.string().optional(),
     }),
   }),
 
@@ -87,27 +270,25 @@ export const gatewayToolInputSchema = z.discriminatedUnion('operation', [
   }),
 
   // =============================================================================
-  // Thought Operation (Stage 2) - Pattern 1: Direct Args
-  // Note: branchId requires branchFromThought; revisesThought requires isRevision=true
-  // These interdependencies are validated at runtime in the handler
+  // Thought Operation (Stage 2)
   // =============================================================================
   z.object({
     operation: z.literal('thought'),
     args: z.object({
-      thought: z.string().describe('The content of the thought'),
-      nextThoughtNeeded: z.boolean().describe('Whether another thought is needed after this one'),
-      thoughtNumber: z.number().optional().describe('Specific thought number (auto-assigned if omitted)'),
-      totalThoughts: z.number().optional().describe('Expected total number of thoughts'),
-      isRevision: z.boolean().optional().describe('Whether this thought revises a previous one'),
-      revisesThought: z.number().optional().describe('Thought number being revised (requires isRevision=true)'),
-      branchFromThought: z.number().optional().describe('Thought number to branch from'),
-      branchId: z.string().optional().describe('Branch identifier (requires branchFromThought)'),
-      needsMoreThoughts: z.boolean().optional().describe('Whether more thoughts are needed beyond current estimate'),
-      includeGuide: z.boolean().optional().describe('Whether to include reasoning guide in response'),
-      sessionTitle: z.string().optional().describe('Update session title'),
-      sessionTags: z.array(z.string()).optional().describe('Update session tags'),
-      critique: z.boolean().optional().describe('Request critique of the thought'),
-      verbose: z.boolean().optional().describe('Return full response (default) vs minimal response'),
+      thought: z.string(),
+      nextThoughtNeeded: z.boolean(),
+      thoughtNumber: z.number().optional(),
+      totalThoughts: z.number().optional(),
+      isRevision: z.boolean().optional(),
+      revisesThought: z.number().optional(),
+      branchFromThought: z.number().optional(),
+      branchId: z.string().optional(),
+      needsMoreThoughts: z.boolean().optional(),
+      includeGuide: z.boolean().optional(),
+      sessionTitle: z.string().optional(),
+      sessionTags: z.array(z.string()).optional(),
+      critique: z.boolean().optional(),
+      verbose: z.boolean().optional(),
     }),
   }),
 
@@ -117,11 +298,11 @@ export const gatewayToolInputSchema = z.discriminatedUnion('operation', [
   z.object({
     operation: z.literal('read_thoughts'),
     args: z.object({
-      sessionId: z.string().optional().describe('Session ID (defaults to active session)'),
-      thoughtNumber: z.number().optional().describe('Get specific thought by number'),
-      last: z.number().optional().describe('Get last N thoughts'),
-      range: z.tuple([z.number(), z.number()]).optional().describe('Get thoughts in range [start, end] inclusive'),
-      branchId: z.string().optional().describe('Get all thoughts from specific branch'),
+      sessionId: z.string().optional(),
+      thoughtNumber: z.number().optional(),
+      last: z.number().optional(),
+      range: z.tuple([z.number(), z.number()]).optional(),
+      branchId: z.string().optional(),
     }).optional(),
   }),
 
@@ -131,74 +312,65 @@ export const gatewayToolInputSchema = z.discriminatedUnion('operation', [
   z.object({
     operation: z.literal('get_structure'),
     args: z.object({
-      sessionId: z.string().optional().describe('Session ID (defaults to active session)'),
+      sessionId: z.string().optional(),
     }).optional(),
   }),
 
   // =============================================================================
-  // Notebook Operation (Stage 2) - Pattern 2: Nested Operation
+  // Notebook Operation (Stage 2)
   // =============================================================================
   z.object({
     operation: z.literal('notebook'),
     args: z.object({
-      operation: z.enum(['create', 'list', 'load', 'add_cell', 'update_cell', 'run_cell', 'install_deps', 'list_cells', 'get_cell', 'export']).describe('Notebook sub-operation'),
-      // Common parameters
-      notebookId: z.string().optional().describe('Notebook ID (required for most operations)'),
-      // create parameters
-      title: z.string().optional().describe('Notebook title (create)'),
-      language: z.enum(['javascript', 'typescript']).optional().describe('Programming language (create)'),
-      template: z.enum(['sequential-feynman']).optional().describe('Optional template (create)'),
-      // load/export parameters
-      path: z.string().optional().describe('Filesystem path (load/export)'),
-      content: z.string().optional().describe('Raw content string (load)'),
-      // cell parameters
-      cellId: z.string().optional().describe('Cell ID (update_cell, run_cell, get_cell)'),
-      cellType: z.enum(['title', 'markdown', 'code']).optional().describe('Cell type (add_cell)'),
-      filename: z.string().optional().describe('Filename for code cells (add_cell)'),
-      position: z.number().optional().describe('Cell position (add_cell)'),
+      operation: z.enum(['create', 'list', 'load', 'add_cell', 'update_cell', 'run_cell', 'install_deps', 'list_cells', 'get_cell', 'export']),
+      notebookId: z.string().optional(),
+      title: z.string().optional(),
+      language: z.enum(['javascript', 'typescript']).optional(),
+      template: z.enum(['sequential-feynman']).optional(),
+      path: z.string().optional(),
+      content: z.string().optional(),
+      cellId: z.string().optional(),
+      cellType: z.enum(['title', 'markdown', 'code']).optional(),
+      filename: z.string().optional(),
+      position: z.number().optional(),
     }),
   }),
 
   // =============================================================================
-  // Session Operation (Stage 1) - Pattern 2: Nested Operation
+  // Session Operation (Stage 1)
   // =============================================================================
   z.object({
     operation: z.literal('session'),
     args: z.object({
-      operation: z.enum(['list', 'get', 'search', 'resume', 'export', 'analyze', 'extract_learnings', 'discovery']).describe('Session sub-operation'),
-      // Common parameters
-      sessionId: z.string().optional().describe('Session ID (required for get, resume, export, analyze, extract_learnings)'),
-      // list/search parameters
-      limit: z.number().optional().describe('Maximum results (list/search)'),
-      offset: z.number().optional().describe('Pagination offset (list)'),
-      tags: z.array(z.string()).optional().describe('Filter by tags (list)'),
-      query: z.string().optional().describe('Search query (search)'),
-      // export parameters
-      format: z.enum(['markdown', 'cipher', 'json']).optional().describe('Export format (export)'),
-      includeMetadata: z.boolean().optional().describe('Include metadata (export)'),
-      // extract_learnings parameters
+      operation: z.enum(['list', 'get', 'search', 'resume', 'export', 'analyze', 'extract_learnings', 'discovery']),
+      sessionId: z.string().optional(),
+      limit: z.number().optional(),
+      offset: z.number().optional(),
+      tags: z.array(z.string()).optional(),
+      query: z.string().optional(),
+      format: z.enum(['markdown', 'cipher', 'json']).optional(),
+      includeMetadata: z.boolean().optional(),
       keyMoments: z.array(z.object({
         thoughtNumber: z.number(),
         type: z.enum(['decision', 'pivot', 'insight', 'revision', 'branch']),
         significance: z.number().optional(),
         summary: z.string().optional(),
-      })).optional().describe('Key moments for pattern extraction (extract_learnings)'),
-      targetTypes: z.array(z.enum(['pattern', 'anti-pattern', 'signal'])).optional().describe('Learning types to extract (extract_learnings)'),
-      // discovery parameters
-      action: z.enum(['list', 'hide', 'show']).optional().describe('Discovery action (discovery)'),
-      toolName: z.string().optional().describe('Tool name for hide/show (discovery)'),
+      })).optional(),
+      targetTypes: z.array(z.enum(['pattern', 'anti-pattern', 'signal'])).optional(),
+      action: z.enum(['list', 'hide', 'show']).optional(),
+      toolName: z.string().optional(),
     }),
   }),
 
   // =============================================================================
-  // Mental Models Operation (Stage 2) - Pattern 2: Nested Operation
+  // Mental Models Operation (Stage 2)
   // =============================================================================
   z.object({
     operation: z.literal('mental_models'),
     args: z.object({
-      operation: z.enum(['get_model', 'list_models', 'list_tags', 'get_capability_graph']).describe('Mental models sub-operation'),
-      model: z.string().optional().describe('Model name (required for get_model)'),
-      tag: z.string().optional().describe('Filter by tag (list_models)'),
+      operation: z.enum(['get_model', 'list_models', 'list_tags', 'get_capability_graph']),
+      model: z.string().optional(),
+      tag: z.string().optional(),
     }),
   }),
 
@@ -208,8 +380,8 @@ export const gatewayToolInputSchema = z.discriminatedUnion('operation', [
   z.object({
     operation: z.literal('deep_analysis'),
     args: z.object({
-      sessionId: z.string().describe('Session ID to analyze'),
-      analysisType: z.enum(['patterns', 'cognitive_load', 'decision_points', 'full']).describe('Type of analysis'),
+      sessionId: z.string(),
+      analysisType: z.enum(['patterns', 'cognitive_load', 'decision_points', 'full']),
       options: z.object({
         includeTimeline: z.boolean().optional(),
         compareWith: z.array(z.string()).optional(),
@@ -218,35 +390,38 @@ export const gatewayToolInputSchema = z.discriminatedUnion('operation', [
   }),
 
   // =============================================================================
-  // Knowledge Operation (Stage 2) - Pattern 3: Nested Action
+  // Knowledge Operation (Stage 2)
   // =============================================================================
   z.object({
     operation: z.literal('knowledge'),
     args: z.object({
-      action: z.enum(['create_entity', 'get_entity', 'list_entities', 'add_observation', 'create_relation', 'query_graph', 'stats']).describe('Knowledge graph action'),
-      // create_entity parameters
-      name: z.string().optional().describe('Entity name (create_entity)'),
-      type: z.enum(['Insight', 'Concept', 'Workflow', 'Decision', 'Agent']).optional().describe('Entity type (create_entity)'),
-      label: z.string().optional().describe('Entity label (create_entity)'),
-      properties: z.record(z.unknown()).optional().describe('Entity properties (create_entity)'),
-      // get_entity parameters
-      entity_id: z.string().optional().describe('Entity ID (get_entity, add_observation, query_graph)'),
-      // add_observation parameters
-      content: z.string().optional().describe('Observation content (add_observation)'),
-      source_session: z.string().optional().describe('Source session (add_observation)'),
-      // create_relation parameters
-      from_id: z.string().optional().describe('Source entity ID (create_relation)'),
-      to_id: z.string().optional().describe('Target entity ID (create_relation)'),
-      relation_type: z.enum(['RELATES_TO', 'BUILDS_ON', 'CONTRADICTS', 'EXTRACTED_FROM', 'APPLIED_IN', 'LEARNED_BY', 'DEPENDS_ON', 'SUPERSEDES', 'MERGED_FROM']).optional().describe('Relation type (create_relation)'),
-      // query_graph parameters
-      start_entity_id: z.string().optional().describe('Starting entity for traversal (query_graph)'),
-      relation_types: z.array(z.string()).optional().describe('Filter by relation types (query_graph)'),
-      max_depth: z.number().optional().describe('Maximum traversal depth (query_graph, default: 3)'),
+      action: z.enum(['create_entity', 'get_entity', 'list_entities', 'add_observation', 'create_relation', 'query_graph', 'stats']),
+      name: z.string().optional(),
+      type: z.enum(['Insight', 'Concept', 'Workflow', 'Decision', 'Agent']).optional(),
+      label: z.string().optional(),
+      properties: z.record(z.unknown()).optional(),
+      entity_id: z.string().optional(),
+      content: z.string().optional(),
+      source_session: z.string().optional(),
+      from_id: z.string().optional(),
+      to_id: z.string().optional(),
+      relation_type: z.enum(['RELATES_TO', 'BUILDS_ON', 'CONTRADICTS', 'EXTRACTED_FROM', 'APPLIED_IN', 'LEARNED_BY', 'DEPENDS_ON', 'SUPERSEDES', 'MERGED_FROM']).optional(),
+      start_entity_id: z.string().optional(),
+      relation_types: z.array(z.string()).optional(),
+      max_depth: z.number().optional(),
     }),
   }),
 ]);
 
+/**
+ * External type for MCP registration (flat object schema)
+ */
 export type GatewayToolInput = z.infer<typeof gatewayToolInputSchema>;
+
+/**
+ * Internal type for handler (discriminated union with strong typing)
+ */
+type GatewayToolInputInternal = z.infer<typeof gatewayToolInputSchemaInternal>;
 
 // =============================================================================
 // Stage Mapping
@@ -1032,6 +1207,10 @@ ${STAGE_2_OPERATIONS_SCHEMA}`;
 
   /**
    * Handle knowledge operation
+   *
+   * NOTE: The flat schema uses 'knowledgeAction' instead of 'action' to avoid
+   * collision with session discovery's 'action' field. We accept both for
+   * backward compatibility.
    */
   private async handleKnowledge(args?: Record<string, unknown>): Promise<ToolResponse> {
     if (!this.knowledgeHandler) {
@@ -1046,12 +1225,14 @@ ${STAGE_2_OPERATIONS_SCHEMA}`;
       };
     }
 
-    if (!args || !args.action) {
+    // Accept both 'action' (internal/legacy) and 'knowledgeAction' (flat schema)
+    const action = args?.action || args?.knowledgeAction;
+    if (!args || !action) {
       return {
         content: [{
           type: 'text',
           text: JSON.stringify({
-            error: 'Knowledge operation requires args with action field',
+            error: 'Knowledge operation requires args with action field (or knowledgeAction)',
             available_actions: [
               'create_entity',
               'get_entity',
@@ -1067,7 +1248,9 @@ ${STAGE_2_OPERATIONS_SCHEMA}`;
       };
     }
 
-    return this.knowledgeHandler.processOperation(args as any);
+    // Map knowledgeAction to action for the knowledge handler
+    const knowledgeArgs = { ...args, action };
+    return this.knowledgeHandler.processOperation(knowledgeArgs as any);
   }
 }
 
