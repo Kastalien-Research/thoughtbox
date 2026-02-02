@@ -913,6 +913,7 @@ export class ThoughtHandler {
 
       // SIL-101: Minimal response mode (default)
       // When verbose is false, return only essential fields for token efficiency
+      // Exception: Always include critique/rlm results when requested (they're the point of the call)
       if (!isVerbose) {
         return {
           content: [
@@ -922,6 +923,8 @@ export class ThoughtHandler {
                 {
                   thoughtNumber: validatedInput.thoughtNumber,
                   sessionId: this.currentSessionId,
+                  ...(critiqueResult && { critique: critiqueResult }),
+                  ...(rlmResult && { rlmResult }),
                 },
                 null,
                 2
