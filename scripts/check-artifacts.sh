@@ -39,7 +39,7 @@ fi
 
 # Forbidden patterns: keep these local-only.
 # (Note: .gitignore does not protect already-tracked files, so we enforce here too.)
-forbidden_re='^(traces/|plans/|SESSION-.*\.md$|STATUS-REPORT-.*\.md$|EXPLORATION_REPORT_.*\.md$|MENTAL-MODELS-.*\.md$|uncommitted-changes-.*\.patch$|CHANGELOG-SYSTEM-IMPLEMENTATION\.md$)'
+forbidden_re='^(traces/|plans/|dot-claude/|dgm-specs/|Capabilities/|AgentExperience/|reasoning/|papers/|SESSION-.*\.md$|STATUS-REPORT-.*\.md$|EXPLORATION_REPORT_.*\.md$|MENTAL-MODELS-.*\.md$|uncommitted-changes-.*\.patch$|CHANGELOG-SYSTEM-IMPLEMENTATION\.md$)'
 
 hits="$(printf "%s\n" "$changed_files" | sed '/^$/d' | grep -E "$forbidden_re" || true)"
 
@@ -62,4 +62,3 @@ Blocked paths:
 EOF
 printf "%s\n" "$hits" >&2
 exit 1
-

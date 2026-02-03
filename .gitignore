@@ -38,6 +38,8 @@ mcp-ts-template/
 # Claude Code configuration and local data (except skills which are shared)
 .claude/*
 !.claude/skills/
+dot-claude/
+dot-claude/
 
 # Specifications and working artifacts (local development)
 .specs/
@@ -63,6 +65,11 @@ local-docs/
 smithery-docs/
 mcp-specs/
 sdk/
+AgentExperience/
+Capabilities/
+dgm-specs/
+papers/
+reasoning/
 
 # Improvement opps
 improvement-recs/
