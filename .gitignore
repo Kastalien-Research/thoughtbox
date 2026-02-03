@@ -39,6 +39,7 @@ mcp-ts-template/
 .claude/*
 !.claude/skills/
 dot-claude/
+.codex/
 dot-claude/
 
 # Specifications and working artifacts (local development)
