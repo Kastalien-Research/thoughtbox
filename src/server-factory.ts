@@ -298,40 +298,40 @@ Call \`thoughtbox_hub\` { "operation": "register", "args": { "name": "Your Agent
       // Continue without persistence - in-memory mode
     });
 
-  // Initialize init flow (fire-and-forget)
-  // handleInit() has fallback for when initHandler is null
-  // initToolHandler is used by the tool-based init flow
+  // Initialize init flow (AWAITED - required before gateway tool can handle requests)
+  // This ensures initToolHandler is ready when the first tool call arrives.
+  // Without awaiting, the gateway tool returns "Init handler still initializing" errors
+  // because FastMCP proxies create new sessions per request.
   let initHandler: IInitHandler | null = null;
   let initToolHandler: InitToolHandler | null = null;
   const initStateManager = new StateManager();
 
-  createInitFlow()
-    .then(({ handler, index, stats, errors }) => {
-      initHandler = handler;
-      // Create the tool-based init handler with the same index and tool registry for stage transitions
-      // Pass server.server for MCP roots support (SPEC-011 list_roots/bind_root operations)
-      // server.server is the underlying Server class which has listRoots() method
-      initToolHandler = new InitToolHandler({
-        storage,  // Required: source of truth for sessions
-        index,    // Optional: cached hierarchy for navigation UI
-        stateManager: initStateManager,
-        toolRegistry,
-        mcpSessionId: sessionId,
-        mcpServer: server.server,  // For listRoots access
-      });
-      logger.info(
-        `Init flow index built: ${stats.sessionsIndexed} sessions, ${stats.projectsFound} projects, ${stats.tasksFound} tasks (${stats.buildTimeMs}ms)`
-      );
-      if (errors.length > 0) {
-        logger.warn(
-          `Init flow index encountered ${errors.length} errors during build`
-        );
-      }
-    })
-    .catch((err) => {
-      logger.error("Failed to initialize init flow:", err);
-      // Continue without init flow
+  try {
+    const { handler, index, stats, errors } = await createInitFlow();
+    initHandler = handler;
+    // Create the tool-based init handler with the same index and tool registry for stage transitions
+    // Pass server.server for MCP roots support (SPEC-011 list_roots/bind_root operations)
+    // server.server is the underlying Server class which has listRoots() method
+    initToolHandler = new InitToolHandler({
+      storage,  // Required: source of truth for sessions
+      index,    // Optional: cached hierarchy for navigation UI
+      stateManager: initStateManager,
+      toolRegistry,
+      mcpSessionId: sessionId,
+      mcpServer: server.server,  // For listRoots access
     });
+    logger.info(
+      `Init flow index built: ${stats.sessionsIndexed} sessions, ${stats.projectsFound} projects, ${stats.tasksFound} tasks (${stats.buildTimeMs}ms)`
+    );
+    if (errors.length > 0) {
+      logger.warn(
+        `Init flow index encountered ${errors.length} errors during build`
+      );
+    }
+  } catch (err) {
+    logger.error("Failed to initialize init flow:", err);
+    // Continue without init flow - gateway tool will handle null initToolHandler gracefully
+  }
 
   // Sync mental models to filesystem for inspection (fire-and-forget)
   // URI: thoughtbox://mental-models/{tag}/{model} → ~/.thoughtbox/mental-models/{tag}/{model}.md
