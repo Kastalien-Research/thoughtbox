@@ -127,12 +127,13 @@ async function loadLoops(): Promise<LoopsCatalog> {
         }
 
         // Build metadata with defaults
+        const interfaceVersionRaw = frontmatter.interface_version ?? '1.0';
         const metadata: LoopMetadata = {
           type: (frontmatter.type as string) || 'unknown',
           speed: (frontmatter.speed as string) || 'medium',
           scope: (frontmatter.scope as string) || 'document',
           description: (frontmatter.description as string) || extractDescription(markdown),
-          interface_version: String(frontmatter.interface_version ?? '1.0'),
+          interface_version: String(interfaceVersionRaw),
           inputs: (frontmatter.inputs as unknown[]) || [],
           outputs: (frontmatter.outputs as unknown[]) || [],
           signals: (frontmatter.signals as unknown[]) || [],

@@ -40,6 +40,10 @@ import {
   SessionHandler,
 } from "./sessions/index.js";
 import {
+  KnowledgeHandler,
+  FileSystemKnowledgeStorage,
+} from "./knowledge/index.js";
+import {
   createInitFlow,
   type IInitHandler,
   InitToolHandler,
@@ -48,6 +52,7 @@ import {
 import { ThoughtHandler } from "./thought-handler.js";
 import { ThoughtboxEventEmitter } from "./events/index.js";
 import { SamplingHandler } from "./sampling/index.js";
+import { ThoughtQueryHandler } from "./resources/thought-query-handler.js";
 import { ToolRegistry, DisclosureStage } from "./tool-registry.js";
 import { DiscoveryRegistry } from "./discovery-registry.js";
 import {
@@ -58,6 +63,10 @@ import {
   gatewayToolInputSchema,
   GATEWAY_TOOL,
 } from "./gateway/index.js";
+import {
+  ObservabilityGatewayHandler,
+  ObservabilityInputSchema,
+} from "./observability/index.js";
 import { SUBAGENT_SUMMARIZE_CONTENT } from "./resources/subagent-summarize-content.js";
 import { EVOLUTION_CHECK_CONTENT } from "./resources/evolution-check-content.js";
 import { BEHAVIORAL_TESTS } from "./resources/behavioral-tests-content.js";
@@ -128,7 +137,7 @@ const defaultLogger: Logger = {
  * - No HTTP listen
  * - No process signal handlers
  */
-export function createMcpServer(args: CreateMcpServerArgs = {}): McpServer {
+export async function createMcpServer(args: CreateMcpServerArgs = {}): Promise<McpServer> {
   const sessionId = args.sessionId;
   const config = configSchema.parse(args.config ?? {});
   const logger = args.logger ?? defaultLogger;
@@ -209,6 +218,20 @@ Progressive disclosure is enforced internally - you'll get clear errors if calli
     thoughtHandler,
     discoveryRegistry,
   });
+
+  // Initialize knowledge storage (Phase 1: Optional feature)
+  let knowledgeHandler: KnowledgeHandler | undefined;
+  try {
+    const knowledgeStorage = new FileSystemKnowledgeStorage({
+      project: process.env.THOUGHTBOX_PROJECT || '_default',
+    });
+    await knowledgeStorage.initialize();
+    knowledgeHandler = new KnowledgeHandler(knowledgeStorage);
+    logger.info('Knowledge storage initialized');
+  } catch (error) {
+    // Knowledge storage is optional - log warning but continue
+    logger.warn(`Knowledge storage initialization failed (optional feature): ${error instanceof Error ? error.message : error}`);
+  }
 
   // Log server creation when sessionId is available
   if (sessionId) {
@@ -322,6 +345,7 @@ Progressive disclosure is enforced internally - you'll get clear errors if calli
             notebookHandler,
             sessionHandler,
             mentalModelsHandler,
+            knowledgeHandler,
             storage,
             sendToolListChanged: () => server.sendToolListChanged(),
           });
@@ -367,6 +391,47 @@ Progressive disclosure is enforced internally - you'll get clear errors if calli
     gatewayTool,
     DisclosureStage.STAGE_0_ENTRY,
     { [DisclosureStage.STAGE_0_ENTRY]: GATEWAY_DESCRIPTION }
+  );
+
+  // =============================================================================
+  // Observability Gateway Tool (Always-On, No Session Required)
+  // =============================================================================
+  // Separate tool for querying observability data (metrics, health, sessions, alerts).
+  // No progressive disclosure - always available, direct query access.
+
+  const OBSERVABILITY_DESCRIPTION = `Query system observability data including metrics, health status, active sessions, and alerts. No session initialization required - connect and query directly.
+
+Operations:
+- health: System and service health check
+- metrics: Instant Prometheus query (PromQL)
+- metrics_range: Range query over time
+- sessions: List active reasoning sessions
+- session_info: Get details about a specific session
+- alerts: Get active/firing Prometheus alerts
+- dashboard_url: Get Grafana dashboard URL`;
+
+  const observabilityHandler = new ObservabilityGatewayHandler({
+    storage,
+    prometheusUrl: process.env.PROMETHEUS_URL,
+    grafanaUrl: process.env.GRAFANA_URL,
+  });
+
+  server.registerTool(
+    "observability_gateway",
+    {
+      description: OBSERVABILITY_DESCRIPTION,
+      inputSchema: ObservabilityInputSchema,
+    },
+    async (toolArgs: { operation: string; args?: Record<string, unknown> }) => {
+      const result = await observabilityHandler.handle(toolArgs);
+      return {
+        content: result.content.map((block) => ({
+          type: "text" as const,
+          text: block.text,
+        })),
+        isError: result.isError,
+      };
+    }
   );
 
   // Register prompts using McpServer's registerPrompt API
@@ -1329,6 +1394,99 @@ mcp__thoughtbox__thoughtbox({
     }
   );
 
+  // SPEC-001: Thought query resource templates
+  const thoughtQueryHandler = new ThoughtQueryHandler(storage);
+
+  server.registerResource(
+    "thoughts-by-type",
+    new ResourceTemplate("thoughtbox://thoughts/{sessionId}/{type}", { list: undefined }),
+    { description: "Query thoughts by semantic type (H/E/C/Q/R/P/O/A/X)", mimeType: "application/json" },
+    async (uri) => {
+      const result = await thoughtQueryHandler.handleQuery(uri.toString());
+      return {
+        contents: [{
+          uri: uri.toString(),
+          mimeType: "application/json",
+          text: JSON.stringify(result, null, 2),
+        }],
+      };
+    }
+  );
+
+  server.registerResource(
+    "thought-range",
+    new ResourceTemplate("thoughtbox://thoughts/{sessionId}/range/{start}-{end}", { list: undefined }),
+    { description: "Retrieve thoughts in specified range [start, end] inclusive", mimeType: "application/json" },
+    async (uri) => {
+      const result = await thoughtQueryHandler.handleQuery(uri.toString());
+      return {
+        contents: [{
+          uri: uri.toString(),
+          mimeType: "application/json",
+          text: JSON.stringify(result, null, 2),
+        }],
+      };
+    }
+  );
+
+  server.registerResource(
+    "thought-references",
+    new ResourceTemplate("thoughtbox://references/{sessionId}/{thoughtNumber}", { list: undefined }),
+    { description: "Find all thoughts that reference a specific thought number", mimeType: "application/json" },
+    async (uri) => {
+      const result = await thoughtQueryHandler.handleQuery(uri.toString());
+      return {
+        contents: [{
+          uri: uri.toString(),
+          mimeType: "application/json",
+          text: JSON.stringify(result, null, 2),
+        }],
+      };
+    }
+  );
+
+  server.registerResource(
+    "revision-history",
+    new ResourceTemplate("thoughtbox://revisions/{sessionId}/{thoughtNumber}", { list: undefined }),
+    { description: "Get complete revision history for a thought", mimeType: "application/json" },
+    async (uri) => {
+      const result = await thoughtQueryHandler.handleQuery(uri.toString());
+      return {
+        contents: [{
+          uri: uri.toString(),
+          mimeType: "application/json",
+          text: JSON.stringify(result, null, 2),
+        }],
+      };
+    }
+  );
+
+  // Knowledge graph resources (Phase 1)
+  server.registerResource(
+    "knowledge-stats",
+    "thoughtbox://knowledge/stats",
+    { description: "Knowledge graph statistics (entity/relation counts)", mimeType: "application/json" },
+    async (uri) => {
+      if (!knowledgeHandler) {
+        return {
+          contents: [{
+            uri: uri.toString(),
+            mimeType: "application/json",
+            text: JSON.stringify({ error: 'Knowledge storage not initialized' }, null, 2),
+          }],
+        };
+      }
+      const result = await knowledgeHandler.processOperation({ action: 'stats' });
+      return {
+        contents: [{
+          uri: uri.toString(),
+          mimeType: "application/json",
+          text: result.content[0].text,
+        }],
+      };
+    }
+  );
+
   // Escape hatch: Use server.server for ListResourcesRequestSchema to include dynamic resources
   server.server.setRequestHandler(ListResourcesRequestSchema, async () => ({
     resources: [
@@ -1411,6 +1569,13 @@ mcp__thoughtbox__thoughtbox({
         name: "Behavioral Tests: Notebook",
         description: BEHAVIORAL_TESTS.notebook.description,
         mimeType: "text/markdown",
+      },
+      // Knowledge graph resources (Phase 1)
+      {
+        uri: "thoughtbox://knowledge/stats",
+        name: "Knowledge Graph Statistics",
+        description: "Entity and relation counts for the knowledge graph",
+        mimeType: "application/json",
       },
       {
         uri: BEHAVIORAL_TESTS.mentalModels.uri,

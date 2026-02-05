@@ -59,25 +59,34 @@
     "test:quick": "tsx scripts/agentic-test.ts --tool",
     "benchmark": "tsx dgm-specs/harness/cli.ts run",
     "benchmark:baseline": "tsx dgm-specs/harness/cli.ts baseline",
-    "benchmark:report": "tsx dgm-specs/harness/cli.ts report"
+    "benchmark:report": "tsx dgm-specs/harness/cli.ts report",
+    "improvement-loop": "tsx scripts/agents/run-improvement-loop.ts",
+    "improvement-loop:dry": "tsx scripts/agents/run-improvement-loop.ts --dry-run --verbose",
+    "improvement-loop:verbose": "tsx scripts/agents/run-improvement-loop.ts --verbose",
+    "test:behavioral": "tsx scripts/agents/test-behavioral-contracts.ts",
+    "test:behavioral:variance": "tsx scripts/agents/test-behavioral-contracts.ts --variance-only"
   },
   "engines": {
     "node": ">=22.0.0"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "1.24.3",
+    "@modelcontextprotocol/sdk": "1.25.3",
     "@smithery/sdk": "^1.7.5",
+    "better-sqlite3": "^11.0.0",
     "chalk": "^5.6.0",
     "cors": "^2.8.5",
     "express": "^5.1.0",
     "gray-matter": "^4.0.3",
     "ws": "^8.18.3",
+    "yaml": "^2.8.2",
     "zod": "^3.25.76",
     "zod-to-json-schema": "^3.24.5"
   },
   "devDependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.1.76",
+    "@anthropic-ai/sdk": "^0.39.0",
     "@smithery/cli": "^1.6.2",
+    "@types/better-sqlite3": "^7.6.13",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.5",
     "@types/node": "^22.18.12",

@@ -1,0 +1,5 @@
+# Require explicit review for workflow changes.
+/.github/workflows/ @glassbead-tc
+GOVERNANCE.md @glassbead-tc
+CLAUDE.md @glassbead-tc
+AGENTS.md @glassbead-tc

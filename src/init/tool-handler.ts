@@ -15,7 +15,7 @@ import type {
 } from './types.js';
 import { StateManager, ConnectionStage, type BoundRoot, type SessionState } from './state-manager.js';
 import { ToolRegistry } from '../tool-registry.js';
-import type { ThoughtboxStorage, Session } from '../persistence/types.js';
+import type { ThoughtboxStorage, Session, ThoughtData } from '../persistence/types.js';
 
 // =============================================================================
 // Tool Schema
@@ -460,6 +460,10 @@ export class InitToolHandler {
     // Convert to SessionMetadata format
     const session = this.sessionToMetadata(storageSession);
 
+    // Fetch recent thoughts for immediate context (last 5)
+    const allThoughts = await this.storage.getThoughts(targetSessionId);
+    const recentThoughts = allThoughts.slice(-5);
+
     // Update state to fully loaded
     this.stateManager.updateSessionState(sessionId, {
       stage: ConnectionStage.STAGE_3_FULLY_LOADED,
@@ -472,9 +476,9 @@ export class InitToolHandler {
     // NOTE: Stage advancement moved to server-factory.ts for error-safe pattern
     // The factory checks isError before advancing stages
 
-    // Build context response
-    const contextText = this.buildLoadedContextText(session);
-    const contextMarkdown = this.buildLoadedContextMarkdown(session);
+    // Build context response with recent thoughts included
+    const contextText = this.buildLoadedContextText(session, recentThoughts.length);
+    const contextMarkdown = this.buildLoadedContextMarkdown(session, recentThoughts);
 
     return {
       content: [
@@ -981,19 +985,22 @@ export class InitToolHandler {
     return lines.join('\n');
   }
 
-  private buildLoadedContextText(session: SessionMetadata): string {
+  private buildLoadedContextText(session: SessionMetadata, recentThoughtCount: number): string {
     const parts = [
       `Loaded session: ${session.title}`,
       `ID: ${session.id}`,
       `Thoughts: ${session.thoughtCount}`,
     ];
+    if (recentThoughtCount > 0) {
+      parts.push(`Recent context: ${recentThoughtCount} thoughts included below`);
+    }
     if (session.project) parts.push(`Project: ${session.project}`);
     if (session.task) parts.push(`Task: ${session.task}`);
     if (session.aspect) parts.push(`Aspect: ${session.aspect}`);
     return parts.join('\n');
   }
 
-  private buildLoadedContextMarkdown(session: SessionMetadata): string {
+  private buildLoadedContextMarkdown(session: SessionMetadata, recentThoughts: ThoughtData[] = []): string {
     const lines: string[] = ['# Session Context', ''];
 
     lines.push(`## ${session.title}`);
@@ -1018,6 +1025,25 @@ export class InitToolHandler {
       lines.push('');
       lines.push(session.lastConclusion);
       lines.push('');
+    }
+
+    // Include recent thoughts for immediate context
+    if (recentThoughts.length > 0) {
+      const startNum = recentThoughts[0].thoughtNumber;
+      const endNum = recentThoughts[recentThoughts.length - 1].thoughtNumber;
+      lines.push(`## Recent Thoughts (${startNum}-${endNum} of ${session.thoughtCount})`);
+      lines.push('');
+      lines.push('These are your most recent thoughts from this session. Use `read_thoughts` operation to retrieve earlier thoughts if needed.');
+      lines.push('');
+
+      for (const thought of recentThoughts) {
+        const branchInfo = thought.branchId ? ` [branch: ${thought.branchId}]` : '';
+        const revisionInfo = thought.isRevision ? ` (revises #${thought.revisesThought})` : '';
+        lines.push(`### Thought ${thought.thoughtNumber}${branchInfo}${revisionInfo}`);
+        lines.push('');
+        lines.push(thought.thought);
+        lines.push('');
+      }
     }
 
     lines.push('## Next Steps');

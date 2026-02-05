@@ -1,0 +1,38 @@
+groups:
+- name: thoughtbox-mcp
+  rules:
+  - alert: ThoughtboxHighErrorRate
+    expr: (sum(rate(mcp_requests_total{status="error", server_name="thoughtbox"}[5m])) / sum(rate(mcp_requests_total{server_name="thoughtbox"}[5m]))) > 0.05 and sum(rate(mcp_requests_total{server_name="thoughtbox"}[5m])) > 0
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: "Thoughtbox error rate > 5%"
+      description: "Error rate is {{ $value | humanizePercentage }}"
+
+  - alert: ThoughtboxLatencyP95High
+    expr: histogram_quantile(0.95, sum by (le) (rate(mcp_request_duration_seconds_bucket{server_name="thoughtbox"}[10m]))) > 5
+    for: 10m
+    labels:
+      severity: warning
+    annotations:
+      summary: "Thoughtbox p95 latency > 5s"
+      description: "P95 latency is {{ $value }}s"
+
+  - alert: ThoughtboxDown
+    expr: mcp_upstream_available{server_name="thoughtbox"} == 0
+    for: 2m
+    labels:
+      severity: critical
+    annotations:
+      summary: "Thoughtbox MCP server is DOWN"
+      description: "Upstream thoughtbox server is not responding"
+
+  - alert: ThoughtboxToolCallSlow
+    expr: histogram_quantile(0.95, sum by (le, tool_name) (rate(mcp_tool_duration_seconds_bucket{server_name="thoughtbox"}[10m]))) > 10
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: "Tool {{ $labels.tool_name }} p95 > 10s"
+      description: "Tool call latency is {{ $value }}s"

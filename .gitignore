@@ -68,6 +68,10 @@ sdk/
 improvement-recs/
 .tessl/
 .thoughtbox/
+# Knowledge graph: track JSONL, ignore SQLite index
+!.thoughtbox/**/memory/graph.jsonl
+.thoughtbox/**/memory/memory.db
+.thoughtbox/**/memory/.embedding-cache/
 adat.md
 
 # Claude Code plugins
@@ -83,6 +87,12 @@ glassBead-thoughtbox-blog.md
 NOTEBOOK_CAPABILITIES_REPORT.md
 NOTEBOOK_DUAL_TRANSPORT_ANALYSIS.md
 CLEANUP_REPORT.md
+EXPLORATION_REPORT_*.md
+MENTAL-MODELS-*.md
+SESSION-*.md
+STATUS-REPORT-*.md
+uncommitted-changes-*.patch
+CHANGELOG-SYSTEM-IMPLEMENTATION.md
 
 # Tessl configuration (local usage only)
 tessl.json
@@ -96,7 +106,9 @@ tessl.json
 mcp-servers/
 ai_docs/
 traces/
+plans/
 kastalien-srcbook/
 .spec-orchestrator/
 .spec-validator/
 ai_docs/claude-platform-docs/
+dgm-specs/history/runs/*.json

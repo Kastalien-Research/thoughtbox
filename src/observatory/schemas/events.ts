@@ -20,11 +20,32 @@ export const SessionSnapshotPayloadSchema = z.object({
 export type SessionSnapshotPayload = z.infer<typeof SessionSnapshotPayloadSchema>;
 
 /**
+ * Agent role enum for multi-agent collaboration
+ */
+export const AgentRoleSchema = z.enum([
+  'orchestrator',
+  'researcher',
+  'architect',
+  'implementer',
+  'reviewer',
+  'tester',
+  'integrator',
+  'critic',
+  'unknown'
+]);
+
+export type AgentRole = z.infer<typeof AgentRoleSchema>;
+
+/**
  * Thought added event - new thought appended to chain
+ * Enhanced with agent attribution for collaborative reasoning visualization
  */
 export const ThoughtAddedPayloadSchema = z.object({
   thought: ThoughtSchema,
   parentId: z.string().nullable(),
+  agentId: z.string().optional(),
+  agentRole: AgentRoleSchema.optional(),
+  taskId: z.string().optional(),
 });
 
 export type ThoughtAddedPayload = z.infer<typeof ThoughtAddedPayloadSchema>;
@@ -93,3 +114,40 @@ export const SessionsListPayloadSchema = z.object({
 });
 
 export type SessionsListPayload = z.infer<typeof SessionsListPayloadSchema>;
+
+/**
+ * Task subtask schema
+ */
+export const SubtaskSchema = z.object({
+  id: z.string(),
+  title: z.string(),
+  status: z.enum(['pending', 'in_progress', 'completed']),
+  assignedTo: z.string().optional(),
+});
+
+export type Subtask = z.infer<typeof SubtaskSchema>;
+
+/**
+ * Agent lifecycle events
+ */
+export const AgentEventPayloadSchema = z.object({
+  agentId: z.string(),
+  agentRole: AgentRoleSchema,
+  taskId: z.string().optional(),
+  timestamp: z.string(),
+});
+
+export type AgentEventPayload = z.infer<typeof AgentEventPayloadSchema>;
+
+/**
+ * Task lifecycle events
+ */
+export const TaskEventPayloadSchema = z.object({
+  taskId: z.string(),
+  title: z.string(),
+  subtasks: z.array(SubtaskSchema),
+  progress: z.number().min(0).max(1),
+  timestamp: z.string(),
+});
+
+export type TaskEventPayload = z.infer<typeof TaskEventPayloadSchema>;

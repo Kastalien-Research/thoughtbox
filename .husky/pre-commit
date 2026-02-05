@@ -1,5 +1,8 @@
 #!/bin/sh
 . "$(dirname "$0")/_/husky.sh"
 
+# Block committing local-only artifacts (traces/, plans/, root session reports, etc.)
+./scripts/check-artifacts.sh --staged
+
 # Check for cyclic dependencies before commit
 npm run check:cycles

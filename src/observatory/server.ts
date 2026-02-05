@@ -106,6 +106,22 @@ export function createObservatoryServer(
       return;
     }
 
+    // Test endpoint: Trigger mock collaborative session
+    if (url.pathname === "/api/test/mock-collab-session" && req.method === "POST") {
+      (async () => {
+        try {
+          const { emitMockCollabSession } = await import("./test-collab-events.js");
+          emitMockCollabSession();
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ status: "ok", message: "Mock session events emitted" }));
+        } catch (error) {
+          res.writeHead(500, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ status: "error", message: error instanceof Error ? error.message : "Unknown error" }));
+        }
+      })();
+      return;
+    }
+
     // Sessions list endpoint
     if (url.pathname === "/api/sessions" && req.method === "GET") {
       const status = url.searchParams.get("status");
