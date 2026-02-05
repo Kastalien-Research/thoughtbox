@@ -45,7 +45,52 @@ export {
   thoughtEmitter,
   type ThoughtEmitterEvents,
   type ThoughtEmitterEventName,
+  type ImprovementEvent,
+  type ImprovementEventType,
 } from "./emitter.js";
+
+// Improvement tracking (SIL)
+export {
+  ImprovementTracker,
+  improvementTracker,
+} from "./improvement-tracker.js";
+
+// Improvement persistence
+export {
+  ImprovementEventStore,
+  defaultImprovementStore,
+  type ImprovementEventFilter,
+  type ImprovementSummary,
+  type ImprovementStoreConfig,
+} from "./improvement-store.js";
+
+// Evaluation gatekeeper
+export {
+  EvaluationGatekeeper,
+  defaultGatekeeper,
+  createMockEvaluator,
+  createMockContracts,
+  type GateResult,
+  type GatekeeperConfig,
+  type TierResult,
+  type TieredEvaluationResult,
+  type CodeModification,
+  type BehavioralContractType,
+  type BehavioralContractResult,
+  type BehavioralVerificationReport,
+} from "./evaluation-gatekeeper.js";
+
+// Scorecard aggregator
+export {
+  ScorecardAggregator,
+  createDefaultScorecardAggregator,
+  type Scorecard,
+  type ScorecardMetrics,
+  type ScorecardOptions,
+  type IterationSummary,
+  type EvaluationPassRates,
+  type TrendDirection,
+} from "./scorecard-aggregator.js";
 
 // Configuration
 export {

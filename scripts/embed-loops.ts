@@ -132,7 +132,7 @@ async function loadLoops(): Promise<LoopsCatalog> {
           speed: (frontmatter.speed as string) || 'medium',
           scope: (frontmatter.scope as string) || 'document',
           description: (frontmatter.description as string) || extractDescription(markdown),
-          interface_version: (frontmatter.interface_version as string) || '1.0',
+          interface_version: String(frontmatter.interface_version ?? '1.0'),
           inputs: (frontmatter.inputs as unknown[]) || [],
           outputs: (frontmatter.outputs as unknown[]) || [],
           signals: (frontmatter.signals as unknown[]) || [],

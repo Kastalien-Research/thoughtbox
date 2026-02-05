@@ -42,6 +42,48 @@
 import { EventEmitter } from "events";
 import type { Thought, Session } from "./schemas/thought.js";
 
+// =============================================================================
+// Improvement Event Types (Self-Improvement Loop)
+// =============================================================================
+
+/**
+ * Types of improvement events emitted during SIL cycles
+ */
+export type ImprovementEventType =
+  | "cycle_start"
+  | "discovery"
+  | "filter"
+  | "experiment"
+  | "evaluate"
+  | "integrate"
+  | "cycle_end";
+
+/**
+ * Improvement event emitted by ImprovementTracker
+ * 
+ * These events track the progress and outcomes of self-improvement loop iterations.
+ */
+export interface ImprovementEvent {
+  /** ISO 8601 timestamp */
+  timestamp: string;
+  /** Iteration number (monotonically increasing within a run) */
+  iteration: number;
+  /** Event type */
+  type: ImprovementEventType;
+  /** Current phase when event was emitted */
+  phase: string;
+  /** Cost incurred for this event (tokens/API cost) */
+  cost: number;
+  /** Whether this phase/iteration was successful */
+  success: boolean;
+  /** Additional metadata specific to the event type */
+  metadata: Record<string, unknown>;
+}
+
+// =============================================================================
+// Thought Event Types
+// =============================================================================
+
 /**
  * Event types emitted by the ThoughtEmitter
  */
@@ -71,6 +113,7 @@ export type ThoughtEmitterEvents = {
     sessionId: string;
     finalThoughtCount: number;
   };
+  "improvement:event": ImprovementEvent;
 };
 
 export type ThoughtEmitterEventName = keyof ThoughtEmitterEvents;
@@ -173,6 +216,16 @@ export class ThoughtEmitter extends EventEmitter {
    */
   emitSessionEnded(data: ThoughtEmitterEvents["session:ended"]): void {
     this.safeEmit("session:ended", data);
+  }
+
+  /**
+   * Emit an improvement:event for SIL tracking
+   *
+   * Fire-and-forget: This method returns immediately.
+   * Listener errors are logged but never propagate.
+   */
+  emitImprovementEvent(data: ImprovementEvent): void {
+    this.safeEmit("improvement:event", data);
   }
 
   /**

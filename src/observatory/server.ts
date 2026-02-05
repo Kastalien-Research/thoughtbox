@@ -25,6 +25,8 @@ import { createReasoningChannel, sessionStore } from "./channels/reasoning.js";
 import { createObservatoryChannel } from "./channels/observatory.js";
 import type { ObservatoryConfig } from "./config.js";
 import { OBSERVATORY_HTML } from "./ui/index.js";
+import { ImprovementEventStore } from "./improvement-store.js";
+import { ScorecardAggregator } from "./scorecard-aggregator.js";
 
 /**
  * Observatory server instance
@@ -144,6 +146,57 @@ export function createObservatoryServer(
         res.writeHead(500, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ error: err.message }));
       });
+      return;
+    }
+
+    // Improvements list endpoint
+    if (url.pathname === "/api/improvements" && req.method === "GET") {
+      (async () => {
+        try {
+          const store = new ImprovementEventStore();
+          await store.initialize();
+
+          const type = url.searchParams.get("type") as any;
+          const iteration = url.searchParams.get("iteration");
+          const limit = parseInt(url.searchParams.get("limit") || "100", 10);
+          const offset = parseInt(url.searchParams.get("offset") || "0", 10);
+
+          const events = await store.listEvents({
+            type: type || undefined,
+            iteration: iteration ? parseInt(iteration, 10) : undefined,
+            limit,
+            offset,
+          });
+
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ events }));
+        } catch (err) {
+          res.writeHead(500, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: (err as Error).message }));
+        }
+      })();
+      return;
+    }
+
+    // Scorecard endpoint
+    if (url.pathname === "/api/scorecard" && req.method === "GET") {
+      (async () => {
+        try {
+          const store = new ImprovementEventStore();
+          await store.initialize();
+          const aggregator = new ScorecardAggregator(store);
+
+          const scorecard = await aggregator.computeScorecard({
+            recentCount: 10,
+          });
+
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.end(JSON.stringify(scorecard));
+        } catch (err) {
+          res.writeHead(500, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: (err as Error).message }));
+        }
+      })();
       return;
     }
 

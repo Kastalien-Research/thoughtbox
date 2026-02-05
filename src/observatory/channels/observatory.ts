@@ -1,22 +1,24 @@
 /**
- * Observatory Channel - Global session discovery
+ * Observatory Channel - Global session discovery and improvement events
  *
- * Handles global events and session listing.
+ * Handles global events, session listing, and improvement event streaming.
  *
  * Events (Server → Client):
- * - sessions:active    List of active sessions (on join)
- * - sessions:list      Response to list request
- * - session:started    New session notification
- * - session:ended      Session completed notification
+ * - sessions:active      List of active sessions (on join)
+ * - sessions:list        Response to list request
+ * - session:started      New session notification
+ * - session:ended        Session completed notification
+ * - improvement:event    Self-improvement loop event
  *
  * Events (Client → Server):
- * - list:sessions      Request session list
- * - list:active        Request active sessions only
+ * - list:sessions        Request session list
+ * - list:active          Request active sessions only
+ * - list:improvements    Request improvement events
  */
 
 import { z } from "zod";
 import { Channel } from "../channel.js";
-import { thoughtEmitter } from "../emitter.js";
+import { thoughtEmitter, type ImprovementEvent } from "../emitter.js";
 import type { WebSocketServer } from "../ws-server.js";
 import { sessionStore } from "./reasoning.js";
 
@@ -76,6 +78,11 @@ export function createObservatoryChannel(wss: WebSocketServer): Channel {
       sessionId: data.sessionId,
       finalThoughtCount: data.finalThoughtCount,
     });
+  });
+
+  // Wire up improvement events to WebSocket broadcasts
+  thoughtEmitter.on("improvement:event", (event: ImprovementEvent) => {
+    wss.broadcast("observatory", "improvement:event", event);
   });
 
   return channel;
