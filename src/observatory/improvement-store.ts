@@ -102,6 +102,7 @@ export class ImprovementEventStore {
   private writeQueue: ImprovementEvent[] = [];
   private flushPromise: Promise<void> | null = null;
   private flushTimeout: NodeJS.Timeout | null = null;
+  private eventListener: ((event: ImprovementEvent) => void) | null = null;
 
   constructor(config: ImprovementStoreConfig = {}) {
     this.filePath = config.path ?? join(homedir(), ".thoughtbox", "improvement-history.jsonl");
@@ -133,9 +134,12 @@ export class ImprovementEventStore {
   subscribe(): void {
     if (this.subscribed) return;
 
-    ThoughtEmitter.getInstance().on("improvement:event", (event: ImprovementEvent) => {
+    // Store the listener so we can remove it later
+    this.eventListener = (event: ImprovementEvent) => {
       this.queueEvent(event);
-    });
+    };
+
+    ThoughtEmitter.getInstance().on("improvement:event", this.eventListener);
 
     this.subscribed = true;
   }
@@ -144,9 +148,11 @@ export class ImprovementEventStore {
    * Unsubscribe from ThoughtEmitter
    */
   unsubscribe(): void {
-    if (!this.subscribed) return;
+    if (!this.subscribed || !this.eventListener) return;
 
-    ThoughtEmitter.getInstance().removeAllListeners("improvement:event");
+    // Remove only this store's listener, not all listeners
+    ThoughtEmitter.getInstance().removeListener("improvement:event", this.eventListener);
+    this.eventListener = null;
     this.subscribed = false;
   }
 
