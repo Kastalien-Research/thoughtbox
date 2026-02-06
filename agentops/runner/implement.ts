@@ -107,8 +107,10 @@ export async function runImplementation(
       console.log(`Creating branch: ${branchName}`);
 
       if (!options.dryRun) {
-        const baseSha = await gh.getRefSha(ghContext.ref.replace('refs/heads/', ''));
-        await gh.createBranch(branchName, baseSha);
+        // Create branch locally and check it out — the GitHub API branch
+        // creation alone doesn't affect the local working tree, so commits
+        // would land on whatever branch CI checked out (detached HEAD).
+        execSync(`git checkout -b ${branchName}`, { cwd: process.cwd() });
         commandsExecuted.push(`git checkout -b ${branchName}`);
 
         // Day-0: Implement a small change to prove the path

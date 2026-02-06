@@ -52,7 +52,18 @@ export async function runDailyDevBrief(
     let signalMetadata: any = null;
     let collectedSignalsData: any = null;
 
-    if (llmConfig) {
+    if (options.fixturesMode) {
+      // Fixtures mode: skip ALL external calls (signals + LLM) for true zero-cost
+      console.log('⚙️  FIXTURE MODE: Skipping signal collection and LLM calls');
+      const fixturesPath = path.join(process.cwd(), 'agentops/fixtures/proposals.example.json');
+      proposalsData = JSON.parse(await fs.readFile(fixturesPath, 'utf-8'));
+
+      digestBullets = [
+        'RLM sampling implementation in progress',
+        'Benchmarking context documents added',
+        'AgentOps specs ready for bootstrap',
+      ].map(item => `- ${item}`).join('\n');
+    } else if (llmConfig) {
       try {
         // Collect signals
         tracer.startSpan('collect_signals');
@@ -80,7 +91,7 @@ export async function runDailyDevBrief(
             ref: ghContext.ref.replace('refs/heads/', ''),
             sha: ghContext.sha,
           },
-          { fixturesMode: options.fixturesMode }
+          { fixturesMode: false }
         );
         tracer.endSpan('synthesize', 'ok');
 
@@ -106,9 +117,9 @@ export async function runDailyDevBrief(
       }
     }
 
-    // FIXTURE MODE fallback
-    if (!llmConfig) {
-      console.log('⚠️  FIXTURE MODE: Using example data');
+    // FIXTURE MODE fallback (no API key or synthesis failure)
+    if (!options.fixturesMode && !llmConfig) {
+      console.log('⚠️  FIXTURE MODE (fallback): Using example data');
       const fixturesPath = path.join(process.cwd(), 'agentops/fixtures/proposals.example.json');
       proposalsData = JSON.parse(await fs.readFile(fixturesPath, 'utf-8'));
 
