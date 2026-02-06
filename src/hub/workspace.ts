@@ -92,15 +92,26 @@ export function createWorkspaceManager(
       }
 
       const now = new Date().toISOString();
-      const agent: WorkspaceAgent = {
-        agentId,
-        role: 'contributor',
-        joinedAt: now,
-        status: 'online',
-        lastSeenAt: now,
-      };
 
-      workspace.agents.push(agent);
+      // Check if agent is already a member
+      const existingAgent = workspace.agents.find(a => a.agentId === agentId);
+      
+      if (existingAgent) {
+        // Agent already exists - update their status (reconnect scenario)
+        existingAgent.status = 'online';
+        existingAgent.lastSeenAt = now;
+      } else {
+        // New agent - add them as contributor
+        const agent: WorkspaceAgent = {
+          agentId,
+          role: 'contributor',
+          joinedAt: now,
+          status: 'online',
+          lastSeenAt: now,
+        };
+        workspace.agents.push(agent);
+      }
+
       workspace.updatedAt = now;
       await storage.saveWorkspace(workspace);
 
