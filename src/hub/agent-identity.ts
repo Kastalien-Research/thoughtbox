@@ -10,6 +10,14 @@ import * as crypto from 'node:crypto';
 import type { HubStorage } from './hub-types.js';
 
 /**
+ * Check if a string is a valid UUID format
+ */
+function isUUID(str: string): boolean {
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  return uuidRegex.test(str);
+}
+
+/**
  * Resolves the agent ID from environment variables.
  *
  * @param storage - Hub storage to look up/register agents
@@ -26,10 +34,11 @@ export async function resolveAgentId(
   if (envId) {
     const existing = await storage.getAgent(envId);
     if (!existing) {
-      // Auto-register
+      // Auto-register with human-friendly name for UUIDs
+      const name = isUUID(envId) ? `agent-${envId.slice(0, 8)}` : envId;
       await storage.saveAgent({
         agentId: envId,
-        name: envId,
+        name,
         role: 'contributor',
         registeredAt: new Date().toISOString(),
       });
