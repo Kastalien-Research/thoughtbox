@@ -355,7 +355,7 @@ Call \`thoughtbox_hub\` { "operation": "register", "args": { "name": "Your Agent
       inputSchema: gatewayToolInputSchema,
       annotations: GATEWAY_TOOL.annotations,
     },
-    async (toolArgs) => {
+    async (toolArgs, extra) => {
       if (!gatewayHandler) {
         // Gateway handler not ready - initToolHandler still initializing
         // Create it now if initToolHandler is available
@@ -387,7 +387,7 @@ Call \`thoughtbox_hub\` { "operation": "register", "args": { "name": "Your Agent
         }
       }
 
-      const result = await gatewayHandler.handle(toolArgs);
+      const result = await gatewayHandler.handle(toolArgs, extra.sessionId);
 
       // Transform content to match McpServer expected types
       const content = result.content.map((block) => {
@@ -532,7 +532,7 @@ Progressive disclosure is enforced internally. Register first, then join a works
         createTask: async (toolArgs, extra) => {
           const task = await extra.taskStore.createTask({ ttl: 300_000 });
           try {
-            const result = await hubToolHandler.handle(toolArgs);
+            const result = await hubToolHandler.handle(toolArgs, extra.sessionId);
             const status = result.isError ? 'failed' : 'completed';
             await extra.taskStore.storeTaskResult(task.taskId, status, {
               content: result.content,

@@ -35,32 +35,44 @@ export interface HubToolResult {
 }
 
 export interface HubToolHandler {
-  handle(args: { operation: string; args?: Record<string, unknown> }): Promise<HubToolResult>;
+  handle(args: { operation: string; args?: Record<string, unknown> }, mcpSessionId?: string): Promise<HubToolResult>;
 }
 
 export function createHubToolHandler(options: HubToolHandlerOptions): HubToolHandler {
   const { hubStorage, thoughtStore, envAgentId, envAgentName, onEvent } = options;
 
   const hubHandler = createHubHandler(hubStorage, thoughtStore, onEvent);
-  let resolvedAgentId: string | null | undefined = undefined; // undefined = not yet resolved
+
+  // Per-session identity map: each MCP session resolves its own agent identity.
+  // Key: mcpSessionId (or '__default__' when no session ID is provided).
+  // Value: string (resolved agentId), null (no env vars — register required),
+  //        or undefined (not yet resolved).
+  const sessionIdentities = new Map<string, string | null | undefined>();
 
   return {
-    async handle(toolArgs) {
+    async handle(toolArgs, mcpSessionId?) {
       const { operation, args = {} } = toolArgs;
+      const sessionKey = mcpSessionId || '__default__';
 
-      // Resolve agent identity lazily on first call
-      if (resolvedAgentId === undefined) {
-        resolvedAgentId = await resolveAgentId(hubStorage, envAgentId, envAgentName);
+      // Resolve agent identity lazily on first call per session
+      if (!sessionIdentities.has(sessionKey)) {
+        sessionIdentities.set(sessionKey, undefined);
       }
+      if (sessionIdentities.get(sessionKey) === undefined) {
+        const resolved = await resolveAgentId(hubStorage, envAgentId, envAgentName);
+        sessionIdentities.set(sessionKey, resolved);
+      }
+
+      const resolvedAgentId = sessionIdentities.get(sessionKey)!;
 
       try {
         // For register, pass null agentId (register creates new identity)
         const agentId = operation === 'register' ? null : resolvedAgentId;
         const result = await hubHandler.handle(agentId, operation, args as Record<string, any>);
 
-        // If register was called, capture the agentId for future calls
+        // If register was called, capture the agentId scoped to this session
         if (operation === 'register' && result && typeof result === 'object' && 'agentId' in result) {
-          resolvedAgentId = (result as { agentId: string }).agentId;
+          sessionIdentities.set(sessionKey, (result as { agentId: string }).agentId);
         }
 
         return {

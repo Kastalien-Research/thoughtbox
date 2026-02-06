@@ -186,8 +186,12 @@ export class GatewayHandler {
   private knowledgeHandler?: KnowledgeHandler;
   private storage: ThoughtboxStorage;
   private sendToolListChanged?: () => void;
+  /** Default agent identity from env vars (fallback when no session-scoped identity) */
   private agentId?: string;
   private agentName?: string;
+  /** Per-session agent identity overrides (defense-in-depth for shared-instance scenarios) */
+  private sessionAgentIds = new Map<string, string>();
+  private sessionAgentNames = new Map<string, string>();
 
   constructor(config: GatewayHandlerConfig) {
     this.toolRegistry = config.toolRegistry;
@@ -204,9 +208,37 @@ export class GatewayHandler {
   }
 
   /**
+   * Set per-session agent identity (called after hub registration for this session)
+   */
+  setSessionIdentity(mcpSessionId: string, agentId: string, agentName?: string): void {
+    this.sessionAgentIds.set(mcpSessionId, agentId);
+    if (agentName) this.sessionAgentNames.set(mcpSessionId, agentName);
+  }
+
+  /**
+   * Get the agent ID for a given session, falling back to instance default
+   */
+  private getAgentId(mcpSessionId?: string): string | undefined {
+    if (mcpSessionId && this.sessionAgentIds.has(mcpSessionId)) {
+      return this.sessionAgentIds.get(mcpSessionId);
+    }
+    return this.agentId;
+  }
+
+  /**
+   * Get the agent name for a given session, falling back to instance default
+   */
+  private getAgentName(mcpSessionId?: string): string | undefined {
+    if (mcpSessionId && this.sessionAgentNames.has(mcpSessionId)) {
+      return this.sessionAgentNames.get(mcpSessionId);
+    }
+    return this.agentName;
+  }
+
+  /**
    * Process a gateway tool call
    */
-  async handle(input: GatewayToolInput): Promise<ToolResponse> {
+  async handle(input: GatewayToolInput, mcpSessionId?: string): Promise<ToolResponse> {
     const { operation, args } = input;
 
     // Check stage requirement
@@ -239,7 +271,7 @@ export class GatewayHandler {
 
       // Thought operation
       case 'thought':
-        result = await this.handleThought(args);
+        result = await this.handleThought(args, mcpSessionId);
         break;
 
       // Read thoughts operation - retrieve previous thoughts mid-session
@@ -413,7 +445,7 @@ Call \`thoughtbox_gateway\` with operation 'thought' to begin structured reasoni
     };
   }
 
-  private async handleThought(args?: Record<string, unknown>): Promise<ToolResponse> {
+  private async handleThought(args?: Record<string, unknown>, mcpSessionId?: string): Promise<ToolResponse> {
     if (!args) {
       return {
         content: [{ type: 'text', text: 'Thought operation requires args with thought parameters' }],
@@ -458,9 +490,9 @@ Call \`thoughtbox_gateway\` with operation 'thought' to begin structured reasoni
       critique: args.critique as boolean | undefined,
       // SIL-101: Pass verbose flag for minimal/full response mode
       verbose: args.verbose as boolean | undefined,
-      // Multi-agent attribution: inject from gateway config (resolved from env vars)
-      agentId: (args.agentId as string | undefined) ?? this.agentId,
-      agentName: (args.agentName as string | undefined) ?? this.agentName,
+      // Multi-agent attribution: use per-session identity with fallback to instance defaults
+      agentId: (args.agentId as string | undefined) ?? this.getAgentId(mcpSessionId),
+      agentName: (args.agentName as string | undefined) ?? this.getAgentName(mcpSessionId),
     });
 
     return result;
