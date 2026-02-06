@@ -7,6 +7,7 @@ import { createFileSystemHubStorage } from '../hub-storage-fs.js';
 import { createIdentityManager } from '../identity.js';
 import { createWorkspaceManager } from '../workspace.js';
 import { createProblemsManager } from '../problems.js';
+import { createProposalsManager } from '../proposals.js';
 import { createChannelsManager } from '../channels.js';
 import { createInMemoryThoughtStore } from './test-helpers.js';
 
@@ -104,13 +105,35 @@ describe('Hub Storage — Filesystem Persistence', () => {
     const identityA = createIdentityManager(storageA);
     const workspaceA = createWorkspaceManager(storageA, thoughtStore);
     const problemsA = createProblemsManager(storageA, thoughtStore);
+    const proposalsA = createProposalsManager(storageA, thoughtStore);
+    const channelsA = createChannelsManager(storageA);
 
-    const reg = await identityA.register({ name: 'alice' });
-    const ws = await workspaceA.createWorkspace(reg.agentId, { name: 'persistent', description: '...' });
-    await problemsA.createProblem(reg.agentId, {
+    const alice = await identityA.register({ name: 'alice' });
+    const bob = await identityA.register({ name: 'bob' });
+    const ws = await workspaceA.createWorkspace(alice.agentId, { name: 'persistent', description: '...' });
+    await workspaceA.joinWorkspace(bob.agentId, { workspaceId: ws.workspaceId });
+
+    // Create problem (also creates channel)
+    const prob = await problemsA.createProblem(alice.agentId, {
       workspaceId: ws.workspaceId,
       title: 'survive reload',
       description: '...',
+    });
+
+    // Post a message to the channel
+    await channelsA.postMessage(alice.agentId, {
+      workspaceId: ws.workspaceId,
+      problemId: prob.problemId,
+      content: 'persisted message',
+    });
+
+    // Create proposal
+    await proposalsA.createProposal(bob.agentId, {
+      workspaceId: ws.workspaceId,
+      title: 'reload proposal',
+      description: 'should survive',
+      sourceBranch: 'test-branch',
+      problemId: prob.problemId,
     });
 
     // Create new storage instance B pointing at same directory
@@ -123,5 +146,15 @@ describe('Hub Storage — Filesystem Persistence', () => {
     const loadedProblems = await storageB.listProblems(ws.workspaceId);
     expect(loadedProblems).toHaveLength(1);
     expect(loadedProblems[0].title).toBe('survive reload');
+
+    const loadedProposals = await storageB.listProposals(ws.workspaceId);
+    expect(loadedProposals).toHaveLength(1);
+    expect(loadedProposals[0].title).toBe('reload proposal');
+    expect(loadedProposals[0].sourceBranch).toBe('test-branch');
+
+    const loadedChannel = await storageB.getChannel(ws.workspaceId, prob.problemId);
+    expect(loadedChannel).not.toBeNull();
+    expect(loadedChannel!.messages).toHaveLength(1);
+    expect(loadedChannel!.messages[0].content).toBe('persisted message');
   });
 });
