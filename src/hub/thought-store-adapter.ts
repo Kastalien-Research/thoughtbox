@@ -21,7 +21,7 @@ export interface ThoughtStoreAdapter {
 export function createThoughtStoreAdapter(storage: ThoughtboxStorage): ThoughtStoreAdapter {
   return {
     async createSession(sessionId: string) {
-      await storage.createSession({ id: sessionId, name: `hub-${sessionId}` });
+      await storage.createSession({ title: `hub-${sessionId}` });
     },
     saveThought: (sessionId, thought) => storage.saveThought(sessionId, thought),
     getThought: (sessionId, num) => storage.getThought(sessionId, num),

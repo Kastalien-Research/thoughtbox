@@ -1,6 +1,11 @@
 import { McpServer, ResourceTemplate } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { ListResourcesRequestSchema, ListResourceTemplatesRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
+import type { HubStorage } from "./hub/hub-types.js";
+import { createHubToolHandler, type HubToolHandler } from "./hub/hub-tool-handler.js";
+import { createThoughtStoreAdapter } from "./hub/thought-store-adapter.js";
+import { FileSystemTaskStore } from "./hub/hub-task-store.js";
+import { InMemoryTaskStore, InMemoryTaskMessageQueue } from "@modelcontextprotocol/sdk/experimental/tasks/stores/in-memory.js";
 import { PATTERNS_COOKBOOK } from "./resources/patterns-cookbook-content.js";
 import { SERVER_ARCHITECTURE_GUIDE } from "./resources/server-architecture-content.js";
 import { NotebookHandler } from "./notebook/index.js";
@@ -122,6 +127,10 @@ export interface CreateMcpServerArgs {
    * Use FileSystemStorage for durable persistence to disk.
    */
   storage?: ThoughtboxStorage;
+  /** Hub storage for multi-agent coordination */
+  hubStorage?: HubStorage;
+  /** Data directory for task store (filesystem persistence) */
+  dataDir?: string;
 }
 
 const defaultLogger: Logger = {
@@ -161,12 +170,20 @@ Recommended workflow:
 
 Progressive disclosure is enforced internally - you'll get clear errors if calling operations too early.`;
 
+  // Create task infrastructure if hub storage is provided
+  const taskStore = args.dataDir
+    ? new FileSystemTaskStore(args.dataDir)
+    : new InMemoryTaskStore();
+  const taskMessageQueue = new InMemoryTaskMessageQueue();
+
   const server = new McpServer({
     name: "thoughtbox-server",
     // Keep in sync with package.json version; avoid importing outside src/ (tsconfig rootDir)
     version: "1.2.2",
   }, {
     instructions: THOUGHTBOX_INSTRUCTIONS,
+    taskStore,
+    taskMessageQueue,
   });
 
   // Tool registry for progressive disclosure (SPEC-008)
@@ -433,6 +450,112 @@ Operations:
       };
     }
   );
+
+  // =============================================================================
+  // Hub Tool (Multi-Agent Collaboration)
+  // =============================================================================
+  // Routes to hub domain layer for workspace, problem, proposal, consensus,
+  // and channel operations. Uses SDK task infrastructure for task-capable clients.
+
+  if (args.hubStorage) {
+    const thoughtStoreAdapter = createThoughtStoreAdapter(storage);
+    const hubToolHandler = createHubToolHandler({
+      hubStorage: args.hubStorage,
+      thoughtStore: thoughtStoreAdapter,
+      envAgentId: process.env.THOUGHTBOX_AGENT_ID,
+      envAgentName: process.env.THOUGHTBOX_AGENT_NAME,
+      onEvent: (event) => {
+        if (event.type === 'problem_created') {
+          server.sendResourceListChanged();
+        }
+        if (event.type === 'message_posted') {
+          server.server.notification({
+            method: 'notifications/resources/updated',
+            params: { uri: `thoughtbox://hub/${event.workspaceId}/channels/${event.data.problemId}` },
+          });
+        }
+      },
+    });
+
+    const HUB_TOOL_DESCRIPTION = `Multi-agent collaboration hub for coordinated reasoning.
+
+Operations:
+- register: Register as an agent (args: { name: string })
+- whoami: Get current agent identity
+- create_workspace: Create a collaboration workspace (args: { name, description })
+- join_workspace: Join an existing workspace (args: { workspaceId })
+- list_workspaces: List all workspaces
+- workspace_status: Get workspace status (args: { workspaceId })
+- create_problem: Define a problem to solve (args: { workspaceId, title, description })
+- claim_problem: Claim a problem to work on (args: { workspaceId, problemId })
+- update_problem: Update problem status (args: { workspaceId, problemId, status, resolution? })
+- list_problems: List problems (args: { workspaceId })
+- create_proposal: Propose a solution (args: { workspaceId, title, description, sourceBranch, problemId? })
+- review_proposal: Review a proposal (args: { workspaceId, proposalId, verdict, reasoning })
+- merge_proposal: Merge an approved proposal (args: { workspaceId, proposalId })
+- list_proposals: List proposals (args: { workspaceId })
+- mark_consensus: Mark a consensus decision (args: { workspaceId, name, description, thoughtRef, branchId? })
+- endorse_consensus: Endorse a consensus marker (args: { workspaceId, markerId })
+- list_consensus: List consensus markers (args: { workspaceId })
+- post_message: Post to a problem channel (args: { workspaceId, problemId, content })
+- read_channel: Read problem channel messages (args: { workspaceId, problemId })
+
+Progressive disclosure is enforced internally. Register first, then join a workspace.`;
+
+    const hubInputSchema = {
+      operation: z.enum([
+        'register', 'whoami',
+        'create_workspace', 'join_workspace', 'list_workspaces', 'workspace_status',
+        'create_problem', 'claim_problem', 'update_problem', 'list_problems',
+        'create_proposal', 'review_proposal', 'merge_proposal', 'list_proposals',
+        'mark_consensus', 'endorse_consensus', 'list_consensus',
+        'post_message', 'read_channel',
+      ]),
+      args: z.record(z.string(), z.unknown()).optional(),
+    };
+
+    server.registerTool(
+      "thoughtbox_hub",
+      {
+        description: HUB_TOOL_DESCRIPTION,
+        inputSchema: hubInputSchema,
+      },
+      async (toolArgs) => {
+        const result = await hubToolHandler.handle(toolArgs);
+        return {
+          content: result.content,
+          isError: result.isError,
+        };
+      }
+    );
+
+    // Register channel resource template for hub
+    server.registerResource(
+      "hub-channels",
+      new ResourceTemplate("thoughtbox://hub/{workspaceId}/channels/{problemId}", { list: undefined }),
+      {
+        description: "Problem discussion channel messages",
+        mimeType: "application/json",
+      },
+      async (uri, variables) => {
+        const workspaceId = variables.workspaceId as string;
+        const problemId = variables.problemId as string;
+
+        if (!args.hubStorage) {
+          return { contents: [{ uri: uri.href, mimeType: "application/json", text: "[]" }] };
+        }
+
+        const channel = await args.hubStorage.getChannel(workspaceId, problemId);
+        return {
+          contents: [{
+            uri: uri.href,
+            mimeType: "application/json",
+            text: JSON.stringify(channel?.messages ?? [], null, 2),
+          }],
+        };
+      }
+    );
+  }
 
   // Register prompts using McpServer's registerPrompt API
   server.registerPrompt(

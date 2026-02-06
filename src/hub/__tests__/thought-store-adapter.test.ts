@@ -42,7 +42,7 @@ describe('ThoughtStore Adapter', () => {
     await adapter.createSession('hub-session-1');
 
     expect(mockStorage.createSession).toHaveBeenCalledWith(
-      expect.objectContaining({ id: 'hub-session-1' })
+      expect.objectContaining({ title: 'hub-hub-session-1' })
     );
   });
 

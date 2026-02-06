@@ -28,6 +28,8 @@ import {
   loadObservatoryConfig,
   type ObservatoryServer,
 } from "./observatory/index.js";
+import { createFileSystemHubStorage } from "./hub/hub-storage-fs.js";
+import type { HubStorage } from "./hub/hub-types.js";
 
 /**
  * Get the storage backend based on environment configuration.
@@ -38,18 +40,32 @@ import {
  * THOUGHTBOX_DATA_DIR -> Custom data directory (default: ~/.thoughtbox)
  * THOUGHTBOX_PROJECT  -> Project scope for isolation (default: _default)
  */
-async function createStorage(): Promise<ThoughtboxStorage> {
+interface StorageBundle {
+  storage: ThoughtboxStorage;
+  hubStorage: HubStorage;
+  dataDir: string;
+}
+
+async function createStorage(): Promise<StorageBundle> {
   const storageType = (process.env.THOUGHTBOX_STORAGE || "fs").toLowerCase();
 
-  if (storageType === "memory") {
-    console.error("[Storage] Using in-memory storage (volatile)");
-    return new InMemoryStorage();
-  }
-
-  // FileSystemStorage is the default for local-first
+  // Determine base directory (used for both main and hub storage)
   const baseDir =
     process.env.THOUGHTBOX_DATA_DIR ||
     path.join(os.homedir(), ".thoughtbox");
+
+  if (storageType === "memory") {
+    console.error("[Storage] Using in-memory storage (volatile)");
+    // Even in memory mode, hub uses filesystem storage at baseDir
+    // Hub state persists across sessions for multi-agent coordination
+    return {
+      storage: new InMemoryStorage(),
+      hubStorage: createFileSystemHubStorage(baseDir),
+      dataDir: baseDir,
+    };
+  }
+
+  // FileSystemStorage is the default for local-first
   const project = process.env.THOUGHTBOX_PROJECT || "_default";
 
   console.error(`[Storage] Using filesystem storage at ${baseDir}/projects/${project}/`);
@@ -78,7 +94,11 @@ async function createStorage(): Promise<ThoughtboxStorage> {
     console.error("[Storage] Migration check failed (non-fatal):", err);
   }
 
-  return storage;
+  return {
+    storage,
+    hubStorage: createFileSystemHubStorage(baseDir),
+    dataDir: baseDir,
+  };
 }
 
 interface SessionEntry {
@@ -98,7 +118,7 @@ async function maybeStartObservatory(): Promise<ObservatoryServer | null> {
 
 async function startHttpServer() {
   // Initialize shared storage (all MCP sessions share the same persistence layer)
-  const storage = await createStorage();
+  const { storage, hubStorage, dataDir } = await createStorage();
 
   const observatoryServer = await maybeStartObservatory();
 
@@ -131,6 +151,8 @@ async function startHttpServer() {
       const server = await createMcpServer({
         sessionId,
         storage, // Shared storage instance
+        hubStorage,
+        dataDir,
         config: {
           disableThoughtLogging:
             (process.env.DISABLE_THOUGHT_LOGGING || "").toLowerCase() === "true",
@@ -212,13 +234,15 @@ async function startHttpServer() {
 
 async function runStdioServer() {
   // Initialize storage for stdio mode
-  const storage = await createStorage();
+  const { storage, hubStorage, dataDir } = await createStorage();
 
   const disableThoughtLogging =
     (process.env.DISABLE_THOUGHT_LOGGING || "").toLowerCase() === "true";
 
   const server = await createMcpServer({
     storage,
+    hubStorage,
+    dataDir,
     config: {
       disableThoughtLogging,
     },
