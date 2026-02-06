@@ -5,7 +5,7 @@
  */
 
 import { readFile, writeFile, mkdir, readdir } from 'node:fs/promises';
-import { join } from 'node:path';
+import { join, dirname } from 'node:path';
 import type {
   HubStorage,
   AgentIdentity,
@@ -30,7 +30,7 @@ async function readJson<T>(path: string): Promise<T | null> {
 }
 
 async function writeJson(path: string, data: unknown): Promise<void> {
-  const dir = path.substring(0, path.lastIndexOf('/'));
+  const dir = dirname(path);
   await ensureDir(dir);
   await writeFile(path, JSON.stringify(data, null, 2), 'utf-8');
 }
