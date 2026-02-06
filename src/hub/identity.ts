@@ -40,9 +40,11 @@ export function createIdentityManager(storage: HubStorage): IdentityManager {
         throw new Error('Not registered. Call register first.');
       }
 
-      // Workspaces the agent belongs to — requires scanning workspaces.
-      // For now, return empty array; workspace module will extend this.
-      const workspaces: string[] = [];
+      // Scan all workspaces to find which ones this agent belongs to
+      const allWorkspaces = await storage.listWorkspaces();
+      const workspaces = allWorkspaces
+        .filter(ws => ws.agents.some(a => a.agentId === agentId))
+        .map(ws => ws.id);
 
       return {
         agentId: agent.agentId,
