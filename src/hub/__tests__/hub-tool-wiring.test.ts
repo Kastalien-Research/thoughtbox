@@ -70,6 +70,7 @@ describe('Hub Tool Wiring', () => {
       hubStorage,
       thoughtStore,
       envAgentId: 'env-agent-123',
+      envAgentName: 'env-agent',
     });
 
     // Should be able to call whoami without explicit register
