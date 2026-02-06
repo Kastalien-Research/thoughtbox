@@ -93,7 +93,7 @@
     "@anthropic-ai/claude-agent-sdk": "^0.1.76",
     "@anthropic-ai/sdk": "^0.39.0",
     "@octokit/rest": "^20.1.2",
-    "@smithery/cli": "^1.6.2",
+    "@smithery/cli": "^3.15.1",
     "@types/better-sqlite3": "^7.6.13",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.5",
