@@ -1,0 +1,222 @@
+# Self-Improvement Loop Automation
+# SPEC: SPEC-automation.md
+#
+# Runs the self-improvement loop on a schedule with budget and iteration limits.
+# Creates a PR for human review if improvements are integrated.
+#
+# Safety constraints:
+# - Human approval required for integration
+# - Fail-fast on evaluation gate failures
+# - Rate limits enforced via budget cap
+
+name: Self-Improvement Loop
+
+on:
+  # Manual trigger with configurable parameters
+  workflow_dispatch:
+    inputs:
+      budget:
+        description: 'Budget in USD'
+        required: false
+        default: '10.0'
+        type: string
+      max_iterations:
+        description: 'Maximum iterations'
+        required: false
+        default: '5'
+        type: string
+      dry_run:
+        description: 'Dry run (no changes)'
+        required: false
+        default: false
+        type: boolean
+
+  # Scheduled runs (weekly on Sundays at 2am UTC)
+  schedule:
+    - cron: '0 2 * * 0'
+
+# Prevent concurrent runs
+concurrency:
+  group: self-improvement-loop
+  cancel-in-progress: false
+
+jobs:
+  improvement-loop:
+    name: Run Self-Improvement Loop
+    runs-on: ubuntu-latest
+    timeout-minutes: 120  # 2 hour max
+
+    # Only run on main repo, not forks
+    if: github.repository == 'kastalien-research/thoughtbox'
+
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Create improvement branch
+        id: branch
+        run: |
+          BRANCH_NAME="improvement/sil-$(date +%Y%m%d-%H%M%S)"
+          git checkout -b "$BRANCH_NAME"
+          echo "branch=$BRANCH_NAME" >> $GITHUB_OUTPUT
+
+      - name: Run Self-Improvement Loop
+        id: sil
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          # Set parameters from inputs or defaults
+          BUDGET="${{ inputs.budget || '10.0' }}"
+          MAX_ITER="${{ inputs.max_iterations || '5' }}"
+          DRY_RUN="${{ inputs.dry_run || 'false' }}"
+
+          # Build command
+          CMD="npx tsx scripts/agents/run-improvement-loop.ts"
+          CMD="$CMD --budget $BUDGET"
+          CMD="$CMD --max-iterations $MAX_ITER"
+          CMD="$CMD --output improvement-results.json"
+          CMD="$CMD --verbose"
+
+          if [ "$DRY_RUN" = "true" ]; then
+            CMD="$CMD --dry-run"
+          fi
+
+          echo "Running: $CMD"
+          $CMD || echo "SIL completed with exit code $?"
+
+          # Check if results file exists
+          if [ -f improvement-results.json ]; then
+            echo "results_exist=true" >> $GITHUB_OUTPUT
+
+            # Extract summary
+            TOTAL=$(jq '.summary.totalIterations' improvement-results.json)
+            SUCCESS=$(jq '.summary.successful' improvement-results.json)
+            FAILED=$(jq '.summary.failed' improvement-results.json)
+
+            echo "total_iterations=$TOTAL" >> $GITHUB_OUTPUT
+            echo "successful=$SUCCESS" >> $GITHUB_OUTPUT
+            echo "failed=$FAILED" >> $GITHUB_OUTPUT
+          else
+            echo "results_exist=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Generate Scorecard
+        if: steps.sil.outputs.results_exist == 'true'
+        run: |
+          # Generate scorecard from improvement history
+          npx tsx -e "
+            import { ImprovementEventStore, ScorecardAggregator } from './src/observatory/index.js';
+            const store = new ImprovementEventStore();
+            await store.initialize();
+            const aggregator = new ScorecardAggregator(store);
+            const scorecard = await aggregator.computeScorecard({
+              outputPath: 'scorecard.json',
+              recentCount: 20
+            });
+            console.log('Scorecard generated:', JSON.stringify(scorecard.metrics, null, 2));
+          " || echo "Scorecard generation skipped"
+
+      - name: Upload Artifacts
+        if: steps.sil.outputs.results_exist == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: improvement-results
+          path: |
+            improvement-results.json
+            scorecard.json
+          retention-days: 30
+
+      - name: Check for Changes
+        id: changes
+        run: |
+          # Check if there are any code changes
+          if git diff --quiet HEAD; then
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+          else
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+            git diff --stat
+          fi
+
+      - name: Commit Changes
+        if: steps.changes.outputs.has_changes == 'true' && inputs.dry_run != true
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git add -A
+          git commit -m "feat(sil): Automated improvements from self-improvement loop
+
+          Run summary:
+          - Total iterations: ${{ steps.sil.outputs.total_iterations }}
+          - Successful: ${{ steps.sil.outputs.successful }}
+          - Failed: ${{ steps.sil.outputs.failed }}
+
+          Generated by Self-Improvement Loop workflow."
+
+      - name: Push Branch
+        if: steps.changes.outputs.has_changes == 'true' && inputs.dry_run != true
+        run: |
+          git push -u origin ${{ steps.branch.outputs.branch }}
+
+      - name: Create Pull Request
+        if: steps.changes.outputs.has_changes == 'true' && inputs.dry_run != true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr create \
+            --title "feat(sil): Automated improvements from self-improvement loop" \
+            --body "## Summary
+
+          This PR contains automated improvements generated by the Self-Improvement Loop.
+
+          ### Run Statistics
+          - **Total Iterations:** ${{ steps.sil.outputs.total_iterations }}
+          - **Successful:** ${{ steps.sil.outputs.successful }}
+          - **Failed:** ${{ steps.sil.outputs.failed }}
+
+          ### Artifacts
+          - See workflow artifacts for detailed results and scorecard
+
+          ### Review Checklist
+          - [ ] Review all code changes
+          - [ ] Verify tests pass
+          - [ ] Check for unintended side effects
+          - [ ] Approve for merge
+
+          ---
+          *This PR was automatically generated by the Self-Improvement Loop workflow.*" \
+            --label "automated,self-improvement"
+
+      - name: Summary
+        run: |
+          echo "## Self-Improvement Loop Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ "${{ steps.sil.outputs.results_exist }}" = "true" ]; then
+            echo "| Metric | Value |" >> $GITHUB_STEP_SUMMARY
+            echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
+            echo "| Total Iterations | ${{ steps.sil.outputs.total_iterations }} |" >> $GITHUB_STEP_SUMMARY
+            echo "| Successful | ${{ steps.sil.outputs.successful }} |" >> $GITHUB_STEP_SUMMARY
+            echo "| Failed | ${{ steps.sil.outputs.failed }} |" >> $GITHUB_STEP_SUMMARY
+            echo "| Changes Made | ${{ steps.changes.outputs.has_changes }} |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "No results generated." >> $GITHUB_STEP_SUMMARY
+          fi
