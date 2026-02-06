@@ -67,8 +67,7 @@
     "test:behavioral": "tsx scripts/agents/test-behavioral-contracts.ts",
     "test:behavioral:variance": "tsx scripts/agents/test-behavioral-contracts.ts --variance-only",
     "agentops:daily": "tsx agentops/runner/cli.ts daily-dev-brief",
-    "agentops:implement": "tsx agentops/runner/cli.ts implement",
-    "test:agentops": "tsx --test agentops/tests/*.test.ts"
+    "agentops:implement": "tsx agentops/runner/cli.ts implement"
   },
   "engines": {
     "node": ">=22.0.0"

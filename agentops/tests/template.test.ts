@@ -2,8 +2,7 @@
  * Template rendering tests
  */
 
-import { test } from 'node:test';
-import assert from 'node:assert';
+import { test, expect } from 'vitest';
 import {
   renderTemplate,
   formatProposalsSummary,
@@ -19,7 +18,7 @@ test('renderTemplate replaces all placeholders', () => {
   };
 
   const result = renderTemplate(template, context);
-  assert.strictEqual(result, 'Hello World, today is 2026-01-28!');
+  expect(result).toBe('Hello World, today is 2026-01-28!');
 });
 
 test('renderTemplate throws on unreplaced placeholders', () => {
@@ -29,10 +28,7 @@ test('renderTemplate throws on unreplaced placeholders', () => {
     // Missing DATE
   };
 
-  assert.throws(
-    () => renderTemplate(template, context),
-    /unreplaced placeholders/
-  );
+  expect(() => renderTemplate(template, context)).toThrow(/unreplaced placeholders/);
 });
 
 test('formatProposalsSummary generates markdown sections', () => {
@@ -43,6 +39,7 @@ test('formatProposalsSummary generates markdown sections', () => {
       category: 'reliability',
       effort_estimate: 'S',
       risk: 'low',
+      evidence: ['https://example.com/issue/1'],
       why_now: ['Reason 1', 'Reason 2'],
       expected_impact: {
         users: ['User 1', 'User 2'],
@@ -59,12 +56,12 @@ test('formatProposalsSummary generates markdown sections', () => {
 
   const result = formatProposalsSummary(proposals);
 
-  assert.match(result, /### Proposal 1 — Test Proposal/);
-  assert.match(result, /\*\*Category:\*\* reliability/);
-  assert.match(result, /\*\*Effort:\*\* S/);
-  assert.match(result, /\*\*Risk:\*\* low/);
-  assert.match(result, /- Reason 1/);
-  assert.match(result, /- Reason 2/);
+  expect(result).toMatch(/### Proposal 1 — Test Proposal/);
+  expect(result).toMatch(/\*\*Category:\*\* reliability/);
+  expect(result).toMatch(/\*\*Effort:\*\* S/);
+  expect(result).toMatch(/\*\*Risk:\*\* low/);
+  expect(result).toMatch(/- Reason 1/);
+  expect(result).toMatch(/- Reason 2/);
 });
 
 test('validateProposalsPayload detects missing fields', () => {
@@ -75,9 +72,9 @@ test('validateProposalsPayload detects missing fields', () => {
 
   const errors = validateProposalsPayload(invalidPayload);
 
-  assert.ok(errors.length > 0);
-  assert.ok(errors.some((e) => e.includes('repo_ref')));
-  assert.ok(errors.some((e) => e.includes('git_sha')));
+  expect(errors.length).toBeGreaterThan(0);
+  expect(errors.some((e) => e.includes('repo_ref'))).toBe(true);
+  expect(errors.some((e) => e.includes('git_sha'))).toBe(true);
 });
 
 test('validateProposalsPayload accepts valid payload', () => {
@@ -107,7 +104,5 @@ test('validateProposalsPayload accepts valid payload', () => {
   };
 
   const errors = validateProposalsPayload(validPayload);
-  assert.strictEqual(errors.length, 0);
+  expect(errors.length).toBe(0);
 });
-
-console.log('✅ All template tests passed');

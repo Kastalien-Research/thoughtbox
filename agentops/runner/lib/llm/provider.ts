@@ -128,10 +128,10 @@ async function callOpenAI(
 
   const content = response.choices[0]?.message?.content || '';
 
-  // Calculate cost (OpenAI models use hardcoded fallback for now)
+  // Calculate cost with accurate model-specific pricing
   const promptTokens = response.usage?.prompt_tokens || 0;
   const completionTokens = response.usage?.completion_tokens || 0;
-  const costUsd = promptTokens * 0.00001 + completionTokens * 0.00003;
+  const { costUsd, metadata } = calculateCost(config.model, promptTokens, completionTokens);
 
   return {
     content,
@@ -139,13 +139,7 @@ async function callOpenAI(
       input_tokens: promptTokens,
       output_tokens: completionTokens,
       cost_usd_calculated: costUsd,
-      cost_metadata: {
-        model: config.model,
-        inputPricePerMToken: 10.0,
-        outputPricePerMToken: 30.0,
-        pricingSource: 'https://openai.com/pricing',
-        pricingDate: '2026-01-29',
-      },
+      cost_metadata: metadata,
     },
   };
 }

@@ -2,8 +2,7 @@
  * Tests for arXiv XML parsing using fast-xml-parser
  */
 
-import { test } from 'node:test';
-import assert from 'node:assert';
+import { test, expect } from 'vitest';
 import { XMLParser } from 'fast-xml-parser';
 
 test('XML parser handles arXiv feed with single entry', () => {
@@ -25,28 +24,12 @@ test('XML parser handles arXiv feed with single entry', () => {
 
   const parsed = parser.parse(xml);
 
-  assert.ok(parsed.feed, 'Feed should exist');
-  assert.ok(parsed.feed.entry, 'Entry should exist');
-  assert.strictEqual(
-    parsed.feed.entry.id,
-    'http://arxiv.org/abs/2601.12345v1',
-    'Entry ID should match'
-  );
-  assert.strictEqual(
-    parsed.feed.entry.title,
-    'Test Paper Title',
-    'Title should match'
-  );
-  assert.strictEqual(
-    parsed.feed.entry.summary,
-    'This is a test summary with important findings.',
-    'Summary should match'
-  );
-  assert.strictEqual(
-    parsed.feed.entry.published,
-    '2024-01-01T00:00:00Z',
-    'Published date should match'
-  );
+  expect(parsed.feed).toBeTruthy();
+  expect(parsed.feed.entry).toBeTruthy();
+  expect(parsed.feed.entry.id).toBe('http://arxiv.org/abs/2601.12345v1');
+  expect(parsed.feed.entry.title).toBe('Test Paper Title');
+  expect(parsed.feed.entry.summary).toBe('This is a test summary with important findings.');
+  expect(parsed.feed.entry.published).toBe('2024-01-01T00:00:00Z');
 });
 
 test('XML parser handles arXiv feed with multiple entries', () => {
@@ -74,18 +57,10 @@ test('XML parser handles arXiv feed with multiple entries', () => {
 
   const parsed = parser.parse(xml);
 
-  assert.ok(Array.isArray(parsed.feed.entry), 'Entries should be an array');
-  assert.strictEqual(parsed.feed.entry.length, 2, 'Should have 2 entries');
-  assert.strictEqual(
-    parsed.feed.entry[0].id,
-    'http://arxiv.org/abs/2601.11111v1',
-    'First entry ID should match'
-  );
-  assert.strictEqual(
-    parsed.feed.entry[1].id,
-    'http://arxiv.org/abs/2601.22222v1',
-    'Second entry ID should match'
-  );
+  expect(Array.isArray(parsed.feed.entry)).toBe(true);
+  expect(parsed.feed.entry.length).toBe(2);
+  expect(parsed.feed.entry[0].id).toBe('http://arxiv.org/abs/2601.11111v1');
+  expect(parsed.feed.entry[1].id).toBe('http://arxiv.org/abs/2601.22222v1');
 });
 
 test('XML parser handles entries with missing optional fields', () => {
@@ -105,23 +80,11 @@ test('XML parser handles entries with missing optional fields', () => {
 
   const parsed = parser.parse(xml);
 
-  assert.ok(parsed.feed.entry, 'Entry should exist');
-  assert.strictEqual(
-    parsed.feed.entry.id,
-    'http://arxiv.org/abs/2601.12345v1',
-    'ID should exist'
-  );
-  assert.strictEqual(parsed.feed.entry.title, 'Test Paper', 'Title should exist');
-  assert.strictEqual(
-    parsed.feed.entry.summary,
-    undefined,
-    'Summary should be undefined when missing'
-  );
-  assert.strictEqual(
-    parsed.feed.entry.published,
-    undefined,
-    'Published should be undefined when missing'
-  );
+  expect(parsed.feed.entry).toBeTruthy();
+  expect(parsed.feed.entry.id).toBe('http://arxiv.org/abs/2601.12345v1');
+  expect(parsed.feed.entry.title).toBe('Test Paper');
+  expect(parsed.feed.entry.summary).toBeUndefined();
+  expect(parsed.feed.entry.published).toBeUndefined();
 });
 
 test('Array vs single entry normalization', () => {
@@ -163,11 +126,11 @@ test('Array vs single entry normalization', () => {
     ? multiParsed.feed.entry
     : [multiParsed.feed.entry].filter(Boolean);
 
-  assert.ok(Array.isArray(singleEntries), 'Single entry should be normalized to array');
-  assert.strictEqual(singleEntries.length, 1, 'Should have 1 entry');
+  expect(Array.isArray(singleEntries)).toBe(true);
+  expect(singleEntries.length).toBe(1);
 
-  assert.ok(Array.isArray(multiEntries), 'Multiple entries should be array');
-  assert.strictEqual(multiEntries.length, 2, 'Should have 2 entries');
+  expect(Array.isArray(multiEntries)).toBe(true);
+  expect(multiEntries.length).toBe(2);
 });
 
 test('Handles empty feed gracefully', () => {
@@ -183,13 +146,13 @@ test('Handles empty feed gracefully', () => {
 
   const parsed = parser.parse(xml);
 
-  assert.ok(parsed.feed, 'Feed should exist');
+  expect(parsed.feed).toBeTruthy();
 
   // Normalize empty entry
   const entries = Array.isArray(parsed.feed.entry)
     ? parsed.feed.entry
     : [parsed.feed.entry].filter(Boolean);
 
-  assert.ok(Array.isArray(entries), 'Should be normalized to array');
-  assert.strictEqual(entries.length, 0, 'Should have 0 entries');
+  expect(Array.isArray(entries)).toBe(true);
+  expect(entries.length).toBe(0);
 });

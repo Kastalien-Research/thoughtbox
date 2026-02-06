@@ -2,8 +2,7 @@
  * JSON extraction tests
  */
 
-import { test } from 'node:test';
-import assert from 'node:assert';
+import { test, expect } from 'vitest';
 import { extractProposals, extractImplementationMeta } from '../runner/lib/template.js';
 
 test('extractProposals finds AGENTOPS_META_BEGIN block', () => {
@@ -37,9 +36,9 @@ AGENTOPS_META_END -->
 
   const result = extractProposals(issueBody);
 
-  assert.strictEqual(result.run_id, 'test-run');
-  assert.strictEqual(result.repo_ref, 'main');
-  assert.ok(Array.isArray(result.proposals));
+  expect(result.run_id).toBe('test-run');
+  expect(result.repo_ref).toBe('main');
+  expect(Array.isArray(result.proposals)).toBe(true);
 });
 
 test('extractProposals throws on missing meta block', () => {
@@ -53,10 +52,7 @@ No meta block here.
 \`\`\`
 `;
 
-  assert.throws(
-    () => extractProposals(issueBody),
-    /No AGENTOPS_META_BEGIN block found/
-  );
+  expect(() => extractProposals(issueBody)).toThrow(/No AGENTOPS_META_BEGIN block found/);
 });
 
 test('extractProposals throws on missing JSON block', () => {
@@ -70,10 +66,7 @@ AGENTOPS_META_END -->
 No JSON block here.
 `;
 
-  assert.throws(
-    () => extractProposals(issueBody),
-    /No proposals.json code block found/
-  );
+  expect(() => extractProposals(issueBody)).toThrow(/No proposals.json code block found/);
 });
 
 test('extractImplementationMeta finds AGENTOPS_IMPL_META_BEGIN block', () => {
@@ -93,9 +86,9 @@ AGENTOPS_IMPL_META_END -->
 
   const result = extractImplementationMeta(commentBody);
 
-  assert.strictEqual(result.run_id, 'impl-run');
-  assert.strictEqual(result.proposal_id, 'proposal-1');
-  assert.strictEqual(result.status, 'SUCCEEDED');
+  expect(result.run_id).toBe('impl-run');
+  expect(result.proposal_id).toBe('proposal-1');
+  expect(result.status).toBe('SUCCEEDED');
 });
 
 test('extractImplementationMeta throws on missing meta block', () => {
@@ -105,10 +98,5 @@ test('extractImplementationMeta throws on missing meta block', () => {
 No meta block here.
 `;
 
-  assert.throws(
-    () => extractImplementationMeta(commentBody),
-    /No AGENTOPS_IMPL_META_BEGIN block found/
-  );
+  expect(() => extractImplementationMeta(commentBody)).toThrow(/No AGENTOPS_IMPL_META_BEGIN block found/);
 });
-
-console.log('✅ All extraction tests passed');

@@ -58,6 +58,27 @@ export const ANTHROPIC_PRICING: Record<string, ModelPricing> = {
   },
 };
 
+export const OPENAI_PRICING: Record<string, ModelPricing> = {
+  'gpt-4-turbo-preview': {
+    inputPricePerMToken: 10.0,
+    outputPricePerMToken: 30.0,
+    source: 'https://openai.com/pricing',
+    lastUpdated: '2026-01-29',
+  },
+  'gpt-4': {
+    inputPricePerMToken: 30.0,
+    outputPricePerMToken: 60.0,
+    source: 'https://openai.com/pricing',
+    lastUpdated: '2026-01-29',
+  },
+  'gpt-3.5-turbo': {
+    inputPricePerMToken: 0.5,
+    outputPricePerMToken: 1.5,
+    source: 'https://openai.com/pricing',
+    lastUpdated: '2026-01-29',
+  },
+};
+
 /**
  * Calculate cost from token usage with accurate, model-specific pricing
  */
@@ -75,7 +96,13 @@ export function calculateCost(
     pricingDate: string;
   };
 } {
-  const pricing = ANTHROPIC_PRICING[model];
+  // Try Anthropic pricing first
+  let pricing = ANTHROPIC_PRICING[model];
+  
+  // Try OpenAI pricing if not found
+  if (!pricing) {
+    pricing = OPENAI_PRICING[model];
+  }
 
   if (!pricing) {
     console.warn(`No pricing found for model ${model}, using Sonnet 4.5 pricing as fallback`);

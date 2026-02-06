@@ -2,8 +2,7 @@
  * Synthesis Tests
  */
 
-import { test } from 'node:test';
-import assert from 'node:assert';
+import { test, expect } from 'vitest';
 import { validateProposalsPayload } from '../runner/lib/template.js';
 
 test('Proposal validation requires evidence', () => {
@@ -33,8 +32,8 @@ test('Proposal validation requires evidence', () => {
   };
 
   const errors = validateProposalsPayload(payload);
-  assert.ok(errors.length > 0);
-  assert.ok(errors.some(e => e.includes('evidence')));
+  expect(errors.length).toBeGreaterThan(0);
+  expect(errors.some(e => e.includes('evidence'))).toBe(true);
 });
 
 test('Proposal validation passes with evidence', () => {
@@ -64,7 +63,7 @@ test('Proposal validation passes with evidence', () => {
   };
 
   const errors = validateProposalsPayload(payload);
-  assert.strictEqual(errors.length, 0);
+  expect(errors.length).toBe(0);
 });
 
 test('Proposal validation rejects fabricated numeric claims', () => {
@@ -101,8 +100,8 @@ test('Proposal validation rejects fabricated numeric claims', () => {
     };
 
     const errors = validateProposalsPayload(payload);
-    assert.ok(errors.length > 0, `Should reject: "${outcome}"`);
-    assert.ok(errors.some(e => e.includes('unsourced numeric claim')));
+    expect(errors.length).toBeGreaterThan(0);
+    expect(errors.some(e => e.includes('unsourced numeric claim'))).toBe(true);
   }
 });
 
@@ -133,8 +132,6 @@ test('Proposal validation rejects non-URL evidence', () => {
   };
 
   const errors = validateProposalsPayload(payload);
-  assert.ok(errors.length > 0);
-  assert.ok(errors.some(e => e.includes('must be full URL')));
+  expect(errors.length).toBeGreaterThan(0);
+  expect(errors.some(e => e.includes('must be full URL'))).toBe(true);
 });
-
-console.log('✅ Synthesis tests passed');

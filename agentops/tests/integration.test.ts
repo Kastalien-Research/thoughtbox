@@ -3,8 +3,7 @@
  * These tests validate that the collectors work with real APIs/websites
  */
 
-import { test } from 'node:test';
-import assert from 'node:assert';
+import { test, expect } from 'vitest';
 import { collectArxivSignals } from '../runner/lib/sources/arxiv.js';
 import { collectHTMLSignals } from '../runner/lib/sources/html.js';
 
@@ -14,14 +13,14 @@ test('arXiv XML parser collects real signals', async () => {
     maxResults: 5,
   });
 
-  assert.ok(signals.length > 0, 'Should collect at least one signal');
-  assert.ok(signals.length <= 5, 'Should respect maxResults limit');
+  expect(signals.length).toBeGreaterThan(0);
+  expect(signals.length).toBeLessThanOrEqual(5);
 
   const first = signals[0];
-  assert.ok(first.title, 'Signal should have title');
-  assert.ok(first.url, 'Signal should have URL');
-  assert.ok(first.url.includes('arxiv.org'), 'URL should be from arXiv');
-  assert.strictEqual(first.source, 'arxiv', 'Source should be arxiv');
+  expect(first.title).toBeTruthy();
+  expect(first.url).toBeTruthy();
+  expect(first.url).toContain('arxiv.org');
+  expect(first.source).toBe('arxiv');
 });
 
 test('HTML site-specific selectors work for DeepMind', async () => {
@@ -40,14 +39,14 @@ test('HTML site-specific selectors work for DeepMind', async () => {
     maxItemsPerPage: 5,
   });
 
-  assert.ok(signals.length > 0, 'Should collect at least one signal');
-  assert.ok(signals.length <= 5, 'Should respect maxItemsPerPage limit');
+  expect(signals.length).toBeGreaterThan(0);
+  expect(signals.length).toBeLessThanOrEqual(5);
 
   const first = signals[0];
-  assert.ok(first.title, 'Signal should have title');
-  assert.ok(first.title.length > 5, 'Title should be substantial');
-  assert.ok(first.url, 'Signal should have URL');
-  assert.strictEqual(first.source, 'html_newsroom', 'Source should be html_newsroom');
+  expect(first.title).toBeTruthy();
+  expect(first.title.length).toBeGreaterThan(5);
+  expect(first.url).toBeTruthy();
+  expect(first.source).toBe('html_newsroom');
 });
 
 test('HTML generic fallback works', async () => {
@@ -64,9 +63,9 @@ test('HTML generic fallback works', async () => {
 
   // May or may not find signals depending on site structure
   // But should not throw errors
-  assert.ok(Array.isArray(signals), 'Should return an array');
+  expect(Array.isArray(signals)).toBe(true);
   signals.forEach((signal) => {
-    assert.ok(signal.title, 'Signal should have title');
-    assert.ok(signal.url, 'Signal should have URL');
+    expect(signal.title).toBeTruthy();
+    expect(signal.url).toBeTruthy();
   });
 });

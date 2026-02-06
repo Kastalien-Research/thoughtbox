@@ -2,8 +2,7 @@
  * Signal Collection Tests
  */
 
-import { test } from 'node:test';
-import assert from 'node:assert';
+import { test, expect } from 'vitest';
 
 test('SignalItem has required fields', () => {
   const signal = {
@@ -11,9 +10,9 @@ test('SignalItem has required fields', () => {
     title: 'Test',
     url: 'https://example.com',
   };
-  assert.ok(signal.source);
-  assert.ok(signal.title);
-  assert.ok(signal.url);
+  expect(signal.source).toBeTruthy();
+  expect(signal.title).toBeTruthy();
+  expect(signal.url).toBeTruthy();
 });
 
 test('URL deduplication works', () => {
@@ -30,7 +29,5 @@ test('URL deduplication works', () => {
     return true;
   });
 
-  assert.strictEqual(deduped.length, 2);
+  expect(deduped.length).toBe(2);
 });
-
-console.log('✅ Sources tests passed');
