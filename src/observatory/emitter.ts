@@ -42,30 +42,41 @@
 import { EventEmitter } from "events";
 import type { Thought, Session } from "./schemas/thought.js";
 
+// =============================================================================
+// Improvement Event Types (Self-Improvement Loop)
+// =============================================================================
+
 /**
- * Improvement event types for SIL (Self-Improvement Loop)
- * SPEC: SIL-001
+ * Types of improvement events emitted during SIL cycles
  */
 export type ImprovementEventType =
+  | "cycle_start"
   | "discovery"
   | "filter"
   | "experiment"
   | "evaluate"
   | "integrate"
-  | "cycle_start"
   | "cycle_end";
 
 /**
- * Improvement event data emitted during SIL cycles
- * SPEC: SIL-001
+ * Improvement event emitted by ImprovementTracker
+ *
+ * These events track the progress and outcomes of self-improvement loop iterations.
  */
 export interface ImprovementEvent {
+  /** Event type */
   type: ImprovementEventType;
+  /** ISO 8601 timestamp */
   timestamp: string;
+  /** Iteration number (monotonically increasing within a run) */
   iteration: number;
+  /** Current phase when event was emitted */
   phase: string;
+  /** Cost incurred for this event (tokens/API cost) */
   cost: number;
+  /** Whether this phase/iteration was successful */
   success: boolean;
+  /** Additional metadata specific to the event type */
   metadata: Record<string, unknown>;
 }
 
@@ -73,15 +84,15 @@ export interface ImprovementEvent {
  * Agent role type for multi-agent collaboration
  */
 export type AgentRole =
-  | 'orchestrator'
-  | 'researcher'
-  | 'architect'
-  | 'implementer'
-  | 'reviewer'
-  | 'tester'
-  | 'integrator'
-  | 'critic'
-  | 'unknown';
+  | "orchestrator"
+  | "researcher"
+  | "architect"
+  | "implementer"
+  | "reviewer"
+  | "tester"
+  | "integrator"
+  | "critic"
+  | "unknown";
 
 /**
  * Event types emitted by the ThoughtEmitter
@@ -151,7 +162,7 @@ export type ThoughtEmitterEvents = {
     subtasks: Array<{
       id: string;
       title: string;
-      status: 'pending' | 'in_progress' | 'completed';
+      status: "pending" | "in_progress" | "completed";
       assignedTo?: string;
     }>;
     progress: number;
@@ -163,7 +174,7 @@ export type ThoughtEmitterEvents = {
     subtasks: Array<{
       id: string;
       title: string;
-      status: 'pending' | 'in_progress' | 'completed';
+      status: "pending" | "in_progress" | "completed";
       assignedTo?: string;
     }>;
     progress: number;
@@ -283,8 +294,7 @@ export class ThoughtEmitter extends EventEmitter {
   }
 
   /**
-   * Emit an improvement:event
-   * SPEC: SIL-001
+   * Emit an improvement:event for SIL tracking
    *
    * Fire-and-forget: This method returns immediately.
    * Listener errors are logged but never propagate.
