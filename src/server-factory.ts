@@ -536,17 +536,13 @@ Progressive disclosure is enforced internally. Register first, then join a works
           return { task: { ...task, status } };
         },
         getTask: async (_toolArgs, extra) => {
+        getTask: async (_toolArgs, extra) => {
           const task = await extra.taskStore.getTask(extra.taskId);
           if (!task) {
             const now = new Date().toISOString();
             return { taskId: extra.taskId, status: 'failed' as const, ttl: null, createdAt: now, lastUpdatedAt: now };
           }
           return task;
-        },
-        getTaskResult: async (_toolArgs, extra) => {
-          const stored = await extra.taskStore.getTaskResult(extra.taskId);
-          return stored as import('@modelcontextprotocol/sdk/types.js').CallToolResult;
-        },
       }
     );
 
