@@ -20,6 +20,12 @@ type ThoughtStore = ThoughtStoreForWorkspace & {
   getThoughtCount(sessionId: string): Promise<number>;
 };
 
+export interface HubEvent {
+  type: 'problem_created' | 'message_posted' | 'proposal_created' | 'proposal_merged' | 'consensus_marked';
+  workspaceId: string;
+  data: Record<string, unknown>;
+}
+
 export interface HubHandler {
   handle(agentId: string | null, operation: string, args: Record<string, any>): Promise<unknown>;
 }
@@ -33,13 +39,21 @@ function getDisclosureStage(operation: string): DisclosureStage {
 /** Operations that require workspace membership check */
 const WORKSPACE_OPERATIONS = new Set<string>(STAGE_OPERATIONS[2]);
 
-export function createHubHandler(storage: HubStorage, thoughtStore: ThoughtStore): HubHandler {
+export function createHubHandler(
+  storage: HubStorage,
+  thoughtStore: ThoughtStore,
+  onEvent?: (event: HubEvent) => void
+): HubHandler {
   const identity = createIdentityManager(storage);
   const workspace = createWorkspaceManager(storage, thoughtStore);
   const problems = createProblemsManager(storage, thoughtStore);
   const proposals = createProposalsManager(storage, thoughtStore);
   const consensus = createConsensusManager(storage);
   const channels = createChannelsManager(storage);
+
+  function emit(event: HubEvent): void {
+    if (onEvent) onEvent(event);
+  }
 
   return {
     async handle(agentId, operation, args) {
@@ -98,9 +112,12 @@ export function createHubHandler(storage: HubStorage, thoughtStore: ThoughtStore
         }
 
         // Dispatch to appropriate manager
+        let result: unknown;
         switch (operation) {
           case 'create_problem':
-            return problems.createProblem(agentId, args as any);
+            result = await problems.createProblem(agentId, args as any);
+            emit({ type: 'problem_created', workspaceId, data: result as Record<string, unknown> });
+            return result;
           case 'claim_problem':
             return problems.claimProblem(agentId, args as any);
           case 'update_problem':
@@ -108,21 +125,29 @@ export function createHubHandler(storage: HubStorage, thoughtStore: ThoughtStore
           case 'list_problems':
             return problems.listProblems(args as any);
           case 'create_proposal':
-            return proposals.createProposal(agentId, args as any);
+            result = await proposals.createProposal(agentId, args as any);
+            emit({ type: 'proposal_created', workspaceId, data: result as Record<string, unknown> });
+            return result;
           case 'review_proposal':
             return proposals.reviewProposal(agentId, args as any);
           case 'merge_proposal':
-            return proposals.mergeProposal(agentId, args as any);
+            result = await proposals.mergeProposal(agentId, args as any);
+            emit({ type: 'proposal_merged', workspaceId, data: result as Record<string, unknown> });
+            return result;
           case 'list_proposals':
             return proposals.listProposals(args as any);
           case 'mark_consensus':
-            return consensus.markConsensus(agentId, args as any);
+            result = await consensus.markConsensus(agentId, args as any);
+            emit({ type: 'consensus_marked', workspaceId, data: result as Record<string, unknown> });
+            return result;
           case 'endorse_consensus':
             return consensus.endorseConsensus(agentId, args as any);
           case 'list_consensus':
             return consensus.listConsensus(args as any);
           case 'post_message':
-            return channels.postMessage(agentId, args as any);
+            result = await channels.postMessage(agentId, args as any);
+            emit({ type: 'message_posted', workspaceId, data: { ...(result as Record<string, unknown>), problemId: args.problemId } });
+            return result;
           case 'read_channel':
             return channels.readChannel(args as any);
           case 'workspace_status':
