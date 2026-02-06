@@ -538,7 +538,8 @@ Progressive disclosure is enforced internally. Register first, then join a works
         getTask: async (_toolArgs, extra) => {
           const task = await extra.taskStore.getTask(extra.taskId);
           if (!task) {
-            return { taskId: extra.taskId, status: 'failed' as const, ttl: null, createdAt: '', lastUpdatedAt: '' };
+            const now = new Date().toISOString();
+            return { taskId: extra.taskId, status: 'failed' as const, ttl: null, createdAt: now, lastUpdatedAt: now };
           }
           return task;
         },
