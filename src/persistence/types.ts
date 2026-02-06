@@ -503,6 +503,16 @@ export interface ThoughtboxStorage {
   getThoughts(sessionId: string): Promise<ThoughtData[]>;
 
   /**
+   * Get all thoughts for a session (main chain + all branches)
+   */
+  getAllThoughts(sessionId: string): Promise<ThoughtData[]>;
+
+  /**
+   * Get all branch IDs for a session
+   */
+  getBranchIds(sessionId: string): Promise<string[]>;
+
+  /**
    * Get a specific thought by number
    */
   getThought(

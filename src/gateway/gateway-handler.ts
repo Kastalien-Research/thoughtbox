@@ -594,15 +594,24 @@ Call \`thoughtbox_gateway\` with operation 'thought' to begin structured reasoni
         timestamp: t.timestamp,
       }));
 
+      // Include available branches so agents know branches exist
+      const availableBranches = await this.storage.getBranchIds(sessionId);
+
+      const response: Record<string, unknown> = {
+        sessionId,
+        query: queryDescription,
+        count: formattedThoughts.length,
+        thoughts: formattedThoughts,
+      };
+
+      if (availableBranches.length > 0) {
+        response.availableBranches = availableBranches;
+      }
+
       return {
         content: [{
           type: 'text',
-          text: JSON.stringify({
-            sessionId,
-            query: queryDescription,
-            count: formattedThoughts.length,
-            thoughts: formattedThoughts,
-          }, null, 2),
+          text: JSON.stringify(response, null, 2),
         }],
       };
     } catch (err) {
@@ -642,8 +651,8 @@ Call \`thoughtbox_gateway\` with operation 'thought' to begin structured reasoni
     }
 
     try {
-      // Fetch all thoughts
-      const allThoughts = await this.storage.getThoughts(sessionId);
+      // Fetch all thoughts (main chain + branches)
+      const allThoughts = await this.storage.getAllThoughts(sessionId);
 
       // Separate main chain from branches
       const mainChainThoughts = allThoughts.filter(t => !t.branchId);
@@ -800,8 +809,8 @@ Call \`thoughtbox_gateway\` with operation 'thought' to begin structured reasoni
         };
       }
 
-      // Fetch thoughts separately (not stored on Session object)
-      const thoughts: ThoughtData[] = await this.storage.getThoughts(sessionId);
+      // Fetch all thoughts including branches (not stored on Session object)
+      const thoughts: ThoughtData[] = await this.storage.getAllThoughts(sessionId);
 
       const result: Record<string, unknown> = {
         sessionId,

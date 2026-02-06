@@ -714,6 +714,16 @@ export class InMemoryStorage implements ThoughtboxStorage {
     return nodes.map(node => node.data);
   }
 
+  async getAllThoughts(sessionId: string): Promise<ThoughtData[]> {
+    // Get all nodes (main chain + branches) from linked store
+    const nodes = this.linkedStore.getSessionNodes(sessionId);
+    return nodes.map(node => node.data);
+  }
+
+  async getBranchIds(sessionId: string): Promise<string[]> {
+    return this.linkedStore.getBranchIds(sessionId);
+  }
+
   async getThought(
     sessionId: string,
     thoughtNumber: number
