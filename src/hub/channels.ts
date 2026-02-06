@@ -12,7 +12,7 @@ type SubscriptionCallback = (uri: string) => void;
 export interface ChannelsManager {
   postMessage(
     agentId: string,
-    args: { workspaceId: string; problemId: string; content: string },
+    args: { workspaceId: string; problemId: string; content: string; ref?: ChannelMessage['ref'] },
   ): Promise<{ messageId: string; channelMessageCount: number }>;
 
   readChannel(
@@ -37,7 +37,7 @@ export function createChannelsManager(storage: HubStorage): ChannelsManager {
   }
 
   return {
-    async postMessage(agentId, { workspaceId, problemId, content }) {
+    async postMessage(agentId, { workspaceId, problemId, content, ref }) {
       const channel = await storage.getChannel(workspaceId, problemId);
       if (!channel) throw new Error(`Channel not found for problem: ${problemId}`);
 
@@ -46,6 +46,7 @@ export function createChannelsManager(storage: HubStorage): ChannelsManager {
         agentId,
         content,
         timestamp: new Date().toISOString(),
+        ...(ref ? { ref } : {}),
       };
 
       channel.messages.push(message);

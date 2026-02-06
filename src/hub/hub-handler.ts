@@ -21,7 +21,7 @@ type ThoughtStore = ThoughtStoreForWorkspace & {
 };
 
 export interface HubEvent {
-  type: 'problem_created' | 'message_posted' | 'proposal_created' | 'proposal_merged' | 'consensus_marked';
+  type: 'problem_created' | 'problem_status_changed' | 'message_posted' | 'proposal_created' | 'proposal_merged' | 'consensus_marked';
   workspaceId: string;
   data: Record<string, unknown>;
 }
@@ -129,9 +129,21 @@ export function createHubHandler(
             return problems.claimProblem(agentId, claimArgs as any);
           }
           case 'update_problem':
-            return problems.updateProblem(agentId, args as any);
+            result = await problems.updateProblem(agentId, args as any);
+            emit({ type: 'problem_status_changed', workspaceId, data: result as Record<string, unknown> });
+            return result;
           case 'list_problems':
             return problems.listProblems(args as any);
+          case 'add_dependency':
+            return problems.addDependency(agentId, args as any);
+          case 'remove_dependency':
+            return problems.removeDependency(agentId, args as any);
+          case 'ready_problems':
+            return problems.readyProblems(args as any);
+          case 'blocked_problems':
+            return problems.blockedProblems(args as any);
+          case 'create_sub_problem':
+            return problems.createSubProblem(agentId, args as any);
           case 'create_proposal':
             result = await proposals.createProposal(agentId, args as any);
             emit({ type: 'proposal_created', workspaceId, data: result as Record<string, unknown> });

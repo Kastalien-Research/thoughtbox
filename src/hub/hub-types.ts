@@ -58,6 +58,8 @@ export interface Problem {
   branchId?: string;
   branchFromThought?: number;
   resolution?: string;
+  dependsOn?: string[]; // Problem IDs this problem depends on
+  parentId?: string; // Parent problem ID (sub-problem hierarchy)
   comments: Comment[];
   createdAt: string;
   updatedAt: string;
@@ -138,6 +140,11 @@ export interface ChannelMessage {
   agentId: string;
   content: string;
   timestamp: string; // ISO 8601
+  ref?: {
+    sessionId?: string;
+    thoughtNumber?: number;
+    branchId?: string;
+  };
 }
 
 // =============================================================================
@@ -167,6 +174,12 @@ export type HubOperation =
   | 'mark_consensus'
   | 'endorse_consensus'
   | 'list_consensus'
+  // Dependencies & Sub-problems
+  | 'add_dependency'
+  | 'remove_dependency'
+  | 'ready_problems'
+  | 'blocked_problems'
+  | 'create_sub_problem'
   // Channels
   | 'post_message'
   | 'read_channel';
@@ -183,6 +196,7 @@ export const STAGE_OPERATIONS: Record<DisclosureStage, HubOperation[]> = {
   1: ['whoami', 'create_workspace', 'join_workspace'],
   2: [
     'create_problem', 'claim_problem', 'update_problem', 'list_problems',
+    'add_dependency', 'remove_dependency', 'ready_problems', 'blocked_problems', 'create_sub_problem',
     'create_proposal', 'review_proposal', 'merge_proposal', 'list_proposals',
     'mark_consensus', 'endorse_consensus', 'list_consensus',
     'post_message', 'read_channel',

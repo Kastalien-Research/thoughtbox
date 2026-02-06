@@ -480,6 +480,11 @@ Operations:
             uri: `thoughtbox://hub/${event.workspaceId}/channels/${event.data.problemId}`,
           });
         }
+        if (event.type === 'problem_status_changed') {
+          server.server.sendResourceUpdated({
+            uri: `thoughtbox://hub/${event.workspaceId}/status`,
+          });
+        }
       },
     });
 
@@ -496,6 +501,11 @@ Operations:
 - claim_problem: Claim a problem to work on (args: { workspaceId, problemId })
 - update_problem: Update problem status (args: { workspaceId, problemId, status, resolution? })
 - list_problems: List problems (args: { workspaceId })
+- add_dependency: Add dependency between problems (args: { workspaceId, problemId, dependsOnProblemId })
+- remove_dependency: Remove dependency (args: { workspaceId, problemId, dependsOnProblemId })
+- ready_problems: List problems ready to claim (args: { workspaceId })
+- blocked_problems: List problems blocked by dependencies (args: { workspaceId })
+- create_sub_problem: Create a sub-problem (args: { workspaceId, parentId, title, description })
 - create_proposal: Propose a solution (args: { workspaceId, title, description, sourceBranch, problemId? })
 - review_proposal: Review a proposal (args: { workspaceId, proposalId, verdict, reasoning })
 - merge_proposal: Merge an approved proposal (args: { workspaceId, proposalId })
@@ -513,6 +523,7 @@ Progressive disclosure is enforced internally. Register first, then join a works
         'register', 'whoami',
         'create_workspace', 'join_workspace', 'list_workspaces', 'workspace_status',
         'create_problem', 'claim_problem', 'update_problem', 'list_problems',
+        'add_dependency', 'remove_dependency', 'ready_problems', 'blocked_problems', 'create_sub_problem',
         'create_proposal', 'review_proposal', 'merge_proposal', 'list_proposals',
         'mark_consensus', 'endorse_consensus', 'list_consensus',
         'post_message', 'read_channel',
