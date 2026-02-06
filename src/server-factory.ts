@@ -473,9 +473,10 @@ Operations:
           server.sendResourceListChanged();
         }
         if (event.type === 'message_posted') {
-          server.sendResourceUpdated({
+          server.server.sendResourceUpdated({
             uri: `thoughtbox://hub/${event.workspaceId}/channels/${event.data.problemId}`,
           });
+        }
       },
     });
 
