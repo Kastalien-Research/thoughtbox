@@ -469,10 +469,9 @@ Operations:
           server.sendResourceListChanged();
         }
         if (event.type === 'message_posted') {
-          server.server.notification({
-            method: 'notifications/resources/updated',
-            params: { uri: `thoughtbox://hub/${event.workspaceId}/channels/${event.data.problemId}` },
-          });
+          server.sendResourceUpdated(
+            `thoughtbox://hub/${event.workspaceId}/channels/${event.data.problemId}`
+          );
         }
       },
     });
