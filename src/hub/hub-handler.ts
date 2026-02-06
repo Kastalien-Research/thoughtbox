@@ -21,7 +21,7 @@ type ThoughtStore = ThoughtStoreForWorkspace & {
 };
 
 export interface HubEvent {
-  type: 'problem_created' | 'message_posted' | 'proposal_created' | 'proposal_merged' | 'consensus_marked';
+  type: 'problem_created' | 'problem_status_changed' | 'message_posted' | 'proposal_created' | 'proposal_merged' | 'consensus_marked';
   workspaceId: string;
   data: Record<string, unknown>;
 }
