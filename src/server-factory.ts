@@ -469,9 +469,9 @@ Operations:
           server.sendResourceListChanged();
         }
         if (event.type === 'message_posted') {
-          server.sendResourceUpdated(
-            `thoughtbox://hub/${event.workspaceId}/channels/${event.data.problemId}`
-          );
+          // SDK doesn't expose sendResourceUpdated yet — use list-changed
+          // so clients re-read the channel resource
+          server.sendResourceListChanged();
         }
       },
     });
