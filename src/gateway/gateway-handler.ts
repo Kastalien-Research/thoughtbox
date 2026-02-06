@@ -166,6 +166,10 @@ export interface GatewayHandlerConfig {
   storage: ThoughtboxStorage;
   /** Callback to notify clients of tool list changes */
   sendToolListChanged?: () => void;
+  /** Agent ID for multi-agent attribution (resolved from env vars) */
+  agentId?: string;
+  /** Agent name for multi-agent attribution */
+  agentName?: string;
 }
 
 /**
@@ -181,6 +185,8 @@ export class GatewayHandler {
   private knowledgeHandler?: KnowledgeHandler;
   private storage: ThoughtboxStorage;
   private sendToolListChanged?: () => void;
+  private agentId?: string;
+  private agentName?: string;
 
   constructor(config: GatewayHandlerConfig) {
     this.toolRegistry = config.toolRegistry;
@@ -192,6 +198,8 @@ export class GatewayHandler {
     this.knowledgeHandler = config.knowledgeHandler;
     this.storage = config.storage;
     this.sendToolListChanged = config.sendToolListChanged;
+    this.agentId = config.agentId;
+    this.agentName = config.agentName;
   }
 
   /**
@@ -449,6 +457,9 @@ Call \`thoughtbox_gateway\` with operation 'thought' to begin structured reasoni
       critique: args.critique as boolean | undefined,
       // SIL-101: Pass verbose flag for minimal/full response mode
       verbose: args.verbose as boolean | undefined,
+      // Multi-agent attribution: inject from gateway config (resolved from env vars)
+      agentId: (args.agentId as string | undefined) ?? this.agentId,
+      agentName: (args.agentName as string | undefined) ?? this.agentName,
     });
 
     return result;

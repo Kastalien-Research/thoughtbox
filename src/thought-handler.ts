@@ -36,6 +36,9 @@ export interface ThoughtData {
   critique?: boolean;
   // SIL-101: Verbose response mode - when false (default), return minimal response
   verbose?: boolean;
+  // Multi-agent attribution (optional)
+  agentId?: string;
+  agentName?: string;
 }
 
 export class ThoughtHandler {
@@ -366,6 +369,9 @@ export class ThoughtHandler {
       critique: data.critique as boolean | undefined,
       // SIL-101: Verbose mode (default false)
       verbose: data.verbose as boolean | undefined,
+      // Multi-agent attribution
+      agentId: data.agentId as string | undefined,
+      agentName: data.agentName as string | undefined,
     };
   }
 
@@ -534,6 +540,9 @@ export class ThoughtHandler {
           needsMoreThoughts: validatedInput.needsMoreThoughts,
           includeGuide: validatedInput.includeGuide,
           timestamp: new Date().toISOString(),
+          // Multi-agent attribution (optional)
+          agentId: validatedInput.agentId,
+          agentName: validatedInput.agentName,
         };
 
         // Perform ALL persistence operations BEFORE updating in-memory state

@@ -1,0 +1,58 @@
+# Multi-Agent Thoughtbox Demo
+#
+# Three named agent services share a single Thoughtbox server.
+# Each agent has its own THOUGHTBOX_AGENT_ID and THOUGHTBOX_AGENT_NAME.
+#
+# Usage:
+#   cp .env.example .env
+#   docker compose up
+#
+version: "3.8"
+
+services:
+  thoughtbox:
+    build:
+      context: ../..
+      dockerfile: Dockerfile
+    ports:
+      - "3100:3100"
+    volumes:
+      - thoughtbox-data:/data
+    environment:
+      - THOUGHTBOX_DATA_DIR=/data
+
+  agent-claude:
+    build:
+      context: ../..
+      dockerfile: Dockerfile
+    depends_on:
+      - thoughtbox
+    environment:
+      - THOUGHTBOX_AGENT_ID=agent-claude
+      - THOUGHTBOX_AGENT_NAME=Claude Code
+      - THOUGHTBOX_SERVER_URL=http://thoughtbox:3100
+
+  agent-cursor:
+    build:
+      context: ../..
+      dockerfile: Dockerfile
+    depends_on:
+      - thoughtbox
+    environment:
+      - THOUGHTBOX_AGENT_ID=agent-cursor
+      - THOUGHTBOX_AGENT_NAME=Cursor
+      - THOUGHTBOX_SERVER_URL=http://thoughtbox:3100
+
+  agent-roo:
+    build:
+      context: ../..
+      dockerfile: Dockerfile
+    depends_on:
+      - thoughtbox
+    environment:
+      - THOUGHTBOX_AGENT_ID=agent-roo
+      - THOUGHTBOX_AGENT_NAME=Roo Code
+      - THOUGHTBOX_SERVER_URL=http://thoughtbox:3100
+
+volumes:
+  thoughtbox-data:

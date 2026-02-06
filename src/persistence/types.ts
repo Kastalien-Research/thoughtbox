@@ -104,6 +104,20 @@ export interface ThoughtData {
   timestamp: string; // ISO 8601 - always present after persistence
 
   /**
+   * Multi-agent attribution (optional)
+   * Present when thought is created by an identified agent
+   */
+  agentId?: string;
+  agentName?: string;
+
+  /**
+   * Content-addressable hash (Merkle chain)
+   * SHA-256 of (content + thoughtNumber + parentHash + agentId + timestamp)
+   */
+  contentHash?: string;
+  parentHash?: string;
+
+  /**
    * Autonomous critique metadata (Phase 3: Sampling Loops)
    * Generated when critique parameter is enabled in thoughtbox tool
    */
