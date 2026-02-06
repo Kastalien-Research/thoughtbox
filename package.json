@@ -64,13 +64,20 @@
     "improvement-loop:dry": "tsx scripts/agents/run-improvement-loop.ts --dry-run --verbose",
     "improvement-loop:verbose": "tsx scripts/agents/run-improvement-loop.ts --verbose",
     "test:behavioral": "tsx scripts/agents/test-behavioral-contracts.ts",
-    "test:behavioral:variance": "tsx scripts/agents/test-behavioral-contracts.ts --variance-only"
+    "test:behavioral:variance": "tsx scripts/agents/test-behavioral-contracts.ts --variance-only",
+    "agentops:daily": "tsx agentops/runner/cli.ts daily-dev-brief",
+    "agentops:implement": "tsx agentops/runner/cli.ts implement",
+    "test:agentops": "tsx --test agentops/tests/*.test.ts"
   },
   "engines": {
     "node": ">=22.0.0"
   },
   "dependencies": {
+    "cheerio": "^1.2.0",
+    "fast-xml-parser": "^4.5.3",
     "@modelcontextprotocol/sdk": "1.25.3",
+    "openai": "^4.104.0",
+    "rss-parser": "^3.13.0",
     "@smithery/sdk": "^1.7.5",
     "better-sqlite3": "^11.0.0",
     "chalk": "^5.6.0",
@@ -85,6 +92,7 @@
   "devDependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.1.76",
     "@anthropic-ai/sdk": "^0.39.0",
+    "@octokit/rest": "^20.1.2",
     "@smithery/cli": "^1.6.2",
     "@types/better-sqlite3": "^7.6.13",
     "@types/cors": "^2.8.19",
