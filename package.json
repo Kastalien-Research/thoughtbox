@@ -63,6 +63,7 @@
     "improvement-loop": "tsx scripts/agents/run-improvement-loop.ts",
     "improvement-loop:dry": "tsx scripts/agents/run-improvement-loop.ts --dry-run --verbose",
     "improvement-loop:verbose": "tsx scripts/agents/run-improvement-loop.ts --verbose",
+    "test:agentops": "vitest run agentops/tests/",
     "test:behavioral": "tsx scripts/agents/test-behavioral-contracts.ts",
     "test:behavioral:variance": "tsx scripts/agents/test-behavioral-contracts.ts --variance-only",
     "agentops:daily": "tsx agentops/runner/cli.ts daily-dev-brief",
