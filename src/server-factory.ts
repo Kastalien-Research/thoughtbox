@@ -1,5 +1,5 @@
 import { McpServer, ResourceTemplate } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { ListResourcesRequestSchema, ListResourceTemplatesRequestSchema } from "@modelcontextprotocol/sdk/types.js";
+import { ListResourcesRequestSchema, ListResourceTemplatesRequestSchema, type CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
 import type { HubStorage } from "./hub/hub-types.js";
 import { createHubToolHandler, type HubToolHandler } from "./hub/hub-tool-handler.js";
@@ -517,14 +517,14 @@ Progressive disclosure is enforced internally. Register first, then join a works
       args: z.record(z.string(), z.unknown()).optional(),
     };
 
-    server.experimental.tasks.registerToolTask<typeof hubInputSchema, undefined>(
+    type HubSchema = typeof hubInputSchema;
+    server.experimental.tasks.registerToolTask<HubSchema, undefined>(
       "thoughtbox_hub",
       {
         description: HUB_TOOL_DESCRIPTION,
         inputSchema: hubInputSchema,
         execution: { taskSupport: 'optional' },
       },
-      {
       {
         createTask: async (toolArgs, extra) => {
           const task = await extra.taskStore.createTask({ ttl: 300_000 });
@@ -545,13 +545,17 @@ Progressive disclosure is enforced internally. Register first, then join a works
           }
         },
         getTask: async (_toolArgs, extra) => {
-        getTask: async (_toolArgs, extra) => {
           const task = await extra.taskStore.getTask(extra.taskId);
           if (!task) {
             const now = new Date().toISOString();
             return { taskId: extra.taskId, status: 'failed' as const, ttl: null, createdAt: now, lastUpdatedAt: now };
           }
           return task;
+        },
+        getTaskResult: async (_toolArgs, extra) => {
+          const stored = await extra.taskStore.getTaskResult(extra.taskId);
+          return stored as CallToolResult;
+        },
       }
     );
 
