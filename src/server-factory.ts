@@ -168,7 +168,11 @@ Recommended workflow:
 4) Call \`thoughtbox_gateway\` { "operation": "cipher" } early (especially before long reasoning).
 5) Use \`thoughtbox_gateway\` { "operation": "thought", args: {...} } for structured reasoning.
 
-Progressive disclosure is enforced internally - you'll get clear errors if calling operations too early.`;
+Progressive disclosure is enforced internally - you'll get clear errors if calling operations too early.
+
+For multi-agent collaboration, use the \`thoughtbox_hub\` tool with operations:
+register, create_workspace, join_workspace, create_problem, post_message, read_channel, etc.
+Call \`thoughtbox_hub\` { "operation": "register", "args": { "name": "Your Agent Name" } } to join.`;
 
   // Create task infrastructure if hub storage is provided
   const taskStore = args.dataDir
@@ -469,9 +473,9 @@ Operations:
           server.sendResourceListChanged();
         }
         if (event.type === 'message_posted') {
-          // SDK doesn't expose sendResourceUpdated yet — use list-changed
-          // so clients re-read the channel resource
-          server.sendResourceListChanged();
+          server.server.sendResourceUpdated({
+            uri: `thoughtbox://hub/${event.workspaceId}/channels/${event.data.problemId}`,
+          });
         }
       },
     });
@@ -513,18 +517,35 @@ Progressive disclosure is enforced internally. Register first, then join a works
       args: z.record(z.string(), z.unknown()).optional(),
     };
 
-    server.registerTool(
+    server.experimental.tasks.registerToolTask<typeof hubInputSchema, undefined>(
       "thoughtbox_hub",
       {
         description: HUB_TOOL_DESCRIPTION,
         inputSchema: hubInputSchema,
+        execution: { taskSupport: 'optional' },
       },
-      async (toolArgs) => {
-        const result = await hubToolHandler.handle(toolArgs);
-        return {
-          content: result.content,
-          isError: result.isError,
-        };
+      {
+        createTask: async (toolArgs, extra) => {
+          const task = await extra.taskStore.createTask({ ttl: 300_000 });
+          const result = await hubToolHandler.handle(toolArgs);
+          const status = result.isError ? 'failed' : 'completed';
+          await extra.taskStore.storeTaskResult(task.taskId, status, {
+            content: result.content,
+            isError: result.isError,
+          });
+          return { task: { ...task, status } };
+        },
+        getTask: async (_toolArgs, extra) => {
+          const task = await extra.taskStore.getTask(extra.taskId);
+          if (!task) {
+            return { taskId: extra.taskId, status: 'failed' as const, ttl: null, createdAt: '', lastUpdatedAt: '' };
+          }
+          return task;
+        },
+        getTaskResult: async (_toolArgs, extra) => {
+          const stored = await extra.taskStore.getTaskResult(extra.taskId);
+          return stored as import('@modelcontextprotocol/sdk/types.js').CallToolResult;
+        },
       }
     );
 
