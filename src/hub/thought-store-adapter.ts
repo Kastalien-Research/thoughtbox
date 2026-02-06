@@ -21,7 +21,10 @@ export interface ThoughtStoreAdapter {
 export function createThoughtStoreAdapter(storage: ThoughtboxStorage): ThoughtStoreAdapter {
   return {
     async createSession(sessionId: string) {
-      await storage.createSession({ title: `hub-${sessionId}` });
+      // Note: ThoughtboxStorage.createSession generates its own UUID and doesn't support
+      // custom session IDs. Since the storage creates sessions lazily on first saveThought,
+      // we simply do nothing here and let the session be created implicitly.
+      // This ensures the provided sessionId is actually used.
     },
     saveThought: (sessionId, thought) => storage.saveThought(sessionId, thought),
     getThought: (sessionId, num) => storage.getThought(sessionId, num),

@@ -541,11 +541,7 @@ Progressive disclosure is enforced internally. Register first, then join a works
         const workspaceId = variables.workspaceId as string;
         const problemId = variables.problemId as string;
 
-        if (!args.hubStorage) {
-          return { contents: [{ uri: uri.href, mimeType: "application/json", text: "[]" }] };
-        }
-
-        const channel = await args.hubStorage.getChannel(workspaceId, problemId);
+        const channel = await args.hubStorage!.getChannel(workspaceId, problemId);
         return {
           contents: [{
             uri: uri.href,
