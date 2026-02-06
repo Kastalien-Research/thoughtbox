@@ -1,9 +1,9 @@
 /**
  * Agent Identity Resolution — resolves agent ID from environment variables
  *
- * Two env vars (both optional, ID takes precedence):
- * - THOUGHTBOX_AGENT_ID: explicit UUID
- * - THOUGHTBOX_AGENT_NAME: human-readable name mapped to UUID
+ * Two env vars:
+ * - THOUGHTBOX_AGENT_ID: explicit UUID (requires THOUGHTBOX_AGENT_NAME)
+ * - THOUGHTBOX_AGENT_NAME: human-readable name (can be used alone or with ID)
  */
 
 import * as crypto from 'node:crypto';
@@ -24,21 +24,29 @@ function isUUID(str: string): boolean {
  * @param envId - THOUGHTBOX_AGENT_ID value (explicit UUID)
  * @param envName - THOUGHTBOX_AGENT_NAME value (human-readable name)
  * @returns Agent ID string, or null if neither env var is set (register required)
+ * @throws Error if envId is provided without envName
  */
 export async function resolveAgentId(
   storage: HubStorage,
   envId?: string,
   envName?: string
 ): Promise<string | null> {
-  // ID takes precedence
+  // ID takes precedence, but requires name
   if (envId) {
+    // Require both ID and NAME when using explicit IDs
+    if (!envName) {
+      throw new Error(
+        'When using THOUGHTBOX_AGENT_ID, you must also set THOUGHTBOX_AGENT_NAME. ' +
+        'This ensures agent names remain human-friendly in UI contexts.'
+      );
+    }
+
     const existing = await storage.getAgent(envId);
     if (!existing) {
-      // Auto-register with human-friendly name for UUIDs
-      const name = isUUID(envId) ? `agent-${envId.slice(0, 8)}` : envId;
+      // Auto-register with provided name
       await storage.saveAgent({
         agentId: envId,
-        name,
+        name: envName,
         role: 'contributor',
         registeredAt: new Date().toISOString(),
       });
