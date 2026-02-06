@@ -525,15 +525,24 @@ Progressive disclosure is enforced internally. Register first, then join a works
         execution: { taskSupport: 'optional' },
       },
       {
+      {
         createTask: async (toolArgs, extra) => {
           const task = await extra.taskStore.createTask({ ttl: 300_000 });
-          const result = await hubToolHandler.handle(toolArgs);
-          const status = result.isError ? 'failed' : 'completed';
-          await extra.taskStore.storeTaskResult(task.taskId, status, {
-            content: result.content,
-            isError: result.isError,
-          });
-          return { task: { ...task, status } };
+          try {
+            const result = await hubToolHandler.handle(toolArgs);
+            const status = result.isError ? 'failed' : 'completed';
+            await extra.taskStore.storeTaskResult(task.taskId, status, {
+              content: result.content,
+              isError: result.isError,
+            });
+            return { task: { ...task, status } };
+          } catch (error) {
+            await extra.taskStore.storeTaskResult(task.taskId, 'failed', {
+              content: [{ type: 'text', text: `Hub operation failed: ${error}` }],
+              isError: true,
+            });
+            return { task: { ...task, status: 'failed' } };
+          }
         },
         getTask: async (_toolArgs, extra) => {
         getTask: async (_toolArgs, extra) => {
