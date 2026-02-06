@@ -35,13 +35,22 @@ claude-code-docs-two/
 .mcp.github.json
 mcp-ts-template/
 
-# Claude Code configuration and local data (except skills which are shared)
+# Claude Code configuration and local data (except skills and shared workflows)
 .claude/*
 !.claude/skills/
+!.claude/commands/
+.claude/commands/*
+!.claude/commands/development/
+.claude/commands/development/*
+!.claude/commands/development/hub-tdd.md
+!.claude/hooks/
+.claude/hooks/*
+!.claude/hooks/hub_tdd_stop.sh
 
 # Specifications and working artifacts (local development)
 .specs/
 .specification-suite/
+.hub-tdd/
 .claude-flow/
 .swarm/
 
