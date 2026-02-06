@@ -30,6 +30,29 @@ export interface ProblemsManager {
   listProblems(
     args: { workspaceId: string; status?: string; assignedTo?: string },
   ): Promise<{ problems: Problem[] }>;
+
+  addDependency(
+    agentId: string,
+    args: { workspaceId: string; problemId: string; dependsOnProblemId: string },
+  ): Promise<{ problem: Problem }>;
+
+  removeDependency(
+    agentId: string,
+    args: { workspaceId: string; problemId: string; dependsOnProblemId: string },
+  ): Promise<{ problem: Problem }>;
+
+  readyProblems(
+    args: { workspaceId: string },
+  ): Promise<{ problems: Problem[] }>;
+
+  blockedProblems(
+    args: { workspaceId: string },
+  ): Promise<{ problems: Problem[] }>;
+
+  createSubProblem(
+    agentId: string,
+    args: { workspaceId: string; parentId: string; title: string; description: string },
+  ): Promise<{ problemId: string; channelId: string }>;
 }
 
 export function createProblemsManager(
@@ -147,6 +170,138 @@ export function createProblemsManager(
       }
 
       return { problems: allProblems };
+    },
+
+    async addDependency(_agentId, { workspaceId, problemId, dependsOnProblemId }) {
+      if (problemId === dependsOnProblemId) {
+        throw new Error('A problem cannot depend on itself');
+      }
+
+      const problem = await storage.getProblem(workspaceId, problemId);
+      if (!problem) throw new Error(`Problem not found: ${problemId}`);
+
+      const target = await storage.getProblem(workspaceId, dependsOnProblemId);
+      if (!target) throw new Error(`Dependency target not found: ${dependsOnProblemId}`);
+
+      if (!problem.dependsOn) problem.dependsOn = [];
+
+      if (problem.dependsOn.includes(dependsOnProblemId)) {
+        throw new Error(`Problem already depends on ${dependsOnProblemId}`);
+      }
+
+      // Cycle detection: DFS from dependsOnProblemId to see if it transitively reaches problemId
+      const visited = new Set<string>();
+      const hasCycle = async (currentId: string): Promise<boolean> => {
+        if (currentId === problemId) return true;
+        if (visited.has(currentId)) return false;
+        visited.add(currentId);
+        const current = await storage.getProblem(workspaceId, currentId);
+        if (!current?.dependsOn) return false;
+        for (const depId of current.dependsOn) {
+          if (await hasCycle(depId)) return true;
+        }
+        return false;
+      };
+
+      if (await hasCycle(dependsOnProblemId)) {
+        throw new Error('Adding this dependency would create a cycle');
+      }
+
+      problem.dependsOn.push(dependsOnProblemId);
+      problem.updatedAt = new Date().toISOString();
+      await storage.saveProblem(problem);
+
+      return { problem };
+    },
+
+    async removeDependency(_agentId, { workspaceId, problemId, dependsOnProblemId }) {
+      const problem = await storage.getProblem(workspaceId, problemId);
+      if (!problem) throw new Error(`Problem not found: ${problemId}`);
+
+      if (!problem.dependsOn) problem.dependsOn = [];
+      problem.dependsOn = problem.dependsOn.filter(id => id !== dependsOnProblemId);
+      problem.updatedAt = new Date().toISOString();
+      await storage.saveProblem(problem);
+
+      return { problem };
+    },
+
+    async readyProblems({ workspaceId }) {
+      const allProblems = await storage.listProblems(workspaceId);
+      const isResolved = (status: string) => status === 'resolved' || status === 'closed';
+
+      const ready = allProblems.filter(p => {
+        if (p.status !== 'open') return false;
+        if (!p.dependsOn || p.dependsOn.length === 0) return true;
+        // All deps must be resolved/closed
+        return p.dependsOn.every(depId => {
+          const dep = allProblems.find(d => d.id === depId);
+          return dep && isResolved(dep.status);
+        });
+      });
+
+      return { problems: ready };
+    },
+
+    async blockedProblems({ workspaceId }) {
+      const allProblems = await storage.listProblems(workspaceId);
+      const isResolved = (status: string) => status === 'resolved' || status === 'closed';
+
+      const blocked = allProblems.filter(p => {
+        if (p.status !== 'open' && p.status !== 'in-progress') return false;
+        if (!p.dependsOn || p.dependsOn.length === 0) return false;
+        // At least one dep is NOT resolved/closed
+        return p.dependsOn.some(depId => {
+          const dep = allProblems.find(d => d.id === depId);
+          return !dep || !isResolved(dep.status);
+        });
+      });
+
+      return { problems: blocked };
+    },
+
+    async createSubProblem(agentId, { workspaceId, parentId, title, description }) {
+      // Verify parent exists
+      const parent = await storage.getProblem(workspaceId, parentId);
+      if (!parent) throw new Error(`Parent problem not found: ${parentId}`);
+
+      // Verify coordinator role (same check as createProblem)
+      const workspace = await storage.getWorkspace(workspaceId);
+      if (!workspace) throw new Error(`Workspace not found: ${workspaceId}`);
+
+      const agent = workspace.agents.find(a => a.agentId === agentId);
+      if (!agent || agent.role !== 'coordinator') {
+        throw new Error('Only coordinator can create problems');
+      }
+
+      const now = new Date().toISOString();
+      const problemId = randomUUID();
+
+      const problem: Problem = {
+        id: problemId,
+        workspaceId,
+        title,
+        description,
+        createdBy: agentId,
+        status: 'open',
+        parentId,
+        comments: [],
+        createdAt: now,
+        updatedAt: now,
+      };
+
+      await storage.saveProblem(problem);
+
+      // Create associated channel
+      const channel: Channel = {
+        id: problemId,
+        workspaceId,
+        problemId,
+        messages: [],
+      };
+      await storage.saveChannel(channel);
+
+      return { problemId, channelId: problemId };
     },
   };
 }
