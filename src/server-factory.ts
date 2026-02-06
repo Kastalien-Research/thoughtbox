@@ -32,6 +32,7 @@ import {
   getSpecificationSuiteContent,
 } from "./prompts/index.js";
 import { THOUGHTBOX_CIPHER } from "./resources/thoughtbox-cipher-content.js";
+import { getExtendedCipher } from "./multi-agent/cipher-extension.js";
 import { PARALLEL_VERIFICATION_CONTENT } from "./prompts/contents/parallel-verification.js";
 import {
   getSessionAnalysisGuideContent,
@@ -369,6 +370,8 @@ Call \`thoughtbox_hub\` { "operation": "register", "args": { "name": "Your Agent
             knowledgeHandler,
             storage,
             sendToolListChanged: () => server.sendToolListChanged(),
+            agentId: process.env.THOUGHTBOX_AGENT_ID,
+            agentName: process.env.THOUGHTBOX_AGENT_NAME,
           });
         } else {
           return {
@@ -1046,7 +1049,7 @@ mcp__thoughtbox__thoughtbox({
         {
           uri: uri.toString(),
           mimeType: "text/markdown",
-          text: THOUGHTBOX_CIPHER,
+          text: getExtendedCipher(THOUGHTBOX_CIPHER),
         },
       ],
     })

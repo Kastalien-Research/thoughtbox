@@ -18,6 +18,7 @@ import type { SessionHandler } from '../sessions/index.js';
 import type { MentalModelsHandler } from '../mental-models/index.js';
 import type { ThoughtboxStorage, ThoughtData } from '../persistence/index.js';
 import { THOUGHTBOX_CIPHER } from '../resources/thoughtbox-cipher-content.js';
+import { getExtendedCipher } from '../multi-agent/cipher-extension.js';
 import type { KnowledgeHandler } from '../knowledge/index.js';
 
 // =============================================================================
@@ -408,7 +409,7 @@ The gateway tool now supports thought and notebook operations.
 Call \`thoughtbox_gateway\` with operation 'thought' to begin structured reasoning.`;
 
     return {
-      content: [{ type: 'text', text: THOUGHTBOX_CIPHER + turnBoundaryInstruction }],
+      content: [{ type: 'text', text: getExtendedCipher(THOUGHTBOX_CIPHER) + turnBoundaryInstruction }],
     };
   }
 

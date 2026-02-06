@@ -118,8 +118,16 @@ export function createHubHandler(
             result = await problems.createProblem(agentId, args as any);
             emit({ type: 'problem_created', workspaceId, data: result as Record<string, unknown> });
             return result;
-          case 'claim_problem':
-            return problems.claimProblem(agentId, args as any);
+          case 'claim_problem': {
+            const claimArgs = args as { workspaceId: string; problemId: string; branchId?: string };
+            // Auto-generate branch name if not provided
+            if (!claimArgs.branchId) {
+              const agent = await storage.getAgent(agentId);
+              const agentSlug = (agent?.name ?? agentId ?? 'unknown').toLowerCase().replace(/[^a-z0-9-]/g, '-');
+              claimArgs.branchId = `${agentSlug}/${claimArgs.problemId}`;
+            }
+            return problems.claimProblem(agentId, claimArgs as any);
+          }
           case 'update_problem':
             return problems.updateProblem(agentId, args as any);
           case 'list_problems':
