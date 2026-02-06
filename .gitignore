@@ -43,14 +43,17 @@ mcp-ts-template/
 !.claude/commands/development/
 .claude/commands/development/*
 !.claude/commands/development/hub-tdd.md
+!.claude/commands/development/agentops-tdd.md
 !.claude/hooks/
 .claude/hooks/*
 !.claude/hooks/hub_tdd_stop.sh
+!.claude/hooks/agentops_tdd_stop.sh
 
 # Specifications and working artifacts (local development)
 .specs/
 .specification-suite/
 .hub-tdd/
+.agentops-tdd/
 .claude-flow/
 .swarm/
 
