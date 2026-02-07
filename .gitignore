@@ -35,8 +35,9 @@ claude-code-docs-two/
 .mcp.github.json
 mcp-ts-template/
 
-# Claude Code configuration and local data (except skills and shared workflows)
+# Claude Code configuration and local data (except agents, skills, and shared workflows)
 .claude/*
+!.claude/agents/
 !.claude/skills/
 !.claude/commands/
 .claude/commands/*
@@ -65,6 +66,12 @@ mcp-ts-template/
 .roo/
 
 REASONING_PATTERNS_REPORT.md
+AGENT-EXPERIENCE-REPORT.md
+STATUS-*.md
+agentic-dev-team/
+
+# Beads daemon logs
+.beads/daemon-*.log.gz
 
 # Srcbook development/testing files
 srcbook/
