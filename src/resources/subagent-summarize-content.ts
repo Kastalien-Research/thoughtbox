@@ -157,7 +157,7 @@ If tool list doesn't refresh (common with streaming HTTP clients), use the gatew
   "tool": "Task",
   "subagent_type": "general-purpose",
   "description": "Summarize Thoughtbox session via gateway",
-  "prompt": "Retrieve and summarize session via gateway tool.\\n\\n1. mcp__thoughtbox__thoughtbox_gateway({ operation: 'start_new', args: { newWork: { task: 'retrieve' } } })\\n2. mcp__thoughtbox__thoughtbox_gateway({ operation: 'cipher' })\\n3. mcp__thoughtbox__thoughtbox_gateway({ operation: 'session', args: { operation: 'get', args: { sessionId: '<SESSION_ID>' } } })\\n4. Summarize key insights (3-5 sentences)\\n\\nReturn ONLY your summary. Do not include raw thought content."
+  "prompt": "Retrieve and summarize session via gateway tool.\\n\\n1. mcp__thoughtbox__thoughtbox_gateway({ operation: 'start_new', args: { task: 'retrieve' } })\\n2. mcp__thoughtbox__thoughtbox_gateway({ operation: 'cipher' })\\n3. mcp__thoughtbox__thoughtbox_gateway({ operation: 'session', args: { operation: 'get', args: { sessionId: '<SESSION_ID>' } } })\\n4. Summarize key insights (3-5 sentences)\\n\\nReturn ONLY your summary. Do not include raw thought content."
 }
 \`\`\`
 

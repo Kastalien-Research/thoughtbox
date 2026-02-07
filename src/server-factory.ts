@@ -372,6 +372,10 @@ Call \`thoughtbox_hub\` { "operation": "register", "args": { "name": "Your Agent
             sendToolListChanged: () => server.sendToolListChanged(),
             agentId: process.env.THOUGHTBOX_AGENT_ID,
             agentName: process.env.THOUGHTBOX_AGENT_NAME,
+            getAgentProfile: args.hubStorage ? async (agentId: string) => {
+              const agent = await args.hubStorage!.getAgent(agentId);
+              return agent?.profile;
+            } : undefined,
           });
         } else {
           return {
@@ -491,7 +495,7 @@ Operations:
     const HUB_TOOL_DESCRIPTION = `Multi-agent collaboration hub for coordinated reasoning.
 
 Operations:
-- register: Register as an agent (args: { name: string })
+- register: Register as an agent (args: { name: string, profile?: "MANAGER"|"ARCHITECT"|"DEBUGGER"|"SECURITY" })
 - whoami: Get current agent identity
 - create_workspace: Create a collaboration workspace (args: { name, description })
 - join_workspace: Join an existing workspace (args: { workspaceId })
@@ -515,6 +519,7 @@ Operations:
 - list_consensus: List consensus markers (args: { workspaceId })
 - post_message: Post to a problem channel (args: { workspaceId, problemId, content })
 - read_channel: Read problem channel messages (args: { workspaceId, problemId })
+- get_profile_prompt: Get profile prompt with mental models (args: { profile: "MANAGER"|"ARCHITECT"|"DEBUGGER"|"SECURITY" })
 
 Progressive disclosure is enforced internally. Register first, then join a workspace.`;
 
@@ -527,6 +532,7 @@ Progressive disclosure is enforced internally. Register first, then join a works
         'create_proposal', 'review_proposal', 'merge_proposal', 'list_proposals',
         'mark_consensus', 'endorse_consensus', 'list_consensus',
         'post_message', 'read_channel',
+        'get_profile_prompt',
       ]),
       args: z.record(z.string(), z.unknown()).optional(),
     };

@@ -549,6 +549,15 @@ export class FileSystemStorage implements ThoughtboxStorage {
     return nodes.map(node => node.data);
   }
 
+  async getAllThoughts(sessionId: string): Promise<ThoughtData[]> {
+    const nodes = this.linkedStore.getSessionNodes(sessionId);
+    return nodes.map(node => node.data);
+  }
+
+  async getBranchIds(sessionId: string): Promise<string[]> {
+    return this.linkedStore.getBranchIds(sessionId);
+  }
+
   async getThought(sessionId: string, thoughtNumber: number): Promise<ThoughtData | null> {
     const node = this.linkedStore.getThoughtByNumber(sessionId, thoughtNumber);
     return node ? node.data : null;

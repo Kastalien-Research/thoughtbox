@@ -12,6 +12,7 @@ import { createProblemsManager } from './problems.js';
 import { createProposalsManager } from './proposals.js';
 import { createConsensusManager } from './consensus.js';
 import { createChannelsManager } from './channels.js';
+import { getProfilePromptContent } from './profiles-registry.js';
 import type { ThoughtStoreForWorkspace } from './workspace.js';
 
 type ThoughtStore = ThoughtStoreForWorkspace & {
@@ -89,6 +90,17 @@ export function createHubHandler(
         }
         if (operation === 'join_workspace') {
           return workspace.joinWorkspace(agentId, args as any);
+        }
+        if (operation === 'get_profile_prompt') {
+          const profileName = args.profile as string | undefined;
+          if (!profileName) {
+            throw new Error('Profile name is required. Pass { profile: "MANAGER" | "ARCHITECT" | "DEBUGGER" | "SECURITY" }');
+          }
+          const content = getProfilePromptContent(profileName);
+          if (!content) {
+            throw new Error(`Unknown profile '${profileName}'. Available profiles: MANAGER, ARCHITECT, DEBUGGER, SECURITY`);
+          }
+          return content;
         }
       }
 

@@ -259,12 +259,136 @@ Workflows for Claude to execute when verifying the thoughtbox thinking tool func
 
 ---
 
+## Test 16: read_thoughts by Specific thoughtNumber
+
+**Goal:** Verify `read_thoughts` retrieves a specific thought by number.
+
+**Prerequisite:** Stage 2, active session with 3+ thoughts.
+
+**Steps:**
+1. Create thoughts 1–3 in a session
+2. Call `thoughtbox_gateway` with `{ operation: "read_thoughts", args: { thoughtNumber: 2 } }`
+3. Verify response returns thought 2's content
+4. Verify only thought 2 returned (not the full session)
+
+**Expected:** Single thought retrieved by exact number
+
+---
+
+## Test 17: read_thoughts by Last N
+
+**Goal:** Verify `read_thoughts` retrieves the last N thoughts.
+
+**Prerequisite:** Stage 2, active session with 5+ thoughts.
+
+**Steps:**
+1. Create thoughts 1–5 in a session
+2. Call `{ operation: "read_thoughts", args: { last: 2 } }`
+3. Verify response returns thoughts 4 and 5 (the last two)
+4. Verify order is maintained (4 before 5)
+
+**Expected:** Last N thoughts returned in order
+
+---
+
+## Test 18: read_thoughts by Range
+
+**Goal:** Verify `read_thoughts` retrieves a range of thoughts.
+
+**Prerequisite:** Stage 2, active session with 5+ thoughts.
+
+**Steps:**
+1. Create thoughts 1–5 in a session
+2. Call `{ operation: "read_thoughts", args: { range: [2, 4] } }`
+3. Verify response returns thoughts 2, 3, and 4
+4. Verify thought 1 and 5 are NOT included
+
+**Expected:** Inclusive range of thoughts returned
+
+---
+
+## Test 19: read_thoughts by branchId
+
+**Goal:** Verify `read_thoughts` retrieves branch-specific thoughts.
+
+**Prerequisite:** Stage 2, session with branches.
+
+**Steps:**
+1. Create thoughts 1–3 on main chain
+2. Branch from thought 2: thought 4 with branchId "option-a"
+3. Branch from thought 2: thought 5 with branchId "option-b"
+4. Call `{ operation: "read_thoughts", args: { branchId: "option-a" } }`
+5. Verify response includes thought 4 (on branch "option-a")
+6. Verify thought 5 (branch "option-b") is NOT included
+
+**Expected:** Only thoughts from the specified branch returned
+
+---
+
+## Test 20: read_thoughts with sessionId (Cross-Session)
+
+**Goal:** Verify `read_thoughts` can retrieve thoughts from a different session.
+
+**Prerequisite:** Stage 2, at least two sessions exist.
+
+**Steps:**
+1. Create session A with thoughts 1–3
+2. Start a new session (session B)
+3. Call `{ operation: "read_thoughts", args: { sessionId: "<session-A-id>", last: 3 } }`
+4. Verify response returns thoughts from session A, not session B
+5. Verify session B remains the active session
+
+**Expected:** Cross-session retrieval works without switching active session
+
+---
+
+## Test 21: get_structure Returns Graph Topology
+
+**Goal:** Verify `get_structure` returns the reasoning graph topology without thought content.
+
+**Prerequisite:** Stage 2, session with branches and revisions.
+
+**Steps:**
+1. Create a session with: main chain (1–3), branch from thought 2, revision of thought 1
+2. Call `{ operation: "get_structure" }`
+3. Verify response includes:
+   - `thoughtCount` (total thoughts)
+   - `branches` array with branch metadata (not content)
+   - `revisions` array with revision metadata
+   - Graph topology (which thoughts connect to which)
+4. Verify NO thought content text is included
+5. Verify structural metadata IS included (thoughtNumber, branchId, revisesThought, etc.)
+
+**Expected:** Graph topology only — structure without content, suitable for navigation decisions
+
+---
+
+## Test 22: Multi-Agent Attribution
+
+**Goal:** Verify `agentId` and `agentName` fields are persisted on thoughts and returned.
+
+**Prerequisite:** Stage 2.
+
+**Steps:**
+1. Create a thought with `{ ..., agentId: "agent-001", agentName: "Planner Agent" }`
+2. Verify response includes `agentId` and `agentName`
+3. Create another thought with different agent info
+4. Call `read_thoughts` to retrieve both thoughts
+5. Verify each thought retains its original agent attribution
+6. Export session, verify agent fields present in export
+
+**Expected:** Agent attribution persisted and returned accurately per-thought
+
+---
+
 ## Running These Tests
 
-Execute by calling the `thoughtbox` and `export_reasoning_chain` MCP tools with specified parameters. The tool outputs to stderr for visual display; verify JSON response matches expectations.
+Execute by calling the `thoughtbox_gateway` MCP tool (for tests 16–22) and the `thoughtbox` / `export_reasoning_chain` MCP tools (for tests 1–15).
 
-For Tests 8-15 (linked structure tests), the AI agent executes tests by:
+For Tests 1–15 (original tests), the AI agent executes tests by:
 1. Calling `thoughtbox` tool with specified parameters
 2. Calling `export_reasoning_chain` to get exported file path
 3. Reading exported JSON file to verify structure
 4. Comparing actual structure against expected values
+
+For Tests 16–22 (new tests), execute via `thoughtbox_gateway` with `operation: "thought"`, `operation: "read_thoughts"`, or `operation: "get_structure"`. All require Stage 2 (init + cipher).

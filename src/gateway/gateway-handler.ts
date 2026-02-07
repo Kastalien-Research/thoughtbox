@@ -20,6 +20,7 @@ import type { ThoughtboxStorage, ThoughtData } from '../persistence/index.js';
 import { THOUGHTBOX_CIPHER } from '../resources/thoughtbox-cipher-content.js';
 import { getExtendedCipher } from '../multi-agent/cipher-extension.js';
 import type { KnowledgeHandler } from '../knowledge/index.js';
+import { getProfilePriming } from '../hub/profile-primer.js';
 
 // =============================================================================
 // Schema
@@ -171,6 +172,8 @@ export interface GatewayHandlerConfig {
   agentId?: string;
   /** Agent name for multi-agent attribution */
   agentName?: string;
+  /** SPEC-HUB-002: Callback to resolve agent profile name by agentId */
+  getAgentProfile?: (agentId: string) => Promise<string | undefined>;
 }
 
 /**
@@ -189,6 +192,8 @@ export class GatewayHandler {
   /** Default agent identity from env vars (fallback when no session-scoped identity) */
   private agentId?: string;
   private agentName?: string;
+  /** SPEC-HUB-002: Resolve agent profile name by agentId */
+  private getAgentProfile?: (agentId: string) => Promise<string | undefined>;
   /** Per-session agent identity overrides (defense-in-depth for shared-instance scenarios) */
   private sessionAgentIds = new Map<string, string>();
   private sessionAgentNames = new Map<string, string>();
@@ -205,6 +210,7 @@ export class GatewayHandler {
     this.sendToolListChanged = config.sendToolListChanged;
     this.agentId = config.agentId;
     this.agentName = config.agentName;
+    this.getAgentProfile = config.getAgentProfile;
   }
 
   /**
@@ -495,6 +501,20 @@ Call \`thoughtbox_gateway\` with operation 'thought' to begin structured reasoni
       agentName: (args.agentName as string | undefined) ?? this.getAgentName(mcpSessionId),
     });
 
+    // SPEC-HUB-002: Append profile priming resource for profiled agents
+    if (!result.isError && this.getAgentProfile) {
+      const agentId = (args.agentId as string | undefined) ?? this.getAgentId(mcpSessionId);
+      if (agentId) {
+        const profile = await this.getAgentProfile(agentId);
+        if (profile) {
+          const primingBlock = getProfilePriming(profile);
+          if (primingBlock) {
+            result.content.push(primingBlock as ContentBlock);
+          }
+        }
+      }
+    }
+
     return result;
   }
 
@@ -594,15 +614,24 @@ Call \`thoughtbox_gateway\` with operation 'thought' to begin structured reasoni
         timestamp: t.timestamp,
       }));
 
+      // Include available branches so agents know branches exist
+      const availableBranches = await this.storage.getBranchIds(sessionId);
+
+      const response: Record<string, unknown> = {
+        sessionId,
+        query: queryDescription,
+        count: formattedThoughts.length,
+        thoughts: formattedThoughts,
+      };
+
+      if (availableBranches.length > 0) {
+        response.availableBranches = availableBranches;
+      }
+
       return {
         content: [{
           type: 'text',
-          text: JSON.stringify({
-            sessionId,
-            query: queryDescription,
-            count: formattedThoughts.length,
-            thoughts: formattedThoughts,
-          }, null, 2),
+          text: JSON.stringify(response, null, 2),
         }],
       };
     } catch (err) {
@@ -642,8 +671,8 @@ Call \`thoughtbox_gateway\` with operation 'thought' to begin structured reasoni
     }
 
     try {
-      // Fetch all thoughts
-      const allThoughts = await this.storage.getThoughts(sessionId);
+      // Fetch all thoughts (main chain + branches)
+      const allThoughts = await this.storage.getAllThoughts(sessionId);
 
       // Separate main chain from branches
       const mainChainThoughts = allThoughts.filter(t => !t.branchId);
@@ -800,8 +829,8 @@ Call \`thoughtbox_gateway\` with operation 'thought' to begin structured reasoni
         };
       }
 
-      // Fetch thoughts separately (not stored on Session object)
-      const thoughts: ThoughtData[] = await this.storage.getThoughts(sessionId);
+      // Fetch all thoughts including branches (not stored on Session object)
+      const thoughts: ThoughtData[] = await this.storage.getAllThoughts(sessionId);
 
       const result: Record<string, unknown> = {
         sessionId,
