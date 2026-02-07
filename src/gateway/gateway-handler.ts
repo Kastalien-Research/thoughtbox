@@ -957,10 +957,10 @@ Operations:
 - thought (structured reasoning)
 - read_thoughts (retrieve previous thoughts mid-session for re-reading)
 - get_structure (get reasoning graph topology without content)
-- notebook (literate programming)
-- session (session management)
-- mental_models (reasoning frameworks)
-- deep_analysis (session pattern analysis)
+- notebook (literate programming — read thoughtbox://notebook/operations for args)
+- session (session management — args: { operation: 'list'|'get'|'delete'|'analyze'|'export', ... })
+- mental_models (reasoning frameworks — read thoughtbox://mental-models for operations and models)
+- deep_analysis (session pattern analysis — args: { sessionId?, analysisType: 'patterns'|'cognitive_load'|'full' })
 - knowledge (knowledge graph memory - Phase 1)
 
 read_thoughts usage (Stage 2 required):
