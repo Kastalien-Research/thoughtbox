@@ -20,6 +20,7 @@ import type { ThoughtboxStorage, ThoughtData } from '../persistence/index.js';
 import { THOUGHTBOX_CIPHER } from '../resources/thoughtbox-cipher-content.js';
 import { getExtendedCipher } from '../multi-agent/cipher-extension.js';
 import type { KnowledgeHandler } from '../knowledge/index.js';
+import { getProfilePriming } from '../hub/profile-primer.js';
 
 // =============================================================================
 // Schema
@@ -171,6 +172,8 @@ export interface GatewayHandlerConfig {
   agentId?: string;
   /** Agent name for multi-agent attribution */
   agentName?: string;
+  /** SPEC-HUB-002: Callback to resolve agent profile name by agentId */
+  getAgentProfile?: (agentId: string) => Promise<string | undefined>;
 }
 
 /**
@@ -189,6 +192,8 @@ export class GatewayHandler {
   /** Default agent identity from env vars (fallback when no session-scoped identity) */
   private agentId?: string;
   private agentName?: string;
+  /** SPEC-HUB-002: Resolve agent profile name by agentId */
+  private getAgentProfile?: (agentId: string) => Promise<string | undefined>;
   /** Per-session agent identity overrides (defense-in-depth for shared-instance scenarios) */
   private sessionAgentIds = new Map<string, string>();
   private sessionAgentNames = new Map<string, string>();
@@ -205,6 +210,7 @@ export class GatewayHandler {
     this.sendToolListChanged = config.sendToolListChanged;
     this.agentId = config.agentId;
     this.agentName = config.agentName;
+    this.getAgentProfile = config.getAgentProfile;
   }
 
   /**
@@ -494,6 +500,20 @@ Call \`thoughtbox_gateway\` with operation 'thought' to begin structured reasoni
       agentId: (args.agentId as string | undefined) ?? this.getAgentId(mcpSessionId),
       agentName: (args.agentName as string | undefined) ?? this.getAgentName(mcpSessionId),
     });
+
+    // SPEC-HUB-002: Append profile priming resource for profiled agents
+    if (!result.isError && this.getAgentProfile) {
+      const agentId = (args.agentId as string | undefined) ?? this.getAgentId(mcpSessionId);
+      if (agentId) {
+        const profile = await this.getAgentProfile(agentId);
+        if (profile) {
+          const primingBlock = getProfilePriming(profile);
+          if (primingBlock) {
+            result.content.push(primingBlock as ContentBlock);
+          }
+        }
+      }
+    }
 
     return result;
   }
