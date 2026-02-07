@@ -28,6 +28,24 @@ You MUST verify it first using the appropriate tool (Read, Glob, Grep, Bash, etc
 - Check directory contents before claiming files exist
 - Verify configurations before claiming they're correct
 
+## Git Branching (REQUIRED)
+
+**NEVER commit feature work directly to the current branch without checking first.**
+
+Before writing any code:
+1. Check what branch you're on with `git branch --show-current`
+2. If the task is a new feature, fix, or any non-trivial change, **create a dedicated branch**:
+   ```bash
+   git checkout -b feat/short-description   # for features
+   git checkout -b fix/short-description    # for fixes
+   ```
+3. Branch from `main` unless the work explicitly builds on another branch
+4. Push the new branch before starting work: `git push -u origin <branch-name>`
+
+**Do NOT:**
+- Commit new feature work onto an unrelated branch (e.g., adding `hub_wait` to `fix/branch-thought-retrieval`)
+- Assume the current branch is the right target — always verify
+
 ## Commit Message Format (REQUIRED)
 
 **This project uses [Conventional Commits](https://www.conventionalcommits.org/)**
