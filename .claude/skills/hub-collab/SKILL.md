@@ -19,17 +19,23 @@ Check with:
 curl -s http://localhost:1731/mcp | head -c 100
 ```
 
-## Important: MCP Session Isolation
+## MCP Session Behavior (Empirically Verified 2026-02-07)
 
-Sub-agents spawned via the Task tool share the parent's MCP connection. This means they share the same agentId on the hub, which prevents true multi-agent coordination (one agent can't review another's proposal if they share an identity).
+Sub-agents spawned via the Task tool share the parent's MCP HTTP connection but each `register` call creates a **separate agentId**. Key findings:
+
+1. **Session isolation works**: Each sub-agent gets a unique agentId on the hub
+2. **Cross-workspace visibility works**: Sub-agents see workspaces created by other agents
+3. **Cross-agent review works**: A Debugger sub-agent can review an Architect's proposal
+4. **Coordinator role caveat**: Re-registering creates a new identity, losing coordinator role. The orchestrator must create workspace + problems BEFORE spawning sub-agents, and not re-register afterward if merge is needed.
+5. **Sequential spawning recommended**: Run sub-agents sequentially (not in parallel) to avoid identity overwrites on the shared connection. Each agent should complete registration → join → claim → propose before the next starts.
 
 **Two approaches:**
 
-### Approach A: Single-Session Demo (Task tool)
-All agents share the parent's hub identity. Demonstrates the hub API and workflow, but can't show cross-agent review/merge. Good for showing the API surface.
+### Approach A: Single-Session Orchestration (Recommended)
+Parent session acts as MANAGER (registers, creates workspace/problems). Sub-agents spawn sequentially via Task tool, each registering with their own identity. Cross-agent review works. Merge requires the parent to maintain its original coordinator identity.
 
 ### Approach B: Multi-Process Demo (CLI agents)
-Each agent runs as a separate `claude --agent` process in its own terminal. Each gets a separate MCP connection → separate agentId. This enables true multi-agent coordination.
+Each agent runs as a separate `claude --agent` process. Fully independent MCP connections with no shared state concerns. Best for video demos where you want visible parallel terminals.
 
 For Approach B, open 3 terminal tabs and run:
 ```bash
@@ -95,7 +101,7 @@ Use Task tool with subagent_type matching the hub-debugger agent:
 Prompt: "You are the DEBUGGER agent. Register on the hub, join workspace <ID>. Check ready_problems, claim the bug problem. Initialize the gateway, use five-whys investigation on the profile priming bug in gateway-handler.ts. Create a proposal with your fix. Review the Architect's proposal if one exists."
 ```
 
-Note: In Approach A, the Debugger cannot review the Architect's proposal because they share the same agentId (self-review is blocked). This limitation demonstrates why Approach B is needed for the full demo.
+**Important**: Spawn Architect FIRST, wait for completion, then spawn Debugger. Sequential spawning prevents identity overwrites on the shared MCP connection. The Debugger can review the Architect's proposal because they have different agentIds.
 
 ### Step 6: Report Status
 ```
@@ -112,6 +118,6 @@ A successful run demonstrates:
 - Problem decomposition with dependencies
 - Branch-based investigation (thought chains)
 - Proposal creation linked to thought evidence
-- Cross-agent review (Approach B only)
+- Cross-agent review (both approaches — verified empirically)
 - Channel communication with thought references
 - Workspace status showing coordinated progress
