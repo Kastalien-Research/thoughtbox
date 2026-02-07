@@ -319,8 +319,8 @@
     }
 
     .session-tab.historical {
-      opacity: 0.75;
       border: 1px solid rgba(107, 114, 128, 0.3);
+      color: #d1d5db;
     }
 
     .session-badge {
@@ -688,13 +688,13 @@
       display: flex;
       align-items: center;
       gap: 0.375rem;
-      opacity: 0.6;
+      filter: saturate(0.4);
       transition: all 0.3s;
       border: 1px solid transparent;
     }
 
     .agent-pill.active {
-      opacity: 1;
+      filter: saturate(1);
       box-shadow: 0 0 15px currentColor;
     }
 
@@ -797,7 +797,7 @@
       margin: 0.5rem 0;
     }
 
-    .progress-bar {
+    .task-progress .progress-bar {
       flex: 1;
       height: 6px;
       background: rgba(255,255,255,0.1);
@@ -805,13 +805,13 @@
       overflow: hidden;
     }
 
-    .progress-fill {
+    .task-progress .progress-fill {
       height: 100%;
       background: linear-gradient(90deg, #10b981, #34d399);
       transition: width 0.5s ease;
     }
 
-    .progress-text {
+    .task-progress .progress-text {
       font-size: 0.75rem;
       color: var(--text-secondary);
       min-width: 3rem;
@@ -835,7 +835,7 @@
 
     .subtask.completed { color: #10b981; border-color: rgba(16,185,129,0.3); }
     .subtask.in_progress { color: #f59e0b; border-color: rgba(245,158,11,0.3); animation: pulse 2s infinite; }
-    .subtask.pending { color: #6b7280; opacity: 0.6; }
+    .subtask.pending { color: #9ca3af; }
 
     /* Thought Node SVG Attribution */
     .thought-node[data-role] {
@@ -861,9 +861,36 @@
       .task-board { width: 280px; top: 70px; }
       #agent-activity-bar { display: none !important; }
     }
+
+    /* Skip link (visible only on focus) */
+    .skip-link {
+      position: absolute;
+      top: -100%;
+      left: 1rem;
+      z-index: 9999;
+      padding: 0.5rem 1rem;
+      background: var(--accent-primary);
+      color: var(--bg-primary);
+      font-weight: 600;
+      border-radius: 0.25rem;
+      text-decoration: none;
+    }
+    .skip-link:focus {
+      top: 0.5rem;
+    }
+
+    /* Reduced motion */
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
   </style>
 </head>
 <body>
+  <a href="#graph-view" class="skip-link">Skip to reasoning graph</a>
   <div id="app">
     <!-- Ambient Background -->
     <div class="ambient-bg">
@@ -881,7 +908,7 @@
         <div class="flex items-center gap-4">
           <!-- Agent Activity Indicators -->
           <div id="agent-activity-bar" class="flex items-center gap-2" style="display: none;">
-            <span style="font-size: 0.75rem; color: #9ca3af; margin-right: 0.25rem;">👥 Active:</span>
+            <span style="font-size: 0.75rem; color: #9ca3af; margin-right: 0.25rem;"><span aria-hidden="true">👥</span> Active:</span>
             <div id="agent-pills-container" class="flex items-center gap-2">
               <!-- Agent pills rendered here dynamically -->
             </div>
@@ -986,9 +1013,9 @@
 
     <!-- Task Board (Fixed Position, Collapsible) -->
     <div id="task-board" class="task-board collapsed">
-      <div class="task-board-header" onclick="window.toggleTaskBoard && window.toggleTaskBoard()">
-        <h3>🎯 Active Tasks</h3>
-        <button class="collapse-btn" aria-label="Toggle task board">[−]</button>
+      <div class="task-board-header" role="button" tabindex="0" aria-label="Toggle task board">
+        <h3><span aria-hidden="true">🎯</span> Active Tasks</h3>
+        <span class="collapse-btn" aria-hidden="true">[−]</span>
       </div>
       <div class="task-board-content" id="task-board-content">
         <!-- Task cards rendered here dynamically -->
@@ -1250,9 +1277,10 @@
         const pill = document.createElement('div');
         pill.className = `agent-pill ${agent.status}`;
         pill.setAttribute('data-role', agent.role);
+        const roleName = escapeHtml(agent.role.charAt(0).toUpperCase() + agent.role.slice(1));
         pill.innerHTML = `
           <span class="dot ${agent.status === 'active' ? 'pulsing' : ''}"></span>
-          <span>${agent.role.charAt(0).toUpperCase() + agent.role.slice(1)}</span>
+          <span>${roleName}</span>
         `;
         container.appendChild(pill);
       }
@@ -1286,7 +1314,7 @@
             <div class="progress-bar">
               <div class="progress-fill" style="width: ${progressPercent}%"></div>
             </div>
-            <span class="progress-text">${progressPercent}% (${completedCount}/${totalCount})</span>
+            <span class="progress-text">${progressPercent === 100 ? 'Done' : 'Progress'}: ${progressPercent}% (${completedCount}/${totalCount})</span>
           </div>
           <div class="task-subtasks">
             ${task.subtasks.map(st => `
@@ -1313,6 +1341,19 @@
     window.toggleTaskBoard = function() {
       elements.taskBoard.classList.toggle('collapsed');
     };
+
+    // Keyboard + click support for task board header
+    (function() {
+      const header = document.querySelector('.task-board-header');
+      if (!header) return;
+      header.addEventListener('click', function() { window.toggleTaskBoard && window.toggleTaskBoard(); });
+      header.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          window.toggleTaskBoard && window.toggleTaskBoard();
+        }
+      });
+    })();
 
     // ============================================================
     // REST API Functions (for historical session loading)
@@ -1860,7 +1901,7 @@
         // Back button special rendering
         if (isBackButton) {
           return `
-            <g class="thought-node back-button" data-node-id="${node.id}" data-is-back="true" tabindex="0">
+            <g class="thought-node back-button" data-node-id="${node.id}" data-is-back="true" tabindex="0" role="button" aria-label="Back to main chain">
               <rect
                 x="${node.x - 30}"
                 y="${node.y - 20}"
@@ -1898,7 +1939,7 @@
         const roleAttr = agentRole ? ` data-role="${agentRole}"` : '';
 
         return `
-          <g class="thought-node ${isNew ? 'new' : ''} ${isBranch ? 'branch-node' : ''}" data-node-id="${node.id}"${roleAttr} tabindex="0">
+          <g class="thought-node ${isNew ? 'new' : ''} ${isBranch ? 'branch-node' : ''}" data-node-id="${node.id}"${roleAttr} tabindex="0" role="button" aria-label="Thought ${node.label}">
             <rect
               x="${node.x - 30}"
               y="${node.y - 20}"
@@ -1936,7 +1977,7 @@
       // Render stub nodes (circular, above their origin)
       stubNodes.map(stub => {
         return `
-          <g class="stub-node" data-stub-id="${stub.id}" data-branch-id="${stub.branchId}" tabindex="0" style="cursor: pointer;">
+          <g class="stub-node" data-stub-id="${stub.id}" data-branch-id="${stub.branchId}" tabindex="0" role="button" aria-label="Branch ${stub.label}, ${stub.thoughtCount} thoughts" style="cursor: pointer;">
             <circle
               cx="${stub.x}"
               cy="${stub.y}"
