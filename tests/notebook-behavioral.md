@@ -124,6 +124,37 @@ Workflows for Claude to execute when verifying the notebook toolhost functions c
 
 ---
 
+## Test 9: Load from Filesystem Path
+
+**Goal:** Verify `load` can import a notebook from a filesystem path (not just a content string).
+
+**Steps:**
+1. Create and export a notebook to get a .src.md file
+2. Note the export path (or save content to a known path)
+3. Call `load` with `{ path: "/path/to/exported.src.md" }` (filesystem path instead of content string)
+4. Verify notebook loaded with same cells as original
+5. Verify cell content, types, and order preserved
+
+**Expected:** Filesystem path loading works as alternative to content string
+
+---
+
+## Test 10: add_cell with Position Parameter
+
+**Goal:** Verify `add_cell` can insert a cell at a specific position.
+
+**Steps:**
+1. Create a notebook
+2. Add cell A (position 0 by default)
+3. Add cell B (position 1 by default)
+4. Add cell C with `position: 1` (should insert between A and B)
+5. Call `list_cells`
+6. Verify order is: A, C, B (C inserted at position 1, B shifted to position 2)
+
+**Expected:** Position parameter controls insertion point, existing cells shift
+
+---
+
 ## Running These Tests
 
-Execute by calling the `notebook` MCP tool with operation and args. Each notebook gets an isolated workspace. Clean up by letting notebooks expire or restarting server.
+Execute by calling the `notebook` MCP tool (via `thoughtbox_gateway` with `operation: "notebook"`) with operation and args. Each notebook gets an isolated workspace. Clean up by letting notebooks expire or restarting server.

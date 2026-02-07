@@ -1,6 +1,11 @@
-# Mental Models Toolhost - Behavioral Tests
+# Mental Models - Behavioral Tests
 
-Workflows for Claude to execute when verifying the mental_models toolhost functions correctly.
+Workflows for verifying the `thoughtbox_gateway` mental_models sub-operation.
+
+**Tool:** `thoughtbox_gateway`
+**Operation:** `mental_models` (with sub-operations via `args.operation`)
+**Required stage:** Stage 2 (cipher_loaded)
+**Sub-operations:** `list_tags`, `list_models`, `get_model`, `get_capability_graph`
 
 ## Test 1: Discovery Flow
 
@@ -97,7 +102,11 @@ Workflows for Claude to execute when verifying the mental_models toolhost functi
 
 ## Running These Tests
 
-Execute by calling the `mental_models` MCP tool with the specified operations and verifying responses match expectations. Report any failures with:
+Execute by calling `thoughtbox_gateway` with `operation: "mental_models"` and sub-operation in `args.operation`. Requires Stage 2 (init + cipher).
+
+**Verification checklist:** When running Test 1, verify the actual model count and tag count against the catalog. The test references 9 tags — confirm this matches the current implementation. If the numbers differ, update this test file with the correct counts.
+
+Report any failures with:
 - Operation called
 - Arguments provided
 - Expected vs actual response
