@@ -54,20 +54,21 @@ export const initToolInputSchema = z.object({
   // For load_context
   sessionId: z.string().optional(),
 
-  // For start_new
-  newWork: z.object({
-    // Project can be omitted when a bound root provides the project name.
-    project: z.string().optional(),
-    task: z.string().optional(),
-    aspect: z.string().optional(),
-    domain: z.string().optional().describe("Reasoning domain (e.g., 'debugging', 'planning', 'architecture') - unlocks domain-specific mental models"),
-  }).optional(),
+  // For start_new (flat — project/task/aspect/domain at top level)
+  // Project can be omitted when a bound root provides the project name.
+  project: z.string().optional(),
+  task: z.string().optional(),
+  aspect: z.string().optional(),
+  domain: z.string().optional().describe("Reasoning domain (e.g., 'debugging', 'planning', 'architecture') - unlocks domain-specific mental models"),
 
   // For bind_root (SPEC-011)
   rootUri: z.string().optional().describe('URI of the MCP root to bind as project scope'),
 });
 
 export type InitToolInput = z.infer<typeof initToolInputSchema>;
+
+/** The shape passed internally to handleStartNew (assembled from flat fields). */
+type NewWorkInput = { project?: string; task?: string; aspect?: string; domain?: string };
 
 // =============================================================================
 // MCP Response Types
@@ -197,8 +198,12 @@ export class InitToolHandler {
       case 'load_context':
         return await this.handleLoadContext(sessionId, input.sessionId);
 
-      case 'start_new':
-        return await this.handleStartNew(sessionId, input.newWork);
+      case 'start_new': {
+        const newWork = (input.project || input.task || input.aspect || input.domain)
+          ? { project: input.project, task: input.task, aspect: input.aspect, domain: input.domain }
+          : undefined;
+        return await this.handleStartNew(sessionId, newWork);
+      }
 
       case 'list_roots':
         return await this.handleListRoots(sessionId);
@@ -501,7 +506,7 @@ export class InitToolHandler {
    */
   private async handleStartNew(
     sessionId: string,
-    newWork?: InitToolInput['newWork']
+    newWork?: NewWorkInput
   ): Promise<ToolResponse> {
     // Get bound root for fallback project name
     const boundRoot = this.stateManager.getBoundRoot(sessionId);
@@ -525,7 +530,7 @@ export class InitToolHandler {
       return {
         content: [{
           type: 'text',
-          text: 'start_new operation requires newWork parameter with at least project, or bind a root first using bind_root',
+          text: 'start_new requires at least a project field, or bind a root first using bind_root',
         }],
         isError: true,
       };
@@ -533,7 +538,7 @@ export class InitToolHandler {
       return {
         content: [{
           type: 'text',
-          text: 'start_new requires a project name. Either provide newWork.project or bind a root first using bind_root.',
+          text: 'start_new requires a project name. Either provide a project field or bind a root first using bind_root.',
         }],
         isError: true,
       };
@@ -1066,7 +1071,7 @@ export class InitToolHandler {
   }
 
   private buildNewWorkConfirmText(
-    newWork: NonNullable<InitToolInput['newWork']>,
+    newWork: NonNullable<NewWorkInput>,
     relatedSessions: SessionMetadata[],
     projectSource?: 'explicit' | 'bound-root',
     boundRoot?: BoundRoot,
@@ -1099,7 +1104,7 @@ export class InitToolHandler {
   }
 
   private buildNewWorkSuggestionsMarkdown(
-    newWork: NonNullable<InitToolInput['newWork']>,
+    newWork: NonNullable<NewWorkInput>,
     relatedSessions: SessionMetadata[]
   ): string {
     const lines: string[] = ['# New Work Context', ''];

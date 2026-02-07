@@ -7,6 +7,9 @@ Workflows for verifying the `thoughtbox_gateway` session sub-operations.
 **Required stage:** Stage 1 (init_complete) — call `start_new` or `load_context` first
 **Sub-operations:** `list`, `get`, `search`, `resume`, `export`, `analyze`, `extract_learnings`, `discovery`
 
+**Arg shape:** `{ operation: "session", args: { operation: "<sub-op>", args: { <params> } } }`
+The gateway extracts `args.operation` for routing and `args.args` for the handler.
+
 ---
 
 ## SS-001: session.list Returns Sessions with Metadata
@@ -33,7 +36,7 @@ Workflows for verifying the `thoughtbox_gateway` session sub-operations.
 
 **Steps:**
 1. Advance to Stage 1
-2. Call `{ operation: "session", args: { operation: "list", tags: ["behavioral-test"] } }`
+2. Call `{ operation: "session", args: { operation: "list", args: { tags: ["behavioral-test"] } } }`
 3. Verify only sessions with matching tags returned
 4. Call with a tag that no session has
 5. Verify empty result (not an error)
@@ -50,10 +53,10 @@ Workflows for verifying the `thoughtbox_gateway` session sub-operations.
 
 **Steps:**
 1. Advance to Stage 1
-2. Call `{ operation: "session", args: { operation: "list", limit: 2, offset: 0 } }`
+2. Call `{ operation: "session", args: { operation: "list", args: { limit: 2, offset: 0 } } }`
 3. Verify exactly 2 sessions returned
 4. Note the session IDs
-5. Call with `{ limit: 2, offset: 2 }`
+5. Call with `{ operation: "session", args: { operation: "list", args: { limit: 2, offset: 2 } } }`
 6. Verify different sessions returned (or fewer if near end)
 7. Verify no overlap between page 1 and page 2
 
@@ -70,7 +73,7 @@ Workflows for verifying the `thoughtbox_gateway` session sub-operations.
 **Steps:**
 1. Advance to Stage 1
 2. Get a session ID from `session.list`
-3. Call `{ operation: "session", args: { operation: "get", sessionId: "<id>" } }`
+3. Call `{ operation: "session", args: { operation: "get", args: { sessionId: "<id>" } } }`
 4. Verify response includes:
    - `id`, `title`, `tags`, `createdAt`
    - `thoughts` array with all thoughts
@@ -87,7 +90,7 @@ Workflows for verifying the `thoughtbox_gateway` session sub-operations.
 
 **Steps:**
 1. Advance to Stage 1
-2. Call `{ operation: "session", args: { operation: "get", sessionId: "nonexistent-id-12345" } }`
+2. Call `{ operation: "session", args: { operation: "get", args: { sessionId: "nonexistent-id-12345" } } }`
 3. Verify error response (not a crash)
 4. Verify error message indicates session not found
 
@@ -102,7 +105,7 @@ Workflows for verifying the `thoughtbox_gateway` session sub-operations.
 **Steps:**
 1. Advance to Stage 1
 2. Create a session with a distinctive title (e.g., "Unicorn Rainbow Analysis")
-3. Call `{ operation: "session", args: { operation: "search", query: "Unicorn" } }`
+3. Call `{ operation: "session", args: { operation: "search", args: { query: "Unicorn" } } }`
 4. Verify the session with matching title appears in results
 5. Search for a non-matching query
 6. Verify empty results
@@ -120,7 +123,7 @@ Workflows for verifying the `thoughtbox_gateway` session sub-operations.
 **Steps:**
 1. Advance to Stage 1
 2. Get a session ID from `session.list`
-3. Call `{ operation: "session", args: { operation: "resume", sessionId: "<id>" } }`
+3. Call `{ operation: "session", args: { operation: "resume", args: { sessionId: "<id>" } } }`
 4. Verify response confirms session loaded
 5. Verify the session context is now active
 
@@ -154,7 +157,7 @@ Workflows for verifying the `thoughtbox_gateway` session sub-operations.
 
 **Steps:**
 1. Advance to Stage 1
-2. Call `{ operation: "session", args: { operation: "export", sessionId: "<id>", format: "json" } }`
+2. Call `{ operation: "session", args: { operation: "export", args: { sessionId: "<id>", format: "json" } } }`
 3. Verify response includes JSON content
 4. Verify JSON contains:
    - `version` field
@@ -172,7 +175,7 @@ Workflows for verifying the `thoughtbox_gateway` session sub-operations.
 
 **Steps:**
 1. Advance to Stage 1
-2. Call `{ operation: "session", args: { operation: "export", sessionId: "<id>", format: "markdown" } }`
+2. Call `{ operation: "session", args: { operation: "export", args: { sessionId: "<id>", format: "markdown" } } }`
 3. Verify response includes markdown content
 4. Verify markdown includes:
    - Session title as heading
@@ -190,7 +193,7 @@ Workflows for verifying the `thoughtbox_gateway` session sub-operations.
 
 **Steps:**
 1. Advance to Stage 1
-2. Call `{ operation: "session", args: { operation: "export", sessionId: "<id>", format: "cipher" } }`
+2. Call `{ operation: "session", args: { operation: "export", args: { sessionId: "<id>", format: "cipher" } } }`
 3. Verify response includes cipher-formatted content
 4. Verify content uses cipher notation conventions
 
@@ -206,7 +209,7 @@ Workflows for verifying the `thoughtbox_gateway` session sub-operations.
 
 **Steps:**
 1. Advance to Stage 1
-2. Call `{ operation: "session", args: { operation: "analyze", sessionId: "<id>" } }`
+2. Call `{ operation: "session", args: { operation: "analyze", args: { sessionId: "<id>" } } }`
 3. Verify response includes metrics:
    - `linearity` (how linear vs branching the session is)
    - `revisionRate` (ratio of revisions to total thoughts)
@@ -226,7 +229,7 @@ Workflows for verifying the `thoughtbox_gateway` session sub-operations.
 
 **Steps:**
 1. Advance to Stage 1
-2. Call `{ operation: "session", args: { operation: "extract_learnings", sessionId: "<id>" } }`
+2. Call `{ operation: "session", args: { operation: "extract_learnings", args: { sessionId: "<id>" } } }`
 3. Verify response includes:
    - Patterns identified (successful strategies)
    - Anti-patterns identified (things that didn't work)
@@ -245,9 +248,9 @@ Workflows for verifying the `thoughtbox_gateway` session sub-operations.
 1. Advance to Stage 1
 2. Call `{ operation: "session", args: { operation: "discovery" } }` (list mode)
 3. Verify response lists available session operations with descriptions
-4. Call with `{ operation: "discovery", action: "hide", target: "analyze" }` (if supported)
+4. Call with `{ operation: "session", args: { operation: "discovery", args: { action: "hide", target: "analyze" } } }` (if supported)
 5. Call discovery again, verify "analyze" is marked as hidden
-6. Call with `{ operation: "discovery", action: "show", target: "analyze" }`
+6. Call with `{ operation: "session", args: { operation: "discovery", args: { action: "show", target: "analyze" } } }`
 7. Verify "analyze" is visible again
 
 **Expected:** Discovery lists operations, hide/show toggles visibility
@@ -256,6 +259,6 @@ Workflows for verifying the `thoughtbox_gateway` session sub-operations.
 
 ## Running These Tests
 
-All session tests require Stage 1 minimum. Execute by calling `thoughtbox_gateway` with `operation: "session"` and sub-operation in `args.operation`.
+All session tests require Stage 1 minimum. Execute by calling `thoughtbox_gateway` with `operation: "session"` and sub-operation in `args.operation`. Parameters for the sub-operation go in `args.args`.
 
 **Setup:** Create test sessions with known titles and tags before running filter/search tests. Use `start_new` followed by a few `thought` calls to create test data.
