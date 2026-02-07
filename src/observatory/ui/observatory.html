@@ -318,6 +318,43 @@
       opacity: 0.3;
     }
 
+    .session-tab.historical {
+      opacity: 0.75;
+      border: 1px solid rgba(107, 114, 128, 0.3);
+    }
+
+    .session-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.25rem;
+      font-size: 0.625rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      padding: 0.125rem 0.375rem;
+      border-radius: 9999px;
+      margin-left: 0.5rem;
+      vertical-align: middle;
+    }
+
+    .session-badge-live {
+      background: rgba(16, 185, 129, 0.2);
+      color: #34d399;
+    }
+
+    .session-badge-live .badge-dot {
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: #34d399;
+      animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    }
+
+    .session-badge-completed {
+      background: rgba(107, 114, 128, 0.2);
+      color: #9ca3af;
+    }
+
     /* Empty State */
     .empty-state {
       display: flex;
@@ -814,7 +851,7 @@
             <div>
               <div class="section-label">
                 <div class="section-line"></div>
-                <h2 class="section-title">Active Sessions</h2>
+                <h2 class="section-title">Sessions</h2>
               </div>
               <div id="session-tabs" class="session-tabs">
                 <!-- Sessions will be rendered here -->
@@ -829,7 +866,7 @@
             <div class="graph-header">
               <div class="section-label" style="margin-bottom: 0;">
                 <div class="section-line"></div>
-                <h2 class="section-title">Live Reasoning Graph</h2>
+                <h2 class="section-title">Reasoning Graph</h2>
               </div>
               <div id="node-count" class="node-count hidden">
                 <div class="node-count-dot"></div>
@@ -1048,6 +1085,9 @@
       // Branch metadata for stub rendering
       branchRegistry: new Map(), // branchId -> { label: 'A', originThoughtNumber, thoughtCount }
 
+      // Session source tracking: 'active' (WebSocket) or 'historical' (REST/storage)
+      sessionSource: new Map(),   // sessionId -> 'active' | 'historical'
+
       // Multi-agent collaboration state
       agents: new Map(),        // agentId -> { role, status, lastActivity, taskId }
       tasks: new Map(),          // taskId -> { title, progress, subtasks }
@@ -1217,26 +1257,90 @@
       elements.taskBoard.classList.toggle('collapsed');
     };
 
+    // ============================================================
+    // REST API Functions (for historical session loading)
+    // ============================================================
+    async function fetchAllSessions() {
+      try {
+        const resp = await fetch('/api/sessions?limit=50');
+        if (!resp.ok) return;
+        const data = await resp.json();
+        const sessions = data.sessions || [];
+
+        // Merge into state: active sessions (already in state from WS) take precedence
+        const activeIds = new Set();
+        state.sessions.forEach(s => {
+          if (state.sessionSource.get(s.id) === 'active') {
+            activeIds.add(s.id);
+          }
+        });
+
+        for (const session of sessions) {
+          if (!activeIds.has(session.id)) {
+            // Add historical session if not already present as active
+            const existing = state.sessions.find(s => s.id === session.id);
+            if (!existing) {
+              state.sessions.push(session);
+            }
+            if (!state.sessionSource.has(session.id)) {
+              state.sessionSource.set(session.id, 'historical');
+            }
+          }
+        }
+
+        // Sort: active first (by createdAt desc), then historical (by createdAt desc)
+        state.sessions.sort((a, b) => {
+          const aIsActive = state.sessionSource.get(a.id) === 'active';
+          const bIsActive = state.sessionSource.get(b.id) === 'active';
+          if (aIsActive && !bIsActive) return -1;
+          if (!aIsActive && bIsActive) return 1;
+          return new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
+        });
+
+        renderSessions();
+      } catch (err) {
+        console.error('[Observatory] Failed to fetch sessions:', err);
+      }
+    }
+
+    async function fetchSessionDetail(sessionId) {
+      try {
+        const resp = await fetch(`/api/sessions/${encodeURIComponent(sessionId)}`);
+        if (!resp.ok) return null;
+        return await resp.json();
+      } catch (err) {
+        console.error('[Observatory] Failed to fetch session detail:', err);
+        return null;
+      }
+    }
+
     function renderSessions() {
       const container = elements.sessionTabs;
 
       if (state.sessions.length === 0) {
-        container.innerHTML = '<span style="color: var(--text-muted); font-size: 0.875rem;">No active sessions</span>';
+        container.innerHTML = '<span style="color: var(--text-muted); font-size: 0.875rem;">No sessions</span>';
         return;
       }
 
       container.innerHTML = state.sessions.map(session => {
-        const isActive = session.id === state.activeSessionId;
+        const isSelected = session.id === state.activeSessionId;
+        const source = state.sessionSource.get(session.id) || 'historical';
+        const isLive = source === 'active';
         const label = session.title || session.id.slice(0, 8);
         const escapedLabel = escapeHtml(label);
         const escapedId = escapeHtml(session.id);
+
+        const badge = isLive
+          ? '<span class="session-badge session-badge-live"><span class="badge-dot"></span>LIVE</span>'
+          : '<span class="session-badge session-badge-completed">\u2713</span>';
+
         return `
           <button
-            class="session-tab ${isActive ? 'active' : ''}"
+            class="session-tab ${isSelected ? 'active' : ''} ${!isLive ? 'historical' : ''}"
             data-session-id="${escapedId}"
             tabindex="0"
           >
-            <span style="position: relative; z-index: 10;">${escapedLabel}</span>
+            <span style="position: relative; z-index: 10;">${escapedLabel}${badge}</span>
           </button>
         `;
       }).join('');
@@ -1907,6 +2011,7 @@
       // Unsubscribe from previous session
       if (currentSessionTopic) {
         client.unsubscribe(currentSessionTopic);
+        currentSessionTopic = null;
       }
 
       // Clear current thoughts, arrival order, and branch registry
@@ -1921,12 +2026,62 @@
       state.viewContext.activeBranchId = null;
       state.viewContext.branchStack = [];
 
-      // Subscribe to new session
-      currentSessionTopic = `reasoning:${sessionId}`;
-      client.subscribe(currentSessionTopic);
+      const source = state.sessionSource.get(sessionId);
 
-      renderSessions();
-      renderGraph();
+      if (source === 'historical') {
+        // Load historical session data via REST
+        renderSessions();
+        renderGraph(); // Show empty/loading state
+
+        fetchSessionDetail(sessionId).then(data => {
+          if (!data || state.activeSessionId !== sessionId) return;
+
+          // Populate thoughts from REST response
+          const thoughts = data.thoughts || [];
+          const sortedThoughts = [...thoughts].sort((a, b) => {
+            if (a.timestamp && b.timestamp) {
+              return new Date(a.timestamp) - new Date(b.timestamp);
+            }
+            return a.thoughtNumber - b.thoughtNumber;
+          });
+
+          sortedThoughts.forEach(thought => {
+            state.thoughts.set(thought.id, thought);
+            state.arrivalOrder.push(thought.id);
+            if (thought.branchId && thought.branchFromThought) {
+              registerBranch(thought.branchId, thought.branchFromThought);
+            }
+          });
+
+          // Populate branches
+          if (data.branches) {
+            const branchMap = data.branches;
+            for (const [branchId, branch] of Object.entries(branchMap)) {
+              state.branches.set(branchId, branch);
+              if (branch.thoughts) {
+                branch.thoughts.forEach(thought => {
+                  if (!state.thoughts.has(thought.id)) {
+                    state.thoughts.set(thought.id, thought);
+                    state.arrivalOrder.push(thought.id);
+                    if (thought.branchId && thought.branchFromThought) {
+                      registerBranch(thought.branchId, thought.branchFromThought);
+                    }
+                  }
+                });
+              }
+            }
+          }
+
+          renderGraph();
+        });
+      } else {
+        // Active session: subscribe via WebSocket for real-time updates
+        currentSessionTopic = `reasoning:${sessionId}`;
+        client.subscribe(currentSessionTopic);
+
+        renderSessions();
+        renderGraph();
+      }
     }
 
     // ============================================================
@@ -1939,6 +2094,8 @@
       updateConnectionStatus(true);
       // Subscribe to observatory channel for session discovery
       client.subscribe('observatory');
+      // Fetch historical + active sessions via REST
+      fetchAllSessions();
     });
 
     client.on('disconnected', () => {
@@ -1952,7 +2109,34 @@
 
     client.on('observatory:sessions:active', (payload) => {
       console.log('[Observatory] Active sessions:', payload);
-      state.sessions = payload.sessions || [];
+      const activeSessions = payload.sessions || [];
+
+      // Mark all WS-reported sessions as 'active'
+      const activeIds = new Set();
+      activeSessions.forEach(s => {
+        activeIds.add(s.id);
+        state.sessionSource.set(s.id, 'active');
+      });
+
+      // Merge: add active sessions, update existing ones
+      for (const session of activeSessions) {
+        const existing = state.sessions.find(s => s.id === session.id);
+        if (existing) {
+          Object.assign(existing, session);
+        } else {
+          state.sessions.push(session);
+        }
+      }
+
+      // Re-sort: active first, then historical
+      state.sessions.sort((a, b) => {
+        const aIsActive = state.sessionSource.get(a.id) === 'active';
+        const bIsActive = state.sessionSource.get(b.id) === 'active';
+        if (aIsActive && !bIsActive) return -1;
+        if (!aIsActive && bIsActive) return 1;
+        return new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
+      });
+
       renderSessions();
 
       // Auto-select first session if none selected
@@ -1965,7 +2149,8 @@
       console.log('[Observatory] Session started:', payload);
       const session = payload.session;
       if (session && !state.sessions.find(s => s.id === session.id)) {
-        state.sessions.push(session);
+        state.sessions.unshift(session); // Active sessions at top
+        state.sessionSource.set(session.id, 'active');
 
         // Immediately subscribe to this session's reasoning channel
         // so we don't miss any thoughts while the UI updates

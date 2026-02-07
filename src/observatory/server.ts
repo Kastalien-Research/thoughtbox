@@ -27,6 +27,12 @@ import type { ObservatoryConfig } from "./config.js";
 import { OBSERVATORY_HTML } from "./ui/index.js";
 import { ImprovementEventStore } from "./improvement-store.js";
 import { ScorecardAggregator } from "./scorecard-aggregator.js";
+import type { ThoughtboxStorage } from "../persistence/types.js";
+import {
+  toObservatorySession,
+  toObservatoryThought,
+  toObservatoryBranches,
+} from "./storage-adapter.js";
 
 /**
  * Observatory server instance
@@ -46,9 +52,13 @@ export interface ObservatoryServer {
 
 /**
  * Create an Observatory server with the given configuration
+ *
+ * @param config - Observatory configuration
+ * @param storage - Optional persistent storage for historical session access
  */
 export function createObservatoryServer(
-  config: ObservatoryConfig
+  config: ObservatoryConfig,
+  storage?: ThoughtboxStorage
 ): ObservatoryServer {
   let httpServer: HttpServer | null = null;
   let wss: WebSocketServer | null = null;
@@ -124,19 +134,59 @@ export function createObservatoryServer(
 
     // Sessions list endpoint
     if (url.pathname === "/api/sessions" && req.method === "GET") {
-      const status = url.searchParams.get("status");
-      let sessions = sessionStore.getAllSessions();
+      const source = url.searchParams.get("source") || "all";
 
-      if (status && status !== "all") {
-        sessions = sessions.filter((s) => s.status === status);
-      }
+      (async () => {
+        // Collect active sessions from in-memory store
+        const activeIds = new Set<string>();
+        let activeSessions = sessionStore.getAllSessions();
+        activeSessions.forEach((s) => activeIds.add(s.id));
 
-      const limit = parseInt(url.searchParams.get("limit") || "50", 10);
-      const offset = parseInt(url.searchParams.get("offset") || "0", 10);
-      sessions = sessions.slice(offset, offset + limit);
+        let mergedSessions = [...activeSessions];
 
-      res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ sessions }));
+        // Merge historical sessions from persistent storage (if available)
+        if (storage && source !== "active") {
+          try {
+            const historicalRaw = await storage.listSessions({
+              limit: 50,
+              sortBy: "updatedAt",
+              sortOrder: "desc",
+            });
+
+            for (const ps of historicalRaw) {
+              // Active sessions take precedence — skip duplicates
+              if (!activeIds.has(ps.id)) {
+                mergedSessions.push(toObservatorySession(ps));
+              }
+            }
+          } catch (err) {
+            console.error("[Observatory] Failed to load historical sessions:", err);
+          }
+        }
+
+        // Filter by source if requested
+        if (source === "active") {
+          mergedSessions = mergedSessions.filter((s) => activeIds.has(s.id));
+        } else if (source === "historical") {
+          mergedSessions = mergedSessions.filter((s) => !activeIds.has(s.id));
+        }
+
+        // Apply status filter
+        const status = url.searchParams.get("status");
+        if (status && status !== "all") {
+          mergedSessions = mergedSessions.filter((s) => s.status === status);
+        }
+
+        const limit = parseInt(url.searchParams.get("limit") || "50", 10);
+        const offset = parseInt(url.searchParams.get("offset") || "0", 10);
+        mergedSessions = mergedSessions.slice(offset, offset + limit);
+
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ sessions: mergedSessions }));
+      })().catch((err) => {
+        res.writeHead(500, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: (err as Error).message }));
+      });
       return;
     }
 
@@ -146,21 +196,58 @@ export function createObservatoryServer(
       const sessionId = sessionMatch[1];
 
       (async () => {
+        // First check in-memory store (active sessions)
         const session = await sessionStore.getSession(sessionId);
-        if (!session) {
-          res.writeHead(404, { "Content-Type": "application/json" });
-          res.end(JSON.stringify({ error: "Session not found" }));
+        if (session) {
+          const thoughts = await sessionStore.getThoughts(sessionId);
+          const branches = await sessionStore.getBranches(sessionId);
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ session, thoughts, branches }));
           return;
         }
 
-        const thoughts = await sessionStore.getThoughts(sessionId);
-        const branches = await sessionStore.getBranches(sessionId);
+        // Fall back to persistent storage
+        if (storage) {
+          const persistedSession = await storage.getSession(sessionId);
+          if (persistedSession) {
+            const obsSession = toObservatorySession(persistedSession);
+            const rawThoughts = await storage.getThoughts(sessionId);
+            const obsThoughts = rawThoughts.map((td) =>
+              toObservatoryThought(sessionId, td)
+            );
 
-        res.writeHead(200, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ session, thoughts, branches }));
+            // Load branches
+            const branchIds = await storage.getBranchIds(sessionId);
+            const branchThoughtsMap = new Map<
+              string,
+              import("../persistence/types.js").ThoughtData[]
+            >();
+            for (const bid of branchIds) {
+              branchThoughtsMap.set(bid, await storage.getBranch(sessionId, bid));
+            }
+            const obsBranches = toObservatoryBranches(
+              sessionId,
+              branchIds,
+              branchThoughtsMap
+            );
+
+            res.writeHead(200, { "Content-Type": "application/json" });
+            res.end(
+              JSON.stringify({
+                session: obsSession,
+                thoughts: obsThoughts,
+                branches: obsBranches,
+              })
+            );
+            return;
+          }
+        }
+
+        res.writeHead(404, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "Session not found" }));
       })().catch((err) => {
         res.writeHead(500, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ error: err.message }));
+        res.end(JSON.stringify({ error: (err as Error).message }));
       });
       return;
     }
