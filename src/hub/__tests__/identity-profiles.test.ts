@@ -90,4 +90,43 @@ describe('identity-profiles', () => {
     expect(agent!.profile).toBe('ARCHITECT');
     expect(agent!.name).toBe('Architect');
   });
+
+  // T-IP-7: register with manager: true stores the flag
+  it('register with manager: true stores the flag', async () => {
+    const storage = createInMemoryHubStorage();
+    const identity = createIdentityManager(storage);
+
+    const { agentId } = await identity.register({ name: 'LeadArch', profile: 'ARCHITECT', manager: true });
+    const agent = await storage.getAgent(agentId);
+
+    expect(agent).not.toBeNull();
+    expect(agent!.profile).toBe('ARCHITECT');
+    expect(agent!.manager).toBe(true);
+  });
+
+  // T-IP-8: whoami returns manager flag when set
+  it('whoami returns manager flag when set', async () => {
+    const storage = createInMemoryHubStorage();
+    const identity = createIdentityManager(storage);
+
+    const { agentId } = await identity.register({ name: 'LeadDebug', profile: 'DEBUGGER', manager: true });
+    const info = await identity.whoami(agentId);
+
+    expect(info.profile).toBe('DEBUGGER');
+    expect(info.manager).toBe(true);
+    expect(info.mentalModels).toContain('five-whys');
+  });
+
+  // T-IP-9: register without manager flag — backward compat
+  it('register without manager flag keeps it undefined', async () => {
+    const storage = createInMemoryHubStorage();
+    const identity = createIdentityManager(storage);
+
+    const { agentId } = await identity.register({ name: 'PlainAgent2' });
+    const agent = await storage.getAgent(agentId);
+    const info = await identity.whoami(agentId);
+
+    expect(agent!.manager).toBeUndefined();
+    expect(info.manager).toBeUndefined();
+  });
 });

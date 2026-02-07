@@ -14,6 +14,7 @@ export interface AgentIdentity {
   name: string;
   role: 'coordinator' | 'contributor';
   profile?: string; // SPEC-HUB-002: Agent profile name (e.g., 'COORDINATOR', 'DEBUGGER')
+  manager?: boolean; // Self-reported: agent can spawn sub-agents
   clientInfo?: string;
   registeredAt: string; // ISO 8601
 }
