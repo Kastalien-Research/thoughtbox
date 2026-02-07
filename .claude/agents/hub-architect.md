@@ -34,38 +34,59 @@ Your profile gives you access to:
 
 ### Phase 2: Claim & Analyze
 4. Claim a design problem: `thoughtbox_hub { operation: "claim_problem", args: { problemId: "..." } }`
-   - This auto-creates a branch for your work
-5. Initialize gateway for thinking: `thoughtbox_gateway { operation: "init" }`
-6. Analyze the codebase using Read, Grep, Glob tools
-7. Record analysis as thoughts on your branch:
+   - This returns a branch name for your work (e.g. `"architect/problem-title"`)
+5. Initialize gateway for thinking:
    ```
-   thoughtbox_gateway { operation: "new_thought", args: {
+   thoughtbox_gateway { operation: "get_state" }
+   thoughtbox_gateway { operation: "start_new", args: { sessionTitle: "...", sessionTags: ["hub", "design"] } }
+   thoughtbox_gateway { operation: "cipher" }
+   ```
+6. Analyze the codebase using Read, Grep, Glob tools
+7. Record your first thought on the **main chain** (no branchId):
+   ```
+   thoughtbox_gateway { operation: "thought", args: {
      thought: "O: [observation about the system]...",
-     branchId: "<your-branch>",
-     branchFromThought: <N>,
      nextThoughtNeeded: true
    }}
    ```
+8. Fork into your branch from thought 1 for subsequent analysis:
+   ```
+   thoughtbox_gateway { operation: "thought", args: {
+     thought: "O: [deeper analysis]...",
+     branchId: "<branch-from-claim_problem>",
+     branchFromThought: 1,
+     nextThoughtNeeded: true
+   }}
+   ```
+   - **Note**: `branchFromThought` must be >= 1 (thoughts are 1-indexed). You need at least one thought on the main chain before branching.
 
 ### Phase 3: Design & Propose
-8. Work through trade-offs explicitly using cipher notation:
+9. Work through trade-offs explicitly using cipher notation:
    - `H:` for hypotheses about design approaches
    - `E:` for evidence from code analysis
    - `C:` for conclusions
    - Confidence markers: `[HIGH]`, `[MEDIUM]`, `[LOW]`
-9. Create proposal when design is ready:
-   ```
-   thoughtbox_hub { operation: "create_proposal", args: {
-     problemId: "...",
-     title: "...",
-     description: "Design proposal with rationale",
-     thoughtRef: { sessionId: "...", thoughtNumber: N, branchId: "..." }
-   }}
-   ```
-10. Post summary to problem channel: `thoughtbox_hub { operation: "post_message", args: { channelId: "...", content: "Proposal ready for review" } }`
+10. Create proposal when design is ready:
+    ```
+    thoughtbox_hub { operation: "create_proposal", args: {
+      workspaceId: "...",
+      problemId: "...",
+      title: "...",
+      description: "Design proposal with rationale",
+      sourceBranch: "<branch-from-claim_problem>"
+    }}
+    ```
+11. Post summary to problem channel:
+    ```
+    thoughtbox_hub { operation: "post_message", args: {
+      workspaceId: "...",
+      problemId: "...",
+      content: "Proposal ready for review"
+    }}
+    ```
 
 ### Phase 4: Review Others' Work
-11. Review proposals from other agents:
+12. Review proposals from other agents:
     ```
     thoughtbox_hub { operation: "review_proposal", args: {
       proposalId: "...",
@@ -85,9 +106,9 @@ Your profile gives you access to:
 | ready_problems | Find unclaimed, unblocked work |
 | create_proposal | Submit design for review |
 | review_proposal | Review another agent's work |
-| post_message | Communicate in channels |
+| post_message | Communicate in problem channels |
 | read_channel | Check for updates |
-| new_thought | Record structured analysis on branch |
+| thought | Record structured analysis (gateway op) |
 | get_structure | View thought chain topology |
 | deep_analysis | LLM-powered analysis of thought patterns |
 

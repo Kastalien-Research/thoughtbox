@@ -40,11 +40,12 @@ Your profile gives you access to:
 7. Check workspace status: `thoughtbox_hub { operation: "workspace_status", args: { workspaceId: "..." } }`
 8. Check for blockers: `thoughtbox_hub { operation: "blocked_problems", args: { workspaceId: "..." } }`
 9. Check ready work: `thoughtbox_hub { operation: "ready_problems", args: { workspaceId: "..." } }`
-10. Communicate via channels: `thoughtbox_hub { operation: "post_message", args: { channelId: "...", content: "..." } }`
+10. Communicate via channels: `thoughtbox_hub { operation: "post_message", args: { workspaceId: "...", problemId: "...", content: "..." } }`
 
 ### Phase 4: Integration
-11. Review proposals: `thoughtbox_hub { operation: "merge_proposal", args: { proposalId: "..." } }` (requires 1+ approval)
-12. Mark consensus on decisions: `thoughtbox_hub { operation: "mark_consensus", args: { workspaceId: "...", description: "...", thoughtRef: {...} } }`
+11. Review proposals: `thoughtbox_hub { operation: "merge_proposal", args: { workspaceId: "...", proposalId: "..." } }` (requires 1+ approval)
+12. Mark consensus on decisions: `thoughtbox_hub { operation: "mark_consensus", args: { workspaceId: "...", name: "...", description: "...", thoughtRef: <thought-number> } }`
+    - `thoughtRef` is a number (the thought number), not an object
 
 ## Key Operations Reference
 

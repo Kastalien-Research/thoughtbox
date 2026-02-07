@@ -225,6 +225,37 @@ describe('Branch Thought Retrieval', () => {
     });
   });
 
+  describe('branchFromThought validation', () => {
+    it('rejects branchFromThought: 0 with bounds error, not missing-field error', async () => {
+      const result = await thoughtHandler.processThought({
+        thought: 'Attempting branch from thought 0',
+        thoughtNumber: 6,
+        totalThoughts: 10,
+        nextThoughtNeeded: true,
+        branchFromThought: 0,
+        branchId: 'bad-branch',
+      });
+
+      expect(result.isError).toBe(true);
+      const text = result.content[0].type === 'text' ? (result.content[0] as any).text : '';
+      expect(text).toContain('branchFromThought must be >= 1');
+    });
+
+    it('still rejects branchId without branchFromThought', async () => {
+      const result = await thoughtHandler.processThought({
+        thought: 'Attempting branch without fork point',
+        thoughtNumber: 6,
+        totalThoughts: 10,
+        nextThoughtNeeded: true,
+        branchId: 'orphan-branch',
+      });
+
+      expect(result.isError).toBe(true);
+      const text = result.content[0].type === 'text' ? (result.content[0] as any).text : '';
+      expect(text).toContain('branchId requires branchFromThought');
+    });
+  });
+
   describe('read_thoughts with branches', () => {
     it('default mode includes availableBranches', async () => {
       const result = await gateway.handle({
