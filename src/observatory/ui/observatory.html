@@ -355,6 +355,59 @@
       color: #9ca3af;
     }
 
+    /* Pagination */
+    .session-pagination {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin-left: auto;
+      flex-shrink: 0;
+    }
+
+    .session-pagination-info {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      white-space: nowrap;
+    }
+
+    .session-pagination-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 1.75rem;
+      height: 1.75rem;
+      border-radius: 0.375rem;
+      background: rgba(31, 41, 55, 0.8);
+      color: var(--text-secondary);
+      border: 1px solid rgba(55, 65, 81, 0.5);
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 0.75rem;
+      font-weight: 600;
+      transition: all 0.2s ease;
+      padding: 0;
+    }
+
+    .session-pagination-btn:hover:not(:disabled) {
+      background: rgba(55, 65, 81, 0.8);
+      color: #e5e7eb;
+      border-color: rgba(75, 85, 99, 0.6);
+    }
+
+    .session-pagination-btn:disabled {
+      opacity: 0.3;
+      cursor: default;
+    }
+
+    .session-section-label {
+      font-size: 0.625rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      font-weight: 600;
+      margin-bottom: 0.375rem;
+    }
+
     /* Empty State */
     .empty-state {
       display: flex;
@@ -1088,6 +1141,10 @@
       // Session source tracking: 'active' (WebSocket) or 'historical' (REST/storage)
       sessionSource: new Map(),   // sessionId -> 'active' | 'historical'
 
+      // Pagination
+      sessionPage: 0,             // Current page (0-indexed)
+      sessionsPerPage: 9,         // Historical sessions per page
+
       // Multi-agent collaboration state
       agents: new Map(),        // agentId -> { role, status, lastActivity, taskId }
       tasks: new Map(),          // taskId -> { title, progress, subtasks }
@@ -1314,6 +1371,29 @@
       }
     }
 
+    function renderSessionTab(session) {
+      const isSelected = session.id === state.activeSessionId;
+      const source = state.sessionSource.get(session.id) || 'historical';
+      const isLive = source === 'active';
+      const label = session.title || session.id.slice(0, 8);
+      const escapedLabel = escapeHtml(label);
+      const escapedId = escapeHtml(session.id);
+
+      const badge = isLive
+        ? '<span class="session-badge session-badge-live"><span class="badge-dot"></span>LIVE</span>'
+        : '<span class="session-badge session-badge-completed">\u2713</span>';
+
+      return `
+        <button
+          class="session-tab ${isSelected ? 'active' : ''} ${!isLive ? 'historical' : ''}"
+          data-session-id="${escapedId}"
+          tabindex="0"
+        >
+          <span style="position: relative; z-index: 10;">${escapedLabel}${badge}</span>
+        </button>
+      `;
+    }
+
     function renderSessions() {
       const container = elements.sessionTabs;
 
@@ -1322,30 +1402,54 @@
         return;
       }
 
-      container.innerHTML = state.sessions.map(session => {
-        const isSelected = session.id === state.activeSessionId;
-        const source = state.sessionSource.get(session.id) || 'historical';
-        const isLive = source === 'active';
-        const label = session.title || session.id.slice(0, 8);
-        const escapedLabel = escapeHtml(label);
-        const escapedId = escapeHtml(session.id);
+      // Split into active (always shown) and historical (paginated)
+      const activeSessions = state.sessions.filter(s => state.sessionSource.get(s.id) === 'active');
+      const historicalSessions = state.sessions.filter(s => state.sessionSource.get(s.id) !== 'active');
 
-        const badge = isLive
-          ? '<span class="session-badge session-badge-live"><span class="badge-dot"></span>LIVE</span>'
-          : '<span class="session-badge session-badge-completed">\u2713</span>';
+      // Clamp page
+      const totalPages = Math.max(1, Math.ceil(historicalSessions.length / state.sessionsPerPage));
+      if (state.sessionPage >= totalPages) state.sessionPage = totalPages - 1;
+      if (state.sessionPage < 0) state.sessionPage = 0;
 
-        return `
-          <button
-            class="session-tab ${isSelected ? 'active' : ''} ${!isLive ? 'historical' : ''}"
-            data-session-id="${escapedId}"
-            tabindex="0"
-          >
-            <span style="position: relative; z-index: 10;">${escapedLabel}${badge}</span>
-          </button>
-        `;
-      }).join('');
+      const pageStart = state.sessionPage * state.sessionsPerPage;
+      const pageEnd = Math.min(pageStart + state.sessionsPerPage, historicalSessions.length);
+      const pageSlice = historicalSessions.slice(pageStart, pageEnd);
 
-      // Add click handlers
+      let html = '';
+
+      // Active sessions section (always visible, no pagination)
+      if (activeSessions.length > 0) {
+        html += '<div class="session-section-label">Active</div>';
+        html += '<div class="session-tabs" style="margin-bottom: 0.75rem;">';
+        html += activeSessions.map(renderSessionTab).join('');
+        html += '</div>';
+      }
+
+      // Historical sessions section (paginated)
+      if (historicalSessions.length > 0) {
+        html += '<div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.375rem;">';
+        html += `<span class="session-section-label" style="margin-bottom: 0;">History</span>`;
+
+        // Pagination controls
+        if (totalPages > 1) {
+          const rangeStart = pageStart + 1;
+          const rangeEnd = pageEnd;
+          html += '<div class="session-pagination">';
+          html += `<button class="session-pagination-btn" data-page-action="prev" ${state.sessionPage === 0 ? 'disabled' : ''} aria-label="Previous page">\u2039</button>`;
+          html += `<span class="session-pagination-info">${rangeStart}\u2013${rangeEnd} of ${historicalSessions.length}</span>`;
+          html += `<button class="session-pagination-btn" data-page-action="next" ${state.sessionPage >= totalPages - 1 ? 'disabled' : ''} aria-label="Next page">\u203a</button>`;
+          html += '</div>';
+        }
+
+        html += '</div>';
+        html += '<div class="session-tabs">';
+        html += pageSlice.map(renderSessionTab).join('');
+        html += '</div>';
+      }
+
+      container.innerHTML = html;
+
+      // Session tab click handlers
       container.querySelectorAll('.session-tab').forEach(btn => {
         btn.addEventListener('click', () => {
           selectSession(btn.dataset.sessionId);
@@ -1354,6 +1458,20 @@
           if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault();
             selectSession(btn.dataset.sessionId);
+          }
+        });
+      });
+
+      // Pagination button handlers
+      container.querySelectorAll('.session-pagination-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const action = btn.dataset.pageAction;
+          if (action === 'prev' && state.sessionPage > 0) {
+            state.sessionPage--;
+            renderSessions();
+          } else if (action === 'next') {
+            state.sessionPage++;
+            renderSessions();
           }
         });
       });
