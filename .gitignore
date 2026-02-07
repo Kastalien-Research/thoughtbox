@@ -45,6 +45,7 @@ mcp-ts-template/
 !.claude/commands/development/hub-tdd.md
 !.claude/commands/development/agentops-tdd.md
 !.claude/commands/development/multi-agent-tdd.md
+!.claude/commands/development/profiles-tdd.md
 !.claude/hooks/
 .claude/hooks/*
 !.claude/hooks/hub_tdd_stop.sh
@@ -56,6 +57,7 @@ mcp-ts-template/
 .hub-tdd/
 .agentops-tdd/
 .multi-agent-tdd/
+.profiles-tdd/
 .claude-flow/
 .swarm/
 
