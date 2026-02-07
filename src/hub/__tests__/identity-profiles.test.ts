@@ -15,7 +15,7 @@ describe('identity-profiles', () => {
     const storage = createInMemoryHubStorage();
     const identity = createIdentityManager(storage);
 
-    const result = await identity.register({ name: 'TestAgent', profile: 'MANAGER' });
+    const result = await identity.register({ name: 'TestAgent', profile: 'COORDINATOR' });
 
     expect(result.agentId).toBeDefined();
     expect(result.name).toBe('TestAgent');
@@ -23,7 +23,7 @@ describe('identity-profiles', () => {
     // Verify profile was stored
     const agent = await storage.getAgent(result.agentId);
     expect(agent).not.toBeNull();
-    expect(agent!.profile).toBe('MANAGER');
+    expect(agent!.profile).toBe('COORDINATOR');
   });
 
   // T-IP-2: register without profile works unchanged (backward compat)

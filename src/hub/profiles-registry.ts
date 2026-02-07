@@ -14,7 +14,7 @@ import { getModel } from '../mental-models/operations.js';
 
 const PROFILES: ProfileDefinition[] = [
   {
-    name: 'MANAGER',
+    name: 'COORDINATOR',
     description: 'Delegation and team coordination specialist',
     mentalModels: ['decomposition', 'pre-mortem', 'five-whys'],
     primaryGoal: 'Delegation and team coordination',

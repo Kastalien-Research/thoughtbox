@@ -87,7 +87,7 @@ describe('GatewayHandler — Profile Priming', () => {
 
   it('T-GP-4: profile resource has correct annotations', async () => {
     const config = makeConfig({
-      getAgentProfile: vi.fn().mockResolvedValue('MANAGER'),
+      getAgentProfile: vi.fn().mockResolvedValue('COORDINATOR'),
     });
     const handler = new GatewayHandler(config);
 

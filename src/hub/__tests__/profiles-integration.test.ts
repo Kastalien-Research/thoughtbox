@@ -25,9 +25,9 @@ describe('profiles-integration', () => {
     const reg = await handler.handle(null, 'register', { name: 'Agent1' }) as { agentId: string };
 
     // get_profile_prompt is Stage 1 — should work after registration
-    const result = await handler.handle(reg.agentId, 'get_profile_prompt', { profile: 'MANAGER' }) as any;
+    const result = await handler.handle(reg.agentId, 'get_profile_prompt', { profile: 'COORDINATOR' }) as any;
 
-    expect(result.prompt).toContain('MANAGER');
+    expect(result.prompt).toContain('COORDINATOR');
     expect(result.modelNames).toContain('decomposition');
   });
 
@@ -56,7 +56,7 @@ describe('profiles-integration', () => {
     // Manager registers with profile
     const manager = await handler.handle(null, 'register', {
       name: 'Manager',
-      profile: 'MANAGER',
+      profile: 'COORDINATOR',
     }) as { agentId: string };
 
     // Create workspace
@@ -146,7 +146,7 @@ describe('profiles-integration', () => {
     const reg = await handler.handle(null, 'register', { name: 'Agent' }) as { agentId: string };
 
     // Test each profile
-    for (const profile of ['MANAGER', 'ARCHITECT', 'DEBUGGER', 'SECURITY']) {
+    for (const profile of ['COORDINATOR', 'ARCHITECT', 'DEBUGGER', 'SECURITY']) {
       const result = await handler.handle(reg.agentId, 'get_profile_prompt', { profile }) as any;
       expect(result.prompt).toContain(profile);
       expect(result.modelNames.length).toBeGreaterThan(0);
@@ -160,7 +160,7 @@ describe('profiles-integration', () => {
     // Register agents with different profiles
     const manager = await handler.handle(null, 'register', {
       name: 'ManagerAgent',
-      profile: 'MANAGER',
+      profile: 'COORDINATOR',
     }) as { agentId: string };
 
     const debugger_ = await handler.handle(null, 'register', {
@@ -185,7 +185,7 @@ describe('profiles-integration', () => {
 
     // Verify each agent's whoami shows their profile
     const mInfo = await handler.handle(manager.agentId, 'whoami', {}) as any;
-    expect(mInfo.profile).toBe('MANAGER');
+    expect(mInfo.profile).toBe('COORDINATOR');
 
     const dInfo = await handler.handle(debugger_.agentId, 'whoami', {}) as any;
     expect(dInfo.profile).toBe('DEBUGGER');

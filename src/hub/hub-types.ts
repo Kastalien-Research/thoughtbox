@@ -13,7 +13,7 @@ export interface AgentIdentity {
   agentId: string;
   name: string;
   role: 'coordinator' | 'contributor';
-  profile?: string; // SPEC-HUB-002: Agent profile name (e.g., 'MANAGER', 'DEBUGGER')
+  profile?: string; // SPEC-HUB-002: Agent profile name (e.g., 'COORDINATOR', 'DEBUGGER')
   clientInfo?: string;
   registeredAt: string; // ISO 8601
 }
