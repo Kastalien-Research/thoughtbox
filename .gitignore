@@ -66,6 +66,12 @@ mcp-ts-template/
 .roo/
 
 REASONING_PATTERNS_REPORT.md
+AGENT-EXPERIENCE-REPORT.md
+STATUS-*.md
+agentic-dev-team/
+
+# Beads daemon logs
+.beads/daemon-*.log.gz
 
 # Srcbook development/testing files
 srcbook/
