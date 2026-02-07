@@ -5,7 +5,6 @@ model: sonnet
 maxTurns: 25
 mcpServers:
   - thoughtbox
-tools: Read, Grep, Glob
 memory: project
 ---
 

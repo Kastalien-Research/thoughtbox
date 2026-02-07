@@ -10,6 +10,7 @@ set -euo pipefail
 WORKSPACE_NAME="${1:-demo-collab}"
 WORKSPACE_DESC="Multi-agent collaboration demo: MANAGER decomposes problems, ARCHITECT designs solutions, DEBUGGER investigates bugs"
 WORKSPACE_ID_FILE="/tmp/hub-demo-workspace-id.txt"
+MANAGER_OUTPUT_FILE="/tmp/hub-demo-manager-output.txt"
 PROJECT_DIR="$(cd "$(dirname "$0")/../.." && pwd)"
 
 # Colors
@@ -26,6 +27,15 @@ warn() { echo -e "${YELLOW}[orchestrator]${NC} $1"; }
 
 # ── Preflight ────────────────────────────────────────────────────────
 log "Checking prerequisites..."
+
+# If claude is installed via asdf shim, ensure a Node version is selected.
+if command -v asdf &>/dev/null && ! node -v &>/dev/null; then
+  ASDF_NODE_VERSION="$(asdf list nodejs 2>/dev/null | sed 's/^[ *]*//' | tail -n 1 | tr -d '[:space:]')"
+  if [ -n "${ASDF_NODE_VERSION}" ]; then
+    export ASDF_NODEJS_VERSION="${ASDF_NODE_VERSION}"
+    ok "Using asdf nodejs ${ASDF_NODEJS_VERSION}"
+  fi
+fi
 
 # Check Thoughtbox server
 if ! curl -s -o /dev/null -w "%{http_code}" http://localhost:1731/mcp -X POST \
@@ -56,6 +66,7 @@ fi
 
 # Clean up previous run
 rm -f "$WORKSPACE_ID_FILE"
+rm -f "$MANAGER_OUTPUT_FILE"
 
 # ── Phase 1: Manager sets up workspace ───────────────────────────────
 log "Phase 1: Running Manager agent to set up workspace..."
@@ -69,11 +80,40 @@ MANAGER_PROMPT="You are the MANAGER agent. Do these steps and NOTHING ELSE:
 5. Write ONLY the workspace ID (nothing else) to the file: ${WORKSPACE_ID_FILE}
 6. Print a summary: workspace ID, problem IDs, and that the workspace is ready for contributors."
 
-# Run manager non-interactively
-claude --agent hub-manager --print -p "$MANAGER_PROMPT" 2>/dev/null || {
-  err "Manager agent failed. Check that the Thoughtbox server is running."
+# Run manager non-interactively (retry on transient tool-concurrency API errors)
+MANAGER_OK=false
+for ATTEMPT in 1 2 3; do
+  MANAGER_OUTPUT="$(claude --agent hub-manager --print -p "$MANAGER_PROMPT" 2>&1)" && {
+    MANAGER_OK=true
+    printf "%s\n" "$MANAGER_OUTPUT" > "$MANAGER_OUTPUT_FILE"
+    break
+  }
+
+  if echo "$MANAGER_OUTPUT" | grep -qi "tool use concurrency issues"; then
+    warn "Manager attempt ${ATTEMPT}/3 hit tool-concurrency API error; retrying..."
+    sleep 2
+    continue
+  fi
+
+  err "Manager agent failed:"
+  echo "$MANAGER_OUTPUT" >&2
   exit 1
-}
+done
+
+if [ "$MANAGER_OK" != true ]; then
+  err "Manager agent failed after 3 attempts:"
+  echo "$MANAGER_OUTPUT" >&2
+  exit 1
+fi
+
+# Fallback: extract workspace ID from manager output if file-write instruction was missed.
+if [ ! -f "$WORKSPACE_ID_FILE" ] && [ -f "$MANAGER_OUTPUT_FILE" ]; then
+  WORKSPACE_ID_FROM_OUTPUT="$(grep -Eo '[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}' "$MANAGER_OUTPUT_FILE" | head -n 1 || true)"
+  if [ -n "$WORKSPACE_ID_FROM_OUTPUT" ]; then
+    printf "%s\n" "$WORKSPACE_ID_FROM_OUTPUT" > "$WORKSPACE_ID_FILE"
+    warn "Manager skipped file write; recovered workspace ID from output."
+  fi
+fi
 
 # Read workspace ID
 if [ ! -f "$WORKSPACE_ID_FILE" ]; then
@@ -116,9 +156,19 @@ DEBUGGER_PROMPT="You are the DEBUGGER agent joining an active workspace. Do thes
 8. List proposals and review the Architect's proposal if it exists (approve or request changes)
 9. Post to the problem channel with your findings"
 
+ARCHITECT_PROMPT_FILE="/tmp/hub-demo-architect-prompt.txt"
+DEBUGGER_PROMPT_FILE="/tmp/hub-demo-debugger-prompt.txt"
+printf "%s\n" "$ARCHITECT_PROMPT" > "$ARCHITECT_PROMPT_FILE"
+printf "%s\n" "$DEBUGGER_PROMPT" > "$DEBUGGER_PROMPT_FILE"
+
 if [ "$USE_ITERM" = true ]; then
   # iTerm2: create window with horizontal split — Architect left, Debugger right
-  osascript <<APPLESCRIPT
+  osascript - "$PROJECT_DIR" "$ARCHITECT_PROMPT_FILE" "$DEBUGGER_PROMPT_FILE" <<'APPLESCRIPT' >/tmp/hub-demo-iterm-osascript.log 2>&1 &
+on run argv
+  set projectDir to item 1 of argv
+  set architectPromptFile to item 2 of argv
+  set debuggerPromptFile to item 3 of argv
+
 tell application "iTerm2"
   activate
 
@@ -127,31 +177,40 @@ tell application "iTerm2"
 
   tell current session of current tab of newWindow
     -- Left pane: Architect
-    write text "cd '${PROJECT_DIR}' && claude --agent hub-architect -p '$(echo "$ARCHITECT_PROMPT" | sed "s/'/'\\\\''/g")'"
+    write text "cd " & quoted form of projectDir & " && claude --agent hub-architect -p \"$(cat " & quoted form of architectPromptFile & ")\""
 
     -- Split right: Debugger
     set debuggerSession to (split vertically with default profile)
   end tell
 
   tell debuggerSession
-    write text "cd '${PROJECT_DIR}' && claude --agent hub-debugger -p '$(echo "$DEBUGGER_PROMPT" | sed "s/'/'\\\\''/g")'"
+    write text "cd " & quoted form of projectDir & " && claude --agent hub-debugger -p \"$(cat " & quoted form of debuggerPromptFile & ")\""
   end tell
 
 end tell
+end run
 APPLESCRIPT
 
+  sleep 1
   ok "iTerm2 panes opened: Architect (left) | Debugger (right)"
 
 else
   # Terminal.app: open two separate windows
-  osascript -e "
-    tell application \"Terminal\"
-      activate
-      do script \"cd '${PROJECT_DIR}' && claude --agent hub-architect -p '$(echo "$ARCHITECT_PROMPT" | sed "s/'/'\\\\''/g")'\"
-      do script \"cd '${PROJECT_DIR}' && claude --agent hub-debugger -p '$(echo "$DEBUGGER_PROMPT" | sed "s/'/'\\\\''/g")'\"
-    end tell
-  "
+  osascript - "$PROJECT_DIR" "$ARCHITECT_PROMPT_FILE" "$DEBUGGER_PROMPT_FILE" <<'APPLESCRIPT' >/tmp/hub-demo-terminal-osascript.log 2>&1 &
+on run argv
+  set projectDir to item 1 of argv
+  set architectPromptFile to item 2 of argv
+  set debuggerPromptFile to item 3 of argv
 
+  tell application "Terminal"
+    activate
+    do script "cd " & quoted form of projectDir & " && claude --agent hub-architect -p \"$(cat " & quoted form of architectPromptFile & ")\""
+    do script "cd " & quoted form of projectDir & " && claude --agent hub-debugger -p \"$(cat " & quoted form of debuggerPromptFile & ")\""
+  end tell
+end run
+APPLESCRIPT
+
+  sleep 1
   ok "Terminal windows opened for Architect and Debugger"
 fi
 
