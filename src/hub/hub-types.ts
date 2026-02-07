@@ -13,6 +13,7 @@ export interface AgentIdentity {
   agentId: string;
   name: string;
   role: 'coordinator' | 'contributor';
+  profile?: string; // SPEC-HUB-002: Agent profile name (e.g., 'MANAGER', 'DEBUGGER')
   clientInfo?: string;
   registeredAt: string; // ISO 8601
 }
@@ -182,7 +183,9 @@ export type HubOperation =
   | 'create_sub_problem'
   // Channels
   | 'post_message'
-  | 'read_channel';
+  | 'read_channel'
+  // Profiles (SPEC-HUB-002)
+  | 'get_profile_prompt';
 
 // =============================================================================
 // Progressive Disclosure Stages (from ADR Section 6)
@@ -193,7 +196,7 @@ export type DisclosureStage = 0 | 1 | 2;
 /** Operations available at each disclosure stage */
 export const STAGE_OPERATIONS: Record<DisclosureStage, HubOperation[]> = {
   0: ['register', 'list_workspaces'],
-  1: ['whoami', 'create_workspace', 'join_workspace'],
+  1: ['whoami', 'create_workspace', 'join_workspace', 'get_profile_prompt'],
   2: [
     'create_problem', 'claim_problem', 'update_problem', 'list_problems',
     'add_dependency', 'remove_dependency', 'ready_problems', 'blocked_problems', 'create_sub_problem',
