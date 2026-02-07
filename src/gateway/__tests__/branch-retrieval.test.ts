@@ -96,7 +96,7 @@ async function setupSessionWithBranches(
     thought: 'Branch deep-dive thought 10',
     thoughtNumber: 10,
     totalThoughts: 10,
-    nextThoughtNeeded: false,
+    nextThoughtNeeded: true,
     branchFromThought: 5,
     branchId: 'deep-dive',
   });
