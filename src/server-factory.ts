@@ -520,6 +520,7 @@ Operations:
 - post_message: Post to a problem channel (args: { workspaceId, problemId, content })
 - read_channel: Read problem channel messages (args: { workspaceId, problemId })
 - get_profile_prompt: Get profile prompt with mental models (args: { profile: "MANAGER"|"ARCHITECT"|"DEBUGGER"|"SECURITY" })
+- hub_wait: Long-poll for hub events (args: { workspaceId, timeout?: number, filter?: string[], iteration?: number, maxIterations?: number })
 
 Progressive disclosure is enforced internally. Register first, then join a workspace.`;
 
@@ -533,6 +534,7 @@ Progressive disclosure is enforced internally. Register first, then join a works
         'mark_consensus', 'endorse_consensus', 'list_consensus',
         'post_message', 'read_channel',
         'get_profile_prompt',
+        'hub_wait',
       ]),
       args: z.record(z.string(), z.unknown()).optional(),
     };

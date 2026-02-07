@@ -149,6 +149,16 @@ export interface ChannelMessage {
 }
 
 // =============================================================================
+// Hub Event (used by hub-handler and hub-wait)
+// =============================================================================
+
+export interface HubEvent {
+  type: 'problem_created' | 'problem_status_changed' | 'message_posted' | 'proposal_created' | 'proposal_merged' | 'consensus_marked';
+  workspaceId: string;
+  data: Record<string, unknown>;
+}
+
+// =============================================================================
 // Hub Operation Types (from ADR Section 2)
 // =============================================================================
 
@@ -185,7 +195,9 @@ export type HubOperation =
   | 'post_message'
   | 'read_channel'
   // Profiles (SPEC-HUB-002)
-  | 'get_profile_prompt';
+  | 'get_profile_prompt'
+  // Long-polling
+  | 'hub_wait';
 
 // =============================================================================
 // Progressive Disclosure Stages (from ADR Section 6)
@@ -204,6 +216,7 @@ export const STAGE_OPERATIONS: Record<DisclosureStage, HubOperation[]> = {
     'mark_consensus', 'endorse_consensus', 'list_consensus',
     'post_message', 'read_channel',
     'workspace_status',
+    'hub_wait',
   ],
 };
 

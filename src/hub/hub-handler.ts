@@ -4,14 +4,16 @@
  * ADR-002 Sections 2, 6, and 7
  */
 
-import type { HubStorage, HubOperation, DisclosureStage } from './hub-types.js';
+import type { HubStorage, HubOperation, DisclosureStage, HubEvent } from './hub-types.js';
 import { STAGE_OPERATIONS } from './hub-types.js';
+export type { HubEvent } from './hub-types.js';
 import { createIdentityManager } from './identity.js';
 import { createWorkspaceManager } from './workspace.js';
 import { createProblemsManager } from './problems.js';
 import { createProposalsManager } from './proposals.js';
 import { createConsensusManager } from './consensus.js';
 import { createChannelsManager } from './channels.js';
+import { createWaitManager } from './hub-wait.js';
 import { getProfilePromptContent } from './profiles-registry.js';
 import type { ThoughtStoreForWorkspace } from './workspace.js';
 
@@ -20,12 +22,6 @@ type ThoughtStore = ThoughtStoreForWorkspace & {
   getThought(sessionId: string, thoughtNumber: number): Promise<any>;
   getThoughtCount(sessionId: string): Promise<number>;
 };
-
-export interface HubEvent {
-  type: 'problem_created' | 'problem_status_changed' | 'message_posted' | 'proposal_created' | 'proposal_merged' | 'consensus_marked';
-  workspaceId: string;
-  data: Record<string, unknown>;
-}
 
 export interface HubHandler {
   handle(agentId: string | null, operation: string, args: Record<string, any>): Promise<unknown>;
@@ -51,8 +47,10 @@ export function createHubHandler(
   const proposals = createProposalsManager(storage, thoughtStore);
   const consensus = createConsensusManager(storage);
   const channels = createChannelsManager(storage);
+  const waitManager = createWaitManager();
 
   function emit(event: HubEvent): void {
+    waitManager.notify(event);
     if (onEvent) onEvent(event);
   }
 
@@ -184,6 +182,35 @@ export function createHubHandler(
             return channels.readChannel(args as any);
           case 'workspace_status':
             return workspace.workspaceStatus(args as any);
+          case 'hub_wait': {
+            const timeout = Math.min((args.timeout as number) ?? 55, 55);
+            const filter = args.filter as string[] | undefined;
+            const iteration = ((args.iteration as number) ?? 1);
+            const maxIterations = ((args.maxIterations as number) ?? 10);
+
+            if (iteration > maxIterations) {
+              return {
+                events: [],
+                iteration,
+                maxIterations,
+                continuePolling: false,
+                hint: 'Maximum iterations reached. Call hub_wait with iteration=1 to start a new cycle.',
+              };
+            }
+
+            const events = await waitManager.wait(workspaceId, { timeout, filter });
+
+            return {
+              events,
+              timeout: events.length === 0,
+              iteration,
+              maxIterations,
+              continuePolling: iteration < maxIterations,
+              hint: events.length > 0
+                ? `Event received. Process it, then call hub_wait with iteration=${iteration + 1} to continue listening.`
+                : `No events in ${timeout}s. Call hub_wait with iteration=${iteration + 1} to keep waiting.`,
+            };
+          }
           default:
             throw new Error(`Unknown operation: ${operation}`);
         }
