@@ -582,22 +582,22 @@ Call \`thoughtbox_gateway\` with operation 'thought' to begin structured reasoni
         thoughts = await this.storage.getBranch(sessionId, branchId);
         queryDescription = `all thoughts from branch '${branchId}'`;
       }
-      // Query mode: last N thoughts
+      // Query mode: last N thoughts (main chain + branches)
       else if (last !== undefined) {
-        const allThoughts = await this.storage.getThoughts(sessionId);
+        const allThoughts = await this.storage.getAllThoughts(sessionId);
         thoughts = allThoughts.slice(-last);
         queryDescription = `last ${last} thoughts`;
       }
-      // Query mode: range of thoughts
+      // Query mode: range of thoughts (main chain + branches)
       else if (range !== undefined && Array.isArray(range) && range.length === 2) {
         const [start, end] = range;
-        const allThoughts = await this.storage.getThoughts(sessionId);
+        const allThoughts = await this.storage.getAllThoughts(sessionId);
         thoughts = allThoughts.filter(t => t.thoughtNumber >= start && t.thoughtNumber <= end);
         queryDescription = `thoughts ${start} to ${end}`;
       }
-      // No query parameters - return recent context
+      // No query parameters - return recent context (main chain + branches)
       else {
-        const allThoughts = await this.storage.getThoughts(sessionId);
+        const allThoughts = await this.storage.getAllThoughts(sessionId);
         thoughts = allThoughts.slice(-5);  // Default: last 5
         queryDescription = 'last 5 thoughts (default)';
       }
