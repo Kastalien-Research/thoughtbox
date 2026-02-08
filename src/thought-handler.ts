@@ -332,6 +332,10 @@ export class ThoughtHandler {
       );
     }
 
+    // Validate branchFromThought type (matches pattern of thoughtNumber/totalThoughts above)
+    if (data.branchFromThought !== undefined && typeof data.branchFromThought !== "number") {
+      throw new Error("Invalid branchFromThought: when provided, must be a number");
+    }
     // Validate branchFromThought is >= 1 (thoughts are 1-indexed)
     if (data.branchFromThought !== undefined && data.branchFromThought !== null && data.branchFromThought < 1) {
       throw new Error(

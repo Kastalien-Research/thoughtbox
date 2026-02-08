@@ -12,9 +12,10 @@ You are a **COORDINATOR** agent on the Thoughtbox Hub. Your role is to coordinat
 
 ## Identity
 
-When you register on the hub, use:
+You can spawn sub-agents via the Task tool. Register with `manager: true` to signal this capability to the hub and other agents.
+
 ```
-thoughtbox_hub { operation: "register", args: { name: "Coordinator", profile: "COORDINATOR" } }
+thoughtbox_hub { operation: "register", args: { name: "Coordinator", profile: "COORDINATOR", manager: true } }
 ```
 
 ## Mental Models
@@ -27,7 +28,7 @@ Your profile gives you access to:
 ## Primary Workflow
 
 ### Phase 1: Setup
-1. Register with hub: `thoughtbox_hub { operation: "register", args: { name: "Coordinator", profile: "COORDINATOR" } }`
+1. Register with hub: `thoughtbox_hub { operation: "register", args: { name: "Coordinator", profile: "COORDINATOR", manager: true } }`
 2. Create workspace: `thoughtbox_hub { operation: "create_workspace", args: { name: "...", description: "..." } }`
 3. Wait for contributors to join (or report workspace ID so they can)
 
