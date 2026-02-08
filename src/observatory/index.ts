@@ -24,7 +24,7 @@
  * // Start server (if enabled)
  * const config = loadObservatoryConfig();
  * if (config.enabled) {
- *   const observatory = createObservatoryServer(config);
+ *   const observatory = createObservatoryServer({ _type: 'options', config });
  *   await observatory.start();
  * }
  *

@@ -40,6 +40,7 @@ export interface ObservatoryServer {
  * Options for creating an Observatory server
  */
 export interface ObservatoryServerOptions {
+  _type: 'options';
   config: ObservatoryConfig;
   hubStorage?: HubStorage;
 }
@@ -48,11 +49,10 @@ export interface ObservatoryServerOptions {
  * Create an Observatory server with the given configuration
  */
 export function createObservatoryServer(
-  configOrOptions: ObservatoryConfig | ObservatoryServerOptions
+  options: ObservatoryServerOptions
 ): ObservatoryServer {
-  // Support both old signature (just config) and new (options object)
-  const config = 'config' in configOrOptions ? configOrOptions.config : configOrOptions;
-  const hubStorage = 'hubStorage' in configOrOptions ? configOrOptions.hubStorage : undefined;
+  const config = options.config;
+  const hubStorage = options.hubStorage;
 
   let httpServer: HttpServer | null = null;
   let wss: WebSocketServer | null = null;
@@ -138,7 +138,11 @@ export function createObservatoryServer(
       (async () => {
         try {
           const channel = await hubStorage.getChannel(workspaceId, problemId);
-          json(res, 200, { messages: channel?.messages || [] });
+          if (!channel) {
+            json(res, 404, { error: "Channel not found" });
+            return;
+          }
+          json(res, 200, { messages: channel.messages });
         } catch (err) {
           json(res, 500, { error: (err as Error).message });
         }
@@ -213,7 +217,7 @@ export function createObservatoryServer(
       return;
     }
 
-    // Health endpoint
+    // Health endpoint (always available regardless of httpApi setting)
     if (url.pathname === "/api/health" && req.method === "GET") {
       const activeSessions = sessionStore.getActiveSessions();
       json(res, 200, {
@@ -222,6 +226,12 @@ export function createObservatoryServer(
         activeSessions: activeSessions.length,
         hubEnabled: !!hubStorage,
       });
+      return;
+    }
+
+    // Gate all other API routes behind httpApi config
+    if (config.httpApi === false && url.pathname.startsWith("/api/")) {
+      json(res, 403, { error: "HTTP API is disabled" });
       return;
     }
 
@@ -334,6 +344,9 @@ export function createObservatoryServer(
     json(res, 404, { error: "Not found" });
   }
 
+  // Channel cleanup functions — populated on start(), called on stop()
+  let channelCleanups: Array<() => void> = [];
+
   return {
     async start(): Promise<void> {
       if (running) {
@@ -349,7 +362,12 @@ export function createObservatoryServer(
       // Register channels
       const reasoningChannel = createReasoningChannel(wss);
       const observatoryChannel = createObservatoryChannel(wss);
-      const workspaceChannel = createWorkspaceChannel(wss);
+      const { channel: workspaceChannel, cleanup: cleanupWorkspace } =
+        createWorkspaceChannel(wss);
+
+      channelCleanups = [cleanupWorkspace];
+      // TODO: reasoning and observatory channels also attach emitter listeners
+      // and should return cleanup functions (same pattern as workspace)
 
       wss.registerChannel(reasoningChannel);
       wss.registerChannel(observatoryChannel);
@@ -368,7 +386,7 @@ export function createObservatoryServer(
             `[Observatory] UI: http://localhost:${config.port}/`
           );
           console.log(
-            `[Observatory] WebSocket: ws://localhost:${config.port}${config.path}`
+            `[Observatory] WebSocket: ws://localhost:${config.port}/`
           );
           console.log(
             `[Observatory] REST API: http://localhost:${config.port}/api/`
@@ -390,6 +408,12 @@ export function createObservatoryServer(
       if (!running) {
         return;
       }
+
+      // Remove emitter listeners to prevent duplicates on restart
+      for (const cleanup of channelCleanups) {
+        cleanup();
+      }
+      channelCleanups = [];
 
       // Stop WebSocket server
       if (wss) {
