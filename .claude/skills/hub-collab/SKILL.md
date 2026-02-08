@@ -19,7 +19,7 @@ Check with:
 curl -s http://localhost:1731/mcp | head -c 100
 ```
 
-## MCP Session Behavior (Empirically Verified 2026-02-07)
+## MCP Session Behavior (Empirically Verified 2026-02-08)
 
 Sub-agents spawned via the Task tool share the parent's MCP HTTP connection but each `register` call creates a **separate agentId**. Key findings:
 
@@ -28,6 +28,16 @@ Sub-agents spawned via the Task tool share the parent's MCP HTTP connection but 
 3. **Cross-agent review works**: A Debugger sub-agent can review an Architect's proposal
 4. **Coordinator role caveat**: Re-registering creates a new identity, losing coordinator role. The orchestrator must create workspace + problems BEFORE spawning sub-agents, and not re-register afterward if merge is needed.
 5. **Background-launch pattern**: Launch the first sub-agent with `run_in_background: true` so it starts working immediately, then launch the second sub-agent while the first is still alive. This gives you concurrent execution without the identity conflicts of truly parallel Task calls. Once a sub-agent's Task completes, its hub identity is permanently gone — both agents must finish all hub operations before returning.
+
+### MCP Tool Access in Sub-Agents (CRITICAL — researched 2026-02-08)
+
+**DO NOT use `mcpServers:` in agent frontmatter.** Sub-agents inherit all parent MCP tools automatically. Declaring `mcpServers` causes "Tool names must be unique" API errors because the same tools get registered twice (inherited + declared, no dedup).
+
+**Correct pattern**: Remove `mcpServers` from agent frontmatter. Sub-agents access MCP tools via `ToolSearch` at runtime, just like the `general-purpose` agent type.
+
+**Known Claude Code bug**: [#10668](https://github.com/anthropics/claude-code/issues/10668), [#10704](https://github.com/anthropics/claude-code/issues/10704), [#21560](https://github.com/anthropics/claude-code/issues/21560). Not fixed as of Feb 2026.
+
+**Agent caching**: Claude Code caches agent definitions at session start. Changes to `.claude/agents/*.md` files require a new session to take effect. New agent files created mid-session are not discoverable.
 
 **Two approaches:**
 
