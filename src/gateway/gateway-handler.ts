@@ -197,6 +197,8 @@ export class GatewayHandler {
   /** Per-session agent identity overrides (defense-in-depth for shared-instance scenarios) */
   private sessionAgentIds = new Map<string, string>();
   private sessionAgentNames = new Map<string, string>();
+  /** Track which sessions have already received profile priming (thoughtbox-308 fix) */
+  private sessionsPrimed = new Set<string>();
 
   constructor(config: GatewayHandlerConfig) {
     this.toolRegistry = config.toolRegistry;
@@ -502,7 +504,9 @@ Call \`thoughtbox_gateway\` with operation 'thought' to begin structured reasoni
     });
 
     // SPEC-HUB-002: Append profile priming resource for profiled agents
-    if (!result.isError && this.getAgentProfile) {
+    // Fix thoughtbox-308: Only prime once per MCP session to avoid token waste
+    const primingKey = mcpSessionId ?? '__default__';
+    if (!result.isError && this.getAgentProfile && !this.sessionsPrimed.has(primingKey)) {
       const agentId = (args.agentId as string | undefined) ?? this.getAgentId(mcpSessionId);
       if (agentId) {
         const profile = await this.getAgentProfile(agentId);
@@ -510,6 +514,7 @@ Call \`thoughtbox_gateway\` with operation 'thought' to begin structured reasoni
           const primingBlock = getProfilePriming(profile);
           if (primingBlock) {
             result.content.push(primingBlock as ContentBlock);
+            this.sessionsPrimed.add(primingKey);
           }
         }
       }

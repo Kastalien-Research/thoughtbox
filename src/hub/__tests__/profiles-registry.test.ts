@@ -71,15 +71,17 @@ describe('profiles-registry', () => {
     expect(isValidProfile('')).toBe(false);
   });
 
-  // T-PR2-7: listProfiles returns all 4 profiles
-  it('listProfiles returns all 4 profiles', () => {
+  // T-PR2-7: listProfiles returns all profiles
+  it('listProfiles returns all 6 profiles', () => {
     const profiles = listProfiles();
-    expect(profiles).toHaveLength(4);
+    expect(profiles).toHaveLength(6);
     const names = profiles.map(p => p.name);
     expect(names).toContain('MANAGER');
     expect(names).toContain('ARCHITECT');
     expect(names).toContain('DEBUGGER');
     expect(names).toContain('SECURITY');
+    expect(names).toContain('RESEARCHER');
+    expect(names).toContain('REVIEWER');
   });
 
   // T-PR2-8: All profile mental models reference valid model names

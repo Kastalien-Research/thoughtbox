@@ -28,7 +28,7 @@ export function createIdentityManager(storage: HubStorage): IdentityManager {
     async register({ name, clientInfo, profile }) {
       // Validate profile if provided
       if (profile !== undefined && !isValidProfile(profile)) {
-        const validProfiles = ['MANAGER', 'ARCHITECT', 'DEBUGGER', 'SECURITY'];
+        const validProfiles = ['MANAGER', 'ARCHITECT', 'DEBUGGER', 'SECURITY', 'RESEARCHER', 'REVIEWER'];
         throw new Error(`Invalid profile '${profile}'. Valid profiles: ${validProfiles.join(', ')}`);
       }
 

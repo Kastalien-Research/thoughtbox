@@ -60,13 +60,35 @@ export function createHubHandler(
     async handle(agentId, operation, args) {
       const requiredStage = getDisclosureStage(operation);
 
-      // Stage 0: register and list_workspaces — no agent needed
+      // Stage 0: register, list_workspaces, quick_join — no agent needed
       if (requiredStage === 0) {
         if (operation === 'register') {
           return identity.register(args as any);
         }
         if (operation === 'list_workspaces') {
           return workspace.listWorkspaces();
+        }
+        if (operation === 'quick_join') {
+          const { name, workspaceId: wsId, profile, clientInfo } = args as {
+            name?: string; workspaceId?: string; profile?: string; clientInfo?: string;
+          };
+          if (!name) throw new Error('quick_join requires name');
+          if (!wsId) throw new Error('quick_join requires workspaceId');
+
+          // 1. Register
+          const reg = await identity.register({ name, clientInfo, profile });
+
+          // 2. Join workspace
+          const joinResult = await workspace.joinWorkspace(reg.agentId, { workspaceId: wsId });
+
+          return {
+            agentId: reg.agentId,
+            name: reg.name,
+            role: reg.role,
+            workspace: joinResult.workspace,
+            problems: joinResult.problems,
+            proposals: joinResult.proposals,
+          };
         }
       }
 
@@ -98,7 +120,7 @@ export function createHubHandler(
           }
           const content = getProfilePromptContent(profileName);
           if (!content) {
-            throw new Error(`Unknown profile '${profileName}'. Available profiles: MANAGER, ARCHITECT, DEBUGGER, SECURITY`);
+            throw new Error(`Unknown profile '${profileName}'. Available profiles: MANAGER, ARCHITECT, DEBUGGER, SECURITY, RESEARCHER, REVIEWER`);
           }
           return content;
         }
@@ -182,8 +204,58 @@ export function createHubHandler(
             return result;
           case 'read_channel':
             return channels.readChannel(args as any);
+          case 'post_system_message':
+            result = await channels.postSystemMessage(args as any);
+            emit({ type: 'message_posted', workspaceId, data: { ...(result as Record<string, unknown>), problemId: args.problemId, system: true } });
+            return result;
           case 'workspace_status':
             return workspace.workspaceStatus(args as any);
+          case 'workspace_digest': {
+            const ws = await storage.getWorkspace(workspaceId);
+            if (!ws) throw new Error(`Workspace not found: ${workspaceId}`);
+
+            const allAgents = await storage.getAgents();
+            const wsProblems = await storage.listProblems(workspaceId);
+            const wsProposals = await storage.listProposals(workspaceId);
+
+            const agentDigests = ws.agents.map(wa => {
+              const agentInfo = allAgents.find(a => a.agentId === wa.agentId);
+              return {
+                agentId: wa.agentId,
+                name: agentInfo?.name ?? 'unknown',
+                role: wa.role,
+                status: wa.status,
+                currentWork: wa.currentWork,
+                profile: agentInfo?.profile,
+              };
+            });
+
+            const pendingProposals = wsProposals
+              .filter(p => p.status === 'open' || p.status === 'reviewing')
+              .map(p => ({
+                id: p.id,
+                title: p.title,
+                createdBy: p.createdBy,
+                status: p.status,
+                reviewCount: p.reviews.length,
+              }));
+
+            const problemSummary = {
+              total: wsProblems.length,
+              open: wsProblems.filter(p => p.status === 'open').length,
+              inProgress: wsProblems.filter(p => p.status === 'in-progress').length,
+              resolved: wsProblems.filter(p => p.status === 'resolved').length,
+              closed: wsProblems.filter(p => p.status === 'closed').length,
+            };
+
+            return {
+              workspaceId,
+              workspaceName: ws.name,
+              agents: agentDigests,
+              pendingProposals,
+              problemSummary,
+            };
+          }
           default:
             throw new Error(`Unknown operation: ${operation}`);
         }
