@@ -158,18 +158,31 @@ Useful for persisting reasoning chains, sharing sessions, or archiving completed
  */
 export const GATEWAY_DESCRIPTION = `Single entry point for all Thoughtbox operations.
 
-Routes to all handlers: init, cipher, thought, notebook, session, mental_models, deep_analysis.
+Routes to handlers: init, cipher, thought, notebook, session, mental_models, deep_analysis, knowledge.
 
-Operations:
-- get_state, list_sessions, navigate, load_context, start_new, list_roots, bind_root (init)
-- cipher (loads notation system)
-- thought (structured reasoning)
-- notebook (literate programming)
-- session (session management)
-- mental_models (reasoning frameworks)
-- deep_analysis (session pattern analysis)
+## Stage 0 — Init (always available)
+- get_state: Current session/project state (no args)
+- list_sessions: Browse saved sessions (no args)
+- navigate: Jump to project/task node (args: { path })
+- load_context: Resume a session (args: { sessionId })
+- start_new: Begin fresh work (args: { project?, task?, domain? })
+- list_roots: List MCP client roots (no args)
+- bind_root: Bind a root directory as project boundary (args: { rootUri, pathPrefix? })
 
-Stage enforcement is handled internally - you'll get clear errors if calling operations too early.`;
+## Stage 1 — After init
+- cipher: Load token-efficient notation system (no args)
+- session: Session management (args: { operation, args? }) — operations: list, get, search, resume, export, analyze, extract_learnings
+- deep_analysis: Analyze session patterns (args: { sessionId, analysisType: "patterns"|"cognitive_load"|"decision_points"|"full", options? })
+
+## Stage 2 — After cipher
+- thought: Structured reasoning (args: { thought, thoughtNumber, totalThoughts, nextThoughtNeeded, ... })
+- read_thoughts: Retrieve previous thoughts (args: { sessionId?, thoughtNumber?, last?, range?, branchId? })
+- get_structure: Reasoning graph topology without content (args: { sessionId? })
+- notebook: Literate programming (args: { operation, ... })
+- mental_models: Reasoning frameworks (args: { operation, args? })
+- knowledge: Knowledge graph memory (args: { action, ... }) — actions: create_entity, get_entity, list_entities, add_observation, create_relation, query_graph, stats
+
+Stage enforcement is handled internally — you'll get clear errors if calling operations too early.`;
 
 /**
  * Helper to get all descriptions for a tool

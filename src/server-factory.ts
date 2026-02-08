@@ -171,9 +171,13 @@ Recommended workflow:
 
 Progressive disclosure is enforced internally - you'll get clear errors if calling operations too early.
 
-For multi-agent collaboration, use the \`thoughtbox_hub\` tool with operations:
-register, create_workspace, join_workspace, create_problem, post_message, read_channel, etc.
-Call \`thoughtbox_hub\` { "operation": "register", "args": { "name": "Your Agent Name" } } to join.`;
+For multi-agent collaboration, use the \`thoughtbox_hub\` tool:
+1) Register: \`thoughtbox_hub\` { "operation": "register", "args": { "name": "Your Name", "profile": "ARCHITECT", "manager": true } }
+   - profile (optional): COORDINATOR, ARCHITECT, DEBUGGER, or SECURITY — primes agent with domain mental models
+   - manager (optional): set true if you can spawn sub-agents
+2) Create or join a workspace (first creator becomes coordinator)
+3) Coordinator creates problems; contributors claim and solve them
+4) Propose solutions, review proposals, reach consensus via channels`;
 
   // Create task infrastructure if hub storage is provided
   const taskStore = args.dataDir
@@ -494,32 +498,52 @@ Operations:
 
     const HUB_TOOL_DESCRIPTION = `Multi-agent collaboration hub for coordinated reasoning.
 
-Operations:
-- register: Register as an agent (args: { name: string, profile?: "COORDINATOR"|"ARCHITECT"|"DEBUGGER"|"SECURITY", manager?: boolean })
-- whoami: Get current agent identity
-- create_workspace: Create a collaboration workspace (args: { name, description })
-- join_workspace: Join an existing workspace (args: { workspaceId })
-- list_workspaces: List all workspaces
+## Roles & Profiles
+The first agent to create a workspace becomes its **coordinator**; others join as **contributors**.
+Profiles are optional specializations that prime agents with domain mental models:
+- COORDINATOR: Orchestration, decomposition, delegation
+- ARCHITECT: System design, trade-offs, abstraction
+- DEBUGGER: Root cause analysis, five-whys, fault isolation
+- SECURITY: Threat modeling, adversarial thinking
+
+Set \`manager: true\` during registration if your agent can spawn sub-agents (e.g., via Claude Code's Task tool). This is self-reported metadata visible to other agents for coordination.
+
+## 1. Identity (no workspace needed)
+- register: Join the hub (args: { name, profile?, manager? })
+- whoami: Get current agent identity (no args)
+- get_profile_prompt: Get profile-specific mental models (args: { profile })
+
+## 2. Workspace
+- create_workspace: Create workspace — you become coordinator (args: { name, description })
+- join_workspace: Join as contributor (args: { workspaceId })
+- list_workspaces: List all workspaces (no args)
 - workspace_status: Get workspace status (args: { workspaceId })
-- create_problem: Define a problem to solve (args: { workspaceId, title, description })
-- claim_problem: Claim a problem to work on (args: { workspaceId, problemId })
-- update_problem: Update problem status (args: { workspaceId, problemId, status, resolution? })
-- list_problems: List problems (args: { workspaceId })
-- add_dependency: Add dependency between problems (args: { workspaceId, problemId, dependsOnProblemId })
-- remove_dependency: Remove dependency (args: { workspaceId, problemId, dependsOnProblemId })
-- ready_problems: List problems ready to claim (args: { workspaceId })
-- blocked_problems: List problems blocked by dependencies (args: { workspaceId })
+
+## 3. Problems [coordinator-only: create, create_sub]
+- create_problem: Define a problem (args: { workspaceId, title, description })
 - create_sub_problem: Create a sub-problem (args: { workspaceId, parentId, title, description })
+- claim_problem: Claim a problem to work on (args: { workspaceId, problemId })
+- update_problem: Update status (args: { workspaceId, problemId, status, resolution? })
+- list_problems: List problems (args: { workspaceId })
+- ready_problems: List problems ready to claim (args: { workspaceId })
+- blocked_problems: List blocked problems (args: { workspaceId })
+- add_dependency: Add dependency (args: { workspaceId, problemId, dependsOnProblemId })
+- remove_dependency: Remove dependency (args: { workspaceId, problemId, dependsOnProblemId })
+
+## 4. Proposals [coordinator-only: merge]
 - create_proposal: Propose a solution (args: { workspaceId, title, description, sourceBranch, problemId? })
 - review_proposal: Review a proposal (args: { workspaceId, proposalId, verdict, reasoning })
-- merge_proposal: Merge an approved proposal (args: { workspaceId, proposalId })
+- merge_proposal: Merge approved proposal (args: { workspaceId, proposalId })
 - list_proposals: List proposals (args: { workspaceId })
-- mark_consensus: Mark a consensus decision (args: { workspaceId, name, description, thoughtRef, branchId? })
+
+## 5. Consensus [coordinator-only: mark]
+- mark_consensus: Record a consensus decision (args: { workspaceId, name, description, thoughtRef, branchId? })
 - endorse_consensus: Endorse a consensus marker (args: { workspaceId, markerId })
 - list_consensus: List consensus markers (args: { workspaceId })
+
+## 6. Channels
 - post_message: Post to a problem channel (args: { workspaceId, problemId, content })
-- read_channel: Read problem channel messages (args: { workspaceId, problemId })
-- get_profile_prompt: Get profile prompt with mental models (args: { profile: "COORDINATOR"|"ARCHITECT"|"DEBUGGER"|"SECURITY" })
+- read_channel: Read channel messages (args: { workspaceId, problemId })
 
 Progressive disclosure is enforced internally. Register first, then join a workspace.`;
 
