@@ -69,6 +69,9 @@ export function createHubHandler(
           return workspace.listWorkspaces();
         }
         if (operation === 'quick_join') {
+          if (!args || typeof args !== 'object') {
+            throw new Error('quick_join requires args object with name and workspaceId');
+          }
           const { name, workspaceId: wsId, profile, clientInfo } = args as {
             name?: string; workspaceId?: string; profile?: string; clientInfo?: string;
           };
@@ -116,7 +119,7 @@ export function createHubHandler(
         if (operation === 'get_profile_prompt') {
           const profileName = args.profile as string | undefined;
           if (!profileName) {
-            throw new Error('Profile name is required. Pass { profile: "MANAGER" | "ARCHITECT" | "DEBUGGER" | "SECURITY" }');
+            throw new Error('Profile name is required. Pass { profile: "MANAGER" | "ARCHITECT" | "DEBUGGER" | "SECURITY" | "RESEARCHER" | "REVIEWER" }');
           }
           const content = getProfilePromptContent(profileName);
           if (!content) {
