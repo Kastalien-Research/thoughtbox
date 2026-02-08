@@ -29,9 +29,9 @@ Agent Teams' "competing hypotheses" pattern — spawn N agents to investigate, h
 
 ### 1. Shared instance accessibility
 
-All teammates must connect to the same Thoughtbox MCP server. This works today: Thoughtbox runs as an HTTP server on port 1731. Every teammate Claude Code spawns can mount it as an MCP server. The `mcpServers` block in CLAUDE.md / `.claude/settings.json` propagates to all teammates automatically.
+All teammates must connect to the same Thoughtbox MCP server. This works today: Thoughtbox runs as an HTTP server on port 1731. Every teammate Claude Code spawns can mount it as an MCP server. According to the [Agent Teams documentation](https://code.claude.com/docs/en/agent-teams), teammates inherit the lead's MCP server configuration from CLAUDE.md / `.claude/settings.json`, though this behavior should be verified in practice before relying on it for production use.
 
-**Status:** Architecturally ready. No changes required.
+**Status:** Architecturally ready. No changes required, but config inheritance should be tested with actual Agent Teams workflows.
 
 ### 2. Agent identity resolution
 
@@ -169,7 +169,7 @@ Both systems have fixed leadership. The session that creates the team/workspace 
 
 No changes to Agent Teams itself are required:
 
-1. **Thoughtbox runs as a shared HTTP MCP server.** All teammates connect to the same instance via the `mcpServers` configuration inherited from CLAUDE.md.
+1. **Thoughtbox runs as a shared HTTP MCP server.** All teammates connect to the same instance via the `mcpServers` configuration (inherited from CLAUDE.md according to Agent Teams documentation).
 
 2. **The lead creates a workspace** on Thoughtbox before spawning teammates. The workspace ID is included in each teammate's spawn prompt.
 
