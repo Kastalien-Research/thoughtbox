@@ -37,6 +37,18 @@ const PROFILES: ProfileDefinition[] = [
     mentalModels: ['adversarial-thinking', 'pre-mortem'],
     primaryGoal: 'Risk and vulnerability detection',
   },
+  {
+    name: 'RESEARCHER',
+    description: 'Parallel hypothesis investigation specialist',
+    mentalModels: ['inversion', 'constraint-relaxation', 'fermi-estimation'],
+    primaryGoal: 'Parallel hypothesis investigation and evidence gathering',
+  },
+  {
+    name: 'REVIEWER',
+    description: 'Code and proposal review specialist',
+    mentalModels: ['steelmanning', 'assumption-surfacing', 'pre-mortem'],
+    primaryGoal: 'Thorough review with constructive critique',
+  },
 ];
 
 const PROFILE_MAP = new Map<string, ProfileDefinition>(

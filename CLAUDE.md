@@ -81,6 +81,27 @@ docs: Update README with loops documentation
 
 **If you create a commit**, use conventional format. The changelog automation depends on it.
 
+## Agent Teams — Thoughtbox Integration
+
+When participating in an Agent Team, bootstrap Thoughtbox as your reasoning substrate:
+
+1. **Quick join** (single call): `thoughtbox_hub { operation: "quick_join", args: { name: "<your-role>", workspaceId: "<ID from spawn prompt>", profile: "<MANAGER|ARCHITECT|DEBUGGER|SECURITY|RESEARCHER|REVIEWER>" } }`
+2. **Load cipher**: `thoughtbox_gateway { operation: "cipher" }`
+3. **Begin work** — record decisions as thoughts, proposals as hub proposals
+
+Spawn prompt templates for teammates are in `.claude/team-prompts/`.
+
+### What to Record as Thoughts
+- Key decisions and their reasoning
+- Hypotheses before investigation
+- Conclusions after analysis
+- Disagreements with other agents' conclusions
+
+### What NOT to Record
+- Routine file reads or searches
+- Every intermediate step
+- Information that's already in the codebase
+
 ## Improvement Loop Learnings
 
 > Auto-generated learnings from autonomous improvement cycles

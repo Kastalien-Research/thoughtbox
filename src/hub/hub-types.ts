@@ -184,8 +184,12 @@ export type HubOperation =
   // Channels
   | 'post_message'
   | 'read_channel'
+  | 'post_system_message'
   // Profiles (SPEC-HUB-002)
-  | 'get_profile_prompt';
+  | 'get_profile_prompt'
+  // Agent Teams bootstrap
+  | 'quick_join'
+  | 'workspace_digest';
 
 // =============================================================================
 // Progressive Disclosure Stages (from ADR Section 6)
@@ -195,15 +199,15 @@ export type DisclosureStage = 0 | 1 | 2;
 
 /** Operations available at each disclosure stage */
 export const STAGE_OPERATIONS: Record<DisclosureStage, HubOperation[]> = {
-  0: ['register', 'list_workspaces'],
+  0: ['register', 'list_workspaces', 'quick_join'],
   1: ['whoami', 'create_workspace', 'join_workspace', 'get_profile_prompt'],
   2: [
     'create_problem', 'claim_problem', 'update_problem', 'list_problems',
     'add_dependency', 'remove_dependency', 'ready_problems', 'blocked_problems', 'create_sub_problem',
     'create_proposal', 'review_proposal', 'merge_proposal', 'list_proposals',
     'mark_consensus', 'endorse_consensus', 'list_consensus',
-    'post_message', 'read_channel',
-    'workspace_status',
+    'post_message', 'read_channel', 'post_system_message',
+    'workspace_status', 'workspace_digest',
   ],
 };
 

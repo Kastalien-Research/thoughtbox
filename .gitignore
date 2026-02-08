@@ -39,6 +39,7 @@ mcp-ts-template/
 .claude/*
 !.claude/agents/
 !.claude/skills/
+!.claude/team-prompts/
 !.claude/commands/
 .claude/commands/*
 !.claude/commands/development/

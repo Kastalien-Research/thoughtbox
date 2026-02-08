@@ -15,6 +15,10 @@ export interface ChannelsManager {
     args: { workspaceId: string; problemId: string; content: string; ref?: ChannelMessage['ref'] },
   ): Promise<{ messageId: string; channelMessageCount: number }>;
 
+  postSystemMessage(
+    args: { workspaceId: string; problemId: string; content: string; ref?: ChannelMessage['ref'] },
+  ): Promise<{ messageId: string; channelMessageCount: number }>;
+
   readChannel(
     args: { workspaceId: string; problemId: string; since?: string },
   ): Promise<{ messages: ChannelMessage[] }>;
@@ -44,6 +48,27 @@ export function createChannelsManager(storage: HubStorage): ChannelsManager {
       const message: ChannelMessage = {
         id: randomUUID(),
         agentId,
+        content,
+        timestamp: new Date().toISOString(),
+        ...(ref ? { ref } : {}),
+      };
+
+      channel.messages.push(message);
+      await storage.saveChannel(channel);
+
+      const uri = `thoughtbox://hub/${workspaceId}/channels/${problemId}`;
+      notifySubscribers(uri);
+
+      return { messageId: message.id, channelMessageCount: channel.messages.length };
+    },
+
+    async postSystemMessage({ workspaceId, problemId, content, ref }) {
+      const channel = await storage.getChannel(workspaceId, problemId);
+      if (!channel) throw new Error(`Channel not found for problem: ${problemId}`);
+
+      const message: ChannelMessage = {
+        id: randomUUID(),
+        agentId: 'system',
         content,
         timestamp: new Date().toISOString(),
         ...(ref ? { ref } : {}),
