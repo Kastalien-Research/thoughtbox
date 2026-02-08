@@ -111,6 +111,7 @@ async function maybeStartObservatory(hubStorage?: HubStorage): Promise<Observato
   if (!observatoryConfig.enabled) return null;
 
   const observatoryServer = createObservatoryServer({
+    _type: 'options',
     config: observatoryConfig,
     hubStorage,
   });
