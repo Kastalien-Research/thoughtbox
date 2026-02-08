@@ -85,7 +85,7 @@ docs: Update README with loops documentation
 
 When participating in an Agent Team, bootstrap Thoughtbox as your reasoning substrate:
 
-1. **Quick join** (single call): `thoughtbox_hub { operation: "quick_join", args: { name: "<your-role>", workspaceId: "<ID from spawn prompt>", profile: "<MANAGER|ARCHITECT|DEBUGGER|SECURITY|RESEARCHER|REVIEWER>" } }`
+1. **Quick join** (single call): `thoughtbox_hub { operation: "quick_join", args: { name: "<your-role>", workspaceId: "<ID from spawn prompt>", profile: "<COORDINATOR|ARCHITECT|DEBUGGER|SECURITY|RESEARCHER|REVIEWER>" } }`
 2. **Load cipher**: `thoughtbox_gateway { operation: "cipher" }`
 3. **Begin work** — record decisions as thoughts, proposals as hub proposals
 

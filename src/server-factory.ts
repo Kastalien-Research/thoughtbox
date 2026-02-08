@@ -3,6 +3,7 @@ import { ListResourcesRequestSchema, ListResourceTemplatesRequestSchema, type Ca
 import { z } from "zod";
 import type { HubStorage } from "./hub/hub-types.js";
 import { createHubToolHandler, type HubToolHandler } from "./hub/hub-tool-handler.js";
+import { thoughtEmitter } from "./observatory/emitter.js";
 import { createThoughtStoreAdapter } from "./hub/thought-store-adapter.js";
 import { FileSystemTaskStore } from "./hub/hub-task-store.js";
 import { InMemoryTaskStore, InMemoryTaskMessageQueue } from "@modelcontextprotocol/sdk/experimental/tasks/stores/in-memory.js";
@@ -489,6 +490,8 @@ Operations:
             uri: `thoughtbox://hub/${event.workspaceId}/status`,
           });
         }
+        // Bridge hub events to Observatory emitter for real-time UI
+        thoughtEmitter.emitHubEvent(event);
       },
     });
 
