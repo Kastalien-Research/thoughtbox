@@ -2,9 +2,9 @@
  * Tests for workspace_digest hub operation
  *
  * workspace_digest returns a summary of reasoning state across all agents:
- * - Each agent's latest thought
+ * - Agent metadata and status
  * - Pending proposals and review status
- * - Agent activity summary
+ * - Problem summary
  */
 
 import { describe, it, expect, beforeEach } from 'vitest';

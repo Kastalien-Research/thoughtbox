@@ -224,6 +224,15 @@ export class GatewayHandler {
   }
 
   /**
+   * Clear session-specific state to prevent memory leaks
+   */
+  clearSession(mcpSessionId: string): void {
+    this.sessionAgentIds.delete(mcpSessionId);
+    this.sessionAgentNames.delete(mcpSessionId);
+    this.sessionsPrimed.delete(mcpSessionId);
+  }
+
+  /**
    * Get the agent ID for a given session, falling back to instance default
    */
   private getAgentId(mcpSessionId?: string): string | undefined {
