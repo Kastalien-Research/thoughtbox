@@ -27,12 +27,12 @@ Sub-agents spawned via the Task tool share the parent's MCP HTTP connection but 
 2. **Cross-workspace visibility works**: Sub-agents see workspaces created by other agents
 3. **Cross-agent review works**: A Debugger sub-agent can review an Architect's proposal
 4. **Coordinator role caveat**: Re-registering creates a new identity, losing coordinator role. The orchestrator must create workspace + problems BEFORE spawning sub-agents, and not re-register afterward if merge is needed.
-5. **Sequential spawning recommended**: Run sub-agents sequentially (not in parallel) to avoid identity overwrites on the shared connection. Each agent should complete registration → join → claim → propose before the next starts.
+5. **Background-launch pattern**: Launch the first sub-agent with `run_in_background: true` so it starts working immediately, then launch the second sub-agent while the first is still alive. This gives you concurrent execution without the identity conflicts of truly parallel Task calls. Once a sub-agent's Task completes, its hub identity is permanently gone — both agents must finish all hub operations before returning.
 
 **Two approaches:**
 
 ### Approach A: Single-Session Orchestration (Recommended)
-Parent session acts as COORDINATOR (registers, creates workspace/problems). Sub-agents spawn sequentially via Task tool, each registering with their own identity. Cross-agent review works. Merge requires the parent to maintain its original coordinator identity.
+Parent session acts as COORDINATOR (registers, creates workspace/problems). First sub-agent launches with `run_in_background: true`, second launches immediately after — both run concurrently with separate identities. Cross-agent review works. Merge requires the parent to maintain its original coordinator identity.
 
 ### Approach B: Multi-Process Demo (CLI agents)
 Each agent runs as a separate `claude --agent` process. Fully independent MCP connections with no shared state concerns. Best for video demos where you want visible parallel terminals.
@@ -89,19 +89,32 @@ thoughtbox_hub { operation: "create_problem", args: {
 } }
 ```
 
-### Step 4: Spawn Architect (Task tool)
-Use Task tool with subagent_type matching the hub-architect agent:
+### Step 4: Launch Architect in Background (Task tool)
+Use Task tool with subagent_type matching the hub-architect agent. Set `run_in_background: true`.
 ```
-Prompt: "You are the ARCHITECT agent. Register on the hub, join workspace <ID>. Check ready_problems, claim the design problem. Initialize the gateway, create a thought chain analyzing caching approaches. Create a proposal with your design recommendation. Post a summary to the problem channel."
+Prompt: "You are the ARCHITECT agent. Register on the hub, join workspace <ID>. Check ready_problems, claim the design problem. Initialize the gateway, create a thought chain analyzing caching approaches. Create a proposal with your design recommendation. Post a summary to the problem channel.
+
+IMPORTANT: Once you return, your hub identity is permanently gone. Complete ALL hub operations (proposal submission, channel posts) before returning."
 ```
 
-### Step 5: Spawn Debugger (Task tool)
+Do **not** wait for the Architect to complete. Proceed immediately to Step 5.
+
+### Step 5: Launch Debugger (Task tool)
+Launch immediately after Step 4. The Architect is already running in the background.
+
 Use Task tool with subagent_type matching the hub-debugger agent:
 ```
-Prompt: "You are the DEBUGGER agent. Register on the hub, join workspace <ID>. Check ready_problems, claim the bug problem. Initialize the gateway, use five-whys investigation on the profile priming bug in gateway-handler.ts. Create a proposal with your fix. Review the Architect's proposal if one exists."
+Prompt: "You are the DEBUGGER agent. Register on the hub, join workspace <ID>. Check ready_problems, claim the bug problem. Initialize the gateway, use five-whys investigation on the profile priming bug in gateway-handler.ts. Create a proposal with your fix.
+
+The Architect is running concurrently in the background. Poll the hub for its proposal (list_proposals) with retries — interleave polling with your own investigation work rather than blocking. If no proposal appears after 5+ attempts, the Architect may need more turns. Review the Architect's proposal when it appears.
+
+IMPORTANT: Once you return, your hub identity is permanently gone. Complete ALL hub operations (proposal, review, channel posts) before returning."
 ```
 
-**Important**: Spawn Architect FIRST, wait for completion, then spawn Debugger. Sequential spawning prevents identity overwrites on the shared MCP connection. The Debugger can review the Architect's proposal because they have different agentIds.
+### Step 5.5: Monitor Agent Completion
+Use `TaskOutput` to check on the background Architect agent and collect its results. Wait for both agents to finish before proceeding.
+
+**Tuning**: If either agent exhausts `max_turns` before completing hub work, increase `max_turns` (default 25) and re-run that agent.
 
 ### Step 6: Report Status
 ```

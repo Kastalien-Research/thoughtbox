@@ -93,11 +93,15 @@ Run as the **parent agent** (you, Claude Code):
    ```
    Add dependency: review depends on design.
 
-### Phase 2: Spawn Architect and Debugger in Parallel
+### Phase 2: Launch Architect in Background, Then Debugger
 
-Use a **single message** with two Task tool calls to spawn both agents concurrently.
+Launch sub-agents **sequentially but concurrently** — start the Architect with `run_in_background: true` so it begins working immediately, then launch the Debugger while the Architect is still alive. Both agents collaborate through the hub in real time.
 
-**Architect** — `subagent_type: "hub-architect"`:
+**Why not parallel spawning?** Agent IDs don't persist reliably across simultaneous Task calls on a shared MCP connection. Sequential launch with background execution gives you both agents alive at the same time without identity conflicts.
+
+**Liveness constraint**: Once a sub-agent's Task completes (or hits `max_turns`), its hub identity is permanently gone — no resurrection. Both agents must finish all hub operations before returning.
+
+**Architect** — `subagent_type: "hub-architect"`, `run_in_background: true`:
 
 ```
 Register on the hub with manager: true, join workspace '<workspaceId>'.
@@ -110,7 +114,12 @@ Analyze all CSS color values. Create a thought chain (5-8 thoughts) documenting:
 
 Then submit a proposal with the complete old->new mapping as the description.
 Post a summary to the problem channel.
+
+IMPORTANT: Once you return, your hub identity is permanently gone. Complete ALL hub
+operations (proposal submission, channel posts) before returning.
 ```
+
+Do **not** wait for the Architect to complete. Launch the Debugger immediately after.
 
 **Debugger** — `subagent_type: "hub-debugger"`:
 
@@ -123,8 +132,13 @@ to calculate WCAG 2.1 contrast ratios for each proposed color pairing against th
 (#030712, #111827, #1f2937). The sub-agent should return a table of foreground/background pairs
 with their contrast ratios and pass/fail for AA and AAA levels.
 
-Poll the hub for the Architect's proposal (list_proposals). Once it appears, read it and
-incorporate the sub-agent's contrast findings into your thought chain (3-5 thoughts):
+Poll the hub for the Architect's proposal (list_proposals). The Architect is running concurrently
+in the background, so the proposal may not exist yet. Poll with retries — interleave polling with
+your own WCAG analysis work rather than blocking. Try list_proposals every few turns; if nothing
+appears after 5+ attempts, the Architect may need more turns (see maxTurns tuning below).
+
+Once the proposal appears, read it and incorporate the sub-agent's contrast findings into your
+thought chain (3-5 thoughts):
 1. Sub-agent contrast ratio results
 2. Will visual hierarchy be preserved? (primary vs secondary vs muted)
 3. Are there hardcoded colors the Architect missed?
@@ -132,9 +146,12 @@ incorporate the sub-agent's contrast findings into your thought chain (3-5 thoug
 
 Then review the Architect's proposal (approve or request-changes).
 Post your findings — including the contrast ratio table from your sub-agent — to the problem channel.
+
+IMPORTANT: Once you return, your hub identity is permanently gone. Complete ALL hub
+operations (review, channel posts) before returning.
 ```
 
-Both agents run concurrently. The Debugger polls the hub for the Architect's proposal rather than requiring sequential spawning.
+**After both agents**: Use `TaskOutput` to check on the background Architect agent and collect its results. If either agent exhausted `max_turns` before finishing hub work, increase `max_turns` (default 25) and re-run.
 
 ### Phase 3: Coordinator Merges and Applies
 
@@ -167,11 +184,12 @@ docker-compose down && docker-compose build && docker-compose up -d
 
 ## Key Gotchas
 
-1. **Spawn sub-agents in parallel** — use a single message with two Task tool calls; the Debugger polls the hub for the Architect's proposal
-2. **Sub-agents need the gateway init sequence**: `get_state` -> `start_new` -> `cipher` -> `thought` (not `init` or `new_thought`)
-3. **First thought must be on main chain** (no branchId), then fork with `branchFromThought: 1`
-4. **`create_proposal` args**: `{ workspaceId, problemId, title, description, sourceBranch }` — no `thoughtRef` object
-5. **`post_message` args**: `{ workspaceId, problemId, content }` — no `channelId`
-6. **`mark_consensus` thoughtRef is a number**, not an object
-7. **Don't re-register as Coordinator after workspace creation** if you need to merge later — re-registering loses coordinator role
-8. **Agent role colors (lines 623-631) must NOT change** — they distinguish agents in the visualization
+1. **Launch sub-agents sequentially with background execution** — start Architect with `run_in_background: true`, then launch Debugger immediately after; the Debugger polls the hub for the Architect's proposal
+2. **Liveness is ephemeral** — once a sub-agent's Task completes (or hits `max_turns`), its hub identity is permanently gone. No resurrection. Both agents must finish all hub operations before returning. If `max_turns` (default 25) is too low, increase it and re-run.
+3. **Sub-agents need the gateway init sequence**: `get_state` -> `start_new` -> `cipher` -> `thought` (not `init` or `new_thought`)
+4. **First thought must be on main chain** (no branchId), then fork with `branchFromThought: 1`
+5. **`create_proposal` args**: `{ workspaceId, problemId, title, description, sourceBranch }` — no `thoughtRef` object
+6. **`post_message` args**: `{ workspaceId, problemId, content }` — no `channelId`
+7. **`mark_consensus` thoughtRef is a number**, not an object
+8. **Don't re-register as Coordinator after workspace creation** if you need to merge later — re-registering loses coordinator role
+9. **Agent role colors (lines 623-631) must NOT change** — they distinguish agents in the visualization
