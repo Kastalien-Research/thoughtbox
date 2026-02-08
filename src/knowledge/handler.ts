@@ -15,6 +15,7 @@ import type {
   GraphTraversalParams,
   RelationType,
 } from './types.js';
+import { getOperation as getKnowledgeOperation } from './operations.js';
 
 export type KnowledgeAction =
   | 'create_entity'
@@ -45,24 +46,47 @@ export class KnowledgeHandler {
     isError?: boolean;
   }> {
     try {
+      let result: { content: Array<any>; isError?: boolean };
       switch (args.action) {
         case 'create_entity':
-          return await this.handleCreateEntity(args);
+          result = await this.handleCreateEntity(args);
+          break;
         case 'get_entity':
-          return await this.handleGetEntity(args);
+          result = await this.handleGetEntity(args);
+          break;
         case 'list_entities':
-          return await this.handleListEntities(args);
+          result = await this.handleListEntities(args);
+          break;
         case 'add_observation':
-          return await this.handleAddObservation(args);
+          result = await this.handleAddObservation(args);
+          break;
         case 'create_relation':
-          return await this.handleCreateRelation(args);
+          result = await this.handleCreateRelation(args);
+          break;
         case 'query_graph':
-          return await this.handleQueryGraph(args);
+          result = await this.handleQueryGraph(args);
+          break;
         case 'stats':
-          return await this.handleStats(args);
+          result = await this.handleStats(args);
+          break;
         default:
           throw new Error(`Unknown knowledge action: ${(args as any).action}`);
       }
+
+      // Embed per-operation resource block for agent discoverability
+      const opDef = getKnowledgeOperation(args.action);
+      if (opDef) {
+        result.content.push({
+          type: 'resource',
+          resource: {
+            uri: `thoughtbox://knowledge/operations/${args.action}`,
+            mimeType: 'application/json',
+            text: JSON.stringify(opDef, null, 2),
+          },
+        });
+      }
+
+      return result;
     } catch (error) {
       return {
         content: [{
