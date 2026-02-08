@@ -29,6 +29,10 @@ COPY package*.json ./
 # Install production dependencies only (--ignore-scripts skips husky prepare)
 RUN npm ci --omit=dev --ignore-scripts
 
+# Copy native bindings from builder (where npm ci compiled them).
+# This avoids needing prebuild-install or a compiler toolchain in production.
+COPY --from=builder /app/node_modules/better-sqlite3/build ./node_modules/better-sqlite3/build
+
 # Copy built files from builder
 COPY --from=builder /app/dist ./dist
 
