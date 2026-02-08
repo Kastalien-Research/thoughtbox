@@ -106,11 +106,14 @@ interface SessionEntry {
   server: Awaited<ReturnType<typeof createMcpServer>>;
 }
 
-async function maybeStartObservatory(): Promise<ObservatoryServer | null> {
+async function maybeStartObservatory(hubStorage?: HubStorage): Promise<ObservatoryServer | null> {
   const observatoryConfig = loadObservatoryConfig();
   if (!observatoryConfig.enabled) return null;
 
-  const observatoryServer = createObservatoryServer(observatoryConfig);
+  const observatoryServer = createObservatoryServer({
+    config: observatoryConfig,
+    hubStorage,
+  });
   await observatoryServer.start();
   console.error(`[Observatory] Server started on port ${observatoryConfig.port}`);
   return observatoryServer;
@@ -120,7 +123,7 @@ async function startHttpServer() {
   // Initialize shared storage (all MCP sessions share the same persistence layer)
   const { storage, hubStorage, dataDir } = await createStorage();
 
-  const observatoryServer = await maybeStartObservatory();
+  const observatoryServer = await maybeStartObservatory(hubStorage);
 
   const app = createMcpExpressApp({
     host: process.env.HOST || "0.0.0.0",
@@ -248,7 +251,7 @@ async function runStdioServer() {
     },
   });
 
-  const observatoryServer = await maybeStartObservatory();
+  const observatoryServer = await maybeStartObservatory(hubStorage);
 
   const transport = new StdioServerTransport();
   await server.connect(transport);

@@ -104,11 +104,12 @@ export { WebSocketServer } from "./ws-server.js";
 export { Channel, type TopicParams, type ChannelContext } from "./channel.js";
 
 // Server factory
-export { createObservatoryServer, type ObservatoryServer } from "./server.js";
+export { createObservatoryServer, type ObservatoryServer, type ObservatoryServerOptions } from "./server.js";
 
 // Channel implementations
 export { createReasoningChannel, sessionStore } from "./channels/reasoning.js";
 export { createObservatoryChannel } from "./channels/observatory.js";
+export { createWorkspaceChannel } from "./channels/workspace.js";
 
 // Schemas - Core types
 export {
