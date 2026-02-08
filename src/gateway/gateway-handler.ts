@@ -197,6 +197,8 @@ export class GatewayHandler {
   /** Per-session agent identity overrides (defense-in-depth for shared-instance scenarios) */
   private sessionAgentIds = new Map<string, string>();
   private sessionAgentNames = new Map<string, string>();
+  /** Track sessions that have already received profile priming (once-per-session) */
+  private sessionsPrimed = new Set<string>();
 
   constructor(config: GatewayHandlerConfig) {
     this.toolRegistry = config.toolRegistry;
@@ -501,15 +503,18 @@ Call \`thoughtbox_gateway\` with operation 'thought' to begin structured reasoni
       agentName: (args.agentName as string | undefined) ?? this.getAgentName(mcpSessionId),
     });
 
-    // SPEC-HUB-002: Append profile priming resource for profiled agents
+    // SPEC-HUB-002: Append profile priming resource once per session
     if (!result.isError && this.getAgentProfile) {
       const agentId = (args.agentId as string | undefined) ?? this.getAgentId(mcpSessionId);
-      if (agentId) {
+      const sessionId = this.thoughtHandler.getCurrentSessionId?.() ?? mcpSessionId;
+      const primingKey = `${agentId}:${sessionId}`;
+      if (agentId && !this.sessionsPrimed.has(primingKey)) {
         const profile = await this.getAgentProfile(agentId);
         if (profile) {
           const primingBlock = getProfilePriming(profile);
           if (primingBlock) {
             result.content.push(primingBlock as ContentBlock);
+            this.sessionsPrimed.add(primingKey);
           }
         }
       }

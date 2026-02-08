@@ -15,11 +15,11 @@ import {
 import { getModelNames } from '../../mental-models/operations.js';
 
 describe('profiles-registry', () => {
-  // T-PR2-1: getProfile returns MANAGER definition
-  it('getProfile returns MANAGER definition', () => {
-    const profile = getProfile('MANAGER');
+  // T-PR2-1: getProfile returns COORDINATOR definition
+  it('getProfile returns COORDINATOR definition', () => {
+    const profile = getProfile('COORDINATOR');
     expect(profile).not.toBeNull();
-    expect(profile!.name).toBe('MANAGER');
+    expect(profile!.name).toBe('COORDINATOR');
     expect(profile!.mentalModels).toContain('decomposition');
     expect(profile!.mentalModels).toContain('pre-mortem');
     expect(profile!.mentalModels).toContain('five-whys');
@@ -63,7 +63,7 @@ describe('profiles-registry', () => {
 
   // T-PR2-6: isValidProfile validates known/unknown profiles
   it('isValidProfile validates known and unknown profiles', () => {
-    expect(isValidProfile('MANAGER')).toBe(true);
+    expect(isValidProfile('COORDINATOR')).toBe(true);
     expect(isValidProfile('ARCHITECT')).toBe(true);
     expect(isValidProfile('DEBUGGER')).toBe(true);
     expect(isValidProfile('SECURITY')).toBe(true);
@@ -76,7 +76,7 @@ describe('profiles-registry', () => {
     const profiles = listProfiles();
     expect(profiles).toHaveLength(4);
     const names = profiles.map(p => p.name);
-    expect(names).toContain('MANAGER');
+    expect(names).toContain('COORDINATOR');
     expect(names).toContain('ARCHITECT');
     expect(names).toContain('DEBUGGER');
     expect(names).toContain('SECURITY');

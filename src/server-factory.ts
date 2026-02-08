@@ -495,7 +495,7 @@ Operations:
     const HUB_TOOL_DESCRIPTION = `Multi-agent collaboration hub for coordinated reasoning.
 
 Operations:
-- register: Register as an agent (args: { name: string, profile?: "MANAGER"|"ARCHITECT"|"DEBUGGER"|"SECURITY" })
+- register: Register as an agent (args: { name: string, profile?: "COORDINATOR"|"ARCHITECT"|"DEBUGGER"|"SECURITY", manager?: boolean })
 - whoami: Get current agent identity
 - create_workspace: Create a collaboration workspace (args: { name, description })
 - join_workspace: Join an existing workspace (args: { workspaceId })
@@ -519,7 +519,7 @@ Operations:
 - list_consensus: List consensus markers (args: { workspaceId })
 - post_message: Post to a problem channel (args: { workspaceId, problemId, content })
 - read_channel: Read problem channel messages (args: { workspaceId, problemId })
-- get_profile_prompt: Get profile prompt with mental models (args: { profile: "MANAGER"|"ARCHITECT"|"DEBUGGER"|"SECURITY" })
+- get_profile_prompt: Get profile prompt with mental models (args: { profile: "COORDINATOR"|"ARCHITECT"|"DEBUGGER"|"SECURITY" })
 
 Progressive disclosure is enforced internally. Register first, then join a workspace.`;
 

@@ -9,7 +9,7 @@
 // Profile Names
 // =============================================================================
 
-export type ProfileName = 'MANAGER' | 'ARCHITECT' | 'DEBUGGER' | 'SECURITY';
+export type ProfileName = 'COORDINATOR' | 'ARCHITECT' | 'DEBUGGER' | 'SECURITY';
 
 // =============================================================================
 // Profile Definition

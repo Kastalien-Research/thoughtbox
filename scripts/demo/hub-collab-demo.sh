@@ -2,15 +2,15 @@
 set -euo pipefail
 
 # Hub Collaboration Demo Orchestrator
-# Opens iTerm2 split panes with Manager, Architect, and Debugger agents
+# Opens iTerm2 split panes with Coordinator, Architect, and Debugger agents
 # coordinating through the Thoughtbox Hub.
 #
 # Usage: ./scripts/demo/hub-collab-demo.sh [workspace-name]
 
 WORKSPACE_NAME="${1:-demo-collab}"
-WORKSPACE_DESC="Multi-agent collaboration demo: MANAGER decomposes problems, ARCHITECT designs solutions, DEBUGGER investigates bugs"
+WORKSPACE_DESC="Multi-agent collaboration demo: COORDINATOR decomposes problems, ARCHITECT designs solutions, DEBUGGER investigates bugs"
 WORKSPACE_ID_FILE="/tmp/hub-demo-workspace-id.txt"
-MANAGER_OUTPUT_FILE="/tmp/hub-demo-manager-output.txt"
+COORDINATOR_OUTPUT_FILE="/tmp/hub-demo-manager-output.txt"
 PROJECT_DIR="$(cd "$(dirname "$0")/../.." && pwd)"
 
 # Colors
@@ -66,14 +66,14 @@ fi
 
 # Clean up previous run
 rm -f "$WORKSPACE_ID_FILE"
-rm -f "$MANAGER_OUTPUT_FILE"
+rm -f "$COORDINATOR_OUTPUT_FILE"
 
-# ── Phase 1: Manager sets up workspace ───────────────────────────────
-log "Phase 1: Running Manager agent to set up workspace..."
+# ── Phase 1: Coordinator sets up workspace ───────────────────────────────
+log "Phase 1: Running Coordinator agent to set up workspace..."
 
-MANAGER_PROMPT="You are the MANAGER agent. Do these steps and NOTHING ELSE:
+COORDINATOR_PROMPT="You are the COORDINATOR agent. Do these steps and NOTHING ELSE:
 
-1. Register: thoughtbox_hub { operation: \"register\", args: { name: \"Manager\", profile: \"MANAGER\" } }
+1. Register: thoughtbox_hub { operation: \"register\", args: { name: \"Coordinator\", profile: \"COORDINATOR\" } }
 2. Create workspace: thoughtbox_hub { operation: \"create_workspace\", args: { name: \"${WORKSPACE_NAME}\", description: \"${WORKSPACE_DESC}\" } }
 3. Create design problem: thoughtbox_hub { operation: \"create_problem\", args: { workspaceId: \"<ID_FROM_STEP_2>\", title: \"Design caching strategy for thought retrieval\", description: \"Analyze current thought retrieval patterns and design a caching layer to reduce filesystem reads. Consider: cache invalidation, memory bounds, branch-aware caching.\" } }
 4. Create bug problem: thoughtbox_hub { operation: \"create_problem\", args: { workspaceId: \"<ID_FROM_STEP_2>\", title: \"Fix profile priming on every thought call\", description: \"BUG: gateway-handler.ts:504-516 appends full mental model payload to EVERY thought response. Should only prime once per session. Root cause analysis needed via five-whys.\" } }
@@ -81,44 +81,44 @@ MANAGER_PROMPT="You are the MANAGER agent. Do these steps and NOTHING ELSE:
 6. Print a summary: workspace ID, problem IDs, and that the workspace is ready for contributors."
 
 # Run manager non-interactively (retry on transient tool-concurrency API errors)
-MANAGER_OK=false
+COORDINATOR_OK=false
 for ATTEMPT in 1 2 3; do
-  MANAGER_OUTPUT="$(claude --agent hub-manager --print -p "$MANAGER_PROMPT" 2>&1)" && {
-    MANAGER_OK=true
-    printf "%s\n" "$MANAGER_OUTPUT" > "$MANAGER_OUTPUT_FILE"
+  COORDINATOR_OUTPUT="$(claude --agent hub-coordinator --print -p "$COORDINATOR_PROMPT" 2>&1)" && {
+    COORDINATOR_OK=true
+    printf "%s\n" "$COORDINATOR_OUTPUT" > "$COORDINATOR_OUTPUT_FILE"
     break
   }
 
-  if echo "$MANAGER_OUTPUT" | grep -qi "tool use concurrency issues"; then
-    warn "Manager attempt ${ATTEMPT}/3 hit tool-concurrency API error; retrying..."
+  if echo "$COORDINATOR_OUTPUT" | grep -qi "tool use concurrency issues"; then
+    warn "Coordinator attempt ${ATTEMPT}/3 hit tool-concurrency API error; retrying..."
     sleep 2
     continue
   fi
 
-  err "Manager agent failed:"
-  echo "$MANAGER_OUTPUT" >&2
+  err "Coordinator agent failed:"
+  echo "$COORDINATOR_OUTPUT" >&2
   exit 1
 done
 
-if [ "$MANAGER_OK" != true ]; then
-  err "Manager agent failed after 3 attempts:"
-  echo "$MANAGER_OUTPUT" >&2
+if [ "$COORDINATOR_OK" != true ]; then
+  err "Coordinator agent failed after 3 attempts:"
+  echo "$COORDINATOR_OUTPUT" >&2
   exit 1
 fi
 
 # Fallback: extract workspace ID from manager output if file-write instruction was missed.
-if [ ! -f "$WORKSPACE_ID_FILE" ] && [ -f "$MANAGER_OUTPUT_FILE" ]; then
-  WORKSPACE_ID_FROM_OUTPUT="$(grep -Eo '[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}' "$MANAGER_OUTPUT_FILE" | head -n 1 || true)"
+if [ ! -f "$WORKSPACE_ID_FILE" ] && [ -f "$COORDINATOR_OUTPUT_FILE" ]; then
+  WORKSPACE_ID_FROM_OUTPUT="$(grep -Eo '[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}' "$COORDINATOR_OUTPUT_FILE" | head -n 1 || true)"
   if [ -n "$WORKSPACE_ID_FROM_OUTPUT" ]; then
     printf "%s\n" "$WORKSPACE_ID_FROM_OUTPUT" > "$WORKSPACE_ID_FILE"
-    warn "Manager skipped file write; recovered workspace ID from output."
+    warn "Coordinator skipped file write; recovered workspace ID from output."
   fi
 fi
 
 # Read workspace ID
 if [ ! -f "$WORKSPACE_ID_FILE" ]; then
-  err "Manager did not write workspace ID to $WORKSPACE_ID_FILE"
-  err "You may need to run the Manager manually and note the workspace ID."
+  err "Coordinator did not write workspace ID to $WORKSPACE_ID_FILE"
+  err "You may need to run the Coordinator manually and note the workspace ID."
   exit 1
 fi
 
@@ -217,7 +217,7 @@ fi
 echo ""
 ok "Demo is running!"
 log "Workspace: ${WORKSPACE_ID}"
-log "Agents: Manager (setup complete), Architect (designing), Debugger (investigating)"
+log "Agents: Coordinator (setup complete), Architect (designing), Debugger (investigating)"
 log ""
 log "To check workspace status:"
 log "  claude -p \"thoughtbox_hub { operation: 'workspace_status', args: { workspaceId: '${WORKSPACE_ID}' } }\""

@@ -9,15 +9,15 @@ import { describe, it, expect } from 'vitest';
 import { getProfilePriming } from '../profile-primer.js';
 
 describe('thought-priming', () => {
-  // T-TP-1: getProfilePriming returns resource block for MANAGER
-  it('getProfilePriming returns resource block for MANAGER', () => {
-    const result = getProfilePriming('MANAGER');
+  // T-TP-1: getProfilePriming returns resource block for COORDINATOR
+  it('getProfilePriming returns resource block for COORDINATOR', () => {
+    const result = getProfilePriming('COORDINATOR');
 
     expect(result).not.toBeNull();
     expect(result!.type).toBe('resource');
-    expect(result!.resource.uri).toContain('MANAGER');
+    expect(result!.resource.uri).toContain('COORDINATOR');
     expect(result!.resource.mimeType).toBe('text/markdown');
-    expect(result!.resource.text).toContain('MANAGER');
+    expect(result!.resource.text).toContain('COORDINATOR');
     expect(result!.resource.text).toContain('Decomposition');
   });
 

@@ -22,15 +22,15 @@ describe('profile-prompt', () => {
     return result.agentId;
   }
 
-  // T-PP-1: get_profile_prompt returns MANAGER prompt with model contents
-  it('get_profile_prompt returns MANAGER prompt with model contents', async () => {
+  // T-PP-1: get_profile_prompt returns COORDINATOR prompt with model contents
+  it('get_profile_prompt returns COORDINATOR prompt with model contents', async () => {
     const { handler } = setup();
     const agentId = await registerAgent(handler, 'TestAgent');
 
-    const result = await handler.handle(agentId, 'get_profile_prompt', { profile: 'MANAGER' }) as any;
+    const result = await handler.handle(agentId, 'get_profile_prompt', { profile: 'COORDINATOR' }) as any;
 
     expect(result.prompt).toBeDefined();
-    expect(result.prompt).toContain('MANAGER');
+    expect(result.prompt).toContain('COORDINATOR');
     expect(result.prompt).toContain('Decomposition');
     expect(result.prompt).toContain('Pre-mortem');
     expect(result.prompt).toContain('Five Whys');

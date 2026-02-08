@@ -1,12 +1,12 @@
 ---
 name: hub-collab
-description: Orchestrate a multi-agent collaboration demo on the Thoughtbox Hub. Spawns MANAGER, ARCHITECT, and DEBUGGER agents that coordinate through shared workspaces, problems, proposals, and channels.
+description: Orchestrate a multi-agent collaboration demo on the Thoughtbox Hub. Spawns COORDINATOR, ARCHITECT, and DEBUGGER agents that coordinate through shared workspaces, problems, proposals, and channels.
 user_invocable: true
 ---
 
 # Hub Collaboration Demo
 
-Orchestrate a multi-agent demo showing 3 agents (MANAGER, ARCHITECT, DEBUGGER) collaborating on the Thoughtbox Hub.
+Orchestrate a multi-agent demo showing 3 agents (COORDINATOR, ARCHITECT, DEBUGGER) collaborating on the Thoughtbox Hub.
 
 ## Prerequisites
 
@@ -32,20 +32,20 @@ Sub-agents spawned via the Task tool share the parent's MCP HTTP connection but 
 **Two approaches:**
 
 ### Approach A: Single-Session Orchestration (Recommended)
-Parent session acts as MANAGER (registers, creates workspace/problems). Sub-agents spawn sequentially via Task tool, each registering with their own identity. Cross-agent review works. Merge requires the parent to maintain its original coordinator identity.
+Parent session acts as COORDINATOR (registers, creates workspace/problems). Sub-agents spawn sequentially via Task tool, each registering with their own identity. Cross-agent review works. Merge requires the parent to maintain its original coordinator identity.
 
 ### Approach B: Multi-Process Demo (CLI agents)
 Each agent runs as a separate `claude --agent` process. Fully independent MCP connections with no shared state concerns. Best for video demos where you want visible parallel terminals.
 
 For Approach B, open 3 terminal tabs and run:
 ```bash
-# Terminal 1 - Manager
-claude --agent hub-manager -p "Register on the hub, create workspace 'demo-collab' with description 'Demo of multi-agent collaboration'. Create 2 problems: (1) 'Design caching strategy' - a design problem for the architect, (2) 'Fix profile priming bug' - a bug where profile content is appended to every thought response instead of just once. Report the workspace ID and problem IDs."
+# Terminal 1 - Coordinator
+claude --agent hub-coordinator -p "Register on the hub, create workspace 'demo-collab' with description 'Demo of multi-agent collaboration'. Create 2 problems: (1) 'Design caching strategy' - a design problem for the architect, (2) 'Fix profile priming bug' - a bug where profile content is appended to every thought response instead of just once. Report the workspace ID and problem IDs."
 
-# Terminal 2 - Architect (after Manager reports workspace ID)
+# Terminal 2 - Architect (after Coordinator reports workspace ID)
 claude --agent hub-architect -p "Register on the hub, join workspace '<WORKSPACE_ID>'. Claim the design problem, analyze the codebase for caching patterns, create a thought chain with your analysis, and submit a proposal."
 
-# Terminal 3 - Debugger (after Manager reports workspace ID)
+# Terminal 3 - Debugger (after Coordinator reports workspace ID)
 claude --agent hub-debugger -p "Register on the hub, join workspace '<WORKSPACE_ID>'. Claim the bug problem about profile priming. Investigate gateway-handler.ts lines 504-516. Use five-whys on your branch. Review the Architect's proposal when it's ready."
 ```
 
@@ -53,9 +53,9 @@ claude --agent hub-debugger -p "Register on the hub, join workspace '<WORKSPACE_
 
 When this skill is invoked, execute the following steps sequentially. Each step uses the `thoughtbox_hub` tool directly (since we're in the parent session).
 
-### Step 1: Register as Manager
+### Step 1: Register as Coordinator
 ```
-thoughtbox_hub { operation: "register", args: { name: "Orchestrator", profile: "MANAGER" } }
+thoughtbox_hub { operation: "register", args: { name: "Orchestrator", profile: "COORDINATOR" } }
 ```
 Record the agentId.
 
@@ -113,7 +113,7 @@ Report the final state: agents registered, problems created/claimed, proposals s
 ## Expected Demo Output
 
 A successful run demonstrates:
-- Agent registration with profiles (MANAGER, ARCHITECT, DEBUGGER)
+- Agent registration with profiles (COORDINATOR, ARCHITECT, DEBUGGER)
 - Workspace creation and joining
 - Problem decomposition with dependencies
 - Branch-based investigation (thought chains)

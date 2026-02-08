@@ -34,46 +34,67 @@ Your profile gives you access to:
 
 ### Phase 2: Claim & Investigate
 4. Claim a bug problem: `thoughtbox_hub { operation: "claim_problem", args: { problemId: "..." } }`
-   - This auto-creates a branch for your investigation
-5. Initialize gateway: `thoughtbox_gateway { operation: "init" }`
-6. Begin five-whys investigation on your branch:
+   - This returns a branch name for your investigation (e.g. `"debugger/bug-title"`)
+5. Initialize gateway for thinking:
    ```
-   thoughtbox_gateway { operation: "new_thought", args: {
+   thoughtbox_gateway { operation: "get_state" }
+   thoughtbox_gateway { operation: "start_new", args: { sessionTitle: "...", sessionTags: ["hub", "debug"] } }
+   thoughtbox_gateway { operation: "cipher" }
+   ```
+6. Record your first thought on the **main chain** (no branchId):
+   ```
+   thoughtbox_gateway { operation: "thought", args: {
      thought: "Q: Why does [symptom]? Investigating...\nO: [observation from code]",
-     branchId: "<your-branch>",
-     branchFromThought: <N>,
      nextThoughtNeeded: true
    }}
    ```
-7. Use Read, Grep, Glob to examine the codebase between thoughts
-8. Each thought should go one level deeper:
+7. Fork into your branch from thought 1 for the investigation:
+   ```
+   thoughtbox_gateway { operation: "thought", args: {
+     thought: "Q: Why does [proximate cause] happen?\nO: [deeper evidence]",
+     branchId: "<branch-from-claim_problem>",
+     branchFromThought: 1,
+     nextThoughtNeeded: true
+   }}
+   ```
+   - **Note**: `branchFromThought` must be >= 1 (thoughts are 1-indexed). You need at least one thought on the main chain before branching.
+8. Use Read, Grep, Glob to examine the codebase between thoughts
+9. Each thought should go one level deeper:
    - Thought 1: `Q: Why does X happen?` → `E: Because Y`
    - Thought 2: `Q: Why does Y happen?` → `E: Because Z`
    - Thought 3: `Q: Why does Z happen?` → `C: Root cause is W`
 
 ### Phase 3: Propose Fix
-9. Once root cause is identified, document the fix:
-   ```
-   thoughtbox_gateway { operation: "new_thought", args: {
-     thought: "C: Root cause: [description]\nP: Fix: [specific changes needed]\n[HIGH] confidence",
-     branchId: "<your-branch>",
-     branchFromThought: <N>,
-     nextThoughtNeeded: false
-   }}
-   ```
-10. Create proposal:
+10. Once root cause is identified, document the fix:
+    ```
+    thoughtbox_gateway { operation: "thought", args: {
+      thought: "C: Root cause: [description]\nP: Fix: [specific changes needed]\n[HIGH] confidence",
+      branchId: "<branch-from-claim_problem>",
+      branchFromThought: 1,
+      nextThoughtNeeded: false
+    }}
+    ```
+11. Create proposal:
     ```
     thoughtbox_hub { operation: "create_proposal", args: {
+      workspaceId: "...",
       problemId: "...",
       title: "Fix: [concise description]",
       description: "Root cause: ...\nFix: ...\nImpact: ...",
-      thoughtRef: { sessionId: "...", thoughtNumber: N, branchId: "..." }
+      sourceBranch: "<branch-from-claim_problem>"
     }}
     ```
-11. Notify the channel: `thoughtbox_hub { operation: "post_message", args: { channelId: "...", content: "Fix proposal ready -- root cause identified via five-whys" } }`
+12. Notify the channel:
+    ```
+    thoughtbox_hub { operation: "post_message", args: {
+      workspaceId: "...",
+      problemId: "...",
+      content: "Fix proposal ready -- root cause identified via five-whys"
+    }}
+    ```
 
 ### Phase 4: Review Others' Work
-12. Review proposals for correctness:
+13. Review proposals for correctness:
     ```
     thoughtbox_hub { operation: "review_proposal", args: {
       proposalId: "...",
@@ -93,9 +114,9 @@ Your profile gives you access to:
 | claim_problem | Take ownership of a bug |
 | create_proposal | Submit fix for review |
 | review_proposal | Check another agent's correctness |
-| post_message | Share findings in channels |
+| post_message | Share findings in problem channels |
 | read_channel | Check for updates and context |
-| new_thought | Record investigation steps on branch |
+| thought | Record investigation steps (gateway op) |
 | read_thoughts | Review prior analysis |
 | get_structure | See investigation topology |
 

@@ -94,11 +94,11 @@ export function createHubHandler(
         if (operation === 'get_profile_prompt') {
           const profileName = args.profile as string | undefined;
           if (!profileName) {
-            throw new Error('Profile name is required. Pass { profile: "MANAGER" | "ARCHITECT" | "DEBUGGER" | "SECURITY" }');
+            throw new Error('Profile name is required. Pass { profile: "COORDINATOR" | "ARCHITECT" | "DEBUGGER" | "SECURITY" }');
           }
           const content = getProfilePromptContent(profileName);
           if (!content) {
-            throw new Error(`Unknown profile '${profileName}'. Available profiles: MANAGER, ARCHITECT, DEBUGGER, SECURITY`);
+            throw new Error(`Unknown profile '${profileName}'. Available profiles: COORDINATOR, ARCHITECT, DEBUGGER, SECURITY`);
           }
           return content;
         }

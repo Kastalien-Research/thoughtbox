@@ -96,7 +96,7 @@ async function setupSessionWithBranches(
     thought: 'Branch deep-dive thought 10',
     thoughtNumber: 10,
     totalThoughts: 10,
-    nextThoughtNeeded: false,
+    nextThoughtNeeded: true,
     branchFromThought: 5,
     branchId: 'deep-dive',
   });
@@ -222,6 +222,37 @@ describe('Branch Thought Retrieval', () => {
       expect(data.patterns.branchCount).toBe(2);
       expect(data.patterns.totalThoughts).toBe(10);
       expect(data.cognitiveLoad.breadthIndicator).toBe(3); // main + 2 branches
+    });
+  });
+
+  describe('branchFromThought validation', () => {
+    it('rejects branchFromThought: 0 with bounds error, not missing-field error', async () => {
+      const result = await thoughtHandler.processThought({
+        thought: 'Attempting branch from thought 0',
+        thoughtNumber: 6,
+        totalThoughts: 10,
+        nextThoughtNeeded: true,
+        branchFromThought: 0,
+        branchId: 'bad-branch',
+      });
+
+      expect(result.isError).toBe(true);
+      const text = result.content[0].type === 'text' ? (result.content[0] as any).text : '';
+      expect(text).toContain('branchFromThought must be >= 1');
+    });
+
+    it('still rejects branchId without branchFromThought', async () => {
+      const result = await thoughtHandler.processThought({
+        thought: 'Attempting branch without fork point',
+        thoughtNumber: 6,
+        totalThoughts: 10,
+        nextThoughtNeeded: true,
+        branchId: 'orphan-branch',
+      });
+
+      expect(result.isError).toBe(true);
+      const text = result.content[0].type === 'text' ? (result.content[0] as any).text : '';
+      expect(text).toContain('branchId requires branchFromThought');
     });
   });
 

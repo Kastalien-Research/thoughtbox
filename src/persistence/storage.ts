@@ -21,6 +21,7 @@ import type {
   SessionExport,
   RevisionMetadata,
 } from './types.js';
+import { RevisionIndexBuilder } from '../revision/revision-index.js';
 
 // =============================================================================
 // LinkedThoughtStore - Doubly-linked list storage for reasoning chains
@@ -443,7 +444,6 @@ export class LinkedThoughtStore {
     const nodes = this.getSessionNodes(sessionId);
 
     // SPEC-002: Build revision metadata
-    const { RevisionIndexBuilder } = require("../revision/revision-index.js");
     const indexBuilder = new RevisionIndexBuilder();
     const revisionIndex = indexBuilder.buildIndex(nodes);
 
