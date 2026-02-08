@@ -10,6 +10,7 @@
 import { createHubHandler, type HubEvent, type HubHandler } from './hub-handler.js';
 import { resolveAgentId } from './agent-identity.js';
 import type { HubStorage } from './hub-types.js';
+import { getOperation as getHubOperation } from './operations.js';
 
 interface ThoughtStore {
   createSession(sessionId: string): Promise<void>;
@@ -29,8 +30,12 @@ export interface HubToolHandlerOptions {
   onEvent?: (event: HubEvent) => void;
 }
 
+type HubContentBlock =
+  | { type: 'text'; text: string }
+  | { type: 'resource'; resource: { uri: string; mimeType: string; text: string } };
+
 export interface HubToolResult {
-  content: Array<{ type: 'text'; text: string }>;
+  content: Array<HubContentBlock>;
   isError?: boolean;
 }
 
@@ -75,9 +80,24 @@ export function createHubToolHandler(options: HubToolHandlerOptions): HubToolHan
           sessionIdentities.set(sessionKey, (result as { agentId: string }).agentId);
         }
 
-        return {
-          content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }],
-        };
+        const content: HubContentBlock[] = [
+          { type: 'text' as const, text: JSON.stringify(result, null, 2) },
+        ];
+
+        // Embed per-operation resource block for agent discoverability
+        const opDef = getHubOperation(operation);
+        if (opDef) {
+          content.push({
+            type: 'resource',
+            resource: {
+              uri: `thoughtbox://hub/operations/${operation}`,
+              mimeType: 'application/json',
+              text: JSON.stringify(opDef, null, 2),
+            },
+          });
+        }
+
+        return { content };
       } catch (error: any) {
         return {
           content: [{ type: 'text' as const, text: JSON.stringify({ error: error.message }, null, 2) }],

@@ -46,11 +46,12 @@ describe('GatewayHandler — Profile Priming', () => {
     );
 
     expect(result.isError).toBeFalsy();
-    // Should have text block + resource block
-    expect(result.content.length).toBe(2);
-    const resourceBlock = result.content[1] as any;
-    expect(resourceBlock.type).toBe('resource');
-    expect(resourceBlock.resource.uri).toBe('thoughtbox://profile-priming/DEBUGGER');
+    // Should have profile priming resource block
+    const primingBlock = result.content.find(
+      (c: any) => c.type === 'resource' && c.resource?.uri?.startsWith('thoughtbox://profile-priming/')
+    ) as any;
+    expect(primingBlock).toBeDefined();
+    expect(primingBlock.resource.uri).toBe('thoughtbox://profile-priming/DEBUGGER');
   });
 
   it('T-GP-2: handleThought does NOT append resource for unprofiled agent', async () => {
@@ -65,9 +66,11 @@ describe('GatewayHandler — Profile Priming', () => {
     );
 
     expect(result.isError).toBeFalsy();
-    // Should only have the original text block
-    expect(result.content.length).toBe(1);
-    expect(result.content[0].type).toBe('text');
+    // Should NOT have profile priming resource (may have operation catalog resource)
+    const hasPrimingResource = result.content.some(
+      (c: any) => c.type === 'resource' && c.resource?.uri?.startsWith('thoughtbox://profile-priming/')
+    );
+    expect(hasPrimingResource).toBe(false);
   });
 
   it('T-GP-3: handleThought works when getAgentProfile callback is undefined', async () => {
@@ -81,8 +84,11 @@ describe('GatewayHandler — Profile Priming', () => {
     );
 
     expect(result.isError).toBeFalsy();
-    expect(result.content.length).toBe(1);
-    expect(result.content[0].type).toBe('text');
+    // Should NOT have profile priming resource
+    const hasPrimingResource = result.content.some(
+      (c: any) => c.type === 'resource' && c.resource?.uri?.startsWith('thoughtbox://profile-priming/')
+    );
+    expect(hasPrimingResource).toBe(false);
   });
 
   it('T-GP-4: profile resource has correct annotations', async () => {

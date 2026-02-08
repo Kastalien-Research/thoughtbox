@@ -86,6 +86,12 @@ import {
   type LoopMetadata,
 } from "./resources/loops-content.js";
 import { ClaudeFolderIntegration } from "./claude-folder-integration.js";
+import { getOperationsCatalog as getGatewayOperationsCatalog, getOperation as getGwOp } from "./gateway/operations.js";
+import { getOperationsCatalog as getInitOperationsCatalog, getOperation as getInitOp } from "./init/operations.js";
+import { getOperationsCatalog as getSessionOperationsCatalog, getOperation as getSessOp } from "./sessions/operations.js";
+import { getOperationsCatalog as getKnowledgeOperationsCatalog, getOperation as getKnowOp } from "./knowledge/operations.js";
+import { getOperationsCatalog as getHubOperationsCatalog, getOperation as getHubOp } from "./hub/operations.js";
+import { getOperation as getNbOp } from "./notebook/operations.js";
 
 // Configuration schema
 // Note: Using .default() means the field is always present after parsing.
@@ -498,7 +504,7 @@ Operations:
     const HUB_TOOL_DESCRIPTION = `Multi-agent collaboration hub for coordinated reasoning.
 
 Operations:
-- register: Register as an agent (args: { name: string, profile?: "MANAGER"|"ARCHITECT"|"DEBUGGER"|"SECURITY" })
+- register: Register as an agent (args: { name: string, profile?: "MANAGER"|"ARCHITECT"|"DEBUGGER"|"SECURITY"|"RESEARCHER"|"REVIEWER" })
 - whoami: Get current agent identity
 - create_workspace: Create a collaboration workspace (args: { name, description })
 - join_workspace: Join an existing workspace (args: { workspaceId })
@@ -522,9 +528,19 @@ Operations:
 - list_consensus: List consensus markers (args: { workspaceId })
 - post_message: Post to a problem channel (args: { workspaceId, problemId, content })
 - read_channel: Read problem channel messages (args: { workspaceId, problemId })
-- get_profile_prompt: Get profile prompt with mental models (args: { profile: "MANAGER"|"ARCHITECT"|"DEBUGGER"|"SECURITY" })
+- get_profile_prompt: Get profile prompt with mental models (args: { profile: "MANAGER"|"ARCHITECT"|"DEBUGGER"|"SECURITY"|"RESEARCHER"|"REVIEWER" })
 
-Progressive disclosure is enforced internally. Register first, then join a workspace.`;
+Vocabulary:
+- Workspace: Shared collaboration space containing problems, proposals, consensus markers, and channels
+- Problem: Unit of work with status tracking (open → in-progress → resolved → closed) and dependencies
+- Proposal: Proposed solution referencing a thought branch, reviewed and merged by other agents
+- Consensus: Decision marker with thought reference, endorsed by team members
+- Channel: Message stream scoped to a problem for discussion and coordination
+- Agent: Registered participant with unique ID, name, and optional profile
+- Profile: Role specialization (MANAGER, ARCHITECT, DEBUGGER, SECURITY, RESEARCHER, REVIEWER)
+
+Progressive disclosure is enforced internally. Register first, then join a workspace.
+Read thoughtbox://hub/operations for full schemas.`;
 
     const hubInputSchema = {
       operation: z.enum([
@@ -1244,6 +1260,163 @@ mcp__thoughtbox__thoughtbox({
     })
   );
 
+  server.registerResource(
+    "session-operations",
+    "thoughtbox://session/operations",
+    {
+      description: "Complete catalog of session operations with schemas and examples",
+      mimeType: "application/json",
+    },
+    async (uri) => ({
+      contents: [
+        {
+          uri: uri.toString(),
+          mimeType: "application/json",
+          text: getSessionOperationsCatalog(),
+        },
+      ],
+    })
+  );
+
+  server.registerResource(
+    "gateway-operations",
+    "thoughtbox://gateway/operations",
+    {
+      description: "Complete catalog of gateway operations (thought, read_thoughts, get_structure, cipher, deep_analysis) with schemas and examples",
+      mimeType: "application/json",
+    },
+    async (uri) => ({
+      contents: [
+        {
+          uri: uri.toString(),
+          mimeType: "application/json",
+          text: getGatewayOperationsCatalog(),
+        },
+      ],
+    })
+  );
+
+  server.registerResource(
+    "init-operations",
+    "thoughtbox://init/operations",
+    {
+      description: "Complete catalog of init operations (get_state, list_sessions, navigate, load_context, start_new, list_roots, bind_root) with schemas and examples",
+      mimeType: "application/json",
+    },
+    async (uri) => ({
+      contents: [
+        {
+          uri: uri.toString(),
+          mimeType: "application/json",
+          text: getInitOperationsCatalog(),
+        },
+      ],
+    })
+  );
+
+  server.registerResource(
+    "knowledge-operations",
+    "thoughtbox://knowledge/operations",
+    {
+      description: "Complete catalog of knowledge graph operations (create_entity, get_entity, list_entities, add_observation, create_relation, query_graph, stats) with schemas and examples",
+      mimeType: "application/json",
+    },
+    async (uri) => ({
+      contents: [
+        {
+          uri: uri.toString(),
+          mimeType: "application/json",
+          text: getKnowledgeOperationsCatalog(),
+        },
+      ],
+    })
+  );
+
+  server.registerResource(
+    "hub-operations",
+    "thoughtbox://hub/operations",
+    {
+      description: "Complete catalog of all 27 hub operations organized by category with stage metadata and vocabulary",
+      mimeType: "application/json",
+    },
+    async (uri) => ({
+      contents: [
+        {
+          uri: uri.toString(),
+          mimeType: "application/json",
+          text: getHubOperationsCatalog(),
+        },
+      ],
+    })
+  );
+
+  // Per-operation resource templates (Fix #4: make emitted per-op URIs resolvable)
+  server.registerResource(
+    "gateway-operation",
+    new ResourceTemplate("thoughtbox://gateway/operations/{op}", { list: undefined }),
+    { description: "Individual gateway operation schema and examples", mimeType: "application/json" },
+    async (uri, { op }) => {
+      const opDef = getGwOp(op as string);
+      if (!opDef) throw new Error(`Unknown gateway operation: ${op}`);
+      return { contents: [{ uri: uri.href, mimeType: "application/json", text: JSON.stringify(opDef, null, 2) }] };
+    }
+  );
+
+  server.registerResource(
+    "init-operation",
+    new ResourceTemplate("thoughtbox://init/operations/{op}", { list: undefined }),
+    { description: "Individual init operation schema and examples", mimeType: "application/json" },
+    async (uri, { op }) => {
+      const opDef = getInitOp(op as string);
+      if (!opDef) throw new Error(`Unknown init operation: ${op}`);
+      return { contents: [{ uri: uri.href, mimeType: "application/json", text: JSON.stringify(opDef, null, 2) }] };
+    }
+  );
+
+  server.registerResource(
+    "session-operation",
+    new ResourceTemplate("thoughtbox://session/operations/{op}", { list: undefined }),
+    { description: "Individual session operation schema and examples", mimeType: "application/json" },
+    async (uri, { op }) => {
+      const opDef = getSessOp(op as string);
+      if (!opDef) throw new Error(`Unknown session operation: ${op}`);
+      return { contents: [{ uri: uri.href, mimeType: "application/json", text: JSON.stringify(opDef, null, 2) }] };
+    }
+  );
+
+  server.registerResource(
+    "knowledge-operation",
+    new ResourceTemplate("thoughtbox://knowledge/operations/{op}", { list: undefined }),
+    { description: "Individual knowledge graph operation schema and examples", mimeType: "application/json" },
+    async (uri, { op }) => {
+      const opDef = getKnowOp(op as string);
+      if (!opDef) throw new Error(`Unknown knowledge operation: ${op}`);
+      return { contents: [{ uri: uri.href, mimeType: "application/json", text: JSON.stringify(opDef, null, 2) }] };
+    }
+  );
+
+  server.registerResource(
+    "hub-operation",
+    new ResourceTemplate("thoughtbox://hub/operations/{op}", { list: undefined }),
+    { description: "Individual hub operation schema and examples", mimeType: "application/json" },
+    async (uri, { op }) => {
+      const opDef = getHubOp(op as string);
+      if (!opDef) throw new Error(`Unknown hub operation: ${op}`);
+      return { contents: [{ uri: uri.href, mimeType: "application/json", text: JSON.stringify(opDef, null, 2) }] };
+    }
+  );
+
+  server.registerResource(
+    "notebook-operation",
+    new ResourceTemplate("thoughtbox://notebook/operations/{op}", { list: undefined }),
+    { description: "Individual notebook operation schema and examples", mimeType: "application/json" },
+    async (uri, { op }) => {
+      const opDef = getNbOp(op as string);
+      if (!opDef) throw new Error(`Unknown notebook operation: ${op}`);
+      return { contents: [{ uri: uri.href, mimeType: "application/json", text: JSON.stringify(opDef, null, 2) }] };
+    }
+  );
+
   // Register resource templates
   server.registerResource(
     "interleaved-guide",
@@ -1682,6 +1855,36 @@ mcp__thoughtbox__thoughtbox({
         mimeType: "application/json",
       },
       {
+        uri: "thoughtbox://session/operations",
+        name: "Session Operations Catalog",
+        description: "Complete catalog of session operations with schemas and examples",
+        mimeType: "application/json",
+      },
+      {
+        uri: "thoughtbox://gateway/operations",
+        name: "Gateway Operations Catalog",
+        description: "Complete catalog of gateway operations (thought, read_thoughts, get_structure, cipher, deep_analysis)",
+        mimeType: "application/json",
+      },
+      {
+        uri: "thoughtbox://init/operations",
+        name: "Init Operations Catalog",
+        description: "Complete catalog of init operations (get_state, list_sessions, navigate, load_context, start_new, list_roots, bind_root)",
+        mimeType: "application/json",
+      },
+      {
+        uri: "thoughtbox://knowledge/operations",
+        name: "Knowledge Operations Catalog",
+        description: "Complete catalog of knowledge graph operations with schemas and examples",
+        mimeType: "application/json",
+      },
+      {
+        uri: "thoughtbox://hub/operations",
+        name: "Hub Operations Catalog",
+        description: "Complete catalog of all 27 hub operations with stage metadata and vocabulary",
+        mimeType: "application/json",
+      },
+      {
         uri: "thoughtbox://patterns-cookbook",
         name: "Thoughtbox Patterns Cookbook",
         description: "Guide to core reasoning patterns for thoughtbox tool",
@@ -1812,6 +2015,43 @@ mcp__thoughtbox__thoughtbox({
           name: "Init Context Loaded",
           description: "Context loaded - ready to work",
           mimeType: "text/markdown",
+        },
+        // Per-operation resource templates (Fix #4)
+        {
+          uriTemplate: "thoughtbox://gateway/operations/{op}",
+          name: "Gateway Operation Detail",
+          description: "Individual gateway operation schema and examples",
+          mimeType: "application/json",
+        },
+        {
+          uriTemplate: "thoughtbox://init/operations/{op}",
+          name: "Init Operation Detail",
+          description: "Individual init operation schema and examples",
+          mimeType: "application/json",
+        },
+        {
+          uriTemplate: "thoughtbox://session/operations/{op}",
+          name: "Session Operation Detail",
+          description: "Individual session operation schema and examples",
+          mimeType: "application/json",
+        },
+        {
+          uriTemplate: "thoughtbox://knowledge/operations/{op}",
+          name: "Knowledge Operation Detail",
+          description: "Individual knowledge graph operation schema and examples",
+          mimeType: "application/json",
+        },
+        {
+          uriTemplate: "thoughtbox://hub/operations/{op}",
+          name: "Hub Operation Detail",
+          description: "Individual hub operation schema and examples",
+          mimeType: "application/json",
+        },
+        {
+          uriTemplate: "thoughtbox://notebook/operations/{op}",
+          name: "Notebook Operation Detail",
+          description: "Individual notebook operation schema and examples",
+          mimeType: "application/json",
         },
         ...getInterleavedResourceTemplates().resourceTemplates,
         ...getSessionAnalysisResourceTemplates().resourceTemplates,

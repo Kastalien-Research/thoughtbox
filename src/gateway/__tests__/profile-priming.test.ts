@@ -62,9 +62,11 @@ describe('Profile priming once-per-session', () => {
       'session-1'
     );
 
-    // Should have text content + profile priming resource
-    const hasResource = result.content.some(c => c.type === 'resource');
-    expect(hasResource).toBe(true);
+    // Should have profile priming resource (not just operation catalog resource)
+    const hasPrimingResource = result.content.some(c =>
+      c.type === 'resource' && (c as any).resource?.uri?.startsWith('thoughtbox://profile-priming/')
+    );
+    expect(hasPrimingResource).toBe(true);
   });
 
   it('does NOT include priming on second thought for same session', async () => {
@@ -80,8 +82,10 @@ describe('Profile priming once-per-session', () => {
       'session-1'
     );
 
-    const hasResource = result2.content.some(c => c.type === 'resource');
-    expect(hasResource).toBe(false);
+    const hasPrimingResource = result2.content.some(c =>
+      c.type === 'resource' && (c as any).resource?.uri?.startsWith('thoughtbox://profile-priming/')
+    );
+    expect(hasPrimingResource).toBe(false);
   });
 
   it('includes priming for different sessions independently', async () => {
@@ -90,14 +94,18 @@ describe('Profile priming once-per-session', () => {
       { operation: 'thought', args: { thought: 'S1 first', nextThoughtNeeded: false } },
       'session-1'
     );
-    expect(r1.content.some(c => c.type === 'resource')).toBe(true);
+    expect(r1.content.some(c =>
+      c.type === 'resource' && (c as any).resource?.uri?.startsWith('thoughtbox://profile-priming/')
+    )).toBe(true);
 
     // Session 2 first call — priming also included (different session)
     const r2 = await handler.handle(
       { operation: 'thought', args: { thought: 'S2 first', nextThoughtNeeded: false } },
       'session-2'
     );
-    expect(r2.content.some(c => c.type === 'resource')).toBe(true);
+    expect(r2.content.some(c =>
+      c.type === 'resource' && (c as any).resource?.uri?.startsWith('thoughtbox://profile-priming/')
+    )).toBe(true);
   });
 
   it('does not include priming when no profile is set', async () => {
@@ -108,7 +116,9 @@ describe('Profile priming once-per-session', () => {
       'session-1'
     );
 
-    const hasResource = result.content.some(c => c.type === 'resource');
-    expect(hasResource).toBe(false);
+    const hasPrimingResource = result.content.some(c =>
+      c.type === 'resource' && (c as any).resource?.uri?.startsWith('thoughtbox://profile-priming/')
+    );
+    expect(hasPrimingResource).toBe(false);
   });
 });
