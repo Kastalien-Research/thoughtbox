@@ -141,6 +141,11 @@ interface ResourceContent {
     uri: string;
     mimeType: string;
     text: string;
+    title?: string;
+    annotations?: {
+      audience: string[];
+      priority: number;
+    };
   };
 }
 
@@ -417,15 +422,15 @@ export class GatewayHandler {
     let availableOps: string[];
     let catalogUri: string;
 
-    switch (required) {
-      case DisclosureStage.STAGE_1_INIT_COMPLETE:
+    switch (current) {
+      case DisclosureStage.STAGE_0_ENTRY:
         suggestion = "Call gateway with operation 'start_new' or 'load_context' first.";
         availableOps = ['get_state', 'list_sessions', 'navigate', 'load_context', 'start_new', 'list_roots', 'bind_root'];
         catalogUri = 'thoughtbox://init/operations';
         break;
-      case DisclosureStage.STAGE_2_CIPHER_LOADED:
+      case DisclosureStage.STAGE_1_INIT_COMPLETE:
         suggestion = "Call gateway with operation 'cipher' first.";
-        availableOps = ['cipher', 'session', 'deep_analysis'];
+        availableOps = ['cipher', 'deep_analysis'];
         catalogUri = 'thoughtbox://gateway/operations';
         break;
       default:

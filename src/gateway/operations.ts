@@ -113,7 +113,7 @@ export const GATEWAY_OPERATIONS: OperationDefinition[] = [
         },
         branchId: {
           type: "string",
-          description: "Filter by branch name",
+          description: "Get all thoughts from a named branch (standalone query mode — not combinable with thoughtNumber, last, or range)",
         },
       },
     },
