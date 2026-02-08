@@ -11,13 +11,14 @@ import type { AgentIdentity, HubStorage } from './hub-types.js';
 import { isValidProfile, getProfile } from './profiles-registry.js';
 
 export interface IdentityManager {
-  register(args: { name: string; clientInfo?: string; profile?: string }): Promise<{ agentId: string; name: string; role: 'contributor' }>;
+  register(args: { name: string; clientInfo?: string; profile?: string; manager?: boolean }): Promise<{ agentId: string; name: string; role: 'contributor' }>;
   whoami(agentId: string): Promise<{
     agentId: string;
     name: string;
     role: string;
     workspaces: string[];
     profile?: string;
+    manager?: boolean;
     mentalModels?: string[];
   }>;
   getAgent(agentId: string): Promise<AgentIdentity | null>;
@@ -25,10 +26,10 @@ export interface IdentityManager {
 
 export function createIdentityManager(storage: HubStorage): IdentityManager {
   return {
-    async register({ name, clientInfo, profile }) {
+    async register({ name, clientInfo, profile, manager }) {
       // Validate profile if provided
       if (profile !== undefined && !isValidProfile(profile)) {
-        const validProfiles = ['MANAGER', 'ARCHITECT', 'DEBUGGER', 'SECURITY'];
+        const validProfiles = ['COORDINATOR', 'ARCHITECT', 'DEBUGGER', 'SECURITY'];
         throw new Error(`Invalid profile '${profile}'. Valid profiles: ${validProfiles.join(', ')}`);
       }
 
@@ -37,6 +38,7 @@ export function createIdentityManager(storage: HubStorage): IdentityManager {
         name,
         role: 'contributor',
         ...(profile && { profile }),
+        ...(manager && { manager }),
         clientInfo,
         registeredAt: new Date().toISOString(),
       };
@@ -68,6 +70,7 @@ export function createIdentityManager(storage: HubStorage): IdentityManager {
         role: string;
         workspaces: string[];
         profile?: string;
+        manager?: boolean;
         mentalModels?: string[];
       } = {
         agentId: agent.agentId,
@@ -75,6 +78,11 @@ export function createIdentityManager(storage: HubStorage): IdentityManager {
         role: agent.role,
         workspaces,
       };
+
+      // Include manager flag if set
+      if (agent.manager) {
+        result.manager = agent.manager;
+      }
 
       // Include profile info if agent has a profile
       if (agent.profile) {

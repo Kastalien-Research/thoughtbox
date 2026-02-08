@@ -18,10 +18,10 @@ function makeConfig(overrides: Partial<GatewayHandlerConfig> = {}): GatewayHandl
     } as any,
     initToolHandler: {} as any,
     thoughtHandler: {
-      processThought: vi.fn().mockResolvedValue({
+      processThought: vi.fn().mockImplementation(async () => ({
         content: [{ type: 'text', text: 'Thought recorded (1/5)' }],
         isError: false,
-      }),
+      })),
       getCurrentSessionId: () => null,
     } as any,
     notebookHandler: {} as any,
@@ -87,7 +87,7 @@ describe('GatewayHandler — Profile Priming', () => {
 
   it('T-GP-4: profile resource has correct annotations', async () => {
     const config = makeConfig({
-      getAgentProfile: vi.fn().mockResolvedValue('MANAGER'),
+      getAgentProfile: vi.fn().mockResolvedValue('COORDINATOR'),
     });
     const handler = new GatewayHandler(config);
 
@@ -119,7 +119,30 @@ describe('GatewayHandler — Profile Priming', () => {
     expect(result.content[result.content.length - 1].type).toBe('resource');
   });
 
-  it('T-GP-6: handleThought error result does NOT get profile appended', async () => {
+  it('T-GP-6: priming appears only on first thought, not subsequent ones', async () => {
+    const config = makeConfig({
+      getAgentProfile: vi.fn().mockResolvedValue('DEBUGGER'),
+    });
+    const handler = new GatewayHandler(config);
+
+    // First thought — should include priming
+    const result1 = await handler.handle(
+      { operation: 'thought', args: { thought: 'first thought', nextThoughtNeeded: true } },
+      'sess-1',
+    );
+    expect(result1.content.length).toBe(2);
+    expect((result1.content[1] as any).type).toBe('resource');
+
+    // Second thought (same session) — should NOT include priming
+    const result2 = await handler.handle(
+      { operation: 'thought', args: { thought: 'second thought', nextThoughtNeeded: false } },
+      'sess-1',
+    );
+    expect(result2.content.length).toBe(1);
+    expect(result2.content[0].type).toBe('text');
+  });
+
+  it('T-GP-7: handleThought error result does NOT get profile appended', async () => {
     const config = makeConfig({
       getAgentProfile: vi.fn().mockResolvedValue('DEBUGGER'),
       thoughtHandler: {

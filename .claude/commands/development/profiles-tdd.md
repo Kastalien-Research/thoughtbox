@@ -41,7 +41,7 @@ RESUME: $ARGUMENTS (default: auto-detected from .profiles-tdd/state.json)
 
 | Profile | Mental Models | Primary Goal |
 |---------|--------------|--------------|
-| MANAGER | decomposition, pre-mortem, five-whys | Delegation and team coordination |
+| COORDINATOR | decomposition, pre-mortem, five-whys | Delegation and team coordination |
 | ARCHITECT | decomposition, trade-off-matrix, abstraction-laddering | Structural design |
 | DEBUGGER | five-whys, rubber-duck, assumption-surfacing | Root cause analysis |
 | SECURITY | adversarial-thinking, pre-mortem | Risk and vulnerability detection |
@@ -107,7 +107,7 @@ OBJECTIVE: Detect existing state or create fresh run
 OBJECTIVE: Write all profile type definitions
 
 1. Create src/hub/profiles-types.ts with:
-   - ProfileName type: 'MANAGER' | 'ARCHITECT' | 'DEBUGGER' | 'SECURITY'
+   - ProfileName type: 'COORDINATOR' | 'ARCHITECT' | 'DEBUGGER' | 'SECURITY'
    - ProfileDefinition interface: { name, description, mentalModels, primaryGoal }
 
 2. Modify src/hub/hub-types.ts:

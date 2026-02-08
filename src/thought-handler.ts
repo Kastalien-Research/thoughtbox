@@ -323,12 +323,21 @@ export class ThoughtHandler {
 
     // Validate branching: branchId requires branchFromThought
     // branchId is a structural fork identifier, not a category/tag
-    if (data.branchId && !data.branchFromThought) {
+    if (data.branchId && (data.branchFromThought === undefined || data.branchFromThought === null)) {
       throw new Error(
         "branchId requires branchFromThought. " +
         "Branching creates an alternative reasoning path from a specific thought. " +
         "Use branchFromThought to specify which thought number you're forking from. " +
         "Example: { branchFromThought: 5, branchId: 'approach-a' }"
+      );
+    }
+
+    // Validate branchFromThought is >= 1 (thoughts are 1-indexed)
+    if (data.branchFromThought !== undefined && data.branchFromThought !== null && data.branchFromThought < 1) {
+      throw new Error(
+        "branchFromThought must be >= 1 (thoughts are 1-indexed). " +
+        "Use branchFromThought to specify which existing thought to fork from. " +
+        "Example: { branchFromThought: 1, branchId: 'approach-a' }"
       );
     }
 
