@@ -86,6 +86,11 @@ import {
   type LoopMetadata,
 } from "./resources/loops-content.js";
 import { ClaudeFolderIntegration } from "./claude-folder-integration.js";
+import { getOperationsCatalog as getGatewayOperationsCatalog } from "./gateway/operations.js";
+import { getOperationsCatalog as getInitOperationsCatalog } from "./init/operations.js";
+import { getOperationsCatalog as getSessionOperationsCatalog } from "./sessions/operations.js";
+import { getOperationsCatalog as getKnowledgeOperationsCatalog } from "./knowledge/operations.js";
+import { getOperationsCatalog as getHubOperationsCatalog } from "./hub/operations.js";
 
 // Configuration schema
 // Note: Using .default() means the field is always present after parsing.
@@ -524,7 +529,17 @@ Operations:
 - read_channel: Read problem channel messages (args: { workspaceId, problemId })
 - get_profile_prompt: Get profile prompt with mental models (args: { profile: "MANAGER"|"ARCHITECT"|"DEBUGGER"|"SECURITY" })
 
-Progressive disclosure is enforced internally. Register first, then join a workspace.`;
+Vocabulary:
+- Workspace: Shared collaboration space containing problems, proposals, consensus markers, and channels
+- Problem: Unit of work with status tracking (open → in-progress → resolved → closed) and dependencies
+- Proposal: Proposed solution referencing a thought branch, reviewed and merged by other agents
+- Consensus: Decision marker with thought reference, endorsed by team members
+- Channel: Message stream scoped to a problem for discussion and coordination
+- Agent: Registered participant with unique ID, name, and optional profile
+- Profile: Role specialization (MANAGER, ARCHITECT, DEBUGGER, SECURITY, RESEARCHER, REVIEWER)
+
+Progressive disclosure is enforced internally. Register first, then join a workspace.
+Read thoughtbox://hub/operations for full schemas.`;
 
     const hubInputSchema = {
       operation: z.enum([
@@ -1244,6 +1259,96 @@ mcp__thoughtbox__thoughtbox({
     })
   );
 
+  server.registerResource(
+    "session-operations",
+    "thoughtbox://session/operations",
+    {
+      description: "Complete catalog of session operations with schemas and examples",
+      mimeType: "application/json",
+    },
+    async (uri) => ({
+      contents: [
+        {
+          uri: uri.toString(),
+          mimeType: "application/json",
+          text: getSessionOperationsCatalog(),
+        },
+      ],
+    })
+  );
+
+  server.registerResource(
+    "gateway-operations",
+    "thoughtbox://gateway/operations",
+    {
+      description: "Complete catalog of gateway operations (thought, read_thoughts, get_structure, cipher, deep_analysis) with schemas and examples",
+      mimeType: "application/json",
+    },
+    async (uri) => ({
+      contents: [
+        {
+          uri: uri.toString(),
+          mimeType: "application/json",
+          text: getGatewayOperationsCatalog(),
+        },
+      ],
+    })
+  );
+
+  server.registerResource(
+    "init-operations",
+    "thoughtbox://init/operations",
+    {
+      description: "Complete catalog of init operations (get_state, list_sessions, navigate, load_context, start_new, list_roots, bind_root) with schemas and examples",
+      mimeType: "application/json",
+    },
+    async (uri) => ({
+      contents: [
+        {
+          uri: uri.toString(),
+          mimeType: "application/json",
+          text: getInitOperationsCatalog(),
+        },
+      ],
+    })
+  );
+
+  server.registerResource(
+    "knowledge-operations",
+    "thoughtbox://knowledge/operations",
+    {
+      description: "Complete catalog of knowledge graph operations (create_entity, get_entity, list_entities, add_observation, create_relation, query_graph, stats) with schemas and examples",
+      mimeType: "application/json",
+    },
+    async (uri) => ({
+      contents: [
+        {
+          uri: uri.toString(),
+          mimeType: "application/json",
+          text: getKnowledgeOperationsCatalog(),
+        },
+      ],
+    })
+  );
+
+  server.registerResource(
+    "hub-operations",
+    "thoughtbox://hub/operations",
+    {
+      description: "Complete catalog of all 27 hub operations organized by category with stage metadata and vocabulary",
+      mimeType: "application/json",
+    },
+    async (uri) => ({
+      contents: [
+        {
+          uri: uri.toString(),
+          mimeType: "application/json",
+          text: getHubOperationsCatalog(),
+        },
+      ],
+    })
+  );
+
   // Register resource templates
   server.registerResource(
     "interleaved-guide",
@@ -1679,6 +1784,36 @@ mcp__thoughtbox__thoughtbox({
         uri: "thoughtbox://notebook/operations",
         name: "Notebook Operations Catalog",
         description: "Complete catalog of notebook operations with schemas and examples",
+        mimeType: "application/json",
+      },
+      {
+        uri: "thoughtbox://session/operations",
+        name: "Session Operations Catalog",
+        description: "Complete catalog of session operations with schemas and examples",
+        mimeType: "application/json",
+      },
+      {
+        uri: "thoughtbox://gateway/operations",
+        name: "Gateway Operations Catalog",
+        description: "Complete catalog of gateway operations (thought, read_thoughts, get_structure, cipher, deep_analysis)",
+        mimeType: "application/json",
+      },
+      {
+        uri: "thoughtbox://init/operations",
+        name: "Init Operations Catalog",
+        description: "Complete catalog of init operations (get_state, list_sessions, navigate, load_context, start_new, list_roots, bind_root)",
+        mimeType: "application/json",
+      },
+      {
+        uri: "thoughtbox://knowledge/operations",
+        name: "Knowledge Operations Catalog",
+        description: "Complete catalog of knowledge graph operations with schemas and examples",
+        mimeType: "application/json",
+      },
+      {
+        uri: "thoughtbox://hub/operations",
+        name: "Hub Operations Catalog",
+        description: "Complete catalog of all 27 hub operations with stage metadata and vocabulary",
         mimeType: "application/json",
       },
       {
