@@ -7,10 +7,10 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { GatewayHandler } from '../gateway-handler.js';
-import { ToolRegistry, DisclosureStage } from '../../tool-registry.js';
+import { DisclosureStage } from '../../tool-registry.js';
 
 // Minimal mock types
-function createMockToolRegistry(): ToolRegistry {
+function createMockToolRegistry() {
   let stage = DisclosureStage.STAGE_2_CIPHER_LOADED;
   return {
     getCurrentStage: () => stage,
@@ -54,6 +54,9 @@ describe('Profile priming once-per-session', () => {
       agentName: 'Test Agent',
       getAgentProfile: getAgentProfileFn,
     });
+    // Pre-advance sessions to Stage 2 for thought operation access
+    handler.setSessionStage('session-1', DisclosureStage.STAGE_2_CIPHER_LOADED);
+    handler.setSessionStage('session-2', DisclosureStage.STAGE_2_CIPHER_LOADED);
   });
 
   it('includes priming on first thought', async () => {

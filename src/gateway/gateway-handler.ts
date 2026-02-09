@@ -206,6 +206,8 @@ export class GatewayHandler {
   private sessionAgentNames = new Map<string, string>();
   /** Track which sessions have already received profile priming (thoughtbox-308 fix) */
   private sessionsPrimed = new Set<string>();
+  /** Per-session disclosure stage (fix thoughtbox-twu: sub-agents bypass progressive disclosure) */
+  private sessionStages = new Map<string, DisclosureStage>();
 
   constructor(config: GatewayHandlerConfig) {
     this.toolRegistry = config.toolRegistry;
@@ -231,12 +233,51 @@ export class GatewayHandler {
   }
 
   /**
+   * Set the disclosure stage for a specific MCP session.
+   * Used by server-factory for sessions that pre-load context,
+   * and by tests to set up desired stage state.
+   */
+  setSessionStage(mcpSessionId: string, stage: DisclosureStage): void {
+    this.sessionStages.set(mcpSessionId, stage);
+  }
+
+  /**
    * Clear session-specific state to prevent memory leaks
    */
   clearSession(mcpSessionId: string): void {
     this.sessionAgentIds.delete(mcpSessionId);
     this.sessionAgentNames.delete(mcpSessionId);
     this.sessionsPrimed.delete(mcpSessionId);
+    this.sessionStages.delete(mcpSessionId);
+  }
+
+  /**
+   * Get the disclosure stage for a specific MCP session.
+   * New/unknown sessions start at STAGE_0_ENTRY (progressive disclosure enforced).
+   * When no mcpSessionId is provided, falls back to the global ToolRegistry stage.
+   */
+  private getSessionStage(mcpSessionId?: string): DisclosureStage {
+    if (mcpSessionId) {
+      return this.sessionStages.get(mcpSessionId) ?? DisclosureStage.STAGE_0_ENTRY;
+    }
+    // No session ID — fall back to global stage for backward compatibility
+    return this.toolRegistry.getCurrentStage();
+  }
+
+  /**
+   * Advance the disclosure stage for a specific MCP session.
+   * Also advances the global ToolRegistry stage (for tool visibility hints).
+   */
+  private advanceSessionStage(mcpSessionId: string | undefined, stage: DisclosureStage): void {
+    if (mcpSessionId) {
+      const currentIdx = STAGE_ORDER.indexOf(this.getSessionStage(mcpSessionId));
+      const targetIdx = STAGE_ORDER.indexOf(stage);
+      if (targetIdx > currentIdx) {
+        this.sessionStages.set(mcpSessionId, stage);
+      }
+    }
+    // Always advance global stage too (for tool enable/disable hints)
+    this.toolRegistry.advanceToStage(stage);
   }
 
   /**
@@ -265,9 +306,9 @@ export class GatewayHandler {
   async handle(input: GatewayToolInput, mcpSessionId?: string): Promise<ToolResponse> {
     const { operation, args } = input;
 
-    // Check stage requirement
+    // Check stage requirement — use per-session stage (fix thoughtbox-twu)
     const requiredStage = OPERATION_REQUIRED_STAGE[operation];
-    const currentStage = this.toolRegistry.getCurrentStage();
+    const currentStage = this.getSessionStage(mcpSessionId);
 
     if (!this.isStageAtLeast(currentStage, requiredStage)) {
       return this.createStageError(operation, currentStage, requiredStage);
@@ -368,11 +409,11 @@ export class GatewayHandler {
       }
     }
 
-    // Handle stage advancement if operation succeeded
+    // Handle stage advancement if operation succeeded (per-session: fix thoughtbox-twu)
     if (!result.isError) {
       const advancesTo = OPERATION_ADVANCES_TO[operation];
       if (advancesTo) {
-        this.toolRegistry.advanceToStage(advancesTo);
+        this.advanceSessionStage(mcpSessionId, advancesTo);
         // Notify clients (harmless if ignored by streaming HTTP)
         if (this.sendToolListChanged) {
           this.sendToolListChanged();
