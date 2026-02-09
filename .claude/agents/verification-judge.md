@@ -1,7 +1,7 @@
 ---
 name: verification-judge
 description: Independently validate completed work against specifications and acceptance criteria. Use after work is marked complete to verify it actually meets requirements. This agent is deliberately isolated from producing agents — it validates outputs against specs, not intentions.
-tools: Read, Glob, Grep, Bash
+tools: Read, Glob, Grep, Bash, ToolSearch
 disallowedTools: Edit, Write
 model: opus
 maxTurns: 10
