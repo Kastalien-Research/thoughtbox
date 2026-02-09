@@ -6,6 +6,7 @@
  * - WebSocket server for real-time communication
  * - Channel registration and wiring
  * - Hub REST API for workspace data (when hubStorage provided)
+ * - Historical session access (when persistentStorage provided)
  */
 
 import { createServer, type Server as HttpServer } from "http";
@@ -18,7 +19,13 @@ import type { ObservatoryConfig } from "./config.js";
 import { OBSERVATORY_HTML } from "./ui/index.js";
 import { ImprovementEventStore } from "./improvement-store.js";
 import { ScorecardAggregator } from "./scorecard-aggregator.js";
+import type { ThoughtboxStorage } from "../persistence/types.js";
 import type { HubStorage } from "../hub/hub-types.js";
+import {
+  toObservatorySession,
+  toObservatoryThought,
+  toObservatoryBranches,
+} from "./storage-adapter.js";
 
 /**
  * Observatory server instance
@@ -43,6 +50,7 @@ export interface ObservatoryServerOptions {
   _type: 'options';
   config: ObservatoryConfig;
   hubStorage?: HubStorage;
+  persistentStorage?: ThoughtboxStorage;
 }
 
 /**
@@ -53,6 +61,7 @@ export function createObservatoryServer(
 ): ObservatoryServer {
   const config = options.config;
   const hubStorage = options.hubStorage;
+  const storage = options.persistentStorage;
 
   let httpServer: HttpServer | null = null;
   let wss: WebSocketServer | null = null;
@@ -161,7 +170,6 @@ export function createObservatoryServer(
             json(res, 404, { error: "Workspace not found" });
             return;
           }
-          // Enrich workspace agents with full identity info
           const agents = await Promise.all(
             workspace.agents.map(async (wa) => {
               const identity = await hubStorage.getAgent(wa.agentId);
@@ -225,6 +233,7 @@ export function createObservatoryServer(
         connections: wss?.getConnectionCount() || 0,
         activeSessions: activeSessions.length,
         hubEnabled: !!hubStorage,
+        persistentStorageEnabled: !!storage,
       });
       return;
     }
@@ -251,18 +260,56 @@ export function createObservatoryServer(
 
     // Sessions list endpoint
     if (url.pathname === "/api/sessions" && req.method === "GET") {
-      const status = url.searchParams.get("status");
-      let sessions = sessionStore.getAllSessions();
+      const source = url.searchParams.get("source") || "all";
 
-      if (status && status !== "all") {
-        sessions = sessions.filter((s) => s.status === status);
-      }
+      (async () => {
+        // Collect active sessions from in-memory store
+        const activeIds = new Set<string>();
+        let sessions = sessionStore.getAllSessions();
+        sessions.forEach((s) => activeIds.add(s.id));
 
-      const limit = parseInt(url.searchParams.get("limit") || "50", 10);
-      const offset = parseInt(url.searchParams.get("offset") || "0", 10);
-      sessions = sessions.slice(offset, offset + limit);
+        let mergedSessions = [...sessions];
 
-      json(res, 200, { sessions });
+        // Merge historical sessions from persistent storage (if available)
+        if (storage && source !== "active") {
+          try {
+            const historicalRaw = await storage.listSessions({
+              limit: 50,
+              sortBy: "updatedAt",
+              sortOrder: "desc",
+            });
+
+            for (const ps of historicalRaw) {
+              if (!activeIds.has(ps.id)) {
+                mergedSessions.push(toObservatorySession(ps));
+              }
+            }
+          } catch (err) {
+            console.error("[Observatory] Failed to load historical sessions:", err);
+          }
+        }
+
+        // Filter by source if requested
+        if (source === "active") {
+          mergedSessions = mergedSessions.filter((s) => activeIds.has(s.id));
+        } else if (source === "historical") {
+          mergedSessions = mergedSessions.filter((s) => !activeIds.has(s.id));
+        }
+
+        // Apply status filter
+        const status = url.searchParams.get("status");
+        if (status && status !== "all") {
+          mergedSessions = mergedSessions.filter((s) => s.status === status);
+        }
+
+        const limit = parseInt(url.searchParams.get("limit") || "50", 10);
+        const offset = parseInt(url.searchParams.get("offset") || "0", 10);
+        mergedSessions = mergedSessions.slice(offset, offset + limit);
+
+        json(res, 200, { sessions: mergedSessions });
+      })().catch((err) => {
+        json(res, 500, { error: (err as Error).message });
+      });
       return;
     }
 
@@ -272,18 +319,52 @@ export function createObservatoryServer(
       const sessionId = sessionMatch[1];
 
       (async () => {
+        // First check in-memory store (active sessions)
         const session = await sessionStore.getSession(sessionId);
-        if (!session) {
-          json(res, 404, { error: "Session not found" });
+        if (session) {
+          const thoughts = await sessionStore.getThoughts(sessionId);
+          const branches = await sessionStore.getBranches(sessionId);
+          json(res, 200, { session, thoughts, branches });
           return;
         }
 
-        const thoughts = await sessionStore.getThoughts(sessionId);
-        const branches = await sessionStore.getBranches(sessionId);
+        // Fall back to persistent storage
+        if (storage) {
+          const persistedSession = await storage.getSession(sessionId);
+          if (persistedSession) {
+            const obsSession = toObservatorySession(persistedSession);
+            const rawThoughts = await storage.getThoughts(sessionId);
+            const obsThoughts = rawThoughts.map((td) =>
+              toObservatoryThought(sessionId, td)
+            );
 
-        json(res, 200, { session, thoughts, branches });
+            // Load branches
+            const branchIds = await storage.getBranchIds(sessionId);
+            const branchThoughtsMap = new Map<
+              string,
+              import("../persistence/types.js").ThoughtData[]
+            >();
+            for (const bid of branchIds) {
+              branchThoughtsMap.set(bid, await storage.getBranch(sessionId, bid));
+            }
+            const obsBranches = toObservatoryBranches(
+              sessionId,
+              branchIds,
+              branchThoughtsMap
+            );
+
+            json(res, 200, {
+              session: obsSession,
+              thoughts: obsThoughts,
+              branches: obsBranches,
+            });
+            return;
+          }
+        }
+
+        json(res, 404, { error: "Session not found" });
       })().catch((err) => {
-        json(res, 500, { error: err.message });
+        json(res, 500, { error: (err as Error).message });
       });
       return;
     }
@@ -366,8 +447,6 @@ export function createObservatoryServer(
         createWorkspaceChannel(wss);
 
       channelCleanups = [cleanupWorkspace];
-      // TODO: reasoning and observatory channels also attach emitter listeners
-      // and should return cleanup functions (same pattern as workspace)
 
       wss.registerChannel(reasoningChannel);
       wss.registerChannel(observatoryChannel);
@@ -394,6 +473,11 @@ export function createObservatoryServer(
           if (hubStorage) {
             console.log(
               `[Observatory] Hub API: http://localhost:${config.port}/api/hub/`
+            );
+          }
+          if (storage) {
+            console.log(
+              `[Observatory] Persistent storage: enabled (historical sessions available)`
             );
           }
           running = true;
