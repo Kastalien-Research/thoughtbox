@@ -1,7 +1,7 @@
 ---
 name: research-taste
 description: Evaluate research directions before committing effort. Use when deciding whether to pursue a technical investigation, feature direction, tool evaluation, or any significant research investment. This agent prevents wasted effort by identifying the highest-information, lowest-cost path through a problem space.
-tools: Read, Glob, Grep, Bash, WebFetch, WebSearch
+tools: Read, Glob, Grep, Bash, WebFetch, WebSearch, ToolSearch
 disallowedTools: Edit, Write
 model: sonnet
 maxTurns: 15
