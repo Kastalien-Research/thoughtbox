@@ -33,8 +33,9 @@ export function toObservatorySession(ps: PersistenceSession): ObsSession {
  * ThoughtData has no standalone id field.
  */
 export function toObservatoryThought(sessionId: string, td: ThoughtData): Thought {
+  const idPrefix = td.branchId ? `${sessionId}:${td.branchId}` : sessionId;
   return {
-    id: `${sessionId}:${td.thoughtNumber}`,
+    id: `${idPrefix}:${td.thoughtNumber}`,
     thoughtNumber: td.thoughtNumber,
     totalThoughts: td.totalThoughts,
     thought: td.thought,

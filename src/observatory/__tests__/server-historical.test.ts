@@ -92,7 +92,7 @@ describe("Observatory Server - Historical Sessions", () => {
     ];
 
     const storage = createMockStorage(mockSessions);
-    server = createObservatoryServer(testConfig(port), storage);
+    server = createObservatoryServer({ _type: 'options', config: testConfig(port), persistentStorage: storage });
     await server.start();
 
     const { status, data } = await fetchJson(port, "/api/sessions");
@@ -139,7 +139,7 @@ describe("Observatory Server - Historical Sessions", () => {
       mockSessions,
       { "hist-2": thoughts }
     );
-    server = createObservatoryServer(testConfig(port), storage);
+    server = createObservatoryServer({ _type: 'options', config: testConfig(port), persistentStorage: storage });
     await server.start();
 
     const { status, data } = await fetchJson(port, "/api/sessions/hist-2");
@@ -154,7 +154,7 @@ describe("Observatory Server - Historical Sessions", () => {
 
   it("returns 404 when session not in memory or storage", async () => {
     const storage = createMockStorage();
-    server = createObservatoryServer(testConfig(port), storage);
+    server = createObservatoryServer({ _type: 'options', config: testConfig(port), persistentStorage: storage });
     await server.start();
 
     const { status, data } = await fetchJson(port, "/api/sessions/nonexistent");
@@ -164,7 +164,7 @@ describe("Observatory Server - Historical Sessions", () => {
   });
 
   it("works without storage (backward compat)", async () => {
-    server = createObservatoryServer(testConfig(port));
+    server = createObservatoryServer({ _type: 'options', config: testConfig(port) });
     await server.start();
 
     const { status, data } = await fetchJson(port, "/api/sessions");
@@ -188,7 +188,7 @@ describe("Observatory Server - Historical Sessions", () => {
     ];
 
     const storage = createMockStorage(mockSessions);
-    server = createObservatoryServer(testConfig(port), storage);
+    server = createObservatoryServer({ _type: 'options', config: testConfig(port), persistentStorage: storage });
     await server.start();
 
     const { data } = await fetchJson(port, "/api/sessions?source=historical");
@@ -242,7 +242,7 @@ describe("Observatory Server - Historical Sessions", () => {
       { "hist-4": ["alt-1"] },
       { "hist-4": { "alt-1": branchThoughts } }
     );
-    server = createObservatoryServer(testConfig(port), storage);
+    server = createObservatoryServer({ _type: 'options', config: testConfig(port), persistentStorage: storage });
     await server.start();
 
     const { status, data } = await fetchJson(port, "/api/sessions/hist-4");

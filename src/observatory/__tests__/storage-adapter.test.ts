@@ -147,8 +147,8 @@ describe("toObservatoryBranches", () => {
     expect(branches["alt-1"].id).toBe("alt-1");
     expect(branches["alt-1"].fromThoughtNumber).toBe(3);
     expect(branches["alt-1"].thoughts).toHaveLength(2);
-    expect(branches["alt-1"].thoughts[0].id).toBe("sess-1:1");
-    expect(branches["alt-1"].thoughts[1].id).toBe("sess-1:2");
+    expect(branches["alt-1"].thoughts[0].id).toBe("sess-1:alt-1:1");
+    expect(branches["alt-1"].thoughts[1].id).toBe("sess-1:alt-1:2");
   });
 
   it("handles empty branch gracefully", () => {
