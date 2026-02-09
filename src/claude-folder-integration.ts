@@ -6,6 +6,7 @@
  */
 
 import * as fs from 'fs/promises';
+import { statSync } from 'fs';
 import * as path from 'path';
 import type { Logger } from './types.js';
 
@@ -61,7 +62,7 @@ export class ClaudeFolderIntegration {
 
     for (const p of paths) {
       try {
-        const stat = require('fs').statSync(p);
+        const stat = statSync(p);
         if (stat.isDirectory()) {
           this.claudePath = p;
           this.logger.debug(`Found .claude/ folder at: ${p}`);

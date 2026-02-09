@@ -1,7 +1,7 @@
 ---
 name: dependency-verifier
 description: Verify that external dependencies, APIs, specs, and tools actually behave as documented. Use when you need to validate assumptions about external systems, check if a spec is actually implemented, or investigate ecosystem adoption of a feature. This agent tests against real-world implementations, not just documentation.
-tools: Read, Glob, Grep, Bash, WebFetch, WebSearch
+tools: Read, Glob, Grep, Bash, WebFetch, WebSearch, ToolSearch
 disallowedTools: Edit, Write
 model: sonnet
 maxTurns: 20

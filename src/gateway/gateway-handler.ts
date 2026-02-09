@@ -21,6 +21,8 @@ import { THOUGHTBOX_CIPHER } from '../resources/thoughtbox-cipher-content.js';
 import { getExtendedCipher } from '../multi-agent/cipher-extension.js';
 import type { KnowledgeHandler } from '../knowledge/index.js';
 import { getProfilePriming } from '../hub/profile-primer.js';
+import { getOperation as getGatewayOperation } from './operations.js';
+import { getOperation as getInitOperation } from '../init/operations.js';
 
 // =============================================================================
 // Schema
@@ -139,6 +141,11 @@ interface ResourceContent {
     uri: string;
     mimeType: string;
     text: string;
+    title?: string;
+    annotations?: {
+      audience: string[];
+      priority: number;
+    };
   };
 }
 
@@ -197,6 +204,10 @@ export class GatewayHandler {
   /** Per-session agent identity overrides (defense-in-depth for shared-instance scenarios) */
   private sessionAgentIds = new Map<string, string>();
   private sessionAgentNames = new Map<string, string>();
+  /** Track which sessions have already received profile priming (thoughtbox-308 fix) */
+  private sessionsPrimed = new Set<string>();
+  /** Per-session disclosure stage (fix thoughtbox-twu: sub-agents bypass progressive disclosure) */
+  private sessionStages = new Map<string, DisclosureStage>();
 
   constructor(config: GatewayHandlerConfig) {
     this.toolRegistry = config.toolRegistry;
@@ -219,6 +230,54 @@ export class GatewayHandler {
   setSessionIdentity(mcpSessionId: string, agentId: string, agentName?: string): void {
     this.sessionAgentIds.set(mcpSessionId, agentId);
     if (agentName) this.sessionAgentNames.set(mcpSessionId, agentName);
+  }
+
+  /**
+   * Set the disclosure stage for a specific MCP session.
+   * Used by server-factory for sessions that pre-load context,
+   * and by tests to set up desired stage state.
+   */
+  setSessionStage(mcpSessionId: string, stage: DisclosureStage): void {
+    this.sessionStages.set(mcpSessionId, stage);
+  }
+
+  /**
+   * Clear session-specific state to prevent memory leaks
+   */
+  clearSession(mcpSessionId: string): void {
+    this.sessionAgentIds.delete(mcpSessionId);
+    this.sessionAgentNames.delete(mcpSessionId);
+    this.sessionsPrimed.delete(mcpSessionId);
+    this.sessionStages.delete(mcpSessionId);
+  }
+
+  /**
+   * Get the disclosure stage for a specific MCP session.
+   * New/unknown sessions start at STAGE_0_ENTRY (progressive disclosure enforced).
+   * When no mcpSessionId is provided, falls back to the global ToolRegistry stage.
+   */
+  private getSessionStage(mcpSessionId?: string): DisclosureStage {
+    if (mcpSessionId) {
+      return this.sessionStages.get(mcpSessionId) ?? DisclosureStage.STAGE_0_ENTRY;
+    }
+    // No session ID — fall back to global stage for backward compatibility
+    return this.toolRegistry.getCurrentStage();
+  }
+
+  /**
+   * Advance the disclosure stage for a specific MCP session.
+   * Also advances the global ToolRegistry stage (for tool visibility hints).
+   */
+  private advanceSessionStage(mcpSessionId: string | undefined, stage: DisclosureStage): void {
+    if (mcpSessionId) {
+      const currentIdx = STAGE_ORDER.indexOf(this.getSessionStage(mcpSessionId));
+      const targetIdx = STAGE_ORDER.indexOf(stage);
+      if (targetIdx > currentIdx) {
+        this.sessionStages.set(mcpSessionId, stage);
+      }
+    }
+    // Always advance global stage too (for tool enable/disable hints)
+    this.toolRegistry.advanceToStage(stage);
   }
 
   /**
@@ -247,9 +306,9 @@ export class GatewayHandler {
   async handle(input: GatewayToolInput, mcpSessionId?: string): Promise<ToolResponse> {
     const { operation, args } = input;
 
-    // Check stage requirement
+    // Check stage requirement — use per-session stage (fix thoughtbox-twu)
     const requiredStage = OPERATION_REQUIRED_STAGE[operation];
-    const currentStage = this.toolRegistry.getCurrentStage();
+    const currentStage = this.getSessionStage(mcpSessionId);
 
     if (!this.isStageAtLeast(currentStage, requiredStage)) {
       return this.createStageError(operation, currentStage, requiredStage);
@@ -322,11 +381,39 @@ export class GatewayHandler {
         };
     }
 
-    // Handle stage advancement if operation succeeded
+    // Embed per-operation resource block for agent discoverability
+    if (!result.isError) {
+      // Gateway-handled operations (thought, read_thoughts, get_structure, cipher, deep_analysis)
+      const gatewayOpDef = getGatewayOperation(operation);
+      if (gatewayOpDef) {
+        result.content.push({
+          type: 'resource',
+          resource: {
+            uri: `thoughtbox://gateway/operations/${operation}`,
+            mimeType: 'application/json',
+            text: JSON.stringify(gatewayOpDef, null, 2),
+          },
+        } as ContentBlock);
+      }
+      // Init operations routed through gateway
+      const initOpDef = getInitOperation(operation);
+      if (initOpDef) {
+        result.content.push({
+          type: 'resource',
+          resource: {
+            uri: `thoughtbox://init/operations/${operation}`,
+            mimeType: 'application/json',
+            text: JSON.stringify(initOpDef, null, 2),
+          },
+        } as ContentBlock);
+      }
+    }
+
+    // Handle stage advancement if operation succeeded (per-session: fix thoughtbox-twu)
     if (!result.isError) {
       const advancesTo = OPERATION_ADVANCES_TO[operation];
       if (advancesTo) {
-        this.toolRegistry.advanceToStage(advancesTo);
+        this.advanceSessionStage(mcpSessionId, advancesTo);
         // Notify clients (harmless if ignored by streaming HTTP)
         if (this.sendToolListChanged) {
           this.sendToolListChanged();
@@ -373,16 +460,24 @@ export class GatewayHandler {
     required: DisclosureStage
   ): ToolResponse {
     let suggestion: string;
+    let availableOps: string[];
+    let catalogUri: string;
 
-    switch (required) {
-      case DisclosureStage.STAGE_1_INIT_COMPLETE:
+    switch (current) {
+      case DisclosureStage.STAGE_0_ENTRY:
         suggestion = "Call gateway with operation 'start_new' or 'load_context' first.";
+        availableOps = ['get_state', 'list_sessions', 'navigate', 'load_context', 'start_new', 'list_roots', 'bind_root'];
+        catalogUri = 'thoughtbox://init/operations';
         break;
-      case DisclosureStage.STAGE_2_CIPHER_LOADED:
+      case DisclosureStage.STAGE_1_INIT_COMPLETE:
         suggestion = "Call gateway with operation 'cipher' first.";
+        availableOps = ['cipher', 'deep_analysis'];
+        catalogUri = 'thoughtbox://gateway/operations';
         break;
       default:
         suggestion = "Complete the initialization workflow first.";
+        availableOps = ['get_state'];
+        catalogUri = 'thoughtbox://init/operations';
     }
 
     return {
@@ -393,6 +488,8 @@ export class GatewayHandler {
           currentStage: current,
           requiredStage: required,
           suggestion,
+          availableOperations: availableOps,
+          operationsCatalog: catalogUri,
         }, null, 2),
       }],
       isError: true,
@@ -502,7 +599,9 @@ Call \`thoughtbox_gateway\` with operation 'thought' to begin structured reasoni
     });
 
     // SPEC-HUB-002: Append profile priming resource for profiled agents
-    if (!result.isError && this.getAgentProfile) {
+    // Fix thoughtbox-308: Only prime once per MCP session to avoid token waste
+    const primingKey = mcpSessionId ?? '__default__';
+    if (!result.isError && this.getAgentProfile && !this.sessionsPrimed.has(primingKey)) {
       const agentId = (args.agentId as string | undefined) ?? this.getAgentId(mcpSessionId);
       if (agentId) {
         const profile = await this.getAgentProfile(agentId);
@@ -510,6 +609,7 @@ Call \`thoughtbox_gateway\` with operation 'thought' to begin structured reasoni
           const primingBlock = getProfilePriming(profile);
           if (primingBlock) {
             result.content.push(primingBlock as ContentBlock);
+            this.sessionsPrimed.add(primingKey);
           }
         }
       }

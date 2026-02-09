@@ -1,7 +1,7 @@
 ---
 name: triage-fix
 description: Diagnose and repair technical failures in the codebase, build system, and integrations. Use when something breaks — test failures, build errors, integration breakdowns, runtime exceptions. This agent implements fixes autonomously within scope boundaries.
-tools: Read, Glob, Grep, Bash, Edit, Write
+tools: Read, Glob, Grep, Bash, Edit, Write, ToolSearch
 model: sonnet
 maxTurns: 15
 memory: project

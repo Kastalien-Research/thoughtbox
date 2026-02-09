@@ -1,7 +1,7 @@
 ---
 name: coordination-momentum
 description: Maintain awareness of all active workstreams, prevent conflicts between parallel tasks, and ensure unblocked work continues moving. Use for status checks, dependency analysis, task reordering, and detecting conflicts between parallel workstreams.
-tools: Read, Glob, Grep, Bash
+tools: Read, Glob, Grep, Bash, ToolSearch
 disallowedTools: Edit, Write
 model: haiku
 maxTurns: 25

@@ -189,6 +189,14 @@ export type ThoughtEmitterEvents = {
    * SPEC: SIL-001
    */
   "improvement:event": ImprovementEvent;
+  /**
+   * Hub events bridged from hub-handler for Observatory visualization
+   */
+  "hub:event": {
+    type: string;
+    workspaceId: string;
+    data: Record<string, unknown>;
+  };
 };
 
 export type ThoughtEmitterEventName = keyof ThoughtEmitterEvents;
@@ -371,6 +379,13 @@ export class ThoughtEmitter extends EventEmitter {
    */
   emitTaskCompleted(data: ThoughtEmitterEvents["task:completed"]): void {
     this.safeEmit("task:completed", data);
+  }
+
+  /**
+   * Emit a hub:event for Observatory workspace visualization
+   */
+  emitHubEvent(data: ThoughtEmitterEvents["hub:event"]): void {
+    this.safeEmit("hub:event", data);
   }
 
   /**

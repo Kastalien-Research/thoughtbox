@@ -5,1028 +5,937 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Thoughtbox Observatory</title>
   <style>
-    /* CSS Reset */
+    /* ================================================================
+       CSS Reset
+       ================================================================ */
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+    /* ================================================================
+       GitHub Dark Mode Design Tokens
+       ================================================================ */
     :root {
-      --bg-primary: #030712;
-      --bg-secondary: #111827;
-      --bg-tertiary: #1f2937;
-      --accent-primary: #10b981;
-      --accent-secondary: #059669;
-      --accent-light: #34d399;
-      --text-primary: #ffffff;
-      --text-secondary: #9ca3af;
-      --text-muted: #6b7280;
-      --border-color: rgba(31, 41, 55, 0.5);
-      --font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      --font-mono: ui-monospace, SFMono-Regular, 'SF Mono', Consolas, 'Liberation Mono', Menlo, monospace;
+      --color-canvas-default: #0d1117;
+      --color-canvas-subtle: #161b22;
+      --color-canvas-inset: #010409;
+      --color-border-default: #30363d;
+      --color-border-muted: #21262d;
+      --color-fg-default: #e6edf3;
+      --color-fg-muted: #8b949e;
+      --color-fg-subtle: #6e7681;
+      --color-accent-fg: #58a6ff;
+      --color-accent-emphasis: #1f6feb;
+      --color-success-fg: #3fb950;
+      --color-danger-fg: #f85149;
+      --color-attention-fg: #d29922;
+      --color-done-fg: #a371f7;
+      --color-sponsors-fg: #db61a2;
+      --font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif;
+      --font-mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
+
+      /* Agent profile colors */
+      --color-manager: #d2a8ff;
+      --color-architect: #79c0ff;
+      --color-debugger: #ffa657;
+      --color-security: #ff7b72;
+      --color-researcher: #7ee787;
+      --color-reviewer: #d29922;
     }
 
     html, body {
       height: 100%;
       font-family: var(--font-family);
-      background: linear-gradient(135deg, var(--bg-primary) 0%, var(--bg-secondary) 50%, var(--bg-primary) 100%);
-      color: var(--text-primary);
+      background: var(--color-canvas-default);
+      color: var(--color-fg-default);
+      font-size: 14px;
+      line-height: 1.5;
       overflow: hidden;
     }
 
-    /* Utility Classes */
-    .flex { display: flex; }
-    .flex-col { flex-direction: column; }
-    .items-center { align-items: center; }
-    .justify-center { justify-content: center; }
-    .justify-between { justify-content: space-between; }
-    .gap-2 { gap: 0.5rem; }
-    .gap-3 { gap: 0.75rem; }
-    .gap-4 { gap: 1rem; }
-    .p-4 { padding: 1rem; }
-    .p-6 { padding: 1.5rem; }
-    .px-3 { padding-left: 0.75rem; padding-right: 0.75rem; }
-    .px-4 { padding-left: 1rem; padding-right: 1rem; }
-    .px-5 { padding-left: 1.25rem; padding-right: 1.25rem; }
-    .px-6 { padding-left: 1.5rem; padding-right: 1.5rem; }
-    .py-1 { padding-top: 0.25rem; padding-bottom: 0.25rem; }
-    .py-2 { padding-top: 0.5rem; padding-bottom: 0.5rem; }
-    .py-4 { padding-top: 1rem; padding-bottom: 1rem; }
-    .py-5 { padding-top: 1.25rem; padding-bottom: 1.25rem; }
-    .mb-3 { margin-bottom: 0.75rem; }
-    .mb-4 { margin-bottom: 1rem; }
-    .mb-6 { margin-bottom: 1.5rem; }
-    .ml-auto { margin-left: auto; }
-    .w-full { width: 100%; }
-    .h-full { height: 100%; }
-    .text-sm { font-size: 0.875rem; }
-    .text-xs { font-size: 0.75rem; }
-    .text-xl { font-size: 1.25rem; }
-    .font-bold { font-weight: 700; }
-    .font-medium { font-weight: 500; }
-    .font-semibold { font-weight: 600; }
-    .uppercase { text-transform: uppercase; }
-    .tracking-widest { letter-spacing: 0.1em; }
-    .tracking-tight { letter-spacing: -0.025em; }
-    .rounded-lg { border-radius: 0.5rem; }
-    .rounded-xl { border-radius: 0.75rem; }
-    .rounded-full { border-radius: 9999px; }
-    .overflow-hidden { overflow: hidden; }
-    .overflow-auto { overflow: auto; }
-    .relative { position: relative; }
-    .absolute { position: absolute; }
-    .inset-0 { top: 0; right: 0; bottom: 0; left: 0; }
-    .pointer-events-none { pointer-events: none; }
-    .cursor-pointer { cursor: pointer; }
-    .select-none { user-select: none; }
-    .transition-all { transition: all 0.3s ease; }
-    .hidden { display: none !important; }
+    a { color: var(--color-accent-fg); text-decoration: none; }
+    a:hover { text-decoration: underline; }
 
-    /* Color utilities */
-    .text-white { color: #ffffff; }
-    .text-gray-300 { color: #d1d5db; }
-    .text-gray-400 { color: #9ca3af; }
-    .text-gray-500 { color: #6b7280; }
-    .text-emerald-400 { color: #34d399; }
-    .bg-gray-800 { background-color: #1f2937; }
-    .bg-gray-900 { background-color: #111827; }
-    .bg-gray-950 { background-color: #030712; }
-    .bg-emerald-500 { background-color: #10b981; }
-    .bg-emerald-600 { background-color: #059669; }
-    .border-gray-800 { border-color: #1f2937; }
-
-    /* Animations */
-    @keyframes scale-in {
-      0% { opacity: 0; transform: scale(0.8); }
-      100% { opacity: 1; transform: scale(1); }
-    }
-
-    @keyframes fade-in {
-      0% { opacity: 0; }
-      100% { opacity: 1; }
-    }
-
-    @keyframes shimmer {
-      0% { background-position: -200% center; }
-      100% { background-position: 200% center; }
-    }
-
-    @keyframes pulse-glow {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.6; }
-    }
-
-    @keyframes slide-up {
-      from { opacity: 0; transform: translateY(10px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-
-    @keyframes pulse {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.5; }
-    }
-
-    @keyframes ping {
-      75%, 100% { transform: scale(2); opacity: 0; }
-    }
-
-    .animate-scale-in { animation: scale-in 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; }
-    .animate-fade-in { animation: fade-in 0.5s ease-out forwards; }
-    .animate-slide-up { animation: slide-up 0.4s ease-out forwards; }
-    .animate-pulse { animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
-    .animate-ping { animation: ping 1s cubic-bezier(0, 0, 0.2, 1) infinite; }
-
-    /* Custom Scrollbar */
+    /* ================================================================
+       Custom Scrollbar
+       ================================================================ */
     ::-webkit-scrollbar { width: 8px; height: 8px; }
-    ::-webkit-scrollbar-track { background: rgba(0, 0, 0, 0.2); }
-    ::-webkit-scrollbar-thumb { background: rgba(16, 185, 129, 0.3); border-radius: 4px; }
-    ::-webkit-scrollbar-thumb:hover { background: rgba(16, 185, 129, 0.5); }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--color-border-default); border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--color-fg-subtle); }
 
-    /* Component Styles */
+    /* ================================================================
+       Animation
+       ================================================================ */
+    @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+    @keyframes slide-up { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+    /* ================================================================
+       Layout
+       ================================================================ */
     #app {
       height: 100vh;
       display: flex;
       flex-direction: column;
     }
 
-    /* Header */
-    .header {
-      border-bottom: 1px solid var(--border-color);
-      backdrop-filter: blur(16px);
-      background: rgba(17, 24, 39, 0.5);
+    /* ================================================================
+       AppHeader — repo name + connection + agent avatars
+       ================================================================ */
+    .AppHeader {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 24px;
+      background: var(--color-canvas-subtle);
+      border-bottom: 1px solid var(--color-border-default);
+    }
+
+    .AppHeader-context {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .AppHeader-repoIcon {
+      color: var(--color-fg-muted);
+    }
+
+    .AppHeader-repoName {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--color-accent-fg);
+    }
+
+    .AppHeader-separator {
+      color: var(--color-fg-subtle);
+      font-size: 20px;
+      font-weight: 300;
+    }
+
+    .AppHeader-sessionName {
+      font-size: 14px;
+      color: var(--color-fg-muted);
+      font-weight: 400;
+    }
+
+    .AppHeader-right {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .AvatarStack {
+      display: flex;
+      flex-direction: row-reverse;
+    }
+
+    .Avatar {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      border: 2px solid var(--color-canvas-subtle);
+      margin-left: -8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--color-canvas-default);
+      cursor: default;
       position: relative;
     }
 
-    .header::before {
-      content: '';
+    .Avatar:first-child { margin-left: 0; }
+    .Avatar[title]:hover::after {
+      content: attr(title);
       position: absolute;
-      inset: 0;
-      background: linear-gradient(to right, rgba(17, 24, 39, 0.5), rgba(17, 24, 39, 0.3), rgba(17, 24, 39, 0.5));
+      top: 100%;
+      left: 50%;
+      transform: translateX(-50%);
+      margin-top: 4px;
+      padding: 4px 8px;
+      background: var(--color-canvas-inset);
+      border: 1px solid var(--color-border-default);
+      border-radius: 6px;
+      font-size: 11px;
+      color: var(--color-fg-default);
+      white-space: nowrap;
+      z-index: 100;
+      pointer-events: none;
     }
 
-    .header-content {
-      position: relative;
-      padding: 1rem 1.5rem;
+    /* Connection Status */
+    .ConnectionStatus {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      color: var(--color-fg-muted);
+    }
+
+    .ConnectionStatus-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--color-success-fg);
+    }
+
+    .ConnectionStatus-dot.disconnected {
+      background: var(--color-danger-fg);
+    }
+
+    /* ================================================================
+       UnderlineNav — tab navigation
+       ================================================================ */
+    .UnderlineNav {
+      display: flex;
+      align-items: center;
+      padding: 0 24px;
+      background: var(--color-canvas-subtle);
+      border-bottom: 1px solid var(--color-border-default);
+      overflow-x: auto;
+    }
+
+    .UnderlineNav-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 12px 16px;
+      font-size: 14px;
+      font-weight: 400;
+      color: var(--color-fg-muted);
+      border-bottom: 2px solid transparent;
+      cursor: pointer;
+      white-space: nowrap;
+      background: none;
+      border-top: none;
+      border-left: none;
+      border-right: none;
+      font-family: inherit;
+      transition: color 0.15s;
+    }
+
+    .UnderlineNav-item:hover {
+      color: var(--color-fg-default);
+    }
+
+    .UnderlineNav-item.selected {
+      font-weight: 600;
+      color: var(--color-fg-default);
+      border-bottom-color: var(--color-accent-fg);
+    }
+
+    .UnderlineNav-icon {
+      display: inline-flex;
+    }
+
+    .Counter {
+      display: inline-block;
+      padding: 0 6px;
+      font-size: 12px;
+      font-weight: 600;
+      line-height: 18px;
+      border-radius: 10px;
+      background: var(--color-border-default);
+      color: var(--color-fg-muted);
+      min-width: 20px;
+      text-align: center;
+    }
+
+    /* ================================================================
+       Main content area
+       ================================================================ */
+    .Main {
+      flex: 1;
+      overflow: auto;
+      background: var(--color-canvas-default);
+    }
+
+    .Main-container {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 24px;
+    }
+
+    /* ================================================================
+       Box — bordered container
+       ================================================================ */
+    .Box {
+      border: 1px solid var(--color-border-default);
+      border-radius: 6px;
+      overflow: hidden;
+    }
+
+    .Box-header {
+      padding: 16px;
+      background: var(--color-canvas-subtle);
+      border-bottom: 1px solid var(--color-border-default);
       display: flex;
       align-items: center;
       justify-content: space-between;
     }
 
-    .logo-bar {
-      height: 2rem;
-      width: 0.25rem;
-      background: linear-gradient(to bottom, var(--accent-light), var(--accent-secondary));
-      border-radius: 9999px;
+    .Box-header-title {
+      font-size: 14px;
+      font-weight: 600;
     }
 
-    .title {
-      font-size: 1.25rem;
-      font-weight: 700;
-      letter-spacing: -0.025em;
-      background: linear-gradient(to right, #fff, #d1d5db);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
-    }
-
-    .status-badge {
+    .Box-row {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--color-border-muted);
       display: flex;
-      align-items: center;
-      gap: 0.5rem;
-      padding: 0.375rem 0.75rem;
-      border-radius: 9999px;
-      background: rgba(16, 185, 129, 0.1);
-      border: 1px solid rgba(16, 185, 129, 0.2);
+      align-items: flex-start;
+      gap: 12px;
+      animation: fade-in 0.2s ease-out;
     }
 
-    .status-badge.disconnected {
-      background: rgba(239, 68, 68, 0.1);
-      border-color: rgba(239, 68, 68, 0.2);
+    .Box-row:last-child { border-bottom: none; }
+
+    .Box-row:hover {
+      background: var(--color-canvas-subtle);
     }
 
-    .status-dot {
-      position: relative;
-      width: 0.5rem;
-      height: 0.5rem;
-      border-radius: 9999px;
-      background: var(--accent-primary);
-    }
-
-    .status-dot::after {
-      content: '';
-      position: absolute;
-      inset: 0;
-      border-radius: 9999px;
-      background: var(--accent-primary);
-      animation: ping 1s cubic-bezier(0, 0, 0.2, 1) infinite;
-    }
-
-    .status-badge.disconnected .status-dot {
-      background: #ef4444;
-    }
-
-    .status-badge.disconnected .status-dot::after {
-      background: #ef4444;
-      animation: none;
-    }
-
-    .status-text {
-      font-size: 0.875rem;
-      color: var(--accent-light);
-      font-weight: 500;
-    }
-
-    .status-badge.disconnected .status-text {
-      color: #f87171;
-    }
-
-    /* Main Content */
-    .main {
-      flex: 1;
-      height: calc(100vh - 73px);
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-    }
-
-    /* Session Bar */
-    .session-bar {
-      border-bottom: 1px solid var(--border-color);
-      background: linear-gradient(to right, rgba(17, 24, 39, 0.3), rgba(17, 24, 39, 0.2), rgba(17, 24, 39, 0.3));
-      backdrop-filter: blur(4px);
-      padding: 1.25rem 1.5rem;
-    }
-
-    .section-label {
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-      margin-bottom: 0.75rem;
-    }
-
-    .section-line {
-      height: 0.125rem;
-      width: 1.5rem;
-      background: linear-gradient(to right, var(--accent-primary), transparent);
-    }
-
-    .section-title {
-      font-size: 0.75rem;
-      color: var(--text-muted);
-      text-transform: uppercase;
-      font-weight: 700;
-      letter-spacing: 0.1em;
-    }
-
-    /* Session Selector */
-    .session-tabs {
-      display: flex;
-      gap: 0.75rem;
-      flex-wrap: wrap;
-    }
-
-    .session-tab {
-      padding: 0.625rem 1.25rem;
-      border-radius: 0.5rem;
-      font-weight: 500;
-      transition: all 0.3s ease;
-      position: relative;
-      overflow: hidden;
-      background: rgba(31, 41, 55, 0.8);
-      color: var(--text-secondary);
-      border: none;
+    .Box-row--clickable {
       cursor: pointer;
-      font-family: inherit;
-      font-size: 0.875rem;
     }
 
-    .session-tab:hover {
-      background: rgba(55, 65, 81, 0.8);
-      color: #e5e7eb;
-    }
-
-    .session-tab.active {
-      background: var(--accent-secondary);
-      color: white;
-      box-shadow: 0 0 20px rgba(16, 185, 129, 0.3), 0 4px 12px rgba(0, 0, 0, 0.4);
-    }
-
-    .session-tab.active::before {
-      content: '';
-      position: absolute;
-      inset: 0;
-      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
-      background-size: 200% 100%;
-      animation: shimmer 3s infinite;
-      opacity: 0.3;
-    }
-
-    .session-tab.historical {
-      border: 1px solid rgba(107, 114, 128, 0.3);
-      color: #d1d5db;
-    }
-
-    .session-badge {
+    /* ================================================================
+       StateLabel — open/closed/merged badges
+       ================================================================ */
+    .StateLabel {
       display: inline-flex;
       align-items: center;
-      gap: 0.25rem;
-      font-size: 0.625rem;
+      gap: 4px;
+      padding: 2px 10px;
+      font-size: 12px;
       font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      padding: 0.125rem 0.375rem;
-      border-radius: 9999px;
-      margin-left: 0.5rem;
-      vertical-align: middle;
-    }
-
-    .session-badge-live {
-      background: rgba(16, 185, 129, 0.2);
-      color: #34d399;
-    }
-
-    .session-badge-live .badge-dot {
-      width: 5px;
-      height: 5px;
-      border-radius: 50%;
-      background: #34d399;
-      animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-    }
-
-    .session-badge-completed {
-      background: rgba(107, 114, 128, 0.2);
-      color: #9ca3af;
-    }
-
-    /* Pagination */
-    .session-pagination {
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-      margin-left: auto;
-      flex-shrink: 0;
-    }
-
-    .session-pagination-info {
-      font-size: 0.75rem;
-      color: var(--text-muted);
+      line-height: 20px;
+      border-radius: 16px;
       white-space: nowrap;
     }
 
-    .session-pagination-btn {
-      display: flex;
+    .StateLabel--open {
+      background: rgba(63, 185, 80, 0.15);
+      color: var(--color-success-fg);
+    }
+
+    .StateLabel--closed {
+      background: rgba(248, 81, 73, 0.15);
+      color: var(--color-danger-fg);
+    }
+
+    .StateLabel--merged {
+      background: rgba(163, 113, 247, 0.15);
+      color: var(--color-done-fg);
+    }
+
+    .StateLabel--in-progress {
+      background: rgba(210, 153, 34, 0.15);
+      color: var(--color-attention-fg);
+    }
+
+    .StateLabel--reviewing {
+      background: rgba(121, 192, 255, 0.15);
+      color: var(--color-accent-fg);
+    }
+
+    .StateLabel--rejected {
+      background: rgba(248, 81, 73, 0.15);
+      color: var(--color-danger-fg);
+    }
+
+    .StateLabel--resolved {
+      background: rgba(163, 113, 247, 0.15);
+      color: var(--color-done-fg);
+    }
+
+    /* ================================================================
+       AgentPill — author badge
+       ================================================================ */
+    .AgentPill {
+      display: inline-flex;
       align-items: center;
-      justify-content: center;
-      width: 1.75rem;
-      height: 1.75rem;
-      border-radius: 0.375rem;
-      background: rgba(31, 41, 55, 0.8);
-      color: var(--text-secondary);
-      border: 1px solid rgba(55, 65, 81, 0.5);
-      cursor: pointer;
-      font-family: inherit;
-      font-size: 0.75rem;
-      font-weight: 600;
-      transition: all 0.2s ease;
-      padding: 0;
-    }
-
-    .session-pagination-btn:hover:not(:disabled) {
-      background: rgba(55, 65, 81, 0.8);
-      color: #e5e7eb;
-      border-color: rgba(75, 85, 99, 0.6);
-    }
-
-    .session-pagination-btn:disabled {
-      opacity: 0.3;
-      cursor: default;
-    }
-
-    .session-section-label {
-      font-size: 0.625rem;
-      color: var(--text-muted);
-      text-transform: uppercase;
-      letter-spacing: 0.1em;
-      font-weight: 600;
-      margin-bottom: 0.375rem;
-    }
-
-    /* Empty State */
-    .empty-state {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      height: 100%;
-      color: var(--text-muted);
-      text-align: center;
-      padding: 2rem;
-    }
-
-    .empty-state p {
-      max-width: 400px;
-      line-height: 1.6;
-    }
-
-    /* Graph Container */
-    .graph-wrapper {
-      flex: 1;
-      overflow: hidden;
-      padding: 1.5rem;
-    }
-
-    .graph-container {
-      position: relative;
-      background: linear-gradient(135deg, rgba(17, 24, 39, 0.3), rgba(17, 24, 39, 0.2), rgba(17, 24, 39, 0.3));
-      backdrop-filter: blur(4px);
-      border-radius: 0.75rem;
-      border: 1px solid var(--border-color);
-      height: 100%;
-      min-height: 400px;
-      overflow: auto;
-      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
-    }
-
-    .graph-container::before {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 6rem;
-      height: 6rem;
-      background: linear-gradient(135deg, rgba(16, 185, 129, 0.1), transparent);
-      border-top-left-radius: 0.75rem;
-    }
-
-    .graph-container::after {
-      content: '';
-      position: absolute;
-      bottom: 0;
-      right: 0;
-      width: 6rem;
-      height: 6rem;
-      background: linear-gradient(315deg, rgba(16, 185, 129, 0.1), transparent);
-      border-bottom-right-radius: 0.75rem;
-    }
-
-    .graph-header {
-      position: relative;
-      padding: 1rem 1.5rem;
-      border-bottom: 1px solid var(--border-color);
-      background: rgba(17, 24, 39, 0.2);
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
-
-    .node-count {
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-      font-size: 0.75rem;
-      color: var(--text-muted);
-    }
-
-    .node-count-dot {
-      width: 0.375rem;
-      height: 0.375rem;
-      border-radius: 9999px;
-      background: var(--accent-primary);
-      animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-    }
-
-    .graph-content {
-      position: relative;
-      height: calc(100% - 60px);
-      padding: 1.5rem;
-    }
-
-    .graph-svg {
-      width: 100%;
-      height: 100%;
-      min-height: 400px;
-    }
-
-    /* Detail Panel */
-    .detail-panel {
-      height: 100%;
-      display: flex;
-      flex-direction: column;
-      background: linear-gradient(135deg, rgba(17, 24, 39, 0.5), rgba(17, 24, 39, 0.3), rgba(17, 24, 39, 0.5));
-      backdrop-filter: blur(4px);
-      animation: slide-up 0.4s ease-out forwards;
-    }
-
-    .detail-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 1rem 1.5rem;
-      border-bottom: 1px solid var(--border-color);
-      background: rgba(17, 24, 39, 0.3);
-    }
-
-    .back-btn {
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-      color: var(--text-secondary);
-      background: none;
-      border: none;
-      cursor: pointer;
-      font-family: inherit;
-      font-size: 0.875rem;
+      gap: 4px;
+      padding: 2px 8px;
+      font-size: 12px;
       font-weight: 500;
-      transition: all 0.3s ease;
+      border-radius: 16px;
+      background: var(--color-canvas-subtle);
+      border: 1px solid var(--color-border-default);
+      color: var(--color-fg-muted);
+      white-space: nowrap;
     }
 
-    .back-btn:hover {
-      color: white;
-    }
-
-    .back-btn:hover .back-arrow {
-      transform: translateX(-4px);
-    }
-
-    .back-arrow {
-      width: 1.25rem;
-      height: 1.25rem;
-      transition: transform 0.3s ease;
-    }
-
-    .progress-container {
-      display: flex;
-      align-items: center;
-      gap: 0.75rem;
-    }
-
-    .progress-bar {
-      width: 6rem;
-      height: 0.25rem;
-      background: var(--bg-tertiary);
-      border-radius: 9999px;
-      overflow: hidden;
-    }
-
-    .progress-fill {
-      height: 100%;
-      background: linear-gradient(to right, var(--accent-primary), var(--accent-light));
-      border-radius: 9999px;
-      transition: width 0.5s ease;
-    }
-
-    .progress-text {
-      font-size: 0.875rem;
-      color: var(--text-secondary);
-      font-weight: 500;
-    }
-
-    .detail-content {
-      flex: 1;
-      overflow: auto;
-      padding: 1.5rem;
-    }
-
-    .detail-inner {
-      max-width: 56rem;
-      margin: 0 auto;
-    }
-
-    .code-block {
-      position: relative;
-    }
-
-    .code-block::before {
-      content: '';
-      position: absolute;
-      inset: -1px;
-      background: linear-gradient(to right, rgba(16, 185, 129, 0.2), rgba(16, 185, 129, 0.1), rgba(16, 185, 129, 0.2));
-      border-radius: 0.5rem;
-      filter: blur(4px);
-      opacity: 0;
-      transition: opacity 0.5s ease;
-    }
-
-    .code-block:hover::before {
-      opacity: 1;
-    }
-
-    .code-pre {
-      position: relative;
-      background: rgba(3, 7, 18, 0.9);
-      border-radius: 0.5rem;
-      padding: 1.5rem;
-      overflow-x: auto;
-      font-size: 0.875rem;
-      border: 1px solid var(--border-color);
-      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
-    }
-
-    .code-pre code {
-      color: #d1d5db;
-      line-height: 1.6;
-      font-family: var(--font-mono);
-    }
-
-    /* Ambient Background */
-    .ambient-bg {
-      position: absolute;
-      inset: 0;
-      overflow: hidden;
-      pointer-events: none;
-    }
-
-    .ambient-orb {
-      position: absolute;
-      width: 24rem;
-      height: 24rem;
-      background: rgba(16, 185, 129, 0.05);
-      border-radius: 9999px;
-      filter: blur(48px);
-      animation: pulse-glow 8s ease-in-out infinite;
-    }
-
-    .ambient-orb.top-left {
-      top: 0;
-      left: 25%;
-    }
-
-    .ambient-orb.bottom-right {
-      bottom: 0;
-      right: 25%;
-      animation-delay: 4s;
-    }
-
-    /* SVG Node Styles */
-    .thought-node {
-      cursor: pointer;
-      transition: all 0.3s ease;
-    }
-
-    .thought-node.new {
-      animation: scale-in 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
-    }
-
-    .thought-node-rect {
-      transition: all 0.3s ease;
-    }
-
-    .thought-node-label {
-      font-size: 14px;
-      font-weight: 600;
-      fill: rgba(255, 255, 255, 0.9);
-      pointer-events: none;
-      user-select: none;
-    }
-
-    .thought-connection.new {
-      animation: fade-in 0.5s ease-out forwards;
-    }
-
-    /* Multi-Agent Collaboration Styles */
-    .agent-pill {
-      padding: 0.375rem 0.75rem;
-      border-radius: 9999px;
-      font-size: 0.75rem;
-      font-weight: 500;
-      display: flex;
-      align-items: center;
-      gap: 0.375rem;
-      filter: saturate(0.4);
-      transition: all 0.3s;
-      border: 1px solid transparent;
-    }
-
-    .agent-pill.active {
-      filter: saturate(1);
-      box-shadow: 0 0 15px currentColor;
-    }
-
-    .agent-pill .dot {
+    .AgentPill-dot {
       width: 6px;
       height: 6px;
       border-radius: 50%;
-      background: currentColor;
     }
 
-    .agent-pill.active .dot {
-      animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    /* Profile-specific pill colors */
+    .AgentPill[data-profile="MANAGER"] .AgentPill-dot { background: var(--color-manager); }
+    .AgentPill[data-profile="ARCHITECT"] .AgentPill-dot { background: var(--color-architect); }
+    .AgentPill[data-profile="DEBUGGER"] .AgentPill-dot { background: var(--color-debugger); }
+    .AgentPill[data-profile="SECURITY"] .AgentPill-dot { background: var(--color-security); }
+    .AgentPill[data-profile="RESEARCHER"] .AgentPill-dot { background: var(--color-researcher); }
+    .AgentPill[data-profile="REVIEWER"] .AgentPill-dot { background: var(--color-reviewer); }
+
+    /* ================================================================
+       BranchName — branch label
+       ================================================================ */
+    .BranchName {
+      display: inline-flex;
+      align-items: center;
+      padding: 2px 8px;
+      font-size: 12px;
+      font-family: var(--font-mono);
+      font-weight: 500;
+      background: rgba(56, 139, 253, 0.15);
+      color: var(--color-accent-fg);
+      border-radius: 6px;
     }
 
-    /* Agent role colors */
-    .agent-pill[data-role="orchestrator"] { color: #8b5cf6; border-color: rgba(139,92,246,0.2); background: rgba(139,92,246,0.1); }
-    .agent-pill[data-role="researcher"] { color: #3b82f6; border-color: rgba(59,130,246,0.2); background: rgba(59,130,246,0.1); }
-    .agent-pill[data-role="architect"] { color: #06b6d4; border-color: rgba(6,182,212,0.2); background: rgba(6,182,212,0.1); }
-    .agent-pill[data-role="implementer"] { color: #10b981; border-color: rgba(16,185,129,0.2); background: rgba(16,185,129,0.1); }
-    .agent-pill[data-role="reviewer"] { color: #f59e0b; border-color: rgba(245,158,11,0.2); background: rgba(245,158,11,0.1); }
-    .agent-pill[data-role="tester"] { color: #ef4444; border-color: rgba(239,68,68,0.2); background: rgba(239,68,68,0.1); }
-    .agent-pill[data-role="integrator"] { color: #ec4899; border-color: rgba(236,72,153,0.2); background: rgba(236,72,153,0.1); }
-    .agent-pill[data-role="critic"] { color: #6366f1; border-color: rgba(99,102,241,0.2); background: rgba(99,102,241,0.1); }
-    .agent-pill[data-role="unknown"] { color: #6b7280; border-color: rgba(107,114,128,0.2); background: rgba(107,114,128,0.1); }
+    /* ================================================================
+       CommitList — vertical commit log (Code view)
+       ================================================================ */
+    .CommitList {
+      list-style: none;
+    }
 
-    /* Task Board */
-    .task-board {
-      position: fixed;
-      top: 80px;
-      right: 1rem;
-      width: 320px;
-      max-height: calc(100vh - 100px);
-      background: var(--bg-secondary);
-      border: 1px solid var(--border-color);
-      border-radius: 0.75rem;
+    .CommitRow {
+      display: flex;
+      align-items: flex-start;
+      gap: 0;
+      padding: 0;
+      border-bottom: 1px solid var(--color-border-muted);
+      transition: background 0.1s;
+    }
+
+    .CommitRow:last-child { border-bottom: none; }
+    .CommitRow:hover { background: var(--color-canvas-subtle); }
+    .CommitRow--clickable { cursor: pointer; }
+
+    .CommitGraphRail {
+      width: 80px;
+      min-height: 48px;
+      flex-shrink: 0;
+      position: relative;
+    }
+
+    .CommitRow-content {
+      flex: 1;
+      min-width: 0;
+      padding: 10px 16px 10px 0;
+      display: flex;
+      align-items: baseline;
+      gap: 12px;
+    }
+
+    .CommitRow-message {
+      flex: 1;
+      min-width: 0;
       overflow: hidden;
-      z-index: 100;
-      transition: transform 0.3s ease;
-      box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-size: 14px;
+      color: var(--color-fg-default);
     }
 
-    .task-board.collapsed {
-      transform: translateX(calc(100% + 1rem));
-    }
-
-    .task-board-header {
-      padding: 1rem;
-      background: rgba(16,185,129,0.1);
-      border-bottom: 1px solid var(--border-color);
+    .CommitRow-meta {
       display: flex;
       align-items: center;
-      justify-content: space-between;
-      cursor: pointer;
-      user-select: none;
+      gap: 12px;
+      flex-shrink: 0;
     }
 
-    .task-board-header h3 {
-      font-size: 0.875rem;
+    .CommitRow-hash {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--color-accent-fg);
+      background: var(--color-canvas-subtle);
+      padding: 2px 8px;
+      border-radius: 6px;
+      border: 1px solid var(--color-border-default);
+    }
+
+    .CommitRow-time {
+      font-size: 12px;
+      color: var(--color-fg-subtle);
+      white-space: nowrap;
+    }
+
+    /* ================================================================
+       CommitDetail — expanded thought view
+       ================================================================ */
+    .CommitDetail {
+      animation: slide-up 0.2s ease-out;
+    }
+
+    .CommitDetail-header {
+      padding: 20px 24px;
+      border-bottom: 1px solid var(--color-border-default);
+      background: var(--color-canvas-subtle);
+    }
+
+    .CommitDetail-title {
+      font-size: 20px;
       font-weight: 600;
-      color: var(--text-primary);
-      margin: 0;
+      margin-bottom: 8px;
     }
 
-    .task-board-header .collapse-btn {
-      background: none;
-      border: none;
-      color: var(--text-secondary);
-      font-size: 1rem;
+    .CommitDetail-metaRow {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      font-size: 13px;
+      color: var(--color-fg-muted);
+    }
+
+    .CommitDetail-body {
+      padding: 20px 24px;
+    }
+
+    .CommitDetail-codeBlock {
+      background: var(--color-canvas-inset);
+      border: 1px solid var(--color-border-default);
+      border-radius: 6px;
+      padding: 16px;
+      overflow-x: auto;
+      font-family: var(--font-mono);
+      font-size: 13px;
+      color: var(--color-fg-default);
+      line-height: 1.6;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .CommitDetail-nav {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    /* ================================================================
+       IssueRow / PullRow — list rows for Issues and PRs
+       ================================================================ */
+    .IssueRow, .PullRow {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--color-border-muted);
       cursor: pointer;
-      padding: 0;
-      width: 20px;
-      height: 20px;
+      transition: background 0.1s;
+    }
+
+    .IssueRow:hover, .PullRow:hover {
+      background: var(--color-canvas-subtle);
+    }
+
+    .IssueRow:last-child, .PullRow:last-child { border-bottom: none; }
+
+    .IssueRow-icon, .PullRow-icon {
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+
+    .IssueRow-main, .PullRow-main {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .IssueRow-title, .PullRow-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--color-fg-default);
+      margin-bottom: 4px;
+    }
+
+    .IssueRow-title:hover, .PullRow-title:hover {
+      color: var(--color-accent-fg);
+    }
+
+    .IssueRow-subtitle, .PullRow-subtitle {
+      font-size: 12px;
+      color: var(--color-fg-subtle);
+    }
+
+    .IssueRow-labels {
+      display: flex;
+      gap: 4px;
+      flex-wrap: wrap;
+      margin-top: 4px;
+    }
+
+    .Label {
+      display: inline-block;
+      padding: 0 7px;
+      font-size: 12px;
+      font-weight: 500;
+      line-height: 18px;
+      border-radius: 16px;
+      border: 1px solid transparent;
+    }
+
+    .Label--dependency {
+      background: rgba(210, 153, 34, 0.15);
+      color: var(--color-attention-fg);
+      border-color: rgba(210, 153, 34, 0.3);
+    }
+
+    /* ================================================================
+       Subnav — filter tabs within a view (Open/Closed)
+       ================================================================ */
+    .Subnav {
+      display: flex;
+      align-items: center;
+      gap: 0;
+      padding: 16px 16px 0 16px;
+    }
+
+    .Subnav-item {
+      padding: 8px 16px;
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--color-fg-muted);
+      cursor: pointer;
+      background: none;
+      border: 1px solid transparent;
+      border-bottom: none;
+      border-radius: 6px 6px 0 0;
+      font-family: inherit;
+    }
+
+    .Subnav-item:hover { color: var(--color-fg-default); }
+
+    .Subnav-item.selected {
+      color: var(--color-fg-default);
+      background: var(--color-canvas-default);
+      border-color: var(--color-border-default);
+    }
+
+    /* ================================================================
+       ActivityFeed — unified timeline
+       ================================================================ */
+    .ActivityFeed-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--color-border-muted);
+      animation: fade-in 0.2s ease-out;
+    }
+
+    .ActivityFeed-item:last-child { border-bottom: none; }
+
+    .ActivityFeed-icon {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
       display: flex;
       align-items: center;
       justify-content: center;
+      flex-shrink: 0;
+      font-size: 14px;
+      background: var(--color-canvas-subtle);
+      border: 1px solid var(--color-border-default);
     }
 
-    .task-board-content {
-      max-height: calc(100vh - 200px);
-      overflow-y: auto;
-    }
-
-    .task-card {
-      padding: 1rem;
-      border-bottom: 1px solid var(--border-color);
-      animation: slide-up 0.3s ease-out;
-    }
-
-    .task-title {
-      font-weight: 600;
-      color: var(--text-primary);
-      margin-bottom: 0.5rem;
-      font-size: 0.875rem;
-    }
-
-    .task-progress {
-      display: flex;
-      align-items: center;
-      gap: 0.75rem;
-      margin: 0.5rem 0;
-    }
-
-    .task-progress .progress-bar {
+    .ActivityFeed-body {
       flex: 1;
-      height: 6px;
-      background: rgba(255,255,255,0.1);
-      border-radius: 3px;
+      min-width: 0;
+    }
+
+    .ActivityFeed-headline {
+      font-size: 14px;
+      color: var(--color-fg-default);
+    }
+
+    .ActivityFeed-time {
+      font-size: 12px;
+      color: var(--color-fg-subtle);
+      margin-top: 2px;
+    }
+
+    /* ================================================================
+       DigestView — workspace overview
+       ================================================================ */
+    .DigestGrid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+
+    .DigestCard {
+      border: 1px solid var(--color-border-default);
+      border-radius: 6px;
       overflow: hidden;
     }
 
-    .task-progress .progress-fill {
-      height: 100%;
-      background: linear-gradient(90deg, #10b981, #34d399);
-      transition: width 0.5s ease;
-    }
-
-    .task-progress .progress-text {
-      font-size: 0.75rem;
-      color: var(--text-secondary);
-      min-width: 3rem;
-      text-align: right;
-    }
-
-    .task-subtasks {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.5rem;
-      margin-top: 0.5rem;
-    }
-
-    .subtask {
-      font-size: 0.75rem;
-      padding: 0.25rem 0.5rem;
-      border-radius: 0.25rem;
-      background: rgba(255,255,255,0.05);
-      border: 1px solid rgba(255,255,255,0.1);
-    }
-
-    .subtask.completed { color: #10b981; border-color: rgba(16,185,129,0.3); }
-    .subtask.in_progress { color: #f59e0b; border-color: rgba(245,158,11,0.3); animation: pulse 2s infinite; }
-    .subtask.pending { color: #9ca3af; }
-
-    /* Thought Node SVG Attribution */
-    .thought-node[data-role] {
-      transition: all 0.3s;
-    }
-
-    .thought-node[data-role="orchestrator"] circle { fill: rgba(139,92,246,0.2); stroke: #8b5cf6; }
-    .thought-node[data-role="researcher"] circle { fill: rgba(59,130,246,0.2); stroke: #3b82f6; }
-    .thought-node[data-role="architect"] circle { fill: rgba(6,182,212,0.2); stroke: #06b6d4; }
-    .thought-node[data-role="implementer"] circle { fill: rgba(16,185,129,0.2); stroke: #10b981; }
-    .thought-node[data-role="reviewer"] circle { fill: rgba(245,158,11,0.2); stroke: #f59e0b; }
-    .thought-node[data-role="tester"] circle { fill: rgba(239,68,68,0.2); stroke: #ef4444; }
-    .thought-node[data-role="integrator"] circle { fill: rgba(236,72,153,0.2); stroke: #ec4899; }
-    .thought-node[data-role="critic"] circle { fill: rgba(99,102,241,0.2); stroke: #6366f1; }
-
-    /* Responsive */
-    @media (max-width: 768px) {
-      .header-content { padding: 0.75rem 1rem; }
-      .session-bar { padding: 1rem; }
-      .graph-wrapper { padding: 1rem; }
-      .session-tabs { gap: 0.5rem; }
-      .session-tab { padding: 0.5rem 1rem; font-size: 0.8125rem; }
-      .task-board { width: 280px; top: 70px; }
-      #agent-activity-bar { display: none !important; }
-    }
-
-    /* Skip link (visible only on focus) */
-    .skip-link {
-      position: absolute;
-      top: -100%;
-      left: 1rem;
-      z-index: 9999;
-      padding: 0.5rem 1rem;
-      background: var(--accent-primary);
-      color: var(--bg-primary);
+    .DigestCard-header {
+      padding: 12px 16px;
+      font-size: 13px;
       font-weight: 600;
-      border-radius: 0.25rem;
-      text-decoration: none;
-    }
-    .skip-link:focus {
-      top: 0.5rem;
+      color: var(--color-fg-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      background: var(--color-canvas-subtle);
+      border-bottom: 1px solid var(--color-border-default);
     }
 
-    /* Reduced motion */
-    @media (prefers-reduced-motion: reduce) {
-      *, *::before, *::after {
-        animation-duration: 0.01ms !important;
-        animation-iteration-count: 1 !important;
-        transition-duration: 0.01ms !important;
-      }
+    .DigestCard-body {
+      padding: 16px;
     }
+
+    .DigestStat {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+
+    .DigestStat:last-child { margin-bottom: 0; }
+
+    .DigestStat-value {
+      font-size: 24px;
+      font-weight: 700;
+      color: var(--color-fg-default);
+    }
+
+    .DigestStat-label {
+      font-size: 13px;
+      color: var(--color-fg-muted);
+    }
+
+    /* ================================================================
+       BackButton
+       ================================================================ */
+    .BackButton {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      font-size: 14px;
+      color: var(--color-accent-fg);
+      background: none;
+      border: 1px solid var(--color-border-default);
+      border-radius: 6px;
+      cursor: pointer;
+      font-family: inherit;
+      margin-bottom: 16px;
+    }
+
+    .BackButton:hover {
+      background: var(--color-canvas-subtle);
+    }
+
+    /* ================================================================
+       EmptyState
+       ================================================================ */
+    .EmptyState {
+      text-align: center;
+      padding: 48px 24px;
+      color: var(--color-fg-muted);
+    }
+
+    .EmptyState-heading {
+      font-size: 18px;
+      font-weight: 600;
+      color: var(--color-fg-default);
+      margin-bottom: 8px;
+    }
+
+    .EmptyState-description {
+      font-size: 14px;
+      max-width: 400px;
+      margin: 0 auto;
+    }
+
+    /* ================================================================
+       Detail — problem/proposal detail pane
+       ================================================================ */
+    .Detail-comments {
+      margin-top: 16px;
+    }
+
+    .Detail-comment {
+      display: flex;
+      gap: 12px;
+      padding: 12px 0;
+      border-bottom: 1px solid var(--color-border-muted);
+    }
+
+    .Detail-comment:last-child { border-bottom: none; }
+
+    .Detail-comment-body {
+      flex: 1;
+      font-size: 14px;
+      color: var(--color-fg-default);
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .Detail-comment-meta {
+      font-size: 12px;
+      color: var(--color-fg-subtle);
+      margin-bottom: 4px;
+    }
+
+    /* Review verdict */
+    .ReviewBadge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 8px;
+      font-size: 12px;
+      font-weight: 600;
+      border-radius: 6px;
+    }
+
+    .ReviewBadge--approve {
+      background: rgba(63, 185, 80, 0.15);
+      color: var(--color-success-fg);
+    }
+
+    .ReviewBadge--request-changes {
+      background: rgba(248, 81, 73, 0.15);
+      color: var(--color-danger-fg);
+    }
+
+    .ReviewBadge--comment {
+      background: rgba(139, 148, 158, 0.15);
+      color: var(--color-fg-muted);
+    }
+
+    /* ================================================================
+       Session Selector — session picker in Code view header
+       ================================================================ */
+    .SessionSelect {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .SessionSelect-btn {
+      padding: 4px 12px;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--color-fg-muted);
+      background: none;
+      border: 1px solid var(--color-border-default);
+      border-radius: 6px;
+      cursor: pointer;
+      font-family: inherit;
+      transition: all 0.15s;
+    }
+
+    .SessionSelect-btn:hover { background: var(--color-canvas-subtle); color: var(--color-fg-default); }
+    .SessionSelect-btn.active {
+      background: var(--color-accent-emphasis);
+      color: #fff;
+      border-color: var(--color-accent-emphasis);
+    }
+
+    /* ================================================================
+       Workspace Selector
+       ================================================================ */
+    .WorkspaceSelect {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+
+    .WorkspaceSelect select {
+      padding: 5px 10px;
+      font-size: 13px;
+      color: var(--color-fg-default);
+      background: var(--color-canvas-subtle);
+      border: 1px solid var(--color-border-default);
+      border-radius: 6px;
+      font-family: inherit;
+      cursor: pointer;
+    }
+
+    .WorkspaceSelect label {
+      font-size: 13px;
+      color: var(--color-fg-muted);
+      font-weight: 600;
+    }
+
+    /* ================================================================
+       Responsive
+       ================================================================ */
+    @media (max-width: 768px) {
+      .AppHeader { padding: 8px 16px; }
+      .UnderlineNav { padding: 0 16px; }
+      .Main-container { padding: 16px; }
+      .DigestGrid { grid-template-columns: 1fr; }
+      .CommitRow-meta { display: none; }
+      .AvatarStack { display: none; }
+    }
+
+    /* hidden utility */
+    .hidden { display: none !important; }
   </style>
 </head>
 <body>
-  <a href="#graph-view" class="skip-link">Skip to reasoning graph</a>
   <div id="app">
-    <!-- Ambient Background -->
-    <div class="ambient-bg">
-      <div class="ambient-orb top-left"></div>
-      <div class="ambient-orb bottom-right"></div>
-    </div>
-
-    <!-- Header -->
-    <header class="header">
-      <div class="header-content">
-        <div class="flex items-center gap-3">
-          <div class="logo-bar"></div>
-          <h1 class="title">Thoughtbox Observatory</h1>
-        </div>
-        <div class="flex items-center gap-4">
-          <!-- Agent Activity Indicators -->
-          <div id="agent-activity-bar" class="flex items-center gap-2" style="display: none;">
-            <span style="font-size: 0.75rem; color: #9ca3af; margin-right: 0.25rem;"><span aria-hidden="true">👥</span> Active:</span>
-            <div id="agent-pills-container" class="flex items-center gap-2">
-              <!-- Agent pills rendered here dynamically -->
-            </div>
-          </div>
-          <div id="status-badge" class="status-badge disconnected">
-            <div class="status-dot"></div>
-            <span class="status-text">Connecting...</span>
-          </div>
+    <!-- AppHeader -->
+    <header class="AppHeader">
+      <div class="AppHeader-context">
+        <span class="AppHeader-repoIcon">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M2 2.5A2.5 2.5 0 0 1 4.5 0h8.75a.75.75 0 0 1 .75.75v12.5a.75.75 0 0 1-.75.75h-2.5a.75.75 0 0 1 0-1.5h1.75v-2h-8a1 1 0 0 0-.714 1.7.75.75 0 1 1-1.072 1.05A2.495 2.495 0 0 1 2 11.5Zm10.5-1h-8a1 1 0 0 0-1 1v6.708A2.486 2.486 0 0 1 4.5 9h8ZM5 12.25a.25.25 0 0 1 .25-.25h3.5a.25.25 0 0 1 .25.25v3.25a.25.25 0 0 1-.4.2l-1.45-1.087a.249.249 0 0 0-.3 0L5.4 15.7a.25.25 0 0 1-.4-.2Z"/></svg>
+        </span>
+        <span class="AppHeader-repoName" id="repo-name">Thoughtbox Observatory</span>
+        <span class="AppHeader-separator">/</span>
+        <span class="AppHeader-sessionName" id="session-name">No session</span>
+      </div>
+      <div class="AppHeader-right">
+        <div id="avatar-stack" class="AvatarStack"></div>
+        <div id="connection-status" class="ConnectionStatus">
+          <span class="ConnectionStatus-dot disconnected"></span>
+          <span>Connecting...</span>
         </div>
       </div>
     </header>
 
-    <!-- Main Content -->
-    <main class="main" id="main-content">
-      <!-- Graph View (default) -->
-      <div id="graph-view">
-        <!-- Session Bar -->
-        <div class="session-bar">
-          <div class="flex items-center justify-between mb-6">
-            <div>
-              <div class="section-label">
-                <div class="section-line"></div>
-                <h2 class="section-title">Sessions</h2>
-              </div>
-              <div id="session-tabs" class="session-tabs">
-                <!-- Sessions will be rendered here -->
-              </div>
-            </div>
-          </div>
-        </div>
+    <!-- Tab Navigation -->
+    <nav class="UnderlineNav" id="tab-nav">
+      <button class="UnderlineNav-item selected" data-tab="code">
+        <span class="UnderlineNav-icon"><svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M4.72 3.22a.75.75 0 0 1 1.06 1.06L2.06 8l3.72 3.72a.75.75 0 1 1-1.06 1.06L.47 8.53a.75.75 0 0 1 0-1.06Zm6.56 0a.75.75 0 1 0-1.06 1.06L13.94 8l-3.72 3.72a.75.75 0 1 0 1.06 1.06l4.25-4.25a.75.75 0 0 0 0-1.06Z"/></svg></span>
+        Code
+        <span class="Counter" id="count-code">0</span>
+      </button>
+      <button class="UnderlineNav-item" data-tab="issues">
+        <span class="UnderlineNav-icon"><svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 9.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3Z"/><path d="M8 0a8 8 0 1 1 0 16A8 8 0 0 1 8 0ZM1.5 8a6.5 6.5 0 1 0 13 0 6.5 6.5 0 0 0-13 0Z"/></svg></span>
+        Issues
+        <span class="Counter" id="count-issues">0</span>
+      </button>
+      <button class="UnderlineNav-item" data-tab="pulls">
+        <span class="UnderlineNav-icon"><svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M1.5 3.25a2.25 2.25 0 1 1 3 2.122v5.256a2.251 2.251 0 1 1-1.5 0V5.372A2.25 2.25 0 0 1 1.5 3.25Zm5.677-.177L9.573.677A.25.25 0 0 1 10 .854V2.5h1A2.5 2.5 0 0 1 13.5 5v5.628a2.251 2.251 0 1 1-1.5 0V5a1 1 0 0 0-1-1h-1v1.646a.25.25 0 0 1-.427.177L7.177 3.427a.25.25 0 0 1 0-.354ZM3.75 2.5a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5Zm0 9.5a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5Zm8.25.75a.75.75 0 1 0 1.5 0 .75.75 0 0 0-1.5 0Z"/></svg></span>
+        Pull Requests
+        <span class="Counter" id="count-pulls">0</span>
+      </button>
+      <button class="UnderlineNav-item" data-tab="activity">
+        <span class="UnderlineNav-icon"><svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M11.93 8.5a4.002 4.002 0 0 1-7.86 0H.75a.75.75 0 0 1 0-1.5h3.32a4.002 4.002 0 0 1 7.86 0h3.32a.75.75 0 0 1 0 1.5Zm-1.43-.75a2.5 2.5 0 1 0-5 0 2.5 2.5 0 0 0 5 0Z"/></svg></span>
+        Activity
+      </button>
+      <button class="UnderlineNav-item" data-tab="digest">
+        <span class="UnderlineNav-icon"><svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M0 1.75A.75.75 0 0 1 .75 1h4.253c1.227 0 2.317.59 3 1.501A3.743 3.743 0 0 1 11.006 1h4.245a.75.75 0 0 1 .75.75v10.5a.75.75 0 0 1-.75.75h-4.507a2.25 2.25 0 0 0-1.591.659l-.622.621a.75.75 0 0 1-1.06 0l-.622-.621A2.25 2.25 0 0 0 5.258 13H.75a.75.75 0 0 1-.75-.75Zm7.251 10.324.004-5.073-.002-2.253A2.25 2.25 0 0 0 5.003 2.5H1.5v9h3.757a3.75 3.75 0 0 1 1.994.574ZM8.755 4.75l-.004 7.322a3.752 3.752 0 0 1 1.992-.572H14.5v-9h-3.495a2.25 2.25 0 0 0-2.25 2.25Z"/></svg></span>
+        Digest
+      </button>
+    </nav>
 
-        <!-- Graph Container -->
-        <div class="graph-wrapper">
-          <div class="graph-container">
-            <div class="graph-header">
-              <div class="section-label" style="margin-bottom: 0;">
-                <div class="section-line"></div>
-                <h2 class="section-title">Reasoning Graph</h2>
-              </div>
-              <div id="node-count" class="node-count hidden">
-                <div class="node-count-dot"></div>
-                <span id="node-count-text">0 nodes</span>
-              </div>
-            </div>
-            <div class="graph-content">
-              <div id="graph-empty" class="empty-state">
-                <p>No active session selected. Select a session above to view its reasoning graph, or wait for a new session to begin.</p>
-              </div>
-              <svg id="graph-svg" class="graph-svg hidden" preserveAspectRatio="xMidYMid meet">
-                <defs>
-                  <!-- Main chain arrowhead (emerald) -->
-                  <marker id="arrowhead" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
-                    <polygon points="0 0, 10 3, 0 6" fill="#34d399" />
-                  </marker>
-                  <!-- Branch arrowhead (purple) -->
-                  <marker id="arrowhead-branch" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
-                    <polygon points="0 0, 10 3, 0 6" fill="#a855f7" />
-                  </marker>
-                  <linearGradient id="connectionGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                    <stop offset="0%" stop-color="rgb(16, 185, 129)" stop-opacity="0.3" />
-                    <stop offset="50%" stop-color="rgb(16, 185, 129)" stop-opacity="0.6" />
-                    <stop offset="100%" stop-color="rgb(16, 185, 129)" stop-opacity="0.3" />
-                  </linearGradient>
-                </defs>
-                <g id="connections"></g>
-                <g id="nodes"></g>
-              </svg>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Detail View (hidden by default) -->
-      <div id="detail-view" class="detail-panel hidden">
-        <div class="detail-header">
-          <button id="back-btn" class="back-btn">
-            <svg class="back-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M19 12H5M12 19l-7-7 7-7" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-            <span>Back to Graph</span>
-          </button>
-          <div class="progress-container">
-            <div class="progress-bar">
-              <div id="progress-fill" class="progress-fill" style="width: 0%"></div>
-            </div>
-            <span id="progress-text" class="progress-text">Thought 0 of 0</span>
-          </div>
-        </div>
-        <div class="detail-content">
-          <div class="detail-inner">
-            <div class="section-label mb-4">
-              <div class="section-line"></div>
-              <h3 class="section-title">MCP Request</h3>
-            </div>
-            <div class="code-block">
-              <pre class="code-pre"><code id="detail-code"></code></pre>
-            </div>
-          </div>
-        </div>
-      </div>
+    <!-- Main Content Area -->
+    <main class="Main" id="main-content">
+      <!-- Views are rendered here by JS -->
     </main>
-
-    <!-- Task Board (Fixed Position, Collapsible) -->
-    <div id="task-board" class="task-board collapsed">
-      <div class="task-board-header" role="button" tabindex="0" aria-label="Toggle task board">
-        <h3><span aria-hidden="true">🎯</span> Active Tasks</h3>
-        <span class="collapse-btn" aria-hidden="true">[−]</span>
-      </div>
-      <div class="task-board-content" id="task-board-content">
-        <!-- Task cards rendered here dynamically -->
-      </div>
-    </div>
   </div>
 
   <script>
-    // ============================================================
-    // Observatory Client - WebSocket connection management
-    // ============================================================
+    // ================================================================
+    // Observatory Client — WebSocket connection management
+    // ================================================================
     class ObservatoryClient {
       constructor() {
         this.ws = null;
@@ -1041,54 +950,34 @@
         return new Promise((resolve, reject) => {
           try {
             this.ws = new WebSocket(url);
-
             this.ws.onopen = () => {
-              console.log('[Observatory] Connected');
               this.reconnectAttempts = 0;
               this.reconnectDelay = 1000;
               this.emit('connected');
               resolve();
             };
-
             this.ws.onclose = (event) => {
-              console.log('[Observatory] Disconnected', event.code, event.reason);
               this.emit('disconnected');
               this.attemptReconnect(url);
             };
-
-            this.ws.onerror = (error) => {
-              console.error('[Observatory] Error', error);
-              reject(error);
-            };
-
+            this.ws.onerror = (error) => reject(error);
             this.ws.onmessage = (event) => {
               try {
                 const [topic, eventName, payload] = JSON.parse(event.data);
                 this.handleMessage(topic, eventName, payload);
               } catch (err) {
-                console.error('[Observatory] Failed to parse message', err);
+                console.error('[Observatory] Parse error', err);
               }
             };
-          } catch (err) {
-            reject(err);
-          }
+          } catch (err) { reject(err); }
         });
       }
 
       attemptReconnect(url) {
-        if (this.reconnectAttempts >= this.maxReconnectAttempts) {
-          console.log('[Observatory] Max reconnect attempts reached');
-          return;
-        }
-
+        if (this.reconnectAttempts >= this.maxReconnectAttempts) return;
         this.reconnectAttempts++;
         const delay = Math.min(this.reconnectDelay * Math.pow(2, this.reconnectAttempts - 1), 30000);
-
-        console.log(`[Observatory] Reconnecting in ${delay}ms (attempt ${this.reconnectAttempts})`);
-
-        setTimeout(() => {
-          this.connect(url).catch(() => {});
-        }, delay);
+        setTimeout(() => this.connect(url).catch(() => {}), delay);
       }
 
       subscribe(topic) {
@@ -1112,1462 +1001,1006 @@
       }
 
       on(event, handler) {
-        if (!this.handlers.has(event)) {
-          this.handlers.set(event, []);
-        }
+        if (!this.handlers.has(event)) this.handlers.set(event, []);
         this.handlers.get(event).push(handler);
-      }
-
-      off(event, handler) {
-        if (this.handlers.has(event)) {
-          const handlers = this.handlers.get(event);
-          const index = handlers.indexOf(handler);
-          if (index > -1) handlers.splice(index, 1);
-        }
       }
 
       emit(event, data) {
         if (this.handlers.has(event)) {
-          this.handlers.get(event).forEach(handler => handler(data));
+          this.handlers.get(event).forEach(h => h(data));
         }
       }
 
       handleMessage(topic, event, payload) {
-        // Emit topic-specific event
         this.emit(`${topic}:${event}`, payload);
-
-        // Emit generic event
         this.emit('message', { topic, event, payload });
       }
     }
 
-    // ============================================================
-    // State Management
-    // ============================================================
-    const state = {
-      connected: false,
-      sessions: [],
-      activeSessionId: null,
-      thoughts: new Map(),
-      branches: new Map(),
-      arrivalOrder: [],  // Track thought IDs in order they arrived (for correct arrow direction)
-      selectedNodeId: null,
-      viewMode: 'graph',
-      newNodeId: null,
-
-      // Hierarchical view state
-      viewContext: {
-        mode: 'main',           // 'main' | 'branch'
-        activeBranchId: null,   // branchId when mode === 'branch'
-        branchStack: []         // For nested branch navigation (future)
-      },
-
-      // Branch metadata for stub rendering
-      branchRegistry: new Map(), // branchId -> { label: 'A', originThoughtNumber, thoughtCount }
-
-      // Session source tracking: 'active' (WebSocket) or 'historical' (REST/storage)
-      sessionSource: new Map(),   // sessionId -> 'active' | 'historical'
-
-      // Pagination
-      sessionPage: 0,             // Current page (0-indexed)
-      sessionsPerPage: 9,         // Historical sessions per page
-
-      // Multi-agent collaboration state
-      agents: new Map(),        // agentId -> { role, status, lastActivity, taskId }
-      tasks: new Map(),          // taskId -> { title, progress, subtasks }
-      thoughtAgents: new Map()   // thoughtId -> agentRole (for attribution)
-    };
-
-    // Helper: Generate branch label from index (A, B, C, ..., Z, AA, AB, ...)
-    function generateBranchLabel(index) {
-      if (index < 26) {
-        return String.fromCharCode(65 + index); // A-Z
-      }
-      const prefix = String.fromCharCode(65 + Math.floor((index - 26) / 26));
-      const suffix = String.fromCharCode(65 + ((index - 26) % 26));
-      return prefix + suffix; // AA, AB, ..., ZZ
-    }
-
-    // Helper: Register a new branch or update existing
-    function registerBranch(branchId, originThoughtNumber) {
-      if (!state.branchRegistry.has(branchId)) {
-        const label = generateBranchLabel(state.branchRegistry.size);
-        state.branchRegistry.set(branchId, {
-          label: label,
-          originThoughtNumber: originThoughtNumber,
-          thoughtCount: 1
-        });
-      } else {
-        const entry = state.branchRegistry.get(branchId);
-        entry.thoughtCount++;
-      }
-    }
-
-    // ============================================================
-    // DOM Elements
-    // ============================================================
-    const elements = {
-      statusBadge: document.getElementById('status-badge'),
-      sessionTabs: document.getElementById('session-tabs'),
-      graphView: document.getElementById('graph-view'),
-      detailView: document.getElementById('detail-view'),
-      graphSvg: document.getElementById('graph-svg'),
-      graphEmpty: document.getElementById('graph-empty'),
-      nodeCount: document.getElementById('node-count'),
-      nodeCountText: document.getElementById('node-count-text'),
-      connectionsGroup: document.getElementById('connections'),
-      nodesGroup: document.getElementById('nodes'),
-      backBtn: document.getElementById('back-btn'),
-      progressFill: document.getElementById('progress-fill'),
-      progressText: document.getElementById('progress-text'),
-      detailCode: document.getElementById('detail-code'),
-      // Multi-agent collaboration elements
-      agentActivityBar: document.getElementById('agent-activity-bar'),
-      agentPillsContainer: document.getElementById('agent-pills-container'),
-      taskBoard: document.getElementById('task-board'),
-      taskBoardContent: document.getElementById('task-board-content')
-    };
-
-    // ============================================================
-    // Render Functions
-    // ============================================================
-    
-    /**
-     * Escape HTML special characters to prevent XSS
-     */
+    // ================================================================
+    // Utility functions
+    // ================================================================
     function escapeHtml(text) {
       const div = document.createElement('div');
       div.textContent = text;
       return div.innerHTML;
     }
 
-    function updateConnectionStatus(connected) {
-      state.connected = connected;
-      const badge = elements.statusBadge;
-      const text = badge.querySelector('.status-text');
-
-      if (connected) {
-        badge.classList.remove('disconnected');
-        text.textContent = 'Connected';
-      } else {
-        badge.classList.add('disconnected');
-        text.textContent = 'Disconnected';
-      }
+    function relativeTime(isoString) {
+      if (!isoString) return '';
+      const diff = Date.now() - new Date(isoString).getTime();
+      const secs = Math.floor(diff / 1000);
+      if (secs < 60) return 'just now';
+      const mins = Math.floor(secs / 60);
+      if (mins < 60) return `${mins}m ago`;
+      const hrs = Math.floor(mins / 60);
+      if (hrs < 24) return `${hrs}h ago`;
+      const days = Math.floor(hrs / 24);
+      return `${days}d ago`;
     }
 
-    // ============================================================
-    // Multi-Agent Collaboration Rendering
-    // ============================================================
-
-    function renderAgentBar() {
-      const container = elements.agentPillsContainer;
-      if (!container) return;
-
-      // Show activity bar if we have agents
-      if (state.agents.size > 0) {
-        elements.agentActivityBar.style.display = 'flex';
-      } else {
-        elements.agentActivityBar.style.display = 'none';
-        return;
-      }
-
-      container.innerHTML = '';
-
-      for (const [agentId, agent] of state.agents) {
-        const pill = document.createElement('div');
-        pill.className = `agent-pill ${agent.status}`;
-        pill.setAttribute('data-role', agent.role);
-        const roleName = escapeHtml(agent.role.charAt(0).toUpperCase() + agent.role.slice(1));
-        pill.innerHTML = `
-          <span class="dot ${agent.status === 'active' ? 'pulsing' : ''}"></span>
-          <span>${roleName}</span>
-        `;
-        container.appendChild(pill);
-      }
+    function shortHash(id) {
+      return id ? id.slice(0, 8) : '';
     }
 
-    function renderTaskBoard() {
-      const container = elements.taskBoardContent;
-      if (!container) return;
-
-      // Show task board if we have tasks
-      if (state.tasks.size > 0) {
-        elements.taskBoard.classList.remove('collapsed');
-      } else {
-        return;
-      }
-
-      container.innerHTML = '';
-
-      for (const [taskId, task] of state.tasks) {
-        const card = document.createElement('div');
-        card.className = 'task-card';
-        card.setAttribute('data-task-id', taskId);
-
-        const progressPercent = Math.round(task.progress * 100);
-        const completedCount = task.subtasks.filter(st => st.status === 'completed').length;
-        const totalCount = task.subtasks.length;
-
-        card.innerHTML = `
-          <div class="task-title">${escapeHtml(task.title)}</div>
-          <div class="task-progress">
-            <div class="progress-bar">
-              <div class="progress-fill" style="width: ${progressPercent}%"></div>
-            </div>
-            <span class="progress-text">${progressPercent === 100 ? 'Done' : 'Progress'}: ${progressPercent}% (${completedCount}/${totalCount})</span>
-          </div>
-          <div class="task-subtasks">
-            ${task.subtasks.map(st => `
-              <span class="subtask ${st.status}">
-                ${escapeHtml(st.title)} ${getSubtaskIcon(st.status)}
-              </span>
-            `).join('')}
-          </div>
-        `;
-
-        container.appendChild(card);
-      }
+    function profileColor(profile) {
+      const colors = {
+        MANAGER: 'var(--color-manager)', ARCHITECT: 'var(--color-architect)',
+        DEBUGGER: 'var(--color-debugger)', SECURITY: 'var(--color-security)',
+        RESEARCHER: 'var(--color-researcher)', REVIEWER: 'var(--color-reviewer)',
+      };
+      return colors[(profile || '').toUpperCase()] || 'var(--color-fg-subtle)';
     }
 
-    function getSubtaskIcon(status) {
-      switch (status) {
-        case 'completed': return '✓';
-        case 'in_progress': return '⏳';
-        case 'pending': return '⏸';
-        default: return '';
-      }
+    function statusToStateLabel(status) {
+      const map = {
+        'open': 'StateLabel--open', 'in-progress': 'StateLabel--in-progress',
+        'resolved': 'StateLabel--resolved', 'closed': 'StateLabel--closed',
+        'reviewing': 'StateLabel--reviewing', 'merged': 'StateLabel--merged',
+        'rejected': 'StateLabel--rejected',
+      };
+      return map[status] || 'StateLabel--open';
     }
 
-    window.toggleTaskBoard = function() {
-      elements.taskBoard.classList.toggle('collapsed');
+    function issueIcon(status) {
+      if (status === 'closed' || status === 'resolved') {
+        return `<svg width="16" height="16" viewBox="0 0 16 16" fill="var(--color-done-fg)"><path d="M11.28 6.78a.75.75 0 0 0-1.06-1.06L7.25 8.69 5.78 7.22a.75.75 0 0 0-1.06 1.06l2 2a.75.75 0 0 0 1.06 0ZM16 8A8 8 0 1 1 0 8a8 8 0 0 1 16 0Zm-1.5 0a6.5 6.5 0 1 0-13 0 6.5 6.5 0 0 0 13 0Z"/></svg>`;
+      }
+      return `<svg width="16" height="16" viewBox="0 0 16 16" fill="var(--color-success-fg)"><path d="M8 9.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3Z"/><path d="M8 0a8 8 0 1 1 0 16A8 8 0 0 1 8 0ZM1.5 8a6.5 6.5 0 1 0 13 0 6.5 6.5 0 0 0-13 0Z"/></svg>`;
+    }
+
+    function prIcon(status) {
+      if (status === 'merged') {
+        return `<svg width="16" height="16" viewBox="0 0 16 16" fill="var(--color-done-fg)"><path d="M5.45 5.154A4.25 4.25 0 0 0 9.25 7.5h1.378a2.251 2.251 0 1 1 0 1.5H9.25A5.734 5.734 0 0 1 5 7.123v3.505a2.25 2.25 0 1 1-1.5 0V5.372a2.25 2.25 0 1 1 1.95-.218ZM4.25 13.5a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Zm8-9a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5ZM4.25 4a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Z"/></svg>`;
+      }
+      if (status === 'rejected') {
+        return `<svg width="16" height="16" viewBox="0 0 16 16" fill="var(--color-danger-fg)"><path d="M1.5 3.25a2.25 2.25 0 1 1 3 2.122v5.256a2.251 2.251 0 1 1-1.5 0V5.372A2.25 2.25 0 0 1 1.5 3.25Zm5.677-.177L9.573.677A.25.25 0 0 1 10 .854V2.5h1A2.5 2.5 0 0 1 13.5 5v5.628a2.251 2.251 0 1 1-1.5 0V5a1 1 0 0 0-1-1h-1v1.646a.25.25 0 0 1-.427.177L7.177 3.427a.25.25 0 0 1 0-.354ZM3.75 2.5a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5Zm0 9.5a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5Zm8.25.75a.75.75 0 1 0 1.5 0 .75.75 0 0 0-1.5 0Z"/></svg>`;
+      }
+      return `<svg width="16" height="16" viewBox="0 0 16 16" fill="var(--color-success-fg)"><path d="M1.5 3.25a2.25 2.25 0 1 1 3 2.122v5.256a2.251 2.251 0 1 1-1.5 0V5.372A2.25 2.25 0 0 1 1.5 3.25Zm5.677-.177L9.573.677A.25.25 0 0 1 10 .854V2.5h1A2.5 2.5 0 0 1 13.5 5v5.628a2.251 2.251 0 1 1-1.5 0V5a1 1 0 0 0-1-1h-1v1.646a.25.25 0 0 1-.427.177L7.177 3.427a.25.25 0 0 1 0-.354ZM3.75 2.5a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5Zm0 9.5a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5Zm8.25.75a.75.75 0 1 0 1.5 0 .75.75 0 0 0-1.5 0Z"/></svg>`;
+    }
+
+    // ================================================================
+    // State
+    // ================================================================
+    const state = {
+      connected: false,
+      currentTab: 'code',
+      // Reasoning state
+      sessions: [],
+      activeSessionId: null,
+      thoughts: new Map(),
+      branches: new Map(),
+      arrivalOrder: [],
+      branchRegistry: new Map(),
+      selectedThoughtId: null,
+      // Hub state
+      activeWorkspaceId: null,
+      workspaces: [],
+      problems: [],
+      proposals: [],
+      consensusMarkers: [],
+      agents: [],
+      activityFeed: [],
+      // Filters
+      issueFilter: 'open',
+      prFilter: 'open',
     };
 
-    // Keyboard + click support for task board header
-    (function() {
-      const header = document.querySelector('.task-board-header');
-      if (!header) return;
-      header.addEventListener('click', function() { window.toggleTaskBoard && window.toggleTaskBoard(); });
-      header.addEventListener('keydown', function(e) {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault();
-          window.toggleTaskBoard && window.toggleTaskBoard();
-        }
-      });
-    })();
-
-    // ============================================================
-    // REST API Functions (for historical session loading)
-    // ============================================================
-    async function fetchAllSessions() {
-      try {
-        const resp = await fetch('/api/sessions?limit=50');
-        if (!resp.ok) return;
-        const data = await resp.json();
-        const sessions = data.sessions || [];
-
-        // Merge into state: active sessions (already in state from WS) take precedence
-        const activeIds = new Set();
-        state.sessions.forEach(s => {
-          if (state.sessionSource.get(s.id) === 'active') {
-            activeIds.add(s.id);
-          }
-        });
-
-        for (const session of sessions) {
-          if (!activeIds.has(session.id)) {
-            // Add historical session if not already present as active
-            const existing = state.sessions.find(s => s.id === session.id);
-            if (!existing) {
-              state.sessions.push(session);
-            }
-            if (!state.sessionSource.has(session.id)) {
-              state.sessionSource.set(session.id, 'historical');
-            }
-          }
-        }
-
-        // Sort: active first (by createdAt desc), then historical (by createdAt desc)
-        state.sessions.sort((a, b) => {
-          const aIsActive = state.sessionSource.get(a.id) === 'active';
-          const bIsActive = state.sessionSource.get(b.id) === 'active';
-          if (aIsActive && !bIsActive) return -1;
-          if (!aIsActive && bIsActive) return 1;
-          return new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
-        });
-
-        renderSessions();
-      } catch (err) {
-        console.error('[Observatory] Failed to fetch sessions:', err);
-      }
+    // Branch label helpers
+    function generateBranchLabel(index) {
+      if (index < 26) return String.fromCharCode(65 + index);
+      return String.fromCharCode(65 + Math.floor((index - 26) / 26)) +
+             String.fromCharCode(65 + ((index - 26) % 26));
     }
 
-    async function fetchSessionDetail(sessionId) {
-      try {
-        const resp = await fetch(`/api/sessions/${encodeURIComponent(sessionId)}`);
-        if (!resp.ok) return null;
-        return await resp.json();
-      } catch (err) {
-        console.error('[Observatory] Failed to fetch session detail:', err);
-        return null;
-      }
-    }
-
-    function renderSessionTab(session) {
-      const isSelected = session.id === state.activeSessionId;
-      const source = state.sessionSource.get(session.id) || 'historical';
-      const isLive = source === 'active';
-      const label = session.title || session.id.slice(0, 8);
-      const escapedLabel = escapeHtml(label);
-      const escapedId = escapeHtml(session.id);
-
-      const badge = isLive
-        ? '<span class="session-badge session-badge-live"><span class="badge-dot"></span>LIVE</span>'
-        : '<span class="session-badge session-badge-completed">\u2713</span>';
-
-      return `
-        <button
-          class="session-tab ${isSelected ? 'active' : ''} ${!isLive ? 'historical' : ''}"
-          data-session-id="${escapedId}"
-          tabindex="0"
-        >
-          <span style="position: relative; z-index: 10;">${escapedLabel}${badge}</span>
-        </button>
-      `;
-    }
-
-    function renderSessions() {
-      const container = elements.sessionTabs;
-
-      if (state.sessions.length === 0) {
-        container.innerHTML = '<span style="color: var(--text-muted); font-size: 0.875rem;">No sessions</span>';
-        return;
-      }
-
-      // Split into active (always shown) and historical (paginated)
-      const activeSessions = state.sessions.filter(s => state.sessionSource.get(s.id) === 'active');
-      const historicalSessions = state.sessions.filter(s => state.sessionSource.get(s.id) !== 'active');
-
-      // Clamp page
-      const totalPages = Math.max(1, Math.ceil(historicalSessions.length / state.sessionsPerPage));
-      if (state.sessionPage >= totalPages) state.sessionPage = totalPages - 1;
-      if (state.sessionPage < 0) state.sessionPage = 0;
-
-      const pageStart = state.sessionPage * state.sessionsPerPage;
-      const pageEnd = Math.min(pageStart + state.sessionsPerPage, historicalSessions.length);
-      const pageSlice = historicalSessions.slice(pageStart, pageEnd);
-
-      let html = '';
-
-      // Active sessions section (always visible, no pagination)
-      if (activeSessions.length > 0) {
-        html += '<div class="session-section-label">Active</div>';
-        html += '<div class="session-tabs" style="margin-bottom: 0.75rem;">';
-        html += activeSessions.map(renderSessionTab).join('');
-        html += '</div>';
-      }
-
-      // Historical sessions section (paginated)
-      if (historicalSessions.length > 0) {
-        html += '<div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.375rem;">';
-        html += `<span class="session-section-label" style="margin-bottom: 0;">History</span>`;
-
-        // Pagination controls
-        if (totalPages > 1) {
-          const rangeStart = pageStart + 1;
-          const rangeEnd = pageEnd;
-          html += '<div class="session-pagination">';
-          html += `<button class="session-pagination-btn" data-page-action="prev" ${state.sessionPage === 0 ? 'disabled' : ''} aria-label="Previous page">\u2039</button>`;
-          html += `<span class="session-pagination-info">${rangeStart}\u2013${rangeEnd} of ${historicalSessions.length}</span>`;
-          html += `<button class="session-pagination-btn" data-page-action="next" ${state.sessionPage >= totalPages - 1 ? 'disabled' : ''} aria-label="Next page">\u203a</button>`;
-          html += '</div>';
-        }
-
-        html += '</div>';
-        html += '<div class="session-tabs">';
-        html += pageSlice.map(renderSessionTab).join('');
-        html += '</div>';
-      }
-
-      container.innerHTML = html;
-
-      // Session tab click handlers
-      container.querySelectorAll('.session-tab').forEach(btn => {
-        btn.addEventListener('click', () => {
-          selectSession(btn.dataset.sessionId);
+    function registerBranch(branchId, originThoughtNumber) {
+      if (!state.branchRegistry.has(branchId)) {
+        state.branchRegistry.set(branchId, {
+          label: generateBranchLabel(state.branchRegistry.size),
+          originThoughtNumber,
+          thoughtCount: 1,
         });
-        btn.addEventListener('keydown', (e) => {
-          if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault();
-            selectSession(btn.dataset.sessionId);
-          }
-        });
-      });
-
-      // Pagination button handlers
-      container.querySelectorAll('.session-pagination-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-          const action = btn.dataset.pageAction;
-          if (action === 'prev' && state.sessionPage > 0) {
-            state.sessionPage--;
-            renderSessions();
-          } else if (action === 'next') {
-            state.sessionPage++;
-            renderSessions();
-          }
-        });
-      });
-    }
-
-    // Layout constants
-    const NODES_PER_ROW = 10;
-    const NODE_SPACING_X = 120;
-    const ROW_HEIGHT = 80;
-    const BRANCH_Y_OFFSET = 100;
-    const NODE_START_X = 80;
-    const NODE_START_Y = 60;
-
-    // Stub node dimensions (for hierarchical branch view)
-    const STUB_RADIUS = 14;
-    const STUB_OFFSET_Y = -45;  // Position above origin node
-    const STUB_SPACING_X = 35;  // Horizontal spacing when multiple stubs on same node
-
-    function calculateNodePositions() {
-      if (state.arrivalOrder.length === 0) return { mainNodes: [], branchNodes: [], stubNodes: [], connections: [] };
-
-      // If in branch view, delegate to branch-specific calculation
-      if (state.viewContext.mode === 'branch' && state.viewContext.activeBranchId) {
-        return calculateBranchViewPositions();
-      }
-
-      // MAIN VIEW: Show main chain + stub nodes for branches
-
-      // Separate main chain from branches using arrival order
-      const mainChainIds = state.arrivalOrder.filter(id => {
-        const t = state.thoughts.get(id);
-        return t && !t.branchId;
-      });
-
-      // Position main chain nodes with snake layout
-      const mainNodes = mainChainIds.map((id, arrivalIndex) => {
-        const thought = state.thoughts.get(id);
-        const row = Math.floor(arrivalIndex / NODES_PER_ROW);
-        const colIndex = arrivalIndex % NODES_PER_ROW;
-
-        // Snake pattern: all rows go L→R, but connection from row end wraps down to next row start
-        const col = colIndex;
-
-        return {
-          id: thought.id,
-          x: NODE_START_X + col * NODE_SPACING_X,
-          y: NODE_START_Y + row * ROW_HEIGHT,
-          label: thought.thoughtNumber.toString(),
-          thought: thought,
-          arrivalIndex: arrivalIndex,
-          row: row,
-          col: col,
-          isBranch: false
-        };
-      });
-
-      // Create lookup for main chain positions by thoughtNumber
-      const mainNodeByThoughtNumber = new Map();
-      mainNodes.forEach(node => {
-        mainNodeByThoughtNumber.set(node.thought.thoughtNumber, node);
-      });
-
-      // Group stubs by origin thought number for positioning
-      const stubsByOrigin = new Map();
-      state.branchRegistry.forEach((branchInfo, branchId) => {
-        const originNum = branchInfo.originThoughtNumber;
-        if (!stubsByOrigin.has(originNum)) {
-          stubsByOrigin.set(originNum, []);
-        }
-        stubsByOrigin.get(originNum).push({ branchId, ...branchInfo });
-      });
-
-      // Create stub nodes positioned above their origin nodes
-      const stubNodes = [];
-      stubsByOrigin.forEach((stubs, originThoughtNumber) => {
-        const originNode = mainNodeByThoughtNumber.get(originThoughtNumber);
-        if (!originNode) return;
-
-        // Position stubs horizontally centered above origin node
-        const totalWidth = (stubs.length - 1) * STUB_SPACING_X;
-        const startX = originNode.x - totalWidth / 2;
-
-        stubs.forEach((stub, index) => {
-          stubNodes.push({
-            id: `stub-${stub.branchId}`,
-            branchId: stub.branchId,
-            x: startX + index * STUB_SPACING_X,
-            y: originNode.y + STUB_OFFSET_Y,
-            label: stub.label,
-            thoughtCount: stub.thoughtCount,
-            originNodeId: originNode.id,
-            originThoughtNumber: originThoughtNumber,
-            isStub: true
-          });
-        });
-      });
-
-      // Build connections for main chain only (no branch connections in main view)
-      const connections = [];
-      const nodeById = new Map(mainNodes.map(n => [n.id, n]));
-
-      // Main chain connections: connect in arrival order
-      for (let i = 1; i < mainChainIds.length; i++) {
-        const fromNode = nodeById.get(mainChainIds[i - 1]);
-        const toNode = nodeById.get(mainChainIds[i]);
-        if (fromNode && toNode) {
-          connections.push({
-            from: fromNode,
-            to: toNode,
-            type: 'main',
-            crossesRow: fromNode.row !== toNode.row
-          });
-        }
-      }
-
-      // Add stub connections (from origin node up to stub)
-      stubNodes.forEach(stub => {
-        const originNode = nodeById.get(stub.originNodeId);
-        if (originNode) {
-          connections.push({
-            from: originNode,
-            to: stub,
-            type: 'stub'
-          });
-        }
-      });
-
-      return { mainNodes, branchNodes: [], stubNodes, connections };
-    }
-
-    /**
-     * Calculate positions for branch view (single branch displayed)
-     */
-    function calculateBranchViewPositions() {
-      const activeBranchId = state.viewContext.activeBranchId;
-      const branchInfo = state.branchRegistry.get(activeBranchId);
-
-      if (!branchInfo) return { mainNodes: [], branchNodes: [], stubNodes: [], connections: [] };
-
-      // Get thoughts for this branch
-      const branchThoughts = [];
-      state.thoughts.forEach(thought => {
-        if (thought.branchId === activeBranchId) {
-          branchThoughts.push(thought);
-        }
-      });
-
-      // Sort by arrival order
-      branchThoughts.sort((a, b) => {
-        return state.arrivalOrder.indexOf(a.id) - state.arrivalOrder.indexOf(b.id);
-      });
-
-      // Create back button node (position 0)
-      const backNode = {
-        id: 'back-to-main',
-        x: NODE_START_X,
-        y: NODE_START_Y,
-        label: '\u2190', // Left arrow
-        isBackButton: true,
-        branchLabel: branchInfo.label
-      };
-
-      // Position branch thoughts starting after back button
-      const branchNodes = branchThoughts.map((thought, index) => {
-        const row = Math.floor((index + 1) / NODES_PER_ROW);
-        const colIndex = (index + 1) % NODES_PER_ROW;
-
-        return {
-          id: thought.id,
-          x: NODE_START_X + colIndex * NODE_SPACING_X,
-          y: NODE_START_Y + row * ROW_HEIGHT,
-          label: thought.thoughtNumber.toString(),
-          thought: thought,
-          arrivalIndex: state.arrivalOrder.indexOf(thought.id),
-          row: row,
-          col: colIndex,
-          isBranch: true,
-          branchId: activeBranchId
-        };
-      });
-
-      // Build connections
-      const connections = [];
-      const allNodes = [backNode, ...branchNodes];
-
-      // Connect back button to first branch node
-      if (branchNodes.length > 0) {
-        connections.push({
-          from: backNode,
-          to: branchNodes[0],
-          type: 'main'
-        });
-      }
-
-      // Connect branch nodes sequentially
-      for (let i = 1; i < branchNodes.length; i++) {
-        const fromNode = branchNodes[i - 1];
-        const toNode = branchNodes[i];
-        connections.push({
-          from: fromNode,
-          to: toNode,
-          type: 'branch',
-          crossesRow: fromNode.row !== toNode.row
-        });
-      }
-
-      return {
-        mainNodes: [backNode],
-        branchNodes,
-        stubNodes: [],
-        connections
-      };
-    }
-
-    /**
-     * Generate SVG path for a connection between two nodes
-     * Handles same-row, cross-row (snake), stub, and branch connections
-     */
-    function generateConnectionPath(conn) {
-      const from = conn.from;
-      const to = conn.to;
-      const nodeHalfWidth = 30;
-      const nodeHalfHeight = 20;
-
-      // Determine if arrow goes left or right
-      const goingRight = to.x > from.x;
-      const goingDown = to.y > from.y;
-
-      // For stub connections (going up from origin to stub)
-      if (conn.type === 'stub') {
-        const startX = from.x;
-        const startY = from.y - nodeHalfHeight;
-        const endX = to.x;
-        const endY = to.y + STUB_RADIUS;
-
-        return `M ${startX} ${startY} L ${endX} ${endY}`;
-      }
-
-      // For branch-start connections (going down to branch)
-      if (conn.type === 'branch-start') {
-        const startX = from.x;
-        const startY = from.y + nodeHalfHeight;
-        const endX = to.x;
-        const endY = to.y - nodeHalfHeight;
-        const midY = (startY + endY) / 2;
-
-        return `M ${startX} ${startY} C ${startX} ${midY}, ${endX} ${midY}, ${endX} ${endY}`;
-      }
-
-      // For cross-row connections (wrapping from right of row N to left of row N+1)
-      if (conn.crossesRow) {
-        // Exit from right side of 'from' node, enter left side of 'to' node
-        const startX = from.x + nodeHalfWidth;
-        const startY = from.y;
-        const endX = to.x - nodeHalfWidth;
-        const endY = to.y;
-
-        // Create smooth wrap-around curve: right → down → left
-        const midY = (startY + endY) / 2;
-        const curveExtendX = 40; // How far right the curve extends before turning down
-
-        return `M ${startX} ${startY} C ${startX + curveExtendX} ${startY}, ${endX - curveExtendX} ${endY}, ${endX} ${endY}`;
-      }
-
-      // Same-row connections - simple horizontal with slight curve
-      const startX = goingRight ? from.x + nodeHalfWidth : from.x - nodeHalfWidth;
-      const startY = from.y;
-      const endX = goingRight ? to.x - nodeHalfWidth : to.x + nodeHalfWidth;
-      const endY = to.y;
-
-      // Gentle curve for horizontal connections
-      const midX = (startX + endX) / 2;
-      const curveOffset = Math.abs(endX - startX) * 0.1;
-
-      return `M ${startX} ${startY} Q ${midX} ${startY - curveOffset}, ${endX} ${endY}`;
-    }
-
-    function renderGraph() {
-      const { mainNodes, branchNodes, stubNodes, connections } = calculateNodePositions();
-      const allNodes = [...mainNodes, ...branchNodes];
-
-      if (allNodes.length === 0 && stubNodes.length === 0) {
-        elements.graphSvg.classList.add('hidden');
-        elements.graphEmpty.classList.remove('hidden');
-        elements.nodeCount.classList.add('hidden');
-        return;
-      }
-
-      elements.graphSvg.classList.remove('hidden');
-      elements.graphEmpty.classList.add('hidden');
-      elements.nodeCount.classList.remove('hidden');
-
-      // Update node count text based on view mode
-      if (state.viewContext.mode === 'branch') {
-        const branchInfo = state.branchRegistry.get(state.viewContext.activeBranchId);
-        const label = branchInfo ? branchInfo.label : '?';
-        elements.nodeCountText.textContent = `Branch ${label} \u00b7 ${branchNodes.length} thoughts`;
       } else {
-        const branchCount = state.branchRegistry.size;
-        const branchText = branchCount > 0 ? ` \u00b7 ${branchCount} branch${branchCount > 1 ? 'es' : ''}` : '';
-        elements.nodeCountText.textContent = `${mainNodes.length} nodes${branchText}`;
+        state.branchRegistry.get(branchId).thoughtCount++;
       }
+    }
 
-      // Calculate viewBox - fit around all nodes (including stubs) with proper padding
-      const padding = 60;
-      const nodeHalfWidth = 30;
-      const nodeHalfHeight = 20;
-      const minViewBoxWidth = 900;
-      const minViewBoxHeight = 200;
-
-      const allPositions = [...allNodes, ...stubNodes];
-      if (allPositions.length === 0) {
-        elements.graphSvg.setAttribute('viewBox', '0 0 900 200');
-        return;
+    // ================================================================
+    // Router — hash-based
+    // ================================================================
+    function navigate(tab, detailId) {
+      if (detailId) {
+        window.location.hash = `#/${tab}/${detailId}`;
+      } else {
+        window.location.hash = `#/${tab}`;
       }
+    }
 
-      const contentMinX = Math.min(...allPositions.map(n => n.x)) - nodeHalfWidth - padding;
-      const contentMaxX = Math.max(...allPositions.map(n => n.x)) + nodeHalfWidth + padding;
-      const contentMinY = Math.min(...allPositions.map(n => n.y)) - nodeHalfHeight - padding;
-      const contentMaxY = Math.max(...allPositions.map(n => n.y)) + nodeHalfHeight + padding;
+    function parseRoute() {
+      const hash = window.location.hash || '#/code';
+      const parts = hash.replace('#/', '').split('/');
+      return { tab: parts[0] || 'code', detailId: parts[1] || null };
+    }
 
-      const contentWidth = contentMaxX - contentMinX;
-      const contentHeight = contentMaxY - contentMinY;
+    function handleRoute() {
+      const { tab, detailId } = parseRoute();
+      state.currentTab = tab;
+      state.selectedThoughtId = (tab === 'code' && detailId) ? detailId : null;
 
-      // Use the larger of content size or minimum size
-      const width = Math.max(contentWidth, minViewBoxWidth);
-      const height = Math.max(contentHeight, minViewBoxHeight);
+      // Update tab nav
+      document.querySelectorAll('.UnderlineNav-item').forEach(btn => {
+        btn.classList.toggle('selected', btn.dataset.tab === tab);
+      });
 
-      // Center the content within the viewBox
-      const viewBoxX = contentMinX - (width - contentWidth) / 2;
-      const viewBoxY = contentMinY - (height - contentHeight) / 2;
+      render();
+    }
 
-      elements.graphSvg.setAttribute('viewBox', `${viewBoxX} ${viewBoxY} ${width} ${height}`);
-
-      // Render connections with appropriate styling
-      elements.connectionsGroup.innerHTML = connections.map(conn => {
-        const path = generateConnectionPath(conn);
-        const isNew = conn.to.id === state.newNodeId;
-        const isBranch = conn.type === 'branch-start' || conn.type === 'branch';
-        const isStub = conn.type === 'stub';
-
-        // Different colors for different connection types
-        let strokeColor, glowColor, arrowId;
-        if (isStub) {
-          strokeColor = 'rgba(251, 191, 36, 0.6)'; // Amber for stubs
-          glowColor = 'rgba(251, 191, 36, 0.2)';
-          arrowId = 'arrowhead-stub';
-        } else if (isBranch) {
-          strokeColor = 'rgba(168, 85, 247, 0.6)';
-          glowColor = 'rgba(168, 85, 247, 0.2)';
-          arrowId = 'arrowhead-branch';
-        } else {
-          strokeColor = 'url(#connectionGradient)';
-          glowColor = 'rgba(16, 185, 129, 0.2)';
-          arrowId = 'arrowhead';
+    // ================================================================
+    // Data fetching
+    // ================================================================
+    async function fetchWorkspaces() {
+      try {
+        const res = await fetch('/api/hub/workspaces');
+        if (!res.ok) return;
+        const data = await res.json();
+        state.workspaces = data.workspaces || [];
+        if (state.workspaces.length > 0 && !state.activeWorkspaceId) {
+          state.activeWorkspaceId = state.workspaces[0].id;
+          fetchWorkspaceData();
         }
+        render();
+      } catch (e) { /* hub not available */ }
+    }
 
-        return `
-          <g class="thought-connection ${isNew ? 'new' : ''} ${isBranch ? 'branch-connection' : ''} ${isStub ? 'stub-connection' : ''}">
-            <path
-              d="${path}"
-              fill="none"
-              stroke="${glowColor}"
-              stroke-width="${isStub ? 2 : 4}"
-              stroke-linecap="round"
-            />
-            <path
-              d="${path}"
-              fill="none"
-              stroke="${strokeColor}"
-              stroke-width="${isStub ? 1.5 : 2}"
-              stroke-linecap="round"
-              ${!isStub ? `marker-end="url(#${arrowId})"` : ''}
-              ${isNew ? 'stroke-dasharray="5,5"' : ''}
-            />
-          </g>
-        `;
-      }).join('');
+    async function fetchWorkspaceData() {
+      if (!state.activeWorkspaceId) return;
+      const wsId = state.activeWorkspaceId;
+      try {
+        const [problemsRes, proposalsRes, agentsRes, consensusRes] = await Promise.all([
+          fetch(`/api/hub/workspaces/${wsId}/problems`),
+          fetch(`/api/hub/workspaces/${wsId}/proposals`),
+          fetch(`/api/hub/workspaces/${wsId}/agents`),
+          fetch(`/api/hub/workspaces/${wsId}/consensus`),
+        ]);
+        if (problemsRes.ok) state.problems = (await problemsRes.json()).problems || [];
+        if (proposalsRes.ok) state.proposals = (await proposalsRes.json()).proposals || [];
+        if (agentsRes.ok) state.agents = (await agentsRes.json()).agents || [];
+        if (consensusRes.ok) state.consensusMarkers = (await consensusRes.json()).markers || [];
+        updateCounts();
+        render();
+      } catch (e) { /* hub not available */ }
+    }
 
-      // Render nodes with different styling for branches and back buttons
-      elements.nodesGroup.innerHTML = allNodes.map(node => {
-        const isNew = node.id === state.newNodeId;
-        const isBranch = node.isBranch;
-        const isBackButton = node.isBackButton;
+    function addActivity(type, icon, headline, timestamp) {
+      state.activityFeed.unshift({ type, icon, headline, timestamp: timestamp || new Date().toISOString() });
+      if (state.activityFeed.length > 200) state.activityFeed.length = 200;
+    }
 
-        // Back button special rendering
-        if (isBackButton) {
-          return `
-            <g class="thought-node back-button" data-node-id="${node.id}" data-is-back="true" tabindex="0" role="button" aria-label="Back to main chain">
-              <rect
-                x="${node.x - 30}"
-                y="${node.y - 20}"
-                width="60"
-                height="40"
-                rx="6"
-                class="thought-node-rect"
-                fill="#374151"
-                stroke="rgba(156, 163, 175, 0.5)"
-                stroke-width="2"
-                data-default-fill="#374151"
-                data-default-stroke="rgba(156, 163, 175, 0.5)"
-                data-is-back="true"
-                style="filter: drop-shadow(0 0 8px rgba(107, 114, 128, 0.4)) drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2)); cursor: pointer;"
-              />
-              <text
-                x="${node.x}"
-                y="${node.y}"
-                text-anchor="middle"
-                dominant-baseline="middle"
-                class="thought-node-label"
-                style="font-size: 18px;"
-              >\u2190</text>
-            </g>
-          `;
-        }
+    // ================================================================
+    // Render dispatcher
+    // ================================================================
+    function render() {
+      const main = document.getElementById('main-content');
+      const { tab, detailId } = parseRoute();
 
-        // Different colors for branch nodes
-        const fillColor = isBranch ? '#7c3aed' : '#059669';
-        const strokeColor = isBranch ? 'rgba(167, 139, 250, 0.5)' : 'rgba(52, 211, 153, 0.5)';
-        const glowColor = isBranch ? 'rgba(124, 58, 237, 0.4)' : 'rgba(16, 185, 129, 0.4)';
-
-        // Get agent role for this thought (if any)
-        const agentRole = state.thoughtAgents.get(node.id);
-        const roleAttr = agentRole ? ` data-role="${agentRole}"` : '';
-
-        return `
-          <g class="thought-node ${isNew ? 'new' : ''} ${isBranch ? 'branch-node' : ''}" data-node-id="${node.id}"${roleAttr} tabindex="0" role="button" aria-label="Thought ${node.label}">
-            <rect
-              x="${node.x - 30}"
-              y="${node.y - 20}"
-              width="60"
-              height="40"
-              rx="6"
-              class="thought-node-rect"
-              fill="${fillColor}"
-              stroke="${strokeColor}"
-              stroke-width="2"
-              data-default-fill="${fillColor}"
-              data-default-stroke="${strokeColor}"
-              data-is-branch="${isBranch}"
-              style="filter: drop-shadow(0 0 8px ${glowColor}) drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2));"
-            />
-            <rect
-              x="${node.x - 28}"
-              y="${node.y - 18}"
-              width="56"
-              height="2"
-              rx="1"
-              fill="rgba(255, 255, 255, 0.2)"
-              style="pointer-events: none;"
-            />
-            <text
-              x="${node.x}"
-              y="${node.y}"
-              text-anchor="middle"
-              dominant-baseline="middle"
-              class="thought-node-label"
-            >${node.label}</text>
-          </g>
-        `;
-      }).join('') +
-      // Render stub nodes (circular, above their origin)
-      stubNodes.map(stub => {
-        return `
-          <g class="stub-node" data-stub-id="${stub.id}" data-branch-id="${stub.branchId}" tabindex="0" role="button" aria-label="Branch ${stub.label}, ${stub.thoughtCount} thoughts" style="cursor: pointer;">
-            <circle
-              cx="${stub.x}"
-              cy="${stub.y}"
-              r="${STUB_RADIUS}"
-              class="stub-node-circle"
-              fill="#f59e0b"
-              stroke="rgba(251, 191, 36, 0.5)"
-              stroke-width="2"
-              data-default-fill="#f59e0b"
-              data-default-stroke="rgba(251, 191, 36, 0.5)"
-              style="filter: drop-shadow(0 0 6px rgba(245, 158, 11, 0.4)) drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2));"
-            />
-            <text
-              x="${stub.x}"
-              y="${stub.y}"
-              text-anchor="middle"
-              dominant-baseline="middle"
-              class="stub-node-label"
-              style="font-size: 11px; font-weight: 600; fill: #1f2937;"
-            >${stub.label}</text>
-            <title>${stub.thoughtCount} thought${stub.thoughtCount !== 1 ? 's' : ''} in Branch ${stub.label}</title>
-          </g>
-        `;
-      }).join('');
-
-      // Add hover and click handlers for thought nodes
-      elements.nodesGroup.querySelectorAll('.thought-node').forEach(nodeEl => {
-        const rect = nodeEl.querySelector('.thought-node-rect');
-        const isBack = rect.dataset.isBack === 'true';
-        const isBranch = rect.dataset.isBranch === 'true';
-        const defaultFill = rect.dataset.defaultFill;
-        const defaultStroke = rect.dataset.defaultStroke;
-
-        // Different hover colors for back button vs regular nodes
-        let hoverFill, hoverStroke, hoverGlow, defaultGlow;
-        if (isBack) {
-          hoverFill = '#4b5563';
-          hoverStroke = '#9ca3af';
-          hoverGlow = 'drop-shadow(0 0 16px rgba(156, 163, 175, 0.6)) drop-shadow(0 4px 8px rgba(0, 0, 0, 0.3))';
-          defaultGlow = 'drop-shadow(0 0 8px rgba(107, 114, 128, 0.4)) drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2))';
-        } else if (isBranch) {
-          hoverFill = '#8b5cf6';
-          hoverStroke = '#c4b5fd';
-          hoverGlow = 'drop-shadow(0 0 16px rgba(139, 92, 246, 0.6)) drop-shadow(0 4px 8px rgba(0, 0, 0, 0.3))';
-          defaultGlow = 'drop-shadow(0 0 8px rgba(124, 58, 237, 0.4)) drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2))';
-        } else {
-          hoverFill = '#10b981';
-          hoverStroke = '#6ee7b7';
-          hoverGlow = 'drop-shadow(0 0 16px rgba(16, 185, 129, 0.6)) drop-shadow(0 4px 8px rgba(0, 0, 0, 0.3))';
-          defaultGlow = 'drop-shadow(0 0 8px rgba(16, 185, 129, 0.4)) drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2))';
-        }
-
-        nodeEl.addEventListener('mouseenter', () => {
-          rect.setAttribute('fill', hoverFill);
-          rect.setAttribute('stroke', hoverStroke);
-          rect.style.filter = hoverGlow;
-        });
-
-        nodeEl.addEventListener('mouseleave', () => {
-          rect.setAttribute('fill', defaultFill);
-          rect.setAttribute('stroke', defaultStroke);
-          rect.style.filter = defaultGlow;
-        });
-
-        nodeEl.addEventListener('click', () => {
-          if (isBack) {
-            navigateToMainView();
+      switch (tab) {
+        case 'code':
+          if (state.selectedThoughtId) {
+            main.innerHTML = renderCommitDetail(state.selectedThoughtId);
           } else {
-            showNodeDetail(nodeEl.dataset.nodeId);
+            main.innerHTML = renderCodeView();
           }
-        });
+          break;
+        case 'issues':
+          if (detailId) {
+            main.innerHTML = renderIssueDetail(detailId);
+          } else {
+            main.innerHTML = renderIssuesView();
+          }
+          break;
+        case 'pulls':
+          if (detailId) {
+            main.innerHTML = renderPullDetail(detailId);
+          } else {
+            main.innerHTML = renderPullsView();
+          }
+          break;
+        case 'activity':
+          main.innerHTML = renderActivityView();
+          break;
+        case 'digest':
+          main.innerHTML = renderDigestView();
+          break;
+        default:
+          main.innerHTML = renderCodeView();
+      }
 
-        nodeEl.addEventListener('keydown', (e) => {
-          if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault();
-            if (isBack) {
-              navigateToMainView();
-            } else {
-              showNodeDetail(nodeEl.dataset.nodeId);
+      bindViewEvents();
+    }
+
+    function updateCounts() {
+      document.getElementById('count-code').textContent = state.thoughts.size;
+      const openProblems = state.problems.filter(p => p.status === 'open' || p.status === 'in-progress');
+      document.getElementById('count-issues').textContent = openProblems.length;
+      const openProposals = state.proposals.filter(p => p.status === 'open' || p.status === 'reviewing');
+      document.getElementById('count-pulls').textContent = openProposals.length;
+    }
+
+    // ================================================================
+    // Code View — commit list with SVG graph rail
+    // ================================================================
+    function renderCodeView() {
+      // Session selector
+      const sessionBtns = state.sessions.map(s => {
+        const label = escapeHtml(s.title || s.id.slice(0, 8));
+        const cls = s.id === state.activeSessionId ? 'active' : '';
+        return `<button class="SessionSelect-btn ${cls}" data-session-id="${escapeHtml(s.id)}">${label}</button>`;
+      }).join('');
+
+      // Build ordered thought list (main chain first, then branches)
+      const mainThoughts = state.arrivalOrder
+        .map(id => state.thoughts.get(id))
+        .filter(t => t && !t.branchId);
+
+      const branchThoughts = state.arrivalOrder
+        .map(id => state.thoughts.get(id))
+        .filter(t => t && t.branchId);
+
+      const allThoughts = [...mainThoughts, ...branchThoughts];
+
+      if (allThoughts.length === 0 && state.sessions.length === 0) {
+        return `<div class="Main-container">
+          <div class="EmptyState">
+            <div class="EmptyState-heading">No sessions yet</div>
+            <div class="EmptyState-description">Start a reasoning session to see thoughts appear here as commits.</div>
+          </div>
+        </div>`;
+      }
+
+      // Build commit graph SVG data
+      // Each thought gets a lane (main=0, branches get lane 1+)
+      const branchLanes = new Map(); // branchId -> lane number
+      let nextLane = 1;
+
+      const graphData = allThoughts.map((t, i) => {
+        let lane = 0;
+        if (t.branchId) {
+          if (!branchLanes.has(t.branchId)) branchLanes.set(t.branchId, nextLane++);
+          lane = branchLanes.get(t.branchId);
+        }
+        return { thought: t, lane, index: i };
+      });
+
+      const rowHeight = 48;
+      const laneWidth = 20;
+      const laneOffset = 30;
+      const totalLanes = nextLane;
+      const svgWidth = laneOffset + totalLanes * laneWidth;
+      const svgHeight = allThoughts.length * rowHeight;
+
+      // Build SVG paths
+      let svgPaths = '';
+      // Vertical lines for each lane
+      const laneRanges = new Map(); // lane -> {min, max}
+      graphData.forEach(g => {
+        const lane = g.lane;
+        const y = g.index * rowHeight + rowHeight / 2;
+        if (!laneRanges.has(lane)) laneRanges.set(lane, { min: y, max: y });
+        const r = laneRanges.get(lane);
+        r.min = Math.min(r.min, y);
+        r.max = Math.max(r.max, y);
+      });
+
+      const laneColors = [
+        'var(--color-success-fg)', 'var(--color-done-fg)', 'var(--color-accent-fg)',
+        'var(--color-attention-fg)', 'var(--color-sponsors-fg)', 'var(--color-danger-fg)',
+      ];
+
+      laneRanges.forEach((range, lane) => {
+        const x = laneOffset + lane * laneWidth;
+        const color = laneColors[lane % laneColors.length];
+        if (range.max > range.min) {
+          svgPaths += `<line x1="${x}" y1="${range.min}" x2="${x}" y2="${range.max}" stroke="${color}" stroke-width="2" opacity="0.5"/>`;
+        }
+      });
+
+      // Fork lines (from main to branch start)
+      graphData.forEach(g => {
+        if (g.thought.branchId && g.thought.branchFromThought) {
+          // Find the origin thought in main chain
+          const originIdx = graphData.findIndex(d =>
+            !d.thought.branchId && d.thought.thoughtNumber === g.thought.branchFromThought
+          );
+          if (originIdx >= 0 && originIdx < g.index) {
+            const fromX = laneOffset + 0; // main lane
+            const fromY = originIdx * rowHeight + rowHeight / 2;
+            const toX = laneOffset + g.lane * laneWidth;
+            const toY = g.index * rowHeight + rowHeight / 2;
+            const color = laneColors[g.lane % laneColors.length];
+            // Only draw for the first thought in a branch
+            const isFirstInBranch = !graphData.slice(0, g.index).some(
+              d => d.thought.branchId === g.thought.branchId
+            );
+            if (isFirstInBranch) {
+              svgPaths += `<path d="M${fromX},${fromY} C${fromX + 10},${fromY + 20} ${toX - 10},${toY - 20} ${toX},${toY}" fill="none" stroke="${color}" stroke-width="2" opacity="0.5"/>`;
             }
           }
-        });
+        }
       });
 
-      // Add hover and click handlers for stub nodes
-      elements.nodesGroup.querySelectorAll('.stub-node').forEach(stubEl => {
-        const circle = stubEl.querySelector('.stub-node-circle');
-        const branchId = stubEl.dataset.branchId;
-        const defaultFill = circle.dataset.defaultFill;
-        const defaultStroke = circle.dataset.defaultStroke;
-
-        stubEl.addEventListener('mouseenter', () => {
-          circle.setAttribute('fill', '#fbbf24');
-          circle.setAttribute('stroke', '#fcd34d');
-          circle.style.filter = 'drop-shadow(0 0 12px rgba(251, 191, 36, 0.6)) drop-shadow(0 4px 8px rgba(0, 0, 0, 0.3))';
-        });
-
-        stubEl.addEventListener('mouseleave', () => {
-          circle.setAttribute('fill', defaultFill);
-          circle.setAttribute('stroke', defaultStroke);
-          circle.style.filter = 'drop-shadow(0 0 6px rgba(245, 158, 11, 0.4)) drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2))';
-        });
-
-        stubEl.addEventListener('click', () => {
-          navigateToBranch(branchId);
-        });
-
-        stubEl.addEventListener('keydown', (e) => {
-          if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault();
-            navigateToBranch(branchId);
-          }
-        });
+      // Dots for each commit
+      let svgDots = '';
+      graphData.forEach(g => {
+        const x = laneOffset + g.lane * laneWidth;
+        const y = g.index * rowHeight + rowHeight / 2;
+        const color = laneColors[g.lane % laneColors.length];
+        svgDots += `<circle cx="${x}" cy="${y}" r="4" fill="${color}"/>`;
       });
 
-      // Clear new node highlight after animation
-      if (state.newNodeId) {
-        setTimeout(() => {
-          state.newNodeId = null;
-        }, 500);
-      }
+      const commitRows = allThoughts.map(t => {
+        const msg = escapeHtml((t.thought || '').split('\n')[0].slice(0, 120) || `Thought #${t.thoughtNumber}`);
+        const hash = shortHash(t.id);
+        const time = relativeTime(t.timestamp);
+        const branchLabel = t.branchId ? state.branchRegistry.get(t.branchId) : null;
+        const branchTag = branchLabel
+          ? `<span class="BranchName">${escapeHtml(branchLabel.label)}</span>`
+          : '';
+
+        return `<li class="CommitRow CommitRow--clickable" data-thought-id="${escapeHtml(t.id)}">
+          <div class="CommitRow-content">
+            <span class="CommitRow-message">${branchTag} ${msg}</span>
+            <span class="CommitRow-meta">
+              <span class="CommitRow-hash">${hash}</span>
+              <span class="CommitRow-time">${time}</span>
+            </span>
+          </div>
+        </li>`;
+      }).join('');
+
+      return `<div class="Main-container">
+        ${state.sessions.length > 0 ? `<div class="SessionSelect" style="margin-bottom: 16px;">${sessionBtns}</div>` : ''}
+        ${state.activeWorkspaceId ? `<div class="WorkspaceSelect">
+          <label>Workspace:</label>
+          <select id="workspace-select">${state.workspaces.map(w =>
+            `<option value="${escapeHtml(w.id)}" ${w.id === state.activeWorkspaceId ? 'selected' : ''}>${escapeHtml(w.name)}</option>`
+          ).join('')}</select>
+        </div>` : ''}
+        <div class="Box">
+          <div class="Box-header">
+            <span class="Box-header-title">${state.thoughts.size} commits</span>
+            ${state.branchRegistry.size > 0 ? `<span style="font-size:12px;color:var(--color-fg-subtle)">${state.branchRegistry.size} branch${state.branchRegistry.size !== 1 ? 'es' : ''}</span>` : ''}
+          </div>
+          <div style="display:flex;">
+            <div style="flex-shrink:0;width:${svgWidth}px;">
+              <svg width="${svgWidth}" height="${svgHeight}" style="display:block;">
+                ${svgPaths}
+                ${svgDots}
+              </svg>
+            </div>
+            <div style="flex:1;min-width:0;">
+              <ul class="CommitList">${commitRows || '<li class="EmptyState" style="padding:24px"><div class="EmptyState-description">Waiting for thoughts...</div></li>'}</ul>
+            </div>
+          </div>
+        </div>
+      </div>`;
     }
 
-    /**
-     * Navigate to a specific branch view
-     */
-    function navigateToBranch(branchId) {
-      state.viewContext.mode = 'branch';
-      state.viewContext.activeBranchId = branchId;
-      renderGraph();
-    }
+    // ================================================================
+    // Commit Detail
+    // ================================================================
+    function renderCommitDetail(thoughtId) {
+      const thought = state.thoughts.get(thoughtId);
+      if (!thought) return `<div class="Main-container"><div class="EmptyState"><div class="EmptyState-heading">Thought not found</div></div></div>`;
 
-    /**
-     * Navigate back to the main chain view
-     */
-    function navigateToMainView() {
-      state.viewContext.mode = 'main';
-      state.viewContext.activeBranchId = null;
-      renderGraph();
-    }
-
-    function showNodeDetail(nodeId) {
-      const thought = state.thoughts.get(nodeId);
-      if (!thought) return;
-
-      state.selectedNodeId = nodeId;
-      state.viewMode = 'detail';
-
-      // Update view visibility
-      elements.graphView.classList.add('hidden');
-      elements.detailView.classList.remove('hidden');
-
-      // Update progress
-      const totalNodes = state.thoughts.size;
-      const nodeIndex = thought.thoughtNumber;
-      const progressPercent = (nodeIndex / totalNodes) * 100;
-
-      elements.progressFill.style.width = `${progressPercent}%`;
-      elements.progressText.innerHTML = `Thought <span style="color: var(--accent-light);">${nodeIndex}</span> of ${totalNodes}`;
-
-      // Update code display
+      const content = thought.thought || '';
       const mcpData = {
-        thought: thought.thought,
         thoughtNumber: thought.thoughtNumber,
         totalThoughts: thought.totalThoughts,
         nextThoughtNeeded: thought.nextThoughtNeeded,
-        branchId: thought.branchId,
-        branchFromThought: thought.branchFromThought
+        branchId: thought.branchId || null,
+        branchFromThought: thought.branchFromThought || null,
       };
 
-      elements.detailCode.textContent = JSON.stringify(mcpData, null, 2);
+      const branchLabel = thought.branchId ? state.branchRegistry.get(thought.branchId) : null;
+
+      return `<div class="Main-container">
+        <button class="BackButton" data-action="back-to-code">&larr; Back to commits</button>
+        <div class="CommitDetail">
+          <div class="CommitDetail-header">
+            <div class="CommitDetail-title">Thought #${thought.thoughtNumber} ${branchLabel ? `<span class="BranchName">${escapeHtml(branchLabel.label)}</span>` : ''}</div>
+            <div class="CommitDetail-metaRow">
+              <span class="CommitRow-hash">${shortHash(thought.id)}</span>
+              <span>${relativeTime(thought.timestamp)}</span>
+              <span>Step ${thought.thoughtNumber} of ${thought.totalThoughts || '?'}</span>
+            </div>
+          </div>
+          <div class="CommitDetail-body">
+            <div class="CommitDetail-codeBlock">${escapeHtml(content)}</div>
+            <details style="margin-top:16px;">
+              <summary style="cursor:pointer;color:var(--color-fg-muted);font-size:13px;">MCP metadata</summary>
+              <div class="CommitDetail-codeBlock" style="margin-top:8px;font-size:12px;">${escapeHtml(JSON.stringify(mcpData, null, 2))}</div>
+            </details>
+          </div>
+        </div>
+      </div>`;
     }
 
-    function hideNodeDetail() {
-      state.selectedNodeId = null;
-      state.viewMode = 'graph';
+    // ================================================================
+    // Issues View — problem list
+    // ================================================================
+    function renderIssuesView() {
+      const filtered = state.problems.filter(p => {
+        if (state.issueFilter === 'open') return p.status === 'open' || p.status === 'in-progress';
+        return p.status === 'closed' || p.status === 'resolved';
+      });
 
-      elements.graphView.classList.remove('hidden');
-      elements.detailView.classList.add('hidden');
+      const openCount = state.problems.filter(p => p.status === 'open' || p.status === 'in-progress').length;
+      const closedCount = state.problems.filter(p => p.status === 'closed' || p.status === 'resolved').length;
+
+      const rows = filtered.map(p => {
+        const depLabels = (p.dependsOn || []).map(depId => {
+          const dep = state.problems.find(pp => pp.id === depId);
+          return dep ? `<span class="Label Label--dependency">depends on: ${escapeHtml(dep.title.slice(0, 30))}</span>` : '';
+        }).join('');
+
+        const assignee = p.assignedTo
+          ? (() => {
+              const agent = state.agents.find(a => a.agentId === p.assignedTo);
+              return agent ? `<span class="AgentPill" data-profile="${agent.profile || ''}"><span class="AgentPill-dot" style="background:${profileColor(agent.profile)}"></span>${escapeHtml(agent.name || p.assignedTo.slice(0,8))}</span>` : '';
+            })()
+          : '';
+
+        const commentsCount = (p.comments || []).length;
+
+        return `<div class="IssueRow" data-problem-id="${escapeHtml(p.id)}">
+          <span class="IssueRow-icon">${issueIcon(p.status)}</span>
+          <div class="IssueRow-main">
+            <div class="IssueRow-title">${escapeHtml(p.title)}</div>
+            <div class="IssueRow-subtitle">
+              <span class="StateLabel ${statusToStateLabel(p.status)}">${escapeHtml(p.status)}</span>
+              opened ${relativeTime(p.createdAt)}
+              ${assignee ? ` &middot; assigned to ${assignee}` : ''}
+              ${commentsCount > 0 ? ` &middot; ${commentsCount} comment${commentsCount !== 1 ? 's' : ''}` : ''}
+            </div>
+            ${depLabels ? `<div class="IssueRow-labels">${depLabels}</div>` : ''}
+          </div>
+        </div>`;
+      }).join('');
+
+      return `<div class="Main-container">
+        <div class="Box">
+          <div class="Box-header">
+            <div style="display:flex;gap:16px;">
+              <button class="Subnav-item ${state.issueFilter === 'open' ? 'selected' : ''}" data-issue-filter="open">${openCount} Open</button>
+              <button class="Subnav-item ${state.issueFilter === 'closed' ? 'selected' : ''}" data-issue-filter="closed">${closedCount} Closed</button>
+            </div>
+          </div>
+          ${rows || `<div class="EmptyState" style="padding:32px"><div class="EmptyState-heading">No issues</div><div class="EmptyState-description">Problems created in Hub workspaces appear here.</div></div>`}
+        </div>
+      </div>`;
     }
 
-    // ============================================================
-    // Session Management
-    // ============================================================
+    // ================================================================
+    // Issue Detail
+    // ================================================================
+    function renderIssueDetail(problemId) {
+      const problem = state.problems.find(p => p.id === problemId);
+      if (!problem) return `<div class="Main-container"><div class="EmptyState"><div class="EmptyState-heading">Issue not found</div></div></div>`;
+
+      const comments = (problem.comments || []).map(c => {
+        const agent = state.agents.find(a => a.agentId === c.agentId);
+        const name = agent ? agent.name : c.agentId.slice(0, 8);
+        return `<div class="Detail-comment">
+          <span class="AgentPill" data-profile="${agent?.profile || ''}"><span class="AgentPill-dot" style="background:${profileColor(agent?.profile)}"></span>${escapeHtml(name)}</span>
+          <div>
+            <div class="Detail-comment-meta">${relativeTime(c.createdAt)}</div>
+            <div class="Detail-comment-body">${escapeHtml(c.content)}</div>
+          </div>
+        </div>`;
+      }).join('');
+
+      return `<div class="Main-container">
+        <button class="BackButton" data-action="back-to-issues">&larr; Back to issues</button>
+        <div class="Box">
+          <div class="Box-header">
+            <div>
+              <div class="Box-header-title" style="font-size:18px;margin-bottom:4px;">${escapeHtml(problem.title)}</div>
+              <span class="StateLabel ${statusToStateLabel(problem.status)}">${escapeHtml(problem.status)}</span>
+              <span style="margin-left:8px;font-size:12px;color:var(--color-fg-subtle)">opened ${relativeTime(problem.createdAt)}</span>
+            </div>
+          </div>
+          <div style="padding:16px;">
+            <div style="white-space:pre-wrap;word-break:break-word;font-size:14px;color:var(--color-fg-default)">${escapeHtml(problem.description || 'No description.')}</div>
+            ${comments ? `<div class="Detail-comments"><div style="font-weight:600;font-size:13px;color:var(--color-fg-muted);margin-bottom:8px;">Comments</div>${comments}</div>` : ''}
+          </div>
+        </div>
+      </div>`;
+    }
+
+    // ================================================================
+    // Pull Requests View — proposal list
+    // ================================================================
+    function renderPullsView() {
+      const filtered = state.proposals.filter(p => {
+        if (state.prFilter === 'open') return p.status === 'open' || p.status === 'reviewing';
+        return p.status === 'merged' || p.status === 'rejected';
+      });
+
+      const openCount = state.proposals.filter(p => p.status === 'open' || p.status === 'reviewing').length;
+      const closedCount = state.proposals.filter(p => p.status === 'merged' || p.status === 'rejected').length;
+
+      const rows = filtered.map(p => {
+        const reviewBadges = (p.reviews || []).map(r => {
+          return `<span class="ReviewBadge ReviewBadge--${r.verdict}">${escapeHtml(r.verdict)}</span>`;
+        }).join(' ');
+
+        return `<div class="PullRow" data-proposal-id="${escapeHtml(p.id)}">
+          <span class="PullRow-icon">${prIcon(p.status)}</span>
+          <div class="PullRow-main">
+            <div class="PullRow-title">${escapeHtml(p.title)}</div>
+            <div class="PullRow-subtitle">
+              <span class="StateLabel ${statusToStateLabel(p.status)}">${escapeHtml(p.status)}</span>
+              ${p.sourceBranch ? `<span class="BranchName" style="margin-left:6px">${escapeHtml(p.sourceBranch)}</span>` : ''}
+              opened ${relativeTime(p.createdAt)}
+              ${reviewBadges ? ` &middot; ${reviewBadges}` : ''}
+            </div>
+          </div>
+        </div>`;
+      }).join('');
+
+      return `<div class="Main-container">
+        <div class="Box">
+          <div class="Box-header">
+            <div style="display:flex;gap:16px;">
+              <button class="Subnav-item ${state.prFilter === 'open' ? 'selected' : ''}" data-pr-filter="open">${openCount} Open</button>
+              <button class="Subnav-item ${state.prFilter === 'closed' ? 'selected' : ''}" data-pr-filter="closed">${closedCount} Closed</button>
+            </div>
+          </div>
+          ${rows || `<div class="EmptyState" style="padding:32px"><div class="EmptyState-heading">No pull requests</div><div class="EmptyState-description">Proposals created in Hub workspaces appear here.</div></div>`}
+        </div>
+      </div>`;
+    }
+
+    // ================================================================
+    // Pull Detail
+    // ================================================================
+    function renderPullDetail(proposalId) {
+      const proposal = state.proposals.find(p => p.id === proposalId);
+      if (!proposal) return `<div class="Main-container"><div class="EmptyState"><div class="EmptyState-heading">Pull request not found</div></div></div>`;
+
+      const reviews = (proposal.reviews || []).map(r => {
+        const agent = state.agents.find(a => a.agentId === r.reviewerId);
+        const name = agent ? agent.name : r.reviewerId.slice(0, 8);
+        return `<div class="Detail-comment">
+          <div>
+            <span class="AgentPill" data-profile="${agent?.profile || ''}"><span class="AgentPill-dot" style="background:${profileColor(agent?.profile)}"></span>${escapeHtml(name)}</span>
+            <span class="ReviewBadge ReviewBadge--${r.verdict}" style="margin-left:8px">${escapeHtml(r.verdict)}</span>
+          </div>
+          <div>
+            <div class="Detail-comment-meta">${relativeTime(r.createdAt)}</div>
+            <div class="Detail-comment-body">${escapeHtml(r.reasoning)}</div>
+          </div>
+        </div>`;
+      }).join('');
+
+      return `<div class="Main-container">
+        <button class="BackButton" data-action="back-to-pulls">&larr; Back to pull requests</button>
+        <div class="Box">
+          <div class="Box-header">
+            <div>
+              <div class="Box-header-title" style="font-size:18px;margin-bottom:4px;">${escapeHtml(proposal.title)}</div>
+              <span class="StateLabel ${statusToStateLabel(proposal.status)}">${escapeHtml(proposal.status)}</span>
+              ${proposal.sourceBranch ? `<span class="BranchName" style="margin-left:8px">${escapeHtml(proposal.sourceBranch)}</span>` : ''}
+              <span style="margin-left:8px;font-size:12px;color:var(--color-fg-subtle)">opened ${relativeTime(proposal.createdAt)}</span>
+            </div>
+          </div>
+          <div style="padding:16px;">
+            <div style="white-space:pre-wrap;word-break:break-word;font-size:14px;color:var(--color-fg-default)">${escapeHtml(proposal.description || 'No description.')}</div>
+            ${reviews ? `<div class="Detail-comments"><div style="font-weight:600;font-size:13px;color:var(--color-fg-muted);margin-bottom:8px;">Reviews</div>${reviews}</div>` : ''}
+          </div>
+        </div>
+      </div>`;
+    }
+
+    // ================================================================
+    // Activity View — unified event timeline
+    // ================================================================
+    function renderActivityView() {
+      if (state.activityFeed.length === 0) {
+        return `<div class="Main-container">
+          <div class="EmptyState">
+            <div class="EmptyState-heading">No activity yet</div>
+            <div class="EmptyState-description">Events from reasoning sessions and Hub workspaces appear here in real-time.</div>
+          </div>
+        </div>`;
+      }
+
+      const items = state.activityFeed.slice(0, 100).map(item => {
+        return `<div class="ActivityFeed-item">
+          <div class="ActivityFeed-icon">${item.icon}</div>
+          <div class="ActivityFeed-body">
+            <div class="ActivityFeed-headline">${item.headline}</div>
+            <div class="ActivityFeed-time">${relativeTime(item.timestamp)}</div>
+          </div>
+        </div>`;
+      }).join('');
+
+      return `<div class="Main-container">
+        <div class="Box">
+          <div class="Box-header">
+            <span class="Box-header-title">Activity</span>
+            <span style="font-size:12px;color:var(--color-fg-subtle)">${state.activityFeed.length} events</span>
+          </div>
+          ${items}
+        </div>
+      </div>`;
+    }
+
+    // ================================================================
+    // Digest View — workspace overview
+    // ================================================================
+    function renderDigestView() {
+      if (!state.activeWorkspaceId || state.workspaces.length === 0) {
+        return `<div class="Main-container">
+          <div class="EmptyState">
+            <div class="EmptyState-heading">No workspace</div>
+            <div class="EmptyState-description">Create a Hub workspace to see its digest here.</div>
+          </div>
+        </div>`;
+      }
+
+      const ws = state.workspaces.find(w => w.id === state.activeWorkspaceId);
+      const wsName = ws ? ws.name : state.activeWorkspaceId.slice(0, 8);
+
+      const openProblems = state.problems.filter(p => p.status === 'open' || p.status === 'in-progress').length;
+      const resolvedProblems = state.problems.filter(p => p.status === 'resolved' || p.status === 'closed').length;
+      const openProposals = state.proposals.filter(p => p.status === 'open' || p.status === 'reviewing').length;
+      const mergedProposals = state.proposals.filter(p => p.status === 'merged').length;
+
+      const agentRoster = state.agents.map(a => {
+        const profileBg = profileColor(a.profile);
+        return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+          <div class="Avatar" style="background:${profileBg};width:24px;height:24px;font-size:10px;">${(a.name || '?')[0].toUpperCase()}</div>
+          <span style="font-size:13px;color:var(--color-fg-default)">${escapeHtml(a.name || a.agentId.slice(0,8))}</span>
+          ${a.profile ? `<span style="font-size:11px;color:var(--color-fg-subtle)">${escapeHtml(a.profile)}</span>` : ''}
+          <span style="font-size:11px;color:${a.status === 'online' ? 'var(--color-success-fg)' : 'var(--color-fg-subtle)'}">${a.status || 'unknown'}</span>
+        </div>`;
+      }).join('') || '<span style="color:var(--color-fg-subtle);font-size:13px">No agents registered</span>';
+
+      return `<div class="Main-container">
+        <div style="margin-bottom:16px;">
+          <h2 style="font-size:20px;font-weight:600;margin-bottom:4px;">${escapeHtml(wsName)}</h2>
+          <span style="font-size:13px;color:var(--color-fg-muted)">${ws ? escapeHtml(ws.description || '') : ''}</span>
+        </div>
+        <div class="DigestGrid">
+          <div class="DigestCard">
+            <div class="DigestCard-header">Problems</div>
+            <div class="DigestCard-body">
+              <div class="DigestStat"><span class="DigestStat-value" style="color:var(--color-success-fg)">${openProblems}</span><span class="DigestStat-label">open</span></div>
+              <div class="DigestStat"><span class="DigestStat-value" style="color:var(--color-done-fg)">${resolvedProblems}</span><span class="DigestStat-label">resolved</span></div>
+            </div>
+          </div>
+          <div class="DigestCard">
+            <div class="DigestCard-header">Proposals</div>
+            <div class="DigestCard-body">
+              <div class="DigestStat"><span class="DigestStat-value" style="color:var(--color-accent-fg)">${openProposals}</span><span class="DigestStat-label">open</span></div>
+              <div class="DigestStat"><span class="DigestStat-value" style="color:var(--color-done-fg)">${mergedProposals}</span><span class="DigestStat-label">merged</span></div>
+            </div>
+          </div>
+          <div class="DigestCard">
+            <div class="DigestCard-header">Agents</div>
+            <div class="DigestCard-body">${agentRoster}</div>
+          </div>
+          <div class="DigestCard">
+            <div class="DigestCard-header">Consensus</div>
+            <div class="DigestCard-body">
+              ${state.consensusMarkers.length > 0
+                ? state.consensusMarkers.map(m => `<div style="margin-bottom:8px;">
+                    <span style="font-weight:600;color:var(--color-fg-default)">${escapeHtml(m.name)}</span>
+                    <span style="font-size:12px;color:var(--color-fg-subtle);margin-left:8px;">agreed by ${(m.agreedBy || []).length} agent${(m.agreedBy || []).length !== 1 ? 's' : ''}</span>
+                  </div>`).join('')
+                : '<span style="color:var(--color-fg-subtle);font-size:13px">No consensus markers</span>'}
+            </div>
+          </div>
+        </div>
+      </div>`;
+    }
+
+    // ================================================================
+    // Event binding after render
+    // ================================================================
+    function bindViewEvents() {
+      // Session select buttons
+      document.querySelectorAll('.SessionSelect-btn').forEach(btn => {
+        btn.addEventListener('click', () => selectSession(btn.dataset.sessionId));
+      });
+
+      // Workspace select
+      const wsSelect = document.getElementById('workspace-select');
+      if (wsSelect) {
+        wsSelect.addEventListener('change', () => {
+          state.activeWorkspaceId = wsSelect.value;
+          fetchWorkspaceData();
+        });
+      }
+
+      // Commit row clicks
+      document.querySelectorAll('.CommitRow--clickable').forEach(row => {
+        row.addEventListener('click', () => navigate('code', row.dataset.thoughtId));
+      });
+
+      // Issue row clicks
+      document.querySelectorAll('.IssueRow').forEach(row => {
+        row.addEventListener('click', () => navigate('issues', row.dataset.problemId));
+      });
+
+      // PR row clicks
+      document.querySelectorAll('.PullRow').forEach(row => {
+        row.addEventListener('click', () => navigate('pulls', row.dataset.proposalId));
+      });
+
+      // Back buttons
+      document.querySelectorAll('[data-action="back-to-code"]').forEach(btn => {
+        btn.addEventListener('click', () => navigate('code'));
+      });
+      document.querySelectorAll('[data-action="back-to-issues"]').forEach(btn => {
+        btn.addEventListener('click', () => navigate('issues'));
+      });
+      document.querySelectorAll('[data-action="back-to-pulls"]').forEach(btn => {
+        btn.addEventListener('click', () => navigate('pulls'));
+      });
+
+      // Issue filter
+      document.querySelectorAll('[data-issue-filter]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          state.issueFilter = btn.dataset.issueFilter;
+          render();
+        });
+      });
+
+      // PR filter
+      document.querySelectorAll('[data-pr-filter]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          state.prFilter = btn.dataset.prFilter;
+          render();
+        });
+      });
+    }
+
+    // ================================================================
+    // Connection status & agent avatars
+    // ================================================================
+    function updateConnectionStatus(connected) {
+      state.connected = connected;
+      const el = document.getElementById('connection-status');
+      const dot = el.querySelector('.ConnectionStatus-dot');
+      if (connected) {
+        dot.classList.remove('disconnected');
+        el.querySelector('span:last-child').textContent = 'Connected';
+      } else {
+        dot.classList.add('disconnected');
+        el.querySelector('span:last-child').textContent = 'Disconnected';
+      }
+    }
+
+    function updateAgentAvatars() {
+      const stack = document.getElementById('avatar-stack');
+      stack.innerHTML = state.agents.map(a => {
+        const bg = profileColor(a.profile);
+        const initial = (a.name || '?')[0].toUpperCase();
+        return `<div class="Avatar" title="${escapeHtml(a.name || a.agentId.slice(0,8))} (${a.profile || 'unknown'})" style="background:${bg}">${initial}</div>`;
+      }).join('');
+    }
+
+    // ================================================================
+    // Session management
+    // ================================================================
     let currentSessionTopic = null;
 
     function selectSession(sessionId) {
       if (state.activeSessionId === sessionId) return;
+      if (currentSessionTopic) client.unsubscribe(currentSessionTopic);
 
-      // Unsubscribe from previous session
-      if (currentSessionTopic) {
-        client.unsubscribe(currentSessionTopic);
-        currentSessionTopic = null;
-      }
-
-      // Clear current thoughts, arrival order, and branch registry
       state.thoughts.clear();
       state.branches.clear();
       state.arrivalOrder = [];
       state.branchRegistry.clear();
       state.activeSessionId = sessionId;
 
-      // Reset view context to main view
-      state.viewContext.mode = 'main';
-      state.viewContext.activeBranchId = null;
-      state.viewContext.branchStack = [];
+      currentSessionTopic = `reasoning:${sessionId}`;
+      client.subscribe(currentSessionTopic);
 
-      const source = state.sessionSource.get(sessionId);
+      const session = state.sessions.find(s => s.id === sessionId);
+      document.getElementById('session-name').textContent = session?.title || sessionId.slice(0, 8);
 
-      if (source === 'historical') {
-        // Load historical session data via REST
-        renderSessions();
-        renderGraph(); // Show empty/loading state
-
-        fetchSessionDetail(sessionId).then(data => {
-          if (!data || state.activeSessionId !== sessionId) return;
-
-          // Populate thoughts from REST response
-          const thoughts = data.thoughts || [];
-          const sortedThoughts = [...thoughts].sort((a, b) => {
-            if (a.timestamp && b.timestamp) {
-              return new Date(a.timestamp) - new Date(b.timestamp);
-            }
-            return a.thoughtNumber - b.thoughtNumber;
-          });
-
-          sortedThoughts.forEach(thought => {
-            state.thoughts.set(thought.id, thought);
-            state.arrivalOrder.push(thought.id);
-            if (thought.branchId && thought.branchFromThought) {
-              registerBranch(thought.branchId, thought.branchFromThought);
-            }
-          });
-
-          // Populate branches
-          if (data.branches) {
-            const branchMap = data.branches;
-            for (const [branchId, branch] of Object.entries(branchMap)) {
-              state.branches.set(branchId, branch);
-              if (branch.thoughts) {
-                branch.thoughts.forEach(thought => {
-                  if (!state.thoughts.has(thought.id)) {
-                    state.thoughts.set(thought.id, thought);
-                    state.arrivalOrder.push(thought.id);
-                    if (thought.branchId && thought.branchFromThought) {
-                      registerBranch(thought.branchId, thought.branchFromThought);
-                    }
-                  }
-                });
-              }
-            }
-          }
-
-          renderGraph();
-        });
-      } else {
-        // Active session: subscribe via WebSocket for real-time updates
-        currentSessionTopic = `reasoning:${sessionId}`;
-        client.subscribe(currentSessionTopic);
-
-        renderSessions();
-        renderGraph();
-      }
+      updateCounts();
+      render();
     }
 
-    // ============================================================
+    // ================================================================
     // Initialize
-    // ============================================================
+    // ================================================================
     const client = new ObservatoryClient();
+
+    // Tab navigation
+    document.querySelectorAll('.UnderlineNav-item').forEach(btn => {
+      btn.addEventListener('click', () => navigate(btn.dataset.tab));
+    });
+
+    // Hash routing
+    window.addEventListener('hashchange', handleRoute);
 
     // Connection handlers
     client.on('connected', () => {
       updateConnectionStatus(true);
-      // Subscribe to observatory channel for session discovery
       client.subscribe('observatory');
-      // Fetch historical + active sessions via REST
-      fetchAllSessions();
+      client.subscribe('workspace');
+      fetchWorkspaces();
     });
 
-    client.on('disconnected', () => {
-      updateConnectionStatus(false);
-    });
+    client.on('disconnected', () => updateConnectionStatus(false));
 
     // Observatory channel events
-    client.on('observatory:subscribed', (payload) => {
-      console.log('[Observatory] Subscribed to observatory channel');
-    });
-
     client.on('observatory:sessions:active', (payload) => {
-      console.log('[Observatory] Active sessions:', payload);
-      const activeSessions = payload.sessions || [];
-
-      // Mark all WS-reported sessions as 'active'
-      const activeIds = new Set();
-      activeSessions.forEach(s => {
-        activeIds.add(s.id);
-        state.sessionSource.set(s.id, 'active');
-      });
-
-      // Merge: add active sessions, update existing ones
-      for (const session of activeSessions) {
-        const existing = state.sessions.find(s => s.id === session.id);
-        if (existing) {
-          Object.assign(existing, session);
-        } else {
-          state.sessions.push(session);
-        }
-      }
-
-      // Re-sort: active first, then historical
-      state.sessions.sort((a, b) => {
-        const aIsActive = state.sessionSource.get(a.id) === 'active';
-        const bIsActive = state.sessionSource.get(b.id) === 'active';
-        if (aIsActive && !bIsActive) return -1;
-        if (!aIsActive && bIsActive) return 1;
-        return new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
-      });
-
-      renderSessions();
-
-      // Auto-select first session if none selected
+      state.sessions = payload.sessions || [];
       if (!state.activeSessionId && state.sessions.length > 0) {
         selectSession(state.sessions[0].id);
       }
+      render();
     });
 
     client.on('observatory:session:started', (payload) => {
-      console.log('[Observatory] Session started:', payload);
       const session = payload.session;
       if (session && !state.sessions.find(s => s.id === session.id)) {
-        state.sessions.unshift(session); // Active sessions at top
-        state.sessionSource.set(session.id, 'active');
-
-        // Immediately subscribe to this session's reasoning channel
-        // so we don't miss any thoughts while the UI updates
+        state.sessions.push(session);
         const topic = `reasoning:${session.id}`;
         client.subscribe(topic);
 
-        // Auto-select this session (will skip re-subscribe since already subscribed)
         if (!state.activeSessionId) {
           state.activeSessionId = session.id;
           currentSessionTopic = topic;
-          renderSessions();
-          renderGraph();
-        } else {
-          renderSessions();
+          document.getElementById('session-name').textContent = session.title || session.id.slice(0, 8);
         }
+        addActivity('session', '&#x1f4ad;', `Session started: <strong>${escapeHtml(session.title || session.id.slice(0,8))}</strong>`, session.createdAt);
+        render();
       }
     });
 
-    client.on('observatory:session:ended', (payload) => {
-      console.log('[Observatory] Session ended:', payload);
-      // Keep session in list but could mark as ended
-    });
-
-    // Handle thought:added broadcast on observatory channel
-    // This ensures we see thoughts immediately, even before reasoning subscription completes
+    // Thought events (from observatory channel for immediate visibility)
     client.on('observatory:thought:added', (payload) => {
-      console.log('[Observatory] Thought added (observatory channel):', payload);
       if (!payload.thought || !payload.sessionId) return;
-
-      // If no active session, auto-activate this one
       if (!state.activeSessionId) {
         state.activeSessionId = payload.sessionId;
         currentSessionTopic = `reasoning:${payload.sessionId}`;
         client.subscribe(currentSessionTopic);
-
-        // Add session to list if not already there
         if (!state.sessions.find(s => s.id === payload.sessionId)) {
-          state.sessions.push({
-            id: payload.sessionId,
-            title: `Reasoning session ${new Date().toISOString()}`,
-            status: 'active'
-          });
-          renderSessions();
+          state.sessions.push({ id: payload.sessionId, title: `Session ${new Date().toISOString()}`, status: 'active' });
         }
       }
-
-      // Process if this is for the active session
       if (payload.sessionId === state.activeSessionId) {
-        payload.thought.parentId = payload.parentId;
-        if (!state.thoughts.has(payload.thought.id)) {
-          state.newNodeId = payload.thought.id;
-          state.thoughts.set(payload.thought.id, payload.thought);
-          state.arrivalOrder.push(payload.thought.id);  // Track arrival order
-
-          // Register branch if this thought has a branchId
-          if (payload.thought.branchId && payload.thought.branchFromThought) {
-            registerBranch(payload.thought.branchId, payload.thought.branchFromThought);
-          }
-
-          renderGraph();
-        }
+        processThought(payload.thought, payload.parentId);
       }
     });
 
-    // Multi-Agent Collaboration Event Handlers
-    client.on('agent:spawned', (payload) => {
-      console.log('[Observatory] Agent spawned:', payload);
-      state.agents.set(payload.agentId, {
-        role: payload.agentRole,
-        status: 'idle',
-        lastActivity: payload.timestamp,
-        taskId: payload.taskId
-      });
-      renderAgentBar();
-    });
-
-    client.on('agent:active', (payload) => {
-      console.log('[Observatory] Agent active:', payload);
-      const agent = state.agents.get(payload.agentId);
-      if (agent) {
-        agent.status = 'active';
-        agent.lastActivity = payload.timestamp;
-        renderAgentBar();
-      }
-    });
-
-    client.on('agent:idle', (payload) => {
-      console.log('[Observatory] Agent idle:', payload);
-      const agent = state.agents.get(payload.agentId);
-      if (agent) {
-        agent.status = 'idle';
-        agent.lastActivity = payload.timestamp;
-        renderAgentBar();
-      }
-    });
-
-    client.on('agent:completed', (payload) => {
-      console.log('[Observatory] Agent completed:', payload);
-      const agent = state.agents.get(payload.agentId);
-      if (agent) {
-        agent.status = 'completed';
-        agent.lastActivity = payload.timestamp;
-        renderAgentBar();
-      }
-    });
-
-    client.on('task:created', (payload) => {
-      console.log('[Observatory] Task created:', payload);
-      state.tasks.set(payload.taskId, {
-        title: payload.title,
-        progress: payload.progress,
-        subtasks: payload.subtasks || []
-      });
-      renderTaskBoard();
-    });
-
-    client.on('task:updated', (payload) => {
-      console.log('[Observatory] Task updated:', payload);
-      const task = state.tasks.get(payload.taskId);
-      if (task) {
-        task.progress = payload.progress;
-        task.subtasks = payload.subtasks;
-        renderTaskBoard();
-      }
-    });
-
-    client.on('task:completed', (payload) => {
-      console.log('[Observatory] Task completed:', payload);
-      const task = state.tasks.get(payload.taskId);
-      if (task) {
-        task.progress = 1.0;
-        task.subtasks.forEach(st => st.status = 'completed');
-        renderTaskBoard();
-      }
-    });
-
-    // Generic message handler for reasoning channel events
+    // Reasoning channel events
     client.on('message', ({ topic, event, payload }) => {
       if (!topic.startsWith('reasoning:')) return;
 
       switch (event) {
-        case 'subscribed':
-          console.log('[Observatory] Subscribed to reasoning channel:', topic);
-          break;
-
         case 'session:snapshot':
-          console.log('[Observatory] Session snapshot:', payload);
           state.thoughts.clear();
           state.branches.clear();
-          state.branchRegistry.clear();  // Reset branch registry for hierarchical view
-          state.arrivalOrder = [];  // Reset arrival order for new snapshot
-
+          state.branchRegistry.clear();
+          state.arrivalOrder = [];
           if (payload.thoughts) {
-            // Sort by timestamp if available, otherwise by thoughtNumber
-            const sortedThoughts = [...payload.thoughts].sort((a, b) => {
-              if (a.timestamp && b.timestamp) {
-                return new Date(a.timestamp) - new Date(b.timestamp);
-              }
+            [...payload.thoughts].sort((a, b) => {
+              if (a.timestamp && b.timestamp) return new Date(a.timestamp) - new Date(b.timestamp);
               return a.thoughtNumber - b.thoughtNumber;
-            });
-            sortedThoughts.forEach(thought => {
-              state.thoughts.set(thought.id, thought);
-              state.arrivalOrder.push(thought.id);  // Track arrival order
-
-              // Register branches for hierarchical view
-              if (thought.branchId && thought.branchFromThought) {
-                registerBranch(thought.branchId, thought.branchFromThought);
-              }
-            });
+            }).forEach(t => processThought(t, null));
           }
-
-          if (payload.branches) {
-            payload.branches.forEach(branch => {
-              state.branches.set(branch.id, branch);
-            });
-          }
-
-          renderGraph();
+          updateCounts();
+          render();
           break;
 
         case 'thought:added':
-          console.log('[Observatory] Thought added:', payload);
           if (payload.thought) {
-            // Copy parentId from payload onto the thought object
             payload.thought.parentId = payload.parentId;
-            state.newNodeId = payload.thought.id;
-            state.thoughts.set(payload.thought.id, payload.thought);
-            if (!state.arrivalOrder.includes(payload.thought.id)) {
-              state.arrivalOrder.push(payload.thought.id);  // Track arrival order
-            }
-
-            // Track agent attribution for collaborative reasoning visualization
-            if (payload.agentRole) {
-              state.thoughtAgents.set(payload.thought.id, payload.agentRole);
-            }
-
-            // Mark agent as active if present
-            if (payload.agentId && state.agents.has(payload.agentId)) {
-              state.agents.get(payload.agentId).status = 'active';
-              state.agents.get(payload.agentId).lastActivity = payload.thought.timestamp;
-              renderAgentBar();
-            }
-
-            renderGraph();
+            processThought(payload.thought, payload.parentId);
+            addActivity('thought', '&#x1f4a1;', `Thought #${payload.thought.thoughtNumber} added`, payload.thought.timestamp);
+            updateCounts();
+            if (state.currentTab === 'code' && !state.selectedThoughtId) render();
+            if (state.currentTab === 'activity') render();
           }
           break;
 
         case 'thought:branched':
-          console.log('[Observatory] Thought branched:', payload);
           if (payload.thought) {
-            // Copy branch info and parentId from payload onto the thought object
             payload.thought.parentId = payload.parentId;
             payload.thought.branchId = payload.branchId;
             payload.thought.branchFromThought = payload.fromThoughtNumber;
-            state.newNodeId = payload.thought.id;
-            state.thoughts.set(payload.thought.id, payload.thought);
-            if (!state.arrivalOrder.includes(payload.thought.id)) {
-              state.arrivalOrder.push(payload.thought.id);  // Track arrival order
-            }
-
-            // Register branch for hierarchical view
-            if (payload.branchId && payload.fromThoughtNumber) {
-              registerBranch(payload.branchId, payload.fromThoughtNumber);
-            }
-
-            renderGraph();
+            processThought(payload.thought, payload.parentId);
+            const branchInfo = state.branchRegistry.get(payload.branchId);
+            addActivity('branch', '&#x1f33f;', `Branch <strong>${branchInfo ? branchInfo.label : '?'}</strong> created from thought #${payload.fromThoughtNumber}`, payload.thought.timestamp);
+            updateCounts();
+            if (state.currentTab === 'code' && !state.selectedThoughtId) render();
+            if (state.currentTab === 'activity') render();
           }
           break;
-
-        case 'session:ended':
-          console.log('[Observatory] Session ended:', payload);
-          break;
-
-        case 'error':
-          console.error('[Observatory] Error:', payload);
-          break;
       }
     });
 
-    // Back button handler
-    elements.backBtn.addEventListener('click', hideNodeDetail);
-
-    // Keyboard navigation
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && state.viewMode === 'detail') {
-        hideNodeDetail();
+    function processThought(thought, parentId) {
+      if (state.thoughts.has(thought.id)) return;
+      thought.parentId = parentId;
+      state.thoughts.set(thought.id, thought);
+      state.arrivalOrder.push(thought.id);
+      if (thought.branchId && thought.branchFromThought) {
+        registerBranch(thought.branchId, thought.branchFromThought);
       }
+    }
+
+    // Workspace channel events (real-time hub updates)
+    client.on('workspace:hub:event', (payload) => {
+      if (!payload || !payload.type) return;
+
+      switch (payload.type) {
+        case 'problem_created':
+          addActivity('problem', '&#x1f7e2;', `Problem created: <strong>${escapeHtml((payload.data?.title) || '?')}</strong>`, undefined);
+          fetchWorkspaceData();
+          break;
+        case 'problem_status_changed':
+          addActivity('problem', '&#x1f504;', `Problem status changed to <strong>${escapeHtml((payload.data?.status) || '?')}</strong>`, undefined);
+          fetchWorkspaceData();
+          break;
+        case 'proposal_created':
+          addActivity('proposal', '&#x1f4dd;', `Proposal created: <strong>${escapeHtml((payload.data?.title) || '?')}</strong>`, undefined);
+          fetchWorkspaceData();
+          break;
+        case 'proposal_merged':
+          addActivity('proposal', '&#x1f7e3;', `Proposal merged`, undefined);
+          fetchWorkspaceData();
+          break;
+        case 'message_posted':
+          addActivity('message', '&#x1f4ac;', `New message in channel`, undefined);
+          break;
+        case 'consensus_marked':
+          addActivity('consensus', '&#x2705;', `Consensus: <strong>${escapeHtml((payload.data?.name) || '?')}</strong>`, undefined);
+          fetchWorkspaceData();
+          break;
+      }
+
+      if (state.currentTab === 'activity') render();
     });
 
-    // Connect to WebSocket
+    // Connect
     const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const wsUrl = `${wsProtocol}//${window.location.host}`;
+    client.connect(wsUrl).catch(err => console.error('[Observatory] Connection failed:', err));
 
-    client.connect(wsUrl).catch(err => {
-      console.error('[Observatory] Initial connection failed:', err);
-    });
+    // Initial route
+    handleRoute();
 
-    console.log('[Observatory] UI initialized');
+    console.log('[Observatory] GitHub Lite UI initialized');
   </script>
 </body>
 </html>
