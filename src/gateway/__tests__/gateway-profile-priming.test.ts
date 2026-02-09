@@ -105,7 +105,10 @@ describe('GatewayHandler — Profile Priming', () => {
       'sess-1',
     );
 
-    const resourceBlock = result.content[1] as any;
+    const resourceBlock = result.content.find(
+      (c: any) => c.type === 'resource' && c.resource?.uri?.startsWith('thoughtbox://profile-priming/')
+    ) as any;
+    expect(resourceBlock).toBeDefined();
     expect(resourceBlock.resource.annotations).toEqual({
       audience: ['assistant'],
       priority: 0.8,
