@@ -1158,6 +1158,41 @@
     // ================================================================
     // Data fetching
     // ================================================================
+    async function fetchAllSessions() {
+      try {
+        const resp = await fetch('/api/sessions?limit=50');
+        if (!resp.ok) return;
+        const data = await resp.json();
+        const fetched = data.sessions || [];
+        const existingIds = new Set(state.sessions.map(s => s.id));
+        for (const s of fetched) {
+          if (!existingIds.has(s.id)) {
+            state.sessions.push(s);
+          }
+        }
+        // Sort: active first, then by date desc
+        state.sessions.sort((a, b) => {
+          const aActive = a.status === 'active';
+          const bActive = b.status === 'active';
+          if (aActive && !bActive) return -1;
+          if (!aActive && bActive) return 1;
+          return new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
+        });
+        if (!state.activeSessionId && state.sessions.length > 0) {
+          selectSession(state.sessions[0].id);
+        }
+        render();
+      } catch (e) { /* fetch failed */ }
+    }
+
+    async function fetchSessionDetail(sessionId) {
+      try {
+        const resp = await fetch(`/api/sessions/${encodeURIComponent(sessionId)}`);
+        if (!resp.ok) return null;
+        return await resp.json();
+      } catch (e) { return null; }
+    }
+
     async function fetchWorkspaces() {
       try {
         const res = await fetch('/api/hub/workspaces');
@@ -1819,7 +1854,10 @@
 
     function selectSession(sessionId) {
       if (state.activeSessionId === sessionId) return;
-      if (currentSessionTopic) client.unsubscribe(currentSessionTopic);
+      if (currentSessionTopic) {
+        client.unsubscribe(currentSessionTopic);
+        currentSessionTopic = null;
+      }
 
       state.thoughts.clear();
       state.branches.clear();
@@ -1827,11 +1865,40 @@
       state.branchRegistry.clear();
       state.activeSessionId = sessionId;
 
+      const session = state.sessions.find(s => s.id === sessionId);
+      document.getElementById('session-name').textContent = session?.title || sessionId.slice(0, 8);
+
+      // Subscribe to live WebSocket updates
       currentSessionTopic = `reasoning:${sessionId}`;
       client.subscribe(currentSessionTopic);
 
-      const session = state.sessions.find(s => s.id === sessionId);
-      document.getElementById('session-name').textContent = session?.title || sessionId.slice(0, 8);
+      // Also load from REST API (covers historical/completed sessions)
+      fetchSessionDetail(sessionId).then(data => {
+        if (!data || state.activeSessionId !== sessionId) return;
+        const thoughts = data.thoughts || [];
+        thoughts.sort((a, b) => (a.thoughtNumber || 0) - (b.thoughtNumber || 0));
+        thoughts.forEach(t => {
+          if (!state.thoughts.has(t.id)) {
+            state.thoughts.set(t.id, t);
+            state.arrivalOrder.push(t.id);
+          }
+        });
+        if (data.branches) {
+          for (const [bid, branch] of Object.entries(data.branches)) {
+            state.branches.set(bid, branch);
+            if (branch.thoughts) {
+              branch.thoughts.forEach(t => {
+                if (!state.thoughts.has(t.id)) {
+                  state.thoughts.set(t.id, t);
+                  state.arrivalOrder.push(t.id);
+                }
+              });
+            }
+          }
+        }
+        updateCounts();
+        render();
+      });
 
       updateCounts();
       render();
@@ -1856,13 +1923,20 @@
       client.subscribe('observatory');
       client.subscribe('workspace');
       fetchWorkspaces();
+      fetchAllSessions();
     });
 
     client.on('disconnected', () => updateConnectionStatus(false));
 
     // Observatory channel events
     client.on('observatory:sessions:active', (payload) => {
-      state.sessions = payload.sessions || [];
+      // Merge active sessions without clobbering historical ones
+      const activeSessions = payload.sessions || [];
+      for (const s of activeSessions) {
+        const existing = state.sessions.find(e => e.id === s.id);
+        if (existing) Object.assign(existing, s);
+        else state.sessions.unshift(s);
+      }
       if (!state.activeSessionId && state.sessions.length > 0) {
         selectSession(state.sessions[0].id);
       }
