@@ -1274,7 +1274,7 @@
     }
 
     function updateCounts() {
-      document.getElementById('count-sessions').textContent = state.thoughts.size;
+      document.getElementById('count-sessions').textContent = state.sessions.length;
       const openProblems = state.problems.filter(p => p.status === 'open' || p.status === 'in-progress');
       document.getElementById('count-problems').textContent = openProblems.length;
       const openProposals = state.proposals.filter(p => p.status === 'open' || p.status === 'reviewing');
@@ -1877,21 +1877,15 @@
         if (!data || state.activeSessionId !== sessionId) return;
         const thoughts = data.thoughts || [];
         thoughts.sort((a, b) => (a.thoughtNumber || 0) - (b.thoughtNumber || 0));
-        thoughts.forEach(t => {
-          if (!state.thoughts.has(t.id)) {
-            state.thoughts.set(t.id, t);
-            state.arrivalOrder.push(t.id);
-          }
-        });
+        thoughts.forEach(t => processThought(t, t.parentId || null));
         if (data.branches) {
           for (const [bid, branch] of Object.entries(data.branches)) {
             state.branches.set(bid, branch);
             if (branch.thoughts) {
               branch.thoughts.forEach(t => {
-                if (!state.thoughts.has(t.id)) {
-                  state.thoughts.set(t.id, t);
-                  state.arrivalOrder.push(t.id);
-                }
+                t.branchId = bid;
+                t.branchFromThought = t.branchFromThought || branch.branchedFromThought;
+                processThought(t, t.parentId || null);
               });
             }
           }
@@ -2002,7 +1996,7 @@
             processThought(payload.thought, payload.parentId);
             addActivity('thought', '&#x1f4a1;', `Thought #${payload.thought.thoughtNumber} added`, payload.thought.timestamp);
             updateCounts();
-            if (state.currentTab === 'code' && !state.selectedThoughtId) render();
+            if (state.currentTab === 'sessions' && !state.selectedThoughtId) render();
             if (state.currentTab === 'activity') render();
           }
           break;
@@ -2016,7 +2010,7 @@
             const branchInfo = state.branchRegistry.get(payload.branchId);
             addActivity('branch', '&#x1f33f;', `Branch <strong>${branchInfo ? branchInfo.label : '?'}</strong> created from thought #${payload.fromThoughtNumber}`, payload.thought.timestamp);
             updateCounts();
-            if (state.currentTab === 'code' && !state.selectedThoughtId) render();
+            if (state.currentTab === 'sessions' && !state.selectedThoughtId) render();
             if (state.currentTab === 'activity') render();
           }
           break;
