@@ -446,9 +446,9 @@ export class GatewayHandler {
                     },
                   },
                 } as ContentBlock);
+                this.sessionsPrimed.add(knowledgePrimingKey);
               }
             }
-            this.sessionsPrimed.add(knowledgePrimingKey);
           } catch (err) {
             // Knowledge priming is optional — don't fail the cipher operation
             console.warn(`[Knowledge] Priming failed: ${(err as Error).message}`);

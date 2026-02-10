@@ -279,7 +279,14 @@ export class KnowledgeHandler {
   private async handlePrime(args: any): Promise<{ content: Array<any> }> {
     const limit = args.limit ?? 15;
     const types = args.types as string[] | undefined;
-    const since = args.since ? new Date(args.since) : undefined;
+    let since: Date | undefined;
+    if (args.since) {
+      const parsed = new Date(args.since);
+      if (isNaN(parsed.getTime())) {
+        throw new Error(`Invalid date for 'since': ${args.since}`);
+      }
+      since = parsed;
+    }
 
     const entities = await this.storage.listEntities({
       types: types as any,
@@ -303,8 +310,10 @@ export class KnowledgeHandler {
     });
 
     const stats = await this.storage.getStats();
-    const totalEntities = Object.values(stats.entity_counts).reduce((a, b) => a + b, 0);
-    const totalRelations = Object.values(stats.relation_counts).reduce((a, b) => a + b, 0);
+    const entityCounts = stats.entity_counts ?? {};
+    const relationCounts = stats.relation_counts ?? {};
+    const totalEntities = Object.values(entityCounts).reduce((a: number, b: number) => a + b, 0);
+    const totalRelations = Object.values(relationCounts).reduce((a: number, b: number) => a + b, 0);
 
     const header = `## Prior Knowledge (${entities.length} of ${totalEntities} entities, ${totalRelations} relations)`;
     const text = [header, '', ...lines].join('\n');
