@@ -147,6 +147,10 @@ interface ResourceContent {
       priority: number;
     };
   };
+  annotations?: {
+    audience: string[];
+    priority: number;
+  };
 }
 
 type ContentBlock = TextContent | ResourceContent;
@@ -440,10 +444,10 @@ export class GatewayHandler {
                     title: 'Knowledge Graph Context',
                     mimeType: 'text/markdown',
                     text: primeText,
-                    annotations: {
-                      audience: ['assistant'],
-                      priority: 0.6,
-                    },
+                  },
+                  annotations: {
+                    audience: ['assistant'],
+                    priority: 0.6,
                   },
                 } as ContentBlock);
                 this.sessionsPrimed.add(knowledgePrimingKey);

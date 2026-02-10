@@ -1877,7 +1877,7 @@ mcp__thoughtbox__thoughtbox({
       {
         uri: "thoughtbox://knowledge/operations",
         name: "Knowledge Operations Catalog",
-        description: "Complete catalog of knowledge graph operations with schemas and examples",
+        description: "Complete catalog of knowledge graph operations with schemas and examples. Includes: create_entity, get_entity, list_entities, add_observation, create_relation, query_graph, knowledge_prime, stats",
         mimeType: "application/json",
       },
       {
