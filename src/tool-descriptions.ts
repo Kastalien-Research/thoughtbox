@@ -158,16 +158,19 @@ Useful for persisting reasoning chains, sharing sessions, or archiving completed
  */
 export const GATEWAY_DESCRIPTION = `Single entry point for all Thoughtbox operations.
 
-Routes to all handlers: init, cipher, thought, notebook, session, mental_models, deep_analysis.
+Routes to all handlers: init, cipher, thought, notebook, session, mental_models, deep_analysis, knowledge, read_thoughts, get_structure.
 
 Operations:
 - get_state, list_sessions, navigate, load_context, start_new, list_roots, bind_root (init)
 - cipher (loads notation system)
 - thought (structured reasoning)
+- read_thoughts (retrieve thought chain)
+- get_structure (session structure overview)
 - notebook (literate programming)
 - session (session management)
 - mental_models (reasoning frameworks)
 - deep_analysis (session pattern analysis)
+- knowledge (knowledge graph memory: create_entity, get_entity, list_entities, add_observation, create_relation, query_graph, knowledge_prime, stats)
 
 Stage enforcement is handled internally - you'll get clear errors if calling operations too early.`;
 
