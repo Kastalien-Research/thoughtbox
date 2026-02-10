@@ -153,7 +153,12 @@ export function createHubHandler(
         switch (operation) {
           case 'create_problem':
             result = await problems.createProblem(agentId, args as any);
-            emit({ type: 'problem_created', workspaceId, data: result as Record<string, unknown> });
+            emit({ type: 'problem_created', workspaceId, data: {
+              problemId: (result as any).problemId,
+              title: args.title,
+              description: args.description,
+              createdBy: agentId,
+            } });
             return result;
           case 'claim_problem': {
             const claimArgs = args as { workspaceId: string; problemId: string; branchId?: string };
@@ -165,10 +170,19 @@ export function createHubHandler(
             }
             return problems.claimProblem(agentId, claimArgs as any);
           }
-          case 'update_problem':
+          case 'update_problem': {
+            const prevProblem = await storage.getProblem(workspaceId, args.problemId);
+            const previousStatus = prevProblem?.status;
             result = await problems.updateProblem(agentId, args as any);
-            emit({ type: 'problem_status_changed', workspaceId, data: result as Record<string, unknown> });
+            const updatedProblem = (result as any).problem;
+            emit({ type: 'problem_status_changed', workspaceId, data: {
+              problemId: updatedProblem.id,
+              status: updatedProblem.status,
+              previousStatus,
+              title: updatedProblem.title,
+            } });
             return result;
+          }
           case 'list_problems':
             return problems.listProblems(args as any);
           case 'add_dependency':
@@ -183,34 +197,68 @@ export function createHubHandler(
             return problems.createSubProblem(agentId, args as any);
           case 'create_proposal':
             result = await proposals.createProposal(agentId, args as any);
-            emit({ type: 'proposal_created', workspaceId, data: result as Record<string, unknown> });
+            emit({ type: 'proposal_created', workspaceId, data: {
+              proposalId: (result as any).proposalId,
+              title: args.title,
+              description: args.description,
+              sourceBranch: args.sourceBranch,
+              problemId: args.problemId,
+            } });
             return result;
           case 'review_proposal':
             return proposals.reviewProposal(agentId, args as any);
-          case 'merge_proposal':
+          case 'merge_proposal': {
             result = await proposals.mergeProposal(agentId, args as any);
-            emit({ type: 'proposal_merged', workspaceId, data: result as Record<string, unknown> });
+            const mergedProposal = (result as any).proposal;
+            emit({ type: 'proposal_merged', workspaceId, data: {
+              proposalId: mergedProposal.id,
+              title: mergedProposal.title,
+              mergedBy: agentId,
+            } });
             return result;
+          }
           case 'list_proposals':
             return proposals.listProposals(args as any);
-          case 'mark_consensus':
+          case 'mark_consensus': {
             result = await consensus.markConsensus(agentId, args as any);
-            emit({ type: 'consensus_marked', workspaceId, data: result as Record<string, unknown> });
+            const marker = (result as any).marker;
+            emit({ type: 'consensus_marked', workspaceId, data: {
+              markerId: marker.id,
+              name: marker.name,
+              description: marker.description,
+              thoughtRef: marker.thoughtRef,
+            } });
             return result;
+          }
           case 'endorse_consensus':
             return consensus.endorseConsensus(agentId, args as any);
           case 'list_consensus':
             return consensus.listConsensus(args as any);
-          case 'post_message':
+          case 'post_message': {
+            const msgContent = typeof args.content === 'string' ? args.content.slice(0, 200) : '';
             result = await channels.postMessage(agentId, args as any);
-            emit({ type: 'message_posted', workspaceId, data: { ...(result as Record<string, unknown>), problemId: args.problemId } });
+            emit({ type: 'message_posted', workspaceId, data: {
+              messageId: (result as any).messageId,
+              problemId: args.problemId,
+              content: msgContent,
+              agentId,
+            } });
             return result;
+          }
           case 'read_channel':
             return channels.readChannel(args as any);
-          case 'post_system_message':
+          case 'post_system_message': {
+            const sysMsgContent = typeof args.content === 'string' ? args.content.slice(0, 200) : '';
             result = await channels.postSystemMessage(args as any);
-            emit({ type: 'message_posted', workspaceId, data: { ...(result as Record<string, unknown>), problemId: args.problemId, system: true } });
+            emit({ type: 'message_posted', workspaceId, data: {
+              messageId: (result as any).messageId,
+              problemId: args.problemId,
+              content: sysMsgContent,
+              agentId: 'system',
+              system: true,
+            } });
             return result;
+          }
           case 'workspace_status':
             return workspace.workspaceStatus(args as any);
           case 'workspace_digest': {
