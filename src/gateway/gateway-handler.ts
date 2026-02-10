@@ -246,7 +246,16 @@ export class GatewayHandler {
   }
 
   /**
-   * Clear session-specific state to prevent memory leaks
+   * Clear session-specific state to prevent memory leaks.
+   *
+   * Key namespaces in sessionsPrimed:
+   * - `${id}` — profile priming (one-shot per session)
+   * - `${id}:knowledge` — knowledge priming (one-shot per session)
+   *
+   * When no mcpSessionId is provided, both priming paths use '__default__' as the
+   * session key. These keys are self-cleaning by process exit in stdio mode. In HTTP
+   * mode, '__default__' is shared across all anonymous clients by design. To clear
+   * them explicitly, call clearSession('__default__').
    */
   clearSession(mcpSessionId: string): void {
     this.sessionAgentIds.delete(mcpSessionId);
@@ -450,8 +459,10 @@ export class GatewayHandler {
                     priority: 0.6,
                   },
                 } as ContentBlock);
-                this.sessionsPrimed.add(knowledgePrimingKey);
               }
+              // Mark as primed on ANY non-error response (success OR empty graph).
+              // Only transient failures (caught below) should allow retry.
+              this.sessionsPrimed.add(knowledgePrimingKey);
             }
           } catch (err) {
             // Knowledge priming is optional — don't fail the cipher operation

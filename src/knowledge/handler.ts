@@ -154,13 +154,30 @@ export class KnowledgeHandler {
   }
 
   private async handleListEntities(args: any): Promise<{ content: Array<any> }> {
+    let created_after: Date | undefined;
+    if (args.created_after) {
+      const parsed = new Date(args.created_after);
+      if (isNaN(parsed.getTime())) {
+        throw new Error(`Invalid date for 'created_after': ${args.created_after}`);
+      }
+      created_after = parsed;
+    }
+    let created_before: Date | undefined;
+    if (args.created_before) {
+      const parsed = new Date(args.created_before);
+      if (isNaN(parsed.getTime())) {
+        throw new Error(`Invalid date for 'created_before': ${args.created_before}`);
+      }
+      created_before = parsed;
+    }
+
     const filter: EntityFilter = {
       types: args.types,
       visibility: args.visibility,
       name_pattern: args.name_pattern,
-      created_after: args.created_after ? new Date(args.created_after) : undefined,
-      created_before: args.created_before ? new Date(args.created_before) : undefined,
-      limit: args.limit,
+      created_after,
+      created_before,
+      limit: args.limit !== undefined ? Math.min(Math.max(args.limit, 1), 500) : undefined,
       offset: args.offset,
     };
 
@@ -277,7 +294,7 @@ export class KnowledgeHandler {
   }
 
   private async handlePrime(args: any): Promise<{ content: Array<any> }> {
-    const limit = args.limit ?? 15;
+    const limit = Math.min(Math.max(args.limit ?? 15, 1), 100);
     const types = args.types as string[] | undefined;
     let since: Date | undefined;
     if (args.since) {
@@ -309,7 +326,7 @@ export class KnowledgeHandler {
       return `- **${e.name}** [${typeTag}]: ${e.label}`;
     });
 
-    const stats = await this.storage.getStats();
+    const stats = (await this.storage.getStats()) ?? { entity_counts: {}, relation_counts: {} } as any;
     const entityCounts = stats.entity_counts ?? {};
     const relationCounts = stats.relation_counts ?? {};
     const totalEntities = Object.values(entityCounts).reduce((a: number, b: number) => a + b, 0);
