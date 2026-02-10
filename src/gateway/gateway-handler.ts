@@ -248,6 +248,7 @@ export class GatewayHandler {
     this.sessionAgentIds.delete(mcpSessionId);
     this.sessionAgentNames.delete(mcpSessionId);
     this.sessionsPrimed.delete(mcpSessionId);
+    this.sessionsPrimed.delete(`${mcpSessionId}:knowledge`);
     this.sessionStages.delete(mcpSessionId);
   }
 
@@ -1060,6 +1061,7 @@ Call \`thoughtbox_gateway\` with operation 'thought' to begin structured reasoni
               'add_observation',
               'create_relation',
               'query_graph',
+              'knowledge_prime',
               'stats',
             ],
           }, null, 2),

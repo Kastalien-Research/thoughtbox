@@ -411,6 +411,7 @@ Call \`thoughtbox_hub\` { "operation": "register", "args": { "name": "Your Agent
               uri: block.resource.uri,
               mimeType: block.resource.mimeType,
               text: block.resource.text,
+              ...(block.resource.title ? { title: block.resource.title } : {}),
             },
             ...(block.resource.annotations ? { annotations: block.resource.annotations as { audience?: ("assistant" | "user")[]; priority?: number } } : {}),
           };
