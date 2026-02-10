@@ -252,6 +252,7 @@ Call \`thoughtbox_hub\` { "operation": "register", "args": { "name": "Your Agent
   let knowledgeHandler: KnowledgeHandler | undefined;
   try {
     const knowledgeStorage = new FileSystemKnowledgeStorage({
+      basePath: args.dataDir,
       project: process.env.THOUGHTBOX_PROJECT || '_default',
     });
     await knowledgeStorage.initialize();
