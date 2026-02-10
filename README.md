@@ -1,8 +1,8 @@
 # Thoughtbox
 
-**A reasoning ledger for AI agents.** Thoughtbox is an MCP server that provides structured reasoning tools, enabling agents to think step-by-step, branch into alternative explorations, revise earlier conclusions, and maintain a persistent record of their cognitive process.
+**A reasoning ledger and collaboration hub for AI agents.** Thoughtbox is an MCP server that provides structured reasoning tools for individual agents and a coordination layer for multi-agent teams. Agents think step-by-step, branch into alternative explorations, revise earlier conclusions, build a persistent knowledge graph, and collaborate through shared workspaces — all via the Model Context Protocol.
 
-Unlike ephemeral chain-of-thought prompting, Thoughtbox creates a **durable reasoning chain** — a ledger of thoughts that can be visualized, exported, and analyzed. Each thought is a node in a graph structure supporting forward thinking, backward planning, branching explorations, mid-course revisions, and **autonomous critique via MCP sampling**.
+Unlike ephemeral chain-of-thought prompting, Thoughtbox creates a **durable reasoning chain** — a ledger of thoughts that can be visualized, exported, and analyzed. Each thought is a node in a graph structure supporting forward thinking, backward planning, branching explorations, mid-course revisions, and **autonomous critique via MCP sampling**. The **Hub** extends this to multi-agent scenarios where agents register, claim problems, propose solutions, review each other's work, and reach consensus.
 
 **Local-First:** Thoughtbox runs entirely on your machine. All reasoning data is stored locally at `~/.thoughtbox/` by default — nothing is sent to external servers. Your thought processes remain private and under your control.
 
@@ -19,9 +19,9 @@ Thoughtbox uses a staged tool disclosure system to guide agents through proper i
 | Stage | Tools Available | Trigger |
 |-------|-----------------|---------|
 | **Stage 0** | `init`, `thoughtbox_gateway` | Connection start |
-| **Stage 1** | + `thoughtbox_cipher`, `session` | `init(start_new)` or `init(load_context)` |
-| **Stage 2** | + `thoughtbox`, `notebook` | `thoughtbox_cipher` call |
-| **Stage 3** | + `mental_models`, `export_reasoning_chain` | Domain activation |
+| **Stage 1** | + `thoughtbox_cipher`, `session`, `deep_analysis` | `init(start_new)` or `init(load_context)` |
+| **Stage 2** | + `thoughtbox`, `notebook`, `knowledge`, `mental_models` | `thoughtbox_cipher` call |
+| **Stage 3** | + `export_reasoning_chain` | Domain activation |
 
 This ensures agents establish proper session context before accessing advanced reasoning tools.
 
@@ -176,6 +176,67 @@ Interactive notebooks combining documentation with executable JavaScript/TypeScr
 
 **Operations:** `create`, `add_cell`, `run_cell`, `export`, `list`, `load`, `update_cell`
 
+### 8. Hub — Multi-Agent Collaboration
+
+The Hub is a coordination layer for multiple AI agents working together. Agents register, join workspaces, and coordinate through problems, proposals, consensus, and channels — all via a single `thoughtbox_hub` MCP tool.
+
+**Core Concepts:**
+- **Workspace** — A shared collaboration space containing problems, proposals, consensus markers, and channels
+- **Problem** — A unit of work with dependencies, sub-problems, and status tracking (open → in-progress → resolved → closed)
+- **Proposal** — A proposed solution to a problem, with a source branch reference and review workflow
+- **Consensus** — A decision marker tied to a thought reference for traceability
+- **Channel** — A message stream scoped to a problem for discussion and coordination
+
+**27 Operations across 7 categories:**
+
+| Category | Operations | Stage |
+|----------|-----------|-------|
+| **Identity** (3) | `register`, `quick_join`, `list_workspaces` | 0 |
+| **Agent** (4) | `whoami`, `create_workspace`, `join_workspace`, `get_profile_prompt` | 1 |
+| **Problems** (9) | `create_problem`, `claim_problem`, `update_problem`, `list_problems`, `add_dependency`, `remove_dependency`, `ready_problems`, `blocked_problems`, `create_sub_problem` | 2 |
+| **Proposals** (4) | `create_proposal`, `review_proposal`, `merge_proposal`, `list_proposals` | 2 |
+| **Consensus** (3) | `mark_consensus`, `endorse_consensus`, `list_consensus` | 2 |
+| **Channels** (3) | `post_message`, `read_channel`, `post_system_message` | 2 |
+| **Status** (2) | `workspace_status`, `workspace_digest` | 2 |
+
+**Agent Profiles:** `MANAGER`, `ARCHITECT`, `DEBUGGER`, `SECURITY`, `RESEARCHER`, `REVIEWER` — each provides domain-specific mental models and behavioral priming.
+
+**Quick join example:**
+```javascript
+{ operation: "quick_join", args: { name: "Architect", workspaceId: "ws-abc123", profile: "ARCHITECT" } }
+```
+
+**Typical workflow:** register → create_workspace → create_problem → claim_problem → work → create_proposal → review_proposal → merge_proposal → mark_consensus
+
+### 9. Knowledge Graph — Persistent Memory (Stage 2)
+
+A structured knowledge graph for capturing insights, concepts, workflows, and decisions that persist across sessions. Accessed via the `knowledge` gateway operation.
+
+**7 Operations across 2 categories:**
+
+| Category | Operations |
+|----------|-----------|
+| **Entity Management** | `create_entity`, `get_entity`, `list_entities`, `add_observation` |
+| **Graph Structure** | `create_relation`, `query_graph`, `stats` |
+
+**Entity types:** `Insight`, `Concept`, `Workflow`, `Decision`, `Agent`
+
+**Relation types:** `RELATES_TO`, `BUILDS_ON`, `CONTRADICTS`, `EXTRACTED_FROM`, `APPLIED_IN`, `LEARNED_BY`, `DEPENDS_ON`, `SUPERSEDES`, `MERGED_FROM`
+
+**Visibility levels:** `public`, `agent-private`, `user-private`, `team-private`
+
+### 10. Deep Analysis — Session Intelligence (Stage 1)
+
+Analyze reasoning sessions for patterns, cognitive load, and decision points.
+
+**Analysis types:**
+- `patterns` — Identify reasoning patterns across the session
+- `cognitive_load` — Measure complexity and context-switching burden
+- `decision_points` — Extract key decision moments and their alternatives
+- `full` — Comprehensive analysis combining all types
+
+**Options:** Include timelines, compare across sessions.
+
 ## Installation
 
 ### Quick Start
@@ -261,6 +322,19 @@ Thought 6: [SYNTHESIS] "Use PostgreSQL for transactions, MongoDB for analytics"
 | `THOUGHTBOX_DATA_DIR` | Base directory for persistent storage | `~/.thoughtbox` |
 | `THOUGHTBOX_PROJECT` | Project scope for session isolation | `_default` |
 | `THOUGHTBOX_TRANSPORT` | Transport type (`stdio` or `http`) | `http` |
+| `THOUGHTBOX_STORAGE` | Storage backend (`fs` or `memory`) | `fs` |
+| `THOUGHTBOX_OBSERVATORY_ENABLED` | Enable Observatory web UI | `false` |
+| `THOUGHTBOX_OBSERVATORY_PORT` | Observatory UI port | `1729` |
+| `THOUGHTBOX_OBSERVATORY_CORS` | CORS origins for Observatory (comma-separated) | (none) |
+| `THOUGHTBOX_AGENT_ID` | Pre-assigned Hub agent ID | (none) |
+| `THOUGHTBOX_AGENT_NAME` | Pre-assigned Hub agent name | (none) |
+| `THOUGHTBOX_EVENTS_ENABLED` | Enable event emission | `false` |
+| `THOUGHTBOX_EVENTS_DEST` | Event destination | `stderr` |
+| `PORT` | HTTP server port | `1731` |
+| `HOST` | HTTP server bind address | `0.0.0.0` |
+| `NODE_ENV` | Node environment | (none) |
+| `PROMETHEUS_URL` | Prometheus endpoint (Docker) | `http://prometheus:9090` |
+| `GRAFANA_URL` | Grafana endpoint (Docker) | `http://localhost:3001` |
 
 ## Development
 
@@ -278,18 +352,44 @@ npm run dev
 npm start
 ```
 
+### Testing
+
+Thoughtbox uses a combination of unit tests and agentic test scripts:
+
+```bash
+# Unit tests (vitest)
+npx vitest run
+
+# Agentic tests — full suite (build + run)
+npm test
+
+# Agentic tests — tool-level only (build + run)
+npm run test:tool
+
+# Agentic tests — quick (no build)
+npm run test:quick
+
+# Behavioral contract tests
+npm run test:behavioral
+```
+
 ### Docker Compose
 
-A `docker-compose.yml` is included to run the HTTP MCP server and the Observatory UI together.
+A `docker-compose.yml` is included to run the full observability stack:
 
 ```bash
 docker compose up --build
 ```
 
-- HTTP MCP + health: http://localhost:1731/health
-- Observatory UI/WebSocket: http://localhost:1729/
-- OpenTelemetry Collector: ports 4317 (gRPC) and 4318 (HTTP) for Claude Code telemetry
-- Persistent data: stored in named volume `thoughtbox-data` at `/data/thoughtbox` (override with env vars like `THOUGHTBOX_PROJECT` or `THOUGHTBOX_DATA_DIR`).
+| Service | Port | Description |
+|---------|------|-------------|
+| **thoughtbox** | 1731 (MCP), 1729 (Observatory) | Core MCP server + Observatory UI |
+| **mcp-sidecar** | 4000 | Observability proxy with OpenTelemetry |
+| **otel-collector** | 4318 (HTTP), 8889 (metrics) | OpenTelemetry Collector |
+| **prometheus** | 9090 | Metrics storage + alerting |
+| **grafana** | 3001 | Dashboards and visualization |
+
+Persistent data is stored in named volumes: `thoughtbox-data`, `prometheus-data`, `grafana-data`.
 
 ## Architecture
 
@@ -302,7 +402,7 @@ src/
 ├── thought-handler.ts    # Thoughtbox tool logic with critique support
 ├── gateway/              # Always-on routing tool
 │   ├── gateway-handler.ts  # Routes to handlers with stage enforcement
-│   └── index.ts          # Module exports
+│   └── operations.ts     # Gateway operations catalog
 ├── init/                 # Init workflow and state management
 │   ├── tool-handler.ts   # Init tool operations
 │   └── state-manager.ts  # Session state persistence
@@ -316,8 +416,20 @@ src/
 │   ├── ui/               # Self-contained HTML/CSS/JS
 │   ├── ws-server.ts      # WebSocket server for live updates
 │   └── emitter.ts        # Event emission for thought changes
+├── hub/                  # Multi-agent collaboration
+│   ├── identity.ts         # Agent registration
+│   ├── workspace.ts        # Workspace management
+│   ├── problems.ts         # Problem tracking with dependencies
+│   ├── proposals.ts        # Solution proposals with reviews
+│   ├── consensus.ts        # Decision recording
+│   ├── channels.ts         # Problem-scoped messaging
+│   ├── hub-handler.ts      # Hub operation dispatcher
+│   └── operations.ts       # 27-operation catalog
+├── knowledge/            # Knowledge graph memory
+├── events/               # Event emission system
 ├── mental-models/        # 15 reasoning frameworks
 ├── notebook/             # Literate programming engine
+├── observability/        # Prometheus/Grafana integration
 └── resources/            # Documentation and patterns cookbook
 ```
 
@@ -347,7 +459,7 @@ We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for:
 
 - Development setup
 - Commit conventions (optimized for `thick_read` code comprehension)
-- Testing with agentic scripts
+- Testing with vitest and agentic scripts
 - Pull request process
 
 ## License
