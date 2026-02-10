@@ -413,7 +413,9 @@ Call \`thoughtbox_hub\` { "operation": "register", "args": { "name": "Your Agent
               text: block.resource.text,
               ...(block.resource.title ? { title: block.resource.title } : {}),
             },
-            ...(block.resource.annotations ? { annotations: block.resource.annotations as { audience?: ("assistant" | "user")[]; priority?: number } } : {}),
+            // Forward annotations from top-level block.annotations (preferred) or fallback to block.resource.annotations
+            ...((block as any).annotations ? { annotations: (block as any).annotations as { audience?: ("assistant" | "user")[]; priority?: number } } :
+               (block.resource.annotations ? { annotations: block.resource.annotations as { audience?: ("assistant" | "user")[]; priority?: number } } : {})),
           };
         }
         return block;
