@@ -420,6 +420,41 @@ export class GatewayHandler {
         }
       }
 
+      // Knowledge priming: append curated knowledge summary on first cipher call per session
+      if (operation === 'cipher' && this.knowledgeHandler) {
+        const knowledgePrimingKey = `${mcpSessionId ?? '__default__'}:knowledge`;
+        if (!this.sessionsPrimed.has(knowledgePrimingKey)) {
+          try {
+            const primeResult = await this.knowledgeHandler.processOperation({
+              action: 'knowledge_prime',
+              limit: 15,
+            });
+            if (!primeResult.isError && primeResult.content.length > 0) {
+              const primeText = primeResult.content[0]?.text;
+              if (primeText && !primeText.startsWith('No knowledge graph entities')) {
+                result.content.push({
+                  type: 'resource',
+                  resource: {
+                    uri: 'thoughtbox://knowledge/priming',
+                    title: 'Knowledge Graph Context',
+                    mimeType: 'text/markdown',
+                    text: primeText,
+                    annotations: {
+                      audience: ['assistant'],
+                      priority: 0.6,
+                    },
+                  },
+                } as ContentBlock);
+              }
+            }
+            this.sessionsPrimed.add(knowledgePrimingKey);
+          } catch (err) {
+            // Knowledge priming is optional — don't fail the cipher operation
+            console.warn(`[Knowledge] Priming failed: ${(err as Error).message}`);
+          }
+        }
+      }
+
       // SIL-103: Session Continuity - restore ThoughtHandler state on load_context
       if (operation === 'load_context' && args?.sessionId) {
         try {

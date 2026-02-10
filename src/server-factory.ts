@@ -405,14 +405,15 @@ Call \`thoughtbox_hub\` { "operation": "register", "args": { "name": "Your Agent
         if (block.type === "text") {
           return { type: "text" as const, text: block.text };
         } else if (block.type === "resource") {
-          const resource: Record<string, unknown> = {
-            uri: block.resource.uri,
-            mimeType: block.resource.mimeType,
-            text: block.resource.text,
+          return {
+            type: "resource" as const,
+            resource: {
+              uri: block.resource.uri,
+              mimeType: block.resource.mimeType,
+              text: block.resource.text,
+            },
+            ...(block.resource.annotations ? { annotations: block.resource.annotations as { audience?: ("assistant" | "user")[]; priority?: number } } : {}),
           };
-          if (block.resource.title) resource.title = block.resource.title;
-          if (block.resource.annotations) resource.annotations = block.resource.annotations;
-          return { type: "resource" as const, resource };
         }
         return block;
       });
