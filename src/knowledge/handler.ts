@@ -321,9 +321,11 @@ export class KnowledgeHandler {
     }
 
     // Build compact markdown summary
+    // Sanitize name/label: collapse to single line, strip markdown heading markers
+    const sanitize = (s: string) => s.replace(/[\r\n]+/g, ' ').replace(/#{1,6}\s/g, '').trim();
     const lines = entities.map(e => {
       const typeTag = e.type;
-      return `- **${e.name}** [${typeTag}]: ${e.label}`;
+      return `- **${sanitize(e.name)}** [${typeTag}]: ${sanitize(e.label)}`;
     });
 
     const stats = (await this.storage.getStats()) ?? { entity_counts: {}, relation_counts: {} } as any;
