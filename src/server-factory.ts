@@ -1323,7 +1323,7 @@ mcp__thoughtbox__thoughtbox({
     "knowledge-operations",
     "thoughtbox://knowledge/operations",
     {
-      description: "Complete catalog of knowledge graph operations (create_entity, get_entity, list_entities, add_observation, create_relation, query_graph, stats) with schemas and examples",
+      description: "Complete catalog of knowledge graph operations (create_entity, get_entity, list_entities, add_observation, create_relation, query_graph, knowledge_prime, stats) with schemas and examples",
       mimeType: "application/json",
     },
     async (uri) => ({

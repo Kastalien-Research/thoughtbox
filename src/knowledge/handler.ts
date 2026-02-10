@@ -14,7 +14,13 @@ import type {
   EntityFilter,
   GraphTraversalParams,
   RelationType,
+  EntityType,
 } from './types.js';
+
+/** Canonical set of allowed entity types — must match the EntityType union in types.ts */
+const VALID_ENTITY_TYPES: ReadonlySet<string> = new Set<EntityType>([
+  'Insight', 'Concept', 'Workflow', 'Decision', 'Agent',
+]);
 import { getOperation as getKnowledgeOperation } from './operations.js';
 
 export type KnowledgeAction =
@@ -295,7 +301,23 @@ export class KnowledgeHandler {
 
   private async handlePrime(args: any): Promise<{ content: Array<any> }> {
     const limit = Math.min(Math.max(args.limit ?? 15, 1), 100);
-    const types = args.types as string[] | undefined;
+
+    // Validate types against allowed EntityType values
+    let types: EntityType[] | undefined;
+    if (args.types !== undefined) {
+      if (!Array.isArray(args.types)) {
+        throw new Error(`'types' must be an array, got ${typeof args.types}`);
+      }
+      const invalid = (args.types as string[]).filter(t => !VALID_ENTITY_TYPES.has(t));
+      if (invalid.length > 0) {
+        throw new Error(
+          `Unknown entity type(s): ${invalid.join(', ')}. ` +
+          `Allowed types: ${[...VALID_ENTITY_TYPES].join(', ')}`,
+        );
+      }
+      types = args.types as EntityType[];
+    }
+
     let since: Date | undefined;
     if (args.since) {
       const parsed = new Date(args.since);
@@ -306,7 +328,7 @@ export class KnowledgeHandler {
     }
 
     const entities = await this.storage.listEntities({
-      types: types as any,
+      types,
       created_after: since,
       limit,
     });
@@ -321,8 +343,20 @@ export class KnowledgeHandler {
     }
 
     // Build compact markdown summary
-    // Sanitize name/label: collapse to single line, strip markdown heading markers
-    const sanitize = (s: string) => s.replace(/[\r\n]+/g, ' ').replace(/#{1,6}\s/g, '').trim();
+    // Sanitize name/label: collapse to single line, strip markdown control characters.
+    // Entities are tool-writable and this output is auto-injected into cipher responses,
+    // so we normalize to plain text to prevent rendering changes or prompt injection.
+    const sanitize = (s: string) =>
+      s
+        .replace(/[\r\n]+/g, ' ')           // collapse newlines
+        .replace(/#{1,6}\s/g, '')            // strip heading markers
+        .replace(/`{1,3}[^`]*`{1,3}/g, (m) => m.replace(/`/g, ''))  // strip backticks but keep inner text
+        .replace(/\*{1,2}([^*]*)\*{1,2}/g, '$1')   // strip bold/italic *
+        .replace(/_{1,2}([^_]*)_{1,2}/g, '$1')      // strip bold/italic _
+        .replace(/~~([^~]*)~~/g, '$1')               // strip strikethrough
+        .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')     // strip link syntax, keep text
+        .replace(/<[^>]+>/g, '')                      // strip HTML tags
+        .trim();
     const lines = entities.map(e => {
       const typeTag = e.type;
       return `- **${sanitize(e.name)}** [${typeTag}]: ${sanitize(e.label)}`;
