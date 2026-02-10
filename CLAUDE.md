@@ -86,8 +86,9 @@ docs: Update README with loops documentation
 When participating in an Agent Team, bootstrap Thoughtbox as your reasoning substrate:
 
 1. **Quick join** (single call): `thoughtbox_hub { operation: "quick_join", args: { name: "<your-role>", workspaceId: "<ID from spawn prompt>", profile: "<COORDINATOR|ARCHITECT|DEBUGGER|SECURITY|RESEARCHER|REVIEWER>" } }`
-2. **Load cipher**: `thoughtbox_gateway { operation: "cipher" }`
-3. **Begin work** — record decisions as thoughts, proposals as hub proposals
+2. **Load cipher**: `thoughtbox_gateway { operation: "cipher" }` — knowledge graph context is auto-injected with the response
+3. **[Optional] Query knowledge**: `thoughtbox_gateway { operation: "knowledge", args: { action: "list_entities", types: ["Decision", "Workflow"] } }` — for deeper context on specific entity types
+4. **Begin work** — record decisions as thoughts, proposals as hub proposals
 
 Spawn prompt templates for teammates are in `.claude/team-prompts/`.
 

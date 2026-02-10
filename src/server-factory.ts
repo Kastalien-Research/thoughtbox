@@ -252,6 +252,7 @@ Call \`thoughtbox_hub\` { "operation": "register", "args": { "name": "Your Agent
   let knowledgeHandler: KnowledgeHandler | undefined;
   try {
     const knowledgeStorage = new FileSystemKnowledgeStorage({
+      basePath: args.dataDir,
       project: process.env.THOUGHTBOX_PROJECT || '_default',
     });
     await knowledgeStorage.initialize();
@@ -411,7 +412,11 @@ Call \`thoughtbox_hub\` { "operation": "register", "args": { "name": "Your Agent
               uri: block.resource.uri,
               mimeType: block.resource.mimeType,
               text: block.resource.text,
+              ...(block.resource.title ? { title: block.resource.title } : {}),
             },
+            // Forward annotations from top-level block.annotations (preferred) or fallback to block.resource.annotations
+            ...((block as any).annotations ? { annotations: (block as any).annotations as { audience?: ("assistant" | "user")[]; priority?: number } } :
+               (block.resource.annotations ? { annotations: block.resource.annotations as { audience?: ("assistant" | "user")[]; priority?: number } } : {})),
           };
         }
         return block;
@@ -1318,7 +1323,7 @@ mcp__thoughtbox__thoughtbox({
     "knowledge-operations",
     "thoughtbox://knowledge/operations",
     {
-      description: "Complete catalog of knowledge graph operations (create_entity, get_entity, list_entities, add_observation, create_relation, query_graph, stats) with schemas and examples",
+      description: "Complete catalog of knowledge graph operations (create_entity, get_entity, list_entities, add_observation, create_relation, query_graph, knowledge_prime, stats) with schemas and examples",
       mimeType: "application/json",
     },
     async (uri) => ({
@@ -1875,7 +1880,7 @@ mcp__thoughtbox__thoughtbox({
       {
         uri: "thoughtbox://knowledge/operations",
         name: "Knowledge Operations Catalog",
-        description: "Complete catalog of knowledge graph operations with schemas and examples",
+        description: "Complete catalog of knowledge graph operations with schemas and examples. Includes: create_entity, get_entity, list_entities, add_observation, create_relation, query_graph, knowledge_prime, stats",
         mimeType: "application/json",
       },
       {

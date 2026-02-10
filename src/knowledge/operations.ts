@@ -258,6 +258,37 @@ export const KNOWLEDGE_OPERATIONS: OperationDefinition[] = [
     },
   },
   {
+    name: "knowledge_prime",
+    title: "Knowledge Priming",
+    description: "Get a curated summary of the most recent knowledge graph entities for context priming. Returns compact markdown suitable for injection into agent context.",
+    category: "graph-structure",
+    inputSchema: {
+      type: "object",
+      properties: {
+        limit: {
+          type: "number",
+          description: "Maximum entities to return (default: 15)",
+        },
+        types: {
+          type: "array",
+          items: {
+            type: "string",
+            enum: ["Insight", "Concept", "Workflow", "Decision", "Agent"],
+          },
+          description: "Filter to specific entity types",
+        },
+        since: {
+          type: "string",
+          description: "ISO date string - only entities created after this date",
+        },
+      },
+    },
+    example: {
+      limit: 10,
+      types: ["Decision", "Workflow"],
+    },
+  },
+  {
     name: "stats",
     title: "Graph Statistics",
     description: "Get aggregate statistics for the knowledge graph: entity counts by type, relation counts, and general health metrics.",

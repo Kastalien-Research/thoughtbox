@@ -147,6 +147,10 @@ interface ResourceContent {
       priority: number;
     };
   };
+  annotations?: {
+    audience: string[];
+    priority: number;
+  };
 }
 
 type ContentBlock = TextContent | ResourceContent;
@@ -242,12 +246,22 @@ export class GatewayHandler {
   }
 
   /**
-   * Clear session-specific state to prevent memory leaks
+   * Clear session-specific state to prevent memory leaks.
+   *
+   * Key namespaces in sessionsPrimed:
+   * - `${id}` — profile priming (one-shot per session)
+   * - `${id}:knowledge` — knowledge priming (one-shot per session)
+   *
+   * When no mcpSessionId is provided, both priming paths use '__default__' as the
+   * session key. These keys are self-cleaning by process exit in stdio mode. In HTTP
+   * mode, '__default__' is shared across all anonymous clients by design. To clear
+   * them explicitly, call clearSession('__default__').
    */
   clearSession(mcpSessionId: string): void {
     this.sessionAgentIds.delete(mcpSessionId);
     this.sessionAgentNames.delete(mcpSessionId);
     this.sessionsPrimed.delete(mcpSessionId);
+    this.sessionsPrimed.delete(`${mcpSessionId}:knowledge`);
     this.sessionStages.delete(mcpSessionId);
   }
 
@@ -417,6 +431,43 @@ export class GatewayHandler {
         // Notify clients (harmless if ignored by streaming HTTP)
         if (this.sendToolListChanged) {
           this.sendToolListChanged();
+        }
+      }
+
+      // Knowledge priming: append curated knowledge summary on first cipher call per session
+      if (operation === 'cipher' && this.knowledgeHandler) {
+        const knowledgePrimingKey = `${mcpSessionId ?? '__default__'}:knowledge`;
+        if (!this.sessionsPrimed.has(knowledgePrimingKey)) {
+          try {
+            const primeResult = await this.knowledgeHandler.processOperation({
+              action: 'knowledge_prime',
+              limit: 15,
+            });
+            if (!primeResult.isError && primeResult.content.length > 0) {
+              const primeText = primeResult.content[0]?.text;
+              if (primeText && !primeText.startsWith('No knowledge graph entities')) {
+                result.content.push({
+                  type: 'resource',
+                  resource: {
+                    uri: 'thoughtbox://knowledge/priming',
+                    title: 'Knowledge Graph Context',
+                    mimeType: 'text/markdown',
+                    text: primeText,
+                  },
+                  annotations: {
+                    audience: ['assistant'],
+                    priority: 0.6,
+                  },
+                } as ContentBlock);
+              }
+              // Mark as primed on ANY non-error response (success OR empty graph).
+              // Only transient failures (caught below) should allow retry.
+              this.sessionsPrimed.add(knowledgePrimingKey);
+            }
+          } catch (err) {
+            // Knowledge priming is optional — don't fail the cipher operation
+            console.warn(`[Knowledge] Priming failed: ${(err as Error).message}`);
+          }
         }
       }
 
@@ -1025,6 +1076,7 @@ Call \`thoughtbox_gateway\` with operation 'thought' to begin structured reasoni
               'add_observation',
               'create_relation',
               'query_graph',
+              'knowledge_prime',
               'stats',
             ],
           }, null, 2),

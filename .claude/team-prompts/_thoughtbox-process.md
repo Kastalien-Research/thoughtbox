@@ -8,7 +8,7 @@ You MUST use both Thoughtbox Gateway (reasoning) and Thoughtbox Hub (coordinatio
 ToolSearch: "thoughtbox hub"
 ToolSearch: "thoughtbox gateway"
 mcp__thoughtbox__thoughtbox_hub: { operation: "quick_join", args: { name: "{{AGENT_NAME}}", workspaceId: "{{WORKSPACE_ID}}", profile: "{{PROFILE}}" } }
-mcp__thoughtbox__thoughtbox_gateway: { operation: "cipher" }
+mcp__thoughtbox__thoughtbox_gateway: { operation: "cipher" }  # Knowledge graph context is auto-injected
 mcp__thoughtbox__thoughtbox_gateway: { operation: "thought", args: { content: "Starting work on {{TASK}}" } }
 mcp__thoughtbox__thoughtbox_hub: { operation: "post_message", args: { workspaceId: "{{WORKSPACE_ID}}", problemId: "{{PROBLEM_ID}}", content: "{{AGENT_NAME}} joined. Starting {{TASK}}." } }
 ```

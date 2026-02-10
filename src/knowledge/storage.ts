@@ -421,7 +421,7 @@ export class FileSystemKnowledgeStorage implements KnowledgeStorage {
       params.push(filter.created_before.getTime());
     }
 
-    sql += ` ORDER BY importance_score DESC`;
+    sql += ` ORDER BY importance_score DESC, created_at DESC`;
 
     if (filter?.limit) {
       sql += ` LIMIT ?`;

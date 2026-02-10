@@ -14,7 +14,13 @@ import type {
   EntityFilter,
   GraphTraversalParams,
   RelationType,
+  EntityType,
 } from './types.js';
+
+/** Canonical set of allowed entity types — must match the EntityType union in types.ts */
+const VALID_ENTITY_TYPES: ReadonlySet<string> = new Set<EntityType>([
+  'Insight', 'Concept', 'Workflow', 'Decision', 'Agent',
+]);
 import { getOperation as getKnowledgeOperation } from './operations.js';
 
 export type KnowledgeAction =
@@ -24,6 +30,7 @@ export type KnowledgeAction =
   | 'add_observation'
   | 'create_relation'
   | 'query_graph'
+  | 'knowledge_prime'
   | 'stats';
 
 export interface KnowledgeOperationArgs {
@@ -65,6 +72,9 @@ export class KnowledgeHandler {
           break;
         case 'query_graph':
           result = await this.handleQueryGraph(args);
+          break;
+        case 'knowledge_prime':
+          result = await this.handlePrime(args);
           break;
         case 'stats':
           result = await this.handleStats(args);
@@ -150,13 +160,30 @@ export class KnowledgeHandler {
   }
 
   private async handleListEntities(args: any): Promise<{ content: Array<any> }> {
+    let created_after: Date | undefined;
+    if (args.created_after) {
+      const parsed = new Date(args.created_after);
+      if (isNaN(parsed.getTime())) {
+        throw new Error(`Invalid date for 'created_after': ${args.created_after}`);
+      }
+      created_after = parsed;
+    }
+    let created_before: Date | undefined;
+    if (args.created_before) {
+      const parsed = new Date(args.created_before);
+      if (isNaN(parsed.getTime())) {
+        throw new Error(`Invalid date for 'created_before': ${args.created_before}`);
+      }
+      created_before = parsed;
+    }
+
     const filter: EntityFilter = {
       types: args.types,
       visibility: args.visibility,
       name_pattern: args.name_pattern,
-      created_after: args.created_after ? new Date(args.created_after) : undefined,
-      created_before: args.created_before ? new Date(args.created_before) : undefined,
-      limit: args.limit,
+      created_after,
+      created_before,
+      limit: args.limit !== undefined ? Math.min(Math.max(args.limit, 1), 500) : undefined,
       offset: args.offset,
     };
 
@@ -268,6 +295,86 @@ export class KnowledgeHandler {
             type: r.type,
           })),
         }, null, 2),
+      }],
+    };
+  }
+
+  private async handlePrime(args: any): Promise<{ content: Array<any> }> {
+    const limit = Math.min(Math.max(args.limit ?? 15, 1), 100);
+
+    // Validate types against allowed EntityType values
+    let types: EntityType[] | undefined;
+    if (args.types !== undefined) {
+      if (!Array.isArray(args.types)) {
+        throw new Error(`'types' must be an array, got ${typeof args.types}`);
+      }
+      const invalid = (args.types as string[]).filter(t => !VALID_ENTITY_TYPES.has(t));
+      if (invalid.length > 0) {
+        throw new Error(
+          `Unknown entity type(s): ${invalid.join(', ')}. ` +
+          `Allowed types: ${[...VALID_ENTITY_TYPES].join(', ')}`,
+        );
+      }
+      types = args.types as EntityType[];
+    }
+
+    let since: Date | undefined;
+    if (args.since) {
+      const parsed = new Date(args.since);
+      if (isNaN(parsed.getTime())) {
+        throw new Error(`Invalid date for 'since': ${args.since}`);
+      }
+      since = parsed;
+    }
+
+    const entities = await this.storage.listEntities({
+      types,
+      created_after: since,
+      limit,
+    });
+
+    if (entities.length === 0) {
+      return {
+        content: [{
+          type: 'text',
+          text: 'No knowledge graph entities found for this project.',
+        }],
+      };
+    }
+
+    // Build compact markdown summary
+    // Sanitize name/label: collapse to single line, strip markdown control characters.
+    // Entities are tool-writable and this output is auto-injected into cipher responses,
+    // so we normalize to plain text to prevent rendering changes or prompt injection.
+    const sanitize = (s: string) =>
+      s
+        .replace(/[\r\n]+/g, ' ')           // collapse newlines
+        .replace(/#{1,6}\s/g, '')            // strip heading markers
+        .replace(/`{1,3}[^`]*`{1,3}/g, (m) => m.replace(/`/g, ''))  // strip backticks but keep inner text
+        .replace(/\*{1,2}([^*]*)\*{1,2}/g, '$1')   // strip bold/italic *
+        .replace(/_{1,2}([^_]*)_{1,2}/g, '$1')      // strip bold/italic _
+        .replace(/~~([^~]*)~~/g, '$1')               // strip strikethrough
+        .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')     // strip link syntax, keep text
+        .replace(/<[^>]+>/g, '')                      // strip HTML tags
+        .trim();
+    const lines = entities.map(e => {
+      const typeTag = e.type;
+      return `- **${sanitize(e.name)}** [${typeTag}]: ${sanitize(e.label)}`;
+    });
+
+    const stats = (await this.storage.getStats()) ?? { entity_counts: {}, relation_counts: {} } as any;
+    const entityCounts = stats.entity_counts ?? {};
+    const relationCounts = stats.relation_counts ?? {};
+    const totalEntities = Object.values(entityCounts).reduce((a: number, b: number) => a + b, 0);
+    const totalRelations = Object.values(relationCounts).reduce((a: number, b: number) => a + b, 0);
+
+    const header = `## Prior Knowledge (${entities.length} of ${totalEntities} entities, ${totalRelations} relations)`;
+    const text = [header, '', ...lines].join('\n');
+
+    return {
+      content: [{
+        type: 'text',
+        text,
       }],
     };
   }
