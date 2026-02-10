@@ -85,28 +85,33 @@ private async handlePrime(args: any): Promise<{ content: Array<any> }> {
 
 ### Fix 3: Auto-inject into cipher response (gateway-handler.ts)
 
-One-shot per session, gated by scoped key in `sessionsPrimed`:
+One-shot per session, gated by scoped key in `sessionsPrimed`. Key insight from review: only mark primed **after successful injection**, not on error or empty graph — otherwise a transient failure permanently suppresses retries for that session.
 
 ```typescript
 if (operation === 'cipher' && this.knowledgeHandler) {
   const key = `${mcpSessionId ?? '__default__'}:knowledge`;
   if (!this.sessionsPrimed.has(key)) {
-    const primeResult = await this.knowledgeHandler.processOperation({
-      action: 'knowledge_prime', limit: 15,
-    });
-    if (!primeResult.isError && primeResult.content[0]?.text) {
-      result.content.push({
-        type: 'resource',
-        resource: {
-          uri: 'thoughtbox://knowledge/priming',
-          title: 'Knowledge Graph Context',
-          mimeType: 'text/markdown',
-          text: primeText,
-          annotations: { audience: ['assistant'], priority: 0.6 },
-        },
+    try {
+      const primeResult = await this.knowledgeHandler.processOperation({
+        action: 'knowledge_prime', limit: 15,
       });
+      if (!primeResult.isError && primeResult.content[0]?.text
+          && !primeText.startsWith('No knowledge graph entities')) {
+        result.content.push({
+          type: 'resource',
+          resource: {
+            uri: 'thoughtbox://knowledge/priming',
+            title: 'Knowledge Graph Context',
+            mimeType: 'text/markdown',
+            text: primeText,
+            annotations: { audience: ['assistant'], priority: 0.6 },
+          },
+        });
+        this.sessionsPrimed.add(key);  // Only after successful injection
+      }
+    } catch (err) {
+      console.warn(`[Knowledge] Priming failed: ${(err as Error).message}`);
     }
-    this.sessionsPrimed.add(key);
   }
 }
 ```
@@ -131,7 +136,32 @@ clearSession(mcpSessionId: string): void {
 ORDER BY importance_score DESC, created_at DESC
 ```
 
-### Fix 6: GATEWAY_DESCRIPTION and available_actions alignment
+### Fix 6: Validate date input in knowledge_prime (knowledge/handler.ts)
+
+Invalid `since` dates would silently produce empty results (NaN bound into SQL). Now validates eagerly:
+
+```typescript
+if (args.since) {
+  const parsed = new Date(args.since);
+  if (isNaN(parsed.getTime())) {
+    throw new Error(`Invalid date for 'since': ${args.since}`);
+  }
+  since = parsed;
+}
+```
+
+### Fix 7: Defensive stats shape (knowledge/handler.ts)
+
+`getStats()` could return null-ish fields on partial init, crashing `Object.values().reduce()`:
+
+```typescript
+const entityCounts = stats.entity_counts ?? {};
+const relationCounts = stats.relation_counts ?? {};
+const totalEntities = Object.values(entityCounts).reduce((a: number, b: number) => a + b, 0);
+const totalRelations = Object.values(relationCounts).reduce((a: number, b: number) => a + b, 0);
+```
+
+### Fix 8: GATEWAY_DESCRIPTION and available_actions alignment
 
 - Added `knowledge`, `read_thoughts`, `get_structure` to `GATEWAY_DESCRIPTION` in `tool-descriptions.ts`
 - Added `knowledge_prime` to the `available_actions` error guidance in `gateway-handler.ts`
@@ -160,6 +190,12 @@ ORDER BY importance_score DESC, created_at DESC
 4. **Test one-shot gating cleanup** — When using scoped keys in a Set, verify `clearSession()` deletes all key variants.
 
 5. **Test sort stability** — When a sort column has degenerate values (all identical), verify a tiebreaker produces deterministic ordering.
+
+6. **Only mark one-shot gating after success** — When using a Set to gate one-shot behavior, add the key only after the gated action succeeds. Adding it unconditionally (in try, before catch) means a transient failure permanently suppresses retries.
+
+7. **Validate external inputs at system boundary** — Date strings from agents are external input. Always validate `new Date()` results with `isNaN(getTime())` before passing to storage queries.
+
+8. **Defensive defaults on aggregation** — When reducing over object values (`Object.values().reduce()`), guard against null/undefined shapes with `?? {}`.
 
 ## Related
 
