@@ -111,7 +111,17 @@ export function createHubHandler(
           return identity.whoami(agentId);
         }
         if (operation === 'create_workspace') {
-          return workspace.createWorkspace(agentId, args as any);
+          const result = await workspace.createWorkspace(agentId, args as any);
+          emit({
+            type: 'workspace_created',
+            workspaceId: result.workspaceId,
+            data: {
+              workspaceId: result.workspaceId,
+              name: args.name,
+              createdBy: agentId
+            }
+          });
+          return result;
         }
         if (operation === 'join_workspace') {
           return workspace.joinWorkspace(agentId, args as any);
