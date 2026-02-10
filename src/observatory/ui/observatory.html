@@ -515,7 +515,7 @@
     }
 
     /* ================================================================
-       IssueRow / PullRow — list rows for Issues and PRs
+       IssueRow / PullRow — list rows for Problems and Proposals
        ================================================================ */
     .IssueRow, .PullRow {
       display: flex;
@@ -901,20 +901,20 @@
 
     <!-- Tab Navigation -->
     <nav class="UnderlineNav" id="tab-nav">
-      <button class="UnderlineNav-item selected" data-tab="code">
+      <button class="UnderlineNav-item selected" data-tab="sessions">
         <span class="UnderlineNav-icon"><svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M4.72 3.22a.75.75 0 0 1 1.06 1.06L2.06 8l3.72 3.72a.75.75 0 1 1-1.06 1.06L.47 8.53a.75.75 0 0 1 0-1.06Zm6.56 0a.75.75 0 1 0-1.06 1.06L13.94 8l-3.72 3.72a.75.75 0 1 0 1.06 1.06l4.25-4.25a.75.75 0 0 0 0-1.06Z"/></svg></span>
-        Code
-        <span class="Counter" id="count-code">0</span>
+        Sessions
+        <span class="Counter" id="count-sessions">0</span>
       </button>
-      <button class="UnderlineNav-item" data-tab="issues">
+      <button class="UnderlineNav-item" data-tab="problems">
         <span class="UnderlineNav-icon"><svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 9.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3Z"/><path d="M8 0a8 8 0 1 1 0 16A8 8 0 0 1 8 0ZM1.5 8a6.5 6.5 0 1 0 13 0 6.5 6.5 0 0 0-13 0Z"/></svg></span>
-        Issues
-        <span class="Counter" id="count-issues">0</span>
+        Problems
+        <span class="Counter" id="count-problems">0</span>
       </button>
-      <button class="UnderlineNav-item" data-tab="pulls">
+      <button class="UnderlineNav-item" data-tab="proposals">
         <span class="UnderlineNav-icon"><svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M1.5 3.25a2.25 2.25 0 1 1 3 2.122v5.256a2.251 2.251 0 1 1-1.5 0V5.372A2.25 2.25 0 0 1 1.5 3.25Zm5.677-.177L9.573.677A.25.25 0 0 1 10 .854V2.5h1A2.5 2.5 0 0 1 13.5 5v5.628a2.251 2.251 0 1 1-1.5 0V5a1 1 0 0 0-1-1h-1v1.646a.25.25 0 0 1-.427.177L7.177 3.427a.25.25 0 0 1 0-.354ZM3.75 2.5a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5Zm0 9.5a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5Zm8.25.75a.75.75 0 1 0 1.5 0 .75.75 0 0 0-1.5 0Z"/></svg></span>
-        Pull Requests
-        <span class="Counter" id="count-pulls">0</span>
+        Proposals
+        <span class="Counter" id="count-proposals">0</span>
       </button>
       <button class="UnderlineNav-item" data-tab="activity">
         <span class="UnderlineNav-icon"><svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M11.93 8.5a4.002 4.002 0 0 1-7.86 0H.75a.75.75 0 0 1 0-1.5h3.32a4.002 4.002 0 0 1 7.86 0h3.32a.75.75 0 0 1 0 1.5Zm-1.43-.75a2.5 2.5 0 1 0-5 0 2.5 2.5 0 0 0 5 0Z"/></svg></span>
@@ -1062,14 +1062,14 @@
       return map[status] || 'StateLabel--open';
     }
 
-    function issueIcon(status) {
+    function problemIcon(status) {
       if (status === 'closed' || status === 'resolved') {
         return `<svg width="16" height="16" viewBox="0 0 16 16" fill="var(--color-done-fg)"><path d="M11.28 6.78a.75.75 0 0 0-1.06-1.06L7.25 8.69 5.78 7.22a.75.75 0 0 0-1.06 1.06l2 2a.75.75 0 0 0 1.06 0ZM16 8A8 8 0 1 1 0 8a8 8 0 0 1 16 0Zm-1.5 0a6.5 6.5 0 1 0-13 0 6.5 6.5 0 0 0 13 0Z"/></svg>`;
       }
       return `<svg width="16" height="16" viewBox="0 0 16 16" fill="var(--color-success-fg)"><path d="M8 9.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3Z"/><path d="M8 0a8 8 0 1 1 0 16A8 8 0 0 1 8 0ZM1.5 8a6.5 6.5 0 1 0 13 0 6.5 6.5 0 0 0-13 0Z"/></svg>`;
     }
 
-    function prIcon(status) {
+    function proposalIcon(status) {
       if (status === 'merged') {
         return `<svg width="16" height="16" viewBox="0 0 16 16" fill="var(--color-done-fg)"><path d="M5.45 5.154A4.25 4.25 0 0 0 9.25 7.5h1.378a2.251 2.251 0 1 1 0 1.5H9.25A5.734 5.734 0 0 1 5 7.123v3.505a2.25 2.25 0 1 1-1.5 0V5.372a2.25 2.25 0 1 1 1.95-.218ZM4.25 13.5a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Zm8-9a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5ZM4.25 4a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Z"/></svg>`;
       }
@@ -1084,7 +1084,7 @@
     // ================================================================
     const state = {
       connected: false,
-      currentTab: 'code',
+      currentTab: 'sessions',
       // Reasoning state
       sessions: [],
       activeSessionId: null,
@@ -1102,8 +1102,8 @@
       agents: [],
       activityFeed: [],
       // Filters
-      issueFilter: 'open',
-      prFilter: 'open',
+      problemFilter: 'open',
+      proposalFilter: 'open',
     };
 
     // Branch label helpers
@@ -1137,15 +1137,15 @@
     }
 
     function parseRoute() {
-      const hash = window.location.hash || '#/code';
+      const hash = window.location.hash || '#/sessions';
       const parts = hash.replace('#/', '').split('/');
-      return { tab: parts[0] || 'code', detailId: parts[1] || null };
+      return { tab: parts[0] || 'sessions', detailId: parts[1] || null };
     }
 
     function handleRoute() {
       const { tab, detailId } = parseRoute();
       state.currentTab = tab;
-      state.selectedThoughtId = (tab === 'code' && detailId) ? detailId : null;
+      state.selectedThoughtId = (tab === 'sessions' && detailId) ? detailId : null;
 
       // Update tab nav
       document.querySelectorAll('.UnderlineNav-item').forEach(btn => {
@@ -1239,25 +1239,25 @@
       const { tab, detailId } = parseRoute();
 
       switch (tab) {
-        case 'code':
+        case 'sessions':
           if (state.selectedThoughtId) {
             main.innerHTML = renderCommitDetail(state.selectedThoughtId);
           } else {
-            main.innerHTML = renderCodeView();
+            main.innerHTML = renderSessionsView();
           }
           break;
-        case 'issues':
+        case 'problems':
           if (detailId) {
-            main.innerHTML = renderIssueDetail(detailId);
+            main.innerHTML = renderProblemDetail(detailId);
           } else {
-            main.innerHTML = renderIssuesView();
+            main.innerHTML = renderProblemsView();
           }
           break;
-        case 'pulls':
+        case 'proposals':
           if (detailId) {
-            main.innerHTML = renderPullDetail(detailId);
+            main.innerHTML = renderProposalDetail(detailId);
           } else {
-            main.innerHTML = renderPullsView();
+            main.innerHTML = renderProposalsView();
           }
           break;
         case 'activity':
@@ -1267,24 +1267,24 @@
           main.innerHTML = renderDigestView();
           break;
         default:
-          main.innerHTML = renderCodeView();
+          main.innerHTML = renderSessionsView();
       }
 
       bindViewEvents();
     }
 
     function updateCounts() {
-      document.getElementById('count-code').textContent = state.thoughts.size;
+      document.getElementById('count-sessions').textContent = state.thoughts.size;
       const openProblems = state.problems.filter(p => p.status === 'open' || p.status === 'in-progress');
-      document.getElementById('count-issues').textContent = openProblems.length;
+      document.getElementById('count-problems').textContent = openProblems.length;
       const openProposals = state.proposals.filter(p => p.status === 'open' || p.status === 'reviewing');
-      document.getElementById('count-pulls').textContent = openProposals.length;
+      document.getElementById('count-proposals').textContent = openProposals.length;
     }
 
     // ================================================================
-    // Code View — commit list with SVG graph rail
+    // Sessions View — commit list with SVG graph rail
     // ================================================================
-    function renderCodeView() {
+    function renderSessionsView() {
       // Session selector
       const sessionBtns = state.sessions.map(s => {
         const label = escapeHtml(s.title || s.id.slice(0, 8));
@@ -1459,7 +1459,7 @@
       const branchLabel = thought.branchId ? state.branchRegistry.get(thought.branchId) : null;
 
       return `<div class="Main-container">
-        <button class="BackButton" data-action="back-to-code">&larr; Back to commits</button>
+        <button class="BackButton" data-action="back-to-sessions">&larr; Back to sessions</button>
         <div class="CommitDetail">
           <div class="CommitDetail-header">
             <div class="CommitDetail-title">Thought #${thought.thoughtNumber} ${branchLabel ? `<span class="BranchName">${escapeHtml(branchLabel.label)}</span>` : ''}</div>
@@ -1481,11 +1481,11 @@
     }
 
     // ================================================================
-    // Issues View — problem list
+    // Problems View — problem list
     // ================================================================
-    function renderIssuesView() {
+    function renderProblemsView() {
       const filtered = state.problems.filter(p => {
-        if (state.issueFilter === 'open') return p.status === 'open' || p.status === 'in-progress';
+        if (state.problemFilter === 'open') return p.status === 'open' || p.status === 'in-progress';
         return p.status === 'closed' || p.status === 'resolved';
       });
 
@@ -1508,7 +1508,7 @@
         const commentsCount = (p.comments || []).length;
 
         return `<div class="IssueRow" data-problem-id="${escapeHtml(p.id)}">
-          <span class="IssueRow-icon">${issueIcon(p.status)}</span>
+          <span class="IssueRow-icon">${problemIcon(p.status)}</span>
           <div class="IssueRow-main">
             <div class="IssueRow-title">${escapeHtml(p.title)}</div>
             <div class="IssueRow-subtitle">
@@ -1526,21 +1526,21 @@
         <div class="Box">
           <div class="Box-header">
             <div style="display:flex;gap:16px;">
-              <button class="Subnav-item ${state.issueFilter === 'open' ? 'selected' : ''}" data-issue-filter="open">${openCount} Open</button>
-              <button class="Subnav-item ${state.issueFilter === 'closed' ? 'selected' : ''}" data-issue-filter="closed">${closedCount} Closed</button>
+              <button class="Subnav-item ${state.problemFilter === 'open' ? 'selected' : ''}" data-problem-filter="open">${openCount} Open</button>
+              <button class="Subnav-item ${state.problemFilter === 'closed' ? 'selected' : ''}" data-problem-filter="closed">${closedCount} Closed</button>
             </div>
           </div>
-          ${rows || `<div class="EmptyState" style="padding:32px"><div class="EmptyState-heading">No issues</div><div class="EmptyState-description">Problems created in Hub workspaces appear here.</div></div>`}
+          ${rows || `<div class="EmptyState" style="padding:32px"><div class="EmptyState-heading">No problems</div><div class="EmptyState-description">Problems created in Hub workspaces appear here.</div></div>`}
         </div>
       </div>`;
     }
 
     // ================================================================
-    // Issue Detail
+    // Problem Detail
     // ================================================================
-    function renderIssueDetail(problemId) {
+    function renderProblemDetail(problemId) {
       const problem = state.problems.find(p => p.id === problemId);
-      if (!problem) return `<div class="Main-container"><div class="EmptyState"><div class="EmptyState-heading">Issue not found</div></div></div>`;
+      if (!problem) return `<div class="Main-container"><div class="EmptyState"><div class="EmptyState-heading">Problem not found</div></div></div>`;
 
       const comments = (problem.comments || []).map(c => {
         const agent = state.agents.find(a => a.agentId === c.agentId);
@@ -1555,7 +1555,7 @@
       }).join('');
 
       return `<div class="Main-container">
-        <button class="BackButton" data-action="back-to-issues">&larr; Back to issues</button>
+        <button class="BackButton" data-action="back-to-problems">&larr; Back to problems</button>
         <div class="Box">
           <div class="Box-header">
             <div>
@@ -1573,11 +1573,11 @@
     }
 
     // ================================================================
-    // Pull Requests View — proposal list
+    // Proposals View — proposal list
     // ================================================================
-    function renderPullsView() {
+    function renderProposalsView() {
       const filtered = state.proposals.filter(p => {
-        if (state.prFilter === 'open') return p.status === 'open' || p.status === 'reviewing';
+        if (state.proposalFilter === 'open') return p.status === 'open' || p.status === 'reviewing';
         return p.status === 'merged' || p.status === 'rejected';
       });
 
@@ -1590,7 +1590,7 @@
         }).join(' ');
 
         return `<div class="PullRow" data-proposal-id="${escapeHtml(p.id)}">
-          <span class="PullRow-icon">${prIcon(p.status)}</span>
+          <span class="PullRow-icon">${proposalIcon(p.status)}</span>
           <div class="PullRow-main">
             <div class="PullRow-title">${escapeHtml(p.title)}</div>
             <div class="PullRow-subtitle">
@@ -1607,21 +1607,21 @@
         <div class="Box">
           <div class="Box-header">
             <div style="display:flex;gap:16px;">
-              <button class="Subnav-item ${state.prFilter === 'open' ? 'selected' : ''}" data-pr-filter="open">${openCount} Open</button>
-              <button class="Subnav-item ${state.prFilter === 'closed' ? 'selected' : ''}" data-pr-filter="closed">${closedCount} Closed</button>
+              <button class="Subnav-item ${state.proposalFilter === 'open' ? 'selected' : ''}" data-proposal-filter="open">${openCount} Open</button>
+              <button class="Subnav-item ${state.proposalFilter === 'closed' ? 'selected' : ''}" data-proposal-filter="closed">${closedCount} Closed</button>
             </div>
           </div>
-          ${rows || `<div class="EmptyState" style="padding:32px"><div class="EmptyState-heading">No pull requests</div><div class="EmptyState-description">Proposals created in Hub workspaces appear here.</div></div>`}
+          ${rows || `<div class="EmptyState" style="padding:32px"><div class="EmptyState-heading">No proposals</div><div class="EmptyState-description">Proposals created in Hub workspaces appear here.</div></div>`}
         </div>
       </div>`;
     }
 
     // ================================================================
-    // Pull Detail
+    // Proposal Detail
     // ================================================================
-    function renderPullDetail(proposalId) {
+    function renderProposalDetail(proposalId) {
       const proposal = state.proposals.find(p => p.id === proposalId);
-      if (!proposal) return `<div class="Main-container"><div class="EmptyState"><div class="EmptyState-heading">Pull request not found</div></div></div>`;
+      if (!proposal) return `<div class="Main-container"><div class="EmptyState"><div class="EmptyState-heading">Proposal not found</div></div></div>`;
 
       const reviews = (proposal.reviews || []).map(r => {
         const agent = state.agents.find(a => a.agentId === r.reviewerId);
@@ -1639,7 +1639,7 @@
       }).join('');
 
       return `<div class="Main-container">
-        <button class="BackButton" data-action="back-to-pulls">&larr; Back to pull requests</button>
+        <button class="BackButton" data-action="back-to-proposals">&larr; Back to proposals</button>
         <div class="Box">
           <div class="Box-header">
             <div>
@@ -1779,44 +1779,44 @@
         });
       }
 
-      // Commit row clicks
+      // Thought row clicks
       document.querySelectorAll('.CommitRow--clickable').forEach(row => {
-        row.addEventListener('click', () => navigate('code', row.dataset.thoughtId));
+        row.addEventListener('click', () => navigate('sessions', row.dataset.thoughtId));
       });
 
-      // Issue row clicks
+      // Problem row clicks
       document.querySelectorAll('.IssueRow').forEach(row => {
-        row.addEventListener('click', () => navigate('issues', row.dataset.problemId));
+        row.addEventListener('click', () => navigate('problems', row.dataset.problemId));
       });
 
-      // PR row clicks
+      // Proposal row clicks
       document.querySelectorAll('.PullRow').forEach(row => {
-        row.addEventListener('click', () => navigate('pulls', row.dataset.proposalId));
+        row.addEventListener('click', () => navigate('proposals', row.dataset.proposalId));
       });
 
       // Back buttons
-      document.querySelectorAll('[data-action="back-to-code"]').forEach(btn => {
-        btn.addEventListener('click', () => navigate('code'));
+      document.querySelectorAll('[data-action="back-to-sessions"]').forEach(btn => {
+        btn.addEventListener('click', () => navigate('sessions'));
       });
-      document.querySelectorAll('[data-action="back-to-issues"]').forEach(btn => {
-        btn.addEventListener('click', () => navigate('issues'));
+      document.querySelectorAll('[data-action="back-to-problems"]').forEach(btn => {
+        btn.addEventListener('click', () => navigate('problems'));
       });
-      document.querySelectorAll('[data-action="back-to-pulls"]').forEach(btn => {
-        btn.addEventListener('click', () => navigate('pulls'));
+      document.querySelectorAll('[data-action="back-to-proposals"]').forEach(btn => {
+        btn.addEventListener('click', () => navigate('proposals'));
       });
 
-      // Issue filter
-      document.querySelectorAll('[data-issue-filter]').forEach(btn => {
+      // Problem filter
+      document.querySelectorAll('[data-problem-filter]').forEach(btn => {
         btn.addEventListener('click', () => {
-          state.issueFilter = btn.dataset.issueFilter;
+          state.problemFilter = btn.dataset.problemFilter;
           render();
         });
       });
 
-      // PR filter
-      document.querySelectorAll('[data-pr-filter]').forEach(btn => {
+      // Proposal filter
+      document.querySelectorAll('[data-proposal-filter]').forEach(btn => {
         btn.addEventListener('click', () => {
-          state.prFilter = btn.dataset.prFilter;
+          state.proposalFilter = btn.dataset.proposalFilter;
           render();
         });
       });
