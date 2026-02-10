@@ -24,6 +24,7 @@ export type KnowledgeAction =
   | 'add_observation'
   | 'create_relation'
   | 'query_graph'
+  | 'knowledge_prime'
   | 'stats';
 
 export interface KnowledgeOperationArgs {
@@ -65,6 +66,9 @@ export class KnowledgeHandler {
           break;
         case 'query_graph':
           result = await this.handleQueryGraph(args);
+          break;
+        case 'knowledge_prime':
+          result = await this.handlePrime(args);
           break;
         case 'stats':
           result = await this.handleStats(args);
@@ -268,6 +272,47 @@ export class KnowledgeHandler {
             type: r.type,
           })),
         }, null, 2),
+      }],
+    };
+  }
+
+  private async handlePrime(args: any): Promise<{ content: Array<any> }> {
+    const limit = args.limit ?? 15;
+    const types = args.types as string[] | undefined;
+    const since = args.since ? new Date(args.since) : undefined;
+
+    const entities = await this.storage.listEntities({
+      types: types as any,
+      created_after: since,
+      limit,
+    });
+
+    if (entities.length === 0) {
+      return {
+        content: [{
+          type: 'text',
+          text: 'No knowledge graph entities found for this project.',
+        }],
+      };
+    }
+
+    // Build compact markdown summary
+    const lines = entities.map(e => {
+      const typeTag = e.type;
+      return `- **${e.name}** [${typeTag}]: ${e.label}`;
+    });
+
+    const stats = await this.storage.getStats();
+    const totalEntities = Object.values(stats.entity_counts).reduce((a, b) => a + b, 0);
+    const totalRelations = Object.values(stats.relation_counts).reduce((a, b) => a + b, 0);
+
+    const header = `## Prior Knowledge (${entities.length} of ${totalEntities} entities, ${totalRelations} relations)`;
+    const text = [header, '', ...lines].join('\n');
+
+    return {
+      content: [{
+        type: 'text',
+        text,
       }],
     };
   }
