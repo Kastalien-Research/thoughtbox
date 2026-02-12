@@ -1,10 +1,10 @@
 {
-  "lastUpdated": "2026-01-21T19:00:00Z",
-  "updatedBy": "claude-sonnet-4-5",
+  "lastUpdated": "2026-02-11T21:30:00Z",
+  "updatedBy": "claude-opus-4-6",
   "summary": {
-    "total": 21,
+    "total": 22,
     "implemented": 16,
-    "inProgress": 0,
+    "inProgress": 1,
     "notStarted": 3,
     "validated": 2
   },
@@ -280,6 +280,21 @@
       "dateValidated": "2026-01-21",
       "validationScore": "95/100",
       "notes": "Spec validated with 8 high-priority updates applied. Core features (Phases 1-4) ready for implementation. Advanced features (Conflict, Memory, Roles) deferred to Phase 5. Estimated effort: 2-3 weeks for MVP."
+    },
+    "EVAL-001": {
+      "name": "Unified Evaluation System (LangSmith Backbone)",
+      "status": "in_progress",
+      "priority": "CRITICAL",
+      "implementationFiles": [
+        "src/evaluation/types.ts",
+        "src/evaluation/langsmith-config.ts",
+        "src/evaluation/trace-listener.ts",
+        "src/evaluation/index.ts"
+      ],
+      "specFile": ".specs/SPEC-EVAL-001-unified-evaluation-system.md",
+      "dateStarted": "2026-02-11",
+      "gitCommit": null,
+      "notes": "Phase 1 complete: LangSmith SDK integration, trace listener bridging ThoughtEmitter events, monitoring:alert event type. Phases 2-4 (datasets, evaluators, experiment runner, monitoring) pending."
     }
   },
   "architecturalChanges": [
