@@ -197,6 +197,19 @@ export type ThoughtEmitterEvents = {
     workspaceId: string;
     data: Record<string, unknown>;
   };
+  /**
+   * Monitoring alerts from the evaluation system (SPEC-EVAL-001, Layer 5)
+   * Surfaces regressions, anomalies, and budget violations.
+   */
+  "monitoring:alert": {
+    type: "regression" | "anomaly" | "budget_exceeded";
+    severity: "info" | "warning" | "critical";
+    metric: string;
+    currentValue: number;
+    threshold: number;
+    message: string;
+    timestamp: string;
+  };
 };
 
 export type ThoughtEmitterEventName = keyof ThoughtEmitterEvents;
@@ -386,6 +399,17 @@ export class ThoughtEmitter extends EventEmitter {
    */
   emitHubEvent(data: ThoughtEmitterEvents["hub:event"]): void {
     this.safeEmit("hub:event", data);
+  }
+
+  /**
+   * Emit a monitoring:alert event from the evaluation system
+   * SPEC: SPEC-EVAL-001, Layer 5
+   *
+   * Fire-and-forget: This method returns immediately.
+   * Listener errors are logged but never propagate.
+   */
+  emitMonitoringAlert(data: ThoughtEmitterEvents["monitoring:alert"]): void {
+    this.safeEmit("monitoring:alert", data);
   }
 
   /**
