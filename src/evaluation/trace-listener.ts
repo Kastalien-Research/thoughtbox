@@ -29,6 +29,7 @@ export class LangSmithTraceListener {
   private client: Client;
   private projectName: string;
   private sessionRuns: Map<string, SessionRun>;
+  private handlers = new Map<string, (...args: any[]) => void>();
   private attached = false;
 
   constructor(config: LangSmithConfig) {
@@ -50,39 +51,37 @@ export class LangSmithTraceListener {
     if (this.attached) return;
     this.attached = true;
 
-    emitter.on("session:started", (data) => {
-      this.onSessionStarted(data);
-    });
+    const onSessionStarted = (data: any) => this.onSessionStarted(data);
+    const onThoughtAdded = (data: any) => this.onThoughtAdded(data);
+    const onThoughtRevised = (data: any) => this.onThoughtRevised(data);
+    const onThoughtBranched = (data: any) => this.onThoughtBranched(data);
+    const onSessionEnded = (data: any) => this.onSessionEnded(data);
 
-    emitter.on("thought:added", (data) => {
-      this.onThoughtAdded(data);
-    });
+    this.handlers.set("session:started", onSessionStarted);
+    this.handlers.set("thought:added", onThoughtAdded);
+    this.handlers.set("thought:revised", onThoughtRevised);
+    this.handlers.set("thought:branched", onThoughtBranched);
+    this.handlers.set("session:ended", onSessionEnded);
 
-    emitter.on("thought:revised", (data) => {
-      this.onThoughtRevised(data);
-    });
-
-    emitter.on("thought:branched", (data) => {
-      this.onThoughtBranched(data);
-    });
-
-    emitter.on("session:ended", (data) => {
-      this.onSessionEnded(data);
-    });
+    emitter.on("session:started", onSessionStarted);
+    emitter.on("thought:added", onThoughtAdded);
+    emitter.on("thought:revised", onThoughtRevised);
+    emitter.on("thought:branched", onThoughtBranched);
+    emitter.on("session:ended", onSessionEnded);
 
     console.error("[Evaluation] LangSmith trace listener attached");
   }
 
   /**
    * Detach from the emitter and clean up.
+   * Only removes this listener's handlers — does not affect other listeners.
    */
   detach(emitter: ThoughtEmitter): void {
     if (!this.attached) return;
-    emitter.removeAllListeners("session:started");
-    emitter.removeAllListeners("thought:added");
-    emitter.removeAllListeners("thought:revised");
-    emitter.removeAllListeners("thought:branched");
-    emitter.removeAllListeners("session:ended");
+    for (const [event, handler] of this.handlers) {
+      emitter.off(event as any, handler);
+    }
+    this.handlers.clear();
     this.sessionRuns.clear();
     this.attached = false;
   }
