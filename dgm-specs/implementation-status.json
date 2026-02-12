@@ -289,12 +289,18 @@
         "src/evaluation/types.ts",
         "src/evaluation/langsmith-config.ts",
         "src/evaluation/trace-listener.ts",
-        "src/evaluation/index.ts"
+        "src/evaluation/index.ts",
+        "src/evaluation/dataset-manager.ts",
+        "src/evaluation/evaluators/session-quality.ts",
+        "src/evaluation/evaluators/memory-quality.ts",
+        "src/evaluation/evaluators/dgm-fitness.ts",
+        "src/evaluation/evaluators/reasoning-coherence.ts",
+        "src/evaluation/evaluators/index.ts"
       ],
       "specFile": ".specs/SPEC-EVAL-001-unified-evaluation-system.md",
       "dateStarted": "2026-02-11",
       "gitCommit": null,
-      "notes": "Phase 1 complete: LangSmith SDK integration, trace listener bridging ThoughtEmitter events, monitoring:alert event type. Phases 2-4 (datasets, evaluators, experiment runner, monitoring) pending."
+      "notes": "Phases 1-2 complete: LangSmith SDK integration, trace listener bridging ThoughtEmitter events, monitoring:alert event type, dataset manager for collection/deployment datasets, and four custom evaluators (sessionQuality, memoryQuality, dgmFitness, reasoningCoherence). Phases 3-4 (experiment runner, online monitoring) pending."
     }
   },
   "architecturalChanges": [
