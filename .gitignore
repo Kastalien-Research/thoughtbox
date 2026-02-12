@@ -42,10 +42,11 @@ claude-code-docs-two/
 .mcp.github.json
 mcp-ts-template/
 
-# Claude Code configuration and local data (except agents, skills, and shared workflows)
+# Claude Code configuration and local data (except agents, skills, knowledge, and shared workflows)
 .claude/*
 !.claude/agents/
 !.claude/skills/
+!.claude/knowledge/
 !.claude/team-prompts/
 !.claude/commands/
 .claude/commands/*
