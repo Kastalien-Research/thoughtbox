@@ -1,0 +1,84 @@
+{
+  "version": "1.0.0",
+  "last_updated": "2026-02-11T00:00:00Z",
+  "description": "CycleQD niche grid: 2D (Specificity x Applicability). One champion per cell. Patterns compete within niches, not across them.",
+  "dimensions": {
+    "specificity": {
+      "axis": "x",
+      "values": ["general", "specific"],
+      "description": "How broadly vs narrowly applicable the pattern is"
+    },
+    "applicability": {
+      "axis": "y",
+      "values": ["all-tasks", "implementation", "debugging", "multi-agent", "git-workflow", "research"],
+      "description": "Which task category the pattern primarily serves"
+    }
+  },
+  "grid": {
+    "general:all-tasks": {
+      "champion": "verify-before-claim",
+      "challenger": "ooda-loop-discipline",
+      "last_competition": null
+    },
+    "specific:all-tasks": {
+      "champion": "conventional-commits",
+      "challenger": null,
+      "last_competition": null
+    },
+    "general:implementation": {
+      "champion": "spiral-detection",
+      "challenger": null,
+      "last_competition": null
+    },
+    "specific:implementation": {
+      "champion": "tdd-workflow",
+      "challenger": null,
+      "last_competition": null
+    },
+    "specific:debugging": {
+      "champion": "no-causal-guessing",
+      "challenger": null,
+      "last_competition": null
+    },
+    "general:debugging": {
+      "champion": null,
+      "challenger": null,
+      "last_competition": null
+    },
+    "specific:multi-agent": {
+      "champion": "background-agent-spawning",
+      "challenger": "hub-structured-dialectic",
+      "last_competition": null
+    },
+    "general:multi-agent": {
+      "champion": "file-based-agent-memory",
+      "challenger": null,
+      "last_competition": null
+    },
+    "general:git-workflow": {
+      "champion": "escalation-over-autonomy",
+      "challenger": null,
+      "last_competition": null
+    },
+    "specific:git-workflow": {
+      "champion": "conventional-commits",
+      "challenger": null,
+      "last_competition": null
+    },
+    "general:research": {
+      "champion": null,
+      "challenger": null,
+      "last_competition": null
+    },
+    "specific:research": {
+      "champion": null,
+      "challenger": null,
+      "last_competition": null
+    }
+  },
+  "coverage": {
+    "filled": 9,
+    "total": 12,
+    "percentage": 75.0
+  }
+}
