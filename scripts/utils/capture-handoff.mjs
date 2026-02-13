@@ -23,8 +23,10 @@ async function main() {
   const branch = await run("git branch --show-current");
   const status = await run("git status --porcelain");
   const stashCount = await run("git stash list | wc -l");
-  const lastCommitRaw = await run('git log -1 --format="{\\"sha\\":\\"%H\\",\\"message\\":\\"%s\\",\\"timestamp\\":\\"%cI\\"}"');
-  const lastCommit = lastCommitRaw ? JSON.parse(lastCommitRaw) : null;
+  const lastCommitRaw = await run('git log -1 --format="%H%x00%s%x00%cI"');
+  const lastCommit = lastCommitRaw
+    ? (() => { const [sha, message, timestamp] = lastCommitRaw.split("\0"); return { sha, message, timestamp }; })()
+    : null;
 
   const openIssuesRaw = await run("bd list --json --status open");
   let openIssues = [];
