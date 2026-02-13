@@ -237,6 +237,24 @@ export interface MemoryDesignArchiveEntry {
 // =============================================================================
 
 /**
+ * Configuration for the online session monitor.
+ */
+export interface MonitorConfig {
+  /** Minimum thought count for scoring production sessions (default: 5) */
+  minThoughts?: number;
+  /** Session tags that always trigger scoring regardless of thought count */
+  alwaysScoreTags?: string[];
+  /** Minimum scored sessions before enabling regression detection (default: 10) */
+  minSamplesForBaseline?: number;
+  /** Number of recent sessions for rolling baseline (default: 20) */
+  rollingWindowSize?: number;
+  /** Stddev multiplier for anomaly/regression detection (default: 2) */
+  stddevThreshold?: number;
+  /** Alert cooldown per metric in ms (default: 1_800_000 = 30 min) */
+  alertCooldownMs?: number;
+}
+
+/**
  * Alert severity levels for monitoring events.
  */
 export type AlertSeverity = "info" | "warning" | "critical";
