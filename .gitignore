@@ -101,6 +101,8 @@ local-docs/
 smithery-docs/
 mcp-specs/
 sdk/
+local/
+!local/.keep
 
 # Improvement opps
 improvement-recs/
