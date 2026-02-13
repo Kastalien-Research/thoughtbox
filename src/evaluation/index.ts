@@ -6,8 +6,8 @@
  *
  * Phase 1: Trace listener + types + config
  * Phase 2: Datasets + evaluators
- * Phase 3 (current): Experiment runner
- * Phase 4: Online monitoring
+ * Phase 3: Experiment runner
+ * Phase 4 (current): Online monitoring
  *
  * Quick Start:
  * ```ts
@@ -24,6 +24,7 @@ import { getSharedClient } from "./client.js";
 import { DatasetManager } from "./dataset-manager.js";
 import { ExperimentRunner } from "./experiment-runner.js";
 import { LangSmithTraceListener } from "./trace-listener.js";
+import { OnlineMonitor } from "./online-monitor.js";
 
 // Types
 export type {
@@ -39,6 +40,7 @@ export type {
   MonitoringAlert,
   AlertSeverity,
   AlertType,
+  MonitorConfig,
 } from "./types.js";
 
 // Client
@@ -56,6 +58,9 @@ export type { TraceListenerOptions } from "./trace-listener.js";
 
 // Experiment runner
 export { ExperimentRunner } from "./experiment-runner.js";
+
+// Online monitor
+export { OnlineMonitor } from "./online-monitor.js";
 
 // Evaluators
 export {
@@ -122,4 +127,30 @@ export function initExperimentRunner(): ExperimentRunner {
   }
 
   return new ExperimentRunner(config, getSharedClient(config));
+}
+
+/**
+ * Initialize Layer 5 online monitoring.
+ *
+ * Subscribes to session events and scores production sessions
+ * using the same evaluator pipeline as offline experiments.
+ *
+ * Requires a trace listener instance to look up LangSmith run IDs.
+ * Returns null if LangSmith is not configured.
+ */
+export function initMonitoring(
+  traceListener?: LangSmithTraceListener,
+): OnlineMonitor | null {
+  const config = loadLangSmithConfig();
+  if (!config) {
+    console.error("[Evaluation] LangSmith not configured. Online monitoring disabled.");
+    return null;
+  }
+
+  const client = getSharedClient(config);
+  const monitor = new OnlineMonitor(config, client, { traceListener });
+  monitor.attach(thoughtEmitter);
+
+  console.error("[Evaluation] Online monitoring enabled");
+  return monitor;
 }
