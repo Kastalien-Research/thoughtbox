@@ -42,12 +42,12 @@ if [[ "$load_context" == "true" ]]; then
     context=""
     context+="Session started at: $(date '+%Y-%m-%d %H:%M:%S')\n"
     context+="Session source: $source\n"
-    
+
     # Add git information if available
     if git rev-parse --git-dir > /dev/null 2>&1; then
         branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "unknown")
         context+="Git branch: $branch\n"
-        
+
         changes=$(git status --porcelain 2>/dev/null | wc -l | tr -d ' ')
         if [[ "$changes" -gt 0 ]]; then
             context+="Uncommitted changes: $changes files\n"
@@ -64,7 +64,43 @@ if [[ "$load_context" == "true" ]]; then
         context+="graph.jsonl entries: ${line_count}\n"
         context+="path: $graph_path\n"
     fi
-    
+
+    # Load session handoff from previous session
+    handoff_file="$project_dir/.claude/session-handoff.json"
+    if [[ -f "$handoff_file" ]]; then
+        # Validate: handoff SHA must be ancestor of HEAD
+        handoff_sha=$(jq -r '.git.lastCommit.sha // ""' "$handoff_file" 2>/dev/null)
+        is_current=true
+        if [[ -n "$handoff_sha" ]] && ! git merge-base --is-ancestor "$handoff_sha" HEAD 2>/dev/null; then
+            is_current=false
+        fi
+
+        if [[ "$is_current" == "true" ]]; then
+            context+="\n--- Session Continuity (previous handoff) ---\n"
+            prev_summary=$(jq -r '.summary // "No summary"' "$handoff_file" 2>/dev/null)
+            prev_branch=$(jq -r '.git.branch // "unknown"' "$handoff_file" 2>/dev/null)
+            prev_time=$(jq -r '.timestamp // ""' "$handoff_file" 2>/dev/null)
+            context+="Previous session: $prev_time on $prev_branch\n"
+            context+="Summary: $prev_summary\n"
+
+            # Show failed approaches (highest value — prevents repeating mistakes)
+            failed_count=$(jq -r '.failed_approaches | length // 0' "$handoff_file" 2>/dev/null || echo 0)
+            if [[ "$failed_count" -gt 0 ]]; then
+                context+="Failed approaches (do NOT retry):\n"
+                failed_text=$(jq -r '.failed_approaches[] | "- \(.what): \(.why)"' "$handoff_file" 2>/dev/null | head -5)
+                context+="$failed_text\n"
+            fi
+
+            # Recommend next action if present
+            next_action=$(jq -r '.next_priorities[0] // ""' "$handoff_file" 2>/dev/null)
+            if [[ -n "$next_action" && "$next_action" != "null" ]]; then
+                context+="Recommended: $next_action\n"
+            fi
+        else
+            context+="\n--- Stale handoff (branch diverged, skipping) ---\n"
+        fi
+    fi
+
     # Load project-specific context files if they exist
     for file in ".claude/CONTEXT.md" ".claude/TODO.md" "TODO.md" ".github/ISSUE_TEMPLATE.md"; do
         if [[ -f "$file" ]]; then
@@ -72,9 +108,9 @@ if [[ "$load_context" == "true" ]]; then
             context+="$(head -c 1000 "$file")\n"
         fi
     done
-    
+
     # Note: legacy .claude/rules memory loading intentionally removed to prevent context clogging.
-    
+
     # Add recent issues if gh CLI is available
     if command -v gh &> /dev/null; then
         issues=$(gh issue list --limit 5 --state open 2>/dev/null || true)
@@ -83,7 +119,7 @@ if [[ "$load_context" == "true" ]]; then
             context+="$issues\n"
         fi
     fi
-    
+
     # Output context in hook-specific format
     echo "{\"hookSpecificOutput\":{\"hookEventName\":\"SessionStart\",\"additionalContext\":\"$context\"}}"
 fi

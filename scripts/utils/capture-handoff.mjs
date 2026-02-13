@@ -2,14 +2,16 @@
 /**
  * capture-handoff.mjs
  *
- * Automatically captures git + beads state and writes .claude/session-handoff.json.
- * Called by pre_compact.sh hook before compaction.
+ * Automatically captures git state and writes .claude/session-handoff.json.
+ * Called by PreCompact and Stop hooks.
  *
  * Design:
  * - .mjs (not .ts) to avoid tsx dependency in hook path
  * - Every exec wrapped in try/catch — must never throw
- * - Reads existing handoff first; overwrites git/beads, preserves agent data
- *   (summary, hypotheses, failedApproaches, trajectory, ooda, recommendedNextAction)
+ * - Reads existing handoff first; spreads existing fields, then overwrites
+ *   only the automatic captures (git). All agent-cooperative fields
+ *   (summary, hypotheses, next_priorities, etc.) are preserved as-is.
+ * - Uses snake_case to match session-review skill schema.
  */
 
 import { execSync } from "node:child_process";
@@ -27,14 +29,6 @@ function exec(cmd) {
     return execSync(cmd, EXEC_OPTS).trim();
   } catch {
     return "";
-  }
-}
-
-function safeJsonParse(str) {
-  try {
-    return JSON.parse(str);
-  } catch {
-    return null;
   }
 }
 
@@ -57,7 +51,7 @@ function captureGitState() {
     let lastCommit = null;
     if (logOutput) {
       const [sha, message, timestamp] = logOutput.split("\n");
-      lastCommit = { sha: sha?.slice(0, 7) || "", message: message || "", timestamp: timestamp || "" };
+      lastCommit = { sha: sha || "", message: message || "", timestamp: timestamp || "" };
     }
 
     return { branch, uncommittedFiles, stagedFiles, stashCount, lastCommit };
@@ -66,89 +60,36 @@ function captureGitState() {
   }
 }
 
-// --- Beads State (automatic) ---
-
-function captureBeadsState() {
-  try {
-    if (!exec("command -v bd")) {
-      return { openIssues: [], inProgress: [], recentlyClosed: [] };
-    }
-
-    const openRaw = exec("bd list --json --status=open");
-    const inProgressRaw = exec("bd list --json --status=in_progress");
-
-    const openIssues = safeJsonParse(openRaw) || [];
-    const inProgress = safeJsonParse(inProgressRaw) || [];
-
-    // Map to lightweight format
-    const mapIssue = (i) => ({
-      id: i.id || "",
-      title: i.title || "",
-      priority: i.priority || "",
-      status: i.status || "",
-    });
-
-    return {
-      openIssues: openIssues.map(mapIssue),
-      inProgress: inProgress.map(mapIssue),
-      recentlyClosed: [],
-    };
-  } catch {
-    return { openIssues: [], inProgress: [], recentlyClosed: [] };
-  }
-}
-
-// --- Files Changed (automatic) ---
-
-function captureFilesChanged() {
-  try {
-    const diff = exec("git diff --name-only HEAD~1 2>/dev/null || git diff --name-only");
-    const staged = exec("git diff --cached --name-only");
-    const all = new Set([
-      ...(diff ? diff.split("\n") : []),
-      ...(staged ? staged.split("\n") : []),
-    ]);
-    return [...all].filter(Boolean);
-  } catch {
-    return [];
-  }
-}
-
 // --- Main ---
 
 function main() {
   // Read existing handoff to preserve agent-cooperative fields
-  let existing = null;
+  let existing = {};
   try {
     const raw = readFileSync(HANDOFF_PATH, "utf8");
-    existing = JSON.parse(raw);
+    existing = JSON.parse(raw) || {};
   } catch {
     // No existing file or invalid JSON — start fresh
   }
 
   const git = captureGitState();
-  const beads = captureBeadsState();
-  const filesChanged = captureFilesChanged();
 
+  // Spread-merge: preserve ALL existing fields, override only automatic captures
   const handoff = {
+    ...existing,
     version: "1.0.0",
     timestamp: new Date().toISOString(),
-    sessionId: process.env.CLAUDE_SESSION_ID || "unknown",
-
-    // Automatic captures (always overwritten)
+    session_id: process.env.CLAUDE_SESSION_ID || "unknown",
     git,
-    beads,
-    filesChanged,
-
-    // Agent-cooperative fields (preserved from existing if present)
-    summary: existing?.summary || null,
-    ooda: existing?.ooda || null,
-    hypotheses: existing?.hypotheses || [],
-    trajectory: existing?.trajectory || null,
-    failedApproaches: existing?.failedApproaches || [],
-    recommendedNextAction: existing?.recommendedNextAction || null,
-    mcpToolsUsed: existing?.mcpToolsUsed || [],
   };
+
+  // Remove legacy camelCase keys if present
+  delete handoff.sessionId;
+  delete handoff.filesChanged;
+  delete handoff.failedApproaches;
+  delete handoff.recommendedNextAction;
+  delete handoff.mcpToolsUsed;
+  delete handoff.beads;
 
   // Ensure .claude/ directory exists
   try {
@@ -160,4 +101,9 @@ function main() {
   writeFileSync(HANDOFF_PATH, JSON.stringify(handoff, null, 2) + "\n", "utf8");
 }
 
-main();
+try {
+  main();
+} catch (e) {
+  console.error("[capture-handoff]", e?.message || e);
+  process.exit(0); // don't fail the hook
+}
