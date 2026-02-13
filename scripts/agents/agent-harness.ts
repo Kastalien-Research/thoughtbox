@@ -16,6 +16,12 @@ async function main() {
     process.exit(1);
   }
 
+  const budget = budgetRaw ? Number(budgetRaw) : undefined;
+  if (budget !== undefined && isNaN(budget)) {
+    console.error("Error: --budget must be a number");
+    process.exit(1);
+  }
+
   const allowedTools = toolsRaw
     ? toolsRaw.split(",").map((s) => s.trim()).filter(Boolean)
     : ["Read", "Edit", "Glob", "Grep", "Bash"];
@@ -26,7 +32,7 @@ async function main() {
       settingSources: ["project"],
       permissionMode: "bypassPermissions",
       allowedTools,
-      maxBudgetUsd: budgetRaw ? Number(budgetRaw) : undefined,
+      maxBudgetUsd: budget,
     },
   });
 

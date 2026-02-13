@@ -2,9 +2,9 @@ import fs from "fs/promises";
 import path from "path";
 import { query } from "@anthropic-ai/claude-agent-sdk";
 
-type ParsedFrontmatter = Record<string, string>;
+export type ParsedFrontmatter = Record<string, string>;
 
-function parseFrontmatter(raw: string): { fm: ParsedFrontmatter; body: string } {
+export function parseFrontmatter(raw: string): { fm: ParsedFrontmatter; body: string } {
   const match = raw.match(/^---\n([\s\S]*?)\n---/);
   if (!match) return { fm: {}, body: raw.trim() };
   const fm: ParsedFrontmatter = {};
@@ -37,6 +37,10 @@ export function getCommonArgs() {
   const prompt = argPrompt();
   const budgetRaw = parseArg("--budget");
   const budget = budgetRaw ? Number(budgetRaw) : undefined;
+  if (budget !== undefined && isNaN(budget)) {
+    console.error("Error: --budget must be a number");
+    process.exit(1);
+  }
   return { prompt, budget };
 }
 
