@@ -1,5 +1,5 @@
 {
-  "lastUpdated": "2026-02-12T21:00:00Z",
+  "lastUpdated": "2026-02-12T21:45:00Z",
   "updatedBy": "claude-opus-4-6",
   "summary": {
     "total": 22,
@@ -292,6 +292,7 @@
         "src/evaluation/trace-listener.ts",
         "src/evaluation/dataset-manager.ts",
         "src/evaluation/experiment-runner.ts",
+        "src/evaluation/online-monitor.ts",
         "src/evaluation/index.ts",
         "src/evaluation/evaluators/utils.ts",
         "src/evaluation/evaluators/session-quality.ts",
@@ -303,13 +304,14 @@
       "testFiles": [
         "tests/unit/evaluators.test.ts",
         "tests/unit/dataset-manager.test.ts",
-        "tests/unit/experiment-runner.test.ts"
+        "tests/unit/experiment-runner.test.ts",
+        "tests/unit/online-monitor.test.ts"
       ],
       "specFile": ".specs/SPEC-EVAL-001-unified-evaluation-system.md",
       "dateStarted": "2026-02-11",
       "dateCompleted": "2026-02-12",
       "gitCommit": null,
-      "notes": "Phases 1-4 complete. Layer 1: trace listener (circuit breaker, timer cleanup, content sanitization). Layer 2: dataset manager (bounded iteration, batch chunking). Layer 3: four evaluators (canonical branchCount metric). Layer 4: experiment runner with shared client factory, gatekeeper integration, regression checks. Phase 2 review findings resolved. Phase 5 (online monitoring) pending."
+      "notes": "All 5 layers complete. Layers 1-4: trace listener, dataset manager, evaluators, experiment runner. Layer 5 (Phase 4): OnlineMonitor — real-time session scoring via LangSmith, rolling-window regression detection (2-stddev, 20-session window), alert deduplication (30-min cooldown), circuit breaker, cold-start safe baselines (10+ sessions). 11 unit tests."
     }
   },
   "architecturalChanges": [

@@ -112,6 +112,14 @@ export class LangSmithTraceListener {
     return this.sessionRuns.size;
   }
 
+  /**
+   * Look up the LangSmith run ID for a tracked session.
+   * Used by OnlineMonitor to fetch the completed run for scoring.
+   */
+  getSessionRunId(sessionId: string): string | undefined {
+    return this.sessionRuns.get(sessionId)?.runId;
+  }
+
   // ===========================================================================
   // Event Handlers (all fire-and-forget)
   // ===========================================================================
