@@ -60,6 +60,12 @@ mcp-ts-template/
 .claude/hooks/*
 !.claude/hooks/hub_tdd_stop.sh
 !.claude/hooks/agentops_tdd_stop.sh
+!.claude/hooks/session_start.sh
+!.claude/hooks/pre_compact.sh
+!.claude/hooks/assumption-tracker.sh
+
+# Session handoff (ephemeral, machine-local)
+.claude/session-handoff.json
 
 # Specifications and working artifacts (local development)
 .specs/
