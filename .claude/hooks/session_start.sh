@@ -68,23 +68,43 @@ if [[ "$load_context" == "true" ]]; then
     # Load session handoff from previous session
     handoff_file="$project_dir/.claude/session-handoff.json"
     if [[ -f "$handoff_file" ]]; then
+        # Consolidated jq: extract staleness-check fields in one call
+        read -r handoff_sha prev_time < <(
+            jq -r '[.git.lastCommit.sha // "", .timestamp // ""] | join("\t")' "$handoff_file" 2>/dev/null || echo "\t"
+        )
+
         # Validate: handoff SHA must be ancestor of HEAD
-        handoff_sha=$(jq -r '.git.lastCommit.sha // ""' "$handoff_file" 2>/dev/null)
         is_current=true
         if [[ -n "$handoff_sha" ]] && ! git merge-base --is-ancestor "$handoff_sha" HEAD 2>/dev/null; then
             is_current=false
         fi
 
+        # Time-based staleness: reject handoffs older than 7 days
+        if [[ "$is_current" == "true" && -n "$prev_time" ]]; then
+            prev_epoch=$(date -j -f "%Y-%m-%dT%H:%M:%S" "${prev_time%%.*}" +%s 2>/dev/null || echo 0)
+            now_epoch=$(date +%s)
+            if (( (now_epoch - prev_epoch) > 604800 )); then
+                is_current=false
+            fi
+        fi
+
         if [[ "$is_current" == "true" ]]; then
-            context+="\n--- Session Continuity (previous handoff) ---\n"
-            prev_summary=$(jq -r '.summary // "No summary"' "$handoff_file" 2>/dev/null)
-            prev_branch=$(jq -r '.git.branch // "unknown"' "$handoff_file" 2>/dev/null)
-            prev_time=$(jq -r '.timestamp // ""' "$handoff_file" 2>/dev/null)
+            # Consolidated jq: extract all display fields in one call
+            read -r prev_summary prev_branch failed_count next_action < <(
+                jq -r '[
+                    .summary // "No summary",
+                    .git.branch // "unknown",
+                    (.failed_approaches | length // 0 | tostring),
+                    .next_priorities[0] // ""
+                ] | join("\t")' "$handoff_file" 2>/dev/null || echo "No summary\tunknown\t0\t"
+            )
+
+            context+="\n<session-handoff-data>\n"
+            context+="--- Session Continuity (previous handoff) ---\n"
             context+="Previous session: $prev_time on $prev_branch\n"
             context+="Summary: $prev_summary\n"
 
             # Show failed approaches (highest value — prevents repeating mistakes)
-            failed_count=$(jq -r '.failed_approaches | length // 0' "$handoff_file" 2>/dev/null || echo 0)
             if [[ "$failed_count" -gt 0 ]]; then
                 context+="Failed approaches (do NOT retry):\n"
                 failed_text=$(jq -r '.failed_approaches[] | "- \(.what): \(.why)"' "$handoff_file" 2>/dev/null | head -5)
@@ -92,12 +112,12 @@ if [[ "$load_context" == "true" ]]; then
             fi
 
             # Recommend next action if present
-            next_action=$(jq -r '.next_priorities[0] // ""' "$handoff_file" 2>/dev/null)
             if [[ -n "$next_action" && "$next_action" != "null" ]]; then
                 context+="Recommended: $next_action\n"
             fi
+            context+="</session-handoff-data>\n"
         else
-            context+="\n--- Stale handoff (branch diverged, skipping) ---\n"
+            context+="\n--- Stale handoff (branch diverged or >7 days old, skipping) ---\n"
         fi
     fi
 
