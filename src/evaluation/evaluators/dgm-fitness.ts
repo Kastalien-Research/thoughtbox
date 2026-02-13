@@ -14,8 +14,9 @@ export const dgmFitnessEvaluator: Evaluator = ({ run, outputs }): EvaluationResu
   const thoughtDepth = clamp01(
     asNumber(runOutputs.trackedThoughtCount ?? runOutputs.finalThoughtCount, 0) / 16
   );
+  // branchCount is the canonical raw metric from trace-listener metadata
   const branchingFactor = clamp01(
-    asNumber(metadata.branchingFactor ?? metadata.branchCount, 0) / 8
+    asNumber(metadata.branchCount, 0) / 8
   );
   const contextUtilization = clamp01(
     asNumber(runOutputs.contextUtilization ?? metadata.contextUtilization, memoryQuality)

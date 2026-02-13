@@ -52,6 +52,7 @@ export { DatasetManager } from "./dataset-manager.js";
 
 // Trace listener
 export { LangSmithTraceListener } from "./trace-listener.js";
+export type { TraceListenerOptions } from "./trace-listener.js";
 
 // Experiment runner
 export { ExperimentRunner } from "./experiment-runner.js";

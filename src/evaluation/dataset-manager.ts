@@ -38,6 +38,8 @@ interface DatasetClient {
  * Layer 2 dataset manager for LangSmith.
  */
 export class DatasetManager {
+  private static readonly MAX_RESULTS = 1000;
+  private static readonly BATCH_SIZE = 50;
   private readonly client: DatasetClient | null;
 
   constructor(config: LangSmithConfig | null, client?: DatasetClient | Client) {
@@ -107,7 +109,7 @@ export class DatasetManager {
         split: "collection",
       }));
 
-      await this.client!.createExamples(uploads);
+      await this.chunkedCreateExamples(uploads);
       return uploads.length;
     });
   }
@@ -142,7 +144,7 @@ export class DatasetManager {
         split: "deployment",
       }));
 
-      await this.client!.createExamples(uploads);
+      await this.chunkedCreateExamples(uploads);
       return uploads.length;
     });
   }
@@ -153,12 +155,14 @@ export class DatasetManager {
   async listDatasets(filter?: { nameContains?: string; limit?: number; offset?: number }): Promise<DatasetRecord[]> {
     return this.safe("listDatasets", [], async () => {
       const datasets: DatasetRecord[] = [];
+      const max = filter?.limit ?? DatasetManager.MAX_RESULTS;
       for await (const ds of this.client!.listDatasets({
         datasetNameContains: filter?.nameContains,
         limit: filter?.limit,
         offset: filter?.offset,
       })) {
         datasets.push(ds);
+        if (datasets.length >= max) break;
       }
       return datasets;
     });
@@ -170,15 +174,29 @@ export class DatasetManager {
   async getDatasetExamples(datasetName: string, options?: { limit?: number; offset?: number }): Promise<ExampleRecord[]> {
     return this.safe("getDatasetExamples", [], async () => {
       const examples: ExampleRecord[] = [];
+      const max = options?.limit ?? DatasetManager.MAX_RESULTS;
       for await (const example of this.client!.listExamples({
         datasetName,
         limit: options?.limit,
         offset: options?.offset,
       })) {
         examples.push(example);
+        if (examples.length >= max) break;
       }
       return examples;
     });
+  }
+
+  /**
+   * Create examples in batches to avoid API payload limits.
+   */
+  private async chunkedCreateExamples(
+    uploads: Array<{ inputs: KV; outputs?: KV; metadata?: KV; split?: string | string[]; dataset_name: string }>,
+  ): Promise<void> {
+    for (let i = 0; i < uploads.length; i += DatasetManager.BATCH_SIZE) {
+      const batch = uploads.slice(i, i + DatasetManager.BATCH_SIZE);
+      await this.client!.createExamples(batch);
+    }
   }
 
   /**
