@@ -6,7 +6,6 @@ import path from "path";
 import { promisify } from "util";
 
 const exec = promisify(_exec);
-const SIGNALS_DIR = path.resolve(process.cwd(), "agentops", "signals");
 
 function argValue(flag) {
   const i = process.argv.indexOf(flag);
@@ -14,11 +13,11 @@ function argValue(flag) {
   return process.argv[i + 1];
 }
 
-function dayPath(date = new Date()) {
+function dayPath(signalsDir, date = new Date()) {
   const y = date.getUTCFullYear();
   const m = `${date.getUTCMonth() + 1}`.padStart(2, "0");
   const d = `${date.getUTCDate()}`.padStart(2, "0");
-  return path.join(SIGNALS_DIR, `${y}-${m}-${d}.jsonl`);
+  return path.join(signalsDir, `${y}-${m}-${d}.jsonl`);
 }
 
 async function run(command, cwd) {
@@ -33,7 +32,8 @@ async function run(command, cwd) {
 async function main() {
   const sessionId = argValue("--session-id") ?? "fast-session";
   const projectRoot = argValue("--project-root") ?? process.cwd();
-  await fs.mkdir(SIGNALS_DIR, { recursive: true });
+  const signalsDir = path.resolve(projectRoot, "agentops", "signals");
+  await fs.mkdir(signalsDir, { recursive: true });
 
   const names = await run("git diff --name-only", projectRoot);
   const changed = names ? names.split("\n").filter(Boolean) : [];
@@ -57,7 +57,7 @@ async function main() {
     ttl_days: 7,
   };
 
-  await fs.appendFile(dayPath(), `${JSON.stringify(signal)}\n`, "utf8");
+  await fs.appendFile(dayPath(signalsDir), `${JSON.stringify(signal)}\n`, "utf8");
   process.stdout.write(`Emitted signal with ${changed.length} changed files.\n`);
 }
 
