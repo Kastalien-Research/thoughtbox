@@ -32,8 +32,8 @@ export class LangSmithTraceListener {
   private handlers = new Map<string, (...args: any[]) => void>();
   private attached = false;
 
-  constructor(config: LangSmithConfig) {
-    this.client = new Client({
+  constructor(config: LangSmithConfig, client?: Client) {
+    this.client = client ?? new Client({
       apiKey: config.apiKey,
       apiUrl: config.apiUrl,
     });

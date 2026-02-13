@@ -1,10 +1,10 @@
 {
-  "lastUpdated": "2026-02-11T21:30:00Z",
+  "lastUpdated": "2026-02-12T21:00:00Z",
   "updatedBy": "claude-opus-4-6",
   "summary": {
     "total": 22,
-    "implemented": 16,
-    "inProgress": 1,
+    "implemented": 17,
+    "inProgress": 0,
     "notStarted": 3,
     "validated": 2
   },
@@ -283,24 +283,33 @@
     },
     "EVAL-001": {
       "name": "Unified Evaluation System (LangSmith Backbone)",
-      "status": "in_progress",
+      "status": "implemented",
       "priority": "CRITICAL",
       "implementationFiles": [
         "src/evaluation/types.ts",
         "src/evaluation/langsmith-config.ts",
+        "src/evaluation/client.ts",
         "src/evaluation/trace-listener.ts",
-        "src/evaluation/index.ts",
         "src/evaluation/dataset-manager.ts",
+        "src/evaluation/experiment-runner.ts",
+        "src/evaluation/index.ts",
+        "src/evaluation/evaluators/utils.ts",
         "src/evaluation/evaluators/session-quality.ts",
         "src/evaluation/evaluators/memory-quality.ts",
         "src/evaluation/evaluators/dgm-fitness.ts",
         "src/evaluation/evaluators/reasoning-coherence.ts",
         "src/evaluation/evaluators/index.ts"
       ],
+      "testFiles": [
+        "tests/unit/evaluators.test.ts",
+        "tests/unit/dataset-manager.test.ts",
+        "tests/unit/experiment-runner.test.ts"
+      ],
       "specFile": ".specs/SPEC-EVAL-001-unified-evaluation-system.md",
       "dateStarted": "2026-02-11",
+      "dateCompleted": "2026-02-12",
       "gitCommit": null,
-      "notes": "Phases 1-2 complete: LangSmith SDK integration, trace listener bridging ThoughtEmitter events, monitoring:alert event type, dataset manager for collection/deployment datasets, and four custom evaluators (sessionQuality, memoryQuality, dgmFitness, reasoningCoherence). Phases 3-4 (experiment runner, online monitoring) pending."
+      "notes": "Phases 1-3 complete. Layer 1: trace listener. Layer 2: dataset manager. Layer 3: four evaluators. Layer 4: experiment runner with shared client factory, gatekeeper integration, regression checks. Phase 4 (online monitoring) pending."
     }
   },
   "architecturalChanges": [
