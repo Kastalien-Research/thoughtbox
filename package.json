@@ -76,7 +76,7 @@
     "cheerio": "^1.2.0",
     "fast-xml-parser": "^4.5.3",
     "@modelcontextprotocol/sdk": "1.25.3",
-    "openai": "^4.104.0",
+    "openai": "^6.21.0",
     "rss-parser": "^3.13.0",
     "@smithery/sdk": "^1.7.5",
     "better-sqlite3": "^11.0.0",
