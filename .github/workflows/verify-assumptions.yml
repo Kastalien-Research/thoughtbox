@@ -1,0 +1,34 @@
+name: Verify Assumptions
+
+on:
+  schedule:
+    - cron: '0 9 * * 1'  # Monday 9am UTC
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - run: npm ci
+
+      - name: Verify assumptions
+        run: npx tsx scripts/utils/verify-assumptions.ts
+
+      - name: Commit results
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add .assumptions/
+          git diff --cached --quiet || \
+            git commit -m "chore(assumptions): weekly verification $(date +%Y-%m-%d)"
+          git push

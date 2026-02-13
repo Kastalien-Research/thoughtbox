@@ -1,6 +1,6 @@
 ---
 name: session-review
-description: Generate a structured session summary for cross-session continuity. Captures key decisions, open hypotheses, partial work, and knowledge references. Output is written to .sessions/ for the next session to load automatically.
+description: Generate a structured session summary for cross-session continuity. Captures key decisions, hypotheses, partial work, and knowledge references. Output is written to .claude/session-handoff.json for the next session to load automatically.
 argument-hint: [optional: focus area or notes]
 user-invocable: true
 allowed-tools: Read, Glob, Grep, Bash, Write
@@ -11,6 +11,15 @@ Generate a structured session summary for cross-session continuity.
 ## Context
 
 $ARGUMENTS
+
+## Loop Building Blocks
+
+| Loop | Purpose | Reference |
+|------|---------|-----------|
+| Consistency Check | Validate session summary against evidence | @loops/refinement/consistency-check.md |
+| Documentation | Generate structured session review | @loops/authoring/documentation.md |
+
+See @loops/README.md for the full loop library.
 
 ## Workflow
 
@@ -37,10 +46,11 @@ From the gathered data, identify:
 
 ### Phase 3: Write Session Handoff (Act)
 
-Write the session summary to `.sessions/handoff-{timestamp}.json` using this schema:
+Write the session summary to `.claude/session-handoff.json` (single file, overwritten each time) using this schema:
 
 ```json
 {
+  "version": "1.0.0",
   "session_id": "<from git or beads>",
   "timestamp": "<ISO 8601>",
   "branch": "<current git branch>",
@@ -54,7 +64,7 @@ Write the session summary to `.sessions/handoff-{timestamp}.json` using this sch
       "files_affected": ["<file1>", "<file2>"]
     }
   ],
-  "open_hypotheses": [
+  "hypotheses": [
     {
       "hypothesis": "<what's being investigated>",
       "evidence_for": ["<supporting evidence>"],
@@ -103,7 +113,7 @@ Present a concise summary:
 ```
 ## Session Handoff Written
 
-File: .sessions/handoff-{timestamp}.json
+File: .claude/session-handoff.json
 Branch: {branch}
 Commits this session: {N}
 Active beads: {N}
