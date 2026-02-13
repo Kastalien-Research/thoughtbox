@@ -121,7 +121,8 @@ if [[ "$load_context" == "true" ]]; then
     fi
 
     # Output context in hook-specific format
-    echo "{\"hookSpecificOutput\":{\"hookEventName\":\"SessionStart\",\"additionalContext\":\"$context\"}}"
+    jq -n --arg ctx "$context" \
+      '{hookSpecificOutput:{hookEventName:"SessionStart",additionalContext:$ctx}}'
 fi
 
 # Note: TTS announcement functionality removed
