@@ -94,6 +94,13 @@ Write the session summary to `.claude/session-handoff.json` (single file, overwr
       "workaround": "<if any>"
     }
   ],
+  "failed_approaches": [
+    {
+      "what": "<what was tried>",
+      "why": "<why it failed>",
+      "lesson": "<what to do instead>"
+    }
+  ],
   "next_priorities": ["<priority 1>", "<priority 2>", "<priority 3>"],
   "warnings": ["<things the next session should watch out for>"]
 }
