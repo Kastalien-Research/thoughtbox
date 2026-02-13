@@ -26,6 +26,7 @@ interface Assumption {
   status: string;
   last_verified: string;
   verification_method: string;
+  verification_type?: "automated" | "manual";
   failure_history: Array<{ date: string; error: string }>;
   [key: string]: unknown;
 }
@@ -48,6 +49,10 @@ function saveRegistry(assumptions: Assumption[]): void {
 }
 
 function verify(assumption: Assumption): { passed: boolean; error?: string } {
+  if (assumption.verification_type === "manual") {
+    return { passed: true }; // Manual verification — skip automated execution
+  }
+
   const method = assumption.verification_method;
   if (!method || method.trim().length === 0) {
     return { passed: true }; // No verification method — skip
