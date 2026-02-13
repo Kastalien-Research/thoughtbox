@@ -3,6 +3,7 @@ import fs from "fs/promises";
 import path from "path";
 import { execSync } from "child_process";
 import { query } from "@anthropic-ai/claude-agent-sdk";
+import { parseFrontmatter } from "./run-agent-util.js";
 
 const DB_PATH = path.resolve(process.cwd(), "research-workflows", "workflows.db");
 
@@ -94,8 +95,13 @@ async function main() {
 
   const agentFile = path.resolve(process.cwd(), ".claude", "agents", "devils-advocate.md");
   const raw = await fs.readFile(agentFile, "utf8");
-  const bodyMatch = raw.match(/^---\n[\s\S]*?\n---\n?([\s\S]*)$/);
-  const body = bodyMatch ? bodyMatch[1].trim() : raw;
+  const { fm, body } = parseFrontmatter(raw);
+
+  const budget = budgetRaw ? Number(budgetRaw) : undefined;
+  if (budget !== undefined && isNaN(budget)) {
+    console.error("Error: --budget must be a number");
+    process.exit(1);
+  }
 
   const enrichedPrompt = prompt + playbookContext;
 
@@ -110,9 +116,9 @@ async function main() {
       settingSources: ["project"],
       permissionMode: "bypassPermissions",
       allowedTools: ["Read", "Glob", "Grep", "Bash", "WebSearch", "ToolSearch"],
-      model: "claude-opus-4-6",
-      maxTurns: 15,
-      maxBudgetUsd: budgetRaw ? Number(budgetRaw) : undefined,
+      model: fm.model,
+      maxTurns: fm.maxTurns ? Number(fm.maxTurns) : 15,
+      maxBudgetUsd: budget,
     },
   });
 
