@@ -1,9 +1,0 @@
-{
-  "description": "Add this entry to .claude/settings.json under hooks.PostToolUse[0].hooks array",
-  "entry": {
-    "type": "command",
-    "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/assumption-tracker.sh",
-    "timeout": 3000,
-    "continueOnError": true
-  }
-}
