@@ -9,7 +9,7 @@ services:
       - "1731"
     ports:
       - "1729:1729"  # Observatory still public
-      - "1731:1731"  # MCP server
+      - "7441:1731"  # MCP server (host 7441 → container 1731)
     environment:
       NODE_ENV: production
       PORT: 1731
@@ -69,6 +69,8 @@ services:
     command: ["--config=/etc/otelcol/config.yaml"]
     volumes:
       - ./otel-collector/config-with-prometheus.yaml:/etc/otelcol/config.yaml:ro
+    tmpfs:
+      - /tmp
     ports:
       - "4318:4318"
       - "8889:8889"
