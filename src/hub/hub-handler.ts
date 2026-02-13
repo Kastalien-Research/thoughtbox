@@ -22,7 +22,7 @@ type ThoughtStore = ThoughtStoreForWorkspace & {
 };
 
 export interface HubEvent {
-  type: 'problem_created' | 'problem_status_changed' | 'message_posted' | 'proposal_created' | 'proposal_merged' | 'consensus_marked';
+  type: 'problem_created' | 'problem_status_changed' | 'message_posted' | 'proposal_created' | 'proposal_merged' | 'consensus_marked' | 'workspace_created';
   workspaceId: string;
   data: Record<string, unknown>;
 }
@@ -111,7 +111,17 @@ export function createHubHandler(
           return identity.whoami(agentId);
         }
         if (operation === 'create_workspace') {
-          return workspace.createWorkspace(agentId, args as any);
+          const result = await workspace.createWorkspace(agentId, args as any);
+          emit({
+            type: 'workspace_created',
+            workspaceId: result.workspaceId,
+            data: {
+              workspaceId: result.workspaceId,
+              name: args.name,
+              createdBy: agentId
+            }
+          });
+          return result;
         }
         if (operation === 'join_workspace') {
           return workspace.joinWorkspace(agentId, args as any);

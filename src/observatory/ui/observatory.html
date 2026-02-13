@@ -1307,7 +1307,7 @@
         return `<div class="Main-container">
           <div class="EmptyState">
             <div class="EmptyState-heading">No sessions yet</div>
-            <div class="EmptyState-description">Start a reasoning session to see thoughts appear here as commits.</div>
+            <div class="EmptyState-description">Start a reasoning session to see thoughts appear here.</div>
           </div>
         </div>`;
       }
@@ -1422,7 +1422,7 @@
         </div>` : ''}
         <div class="Box">
           <div class="Box-header">
-            <span class="Box-header-title">${state.thoughts.size} commits</span>
+            <span class="Box-header-title">${state.thoughts.size} thoughts</span>
             ${state.branchRegistry.size > 0 ? `<span style="font-size:12px;color:var(--color-fg-subtle)">${state.branchRegistry.size} branch${state.branchRegistry.size !== 1 ? 'es' : ''}</span>` : ''}
           </div>
           <div style="display:flex;">
@@ -2054,6 +2054,10 @@
         case 'consensus_marked':
           addActivity('consensus', '&#x2705;', `Consensus: <strong>${escapeHtml((payload.data?.name) || '?')}</strong>`, undefined);
           fetchWorkspaceData();
+          break;
+        case 'workspace_created':
+          addActivity('workspace', '&#x1f4c1;', `Workspace created: <strong>${escapeHtml((payload.data?.name) || '?')}</strong>`, undefined);
+          fetchWorkspaces();
           break;
       }
 
