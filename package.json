@@ -79,7 +79,7 @@
     "openai": "^4.104.0",
     "rss-parser": "^3.13.0",
     "@smithery/sdk": "^1.7.5",
-    "better-sqlite3": "^11.0.0",
+    "better-sqlite3": "^12.6.2",
     "chalk": "^5.6.0",
     "cors": "^2.8.5",
     "express": "^5.1.0",
