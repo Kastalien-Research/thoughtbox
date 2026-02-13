@@ -30,7 +30,7 @@ import {
 } from "./observatory/index.js";
 import { createFileSystemHubStorage } from "./hub/hub-storage-fs.js";
 import type { HubStorage } from "./hub/hub-types.js";
-import { initEvaluation } from "./evaluation/index.js";
+import { initEvaluation, initMonitoring } from "./evaluation/index.js";
 
 /**
  * Get the storage backend based on environment configuration.
@@ -129,7 +129,8 @@ async function startHttpServer() {
   const observatoryServer = await maybeStartObservatory(hubStorage, storage);
 
   // Initialize LangSmith evaluation tracing (no-op if LANGSMITH_API_KEY not set)
-  initEvaluation();
+  const traceListener = initEvaluation();
+  initMonitoring(traceListener ?? undefined);
 
   const app = createMcpExpressApp({
     host: process.env.HOST || "0.0.0.0",
@@ -260,7 +261,8 @@ async function runStdioServer() {
   const observatoryServer = await maybeStartObservatory(hubStorage, storage);
 
   // Initialize LangSmith evaluation tracing (no-op if LANGSMITH_API_KEY not set)
-  initEvaluation();
+  const traceListener = initEvaluation();
+  initMonitoring(traceListener ?? undefined);
 
   const transport = new StdioServerTransport();
   await server.connect(transport);
