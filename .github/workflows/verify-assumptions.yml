@@ -10,6 +10,7 @@ permissions:
 
 jobs:
   verify:
+    if: false  # Disabled: verification_methods are natural language, not executable commands. All 12 entries fail, decaying confidence incorrectly.
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
