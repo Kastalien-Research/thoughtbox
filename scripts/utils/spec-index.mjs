@@ -28,6 +28,12 @@ async function readSpec(filePath) {
 }
 
 async function main() {
+  try {
+    await fs.access(SPECS_DIR);
+  } catch {
+    process.stdout.write(`No specs directory found at ${SPECS_DIR} — skipping index generation.\n`);
+    return;
+  }
   const entries = await fs.readdir(SPECS_DIR, { withFileTypes: true });
   const files = entries
     .filter((e) => e.isFile() && e.name.endsWith(".md") && e.name !== "INDEX.md")
