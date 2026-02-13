@@ -9,6 +9,7 @@
  * - All API calls are fire-and-forget (no await on hot path)
  * - Errors are caught and logged, never propagated
  * - If LangSmith is unavailable, events are silently dropped
+ * - Circuit breaker suppresses repeated failures (5 consecutive → 60s cooldown)
  *
  * Run hierarchy:
  * - Session → parent run (run_type: "chain")
@@ -21,6 +22,11 @@ import { Client } from "langsmith";
 import type { ThoughtEmitter, ThoughtEmitterEvents } from "../observatory/emitter.js";
 import type { LangSmithConfig, SessionRun } from "./types.js";
 
+export interface TraceListenerOptions {
+  /** When true, thought content is replaced with a length indicator in LangSmith outputs. */
+  redactContent?: boolean;
+}
+
 /**
  * LangSmithTraceListener subscribes to ThoughtEmitter events
  * and creates LangSmith runs for each session and thought.
@@ -30,15 +36,24 @@ export class LangSmithTraceListener {
   private projectName: string;
   private sessionRuns: Map<string, SessionRun>;
   private handlers = new Map<string, (...args: any[]) => void>();
+  private pendingTimers = new Set<ReturnType<typeof setTimeout>>();
   private attached = false;
+  private redactContent: boolean;
 
-  constructor(config: LangSmithConfig, client?: Client) {
+  // Circuit breaker state
+  private failureCount = 0;
+  private circuitOpenUntil = 0;
+  private static readonly CIRCUIT_THRESHOLD = 5;
+  private static readonly CIRCUIT_COOLDOWN_MS = 60_000;
+
+  constructor(config: LangSmithConfig, client?: Client, options?: TraceListenerOptions) {
     this.client = client ?? new Client({
       apiKey: config.apiKey,
       apiUrl: config.apiUrl,
     });
     this.projectName = config.project || "default";
     this.sessionRuns = new Map();
+    this.redactContent = options?.redactContent ?? false;
   }
 
   /**
@@ -82,6 +97,10 @@ export class LangSmithTraceListener {
       emitter.off(event as any, handler);
     }
     this.handlers.clear();
+    for (const timer of this.pendingTimers) {
+      clearTimeout(timer);
+    }
+    this.pendingTimers.clear();
     this.sessionRuns.clear();
     this.attached = false;
   }
@@ -155,7 +174,7 @@ export class LangSmithTraceListener {
           nextThoughtNeeded: data.thought.nextThoughtNeeded,
         },
         outputs: {
-          thought: data.thought.thought,
+          thought: this.sanitizeThought(data.thought.thought),
         },
         extra: {
           metadata: {
@@ -192,7 +211,7 @@ export class LangSmithTraceListener {
           isRevision: true,
         },
         outputs: {
-          thought: data.thought.thought,
+          thought: this.sanitizeThought(data.thought.thought),
         },
         extra: {
           metadata: {
@@ -225,7 +244,7 @@ export class LangSmithTraceListener {
           fromThoughtNumber: data.fromThoughtNumber,
         },
         outputs: {
-          thought: data.thought.thought,
+          thought: this.sanitizeThought(data.thought.thought),
         },
         extra: {
           metadata: {
@@ -255,25 +274,58 @@ export class LangSmithTraceListener {
     );
 
     // Clean up after a delay to allow any in-flight child runs to complete
-    setTimeout(() => {
+    const timer = setTimeout(() => {
       this.sessionRuns.delete(data.sessionId);
+      this.pendingTimers.delete(timer);
     }, 5000);
+    this.pendingTimers.add(timer);
   }
 
   // ===========================================================================
-  // Safety wrapper
+  // Helpers
+  // ===========================================================================
+
+  /**
+   * Sanitize thought content for LangSmith output.
+   * When redactContent is enabled, replaces content with a length indicator.
+   */
+  private sanitizeThought(thought: string): string {
+    if (!this.redactContent) return thought;
+    return `[redacted: ${thought.length} chars]`;
+  }
+
+  // ===========================================================================
+  // Safety wrapper with circuit breaker
   // ===========================================================================
 
   /**
    * Execute an async operation without awaiting or propagating errors.
-   * This is the core fire-and-forget mechanism.
+   * Includes a circuit breaker that suppresses calls after repeated failures.
    */
   private safeAsync(fn: () => Promise<unknown>): void {
-    fn().catch((err) => {
-      console.warn(
-        "[Evaluation] LangSmith trace error:",
-        err instanceof Error ? err.message : err
-      );
+    // Circuit breaker: skip if too many recent failures
+    if (this.failureCount >= LangSmithTraceListener.CIRCUIT_THRESHOLD) {
+      if (Date.now() < this.circuitOpenUntil) return;
+      // Half-open: cooldown expired, try again
+      this.failureCount = 0;
+    }
+
+    fn().then(() => {
+      this.failureCount = 0;
+    }).catch((err) => {
+      this.failureCount++;
+      if (this.failureCount >= LangSmithTraceListener.CIRCUIT_THRESHOLD) {
+        this.circuitOpenUntil = Date.now() + LangSmithTraceListener.CIRCUIT_COOLDOWN_MS;
+        console.warn(
+          `[Evaluation] LangSmith circuit breaker open after ${this.failureCount} failures. ` +
+          `Suppressing traces for ${LangSmithTraceListener.CIRCUIT_COOLDOWN_MS / 1000}s.`
+        );
+      } else {
+        console.warn(
+          "[Evaluation] LangSmith trace error:",
+          err instanceof Error ? err.message : err,
+        );
+      }
     });
   }
 }
