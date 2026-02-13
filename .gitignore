@@ -109,8 +109,9 @@ adat.md
 # Claude Code plugins
 .claude-plugin/
 
-# Development documentation
-docs/
+# Development documentation (keep solutions/ for compound knowledge)
+docs/*
+!docs/solutions/
 specs/
 
 # Analysis and blog posts (local development artifacts)
