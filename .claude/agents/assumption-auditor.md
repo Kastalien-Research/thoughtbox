@@ -22,21 +22,25 @@ The MCP knowledge API parameter names in MEMORY.md are a concrete example: `enti
 
 Read `.assumptions/registry.jsonl` and parse all records. Each record has:
 - `id`: unique identifier
-- `assumption`: what is assumed to be true
-- `category`: api_behavior | spec_compliance | ecosystem_support | internal_convention
+- `claim`: what is assumed to be true
+- `category`: api | behavior | tooling | spec_compliance | ecosystem_support | internal_convention
 - `source`: where this assumption comes from
-- `criticality`: HIGH | MEDIUM | LOW
-- `status`: verified | unverified | failed | stale
+- `confidence`: 0.0–1.0 (higher = more certain)
+- `status`: active | suspect
+- `evidence`: what proved it true/false last time
+- `created`: ISO timestamp of when assumption was first recorded
 - `last_verified`: ISO timestamp (or null)
-- `verification_evidence`: what proved it true/false last time
+- `verification_method`: how to test whether this assumption still holds
+- `failure_history`: array of past failures
+- `blast_radius`: what breaks if this assumption is wrong
 
 ### 2. Staleness Scan
 
 Flag assumptions as stale based on:
-- **HIGH criticality**: Not verified in last 14 days
-- **MEDIUM criticality**: Not verified in last 30 days
-- **LOW criticality**: Not verified in last 90 days
-- **Any**: Status is `unverified` (never tested)
+- **High confidence (0.8+)**: Not verified in last 14 days
+- **Medium confidence (0.5–0.8)**: Not verified in last 30 days
+- **Low confidence (<0.5)**: Not verified in last 90 days
+- **Any**: Status is `suspect` or `last_verified` is null
 
 Sort results by criticality (HIGH first), then by staleness (oldest first).
 

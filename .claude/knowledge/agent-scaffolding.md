@@ -8,11 +8,11 @@ How agents work in this project — invocation patterns, critical rules, and kno
 | Agent | Role | Model | Key Constraint |
 |-------|------|-------|----------------|
 | cost-governor | Track token spend, enforce $80/week budget | haiku | Read-only |
-| hook-health | Diagnose hook failures, produce template patches | haiku | MUST NOT write to .claude/hooks/ |
-| assumption-auditor | Audit .assumptions/registry.jsonl for stale entries | haiku | Walk full registry |
-| regression-sentinel | Watch eval metrics for trend regressions | haiku | Trends, not single checks |
+| hook-health | Diagnose hook failures, produce template patches | sonnet | MUST NOT write to .claude/hooks/ |
+| assumption-auditor | Audit .assumptions/registry.jsonl for stale entries | sonnet | Walk full registry |
+| regression-sentinel | Watch eval metrics for trend regressions | sonnet | Trends, not single checks |
 | devils-advocate | Adversarial review of specs/code/plans | opus | Read-only + QD database writes |
-| silent-failure-hunter | Find code that fails without anyone knowing | opus | Read-only + QD database writes |
+| silent-failure-hunter | Find code that fails without anyone knowing | sonnet | Read-only + QD database writes |
 
 ### Hub Agents (.claude/agents/)
 | Agent | Role |
