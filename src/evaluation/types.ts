@@ -121,38 +121,84 @@ export type EvaluatorName =
 // =============================================================================
 
 /**
- * Configuration for running an evaluation experiment.
+ * @deprecated Use RunExperimentOptions instead. Will be removed in Phase 4.
  */
 export interface ExperimentConfig {
-  /** LangSmith dataset name to run against */
   datasetName: string;
-  /** Memory design ID (null for collection runs) */
   memoryDesignId?: string;
-  /** Which evaluators to apply to results */
   evaluators: EvaluatorName[];
-  /** Experiment metadata for tracking */
   metadata: Record<string, unknown>;
 }
 
 /**
- * Result of an evaluation experiment.
+ * @deprecated Use ExperimentRunResult instead. Will be removed in Phase 4.
  */
 export interface ExperimentResult {
-  /** LangSmith experiment ID */
   experimentId: string;
-  /** Dataset that was evaluated */
   datasetName: string;
-  /** Evaluator results aggregated across all examples */
   aggregateScores: Record<string, number>;
-  /** Per-example results */
   exampleResults: Array<{
     exampleId: string;
     evaluatorResults: EvaluatorResult[];
   }>;
-  /** Total cost of running the experiment */
   totalCost: number;
+  totalDuration_ms: number;
+}
+
+/**
+ * Options for running an evaluation experiment via ExperimentRunner.
+ * Aligned with LangSmith's evaluate() API.
+ */
+export interface RunExperimentOptions {
+  /** LangSmith dataset name to evaluate against */
+  datasetName: string;
+  /** Which evaluators to run (defaults to all four) */
+  evaluators?: EvaluatorName[];
+  /** The target function that processes each example */
+  target: (input: Record<string, any>) => Promise<Record<string, any>>;
+  /** Experiment name prefix (LangSmith generates suffix) */
+  experimentPrefix?: string;
+  /** Free-form description */
+  description?: string;
+  /** Experiment metadata */
+  metadata?: Record<string, unknown>;
+  /** Memory design ID (for deployment experiments) */
+  memoryDesignId?: string;
+  /** Max concurrency for target execution */
+  maxConcurrency?: number;
+}
+
+/**
+ * Result of an evaluation experiment run.
+ * Structured from LangSmith's ExperimentResults.
+ */
+export interface ExperimentRunResult {
+  /** LangSmith experiment name */
+  experimentName: string;
+  /** Dataset that was evaluated */
+  datasetName: string;
+  /** Memory design ID if this was a deployment experiment */
+  memoryDesignId?: string;
+  /** Aggregate scores across all examples, keyed by evaluator name */
+  aggregateScores: Record<string, number>;
+  /** Per-example results */
+  exampleResults: Array<{
+    exampleId: string;
+    inputs: Record<string, any>;
+    outputs: Record<string, any>;
+    evaluationResults: Array<{
+      key: string;
+      score: number | undefined;
+      comment?: string;
+      evaluatorInfo?: Record<string, unknown>;
+    }>;
+  }>;
+  /** Total examples processed */
+  totalExamples: number;
   /** Total duration in milliseconds */
   totalDuration_ms: number;
+  /** ISO 8601 timestamp */
+  timestamp: string;
 }
 
 // =============================================================================

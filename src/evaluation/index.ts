@@ -5,23 +5,24 @@
  * Unified evaluation system built on LangSmith.
  *
  * Phase 1: Trace listener + types + config
- * Phase 2 (current): Datasets + evaluators
- * Phase 3: Experiment runner
+ * Phase 2: Datasets + evaluators
+ * Phase 3 (current): Experiment runner
  * Phase 4: Online monitoring
  *
  * Quick Start:
  * ```ts
  * import { initEvaluation } from './evaluation';
- * import { thoughtEmitter } from './observatory';
  *
  * // Initialize (returns null if LANGSMITH_API_KEY not set)
- * const listener = initEvaluation(thoughtEmitter);
+ * const listener = initEvaluation();
  * ```
  */
 
 import { thoughtEmitter } from "../observatory/emitter.js";
 import { loadLangSmithConfig, isLangSmithEnabled } from "./langsmith-config.js";
+import { getSharedClient } from "./client.js";
 import { DatasetManager } from "./dataset-manager.js";
+import { ExperimentRunner } from "./experiment-runner.js";
 import { LangSmithTraceListener } from "./trace-listener.js";
 
 // Types
@@ -32,13 +33,16 @@ export type {
   CollectionTask,
   DeploymentTask,
   EvaluatorName,
-  ExperimentConfig,
-  ExperimentResult,
+  RunExperimentOptions,
+  ExperimentRunResult,
   MemoryDesignArchiveEntry,
   MonitoringAlert,
   AlertSeverity,
   AlertType,
 } from "./types.js";
+
+// Client
+export { getSharedClient, resetClient } from "./client.js";
 
 // Config
 export { loadLangSmithConfig, isLangSmithEnabled } from "./langsmith-config.js";
@@ -48,6 +52,9 @@ export { DatasetManager } from "./dataset-manager.js";
 
 // Trace listener
 export { LangSmithTraceListener } from "./trace-listener.js";
+
+// Experiment runner
+export { ExperimentRunner } from "./experiment-runner.js";
 
 // Evaluators
 export {
@@ -76,7 +83,8 @@ export function initEvaluation(): LangSmithTraceListener | null {
     return null;
   }
 
-  const listener = new LangSmithTraceListener(config);
+  const client = getSharedClient(config);
+  const listener = new LangSmithTraceListener(config, client);
   listener.attach(thoughtEmitter);
 
   console.error(`[Evaluation] LangSmith tracing enabled (project: ${config.project})`);
@@ -93,7 +101,24 @@ export function initDatasets(): DatasetManager {
 
   if (!config) {
     console.error("[Evaluation] LangSmith not configured (no LANGSMITH_API_KEY). Dataset manager in no-op mode.");
+    return new DatasetManager(null);
   }
 
-  return new DatasetManager(config);
+  return new DatasetManager(config, getSharedClient(config));
+}
+
+/**
+ * Initialize Layer 4 experiment runner.
+ *
+ * Returns a runner that gracefully no-ops when LangSmith is not configured.
+ */
+export function initExperimentRunner(): ExperimentRunner {
+  const config = loadLangSmithConfig();
+
+  if (!config) {
+    console.error("[Evaluation] LangSmith not configured (no LANGSMITH_API_KEY). Experiment runner in no-op mode.");
+    return new ExperimentRunner(null);
+  }
+
+  return new ExperimentRunner(config, getSharedClient(config));
 }
