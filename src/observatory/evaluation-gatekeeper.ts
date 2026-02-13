@@ -142,6 +142,22 @@ interface MockContracts {
   verify(): Promise<BehavioralVerificationReport>;
 }
 
+/**
+ * Duck-type interface for ExperimentRunner to avoid cross-module import.
+ */
+interface ExperimentRunnerLike {
+  runRegressionCheck(
+    datasetName: string,
+    target: (input: Record<string, any>) => Promise<Record<string, any>>,
+    thresholds?: Record<string, number>,
+  ): Promise<{
+    passed: boolean;
+    scores: Record<string, number>;
+    failedEvaluators: string[];
+    details: string;
+  }>;
+}
+
 // =============================================================================
 // EvaluationGatekeeper
 // =============================================================================
@@ -156,9 +172,19 @@ export class EvaluationGatekeeper {
   private config: GatekeeperConfig;
   private mockEvaluator: MockEvaluator | null = null;
   private mockContracts: MockContracts | null = null;
+  private experimentRunner: ExperimentRunnerLike | null = null;
+  private regressionDataset = "thoughtbox-regression";
 
   constructor(config: GatekeeperConfig = {}) {
     this.config = config;
+  }
+
+  /**
+   * Set the experiment runner for tiered evaluation.
+   */
+  setExperimentRunner(runner: ExperimentRunnerLike, datasetName?: string): void {
+    this.experimentRunner = runner;
+    if (datasetName) this.regressionDataset = datasetName;
   }
 
   /**
@@ -231,10 +257,36 @@ export class EvaluationGatekeeper {
       return this.mockEvaluator.evaluate(modification);
     }
 
-    // TieredEvaluator is in benchmarks/ which is outside src/ rootDir
-    // For now, return a pass-through result. In production, this would
-    // be called via a subprocess or the evaluator would be moved to src/
-    console.warn("[EvaluationGatekeeper] TieredEvaluator integration pending - using pass-through");
+    // Use ExperimentRunner for regression checks when available
+    if (this.experimentRunner) {
+      const startTime = Date.now();
+      const check = await this.experimentRunner.runRegressionCheck(
+        this.regressionDataset,
+        async (input) => input, // identity target — evaluates trace data as-is
+        this.config.thresholds ? Object.fromEntries(
+          Object.entries(this.config.thresholds).filter(([, v]) => v !== undefined)
+        ) as Record<string, number> : undefined,
+      );
+
+      return {
+        passed: check.passed,
+        passedTiers: check.passed ? ["smoke", "regression"] : [],
+        failedAt: check.failedEvaluators[0] ?? null,
+        tierResults: Object.entries(check.scores).map(([key, score]) => ({
+          tier: key,
+          tierId: key,
+          score,
+          passed: !check.failedEvaluators.includes(key),
+          cost: 0,
+          duration_ms: Date.now() - startTime,
+        })),
+        totalCost: 0,
+        totalDuration_ms: Date.now() - startTime,
+        reason: check.details,
+      };
+    }
+
+    // Fallback: no experiment runner configured
     return {
       passed: true,
       passedTiers: [],
@@ -242,7 +294,7 @@ export class EvaluationGatekeeper {
       tierResults: [],
       totalCost: 0,
       totalDuration_ms: 0,
-      reason: "TieredEvaluator integration pending - skipped",
+      reason: "ExperimentRunner not configured - evaluation skipped",
     };
   }
 

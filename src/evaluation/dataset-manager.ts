@@ -40,7 +40,7 @@ interface DatasetClient {
 export class DatasetManager {
   private readonly client: DatasetClient | null;
 
-  constructor(config: LangSmithConfig | null, client?: DatasetClient) {
+  constructor(config: LangSmithConfig | null, client?: DatasetClient | Client) {
     if (!config) {
       this.client = null;
       return;
