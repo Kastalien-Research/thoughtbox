@@ -32,6 +32,22 @@ export interface ConsumeOptions {
   limit?: number;
 }
 
+/** Cursor tracks timestamp plus IDs already consumed at that timestamp boundary. */
+type CursorValue = string | { cursor: string; excludeIds: string[] };
+type ConsumerIndex = Record<string, CursorValue>;
+
+function parseCursor(value: CursorValue): { cursor: string; excludeIds: Set<string> } {
+  if (typeof value === "string") return { cursor: value, excludeIds: new Set() };
+  return { cursor: value.cursor, excludeIds: new Set(value.excludeIds) };
+}
+
+function signalPassesCursor(signal: Signal, cursorValue: CursorValue): boolean {
+  const { cursor, excludeIds } = parseCursor(cursorValue);
+  if (signal.timestamp > cursor) return true;
+  if (signal.timestamp === cursor && !excludeIds.has(signal.id)) return true;
+  return false;
+}
+
 const SIGNALS_DIR = path.resolve(process.cwd(), "agentops", "signals");
 const INDEX_PATH = path.join(SIGNALS_DIR, "index.json");
 
@@ -46,7 +62,7 @@ function dayPath(date = new Date()) {
   return path.join(SIGNALS_DIR, `${y}-${m}-${d}.jsonl`);
 }
 
-async function readIndex(): Promise<Record<string, string>> {
+async function readIndex(): Promise<ConsumerIndex> {
   try {
     const raw = await fs.readFile(INDEX_PATH, "utf8");
     const parsed = JSON.parse(raw);
@@ -56,7 +72,7 @@ async function readIndex(): Promise<Record<string, string>> {
   }
 }
 
-async function writeIndex(lastConsumed: Record<string, string>) {
+async function writeIndex(lastConsumed: ConsumerIndex) {
   await fs.writeFile(
     INDEX_PATH,
     JSON.stringify({ version: 1, last_consumed: lastConsumed }, null, 2),
@@ -114,18 +130,20 @@ export async function consumeSignals(
 ): Promise<Signal[]> {
   const all = await readAllSignals();
   const index = await readIndex();
-  const sinceTs = opts.since ?? index[consumer];
+  const cursorValue = opts.since ? opts.since : index[consumer];
 
   const filtered = all
     .filter(notExpired)
-    .filter((s) => (sinceTs ? s.timestamp > sinceTs : true))
+    .filter((s) => (cursorValue ? signalPassesCursor(s, cursorValue) : true))
     .filter((s) => (opts.categories ? opts.categories.includes(s.category) : true))
     .filter((s) => (opts.source_types ? opts.source_types.includes(s.source_type) : true))
     .sort((a, b) => a.timestamp.localeCompare(b.timestamp));
 
   const limited = typeof opts.limit === "number" ? filtered.slice(0, opts.limit) : filtered;
   if (limited.length > 0) {
-    index[consumer] = limited[limited.length - 1].timestamp;
+    const lastTs = limited[limited.length - 1].timestamp;
+    const idsAtBoundary = limited.filter((s) => s.timestamp === lastTs).map((s) => s.id);
+    index[consumer] = { cursor: lastTs, excludeIds: idsAtBoundary };
     await writeIndex(index);
   }
   return limited;
