@@ -23,6 +23,13 @@ logs/
 .refactoring-game/
 .interleaved-thinking/
 
+# ULC / Ralph loop runtime state
+.claude/ulc-state.local.json
+.claude/ralph-loop.local.md
+
+# AgentOps run artifacts (generated per-run, not source)
+agentops/runs/
+
 # IDE
 .DS_Store
 .vscode/settings.json
@@ -35,10 +42,11 @@ claude-code-docs-two/
 .mcp.github.json
 mcp-ts-template/
 
-# Claude Code configuration and local data (except agents, skills, and shared workflows)
+# Claude Code configuration and local data (except agents, skills, knowledge, and shared workflows)
 .claude/*
 !.claude/agents/
 !.claude/skills/
+!.claude/knowledge/
 !.claude/team-prompts/
 !.claude/commands/
 .claude/commands/*

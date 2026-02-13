@@ -1,0 +1,43 @@
+{
+  "version": "1.0.0",
+  "last_updated": "2026-02-11T00:00:00Z",
+  "description": "Pattern ancestry tracking. Records how patterns evolve, mutate, and descend from each other.",
+  "lineages": {
+    "verify-before-claim": {
+      "ancestors": [],
+      "mutations": [],
+      "created_from": "CLAUDE.md rule",
+      "generation": 0
+    },
+    "no-causal-guessing": {
+      "ancestors": ["verify-before-claim"],
+      "mutations": [
+        {
+          "type": "specialization",
+          "description": "Specialized the general verify-first rule into a specific anti-pattern for causal reasoning",
+          "date": "2026-02-07"
+        }
+      ],
+      "created_from": "Session experience — repeated causal guessing failures",
+      "generation": 1
+    },
+    "spiral-detection": {
+      "ancestors": [],
+      "mutations": [],
+      "created_from": "spec-orchestrator.md commitment levels",
+      "generation": 0
+    },
+    "background-agent-spawning": {
+      "ancestors": ["file-based-agent-memory"],
+      "mutations": [
+        {
+          "type": "refinement",
+          "description": "Discovered that without run_in_background, agents cannot be force-killed",
+          "date": "2026-02-09"
+        }
+      ],
+      "created_from": "Run 004 failure — agents stuck until turn budget exhaustion",
+      "generation": 1
+    }
+  }
+}

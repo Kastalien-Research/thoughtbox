@@ -1,0 +1,58 @@
+{
+  "version": "1.0.0",
+  "created": "2026-02-11T00:00:00Z",
+  "last_updated": "2026-02-11T00:00:00Z",
+  "description": "Baseline metrics for evaluation harness. Updated by /eval baseline command.",
+  "note": "Initial baselines are estimates. Run /eval baseline after 5+ sessions for real data.",
+  "baselines": {
+    "commits_per_session": {
+      "mean": 3.0,
+      "stddev": 2.0,
+      "sample_size": 0,
+      "regression_threshold": -0.3,
+      "description": "Average commits per interactive session"
+    },
+    "tests_pass_rate": {
+      "mean": 0.95,
+      "stddev": 0.05,
+      "sample_size": 0,
+      "regression_threshold": -0.1,
+      "description": "Fraction of tests passing at session end"
+    },
+    "beads_closed_per_session": {
+      "mean": 2.0,
+      "stddev": 1.5,
+      "sample_size": 0,
+      "regression_threshold": -0.5,
+      "description": "Average beads issues closed per session"
+    },
+    "files_changed_per_session": {
+      "mean": 8.0,
+      "stddev": 5.0,
+      "sample_size": 0,
+      "regression_threshold": 0.5,
+      "description": "Average files changed (high isn't always good)"
+    },
+    "patterns_referenced_per_session": {
+      "mean": 5.0,
+      "stddev": 3.0,
+      "sample_size": 0,
+      "regression_threshold": -0.3,
+      "description": "MEMORY.md/rule patterns actively referenced"
+    },
+    "escalation_rate": {
+      "mean": 0.5,
+      "stddev": 0.5,
+      "sample_size": 0,
+      "regression_threshold": 1.0,
+      "description": "Escalations per session (high = system asking for too much help)"
+    },
+    "spiral_detection_rate": {
+      "mean": 0.2,
+      "stddev": 0.3,
+      "sample_size": 0,
+      "regression_threshold": 0.5,
+      "description": "Spiral detections per session (high = too many dead ends)"
+    }
+  }
+}
