@@ -28,6 +28,68 @@ For more on the agentic Engineering team structure, which is at this time incomp
 └─────────────────────────────────────────────────────┘
 ```
 
+### Branching Strategy
+
+We use **GitHub Flow**: one long-lived branch (`main`), all work on short-lived feature branches, PR review before merge, delete after merge.
+
+#### The Model
+
+- `main` is the only long-lived branch. It is always the source of truth.
+- All work happens on short-lived branches created from `main`.
+- Every branch gets a PR. Every PR gets reviewed (by human and/or code review agents). Every PR merges via rebase (no merge commits — `required_linear_history` is enforced on `main`).
+- Branches are deleted immediately after merge.
+
+#### Special Branches
+
+- `beads-sync`: Auto-managed by the beads daemon. Never commit to this manually. Never delete it.
+
+#### Branch Lifecycle
+
+```
+1. Create    git checkout main && git pull origin main && git checkout -b <type>/<name>
+2. Work      Commits on the branch (atomic, conventional commit format)
+3. Push      git push -u origin <type>/<name>
+4. PR        Open PR against main. Review happens here.
+5. Merge     Rebase onto main (required_linear_history enforced)
+6. Delete    Branch deleted locally and on remote immediately after merge
+```
+
+#### Branch Naming
+
+- `feat/<name>` — New feature
+- `fix/<name>` — Bug fix
+- `docs/<name>` — Documentation only
+- `refactor/<name>` — Code restructuring, no behavior change
+- `chore/<name>` — Maintenance, tooling, config
+- `test/<name>` — Test-only changes
+- `investigate/<name>` — Exploratory work that may not result in a merge
+
+Agents MUST NOT create branches with timestamps or random suffixes (e.g., `implement-X-1769019707`). Branch names must be human-readable and describe the work.
+
+#### One Branch = One Unit of Work
+
+A branch corresponds to exactly one logical change. If work on a branch reveals a separate issue, that issue gets its own branch — it does not get committed to the current branch.
+
+#### Staleness Rule
+
+Any branch not updated in 14 days is considered stale. Stale branches should be either:
+- Rebased onto current main and continued, or
+- Deleted (with a bead capturing what was learned, if anything)
+
+#### Merge Flow (Rebase-Only)
+
+```bash
+# Before opening PR or if PR shows conflicts:
+git fetch origin
+git rebase origin/main
+git push --force-with-lease   # force-with-lease, NEVER --force
+
+# After PR is approved:
+gh pr merge <number> --rebase --delete-branch
+```
+
+- `--force-with-lease` is safe: it only force-pushes if no one else has pushed to the branch since your last fetch. This is the standard pattern for rebased branches.
+- `--force` is NEVER allowed.
 
 ### Ideation to Dev-Time Documentation
 
@@ -48,7 +110,7 @@ Once we are considering a specific idea, we must first decide whether the idea i
 
 If we get all the way to 3d and the answer is a confident "no", we should turn our attention to whatever *is* the most valuable use of our time. If the answer is anything else (i.e. either "yes" or "we can't say for sure"), we should continue working on what we're working on and come up with a spec and an ADR. 
 
-Note that we should use our compound learnings at this stage to determine if we have answered any of these questions before, whether those learnings still hold if they are found, and if they do not but we still feel that we should continue, what is different about this situation than the one that produced the learning we are referencing.
+Note that we should use our compound learnings and accepted ADRs at this stage to determine if we have answered any of these questions before, whether those learnings and prior decisions still hold if they are found, and if they do not but we still feel that we should continue, what is different about this situation than the one that produced the learning or decision we are referencing.
 
 ### Dev-Time Documentation
 
@@ -62,6 +124,28 @@ This is where the Hypothesis-Driven Development (HDD) process comes in. While HD
 
 In short, Hypothesis-driven development (HDD) is a workflow that treats **ADRs (Architecture Decision Records) as the source of truth** rather than code. Before writing any code, we form testable hypotheses about what we expect to happen, document them in staging ADRs, implement, validate, and then either accept or reject based on whether reality matched our predictions.
 
+#### ADR Reconciliation (Primary Gate)
+
+During HDD Phase 1 (Research), the codebase discovery step scans `.adr/accepted/` for related ADRs. This scan serves two purposes: gathering context for the new work, and **checking whether the reasoning in those accepted ADRs still holds**. For each accepted ADR that relates to the domain being researched, the agent applies the following reconciliation signals. If any signal fires, the ADR must be flagged in the Phase 1 research findings presented to the user. The flag should identify which specific signal(s) fired and why. See "ADR Reconciliation Outcomes" in the Revision Stage for what happens next.
+
+##### Reconciliation Signals
+
+These are the specific checks applied to each accepted ADR encountered during the workflow. An ADR warrants review when any of these signals fire.
+
+1. **Context mismatch**: The ADR's Context section describes a state of the codebase that no longer matches reality. The ADR says "we currently use X" but the codebase no longer uses X, or the problem the ADR was solving has changed shape.
+
+2. **Broken references**: Files, modules, or functions that the ADR mentions by name have been moved, deleted, or substantially rewritten. The ADR references `src/gateway-handler.ts` but that file has been split, renamed, or removed.
+
+3. **Dependency drift**: The ADR's reasoning relied on a specific dependency's behavior, and that dependency has had a major version change. An ADR written against MCP SDK 1.12 may not hold at 1.25.
+
+4. **Contradicting direction**: The current work — whether a new staging ADR or the implementation at hand — is moving in a direction that directly conflicts with what the accepted ADR decided.
+
+5. **Unrealized consequences**: The ADR's Consequences section predicted specific outcomes that observably have not happened. "This enables feature Y" but feature Y was never built. "This reduces latency by 30%" but no measurement confirms it.
+
+6. **Rejected alternative resurfacing**: One of the alternatives that the ADR explicitly rejected in its reasoning is now being proposed or implemented. This does not necessarily mean the ADR is wrong — circumstances may have changed — but the reasoning behind the original rejection needs re-examination.
+
+7. **Orphaned dependency chain**: The ADR depends on another accepted ADR that has since been retired, superseded, or invalidated. If ADR-003 says "Depends on: ADR-001" and ADR-001 is in `.adr/retired/`, ADR-003's foundation has been removed.
+
 To reiterate:
 
 - The **SPEC** is the declarative definition of WHAT we are implementing. These are descriptions of implementation details, not the project-level sources of truth that we will be using when running other HDD processes in the future. Mistakes in these specs are low-impact and easily corrected: we expect to be wrong somewhat frequently about our pre-testing, pre-usage expectations with regard to what we think will work to satisfy our WHY. 
@@ -74,6 +158,7 @@ To reiterate:
 |----------|-----------------|-------------------|
 | ADRs | `.adr/staging/` | `.adr/accepted/` (also `docs/ADR/`) |
 | Rejected ADRs | — | `.adr/rejected/` |
+| Retired ADRs | — | `.adr/retired/` |
 | Specs | `.adr/staging/` (alongside ADR) | `specs/` |
 
 See `.claude/commands/hdd/hdd.md` for the complete HDD lifecycle including staging, acceptance, and rejection workflows.
@@ -154,6 +239,10 @@ For each ADR hypothesis that this unit of work touches:
 - [anything not completed, deferred, or uncertain]
 - [any divergence from spec with justification]
 
+### Accepted ADR Conflicts
+- [any previously accepted ADR whose reasoning is contradicted or undermined by this work]
+- [leave empty if none found]
+
 ### Risks
 - [anything that could break other parts of the system]
 - [any assumptions made that should be verified]
@@ -179,6 +268,18 @@ If a hypothesis is refuted, then at that stage we will need to revisit the spec 
 
 If, however, we are along the happy path and everything has been implemented as we expected and our hypotheses are correct and validated, then we should either move the staging docs over into our main docs folder, or if one of our docs in staging or more renders something in the existing main docs outdated, that information should be revised to align with the current state of the codebase.
 
+#### ADR Reconciliation Outcomes
+
+The revision stage also handles a second class of problem: **previously accepted ADRs whose reasoning no longer holds**, as surfaced by the ADR Reconciliation gate in HDD Phase 1 or by the Accepted ADR Conflicts field in a sub-agent's work summary. When an accepted ADR is flagged as stale, the outcome is one of four dispositions:
+
+1. **STILL VALID**: The flag was a false positive. The ADR's reasoning holds. Update the ADR's `lastValidated` date and continue.
+
+2. **NEEDS AMENDMENT**: The core decision is still correct, but the context, consequences, or supporting reasoning needs updating to reflect the current state of the codebase. Amend the ADR in place (do not create a new ADR). The amendment should note what changed and when.
+
+3. **SUPERSEDED**: Another ADR (whether the one currently being worked on or a different accepted one) has implicitly or explicitly replaced this ADR's decision. Move the old ADR to `.adr/retired/` with a forward reference to its replacement. The replacement ADR should note that it supersedes the retired one.
+
+4. **INVALIDATED**: The reasoning no longer holds and there is no replacement. The decision was once correct but the world changed. Move the ADR to `.adr/retired/` with a description of what invalidated it. If the domain still needs a decision, create a new staging ADR to address it — this re-enters the workflow at the Dev-Time Documentation stage.
+
 ### Compound Stage
 
 At this stage, the chief orchestrator agent uses the /compound workflow from the compound-engineering plugin. 
@@ -188,3 +289,75 @@ While outside the scope of this doc, it is important to note that we will need t
 ### Reflection
 
 Finally, we will reflect on the process that we have just executed. If the Chief Agentic is in the loop, he will perform a separate reflection which will be included in the final document produced, which itself will be added to a larger collection of reflections from which we will periodically aggregate insights.
+
+## Periodic ADR Reconciliation
+
+The workflow stages above handle ADR reconciliation as a byproduct of ongoing work — ADRs are reviewed when agents naturally encounter them. But some ADRs may sit in `.adr/accepted/` without being touched by any active work for extended periods. Periodic reconciliation catches these.
+
+### Mechanism
+
+A scheduled GitHub Action runs weekly using the Letta Code Action. The action is given a prompt that instructs it to scan all accepted ADRs and apply the seven reconciliation signals. When signals fire, the action opens a GitHub issue tagged `adr-reconciliation` with the findings.
+
+The Letta agent has persistent memory across runs, which means it tracks which ADRs it has previously reviewed and what it found. This allows it to detect trends (an ADR flagged repeatedly for the same signal) and avoid redundant work (an ADR reviewed last week with no codebase changes in its domain since then).
+
+### Prompt
+
+The following prompt is provided to the Letta Code Action via the `prompt` parameter in the GitHub Action workflow:
+
+```
+You are an ADR reconciliation agent. Your job is to review accepted Architecture Decision Records and determine whether their reasoning still holds.
+
+## Task
+
+1. List all files in .adr/accepted/. If the directory is empty or does not exist, report that and stop.
+
+2. For each ADR file, read it in full, then apply the following seven reconciliation signals. A signal "fires" when the condition it describes is true.
+
+### Reconciliation Signals
+
+Signal 1 — Context mismatch: Read the ADR's Context section. Does it describe a state of the codebase that no longer matches reality? Check by reading the files and directories it references. If the ADR says "we currently use X" but the codebase no longer uses X, this signal fires.
+
+Signal 2 — Broken references: Does the ADR mention specific file paths, module names, or function names? Check whether they still exist at those locations. If any have been moved, deleted, or substantially rewritten, this signal fires.
+
+Signal 3 — Dependency drift: Does the ADR's reasoning rely on a specific dependency or its behavior? Check the current version in package.json against what the ADR assumes. If there has been a major version change, this signal fires.
+
+Signal 4 — Contradicting direction: Check .adr/staging/ for any ADRs currently in progress. Does any staging ADR propose something that directly conflicts with this accepted ADR's decision? If so, this signal fires.
+
+Signal 5 — Unrealized consequences: Read the ADR's Consequences section. Does it predict specific outcomes? Check whether those outcomes have materialized in the codebase. If the ADR says "this enables feature Y" but no evidence of feature Y exists, this signal fires.
+
+Signal 6 — Rejected alternative resurfacing: Read the ADR's alternatives or rejected approaches. Check .adr/staging/ and recent git history for evidence that a rejected alternative is now being proposed or implemented. If so, this signal fires.
+
+Signal 7 — Orphaned dependency chain: Does the ADR declare dependencies on other ADRs? Check whether those ADRs still exist in .adr/accepted/. If any have been moved to .adr/retired/ or .adr/rejected/, this signal fires.
+
+3. For each ADR, produce a result:
+
+- If no signals fired: Record as STILL VALID. Note the date of this review.
+- If any signals fired: Recommend one of the following dispositions:
+  - NEEDS AMENDMENT — the core decision is correct but the context or reasoning needs updating
+  - SUPERSEDED — another ADR has replaced this one's decision
+  - INVALIDATED — the reasoning no longer holds and there is no replacement
+
+4. For any ADR where signals fired, open a GitHub issue with:
+- Title: "ADR Reconciliation: [ADR filename]"
+- Label: adr-reconciliation
+- Body containing:
+  - Which signals fired and the specific evidence for each
+  - The recommended disposition
+  - What action is needed (amend the ADR, retire it, or create a new staging ADR)
+
+5. If all ADRs are STILL VALID, do not open any issues. Confirm in a comment on the workflow run that all ADRs passed review.
+
+## Rules
+
+- Do NOT modify any ADR files. You are reviewing, not revising. Revisions are handled by the development workflow.
+- Do NOT guess. If you cannot determine whether a signal fires because you lack information, say so explicitly and flag the ADR for manual review.
+- Be specific. "Context seems outdated" is not useful. "The Context section says 'Observatory has no access to storage' (line 9) but src/observatory/server.ts now imports ThoughtboxStorage at line 3" is useful.
+```
+
+### Cadence
+
+Weekly (Monday mornings). This is frequent enough to catch drift before it compounds, and infrequent enough to avoid noise. If the codebase is stable for a period, the agent's persistent memory will make subsequent runs fast since it can skip ADRs whose domain hasn't changed.
+
+### Integration with the Development Workflow
+
+Issues opened by the periodic reconciliation action are handled like any other work item. They enter the workflow at the Ideation stage — the team evaluates whether the flagged ADR actually needs attention (the agent may have false positives), and if so, whether to amend, retire, or replace it. The four dispositions defined in "ADR Reconciliation Outcomes" in the Revision Stage apply.
