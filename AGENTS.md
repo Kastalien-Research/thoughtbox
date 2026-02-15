@@ -20,29 +20,24 @@
 - Agent team structure: `agentic-dev-team/agentic-dev-team-spec.md`
 - Escalation thresholds: `agentic-dev-team/agentic-dev-team-spec.md` § Escalation Threshold Definition
 
-## Branch Hygiene (Before First Commit)
+## Branch Rules for Agents
 
-**Before writing the first commit of any new unit of work**, you MUST:
+The full branching strategy (GitHub Flow) is defined in `WORKFLOW-MASTER-DESCRIPTION.md` § Branching Strategy. These are the agent-specific enforcement rules:
 
-1. **Check the current branch**: `git branch --show-current`
-2. **Verify scope match**: Does the branch name match the work you're about to do?
+1. **Before first commit: verify branch scope matches work.**
+   - `git branch --show-current` — check where you are
    - `fix/X` branches are for fixing X — not for new features
    - `feat/X` branches are for feature X — not for unrelated fixes
-   - `main` is never the right place to commit directly
-3. **Create a new branch if scope doesn't match**:
-   ```bash
-   git checkout main && git pull origin main
-   git checkout -b <type>/<descriptive-name>
-   ```
-   Use: `feat/`, `fix/`, `chore/`, `refactor/`, `docs/` prefixes.
+   - If scope doesn't match, create a new branch from `main`
+2. **Every branch MUST have a corresponding bead.** Create the bead before creating the branch.
+3. **Branch name MUST match the bead's subject** (e.g., bead "Fix gateway timeout" → `fix/gateway-timeout`).
+4. **After PR is merged: delete the branch** (local + remote). This is not optional.
+5. **Never create branches with timestamps, UUIDs, or auto-generated suffixes.**
+6. **Never commit to `main` directly.**
+7. **Never commit to `beads-sync`.**
+8. **Plans must include branch creation as Step 0** when the work is a new unit.
 
-**This is non-negotiable.** Committing unrelated work to an existing branch:
-- Pollutes PRs with unrelated changes
-- Makes reverts dangerous
-- Creates merge conflicts for others
-- Makes git history useless for archaeology
-
-**Plans must include branch creation as Step 0** when the work is a new unit.
+Committing unrelated work to an existing branch pollutes PRs, makes reverts dangerous, creates merge conflicts, and makes git history useless for archaeology. **This is non-negotiable.**
 
 ## Landing the Plane (Session Completion)
 
