@@ -361,3 +361,245 @@ Weekly (Monday mornings). This is frequent enough to catch drift before it compo
 ### Integration with the Development Workflow
 
 Issues opened by the periodic reconciliation action are handled like any other work item. They enter the workflow at the Ideation stage — the team evaluates whether the flagged ADR actually needs attention (the agent may have false positives), and if so, whether to amend, retire, or replace it. The four dispositions defined in "ADR Reconciliation Outcomes" in the Revision Stage apply.
+
+## Incident Response Protocol
+
+The previous sections define what happens when hypotheses are refuted or code doesn't meet spec — those are expected outcomes within the workflow. This section defines what happens when the workflow itself structurally fails mid-execution. Failures will happen. The goal is fast detection and bounded blast radius.
+
+### Prerequisite: Checkpoint Discipline
+
+Before addressing specific failure modes, one structural change is required: **sub-agent summaries must be persisted to disk as they arrive**, not held only in the orchestrator's conversation context.
+
+When a sub-agent returns its structured summary, the orchestrator writes it to disk immediately, before continuing to the next sub-agent or to review:
+
+```text
+.adr/staging/<NNN>-<name>-summary-<bead-id>.md
+```
+
+This groups summaries with the ADR and spec they belong to via the shared `<NNN>-<name>` prefix. Example for a change tracked by ADR `003-gateway-retry`:
+
+```text
+.adr/staging/003-gateway-retry-adr.md
+.adr/staging/003-gateway-retry-spec.md
+.adr/staging/003-gateway-retry-summary-beads-042.md
+.adr/staging/003-gateway-retry-summary-beads-043.md
+.adr/staging/003-gateway-retry-summary-beads-044.md
+```
+
+When the ADR is accepted and moves to `.adr/accepted/`, the summaries move with it. They become part of the archaeological record for that decision — answering not just "why did we decide this?" but "how did the implementation actually go?"
+
+This is not optional. Without it, orchestrator crashes lose all sub-agent work that wasn't yet committed.
+
+---
+
+### Failure Mode 1: Sub-Agent Derailment
+
+A sub-agent loses context, hallucinates, produces output that doesn't follow the structured summary format, ignores the spec, or fabricates files that don't exist.
+
+#### Detection
+
+The orchestrator detects derailment by **validating every sub-agent summary before accepting it**. Specifically:
+
+1. **Format check**: Does the summary contain all required sections (Task, Changes, Claims, Hypothesis Alignment, Tests, Known Gaps, Risks)? A missing section is a structural failure, not an oversight.
+2. **Reference check**: Do the files listed in "Changes" actually exist in the working tree? Run `git status` and compare. If a sub-agent claims it modified `src/gateway/retry.ts` and that file doesn't exist, the summary is invalid.
+3. **Claim plausibility**: Do the claims reference functions, modules, or behaviors that can be found in the files listed? This is a spot check, not a full review — the review stage does the deep verification. But obvious hallucinations ("implements the FrobnicatorService" when no such thing exists in the spec) should be caught here.
+4. **Scope check**: Are the files in "Changes" within the sub-agent's assigned scope? If a sub-agent was tasked with implementing the retry logic and its summary includes changes to the authentication module, it has drifted.
+
+If any of these checks fail, the summary is **rejected** — not fixed, not partially accepted.
+
+#### Mitigation
+
+1. **Discard the sub-agent's uncommitted changes.** Since we're pre-commit, this is `git checkout -- <files>` for the files the sub-agent touched, or `git stash` if you want to preserve them for diagnosis.
+2. **Mark the bead as blocked** with a note describing the derailment: `bd update <id> --status=open --notes="Derailed: [brief description]"`.
+3. **Do not proceed to review** with a mix of valid and invalid summaries. A derailed sub-agent's work is not partially usable — it's untrusted.
+
+#### Recovery
+
+1. **Re-read the spec and the sub-agent's bead description.** Was the task description ambiguous? If so, rewrite it before re-dispatching.
+2. **Re-dispatch a new sub-agent** with the same bead, same spec section, but with the original sub-agent's failure noted in the prompt: "A previous attempt produced [X]. This was rejected because [Y]. Do not repeat this."
+3. **If the same task derails twice**, escalate. The task description or the spec section may be the problem, not the sub-agent. Re-enter at the Planning stage for that unit of work.
+
+#### Learning
+
+Add to compound learnings:
+- The specific derailment pattern (hallucinated files? scope drift? format violation?)
+- Whether the task description was ambiguous (and how it was clarified)
+- Whether the spec section was too vague to implement from (flag for spec quality improvement)
+
+---
+
+### Failure Mode 2: Orchestrator Context Loss
+
+The orchestrator crashes, times out, or loses context partway through a cycle. Some sub-agents have returned summaries; others haven't. Or: all summaries are in but the orchestrator lost context before dispatching review.
+
+#### Detection
+
+This failure is detected **by the next session or the next orchestrator instance** — the crashed orchestrator, by definition, cannot detect its own crash. The signals are:
+
+1. **Beads in `in_progress` with no active orchestrator.** Running `bd list --status=in_progress` shows work that was being orchestrated but isn't anymore.
+2. **Summary files on disk with no corresponding commit.** Summaries in `.adr/staging/` for a change that has no commit on the branch means the cycle was interrupted between implementation and review, or between review and commit.
+3. **Uncommitted changes in the working tree.** `git status` shows modifications from sub-agents that were never reviewed or committed.
+4. **Partial summary sets.** If the change was split across 5 sub-agents and only 3 summaries exist on disk, 2 sub-agents either never ran or their output was lost before checkpointing.
+
+#### Mitigation
+
+1. **Do not resume the crashed orchestrator's conversation.** Context loss means the conversation state is unreliable. Start a new orchestrator session.
+2. **Preserve the working tree as-is.** Do not discard uncommitted changes — they may represent valid work from sub-agents whose summaries were persisted.
+3. **Take inventory.** The new orchestrator runs:
+   - `bd list --status=in_progress` — what was being worked on?
+   - `ls .adr/staging/*-summary-*.md` — which summaries were persisted?
+   - `git status` — what's in the working tree?
+   - `git diff` — what does the uncommitted work look like?
+
+#### Recovery
+
+Based on the inventory, the new orchestrator determines where the cycle was interrupted:
+
+**Case A: All summaries present, review not started.**
+Re-enter the workflow at the Review stage. The summaries on disk contain everything review needs. Dispatch review sub-agents as normal.
+
+**Case B: Some summaries present, some missing.**
+For sub-agents with persisted summaries: their work is preserved and usable. For sub-agents without summaries: check if their changes are in the working tree (via `git diff`). If changes exist but no summary, those changes are **untrusted** — discard them and re-dispatch those sub-agents. If no changes and no summary, the sub-agent never ran — dispatch it.
+
+**Do not write summaries after the fact.** It may be tempting to keep unsummarized changes and reconstruct a summary from the code. This is not allowed. A post-hoc summary describes what the code *does*, not what the agent *intended* — it cannot capture reasoning, rejected alternatives, or known gaps that the agent was aware of during implementation. The summary format exists to record intent at implementation time. A summary written by reading finished code is just a code description wearing a reasoning costume.
+
+**Case C: Review was in progress or complete, commit not made.**
+Check if review sub-agents left any output (review results should also be persisted to disk following the same pattern). If review passed, commit. If review output is missing, re-run review.
+
+**Case D: Nothing salvageable.**
+No summaries on disk, working tree is clean or chaotic. Reset the branch to its last commit, set all `in_progress` beads back to `open`, and re-enter at the Implementation stage.
+
+#### Learning
+
+Add to compound learnings:
+- How far the cycle got before the crash (which case above?)
+- Whether checkpoint discipline was followed (were summaries actually persisted?)
+- If this is a recurring pattern, consider breaking cycles into smaller units of work so less is at risk per crash
+
+---
+
+### Failure Mode 3: Codebase State Change During Active Cycle
+
+While a cycle is in progress (sub-agents are implementing, or review is running), the codebase changes underneath it. Another process merges to `main`, a dependency updates, a collaborator pushes to the same branch.
+
+#### Detection
+
+This failure is typically detected at one of three points:
+
+1. **Pre-PR rebase fails.** When the orchestrator runs `git fetch origin && git rebase origin/main` before opening a PR, conflicts appear that didn't exist when the cycle started.
+2. **Tests fail on previously-passing code.** A sub-agent's tests passed during implementation but fail during review, and the sub-agent didn't change anything in the interim. Something else changed.
+3. **Review sub-agent finds inconsistencies.** A review sub-agent verifying claims against the codebase finds that the code doesn't match the claim — not because the sub-agent lied, but because the ground shifted.
+4. **CI fails on the PR.** Everything passed locally but CI runs against a different base.
+
+**Mandatory between-stage check:** The orchestrator MUST run `git fetch origin && git log origin/main --oneline -5` between the Implementation and Review stages to check whether `main` has moved. This is cheap and prevents wasted review cycles. If `main` has advanced, classify the conflict (see Mitigation below) before proceeding. This is not optional — skipping it risks an entire review cycle against a stale base.
+
+#### Mitigation
+
+1. **Pause the cycle.** Do not continue to the next stage on a stale base. Completing review against a base that's already moved wastes effort.
+2. **Identify the conflict surface.** Run `git fetch origin && git rebase origin/main` (or `git rebase --dry-run` equivalent by attempting and aborting). Determine which files conflict and whether any of them overlap with the current cycle's changes.
+3. **Classify the conflict:**
+   - **No overlap**: The upstream changes don't touch any files the cycle modified. Rebase cleanly, continue. The summaries and review results are still valid.
+   - **Mechanical overlap**: The changes touch the same files but in non-conflicting ways (e.g., upstream changed line 10, we changed line 200). Rebase, re-run affected tests, continue if they pass.
+   - **Semantic overlap**: The upstream changes alter behavior or APIs that the current cycle depends on. The sub-agents' work may be based on assumptions that no longer hold.
+
+#### Recovery
+
+For **no overlap** and **mechanical overlap**: rebase and continue. Re-run the test suite to confirm nothing broke. If tests pass, the cycle can proceed from wherever it was.
+
+For **semantic overlap**:
+
+1. **Discard uncommitted changes** for the affected sub-agents (not all sub-agents — only those whose work touched the conflict surface).
+2. **Update the spec** if the upstream changes invalidate spec assumptions. This is a mini-revision — not a full re-entry to the Dev-Time Documentation stage, but the spec must reflect reality.
+3. **Re-dispatch the affected sub-agents** with updated context: "The codebase has changed since the original spec was written. Specifically, [description of upstream change]. Implement against the current state."
+4. **Unaffected sub-agents' work is preserved.** Do not re-do work that isn't invalidated.
+
+#### Learning
+
+Add to compound learnings:
+- What changed upstream and why it wasn't anticipated
+- Whether the conflict was avoidable (should this branch have been merged faster? Should the work have been scoped smaller?)
+- If semantic conflicts are recurring, consider shorter cycle times or better coordination with whoever is merging to `main`
+
+---
+
+### Failure Mode 4: Incoherent or Contradictory Spec
+
+The review stage — or, more commonly, a sub-agent during implementation — discovers that the spec itself is not implementable as written. Not wrong (that's a hypothesis refutation), but internally contradictory or ambiguous to the point where two reasonable sub-agents would implement it differently.
+
+#### Detection
+
+1. **Sub-agent asks for clarification in its summary.** The "Known Gaps" section says something like: "Section 3.2 says the retry policy should be exponential, but Section 4.1 says requests should fail fast after 100ms. These are contradictory for any retry interval > 100ms."
+2. **Multiple sub-agents implement the same spec section differently.** Their summaries make incompatible claims about the same behavior.
+3. **Review sub-agent cannot verify a claim** because the spec is ambiguous about what the correct behavior should be. The claim is untestable not because it's wrong, but because the spec doesn't define what "right" looks like.
+4. **A sub-agent's implementation satisfies the letter of the spec but obviously violates its intent**, and there's no way to satisfy both.
+
+#### Mitigation
+
+1. **Stop the cycle.** Do not continue to commit. An implementation of an incoherent spec is, at best, an arbitrary resolution of the incoherence. It might be right, but you can't know that.
+2. **Preserve all sub-agent summaries and uncommitted work.** They contain diagnostic information about where the spec broke down. Persist them to disk if not already there.
+3. **Document the specific contradictions.** Create a list of the exact spec sections that conflict, with quotes. This is not a vague "the spec is confusing" — it's "Section X says A, Section Y says B, A and B cannot both be true because [reason]."
+
+#### Recovery
+
+1. **Re-enter the workflow at the Dev-Time Documentation stage** — specifically, at the spec revision step. The ADR's reasoning (the "why") may still be valid even if the spec (the "what") is broken.
+2. **The contradiction documentation becomes input to spec revision.** The spec author (human or agent) must resolve each documented contradiction with an explicit decision.
+3. **Sub-agents' work is not automatically discarded.** Once the spec is revised, compare the revision against each sub-agent's implementation. Some may align with the revised spec; those can be preserved. Others will need re-implementation.
+4. **The revised spec gets a new round of review** before re-entering implementation. A spec that was incoherent once is at higher risk of being incoherent again.
+
+#### Learning
+
+Add to compound learnings:
+- The specific contradictions (so similar specs can be checked before implementation)
+- Whether the contradiction was present in the ADR's reasoning (if so, the problem started earlier than spec writing)
+- Whether the Ideation stage's questions (1 through 3d) would have caught this if applied more rigorously
+- Whether the spec was written by a single agent or collaborative — collaborative specs may need an explicit consistency check step
+
+---
+
+### Failure Mode 5: Scope Escape
+
+A sub-agent's work passes review — the claims are verified, the tests pass, the code matches the spec — but it breaks something outside its scope that wasn't covered by its claims or tests. The breakage is discovered after the commit, in CI, in integration testing, or by another team member.
+
+#### Detection
+
+1. **CI fails on tests outside the sub-agent's scope.** The sub-agent's own tests pass, but unrelated tests fail.
+2. **Another sub-agent or cycle discovers the breakage.** Something that used to work doesn't anymore, and `git bisect` or manual investigation traces it to the commit.
+3. **Runtime failure in a component that the commit didn't directly modify.** A downstream consumer of a changed API breaks, a shared utility's behavior changed subtly, etc.
+4. **A subsequent cycle's sub-agent reports unexpected codebase state** in its summary — the code doesn't match what the spec or ADR says it should look like, and the discrepancy traces to this commit.
+
+#### Mitigation
+
+1. **Default: fix forward, not revert.** The commit contains valid, reviewed work. Reverting throws away the good with the bad and forces a complete re-implementation. The default response is to fix forward.
+2. **Escape hatch: temporary revert for critical-path breakage.** If the scope escape broke a critical path (CI is red for everyone, a deployment is down, other teams are blocked) and the fix is non-obvious or requires investigation, revert the commit as a **temporary mitigation** to restore service. This is an SRE-style rollback: it stops the bleeding while you investigate. The revert is not the resolution — a fix-forward commit must follow. Create a bead for both: one for the revert (type=bug, priority=0, title="Revert: restore [affected component] after scope escape from [bead-id]") and one for the actual fix.
+3. **Create a new bead** for the breakage: `bd create --title="Fix scope escape from <bead-id>: <brief description>" --type=bug --priority=1`. Link it to the original bead via dependency.
+4. **Assess blast radius.** How much is broken? Is the breakage blocking other work? If yes, the new bead jumps the priority queue. If no, it enters the normal backlog.
+
+#### Recovery
+
+1. **Treat the fix as a new unit of work** — it gets its own bead, its own sub-agent, its own structured summary, its own review. No shortcuts because "it's just a fix."
+2. **The fix sub-agent's scope includes writing the test that would have caught this.** The original scope escape happened because testing didn't cover the interaction. The fix must close that gap.
+3. **If the scope escape broke an ADR's assumptions**, flag the ADR for reconciliation (Signal 1: Context mismatch or Signal 5: Unrealized consequences, depending on the nature of the breakage).
+
+#### Learning
+
+Add to compound learnings:
+- **What was the interaction that wasn't tested?** (e.g., "Changing the retry policy in the gateway broke the health check endpoint because both share the HTTP client config.")
+- **Why didn't review catch it?** Was it outside the claims? Were the claims too narrowly scoped? Did the review sub-agents not have visibility into the affected component?
+- **Should this interaction be added to a standing test suite?** If two components interact in a way that isn't obvious, a regression test at the integration level prevents this class of scope escape from recurring.
+- **Should future specs in this domain include an "Interaction Surface" section** listing components that might be affected even if they aren't directly modified?
+
+---
+
+### Summary: Incident Severity and Escalation
+
+Not all failures are equal. The following table maps failure modes to their default severity and escalation behavior:
+
+| Failure Mode | Default Severity | Escalation Trigger |
+| --- | --- | --- |
+| 1. Sub-Agent Derailment | Low (re-dispatch) | Same task derails twice |
+| 2. Orchestrator Context Loss | Medium (inventory + resume) | Case D (nothing salvageable) |
+| 3. Codebase State Change | Low–Medium (rebase) | Semantic overlap affecting >50% of cycle |
+| 4. Incoherent Spec | High (cycle stops) | Always — spec revision requires human judgment |
+| 5. Scope Escape | Medium–High (fix forward) | Breakage blocks other in-progress work |
+
+Severity determines how quickly the failure demands attention, not how bad it is in absolute terms. A derailed sub-agent is low severity because recovery is mechanical. An incoherent spec is high severity because recovery requires judgment that may exceed the engineering system's escalation threshold — it may need the Chief Agentic.
