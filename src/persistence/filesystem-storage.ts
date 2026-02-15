@@ -23,6 +23,7 @@ import * as fs from 'fs/promises';
 import * as path from 'path';
 import * as os from 'os';
 import { randomUUID } from 'crypto';
+import safeJsonParse from 'secure-json-parse';
 import { LinkedThoughtStore } from './storage.js';
 import type {
   ThoughtboxStorage,
@@ -166,7 +167,7 @@ export class FileSystemStorage implements ThoughtboxStorage {
     // Load or create config
     try {
       const configData = await fs.readFile(this.getConfigPath(), 'utf-8');
-      this.config = JSON.parse(configData);
+      this.config = safeJsonParse(configData);
       // Convert date string back to Date object
       if (this.config && typeof this.config.createdAt === 'string') {
         this.config.createdAt = new Date(this.config.createdAt);
@@ -284,7 +285,7 @@ export class FileSystemStorage implements ThoughtboxStorage {
 
     try {
       const manifestData = await fs.readFile(manifestPath, 'utf-8');
-      const manifest: SessionManifest = JSON.parse(manifestData);
+      const manifest: SessionManifest = safeJsonParse(manifestData);
 
       // Create session from manifest
       const session: Session = {
@@ -307,7 +308,7 @@ export class FileSystemStorage implements ThoughtboxStorage {
         const thoughtPath = path.join(sessionDir, thoughtFile);
         try {
           const nodeData = await fs.readFile(thoughtPath, 'utf-8');
-          const node: ThoughtNode = JSON.parse(nodeData);
+          const node: ThoughtNode = safeJsonParse(nodeData);
           this.linkedStore.loadNode(node);
         } catch (error) {
           console.error(`Failed to load thought file ${thoughtPath}:`, error);
@@ -320,7 +321,7 @@ export class FileSystemStorage implements ThoughtboxStorage {
           const thoughtPath = path.join(sessionDir, 'branches', branchId, thoughtFile);
           try {
             const nodeData = await fs.readFile(thoughtPath, 'utf-8');
-            const node: ThoughtNode = JSON.parse(nodeData);
+            const node: ThoughtNode = safeJsonParse(nodeData);
             this.linkedStore.loadNode(node);
           } catch (error) {
             console.error(`Failed to load branch thought file ${thoughtPath}:`, error);
@@ -428,7 +429,7 @@ export class FileSystemStorage implements ThoughtboxStorage {
 
     try {
       const manifestData = await fs.readFile(manifestPath, 'utf-8');
-      const manifest: SessionManifest = JSON.parse(manifestData);
+      const manifest: SessionManifest = safeJsonParse(manifestData);
 
       manifest.metadata.title = updated.title;
       manifest.metadata.description = updated.description;
@@ -624,7 +625,7 @@ export class FileSystemStorage implements ThoughtboxStorage {
 
     try {
       const manifestData = await fs.readFile(manifestPath, 'utf-8');
-      const manifest: SessionManifest = JSON.parse(manifestData);
+      const manifest: SessionManifest = safeJsonParse(manifestData);
 
       const filename = `${String(thoughtNumber).padStart(3, '0')}.json`;
       if (!manifest.thoughtFiles.includes(filename)) {
@@ -648,7 +649,7 @@ export class FileSystemStorage implements ThoughtboxStorage {
 
     try {
       const manifestData = await fs.readFile(manifestPath, 'utf-8');
-      const manifest: SessionManifest = JSON.parse(manifestData);
+      const manifest: SessionManifest = safeJsonParse(manifestData);
 
       if (!manifest.branchFiles[branchId]) {
         manifest.branchFiles[branchId] = [];
@@ -775,7 +776,7 @@ export class FileSystemStorage implements ThoughtboxStorage {
     let manifest: SessionManifest | null = null;
     try {
       const manifestData = await fs.readFile(manifestPath, 'utf-8');
-      manifest = JSON.parse(manifestData);
+      manifest = safeJsonParse(manifestData);
     } catch (error) {
       return {
         valid: false,

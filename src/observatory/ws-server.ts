@@ -33,6 +33,7 @@ import type { IncomingMessage } from "http";
 import type { Server } from "http";
 import { Channel, type TopicParams, type ChannelContext } from "./channel.js";
 import { z } from "zod";
+import safeJsonParse from 'secure-json-parse';
 
 /**
  * Connection state for a WebSocket client
@@ -198,7 +199,7 @@ export class WebSocketServer {
   ): Promise<void> {
     let parsed: unknown;
     try {
-      parsed = JSON.parse(data.toString());
+      parsed = safeJsonParse(data.toString());
     } catch {
       this.sendTo(connection, "error", "error", {
         code: "INVALID_PAYLOAD",

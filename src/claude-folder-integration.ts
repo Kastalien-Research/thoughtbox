@@ -8,6 +8,7 @@
 import * as fs from 'fs/promises';
 import { statSync } from 'fs';
 import * as path from 'path';
+import safeJsonParse from 'secure-json-parse';
 import type { Logger } from './types.js';
 
 export interface LoopAccessRecord {
@@ -150,7 +151,7 @@ export class ClaudeFolderIntegration {
     try {
       const hotLoopsPath = path.join(this.claudePath, 'thoughtbox/hot-loops.json');
       const content = await fs.readFile(hotLoopsPath, 'utf-8');
-      return JSON.parse(content);
+      return safeJsonParse(content);
     } catch {
       // File doesn't exist or parse error - return null
       return null;
@@ -198,7 +199,7 @@ export class ClaudeFolderIntegration {
 
       for (const line of lines) {
         try {
-          entries.push(JSON.parse(line));
+          entries.push(safeJsonParse(line));
         } catch {
           // Skip malformed lines
           this.logger.warn('Skipping malformed JSONL line');
@@ -331,7 +332,7 @@ async function readJSONL<T>(filePath: string): Promise<T[]> {
 
     for (const line of lines) {
       try {
-        entries.push(JSON.parse(line));
+        entries.push(safeJsonParse(line));
       } catch {
         // Skip malformed lines
       }

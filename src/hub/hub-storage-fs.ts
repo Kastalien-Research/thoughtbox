@@ -6,6 +6,7 @@
 
 import { readFile, writeFile, mkdir, readdir } from 'node:fs/promises';
 import { join, dirname } from 'node:path';
+import safeJsonParse from 'secure-json-parse';
 import type {
   HubStorage,
   AgentIdentity,
@@ -23,7 +24,7 @@ async function ensureDir(dir: string): Promise<void> {
 async function readJson<T>(path: string): Promise<T | null> {
   try {
     const content = await readFile(path, 'utf-8');
-    return JSON.parse(content) as T;
+    return safeJsonParse(content) as T;
   } catch {
     return null;
   }
