@@ -42,29 +42,9 @@ claude-code-docs-two/
 .mcp.github.json
 mcp-ts-template/
 
-# Claude Code configuration and local data (except agents, skills, knowledge, and shared workflows)
-.claude/*
-!.claude/agents/
-!.claude/skills/
-!.claude/knowledge/
-!.claude/team-prompts/
-!.claude/commands/
-.claude/commands/*
-!.claude/commands/development/
-.claude/commands/development/*
-!.claude/commands/development/hub-tdd.md
-!.claude/commands/development/agentops-tdd.md
-!.claude/commands/development/multi-agent-tdd.md
-!.claude/commands/development/profiles-tdd.md
-!.claude/hooks/
-.claude/hooks/*
-!.claude/hooks/hub_tdd_stop.sh
-!.claude/hooks/agentops_tdd_stop.sh
-!.claude/hooks/session_start.sh
-!.claude/hooks/pre_compact.sh
-!.claude/hooks/assumption-tracker.sh
-
-# Session handoff (ephemeral, machine-local)
+# Claude Code — only ignore machine-local runtime files
+.claude/settings.local.json
+.claude/state/
 .claude/session-handoff.json
 
 # Specifications and working artifacts (local development)
