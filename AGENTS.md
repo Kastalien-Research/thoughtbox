@@ -19,14 +19,14 @@ The conductor skill dispatches to stage-specific skills at each step. Run `/work
 
 | Stage | Skill | Description |
 |-------|-------|-------------|
-| 1. Ideation | `/workflow:ideation` | Evaluate whether idea is worth implementing |
+| 1. Ideation | `/workflow-ideation` | Evaluate whether idea is worth implementing |
 | 2. Dev-Time Docs | `/hdd` | Create spec and ADR via HDD process |
 | 3. Planning | `/workflows:plan` | Plan implementation approach |
 | 4. Implementation | `/workflows:work` | Execute the plan with sub-agents |
 | 5. Review | `/workflows:review` | Verify claims and test hypotheses |
-| 6. Revision | `/workflow:revision` | Fix review findings, loop until pass |
+| 6. Revision | `/workflow-revision` | Fix review findings, loop until pass |
 | 7. Compound | `/workflows:compound` | Capture learnings |
-| 8. Reflection | `/workflow:reflection` | Finalize ADRs, close issues, merge |
+| 8. Reflection | `/workflow-reflection` | Finalize ADRs, close issues, merge |
 
 ### References
 
@@ -38,7 +38,7 @@ The conductor skill dispatches to stage-specific skills at each step. Run `/work
 
 ## Branch Rules for Agents
 
-The full branching strategy (GitHub Flow) is defined in `WORKFLOW-MASTER-DESCRIPTION.md` § Branching Strategy. These are the agent-specific enforcement rules:
+The full branching strategy (GitHub Flow) is defined in `docs/WORKFLOW-MASTER-DESCRIPTION.md` § Branching Strategy. These are the agent-specific enforcement rules:
 
 1. **Before first commit: verify branch scope matches work.**
    - `git branch --show-current` — check where you are
