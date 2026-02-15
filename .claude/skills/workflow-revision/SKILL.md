@@ -116,13 +116,15 @@ Throughout this stage, keep the state file current:
 
 ```json
 {
-  "revision": {
-    "status": "in_progress",
-    "iterations": N,
-    "maxIterations": 3,
-    "findings": [
-      { "id": 1, "category": "claim_failure", "description": "...", "status": "fixed|open|escalated" }
-    ]
+  "stages": {
+    "revision": {
+      "status": "in_progress",
+      "iterations": 1,
+      "maxIterations": 3,
+      "findings": [
+        { "id": 1, "category": "claim_failure", "description": "...", "status": "fixed|open|escalated" }
+      ]
+    }
   }
 }
 ```
