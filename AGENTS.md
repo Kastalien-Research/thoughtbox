@@ -1,4 +1,24 @@
 
+## Development Workflow (Source of Truth)
+
+**Read `WORKFLOW-MASTER-DESCRIPTION.md` before starting any non-trivial work.** It defines the full lifecycle: ideation → spec + ADR → plan → implement → review → revision → compound → reflection.
+
+### Key Rules (always apply)
+
+1. **Specs go in `specs/`** (not `.specs/`). ADRs use the HDD lifecycle: `.adr/staging/` → `.adr/accepted/` or `.adr/rejected/`.
+2. **Code and spec updates in the same commit.** If you change code that a spec describes, update the spec in the same commit.
+3. **Atomic commits.** One sub-agent = one bead = one unit of work = one commit, made after review validates the work.
+4. **Sub-agent summaries use the structured format** defined in `WORKFLOW-MASTER-DESCRIPTION.md` (Claims, Hypothesis Alignment, Tests, Known Gaps, Risks).
+5. **Default: human is NOT in the loop.** Operate autonomously up to the escalation thresholds defined in `agentic-dev-team/agentic-dev-team-spec.md`. Escalate only when those thresholds are met.
+6. **Orchestrators don't do manual work.** Deploy sub-agents or agent teams. Protect your context window.
+
+### References
+
+- Full workflow: `WORKFLOW-MASTER-DESCRIPTION.md`
+- HDD process: `.claude/commands/hdd/hdd.md`
+- Agent team structure: `agentic-dev-team/agentic-dev-team-spec.md`
+- Escalation thresholds: `agentic-dev-team/agentic-dev-team-spec.md` § Escalation Threshold Definition
+
 ## Branch Hygiene (Before First Commit)
 
 **Before writing the first commit of any new unit of work**, you MUST:
