@@ -113,6 +113,9 @@ adat.md
 # Claude Code plugins
 .claude-plugin/
 
+# Workflow conductor runtime state (ephemeral, per-workflow)
+.workflow/
+
 # Ephemeral runtime state (not design artifacts)
 .code-review/
 .docs-research/
