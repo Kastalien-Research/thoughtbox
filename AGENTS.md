@@ -1,20 +1,36 @@
 
 ## Development Workflow (Source of Truth)
 
-**Read `WORKFLOW-MASTER-DESCRIPTION.md` before starting any non-trivial work.** It defines the full lifecycle: ideation → spec + ADR → plan → implement → review → revision → compound → reflection.
+**Use `/workflow` to execute the full development lifecycle.** It sequences 8 stages: ideation → spec + ADR → plan → implement → review → revision → compound → reflection.
+
+The conductor skill dispatches to stage-specific skills at each step. Run `/workflow <idea>` to start a new workflow, or `/workflow` to resume an in-progress one.
 
 ### Key Rules (always apply)
 
 1. **Specs go in `specs/`** (not `.specs/`). ADRs use the HDD lifecycle: `.adr/staging/` → `.adr/accepted/` or `.adr/rejected/`.
 2. **Code and spec updates in the same commit.** If you change code that a spec describes, update the spec in the same commit.
 3. **Atomic commits.** One sub-agent = one bead = one unit of work = one commit, made after review validates the work.
-4. **Sub-agent summaries use the structured format** defined in `WORKFLOW-MASTER-DESCRIPTION.md` (Claims, Hypothesis Alignment, Tests, Known Gaps, Risks).
+4. **Sub-agent summaries use the structured format** defined in the `/workflow` conductor skill (Claims, Hypothesis Alignment, Tests, Known Gaps, Risks).
 5. **Default: human is NOT in the loop.** Operate autonomously up to the escalation thresholds defined in `agentic-dev-team/agentic-dev-team-spec.md`. Escalate only when those thresholds are met.
 6. **Orchestrators don't do manual work.** Deploy sub-agents or agent teams. Protect your context window.
 
+### Stage Skills
+
+| Stage | Skill | Description |
+|-------|-------|-------------|
+| 1. Ideation | `/workflow:ideation` | Evaluate whether idea is worth implementing |
+| 2. Dev-Time Docs | `/hdd` | Create spec and ADR via HDD process |
+| 3. Planning | `/workflows:plan` | Plan implementation approach |
+| 4. Implementation | `/workflows:work` | Execute the plan with sub-agents |
+| 5. Review | `/workflows:review` | Verify claims and test hypotheses |
+| 6. Revision | `/workflow:revision` | Fix review findings, loop until pass |
+| 7. Compound | `/workflows:compound` | Capture learnings |
+| 8. Reflection | `/workflow:reflection` | Finalize ADRs, close issues, merge |
+
 ### References
 
-- Full workflow: `WORKFLOW-MASTER-DESCRIPTION.md`
+- Workflow conductor: `.claude/skills/workflow/SKILL.md`
+- Workflow rationale and failure modes: `docs/WORKFLOW-MASTER-DESCRIPTION.md`
 - HDD process: `.claude/commands/hdd/hdd.md`
 - Agent team structure: `agentic-dev-team/agentic-dev-team-spec.md`
 - Escalation thresholds: `agentic-dev-team/agentic-dev-team-spec.md` § Escalation Threshold Definition
