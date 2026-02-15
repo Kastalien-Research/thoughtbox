@@ -68,7 +68,6 @@ mcp-ts-template/
 .claude/session-handoff.json
 
 # Specifications and working artifacts (local development)
-.specs/
 .specification-suite/
 .hub-tdd/
 .agentops-tdd/
@@ -115,9 +114,12 @@ adat.md
 # Claude Code plugins
 .claude-plugin/
 
-# Development documentation
-docs/
-specs/
+# Ephemeral runtime state (not design artifacts)
+.code-review/
+.docs-research/
+.letta/
+tech_stack/
+.eval/metrics/session-*.json
 
 # Analysis and blog posts (local development artifacts)
 adat.md
