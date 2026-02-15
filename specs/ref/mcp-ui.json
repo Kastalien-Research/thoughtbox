@@ -1,0 +1,103 @@
+{
+    "type": "object",
+    "description": "Comprehensive guide for building MCP Apps, optimized for agentic readers (LLMs).",
+    "properties": {
+        "introduction": {
+            "type": "string",
+            "description": "Overview of MCP Apps and their purpose."
+        },
+        "github_specification_overview": {
+            "type": "string",
+            "description": "Summary of the MCP Apps specification from GitHub (https://github.com/modelcontextprotocol/ext-apps/blob/main/specification/draft/apps.mdx)."
+        },
+        "mcp_blog_post_insights": {
+            "type": "string",
+            "description": "Key takeaways and insights from the MCP blog post (https://blog.modelcontextprotocol.io/posts/2025-11-21-mcp-apps/)."
+        },
+        "web_search_supplementation": {
+            "type": "string",
+            "description": "Information gathered from a broad web search, supplementing the GitHub specification and blog posts."
+        },
+        "client_implementation_code_snippets": {
+            "type": "array",
+            "description": "Code snippets demonstrating client-side implementation patterns.",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "snippet_description": {
+                        "type": "string",
+                        "description": "Description of the code snippet's functionality."
+                    },
+                    "code": {
+                        "type": "string",
+                        "description": "The code snippet itself."
+                    },
+                    "pattern_type": {
+                        "type": "string",
+                        "description": "Whether the pattern is idiosyncratic or generalizable."
+                    }
+                },
+                "required": [
+                    "snippet_description",
+                    "code",
+                    "pattern_type"
+                ]
+            }
+        },
+        "server_implementation_code_snippets": {
+            "type": "array",
+            "description": "Code snippets demonstrating server-side implementation patterns.",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "snippet_description": {
+                        "type": "string",
+                        "description": "Description of the code snippet's functionality."
+                    },
+                    "code": {
+                        "type": "string",
+                        "description": "The code snippet itself."
+                    },
+                    "pattern_type": {
+                        "type": "string",
+                        "description": "Whether the pattern is idiosyncratic or generalizable."
+                    }
+                },
+                "required": [
+                    "snippet_description",
+                    "code",
+                    "pattern_type"
+                ]
+            }
+        },
+        "idiosyncratic_patterns": {
+            "type": "array",
+            "description": "Identified idiosyncratic patterns in client and server implementations.",
+            "items": {
+                "type": "string"
+            }
+        },
+        "generalizable_concepts": {
+            "type": "array",
+            "description": "Identified generalizable concepts in client and server implementations.",
+            "items": {
+                "type": "string"
+            }
+        },
+        "conclusion": {
+            "type": "string",
+            "description": "Summary and concluding remarks about building MCP Apps."
+        }
+    },
+    "required": [
+        "introduction",
+        "github_specification_overview",
+        "mcp_blog_post_insights",
+        "web_search_supplementation",
+        "client_implementation_code_snippets",
+        "server_implementation_code_snippets",
+        "idiosyncratic_patterns",
+        "generalizable_concepts",
+        "conclusion"
+    ]
+}
