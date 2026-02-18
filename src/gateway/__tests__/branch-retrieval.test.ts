@@ -92,6 +92,11 @@ async function setupSessionWithBranches(
     branchFromThought: 5,
     branchId: 'deep-dive',
   });
+
+  // Capture sessionId before the final thought closes the session
+  const sessionId = thoughtHandler.getCurrentSessionId();
+  if (!sessionId) throw new Error('No session created');
+
   await thoughtHandler.processThought({
     thought: 'Branch deep-dive thought 10',
     thoughtNumber: 10,
@@ -101,8 +106,6 @@ async function setupSessionWithBranches(
     branchId: 'deep-dive',
   });
 
-  const sessionId = thoughtHandler.getCurrentSessionId();
-  if (!sessionId) throw new Error('No session created');
   return sessionId;
 }
 

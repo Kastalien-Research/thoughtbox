@@ -58,6 +58,7 @@ async function loadLoops(): Promise<LoopsCatalog> {
   const seenNames = new Set<string>();
 
   try {
+    await fs.access(LOOPS_DIR);
     const categories = await fs.readdir(LOOPS_DIR);
 
     for (const category of categories) {
@@ -158,6 +159,20 @@ async function loadLoops(): Promise<LoopsCatalog> {
     return catalog;
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+      // Check if output file already has content — preserve it rather than overwriting with empty catalog
+      try {
+        const existing = await fs.readFile(OUTPUT_FILE, 'utf-8');
+        if (existing.includes('LOOPS_CATALOG') && !existing.includes('LOOPS_CATALOG: LoopsCatalog = {};')) {
+          console.warn(
+            `⚠️  .claude/commands/loops/ directory not found. ` +
+            `Preserving existing catalog (${OUTPUT_FILE}). Add loops to .claude/commands/loops/ to update.`
+          );
+          // Signal caller to skip generation
+          return null as unknown as LoopsCatalog;
+        }
+      } catch {
+        // Output file doesn't exist yet — fall through to generate empty catalog
+      }
       console.warn(
         `⚠️  .claude/commands/loops/ directory not found. ` +
         `Generating empty catalog. This is expected if loops haven't been created yet.`
@@ -285,6 +300,10 @@ async function main(): Promise<void> {
     console.log('🔨 Embedding OODA loops...');
 
     const catalog = await loadLoops();
+
+    // null signals "preserve existing" — loadLoops already printed the warning
+    if (catalog === null) return;
+
     const categoryCount = Object.keys(catalog).length;
     const loopCount = Object.values(catalog).reduce(
       (sum, cat) => sum + Object.keys(cat).length,
