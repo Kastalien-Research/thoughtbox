@@ -30,9 +30,9 @@ The conductor skill dispatches to stage-specific skills at each step. Run `/work
 
 ### References
 
-- Workflow conductor: `.claude/skills/workflow/SKILL.md`
+- Workflow conductor: `.archive/skills/workflow/SKILL.md` (archived; canonical source now in the keller-ai plugin)
 - Workflow rationale and failure modes: `docs/WORKFLOW-MASTER-DESCRIPTION.md`
-- HDD process: `.claude/commands/hdd/hdd.md`
+- HDD process: `.archive/commands/hdd/hdd.md` (archived; canonical source now in the keller-ai plugin)
 - Agent team structure: `agentic-dev-team/agentic-dev-team-spec.md`
 - Escalation thresholds: `agentic-dev-team/agentic-dev-team-spec.md` § Escalation Threshold Definition
 

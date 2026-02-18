@@ -33,7 +33,7 @@ npm run dev
 
 ## Commit Conventions
 
-We use structured commit messages optimized for code comprehension tools like `thick_read`. Good commit history is documentation.
+We use structured commit messages for clear, readable git history. Good commit history is documentation.
 
 ### Format
 
@@ -59,11 +59,11 @@ We use structured commit messages optimized for code comprehension tools like `t
 
 ### Scope (Optional)
 
-The component or area being changed: `thoughtbox`, `notebook`, `observatory`, `mental-models`, `thick-read`, `persistence`, etc.
+The component or area being changed: `thoughtbox`, `notebook`, `observatory`, `mental-models`, `hub`, `evaluation`, `persistence`, etc.
 
 ### Writing Good Commit Bodies
 
-The commit body should explain **WHY** the change was made. Think of future readers using `thick_read` or `git blame` who need to understand the reasoning behind the code.
+The commit body should explain **WHY** the change was made. Think of future readers using `git blame` or `git log` who need to understand the reasoning behind the code.
 
 **Good:**
 ```
@@ -113,7 +113,7 @@ We use the Claude Agent SDK for behavioral testing. These tests spawn fresh agen
 npm test
 
 # Test a specific tool
-npm run test:tool -- thick_read
+npm run test:tool -- thoughtbox
 
 # Quick test (skip rebuild)
 npm run test:quick -- thoughtbox
@@ -125,11 +125,11 @@ Tests are defined in `scripts/agentic-test.ts` using natural language specificat
 
 ```typescript
 const TOOL_TESTS: Record<string, string> = {
-  thick_read: `
-    Behavioral tests for thick_read tool:
-    1. Basic file reading - read a known file, verify content returned
-    2. Git context - read a tracked file, verify recentCommits populated
-    3. Depth levels - test shallow, standard, deep modes
+  thoughtbox: `
+    Behavioral tests for thoughtbox_gateway tool:
+    1. Basic thought recording - record a thought, verify stored
+    2. Session creation - start session with title, verify session ID returned
+    3. Branch creation - fork from thought, verify branch data
     ...
   `,
 };
