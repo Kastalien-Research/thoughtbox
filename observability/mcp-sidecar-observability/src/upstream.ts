@@ -28,7 +28,7 @@ export class UpstreamConnector {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Accept': 'application/json, text/event-stream',
+          'Accept': 'application/json',
         },
         body: JSON.stringify(request),
         signal: controller.signal,
@@ -71,20 +71,11 @@ export class UpstreamConnector {
    */
   async healthCheck(): Promise<boolean> {
     try {
-      const response = await fetch(this.config.url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json, text/event-stream',
-        },
-        body: JSON.stringify({
-          jsonrpc: '2.0',
-          id: 'health-check',
-          method: 'ping',
-        }),
+      const healthUrl = this.config.url.replace(/\/mcp\/?$/, '/health');
+      const response = await fetch(healthUrl, {
+        method: 'GET',
         signal: AbortSignal.timeout(5000),
       });
-      
       return response.ok;
     } catch {
       return false;
