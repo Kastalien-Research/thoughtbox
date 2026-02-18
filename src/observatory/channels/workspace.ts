@@ -15,6 +15,7 @@
 
 import { Channel } from "../channel.js";
 import { thoughtEmitter } from "../emitter.js";
+import type { ThoughtEmitterEvents } from "../emitter.js";
 import type { WebSocketServer } from "../ws-server.js";
 
 /**
@@ -40,7 +41,7 @@ export function createWorkspaceChannel(wss: WebSocketServer): {
   // No snapshot on join — clients fetch initial state via REST
 
   // Bridge hub events from emitter to WebSocket broadcasts
-  const listener = (event: unknown) => {
+  const listener = (event: ThoughtEmitterEvents["hub:event"]) => {
     wss.broadcast("workspace", "hub:event", event);
   };
   thoughtEmitter.on("hub:event", listener);

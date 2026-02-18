@@ -191,7 +191,7 @@ Call \`thoughtbox_hub\` { "operation": "register", "args": { "name": "Your Agent
   const server = new McpServer({
     name: "thoughtbox-server",
     // Keep in sync with package.json version; avoid importing outside src/ (tsconfig rootDir)
-    version: "1.2.2",
+    version: "2.0.0",
   }, {
     instructions: THOUGHTBOX_INSTRUCTIONS,
     taskStore,

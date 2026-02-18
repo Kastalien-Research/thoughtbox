@@ -5,9 +5,9 @@
  * Export location: ~/.thoughtbox/exports/
  */
 
-import * as fs from 'fs';
-import * as path from 'path';
-import * as os from 'os';
+import { mkdir, writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
+import { homedir } from 'node:os';
 import type { SessionExport } from './types.js';
 
 /**
@@ -17,7 +17,7 @@ export class SessionExporter {
   private defaultDir: string;
 
   constructor() {
-    this.defaultDir = path.join(os.homedir(), '.thoughtbox', 'exports');
+    this.defaultDir = join(homedir(), '.thoughtbox', 'exports');
   }
 
   /**
@@ -25,7 +25,7 @@ export class SessionExporter {
    */
   async ensureExportDir(dir?: string): Promise<string> {
     const targetDir = dir || this.defaultDir;
-    await fs.promises.mkdir(targetDir, { recursive: true });
+    await mkdir(targetDir, { recursive: true });
     return targetDir;
   }
 
@@ -49,9 +49,9 @@ export class SessionExporter {
   ): Promise<string> {
     const dir = await this.ensureExportDir(destination);
     const filename = this.generateFilename(sessionId);
-    const filepath = path.join(dir, filename);
+    const filepath = join(dir, filename);
 
-    await fs.promises.writeFile(
+    await writeFile(
       filepath,
       JSON.stringify(data, null, 2),
       'utf-8'
