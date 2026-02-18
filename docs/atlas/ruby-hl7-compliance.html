@@ -1,0 +1,1463 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ruby-hl7 — DORA Metrics &amp; HIPAA Compliance Review</title>
+  <style>
+    :root {
+      --bg:         #0a0b0f;
+      --bg2:        #0f1117;
+      --bg3:        #141720;
+      --bg4:        #1a1f2e;
+      --border:     #1e2640;
+      --text:       #c9d1e8;
+      --text-dim:   #6b7fa3;
+      --neon-cyan:  #00ffe1;
+      --neon-blue:  #4d94ff;
+      --neon-green: #39ff6e;
+      --neon-amber: #ffb700;
+      --neon-red:   #ff3b5c;
+      --neon-pink:  #ff2d95;
+      --neon-purple:#b44dff;
+      --grad-a:     linear-gradient(135deg, #00ffe133 0%, #4d94ff22 100%);
+      --grad-b:     linear-gradient(135deg, #39ff6e22 0%, #00ffe111 100%);
+      --grad-warn:  linear-gradient(135deg, #ffb70022 0%, #ff3b5c11 100%);
+      --grad-bad:   linear-gradient(135deg, #ff3b5c33 0%, #b44dff11 100%);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      font-size: 15px;
+      line-height: 1.65;
+    }
+
+    /* ── HEADER ── */
+    header {
+      background: var(--bg2);
+      border-bottom: 1px solid var(--border);
+      padding: 2.5rem 3rem;
+      position: relative;
+      overflow: hidden;
+    }
+    header::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(ellipse at 20% 50%, #00ffe108 0%, transparent 60%),
+                  radial-gradient(ellipse at 80% 50%, #4d94ff08 0%, transparent 60%);
+    }
+    header .badge-row {
+      display: flex;
+      gap: .6rem;
+      flex-wrap: wrap;
+      margin-bottom: 1rem;
+    }
+    .badge {
+      font-size: 11px;
+      font-weight: 700;
+      padding: .25rem .65rem;
+      border-radius: 4px;
+      letter-spacing: .05em;
+      text-transform: uppercase;
+    }
+    .badge-cyan   { background: #00ffe122; color: var(--neon-cyan);   border: 1px solid #00ffe144; }
+    .badge-blue   { background: #4d94ff22; color: var(--neon-blue);   border: 1px solid #4d94ff44; }
+    .badge-green  { background: #39ff6e22; color: var(--neon-green);  border: 1px solid #39ff6e44; }
+    .badge-amber  { background: #ffb70022; color: var(--neon-amber);  border: 1px solid #ffb70044; }
+    .badge-red    { background: #ff3b5c22; color: var(--neon-red);    border: 1px solid #ff3b5c44; }
+    .badge-purple { background: #b44dff22; color: var(--neon-purple); border: 1px solid #b44dff44; }
+
+    h1 {
+      font-size: 2rem;
+      font-weight: 800;
+      letter-spacing: -.02em;
+      background: linear-gradient(90deg, var(--neon-cyan), var(--neon-blue));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: .4rem;
+    }
+    .subtitle { color: var(--text-dim); font-size: .95rem; }
+    .meta-row {
+      margin-top: 1rem;
+      display: flex;
+      gap: 2rem;
+      flex-wrap: wrap;
+      font-size: .85rem;
+      color: var(--text-dim);
+    }
+    .meta-row span strong { color: var(--text); }
+
+    /* ── NAV ── */
+    nav {
+      background: var(--bg2);
+      border-bottom: 1px solid var(--border);
+      padding: .75rem 3rem;
+      display: flex;
+      gap: 1.5rem;
+      flex-wrap: wrap;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    nav a {
+      color: var(--text-dim);
+      text-decoration: none;
+      font-size: .85rem;
+      font-weight: 500;
+      padding: .25rem 0;
+      border-bottom: 2px solid transparent;
+      transition: color .2s, border-color .2s;
+    }
+    nav a:hover { color: var(--neon-cyan); border-color: var(--neon-cyan); }
+
+    /* ── LAYOUT ── */
+    main { max-width: 1280px; margin: 0 auto; padding: 2rem 3rem 4rem; }
+
+    section { margin-bottom: 3rem; }
+
+    h2 {
+      font-size: 1.35rem;
+      font-weight: 700;
+      color: var(--neon-cyan);
+      margin-bottom: 1.25rem;
+      padding-bottom: .5rem;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: .6rem;
+    }
+    h2 .icon { font-size: 1.1rem; }
+
+    h3 {
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--neon-blue);
+      margin: 1.25rem 0 .6rem;
+    }
+
+    p { margin-bottom: .85rem; color: var(--text); }
+
+    /* ── CARDS ── */
+    .card {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1.5rem;
+      margin-bottom: 1rem;
+    }
+    .card-good   { border-left: 3px solid var(--neon-green);  background: var(--grad-b); }
+    .card-warn   { border-left: 3px solid var(--neon-amber);  background: var(--grad-warn); }
+    .card-bad    { border-left: 3px solid var(--neon-red);    background: var(--grad-bad); }
+    .card-info   { border-left: 3px solid var(--neon-blue);   background: var(--grad-a); }
+    .card-purple { border-left: 3px solid var(--neon-purple); }
+
+    .card-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 1rem;
+      margin-bottom: .75rem;
+      flex-wrap: wrap;
+    }
+    .card-title { font-weight: 700; font-size: 1rem; }
+
+    /* ── SCORECARD ── */
+    .scorecard-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+    }
+    .score-card {
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1.25rem 1.5rem;
+      position: relative;
+      overflow: hidden;
+    }
+    .score-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 3px;
+    }
+    .score-A::before { background: var(--neon-green); }
+    .score-B::before { background: var(--neon-cyan); }
+    .score-C::before { background: var(--neon-amber); }
+    .score-D::before { background: var(--neon-red); }
+    .score-F::before { background: var(--neon-pink); }
+
+    .score-label { font-size: .78rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: .06em; margin-bottom: .4rem; }
+    .score-metric { font-size: 1.05rem; font-weight: 700; margin-bottom: .5rem; }
+    .score-value  { font-size: 2.2rem; font-weight: 900; line-height: 1; margin-bottom: .3rem; }
+    .score-A .score-value { color: var(--neon-green); }
+    .score-B .score-value { color: var(--neon-cyan); }
+    .score-C .score-value { color: var(--neon-amber); }
+    .score-D .score-value { color: var(--neon-red); }
+    .score-F .score-value { color: var(--neon-pink); }
+    .score-sub  { font-size: .82rem; color: var(--text-dim); }
+
+    /* ── TABLE ── */
+    .table-wrap { overflow-x: auto; border-radius: 8px; border: 1px solid var(--border); }
+    table { width: 100%; border-collapse: collapse; }
+    th {
+      background: var(--bg3);
+      padding: .75rem 1rem;
+      text-align: left;
+      font-size: .8rem;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      color: var(--text-dim);
+      border-bottom: 1px solid var(--border);
+    }
+    td {
+      padding: .75rem 1rem;
+      border-bottom: 1px solid var(--border);
+      font-size: .9rem;
+      vertical-align: top;
+    }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: var(--bg3); }
+
+    /* ── CODE ── */
+    pre, code {
+      font-family: 'JetBrains Mono', 'Cascadia Code', 'Fira Code', monospace;
+      font-size: .82rem;
+    }
+    pre {
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 1rem 1.25rem;
+      overflow-x: auto;
+      margin-bottom: 1rem;
+      line-height: 1.5;
+    }
+    code {
+      background: #1e2640;
+      border-radius: 3px;
+      padding: .1em .4em;
+      color: var(--neon-cyan);
+    }
+    pre code { background: none; padding: 0; color: var(--text); }
+
+    /* syntax hints */
+    .kw  { color: var(--neon-purple); }
+    .str { color: var(--neon-green); }
+    .cmt { color: var(--text-dim); font-style: italic; }
+    .fn  { color: var(--neon-blue); }
+    .nm  { color: var(--neon-amber); }
+    .err { color: var(--neon-red); }
+
+    /* ── RISK MATRIX ── */
+    .risk-grid {
+      display: grid;
+      grid-template-columns: auto repeat(5, 1fr);
+      gap: 2px;
+      margin-bottom: 1rem;
+    }
+    .risk-header-row, .risk-row { display: contents; }
+    .risk-cell {
+      padding: .5rem .4rem;
+      text-align: center;
+      font-size: .78rem;
+      border-radius: 3px;
+      font-weight: 600;
+    }
+    .risk-label { text-align: right; padding-right: .6rem; color: var(--text-dim); font-size: .78rem; display: flex; align-items: center; justify-content: flex-end; }
+    .risk-none   { background: #1a1f2e; color: var(--text-dim); }
+    .risk-low    { background: #1a3020; color: var(--neon-green); }
+    .risk-med    { background: #2a2510; color: var(--neon-amber); }
+    .risk-high   { background: #2a1520; color: #ff7b5c; }
+    .risk-crit   { background: #3a0f1a; color: var(--neon-red); }
+    .risk-dot {
+      display: inline-block;
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      margin-right: 4px;
+      vertical-align: middle;
+    }
+
+    /* ── FINDING ITEMS ── */
+    .finding {
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1.25rem;
+      margin-bottom: 1rem;
+    }
+    .finding-header {
+      display: flex;
+      gap: 1rem;
+      align-items: flex-start;
+      margin-bottom: .75rem;
+      flex-wrap: wrap;
+    }
+    .finding-id {
+      font-size: .72rem;
+      font-weight: 700;
+      padding: .2rem .5rem;
+      border-radius: 4px;
+      background: #1a1f2e;
+      color: var(--text-dim);
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .finding-title { font-weight: 700; flex: 1; min-width: 200px; }
+    .finding-body { font-size: .88rem; }
+    .finding-body p { margin-bottom: .5rem; }
+
+    /* ── CHIP RATINGS ── */
+    .chip {
+      display: inline-block;
+      font-size: .72rem;
+      font-weight: 700;
+      padding: .18rem .55rem;
+      border-radius: 20px;
+      text-transform: uppercase;
+      letter-spacing: .05em;
+      white-space: nowrap;
+    }
+    .chip-green  { background: #39ff6e22; color: var(--neon-green);  border: 1px solid #39ff6e55; }
+    .chip-cyan   { background: #00ffe122; color: var(--neon-cyan);   border: 1px solid #00ffe155; }
+    .chip-blue   { background: #4d94ff22; color: var(--neon-blue);   border: 1px solid #4d94ff55; }
+    .chip-amber  { background: #ffb70022; color: var(--neon-amber);  border: 1px solid #ffb70055; }
+    .chip-red    { background: #ff3b5c22; color: var(--neon-red);    border: 1px solid #ff3b5c55; }
+    .chip-purple { background: #b44dff22; color: var(--neon-purple); border: 1px solid #b44dff55; }
+    .chip-gray   { background: #1e264033; color: var(--text-dim);    border: 1px solid #2a3355; }
+
+    /* ── PROGRESS BAR ── */
+    .progress-bar {
+      background: var(--border);
+      border-radius: 4px;
+      height: 6px;
+      overflow: hidden;
+      margin-top: .3rem;
+    }
+    .progress-fill { height: 100%; border-radius: 4px; }
+    .fill-green  { background: var(--neon-green); }
+    .fill-cyan   { background: var(--neon-cyan); }
+    .fill-amber  { background: var(--neon-amber); }
+    .fill-red    { background: var(--neon-red); }
+
+    /* ── TIMELINE ── */
+    .timeline { list-style: none; position: relative; padding-left: 1.5rem; }
+    .timeline::before {
+      content: '';
+      position: absolute;
+      left: 6px; top: 0; bottom: 0;
+      width: 1px;
+      background: var(--border);
+    }
+    .timeline li {
+      position: relative;
+      margin-bottom: .75rem;
+      font-size: .88rem;
+    }
+    .timeline li::before {
+      content: '';
+      position: absolute;
+      left: -1.2rem;
+      top: .45em;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--neon-cyan);
+      box-shadow: 0 0 6px var(--neon-cyan);
+    }
+    .timeline .tl-date { color: var(--text-dim); font-size: .78rem; margin-right: .5rem; }
+    .timeline .tl-tag  { margin-left: .4rem; }
+
+    /* ── RECOMMENDATION ── */
+    .rec {
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      border-left: 3px solid var(--neon-blue);
+      border-radius: 6px;
+      padding: 1rem 1.25rem;
+      margin-bottom: .75rem;
+      font-size: .88rem;
+    }
+    .rec-title { font-weight: 700; color: var(--neon-blue); margin-bottom: .35rem; }
+    .rec-body { color: var(--text); }
+
+    /* ── FOOTER ── */
+    footer {
+      background: var(--bg2);
+      border-top: 1px solid var(--border);
+      padding: 1.5rem 3rem;
+      text-align: center;
+      font-size: .8rem;
+      color: var(--text-dim);
+    }
+
+    /* ── SUMMARY BANNER ── */
+    .summary-banner {
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1.5rem;
+      margin-bottom: 2rem;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 1rem;
+    }
+    .summary-item { text-align: center; }
+    .summary-val { font-size: 1.8rem; font-weight: 900; line-height: 1; }
+    .summary-lbl { font-size: .75rem; color: var(--text-dim); margin-top: .3rem; text-transform: uppercase; letter-spacing: .05em; }
+
+    /* ── RISK MATRIX TABLE ── */
+    .risk-matrix-container {
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1.5rem;
+      overflow-x: auto;
+    }
+
+    .risk-impact-header {
+      display: flex;
+      margin-left: 120px;
+      margin-bottom: 4px;
+    }
+    .risk-impact-cell {
+      flex: 1;
+      text-align: center;
+      font-size: .75rem;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: .05em;
+      padding: .25rem;
+    }
+
+    .risk-matrix-row {
+      display: flex;
+      align-items: stretch;
+      gap: 3px;
+      margin-bottom: 3px;
+    }
+    .risk-likelihood-label {
+      width: 120px;
+      flex-shrink: 0;
+      font-size: .75rem;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: .04em;
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      padding-right: .75rem;
+    }
+    .risk-matrix-cell {
+      flex: 1;
+      min-height: 60px;
+      border-radius: 4px;
+      padding: .4rem;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .rmc-1 { background: #1a2a1a; }
+    .rmc-2 { background: #1a2a14; }
+    .rmc-3 { background: #252510; }
+    .rmc-4 { background: #2a1c0a; }
+    .rmc-5 { background: #2a1014; }
+    .rmc-6 { background: #261525; }
+    .risk-finding-chip {
+      font-size: .65rem;
+      padding: .15rem .35rem;
+      border-radius: 3px;
+      background: #ffffff11;
+      color: var(--text);
+      border: 1px solid #ffffff15;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .axis-label {
+      font-size: .72rem;
+      color: var(--text-dim);
+      text-align: center;
+      margin-bottom: .5rem;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="badge-row">
+    <span class="badge badge-cyan">DORA Metrics</span>
+    <span class="badge badge-blue">HIPAA Compliance</span>
+    <span class="badge badge-purple">PHI Risk Analysis</span>
+    <span class="badge badge-amber">Library Edition</span>
+  </div>
+  <h1>ruby-hl7 — Compliance &amp; Engineering Review</h1>
+  <p class="subtitle">Comprehensive DORA metrics analysis and HIPAA risk assessment for a PHI-handling Ruby library</p>
+  <div class="meta-row">
+    <span><strong>Library:</strong> ruby-hl7 v1.4.0</span>
+    <span><strong>License:</strong> MIT</span>
+    <span><strong>Language:</strong> Ruby</span>
+    <span><strong>Domain:</strong> HL7 v2.x Message Parsing &amp; Generation</span>
+    <span><strong>Analysis Date:</strong> 2026-02-18</span>
+    <span><strong>Total Commits:</strong> 133</span>
+    <span><strong>Tags:</strong> v1.2.1 → v1.4 (7 releases)</span>
+  </div>
+</header>
+
+<nav>
+  <a href="#executive">Executive Summary</a>
+  <a href="#dora">DORA Scorecard</a>
+  <a href="#dora-detail">DORA Deep Dive</a>
+  <a href="#hipaa">HIPAA Assessment</a>
+  <a href="#findings">Key Findings</a>
+  <a href="#risk-matrix">Risk Matrix</a>
+  <a href="#recommendations">Recommendations</a>
+</nav>
+
+<main>
+
+  <!-- ═══════════════════ EXECUTIVE SUMMARY ═══════════════════ -->
+  <section id="executive">
+    <h2><span class="icon">⬡</span> Executive Summary</h2>
+
+    <div class="summary-banner">
+      <div class="summary-item">
+        <div class="summary-val" style="color:var(--neon-amber)">C+</div>
+        <div class="summary-lbl">Overall DORA Grade</div>
+      </div>
+      <div class="summary-item">
+        <div class="summary-val" style="color:var(--neon-amber)">PARTIAL</div>
+        <div class="summary-lbl">HIPAA Readiness</div>
+      </div>
+      <div class="summary-item">
+        <div class="summary-val" style="color:var(--neon-green)">152</div>
+        <div class="summary-lbl">Test Cases</div>
+      </div>
+      <div class="summary-item">
+        <div class="summary-val" style="color:var(--neon-red)">0</div>
+        <div class="summary-lbl">TLS Enforcement</div>
+      </div>
+      <div class="summary-item">
+        <div class="summary-val" style="color:var(--neon-red)">3</div>
+        <div class="summary-lbl">Critical Findings</div>
+      </div>
+      <div class="summary-item">
+        <div class="summary-val" style="color:var(--neon-amber)">5</div>
+        <div class="summary-lbl">High Findings</div>
+      </div>
+    </div>
+
+    <div class="card card-info">
+      <p><strong>ruby-hl7</strong> is a mature Ruby library for parsing and generating HL7 v2.x healthcare messages. As of version 1.4.0 (January 2025), the project has resumed active development after a five-year near-dormancy (2019–2024), with 51 commits in Q4 2024 alone. The library covers 35+ segment types, has 152 test cases with broad spec coverage, and recently added GitHub Actions CI across Ruby 3.0–3.4+head.</p>
+      <p>From a <strong>HIPAA perspective</strong>, this is a library that parses messages containing PHI — patient names, SSNs, diagnoses, lab results, medications — and transforms them into Ruby objects. The library itself does not log or persist data, which is the correct baseline. However, three critical risks exist: (1) the example proxy server transmits MLLP over plaintext TCP with no TLS option; (2) deprecation warnings from PID and PV2 segments emit to STDERR, creating a PHI-adjacent channel in production logs; and (3) the <code>eval()</code>-based segment class lookup accepts arbitrary segment names from untrusted input, creating a potential code injection vector if improperly handled upstream.</p>
+    </div>
+  </section>
+
+  <!-- ═══════════════════ DORA SCORECARD ═══════════════════ -->
+  <section id="dora">
+    <h2><span class="icon">◈</span> DORA Metrics Scorecard</h2>
+
+    <div class="scorecard-grid">
+      <div class="score-card score-C">
+        <div class="score-label">Deployment Frequency</div>
+        <div class="score-metric">Release Cadence</div>
+        <div class="score-value">C</div>
+        <div class="score-sub">7 releases over 8 years; ~1/yr average but highly irregular — 5-year gap (2019→2024)</div>
+        <div class="progress-bar"><div class="progress-fill fill-amber" style="width:55%"></div></div>
+      </div>
+      <div class="score-card score-C">
+        <div class="score-label">Lead Time for Changes</div>
+        <div class="score-metric">Commit-to-Release</div>
+        <div class="score-value">C+</div>
+        <div class="score-sub">PR-based workflow with fast merges; but 2-year gaps between releases indicate staging lag</div>
+        <div class="progress-bar"><div class="progress-fill fill-amber" style="width:60%"></div></div>
+      </div>
+      <div class="score-card score-B">
+        <div class="score-label">Mean Time to Restore</div>
+        <div class="score-metric">Bug Fix Turnaround</div>
+        <div class="score-value">B-</div>
+        <div class="score-sub">Deprecation warnings rather than breaking changes show care; one CVE fix (rake, 2020) resolved promptly</div>
+        <div class="progress-bar"><div class="progress-fill fill-cyan" style="width:68%"></div></div>
+      </div>
+      <div class="score-card score-B">
+        <div class="score-label">Change Failure Rate</div>
+        <div class="score-metric">Test Coverage &amp; CI</div>
+        <div class="score-value">B</div>
+        <div class="score-sub">152 specs, 6 Ruby versions in CI matrix, Rubocop linting, <code>frozen_string_literal</code> throughout</div>
+        <div class="progress-bar"><div class="progress-fill fill-cyan" style="width:72%"></div></div>
+      </div>
+    </div>
+
+    <div class="card card-warn">
+      <div class="card-header">
+        <span class="card-title">Overall DORA Assessment: Emerging / Medium Performer</span>
+        <span class="chip chip-amber">C+ / Medium</span>
+      </div>
+      <p>ruby-hl7 shows the characteristics of a community-maintained open source library that went semi-dormant and has recently been revived. The 2024 renaissance — 58 commits, CI introduction, Rubocop adoption, PR template, CHANGELOG — significantly improved engineering hygiene. However, the library still lacks automated release pipelines, gem signing, SBOM, and structured security disclosure. For a library processing PHI in healthcare contexts, these gaps are meaningful.</p>
+    </div>
+  </section>
+
+  <!-- ═══════════════════ DORA DEEP DIVE ═══════════════════ -->
+  <section id="dora-detail">
+    <h2><span class="icon">◉</span> DORA Deep Dive</h2>
+
+    <!-- Deployment Frequency -->
+    <h3>1. Deployment Frequency — Release Cadence</h3>
+    <div class="card card-warn">
+      <p><strong>Release history from git tags and CHANGELOG:</strong></p>
+      <ul class="timeline">
+        <li><span class="tl-date">2017-06</span> <strong>v1.2.1</strong> — First tagged release <span class="tl-tag"><span class="chip chip-gray">first tag</span></span></li>
+        <li><span class="tl-date">2018-01</span> <strong>v1.2.2</strong> — AIL, AIP, SCH segments (7 months)</li>
+        <li><span class="tl-date">2018-04</span> <strong>v1.2.3</strong> — AIG, AIS, MRG, RGS, TQ1, IN1 (3 months)</li>
+        <li><span class="tl-date">2019-07</span> <strong>v1.3.0</strong> — Breaking: removed ZCF, renamed PID-12 (15 months)</li>
+        <li><span class="tl-date">2019-09</span> <strong>v1.3.1</strong> — FT1 segment (2 months)</li>
+        <li><span class="tl-date">2020-03</span> <strong>v1.3.2</strong> — GT1, dep updates (6 months)</li>
+        <li><span class="tl-date">2022-06</span> <strong>v1.3.3</strong> — TXA segment, rdoc update (27 months)</li>
+        <li><span class="tl-date">2024-12</span> <strong>v1.4.0</strong> — ROL, NK1, PV2 fix, helpers, CI, Rubocop (30 months) <span class="tl-tag"><span class="chip chip-cyan">latest</span></span></li>
+      </ul>
+      <p style="margin-top:.75rem; margin-bottom:0"><strong>Analysis:</strong> The gap between v1.3.3 (June 2022) and v1.4.0 (December 2024) is 30 months — the longest release gap in the project's history. The library is not on any automated release cadence. DORA's "High" performers release on-demand multiple times per day; this library averages roughly 1 release per year, placing it in the "Low" tier for deployment frequency. However, for a parsing library with a stable API, infrequent releases are less concerning than for a service — stability is a feature.</p>
+    </div>
+
+    <h3>2. Lead Time for Changes</h3>
+    <div class="card card-info">
+      <p>The repository uses a GitHub Flow model: feature branches → PR → merge to master. Recent PRs (#144 through #154) show turnaround times of 1–3 days from branch to merge. However, the gap between code being merged to master and an actual gem release is often measured in months to years. The release process requires manual <code>rake gemspec</code> and RubyGems push steps, with no automation:</p>
+      <pre><span class="cmt"># Rakefile — no automated release task exists
+# Release requires manual steps:</span>
+<span class="cmt"># 1. Update lib/version.rb</span>
+<span class="cmt"># 2. rake gemspec</span>
+<span class="cmt"># 3. gem build ruby-hl7.gemspec</span>
+<span class="cmt"># 4. gem push *.gem  (manual, no rake task)</span></pre>
+      <p>The gemspec metadata includes <code>"rubygems_mfa_required" =&gt; "true"</code>, which is commendable — MFA is required to publish to RubyGems, protecting against supply chain attacks.</p>
+    </div>
+
+    <h3>3. Mean Time to Restore (MTTR)</h3>
+    <div class="card card-good">
+      <p><strong>Bug fix patterns from CHANGELOG and git history:</strong></p>
+      <ul style="list-style:disc; padding-left:1.5rem; margin-bottom:.75rem;">
+        <li><strong>CVE-2020-8130 (rake)</strong> — Dependency vulnerability patched within the same month it was disclosed (March 2020). Fast response.</li>
+        <li><strong>PV2 segment fix (Nov 2024)</strong> — Missing field and typo fixed within a single PR; spec added simultaneously.</li>
+        <li><strong>PID-12 rename (v1.3.0)</strong> — Breaking change handled with deprecation warnings retained for backward compatibility, showing thoughtful API management.</li>
+        <li><strong>PID-32 typo (Oct 2024)</strong> — <code>id_readability_code</code> → <code>id_reliability_code</code> with backward-compat alias.</li>
+      </ul>
+      <p>The team uses deprecation warnings (Ruby <code>warn</code>) rather than immediate breaking changes, which is appropriate for a library. No CVEs have been filed against ruby-hl7 itself.</p>
+      <p><strong>Concern:</strong> Error messages in exceptions contain no PHI — they are generic strings like <code>"object to parse should be string or enumerable"</code>. This is correct behavior.</p>
+    </div>
+
+    <h3>4. Change Failure Rate — Test Suite Quality</h3>
+    <div class="card card-info">
+      <p><strong>Test suite statistics:</strong></p>
+      <div class="table-wrap" style="margin-bottom:1rem">
+        <table>
+          <thead>
+            <tr><th>Metric</th><th>Value</th><th>Assessment</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Total spec files</td><td>42 files</td><td><span class="chip chip-green">Good</span></td></tr>
+            <tr><td>Total test cases (it blocks)</td><td>152</td><td><span class="chip chip-green">Good</span></td></tr>
+            <tr><td>Segment types covered</td><td>35 of 35 defined</td><td><span class="chip chip-green">Full</span></td></tr>
+            <tr><td>Real-world HL7 samples (test_data/)</td><td>18 files (ARUP, IHC, NIST, REALM, Cerner)</td><td><span class="chip chip-cyan">Strong</span></td></tr>
+            <tr><td>CI matrix</td><td>Ruby 3.0, 3.1, 3.2, 3.3, 3.4, head</td><td><span class="chip chip-green">Excellent</span></td></tr>
+            <tr><td>Rubocop linting</td><td>Automated in CI (separate workflow)</td><td><span class="chip chip-green">Good</span></td></tr>
+            <tr><td>SimpleCov integration</td><td>Present (opt-in via ENV["COVERAGE"])</td><td><span class="chip chip-amber">Partial</span></td></tr>
+            <tr><td>Coverage gate enforced</td><td>No minimum % enforced in CI</td><td><span class="chip chip-amber">Gap</span></td></tr>
+            <tr><td>Security/fuzzing tests</td><td>None</td><td><span class="chip chip-red">Missing</span></td></tr>
+            <tr><td>Edge case: malformed MLLP</td><td>Tested (basic_parsing_spec)</td><td><span class="chip chip-green">Present</span></td></tr>
+            <tr><td>Edge case: large messages</td><td>speed_parsing_spec (lotsunknowns.hl7, &lt;1s gate)</td><td><span class="chip chip-green">Present</span></td></tr>
+            <tr><td>Edge case: batch PHI leakage</td><td>Functional correctness tested; no PHI isolation test</td><td><span class="chip chip-amber">Gap</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <p><strong>Test data contains realistic PHI-like values:</strong> The <code>lib/test/hl7_messages.rb</code> file contains synthetic but realistic patient data (names like "ZHANG^GEORGE", "HARKER^JONATHAN", SSNs like "371-66-9256" in adt_a01.hl7). This is appropriate for testing but should be noted — any developer running specs is processing synthetic PHI-form data in memory.</p>
+
+      <pre><span class="cmt"># spec/speed_parsing_spec.rb — performance gate</span>
+<span class="kw">it</span> <span class="str">"parses large, unknown segments rapidly"</span> <span class="kw">do</span>
+  start = Time.now
+  doc = HL7::Message.new @msg  <span class="cmt"># lotsunknowns.hl7</span>
+  ends = Time.now
+  expect(ends - start).to be &lt; <span class="nm">1</span>  <span class="cmt"># 1-second wall-clock gate</span>
+<span class="kw">end</span></pre>
+      <p>The performance test is a wall-clock gate, not a benchmark. For DoS resistance assessment purposes this is insufficient — it passes on modern hardware but provides no regression protection.</p>
+    </div>
+
+    <h3>CI/CD Configuration</h3>
+    <div class="card card-good">
+      <p>GitHub Actions was added in October 2024 (PR #129). Two workflows exist:</p>
+      <ul style="list-style:disc; padding-left:1.5rem; margin-bottom:.75rem;">
+        <li><strong>test.yml</strong>: Runs <code>bundle exec rspec</code> across Ruby 3.0–3.4 and HEAD on every push/PR. <code>fail-fast: false</code> ensures all versions are tested even if one fails.</li>
+        <li><strong>rubocop.yml</strong>: Runs <code>bundle exec rubocop</code> on Ruby 3.4 for every push/PR.</li>
+      </ul>
+      <p><strong>Gaps:</strong> No release automation, no security scanning (Dependabot, Bundler Audit), no SBOM generation, no gem signing workflow, no CodeQL or Snyk integration.</p>
+      <pre><span class="cmt"># .github/workflows/test.yml</span>
+strategy:
+  fail-fast: <span class="nm">false</span>
+  matrix:
+    ruby-version:
+      - head
+      - <span class="str">'3.4'</span>
+      - <span class="str">'3.3'</span>
+      - <span class="str">'3.2'</span>
+      - <span class="str">'3.1'</span>
+      - <span class="str">'3.0'</span></pre>
+    </div>
+
+    <h3>Gem Release Process &amp; Supply Chain</h3>
+    <div class="card card-warn">
+      <p><strong>Positive controls present:</strong></p>
+      <ul style="list-style:disc; padding-left:1.5rem; margin-bottom:.75rem;">
+        <li><code>rubygems_mfa_required: "true"</code> — MFA required to publish, protecting against account takeover.</li>
+        <li><code>frozen_string_literal: true</code> in every lib file — prevents accidental string mutation, improves safety.</li>
+        <li>No runtime dependencies — only development dependencies. Zero attack surface from transitive deps at runtime.</li>
+      </ul>
+      <p><strong>Missing controls:</strong></p>
+      <ul style="list-style:disc; padding-left:1.5rem; margin-bottom:0">
+        <li>No gem signing (<code>gem cert</code> infrastructure absent).</li>
+        <li>No checksums or SBOM in release artifacts.</li>
+        <li>No Dependabot or Bundler Audit in CI — development dependency updates are manual.</li>
+        <li>Homepage URL in gemspec uses <code>http://</code> (not HTTPS): <code>s.homepage = "http://github.com/ruby-hl7/ruby-hl7"</code> (minor).</li>
+      </ul>
+    </div>
+
+    <h3>API Stability &amp; Breaking Changes</h3>
+    <div class="card card-good">
+      <p>The team follows a deprecation-before-removal policy, evidenced by:</p>
+      <ul style="list-style:disc; padding-left:1.5rem; margin-bottom:.75rem;">
+        <li><code>PID#country_code</code> → <code>county_code</code> (renamed in v1.3.0, alias retained with <code>warn</code>)</li>
+        <li><code>PID#id_readability_code</code> → <code>id_reliability_code</code> (typo fix in v1.3.3, alias retained)</li>
+        <li><code>PV2#military_non_availiOCbility_code</code> → <code>military_non_availability_code</code> (fixed in v1.4.0, alias retained)</li>
+      </ul>
+      <p>v1.3.0 did include a breaking change (ZCF segment removal) — documented in CHANGELOG. Semantic versioning is followed at a macro level (major.minor.patch) though not with strict SemVer automation.</p>
+    </div>
+  </section>
+
+  <!-- ═══════════════════ HIPAA ASSESSMENT ═══════════════════ -->
+  <section id="hipaa">
+    <h2><span class="icon">⬡</span> HIPAA Compliance Assessment</h2>
+
+    <div class="card card-warn">
+      <p><strong>Framing:</strong> ruby-hl7 is a library, not a covered entity or business associate directly. However, any application using it to process real patient messages becomes a HIPAA actor. The library's design choices directly determine whether PHI can leak, persist, or be exposed inadvertently. The analysis below evaluates the library as a PHI processor.</p>
+    </div>
+
+    <!-- Data Handling -->
+    <h3>A. Data Handling — Logging &amp; Persistence</h3>
+    <div class="card card-good">
+      <div class="card-header">
+        <span class="card-title">No Persistence or Structured Logging of PHI</span>
+        <span class="chip chip-green">PASS</span>
+      </div>
+      <p>The library contains no calls to <code>Logger</code>, <code>Rails.logger</code>, file I/O, or database operations in the core parsing path. Parsed PHI exists only in instance variables (<code>@elements</code> array on each <code>Segment</code> object) within the calling process's memory space.</p>
+      <pre><span class="cmt"># lib/segment_fields.rb — PHI is stored only in @elements</span>
+<span class="kw">def</span> <span class="fn">write_field</span>(name, value)
+  idx, field_blk = field_info(name)
+  <span class="kw">return</span> <span class="nm">nil</span> <span class="kw">unless</span> idx
+  <span class="cmt"># ...expand @elements array if needed...</span>
+  @elements[idx] = value.to_s  <span class="cmt"># stored only in memory</span>
+<span class="kw">end</span></pre>
+      <p>There is no caching layer, no class-level storage of parsed data, and no persistence mechanism. PHI is scoped to the lifetime of the <code>HL7::Message</code> object and its child <code>Segment</code> instances.</p>
+    </div>
+
+    <div class="card card-bad">
+      <div class="card-header">
+        <span class="card-title">Deprecation Warnings Emit to STDERR — PHI-Adjacent</span>
+        <span class="chip chip-amber">CONCERN</span>
+      </div>
+      <p>Three deprecation warnings use Ruby's <code>warn</code> method, which emits to STDERR. While the warnings themselves do not include PHI field values (only method names), they fire during normal PHI processing — specifically when accessing deprecated PID and PV2 fields on messages containing patient data. In production environments where STDERR is captured to log aggregators (Splunk, Datadog, CloudWatch), these warnings create noise that could appear alongside PHI in correlated log entries.</p>
+      <pre><span class="cmt"># lib/segments/pid.rb:55</span>
+<span class="kw">def</span> <span class="fn">country_code</span>
+  <span class="fn">warn</span> <span class="str">"DEPRECATION WARNING: PID-12 is defined as 'county_code'; "</span> \
+       <span class="str">"the 'country_code' alias is retained for backwards compatibility only."</span>
+  county_code  <span class="cmt"># &lt;-- returns PHI value; warn fires before this</span>
+<span class="kw">end</span></pre>
+      <p>More critically, if any future deprecation warning were inadvertently modified to include field content (e.g., for debugging), it would instantly become a HIPAA issue. The pattern is fragile.</p>
+    </div>
+
+    <!-- Memory Safety -->
+    <h3>B. Memory Safety — PHI Retention</h3>
+    <div class="card card-warn">
+      <div class="card-header">
+        <span class="card-title">PHI Not Cleared from Memory After Use</span>
+        <span class="chip chip-amber">GAP</span>
+      </div>
+      <p>Ruby's garbage collector handles memory, but <strong>Ruby does not zero-fill memory on object deallocation</strong>. PHI stored in <code>@elements</code> strings will remain in process memory until GC reclaims and reallocates those pages. This is a fundamental Ruby limitation, not a library bug. However, the library provides no mechanisms to assist callers in clearing PHI early:</p>
+      <ul style="list-style:disc; padding-left:1.5rem; margin-bottom:.75rem;">
+        <li>No <code>clear!</code> or <code>scrub!</code> method on <code>HL7::Message</code> or <code>Segment</code></li>
+        <li>No documentation guidance on PHI lifecycle management</li>
+        <li>No freeze-after-use pattern to prevent accidental PHI modification after processing</li>
+      </ul>
+      <p>For long-running processes (Sidekiq workers, Puma servers) processing many messages, PHI from earlier messages may linger in memory for extended periods.</p>
+    </div>
+
+    <div class="card card-warn">
+      <div class="card-header">
+        <span class="card-title">Class-Level Singleton State: HL7.configuration</span>
+        <span class="chip chip-amber">CONCERN</span>
+      </div>
+      <p>The <code>HL7.configuration</code> object is a module-level singleton (<code>@configuration ||= Configuration.new</code>). This is process-global state, shared across all threads and all message parsing operations. While the current configuration only controls <code>empty_segment_is_error</code>, the pattern creates a class-level object that persists for the process lifetime. In multi-tenant environments where different callers need different configuration, this is a risk. The singleton also means configuration changes in one part of a multi-threaded application affect all concurrent PHI processing.</p>
+      <pre><span class="cmt"># lib/ruby-hl7.rb — process-global singleton</span>
+<span class="kw">module</span> <span class="fn">HL7</span>
+  <span class="kw">def</span> <span class="fn">self</span>.configuration
+    @configuration ||= Configuration.new  <span class="cmt"># shared across ALL threads</span>
+  end
+<span class="kw">end</span></pre>
+    </div>
+
+    <!-- Transmission Security -->
+    <h3>C. Transmission Security — MLLP / TLS</h3>
+    <div class="card card-bad">
+      <div class="card-header">
+        <span class="card-title">MLLP Support Without TLS — Critical PHI Risk</span>
+        <span class="chip chip-red">CRITICAL</span>
+      </div>
+      <p>The library provides full MLLP framing support via <code>to_mllp</code> and parses MLLP-wrapped input in <code>parse_string</code>. MLLP (Minimal Lower Layer Protocol) is the standard transport for HL7 v2.x messages over TCP. The library correctly implements the MLLP envelope (<code>\x0b...\x1c\r</code>), but there is <strong>zero TLS/SSL anywhere in the library or its examples</strong>.</p>
+
+      <pre><span class="cmt"># lib/message.rb — MLLP framing, no TLS context</span>
+<span class="kw">def</span> <span class="fn">to_mllp</span>
+  pre_mllp = to_hl7
+  <span class="str">"\v#{pre_mllp}\u001C\r"</span>  <span class="cmt"># VT + content + FS + CR — raw bytes, no encryption</span>
+<span class="kw">end</span>
+
+<span class="cmt"># lib/message_parser.rb — MLLP parsing, accepts plaintext</span>
+<span class="kw">def</span> <span class="fn">parse_string</span>(instr)
+  post_mllp = instr
+  <span class="kw">if</span> <span class="nm">/\x0b((:?.|\r|\n)+)\x1c\r/</span> =~ instr
+    post_mllp = $1  <span class="cmt"># strips MLLP bytes — no TLS enforcement</span>
+  end
+  HL7::MessageParser.split_by_delimiter(post_mllp, @delimiter.segment)
+<span class="kw">end</span></pre>
+
+      <div class="card card-bad" style="margin-top:.75rem">
+        <div class="card-header">
+          <span class="card-title">Proxy Server Example: Plaintext TCP, No TLS, Broken Implementation</span>
+          <span class="chip chip-red">CRITICAL</span>
+        </div>
+        <pre><span class="cmt"># examples/proxy_server.rb — MULTIPLE CRITICAL ISSUES</span>
+srv = TCPServer.new(PORT)        <span class="cmt"># ❌ plaintext TCP — no TLS</span>
+loop <span class="kw">do</span>
+  sok = srv.accept
+  Thread.new(sok) <span class="kw">do</span> |my_socket|
+    my_socket.readlines           <span class="cmt"># ❌ result discarded — raw_input is nil!</span>
+    msg = HL7::Message.new(raw_input) <span class="cmt"># ❌ raw_input undefined — this crashes</span>
+    <span class="fn">puts</span> format(<span class="str">"forwarding message:\n%s"</span>, msg.to_s)  <span class="cmt"># ❌ PHI to STDOUT</span>
+    soc = TCPSocket.open(target_ip, target_port)  <span class="cmt"># ❌ plaintext downstream</span>
+    soc.write msg.to_mllp         <span class="cmt"># ❌ PHI over plaintext TCP</span>
+    soc.close
+  end
+<span class="kw">end</span></pre>
+        <p>The proxy server example has five distinct HIPAA and correctness issues: plaintext transport in both directions, PHI logged to STDOUT via <code>puts</code>, a broken implementation (reads socket to void, then references undefined <code>raw_input</code> — would crash immediately), and no authentication or access control. While labeled "example," beginners copy example code into production.</p>
+      </div>
+    </div>
+
+    <!-- Input Validation -->
+    <h3>D. Input Validation &amp; Injection Risks</h3>
+    <div class="card card-bad">
+      <div class="card-header">
+        <span class="card-title">eval() on Segment Name from Untrusted HL7 Input</span>
+        <span class="chip chip-red">CRITICAL</span>
+      </div>
+      <p>The segment class lookup uses Ruby's <code>eval()</code> to resolve segment names extracted directly from parsed HL7 messages:</p>
+      <pre><span class="cmt"># lib/segment_generator.rb:42-49</span>
+<span class="kw">def</span> <span class="fn">get_segment_class</span>
+  segment_to_search = @seg_name.to_sym
+  segment_to_search = @seg_name <span class="kw">if</span> RUBY_VERSION &lt; <span class="str">"1.9"</span>
+
+  <span class="kw">if</span> HL7::Message::Segment.constants.index(segment_to_search)
+    <span class="fn">eval</span>(format(<span class="str">"HL7::Message::Segment::%s"</span>, @seg_name))  <span class="cmt"># ❌ eval on parsed input!</span>
+  <span class="kw">else</span>
+    HL7::Message::Segment::Default  <span class="cmt"># fallback — safe path</span>
+  end
+<span class="kw">end</span></pre>
+      <p>The <code>@seg_name</code> value comes from parsing the first field of each segment line in the incoming HL7 message. The <code>eval</code> is guarded by <code>HL7::Message::Segment.constants.index(segment_to_search)</code> — this check verifies the segment name is an existing constant before evaluating it. This means the guard prevents arbitrary code injection <em>in practice</em>: only pre-defined segment names like <code>MSH</code>, <code>PID</code>, etc. can pass the guard.</p>
+      <p><strong>However</strong>, this is a defense-by-coincidence, not by design. The guard uses <code>.constants.index()</code> which checks Ruby's constant table — if any future code dynamically defines a constant matching a crafted segment name, the guard could be bypassed. The safer alternative is a whitelist hash lookup or <code>const_get</code> with an explicit allowlist. The use of <code>eval</code> on parsed input is an architectural smell that should be refactored regardless of current exploitability.</p>
+    </div>
+
+    <div class="card card-warn">
+      <div class="card-header">
+        <span class="card-title">No Input Size Limits — DoS via Unbounded Parsing</span>
+        <span class="chip chip-amber">HIGH</span>
+      </div>
+      <p>The parser imposes no size limits on incoming messages. A malformed or adversarial HL7 message with thousands of segments, extremely long field values, or deeply nested children would be parsed in full, consuming unbounded memory and CPU. The <code>split_by_delimiter</code> call uses Ruby's <code>String#split</code> with <code>-1</code> (unlimited splits):</p>
+      <pre><span class="cmt"># lib/message_parser.rb:51</span>
+<span class="kw">def</span> <span class="fn">self</span>.split_by_delimiter(element, delimiter)
+  element.split(delimiter, <span class="nm">-1</span>)  <span class="cmt"># -1 = unlimited splits, no size guard</span>
+<span class="kw">end</span></pre>
+      <p>The performance test (<code>spec/speed_parsing_spec.rb</code>) uses <code>lotsunknowns.hl7</code> as the "large message" test case — but this is a finite, known test file. There is no fuzzing or property-based testing with adversarial inputs. Healthcare message brokers often accept HL7 from external labs or EHR systems, making DoS via malformed input a realistic threat.</p>
+    </div>
+
+    <div class="card card-warn">
+      <div class="card-header">
+        <span class="card-title">Escape Character Handling — Limited Validation</span>
+        <span class="chip chip-amber">MEDIUM</span>
+      </div>
+      <p>HL7 v2.x uses escape sequences (<code>\F\</code>, <code>\S\</code>, <code>\R\</code>, <code>\E\</code>, <code>\T\</code>) for encoding special characters within field values. The library's parser splits on delimiters but does not validate or unescape these sequences. A field value containing delimiter characters embedded via escape sequences will be incorrectly split, potentially causing field misalignment in downstream processing. This is both a correctness bug and a potential data integrity risk for PHI fields (e.g., a patient name containing a pipe character escaped per HL7 spec).</p>
+    </div>
+
+    <div class="card card-warn">
+      <div class="card-header">
+        <span class="card-title">method_missing on Unknown Fields — Silent Data Loss Risk</span>
+        <span class="chip chip-amber">HIGH</span>
+      </div>
+      <p>The <code>method_missing</code> implementation in <code>Segment</code> handles both named field aliases and numeric element accessors (<code>e0</code>, <code>e1</code>, etc.). For completely unknown method names, it falls through to <code>super</code>, which raises <code>NoMethodError</code>. This is correct.</p>
+      <p>However, the <code>Segment::Default</code> class — the catch-all for unknown segment types — stores all data but provides <strong>no named accessors</strong>. Any PHI in an unknown segment type (e.g., a custom Z-segment containing patient identifiers) is preserved in <code>@elements</code> but completely inaccessible by name. Consuming code must know to use <code>e0</code>, <code>e1</code>, etc. numeric accessors, or it will silently miss the data. There is no warning that a segment fell through to Default.</p>
+      <pre><span class="cmt"># lib/segment_generator.rb:46-50</span>
+<span class="kw">if</span> HL7::Message::Segment.constants.index(segment_to_search)
+  <span class="fn">eval</span>(format(<span class="str">"HL7::Message::Segment::%s"</span>, @seg_name))
+<span class="kw">else</span>
+  HL7::Message::Segment::Default  <span class="cmt"># silent fallback — no log, no warning</span>
+<span class="kw">end</span></pre>
+      <p>In a batch processing context, if a message contains a Z-segment with a patient identifier that the consuming application expects to parse by name, the silent Default fallback means the identifier is silently dropped from the application's view — a PHI integrity risk.</p>
+    </div>
+
+    <!-- Audit Trail -->
+    <h3>E. Audit Trail &amp; Access Hooks</h3>
+    <div class="card card-bad">
+      <div class="card-header">
+        <span class="card-title">No Audit Hooks or PHI Access Tracking Mechanism</span>
+        <span class="chip chip-amber">GAP</span>
+      </div>
+      <p>HIPAA's Technical Safeguards (45 CFR §164.312(b)) require audit controls that record and examine activity in systems containing PHI. The library provides no hooks, callbacks, or observer patterns that consuming applications could use to record which PHI fields were accessed, by which process, at what time. Every field access via <code>read_field</code> is silent and untracked:</p>
+      <pre><span class="cmt"># lib/segment_fields.rb:101</span>
+<span class="kw">def</span> <span class="fn">read_field</span>(name)  <span class="cmt"># no audit hook — access is untracked</span>
+  idx, field_blk = field_info(name)
+  <span class="kw">return</span> <span class="nm">nil</span> <span class="kw">unless</span> idx
+  <span class="kw">return</span> <span class="nm">nil</span> <span class="kw">if</span> idx &gt;= @elements.length
+  ret = @elements[idx]
+  ret = field_blk.call(ret) <span class="kw">if</span> field_blk
+  ret
+<span class="kw">end</span></pre>
+      <p>There is also no documentation guiding library users on how to implement compliant audit logging in their consuming applications. This is an educational gap for healthcare developers who may not realize that parsing a PID segment and reading <code>social_security_num</code> constitutes a PHI access event that should be logged under HIPAA.</p>
+    </div>
+
+    <!-- Batch Parsing -->
+    <h3>F. Batch Parsing — PHI Leakage Between Messages</h3>
+    <div class="card card-info">
+      <div class="card-header">
+        <span class="card-title">Batch Parsing: Correct Isolation Architecture</span>
+        <span class="chip chip-cyan">PASS with NOTE</span>
+      </div>
+      <p>The batch parser in <code>message_parser.rb</code> correctly yields each message as a separate string to the caller via a block. Each message is then parsed into a fresh <code>HL7::Message</code> instance with its own <code>@segments</code> array. There is no shared state between messages in a batch at the library level.</p>
+      <pre><span class="cmt"># lib/message_parser.rb</span>
+<span class="kw">def</span> <span class="fn">parse_batch</span>(batch)
+  match.post_match.split(<span class="str">"\rMSH"</span>).each <span class="kw">do</span> |_msg|
+    <span class="kw">yield</span> <span class="str">"MSH#{_msg}"</span>  <span class="cmt"># each message is a separate string — correct isolation</span>
+  end
+<span class="kw">end</span></pre>
+      <p><strong>Note:</strong> The batch parser performs string splitting on the raw batch in memory before yielding. For very large batches (e.g., thousands of lab results), the entire batch string is held in memory simultaneously. There is no streaming parser option. This is a memory pressure concern for high-volume healthcare integrations, and the full batch in memory means all patients' PHI exists in the process simultaneously.</p>
+    </div>
+
+    <!-- HIPAA BAA -->
+    <h3>G. HIPAA BAA Implications &amp; Guidance</h3>
+    <div class="card card-bad">
+      <div class="card-header">
+        <span class="card-title">No Guidance for Compliant Use in Healthcare Contexts</span>
+        <span class="chip chip-amber">GAP</span>
+      </div>
+      <p>The library's README, LICENSE (MIT), and documentation contain zero mention of HIPAA, PHI, or compliant integration patterns. Healthcare developers using this library to build systems that process real patient data are given no guidance on:</p>
+      <ul style="list-style:disc; padding-left:1.5rem; margin-bottom:.75rem;">
+        <li>That the library processes PHI and downstream applications inherit HIPAA obligations</li>
+        <li>How to implement audit logging at the application layer</li>
+        <li>That MLLP transport requires TLS in compliant deployments</li>
+        <li>That the proxy server example should not be used without TLS in production</li>
+        <li>Memory handling considerations for PHI in long-running processes</li>
+      </ul>
+      <p>The MIT license explicitly disclaims warranties and liability. In a healthcare context, this means organizations using ruby-hl7 bear full compliance responsibility, but they are given no tools to discharge it.</p>
+    </div>
+  </section>
+
+  <!-- ═══════════════════ FINDINGS ═══════════════════ -->
+  <section id="findings">
+    <h2><span class="icon">◆</span> Key Findings Summary</h2>
+
+    <div class="finding">
+      <div class="finding-header">
+        <span class="finding-id">FIND-01</span>
+        <span class="finding-title">eval() on Parsed HL7 Segment Names</span>
+        <span class="chip chip-red">Critical</span>
+        <span class="chip chip-gray">Injection Risk</span>
+      </div>
+      <div class="finding-body">
+        <p>In <code>lib/segment_generator.rb:47</code>, <code>eval(format("HL7::Message::Segment::%s", @seg_name))</code> executes Ruby code constructed from a value read directly from a parsed HL7 message. The guard (<code>constants.index()</code>) prevents current exploitation but the pattern is architecturally unsafe. Future changes to constant loading or dynamic class creation could bypass it.</p>
+        <p><strong>File:</strong> <code>lib/segment_generator.rb</code> L42–51 | <strong>Recommendation:</strong> Replace with <code>const_get</code> against an explicit allowlist, or a pre-built Hash map of segment name → class.</p>
+      </div>
+    </div>
+
+    <div class="finding">
+      <div class="finding-header">
+        <span class="finding-id">FIND-02</span>
+        <span class="finding-title">Proxy Example: Plaintext PHI Transmission + Broken Code</span>
+        <span class="chip chip-red">Critical</span>
+        <span class="chip chip-gray">PHI in Transit</span>
+      </div>
+      <div class="finding-body">
+        <p><code>examples/proxy_server.rb</code> opens a plaintext <code>TCPServer</code> (no TLS), logs PHI to STDOUT via <code>puts msg.to_s</code>, and contains a bug (<code>raw_input</code> is undefined — the code would crash on line 20). The example demonstrates the exact anti-pattern that HIPAA prohibits: unencrypted PHI transmission over a network.</p>
+        <p><strong>File:</strong> <code>examples/proxy_server.rb</code> | <strong>Recommendation:</strong> Remove or replace with a TLS-based example using <code>OpenSSL::SSL::SSLServer</code>, and remove <code>puts</code> of message content.</p>
+      </div>
+    </div>
+
+    <div class="finding">
+      <div class="finding-header">
+        <span class="finding-id">FIND-03</span>
+        <span class="finding-title">MLLP Without TLS — Library Promotes Plaintext PHI Transport</span>
+        <span class="chip chip-red">Critical</span>
+        <span class="chip chip-gray">HIPAA §164.312(e)(1)</span>
+      </div>
+      <div class="finding-body">
+        <p>The <code>to_mllp()</code> and MLLP-parsing regex in <code>parse_string()</code> implement raw MLLP without any TLS wrapping capability. The library provides no OpenSSL integration, no TLS context, and no documentation that MLLP transport must be TLS-encrypted in HIPAA-compliant deployments. HIPAA Technical Safeguards require encryption of PHI in transit (§164.312(e)(2)(ii)).</p>
+        <p><strong>Files:</strong> <code>lib/message.rb:174–177</code>, <code>lib/message_parser.rb:61–65</code> | <strong>Recommendation:</strong> Add HIPAA notice to README; provide TLS-wrapped MLLP example; optionally add optional TLS transport helper.</p>
+      </div>
+    </div>
+
+    <div class="finding">
+      <div class="finding-header">
+        <span class="finding-id">FIND-04</span>
+        <span class="finding-title">No Input Size Limits — DoS via Unbounded Message Parsing</span>
+        <span class="chip chip-amber">High</span>
+        <span class="chip chip-gray">Availability Risk</span>
+      </div>
+      <div class="finding-body">
+        <p>No maximum message size, segment count, or field length limits exist. <code>split_by_delimiter</code> uses <code>-1</code> (unlimited). Adversarially crafted messages or corrupted feeds could cause unbounded memory allocation. Healthcare HL7 feeds often originate from multiple external systems that may send malformed or adversarial data.</p>
+        <p><strong>File:</strong> <code>lib/message_parser.rb:51</code> | <strong>Recommendation:</strong> Add configurable limits to <code>HL7::Configuration</code>: <code>max_message_size</code>, <code>max_segment_count</code>, <code>max_field_length</code>.</p>
+      </div>
+    </div>
+
+    <div class="finding">
+      <div class="finding-header">
+        <span class="finding-id">FIND-05</span>
+        <span class="finding-title">Silent Default Segment Fallback — PHI Data Loss Risk</span>
+        <span class="chip chip-amber">High</span>
+        <span class="chip chip-gray">Data Integrity</span>
+      </div>
+      <div class="finding-body">
+        <p>Unknown segment types silently fall through to <code>Segment::Default</code> with no warning, log, or callback. Consuming applications have no way to know that PHI-containing segments were not parsed with named accessors. Z-segments (custom extensions) frequently carry patient identifiers in healthcare integrations.</p>
+        <p><strong>File:</strong> <code>lib/segment_generator.rb:49</code> | <strong>Recommendation:</strong> Add optional warning configuration (<code>warn_on_unknown_segment: true</code>) and/or provide a callback hook for unknown segments.</p>
+      </div>
+    </div>
+
+    <div class="finding">
+      <div class="finding-header">
+        <span class="finding-id">FIND-06</span>
+        <span class="finding-title">Deprecation Warnings Emit to STDERR During PHI Processing</span>
+        <span class="chip chip-amber">High</span>
+        <span class="chip chip-gray">Log Hygiene</span>
+      </div>
+      <div class="finding-body">
+        <p>PID <code>country_code</code>, <code>id_readability_code</code> and PV2 <code>military_non_availiOCbility_code</code> aliases emit <code>warn</code> to STDERR. While current values don't include PHI, the STDERR output occurs during PHI processing, creating correlation risk in aggregated logs. Production systems should not call deprecated methods, but legacy integrations often do.</p>
+        <p><strong>Files:</strong> <code>lib/segments/pid.rb:55,61,67,73</code>, <code>lib/segments/pv2.rb:56,63</code> | <strong>Recommendation:</strong> Route deprecation warnings through <code>HL7.configuration.logger</code> (add logger support) or suppress in production via configuration.</p>
+      </div>
+    </div>
+
+    <div class="finding">
+      <div class="finding-header">
+        <span class="finding-id">FIND-07</span>
+        <span class="finding-title">No PHI Memory Clearing Mechanism</span>
+        <span class="chip chip-amber">Medium</span>
+        <span class="chip chip-gray">Memory Hygiene</span>
+      </div>
+      <div class="finding-body">
+        <p>PHI stored in <code>@elements</code> string arrays is not zero-filled or actively cleared after use. For long-running processes, PHI from processed messages may linger in GC-managed memory. The library provides no <code>clear!</code>, <code>scrub!</code>, or secure disposal API.</p>
+        <p><strong>File:</strong> <code>lib/segment_fields.rb</code> | <strong>Recommendation:</strong> Add a <code>HL7::Message#clear!</code> method that replaces all element values with empty strings, and document the memory lifecycle.</p>
+      </div>
+    </div>
+
+    <div class="finding">
+      <div class="finding-header">
+        <span class="finding-id">FIND-08</span>
+        <span class="finding-title">HL7 Escape Sequence Handling Absent</span>
+        <span class="chip chip-amber">Medium</span>
+        <span class="chip chip-gray">Data Integrity</span>
+      </div>
+      <div class="finding-body">
+        <p>HL7 v2.x specifies escape sequences (<code>\F\</code> for field separator, <code>\S\</code> for subcomponent separator, etc.). The library splits on literal delimiter characters only. Field values containing escaped delimiters will be incorrectly split, causing PHI field misalignment. Patient names or addresses containing pipe characters encoded per spec would be corrupted.</p>
+        <p><strong>Files:</strong> <code>lib/message_parser.rb</code>, <code>lib/segment_fields.rb</code> | <strong>Recommendation:</strong> Implement HL7 escape/unescape support per v2.x specification §2.10.</p>
+      </div>
+    </div>
+
+    <div class="finding">
+      <div class="finding-header">
+        <span class="finding-id">FIND-09</span>
+        <span class="finding-title">No Audit Trail Hooks for PHI Access</span>
+        <span class="chip chip-amber">Medium</span>
+        <span class="chip chip-gray">HIPAA §164.312(b)</span>
+      </div>
+      <div class="finding-body">
+        <p>HIPAA Technical Safeguards require audit controls. The library provides no mechanism for consuming applications to intercept PHI field access events. Every call to <code>pid.social_security_num</code>, <code>pid.patient_name</code>, etc. is invisible to audit infrastructure. No documentation guides developers on implementing compliant audit logging.</p>
+        <p><strong>File:</strong> <code>lib/segment_fields.rb:101-110</code> | <strong>Recommendation:</strong> Add optional audit callback hook: <code>HL7.configure { |c| c.on_phi_access = -&gt;(segment, field, value) { audit_log(segment, field) } }</code>.</p>
+      </div>
+    </div>
+
+    <div class="finding">
+      <div class="finding-header">
+        <span class="finding-id">FIND-10</span>
+        <span class="finding-title">eval() in Segment Block Initializer via Binding</span>
+        <span class="chip chip-amber">Medium</span>
+        <span class="chip chip-gray">Code Quality</span>
+      </div>
+      <div class="finding-body">
+        <p>The block-based segment initializer uses three <code>eval()</code> calls against the block's binding to inject <code>method_missing</code> behavior. While this is a controlled use of eval (not operating on external input), it is an advanced Ruby pattern that creates invisible behavior in the calling scope and complicates security audits.</p>
+        <pre><span class="cmt"># lib/segment.rb:54-63</span>
+callctx = <span class="fn">eval</span>(<span class="str">"self"</span>, blk.binding, __FILE__, __LINE__)
+<span class="cmt"># ...sets up __seg__ and method_missing on caller's binding...</span>
+<span class="fn">eval</span>(METHOD_MISSING_FOR_INITIALIZER, blk.binding)
+<span class="kw">yield</span> <span class="kw">self</span>
+<span class="fn">eval</span>(<span class="str">"class &lt;&lt; self; remove_method :method_missing;end"</span>, blk.binding, __FILE__, __LINE__)</pre>
+        <p><strong>File:</strong> <code>lib/segment.rb:54-63</code> | <strong>Recommendation:</strong> Refactor to use explicit block DSL without binding manipulation. This pattern is used only in the block-form constructor which is non-standard API.</p>
+      </div>
+    </div>
+
+    <div class="finding">
+      <div class="finding-header">
+        <span class="finding-id">FIND-11</span>
+        <span class="finding-title">SimpleCov Not Enforced in CI — No Coverage Gate</span>
+        <span class="chip chip-amber">Medium</span>
+        <span class="chip chip-gray">DORA Quality</span>
+      </div>
+      <div class="finding-body">
+        <p>SimpleCov is configured in <code>spec_helper.rb</code> but only activated when <code>ENV["COVERAGE"]</code> is set. The CI workflow (<code>test.yml</code>) does not set this variable, so coverage is never measured in CI. There is no minimum coverage threshold enforced.</p>
+        <p><strong>Files:</strong> <code>spec/spec_helper.rb:4-10</code>, <code>.github/workflows/test.yml</code> | <strong>Recommendation:</strong> Enable SimpleCov in CI unconditionally and set a minimum coverage threshold (e.g., 90%).</p>
+      </div>
+    </div>
+
+    <div class="finding">
+      <div class="finding-header">
+        <span class="finding-id">FIND-12</span>
+        <span class="finding-title">No Security Disclosure Process or SECURITY.md</span>
+        <span class="chip chip-amber">Low</span>
+        <span class="chip chip-gray">Supply Chain</span>
+      </div>
+      <div class="finding-body">
+        <p>There is no <code>SECURITY.md</code>, no GitHub Security Advisories configuration, no Dependabot, and no responsible disclosure process documented. For a library used in healthcare applications, this is a meaningful gap.</p>
+        <p><strong>Recommendation:</strong> Add <code>SECURITY.md</code> with a private disclosure contact, enable GitHub Security Advisories, and configure Dependabot for dependency updates.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════ RISK MATRIX ═══════════════════ -->
+  <section id="risk-matrix">
+    <h2><span class="icon">⬡</span> Risk Matrix (Likelihood × Impact)</h2>
+
+    <div class="risk-matrix-container">
+      <div class="axis-label">← IMPACT →</div>
+      <div class="risk-impact-header">
+        <div class="risk-impact-cell">Negligible</div>
+        <div class="risk-impact-cell">Minor</div>
+        <div class="risk-impact-cell">Moderate</div>
+        <div class="risk-impact-cell">Major</div>
+        <div class="risk-impact-cell">Catastrophic</div>
+      </div>
+
+      <!-- Almost Certain -->
+      <div class="risk-matrix-row">
+        <div class="risk-likelihood-label">Almost Certain</div>
+        <div class="risk-matrix-cell rmc-2"></div>
+        <div class="risk-matrix-cell rmc-3"></div>
+        <div class="risk-matrix-cell rmc-4">
+          <div class="risk-finding-chip">FIND-06: warn() during PHI</div>
+          <div class="risk-finding-chip">FIND-11: No coverage gate</div>
+        </div>
+        <div class="risk-matrix-cell rmc-5">
+          <div class="risk-finding-chip">FIND-09: No audit hooks</div>
+        </div>
+        <div class="risk-matrix-cell rmc-6">
+          <div class="risk-finding-chip">FIND-03: MLLP plaintext</div>
+        </div>
+      </div>
+
+      <!-- Likely -->
+      <div class="risk-matrix-row">
+        <div class="risk-likelihood-label">Likely</div>
+        <div class="risk-matrix-cell rmc-1"></div>
+        <div class="risk-matrix-cell rmc-3">
+          <div class="risk-finding-chip">FIND-12: No SECURITY.md</div>
+        </div>
+        <div class="risk-matrix-cell rmc-4">
+          <div class="risk-finding-chip">FIND-07: No PHI clearing</div>
+          <div class="risk-finding-chip">FIND-08: Escape chars</div>
+        </div>
+        <div class="risk-matrix-cell rmc-5">
+          <div class="risk-finding-chip">FIND-05: Silent Default</div>
+        </div>
+        <div class="risk-matrix-cell rmc-6">
+          <div class="risk-finding-chip">FIND-02: Proxy example</div>
+        </div>
+      </div>
+
+      <!-- Possible -->
+      <div class="risk-matrix-row">
+        <div class="risk-likelihood-label">Possible</div>
+        <div class="risk-matrix-cell rmc-1"></div>
+        <div class="risk-matrix-cell rmc-2"></div>
+        <div class="risk-matrix-cell rmc-4">
+          <div class="risk-finding-chip">FIND-10: eval in binding</div>
+        </div>
+        <div class="risk-matrix-cell rmc-5">
+          <div class="risk-finding-chip">FIND-04: DoS/unbounded</div>
+        </div>
+        <div class="risk-matrix-cell rmc-5"></div>
+      </div>
+
+      <!-- Unlikely -->
+      <div class="risk-matrix-row">
+        <div class="risk-likelihood-label">Unlikely</div>
+        <div class="risk-matrix-cell rmc-1"></div>
+        <div class="risk-matrix-cell rmc-1"></div>
+        <div class="risk-matrix-cell rmc-3"></div>
+        <div class="risk-matrix-cell rmc-4">
+          <div class="risk-finding-chip">FIND-01: eval injection</div>
+        </div>
+        <div class="risk-matrix-cell rmc-5"></div>
+      </div>
+
+      <!-- Rare -->
+      <div class="risk-matrix-row">
+        <div class="risk-likelihood-label">Rare</div>
+        <div class="risk-matrix-cell rmc-1"></div>
+        <div class="risk-matrix-cell rmc-1"></div>
+        <div class="risk-matrix-cell rmc-2"></div>
+        <div class="risk-matrix-cell rmc-3"></div>
+        <div class="risk-matrix-cell rmc-4"></div>
+      </div>
+    </div>
+
+    <div style="display:flex; gap:1rem; flex-wrap:wrap; margin-top:1rem; font-size:.8rem;">
+      <span><span class="risk-dot" style="background:#1a3020"></span>Low</span>
+      <span><span class="risk-dot" style="background:#252510"></span>Medium</span>
+      <span><span class="risk-dot" style="background:#2a1c0a"></span>High</span>
+      <span><span class="risk-dot" style="background:#2a1014"></span>Critical</span>
+      <span><span class="risk-dot" style="background:#261525"></span>Severe</span>
+    </div>
+
+    <div style="margin-top:1.5rem">
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Finding</th>
+              <th>Likelihood</th>
+              <th>Impact</th>
+              <th>Risk Level</th>
+              <th>HIPAA Ref</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><span class="chip chip-red">FIND-03</span></td>
+              <td>MLLP without TLS</td>
+              <td>Almost Certain</td>
+              <td>Catastrophic</td>
+              <td><span class="chip chip-red">Critical</span></td>
+              <td>§164.312(e)(2)(ii)</td>
+            </tr>
+            <tr>
+              <td><span class="chip chip-red">FIND-02</span></td>
+              <td>Proxy example: plaintext + broken</td>
+              <td>Likely</td>
+              <td>Catastrophic</td>
+              <td><span class="chip chip-red">Critical</span></td>
+              <td>§164.312(e)(1)</td>
+            </tr>
+            <tr>
+              <td><span class="chip chip-red">FIND-01</span></td>
+              <td>eval() on segment names</td>
+              <td>Unlikely</td>
+              <td>Major</td>
+              <td><span class="chip chip-amber">High</span></td>
+              <td>§164.312(c)(1)</td>
+            </tr>
+            <tr>
+              <td><span class="chip chip-amber">FIND-09</span></td>
+              <td>No audit hooks</td>
+              <td>Almost Certain</td>
+              <td>Major</td>
+              <td><span class="chip chip-amber">High</span></td>
+              <td>§164.312(b)</td>
+            </tr>
+            <tr>
+              <td><span class="chip chip-amber">FIND-04</span></td>
+              <td>Unbounded parsing — DoS</td>
+              <td>Possible</td>
+              <td>Major</td>
+              <td><span class="chip chip-amber">High</span></td>
+              <td>§164.308(a)(7)</td>
+            </tr>
+            <tr>
+              <td><span class="chip chip-amber">FIND-05</span></td>
+              <td>Silent Default fallback</td>
+              <td>Likely</td>
+              <td>Major</td>
+              <td><span class="chip chip-amber">High</span></td>
+              <td>§164.312(c)(2)</td>
+            </tr>
+            <tr>
+              <td><span class="chip chip-amber">FIND-06</span></td>
+              <td>warn() during PHI processing</td>
+              <td>Almost Certain</td>
+              <td>Moderate</td>
+              <td><span class="chip chip-amber">Medium</span></td>
+              <td>§164.312(a)(2)(iv)</td>
+            </tr>
+            <tr>
+              <td><span class="chip chip-amber">FIND-07</span></td>
+              <td>No PHI memory clearing</td>
+              <td>Likely</td>
+              <td>Moderate</td>
+              <td><span class="chip chip-amber">Medium</span></td>
+              <td>§164.310(d)(2)</td>
+            </tr>
+            <tr>
+              <td><span class="chip chip-amber">FIND-08</span></td>
+              <td>Escape sequence handling absent</td>
+              <td>Likely</td>
+              <td>Moderate</td>
+              <td><span class="chip chip-amber">Medium</span></td>
+              <td>§164.312(c)(1)</td>
+            </tr>
+            <tr>
+              <td><span class="chip chip-amber">FIND-10</span></td>
+              <td>eval() in binding initializer</td>
+              <td>Possible</td>
+              <td>Moderate</td>
+              <td><span class="chip chip-blue">Low</span></td>
+              <td>N/A</td>
+            </tr>
+            <tr>
+              <td><span class="chip chip-amber">FIND-11</span></td>
+              <td>No coverage gate in CI</td>
+              <td>Almost Certain</td>
+              <td>Moderate</td>
+              <td><span class="chip chip-blue">Low</span></td>
+              <td>N/A</td>
+            </tr>
+            <tr>
+              <td><span class="chip chip-gray">FIND-12</span></td>
+              <td>No SECURITY.md</td>
+              <td>Likely</td>
+              <td>Minor</td>
+              <td><span class="chip chip-blue">Low</span></td>
+              <td>N/A</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════ RECOMMENDATIONS ═══════════════════ -->
+  <section id="recommendations">
+    <h2><span class="icon">◈</span> Recommendations</h2>
+
+    <h3>For Library Maintainers</h3>
+
+    <div class="rec">
+      <div class="rec-title">REC-01 — Eliminate eval() in get_segment_class() [Priority: High]</div>
+      <div class="rec-body">Replace <code>eval(format("HL7::Message::Segment::%s", @seg_name))</code> with <code>HL7::Message::Segment.const_get(@seg_name)</code> inside a rescue block, or pre-build a frozen Hash mapping segment name strings to class objects at load time. This removes the eval entirely and is faster (hash lookup vs. eval + constant resolution).</div>
+    </div>
+
+    <div class="rec">
+      <div class="rec-title">REC-02 — Remove or Completely Rewrite the Proxy Server Example [Priority: Critical]</div>
+      <div class="rec-body">The example is broken (undefined <code>raw_input</code>), logs PHI to STDOUT, and uses plaintext TCP. Either remove it or replace it with a TLS-using example that demonstrates <code>OpenSSL::SSL::SSLServer</code>, removes all <code>puts</code> of message content, and includes a HIPAA compliance comment.</div>
+    </div>
+
+    <div class="rec">
+      <div class="rec-title">REC-03 — Add HIPAA Usage Notice to README [Priority: Critical]</div>
+      <div class="rec-body">Add a dedicated "Healthcare / HIPAA Compliance" section to the README covering: (1) MLLP must be used over TLS in HIPAA environments; (2) applications must implement audit logging; (3) PHI lifecycle management in consuming code; (4) the library provides no encryption and callers are responsible for transport security.</div>
+    </div>
+
+    <div class="rec">
+      <div class="rec-title">REC-04 — Add Configurable Input Size Limits [Priority: High]</div>
+      <div class="rec-body">Add to <code>HL7::Configuration</code>: <code>max_message_bytes</code> (default: unlimited for now, recommend 1MB), <code>max_segment_count</code>, <code>max_field_bytes</code>. Raise <code>HL7::ParseError</code> when exceeded. This protects against DoS from malformed inputs.</div>
+    </div>
+
+    <div class="rec">
+      <div class="rec-title">REC-05 — Add PHI-Aware Audit Hook [Priority: High]</div>
+      <div class="rec-body">Add an optional audit callback to <code>HL7::Configuration</code>: <code>config.phi_access_callback = -&gt;(segment_type, field_name) { MyAuditLog.record(segment_type, field_name) }</code>. When set, call this from <code>read_field</code>. Mark PHI fields with a metadata flag in <code>add_field</code> options so only sensitive fields trigger the callback.</div>
+    </div>
+
+    <div class="rec">
+      <div class="rec-title">REC-06 — Enable SimpleCov in CI with a Coverage Minimum [Priority: Medium]</div>
+      <div class="rec-body">In <code>.github/workflows/test.yml</code>, add <code>env: COVERAGE: "true"</code> and in <code>spec_helper.rb</code> configure <code>SimpleCov.minimum_coverage 90</code>. Upload coverage reports as workflow artifacts.</div>
+    </div>
+
+    <div class="rec">
+      <div class="rec-title">REC-07 — Add SECURITY.md and GitHub Security Advisories [Priority: Medium]</div>
+      <div class="rec-body">Create <code>SECURITY.md</code> with a private disclosure email or GitHub Advisory process. Enable Dependabot for development dependency updates. Configure Bundler Audit in CI to catch vulnerable gem dependencies.</div>
+    </div>
+
+    <div class="rec">
+      <div class="rec-title">REC-08 — Add HL7::Message#clear! for PHI Disposal [Priority: Medium]</div>
+      <div class="rec-body">Add a <code>clear!</code> method on <code>HL7::Message</code> and <code>Segment</code> that replaces all element values with empty strings (<code>@elements.fill("")</code>) and clears <code>@segments_by_name</code>. Document the PHI lifecycle and when to call it. In Ruby, strings cannot be zero-filled at the OS level, but clearing references is best effort and reduces risk window.</div>
+    </div>
+
+    <div class="rec">
+      <div class="rec-title">REC-09 — Warn or Callback on Unknown Segment Types [Priority: Medium]</div>
+      <div class="rec-body">Add a configuration option <code>config.unknown_segment_handler = -&gt;(seg_name) { Rails.logger.warn("Unknown HL7 segment: #{seg_name}") }</code>. When <code>Segment::Default</code> is used as fallback, invoke this handler. This enables consuming applications to detect Z-segments containing PHI that require special handling.</div>
+    </div>
+
+    <div class="rec">
+      <div class="rec-title">REC-10 — Implement HL7 Escape Sequence Decoding [Priority: Low/Medium]</div>
+      <div class="rec-body">Add escape sequence processing per HL7 v2.x §2.10: <code>\F\</code>→<code>|</code>, <code>\S\</code>→<code>^</code>, <code>\R\</code>→<code>~</code>, <code>\E\</code>→<code>\</code>, <code>\T\</code>→<code>&amp;</code>. Apply during <code>read_field</code> and reverse during <code>write_field</code>. Gate behind a configuration flag for backward compatibility.</div>
+    </div>
+
+    <h3>For Library Users (Healthcare Integrators)</h3>
+
+    <div class="rec">
+      <div class="rec-title">USER-01 — Never Use MLLP Without TLS [Priority: Mandatory]</div>
+      <div class="rec-body">Wrap all MLLP connections with TLS using Ruby's <code>OpenSSL::SSL</code>. The library's <code>to_mllp</code> and <code>parse_string</code> work identically over TLS-wrapped sockets. Mutual TLS (mTLS) is strongly recommended for healthcare network connections.</div>
+    </div>
+
+    <div class="rec">
+      <div class="rec-title">USER-02 — Implement Application-Level Audit Logging [Priority: Mandatory]</div>
+      <div class="rec-body">Since the library provides no audit hooks, implement logging at the application layer. Log: message receipt timestamp, sending system (MSH.3), message type (MSH.9), patient identifier read operations (PID.3 access), and processing results. Store logs in a HIPAA-compliant audit log system for minimum 6 years.</div>
+    </div>
+
+    <div class="rec">
+      <div class="rec-title">USER-03 — Set Message Size Limits at the Network Layer [Priority: High]</div>
+      <div class="rec-body">Until the library adds native limits, enforce size limits before passing input to <code>HL7::Message.new</code>: <code>raise "Message too large" if raw_input.bytesize > 1_048_576</code>.</div>
+    </div>
+
+    <div class="rec">
+      <div class="rec-title">USER-04 — Handle Segment::Default Explicitly [Priority: High]</div>
+      <div class="rec-body">After parsing, check for unknown segments: <code>msg.each { |seg| Rails.logger.warn("Unknown segment: #{seg.e0}") if seg.is_a?(HL7::Message::Segment::Default) }</code>. Never assume all PHI was parsed into named fields.</div>
+    </div>
+
+    <div class="rec">
+      <div class="rec-title">USER-05 — Minimize PHI Object Lifetimes [Priority: Medium]</div>
+      <div class="rec-body">Process and extract needed fields from <code>HL7::Message</code> objects as quickly as possible, then allow them to go out of scope for GC. Do not cache parsed message objects in application-level caches (Redis, Memcached) — only cache derived, de-identified data.</div>
+    </div>
+  </section>
+
+  <!-- FINAL SUMMARY -->
+  <section>
+    <h2><span class="icon">◉</span> Final Verdict</h2>
+    <div class="card card-warn">
+      <div class="card-header">
+        <span class="card-title">ruby-hl7 v1.4.0 — Fit for Purpose with Conditions</span>
+        <span class="chip chip-amber">Conditional</span>
+      </div>
+      <p>ruby-hl7 is a well-structured, adequately tested, and actively maintained parsing library with a healthy recent trajectory. Its core parsing engine is solid: no internal logging, no persistence, correct MLLP framing, good segment coverage, and a reasonable test suite with real-world HL7 samples including NIST, ARUP, IHC, and Cerner test data.</p>
+      <p>However, three conditions must be met for use in HIPAA-covered applications:</p>
+      <ol style="padding-left:1.5rem; margin-bottom:.75rem;">
+        <li style="margin-bottom:.5rem"><strong>Mandate TLS at the transport layer.</strong> The library's MLLP support must always be used over TLS-encrypted sockets. The proxy server example must be treated as non-functional and potentially dangerous.</li>
+        <li style="margin-bottom:.5rem"><strong>Implement application-level audit logging.</strong> The library provides no PHI access hooks. Every patient data access must be logged by the consuming application to satisfy HIPAA audit requirements.</li>
+        <li style="margin-bottom:.5rem"><strong>Add input validation before passing to the parser.</strong> Guard against DoS by enforcing message size limits before calling <code>HL7::Message.new</code>.</li>
+      </ol>
+      <p>With these conditions met, ruby-hl7 can serve as the HL7 parsing layer in a HIPAA-compliant application. The responsibility for the remaining compliance controls — encryption, access control, audit logging, minimum necessary PHI access — rests entirely with the consuming application.</p>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  <p>ruby-hl7 v1.4.0 — DORA Metrics &amp; HIPAA Compliance Review</p>
+  <p style="margin-top:.3rem">Analysis performed on 2026-02-18 | Source: <code>/tmp/ruby-medical-repos/ruby-hl7</code> | 133 commits | 42 spec files | 152 test cases</p>
+</footer>
+
+</body>
+</html>

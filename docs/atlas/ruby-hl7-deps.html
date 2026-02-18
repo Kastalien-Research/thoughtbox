@@ -1,0 +1,2451 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>ruby-hl7 Dependency Atlas</title>
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #12121a;
+    --surface2: #1a1a26;
+    --border: #2a2a40;
+    --neon-cyan: #00f5ff;
+    --neon-purple: #bf00ff;
+    --neon-green: #39ff14;
+    --neon-orange: #ff6b1a;
+    --neon-pink: #ff2d78;
+    --neon-yellow: #ffe600;
+    --neon-blue: #1a8cff;
+    --text: #c8d0e0;
+    --text-dim: #6b7280;
+    --text-bright: #ffffff;
+    --core-color: #00f5ff;
+    --segment-color: #bf00ff;
+    --ext-color: #39ff14;
+    --test-color: #ff6b1a;
+    --gem-color: #ffe600;
+    --helper-color: #ff2d78;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+    line-height: 1.6;
+    overflow-x: hidden;
+  }
+
+  /* ── HERO HEADER ─────────────────────────────────── */
+  .hero {
+    background: linear-gradient(135deg, #0a0a0f 0%, #12001f 50%, #001a2e 100%);
+    border-bottom: 1px solid var(--border);
+    padding: 48px 40px 36px;
+    position: relative;
+    overflow: hidden;
+  }
+  .hero::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse at 20% 50%, rgba(0,245,255,0.06) 0%, transparent 60%),
+                radial-gradient(ellipse at 80% 50%, rgba(191,0,255,0.06) 0%, transparent 60%);
+    pointer-events: none;
+  }
+  .hero-title {
+    font-size: 2.6rem;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    background: linear-gradient(90deg, var(--neon-cyan), var(--neon-purple), var(--neon-pink));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 8px;
+  }
+  .hero-sub {
+    color: var(--text-dim);
+    font-size: 0.9rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .hero-badge {
+    display: inline-block;
+    background: rgba(0,245,255,0.1);
+    border: 1px solid rgba(0,245,255,0.3);
+    color: var(--neon-cyan);
+    border-radius: 4px;
+    padding: 2px 10px;
+    font-size: 0.78rem;
+    margin: 16px 4px 0;
+  }
+
+  /* ── NAVIGATION ────────────────────────────────────── */
+  .nav-bar {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 0 40px;
+    display: flex;
+    gap: 0;
+    overflow-x: auto;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .nav-bar a {
+    color: var(--text-dim);
+    text-decoration: none;
+    font-size: 0.82rem;
+    padding: 14px 20px;
+    border-bottom: 2px solid transparent;
+    white-space: nowrap;
+    transition: color 0.2s, border-color 0.2s;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+  .nav-bar a:hover {
+    color: var(--neon-cyan);
+    border-color: var(--neon-cyan);
+  }
+
+  /* ── LAYOUT ─────────────────────────────────────────── */
+  .content {
+    max-width: 1600px;
+    margin: 0 auto;
+    padding: 40px;
+  }
+
+  /* ── SECTION ─────────────────────────────────────────── */
+  .section {
+    margin-bottom: 64px;
+  }
+  .section-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 28px;
+  }
+  .section-num {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.85rem;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+  .section-title {
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: var(--text-bright);
+    letter-spacing: -0.01em;
+  }
+  .section-desc {
+    color: var(--text-dim);
+    font-size: 0.84rem;
+    margin-top: 4px;
+  }
+
+  /* ── CARDS ──────────────────────────────────────────── */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+    margin-bottom: 20px;
+  }
+  .card-title {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--text-bright);
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .card-title::before {
+    content: '';
+    width: 3px;
+    height: 18px;
+    border-radius: 2px;
+    background: var(--neon-cyan);
+  }
+
+  /* ── LEGEND ─────────────────────────────────────────── */
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 28px;
+    padding: 16px 20px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.8rem;
+    color: var(--text);
+  }
+  .legend-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 3px;
+    flex-shrink: 0;
+  }
+
+  /* ── SVG GRAPH CONTAINER ─────────────────────────────── */
+  .graph-container {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    position: relative;
+  }
+  .graph-container svg {
+    display: block;
+    width: 100%;
+  }
+
+  /* ── GEM DEPENDENCY TABLE ────────────────────────────── */
+  .gem-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    gap: 16px;
+  }
+  .gem-card {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px 18px;
+    transition: border-color 0.2s;
+  }
+  .gem-card:hover {
+    border-color: var(--neon-purple);
+  }
+  .gem-name {
+    font-size: 0.92rem;
+    font-weight: 700;
+    color: var(--text-bright);
+    margin-bottom: 4px;
+  }
+  .gem-version {
+    font-size: 0.78rem;
+    color: var(--neon-cyan);
+    margin-bottom: 6px;
+  }
+  .gem-desc {
+    font-size: 0.78rem;
+    color: var(--text-dim);
+    line-height: 1.5;
+  }
+  .gem-type {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 3px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    margin-top: 8px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+  .gem-type.runtime { background: rgba(57,255,20,0.1); color: var(--neon-green); border: 1px solid rgba(57,255,20,0.3); }
+  .gem-type.dev { background: rgba(191,0,255,0.1); color: var(--neon-purple); border: 1px solid rgba(191,0,255,0.3); }
+  .gem-type.transitive { background: rgba(255,230,0,0.1); color: var(--neon-yellow); border: 1px solid rgba(255,230,0,0.3); }
+
+  /* ── SEGMENT TABLE ───────────────────────────────────── */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.83rem;
+  }
+  th {
+    text-align: left;
+    padding: 10px 14px;
+    color: var(--text-dim);
+    font-size: 0.72rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    border-bottom: 1px solid var(--border);
+  }
+  td {
+    padding: 10px 14px;
+    border-bottom: 1px solid rgba(42,42,64,0.6);
+    vertical-align: top;
+  }
+  tr:hover td {
+    background: rgba(0,245,255,0.03);
+  }
+  .seg-name { color: var(--neon-cyan); font-weight: 700; }
+  .seg-weight { color: var(--neon-yellow); font-family: monospace; }
+  .seg-children { color: var(--neon-purple); font-size: 0.78rem; }
+  .seg-fields { color: var(--text-dim); font-size: 0.76rem; }
+  .tag {
+    display: inline-block;
+    padding: 1px 6px;
+    border-radius: 3px;
+    font-size: 0.68rem;
+    margin: 1px;
+    font-weight: 600;
+  }
+  .tag-child { background: rgba(191,0,255,0.15); color: var(--neon-purple); border: 1px solid rgba(191,0,255,0.3); }
+  .tag-ts { background: rgba(255,107,26,0.15); color: var(--neon-orange); border: 1px solid rgba(255,107,26,0.3); }
+  .tag-validate { background: rgba(255,45,120,0.15); color: var(--neon-pink); border: 1px solid rgba(255,45,120,0.3); }
+  .tag-alias { background: rgba(0,245,255,0.12); color: var(--neon-cyan); border: 1px solid rgba(0,245,255,0.3); }
+
+  /* ── FLOW WATERFALL ──────────────────────────────────── */
+  .waterfall {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+  .wf-row {
+    display: flex;
+    align-items: stretch;
+    gap: 0;
+  }
+  .wf-phase {
+    width: 120px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    padding-right: 16px;
+    font-size: 0.72rem;
+    color: var(--text-dim);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding-top: 8px;
+    padding-bottom: 8px;
+  }
+  .wf-connector {
+    width: 40px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  .wf-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    margin: 0 auto;
+    flex-shrink: 0;
+    margin-top: 14px;
+  }
+  .wf-line {
+    width: 2px;
+    flex: 1;
+    background: var(--border);
+    margin: 0 auto;
+  }
+  .wf-content {
+    flex: 1;
+    padding: 8px 0 8px 16px;
+  }
+  .wf-file {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 5px 12px;
+    margin: 3px;
+    font-size: 0.78rem;
+    transition: border-color 0.2s;
+  }
+  .wf-file:hover { border-color: var(--neon-cyan); }
+  .wf-file .dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+  .wf-arrow {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--text-dim);
+    font-size: 0.75rem;
+    padding: 4px 0;
+  }
+  .wf-arrow::before {
+    content: '→';
+    color: var(--neon-cyan);
+  }
+
+  /* ── METHOD MISSING CHAIN ────────────────────────────── */
+  .chain {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+  .chain-step {
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+    padding: 12px 0;
+    border-bottom: 1px solid rgba(42,42,64,0.5);
+  }
+  .chain-step:last-child { border-bottom: none; }
+  .chain-num {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    border: 1px solid var(--neon-cyan);
+    color: var(--neon-cyan);
+    font-size: 0.75rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+  .chain-body {}
+  .chain-call {
+    font-size: 0.85rem;
+    color: var(--text-bright);
+    font-weight: 600;
+    margin-bottom: 4px;
+  }
+  .chain-detail {
+    font-size: 0.78rem;
+    color: var(--text-dim);
+    line-height: 1.6;
+  }
+  code {
+    background: rgba(0,245,255,0.08);
+    color: var(--neon-cyan);
+    padding: 1px 6px;
+    border-radius: 3px;
+    font-family: inherit;
+    font-size: 0.9em;
+  }
+
+  /* ── HL7 DOMAIN TREE ─────────────────────────────────── */
+  .tree {
+    font-size: 0.83rem;
+  }
+  .tree-node {
+    margin: 2px 0;
+  }
+  .tree-toggle {
+    cursor: pointer;
+    user-select: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 10px;
+    border-radius: 6px;
+    transition: background 0.15s;
+    width: 100%;
+  }
+  .tree-toggle:hover { background: rgba(255,255,255,0.04); }
+  .tree-icon { font-size: 0.75rem; color: var(--text-dim); width: 14px; }
+  .tree-label { font-weight: 700; }
+  .tree-meta { color: var(--text-dim); font-size: 0.75rem; margin-left: auto; }
+  .tree-children {
+    margin-left: 28px;
+    border-left: 1px solid rgba(42,42,64,0.8);
+    padding-left: 16px;
+    margin-top: 2px;
+  }
+  .tree-leaf {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    color: var(--text-dim);
+    font-size: 0.78rem;
+  }
+  .tree-leaf .dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+
+  /* ── STATS ROW ───────────────────────────────────────── */
+  .stats-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 12px;
+    margin-bottom: 28px;
+  }
+  .stat-card {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px;
+    text-align: center;
+  }
+  .stat-num {
+    font-size: 2rem;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    display: block;
+  }
+  .stat-label {
+    font-size: 0.72rem;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+  /* ── COLORS per class ─────────────────────────────────── */
+  .c-core { color: var(--neon-cyan); }
+  .c-seg  { color: var(--neon-purple); }
+  .c-ext  { color: var(--neon-green); }
+  .c-test { color: var(--neon-orange); }
+  .c-gem  { color: var(--neon-yellow); }
+  .c-hlp  { color: var(--neon-pink); }
+  .b-core { background: var(--neon-cyan); }
+  .b-seg  { background: var(--neon-purple); }
+  .b-ext  { background: var(--neon-green); }
+  .b-test { background: var(--neon-orange); }
+  .b-gem  { background: var(--neon-yellow); }
+  .b-hlp  { background: var(--neon-pink); }
+
+  /* ── DEPENDENCY GRAPH ─────────────────────────────────── */
+  .dep-svg-wrap {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+
+  /* ── FOOTER ──────────────────────────────────────────── */
+  .footer {
+    text-align: center;
+    padding: 40px;
+    color: var(--text-dim);
+    font-size: 0.78rem;
+    border-top: 1px solid var(--border);
+  }
+  .footer span { color: var(--neon-cyan); }
+
+  /* scrollbar */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: var(--surface); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: #3a3a60; }
+</style>
+</head>
+<body>
+
+<!-- ╔══════════════════════════════════════════════════════╗
+     ║  HERO                                               ║
+     ╚══════════════════════════════════════════════════════╝ -->
+<header class="hero">
+  <div class="hero-title">ruby-hl7 Dependency Atlas</div>
+  <div class="hero-sub">Full dependency visualization — v1.4.0</div>
+  <div>
+    <span class="hero-badge">36 Segment Classes</span>
+    <span class="hero-badge">14 Core Files</span>
+    <span class="hero-badge">0 Runtime Gems</span>
+    <span class="hero-badge">16 Dev Dependencies</span>
+    <span class="hero-badge">39 Spec Files</span>
+    <span class="hero-badge">HL7 2.x Parser &amp; Generator</span>
+  </div>
+</header>
+
+<nav class="nav-bar">
+  <a href="#overview">Overview</a>
+  <a href="#gem-deps">Gem Dependencies</a>
+  <a href="#class-hierarchy">Class Hierarchy</a>
+  <a href="#load-order">Load Order</a>
+  <a href="#method-dispatch">Method Dispatch</a>
+  <a href="#hl7-domain">HL7 Domain</a>
+  <a href="#segments">Segment Catalog</a>
+  <a href="#extension-points">Extension Points</a>
+</nav>
+
+<main class="content">
+
+  <!-- ── OVERVIEW STATS ──────────────────────────────────── -->
+  <section class="section" id="overview">
+    <div class="section-header">
+      <div class="section-num" style="background:rgba(0,245,255,0.15);color:var(--neon-cyan);border:1px solid rgba(0,245,255,0.3);">0</div>
+      <div>
+        <div class="section-title">Codebase Overview</div>
+        <div class="section-desc">Summary of all analysed artifacts</div>
+      </div>
+    </div>
+
+    <div class="stats-row">
+      <div class="stat-card"><span class="stat-num c-core">0</span><span class="stat-label">Runtime Gems</span></div>
+      <div class="stat-card"><span class="stat-num c-gem">16</span><span class="stat-label">Dev Gems</span></div>
+      <div class="stat-card"><span class="stat-num c-core">14</span><span class="stat-label">Core Lib Files</span></div>
+      <div class="stat-card"><span class="stat-num c-seg">36</span><span class="stat-label">Segment Classes</span></div>
+      <div class="stat-card"><span class="stat-num c-hlp">3</span><span class="stat-label">Helper/Ext Files</span></div>
+      <div class="stat-card"><span class="stat-num c-test">39</span><span class="stat-label">Spec Files</span></div>
+      <div class="stat-card"><span class="stat-num c-ext">5</span><span class="stat-label">Exception Classes</span></div>
+      <div class="stat-card"><span class="stat-num" style="color:var(--neon-blue)">6</span><span class="stat-label">Has-Children Segs</span></div>
+    </div>
+
+    <div class="legend">
+      <div class="legend-item"><div class="legend-dot b-core"></div> Core Infrastructure</div>
+      <div class="legend-item"><div class="legend-dot b-seg"></div> Segment Classes</div>
+      <div class="legend-item"><div class="legend-dot b-ext"></div> Extension Points</div>
+      <div class="legend-item"><div class="legend-dot b-hlp"></div> Helpers / Core Ext</div>
+      <div class="legend-item"><div class="legend-dot b-gem"></div> Gem Dependencies</div>
+      <div class="legend-item"><div class="legend-dot b-test"></div> Test Infrastructure</div>
+    </div>
+
+    <!-- Full dependency graph as SVG -->
+    <div class="card">
+      <div class="card-title">Full Module Dependency Graph</div>
+      <div class="dep-svg-wrap">
+        <svg viewBox="0 0 1400 700" xmlns="http://www.w3.org/2000/svg" style="height:700px;">
+          <defs>
+            <marker id="arrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+              <path d="M0,0 L0,6 L8,3 z" fill="#2a2a40"/>
+            </marker>
+            <marker id="arrow-cyan" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+              <path d="M0,0 L0,6 L8,3 z" fill="#00f5ff"/>
+            </marker>
+            <marker id="arrow-purple" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+              <path d="M0,0 L0,6 L8,3 z" fill="#bf00ff"/>
+            </marker>
+            <marker id="arrow-green" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+              <path d="M0,0 L0,6 L8,3 z" fill="#39ff14"/>
+            </marker>
+            <marker id="arrow-yellow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+              <path d="M0,0 L0,6 L8,3 z" fill="#ffe600"/>
+            </marker>
+            <filter id="glow-cyan">
+              <feGaussianBlur stdDeviation="3" result="blur"/>
+              <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+            </filter>
+            <filter id="glow-purple">
+              <feGaussianBlur stdDeviation="3" result="blur"/>
+              <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+            </filter>
+          </defs>
+          <rect width="1400" height="700" fill="#12121a"/>
+
+          <!-- Grid lines -->
+          <g opacity="0.05">
+            <line x1="0" y1="100" x2="1400" y2="100" stroke="#ffffff" stroke-width="1"/>
+            <line x1="0" y1="200" x2="1400" y2="200" stroke="#ffffff" stroke-width="1"/>
+            <line x1="0" y1="300" x2="1400" y2="300" stroke="#ffffff" stroke-width="1"/>
+            <line x1="0" y1="400" x2="1400" y2="400" stroke="#ffffff" stroke-width="1"/>
+            <line x1="0" y1="500" x2="1400" y2="500" stroke="#ffffff" stroke-width="1"/>
+            <line x1="0" y1="600" x2="1400" y2="600" stroke="#ffffff" stroke-width="1"/>
+          </g>
+
+          <!-- Layer labels -->
+          <text x="14" y="60" fill="#2a2a40" font-size="11" font-family="monospace" letter-spacing="2">LAYER 0: ENTRYPOINT</text>
+          <text x="14" y="160" fill="#2a2a40" font-size="11" font-family="monospace" letter-spacing="2">LAYER 1: CORE MODULES</text>
+          <text x="14" y="280" fill="#2a2a40" font-size="11" font-family="monospace" letter-spacing="2">LAYER 2: INFRASTRUCTURE</text>
+          <text x="14" y="400" fill="#2a2a40" font-size="11" font-family="monospace" letter-spacing="2">LAYER 3: SEGMENTS</text>
+          <text x="14" y="540" fill="#2a2a40" font-size="11" font-family="monospace" letter-spacing="2">LAYER 4: HELPERS / EXT</text>
+          <text x="14" y="650" fill="#2a2a40" font-size="11" font-family="monospace" letter-spacing="2">LAYER 5: STDLIB / GEMS</text>
+
+          <!-- ═══ LAYER 0: ruby-hl7.rb ════════════════════════ -->
+          <rect x="560" y="28" width="280" height="48" rx="8" fill="none" stroke="#00f5ff" stroke-width="2" filter="url(#glow-cyan)"/>
+          <text x="700" y="50" text-anchor="middle" fill="#00f5ff" font-size="13" font-weight="700" font-family="monospace">ruby-hl7.rb</text>
+          <text x="700" y="66" text-anchor="middle" fill="#006080" font-size="10" font-family="monospace">ENTRYPOINT · defines HL7 module + exceptions</text>
+
+          <!-- ═══ LAYER 1: Direct requires ════════════════════ -->
+          <!-- configuration -->
+          <rect x="30" y="120" width="160" height="40" rx="6" fill="rgba(0,245,255,0.08)" stroke="#00f5ff" stroke-width="1.5"/>
+          <text x="110" y="136" text-anchor="middle" fill="#00f5ff" font-size="11" font-weight="700" font-family="monospace">configuration.rb</text>
+          <text x="110" y="150" text-anchor="middle" fill="#4a8090" font-size="9" font-family="monospace">HL7::Configuration</text>
+
+          <!-- time_formatter_helper -->
+          <rect x="210" y="120" width="185" height="40" rx="6" fill="rgba(255,45,120,0.08)" stroke="#ff2d78" stroke-width="1.5"/>
+          <text x="302" y="136" text-anchor="middle" fill="#ff2d78" font-size="11" font-weight="700" font-family="monospace">time_formatter</text>
+          <text x="302" y="150" text-anchor="middle" fill="#803060" font-size="9" font-family="monospace">TimeFormatterHelper module</text>
+
+          <!-- message_parser.rb -->
+          <rect x="415" y="120" width="165" height="40" rx="6" fill="rgba(0,245,255,0.08)" stroke="#00f5ff" stroke-width="1.5"/>
+          <text x="497" y="136" text-anchor="middle" fill="#00f5ff" font-size="11" font-weight="700" font-family="monospace">message_parser.rb</text>
+          <text x="497" y="150" text-anchor="middle" fill="#4a8090" font-size="9" font-family="monospace">MessageBatchParser + MessageParser</text>
+
+          <!-- message.rb -->
+          <rect x="600" y="120" width="130" height="40" rx="6" fill="rgba(0,245,255,0.1)" stroke="#00f5ff" stroke-width="2"/>
+          <text x="665" y="136" text-anchor="middle" fill="#00f5ff" font-size="11" font-weight="700" font-family="monospace">message.rb</text>
+          <text x="665" y="150" text-anchor="middle" fill="#4a8090" font-size="9" font-family="monospace">HL7::Message</text>
+
+          <!-- segment_list_storage -->
+          <rect x="750" y="120" width="190" height="40" rx="6" fill="rgba(0,245,255,0.08)" stroke="#00f5ff" stroke-width="1.5"/>
+          <text x="845" y="136" text-anchor="middle" fill="#00f5ff" font-size="11" font-weight="700" font-family="monospace">segment_list_storage</text>
+          <text x="845" y="150" text-anchor="middle" fill="#4a8090" font-size="9" font-family="monospace">SegmentListStorage module</text>
+
+          <!-- segment_generator -->
+          <rect x="960" y="120" width="175" height="40" rx="6" fill="rgba(0,245,255,0.08)" stroke="#00f5ff" stroke-width="1.5"/>
+          <text x="1047" y="136" text-anchor="middle" fill="#00f5ff" font-size="11" font-weight="700" font-family="monospace">segment_generator</text>
+          <text x="1047" y="150" text-anchor="middle" fill="#4a8090" font-size="9" font-family="monospace">Delimiter + SegmentGenerator</text>
+
+          <!-- segment_fields -->
+          <rect x="1155" y="120" width="150" height="40" rx="6" fill="rgba(0,245,255,0.08)" stroke="#00f5ff" stroke-width="1.5"/>
+          <text x="1230" y="136" text-anchor="middle" fill="#00f5ff" font-size="11" font-weight="700" font-family="monospace">segment_fields</text>
+          <text x="1230" y="150" text-anchor="middle" fill="#4a8090" font-size="9" font-family="monospace">SegmentFields module</text>
+
+          <!-- ═══ LAYER 2: segment.rb + segment_default.rb ════ -->
+          <!-- segment.rb -->
+          <rect x="440" y="250" width="150" height="40" rx="6" fill="rgba(0,245,255,0.12)" stroke="#00f5ff" stroke-width="2"/>
+          <text x="515" y="266" text-anchor="middle" fill="#00f5ff" font-size="12" font-weight="700" font-family="monospace">segment.rb</text>
+          <text x="515" y="280" text-anchor="middle" fill="#4a8090" font-size="9" font-family="monospace">HL7::Message::Segment BASE</text>
+
+          <!-- segment_default.rb -->
+          <rect x="620" y="250" width="160" height="40" rx="6" fill="rgba(0,245,255,0.08)" stroke="#00f5ff" stroke-width="1.5"/>
+          <text x="700" y="266" text-anchor="middle" fill="#00f5ff" font-size="11" font-weight="700" font-family="monospace">segment_default.rb</text>
+          <text x="700" y="280" text-anchor="middle" fill="#4a8090" font-size="9" font-family="monospace">Segment::Default + Dir[] load</text>
+
+          <!-- core_ext/date_time.rb -->
+          <rect x="800" y="250" width="170" height="40" rx="6" fill="rgba(255,45,120,0.08)" stroke="#ff2d78" stroke-width="1.5"/>
+          <text x="885" y="266" text-anchor="middle" fill="#ff2d78" font-size="11" font-weight="700" font-family="monospace">core_ext/date_time</text>
+          <text x="885" y="280" text-anchor="middle" fill="#803060" font-size="9" font-family="monospace">HL7Time + Date/Time/DateTime</text>
+
+          <!-- core_ext/string.rb -->
+          <rect x="990" y="250" width="155" height="40" rx="6" fill="rgba(255,45,120,0.08)" stroke="#ff2d78" stroke-width="1.5"/>
+          <text x="1067" y="266" text-anchor="middle" fill="#ff2d78" font-size="11" font-weight="700" font-family="monospace">core_ext/string</text>
+          <text x="1067" y="280" text-anchor="middle" fill="#803060" font-size="9" font-family="monospace">String#hl7_batch? patch</text>
+
+          <!-- ═══ LAYER 3: Segment classes (abbreviated) ═════ -->
+          <!-- MSH -->
+          <rect x="30" y="370" width="72" height="34" rx="5" fill="rgba(191,0,255,0.12)" stroke="#bf00ff" stroke-width="1.5"/>
+          <text x="66" y="382" text-anchor="middle" fill="#bf00ff" font-size="10" font-weight="700" font-family="monospace">MSH</text>
+          <text x="66" y="396" text-anchor="middle" fill="#600080" font-size="8" font-family="monospace">w:-1</text>
+          <!-- EVN -->
+          <rect x="112" y="370" width="72" height="34" rx="5" fill="rgba(191,0,255,0.12)" stroke="#bf00ff" stroke-width="1.5"/>
+          <text x="148" y="382" text-anchor="middle" fill="#bf00ff" font-size="10" font-weight="700" font-family="monospace">EVN</text>
+          <text x="148" y="396" text-anchor="middle" fill="#600080" font-size="8" font-family="monospace">w:0</text>
+          <!-- PID (has_children) -->
+          <rect x="194" y="370" width="72" height="34" rx="5" fill="rgba(191,0,255,0.18)" stroke="#bf00ff" stroke-width="2"/>
+          <text x="230" y="382" text-anchor="middle" fill="#df40ff" font-size="10" font-weight="700" font-family="monospace">PID ▸</text>
+          <text x="230" y="396" text-anchor="middle" fill="#600080" font-size="8" font-family="monospace">w:1 children</text>
+          <!-- NK1 -->
+          <rect x="276" y="370" width="72" height="34" rx="5" fill="rgba(191,0,255,0.12)" stroke="#bf00ff" stroke-width="1.5"/>
+          <text x="312" y="382" text-anchor="middle" fill="#bf00ff" font-size="10" font-weight="700" font-family="monospace">NK1</text>
+          <text x="312" y="396" text-anchor="middle" fill="#600080" font-size="8" font-family="monospace">w:auto</text>
+          <!-- PV1 -->
+          <rect x="358" y="370" width="72" height="34" rx="5" fill="rgba(191,0,255,0.12)" stroke="#bf00ff" stroke-width="1.5"/>
+          <text x="394" y="382" text-anchor="middle" fill="#bf00ff" font-size="10" font-weight="700" font-family="monospace">PV1</text>
+          <text x="394" y="396" text-anchor="middle" fill="#600080" font-size="8" font-family="monospace">w:2</text>
+          <!-- PV2 -->
+          <rect x="440" y="370" width="72" height="34" rx="5" fill="rgba(191,0,255,0.12)" stroke="#bf00ff" stroke-width="1.5"/>
+          <text x="476" y="382" text-anchor="middle" fill="#bf00ff" font-size="10" font-weight="700" font-family="monospace">PV2</text>
+          <text x="476" y="396" text-anchor="middle" fill="#600080" font-size="8" font-family="monospace">w:3</text>
+          <!-- NTE -->
+          <rect x="522" y="370" width="72" height="34" rx="5" fill="rgba(191,0,255,0.12)" stroke="#bf00ff" stroke-width="1.5"/>
+          <text x="558" y="382" text-anchor="middle" fill="#bf00ff" font-size="10" font-weight="700" font-family="monospace">NTE</text>
+          <text x="558" y="396" text-anchor="middle" fill="#600080" font-size="8" font-family="monospace">w:4</text>
+          <!-- ORC (has_children) -->
+          <rect x="604" y="370" width="72" height="34" rx="5" fill="rgba(191,0,255,0.18)" stroke="#bf00ff" stroke-width="2"/>
+          <text x="640" y="382" text-anchor="middle" fill="#df40ff" font-size="10" font-weight="700" font-family="monospace">ORC ▸</text>
+          <text x="640" y="396" text-anchor="middle" fill="#600080" font-size="8" font-family="monospace">w:88 children</text>
+          <!-- OBR (has_children) -->
+          <rect x="686" y="370" width="72" height="34" rx="5" fill="rgba(191,0,255,0.18)" stroke="#bf00ff" stroke-width="2"/>
+          <text x="722" y="382" text-anchor="middle" fill="#df40ff" font-size="10" font-weight="700" font-family="monospace">OBR ▸</text>
+          <text x="722" y="396" text-anchor="middle" fill="#600080" font-size="8" font-family="monospace">w:89 children</text>
+          <!-- OBX (has_children) -->
+          <rect x="768" y="370" width="72" height="34" rx="5" fill="rgba(191,0,255,0.18)" stroke="#bf00ff" stroke-width="2"/>
+          <text x="804" y="382" text-anchor="middle" fill="#df40ff" font-size="10" font-weight="700" font-family="monospace">OBX ▸</text>
+          <text x="804" y="396" text-anchor="middle" fill="#600080" font-size="8" font-family="monospace">w:90 children</text>
+          <!-- SPM (has_children) -->
+          <rect x="850" y="370" width="72" height="34" rx="5" fill="rgba(191,0,255,0.18)" stroke="#bf00ff" stroke-width="2"/>
+          <text x="886" y="382" text-anchor="middle" fill="#df40ff" font-size="10" font-weight="700" font-family="monospace">SPM ▸</text>
+          <text x="886" y="396" text-anchor="middle" fill="#600080" font-size="8" font-family="monospace">w:100</text>
+          <!-- DG1 -->
+          <rect x="932" y="370" width="72" height="34" rx="5" fill="rgba(191,0,255,0.12)" stroke="#bf00ff" stroke-width="1.5"/>
+          <text x="968" y="382" text-anchor="middle" fill="#bf00ff" font-size="10" font-weight="700" font-family="monospace">DG1</text>
+          <text x="968" y="396" text-anchor="middle" fill="#600080" font-size="8" font-family="monospace">w:92</text>
+          <!-- MSA -->
+          <rect x="1014" y="370" width="72" height="34" rx="5" fill="rgba(191,0,255,0.12)" stroke="#bf00ff" stroke-width="1.5"/>
+          <text x="1050" y="382" text-anchor="middle" fill="#bf00ff" font-size="10" font-weight="700" font-family="monospace">MSA</text>
+          <text x="1050" y="396" text-anchor="middle" fill="#600080" font-size="8" font-family="monospace">w:1</text>
+          <!-- ERR -->
+          <rect x="1096" y="370" width="72" height="34" rx="5" fill="rgba(191,0,255,0.12)" stroke="#bf00ff" stroke-width="1.5"/>
+          <text x="1132" y="382" text-anchor="middle" fill="#bf00ff" font-size="10" font-weight="700" font-family="monospace">ERR</text>
+          <text x="1132" y="396" text-anchor="middle" fill="#600080" font-size="8" font-family="monospace">w:2</text>
+          <!-- more... -->
+          <rect x="1178" y="370" width="185" height="34" rx="5" fill="rgba(191,0,255,0.06)" stroke="#4a2060" stroke-width="1" stroke-dasharray="4,3"/>
+          <text x="1270" y="382" text-anchor="middle" fill="#600080" font-size="10" font-family="monospace">+25 more segments</text>
+          <text x="1270" y="396" text-anchor="middle" fill="#400060" font-size="8" font-family="monospace">FT1,GT1,IN1,SCH,SFT,TXA...</text>
+
+          <!-- ═══ LAYER 4: Helpers ══════════════════════════ -->
+          <rect x="280" y="510" width="185" height="36" rx="5" fill="rgba(255,45,120,0.08)" stroke="#ff2d78" stroke-width="1.5"/>
+          <text x="372" y="524" text-anchor="middle" fill="#ff2d78" font-size="11" font-weight="700" font-family="monospace">TimeFormatterHelper</text>
+          <text x="372" y="538" text-anchor="middle" fill="#803060" font-size="9" font-family="monospace">extended by Segment</text>
+
+          <rect x="485" y="510" width="130" height="36" rx="5" fill="rgba(255,45,120,0.08)" stroke="#ff2d78" stroke-width="1.5"/>
+          <text x="550" y="524" text-anchor="middle" fill="#ff2d78" font-size="11" font-weight="700" font-family="monospace">HL7Time</text>
+          <text x="550" y="538" text-anchor="middle" fill="#803060" font-size="9" font-family="monospace">mixed into Time/DateTime</text>
+
+          <rect x="635" y="510" width="130" height="36" rx="5" fill="rgba(255,45,120,0.08)" stroke="#ff2d78" stroke-width="1.5"/>
+          <text x="700" y="524" text-anchor="middle" fill="#ff2d78" font-size="11" font-weight="700" font-family="monospace">String#hl7_batch?</text>
+          <text x="700" y="538" text-anchor="middle" fill="#803060" font-size="9" font-family="monospace">monkey-patch</text>
+
+          <!-- ═══ LAYER 5: stdlib ═══════════════════════════ -->
+          <rect x="30" y="618" width="80" height="30" rx="4" fill="rgba(255,230,0,0.06)" stroke="#4a4400" stroke-width="1"/>
+          <text x="70" y="637" text-anchor="middle" fill="#806000" font-size="10" font-family="monospace">rubygems</text>
+          <rect x="120" y="618" width="70" height="30" rx="4" fill="rgba(255,230,0,0.06)" stroke="#4a4400" stroke-width="1"/>
+          <text x="155" y="637" text-anchor="middle" fill="#806000" font-size="10" font-family="monospace">stringio</text>
+          <rect x="200" y="618" width="60" height="30" rx="4" fill="rgba(255,230,0,0.06)" stroke="#4a4400" stroke-width="1"/>
+          <text x="230" y="637" text-anchor="middle" fill="#806000" font-size="10" font-family="monospace">date</text>
+          <rect x="270" y="618" width="70" height="30" rx="4" fill="rgba(255,230,0,0.06)" stroke="#4a4400" stroke-width="1"/>
+          <text x="305" y="637" text-anchor="middle" fill="#806000" font-size="10" font-family="monospace">socket</text>
+
+          <!-- ═══ EDGES ═══════════════════════════════════════ -->
+          <!-- ruby-hl7.rb → layer 1 -->
+          <line x1="640" y1="76" x2="110" y2="120" stroke="#00f5ff" stroke-width="1.2" stroke-opacity="0.5" marker-end="url(#arrow-cyan)"/>
+          <line x1="670" y1="76" x2="302" y2="120" stroke="#ff2d78" stroke-width="1.2" stroke-opacity="0.5" marker-end="url(#arrow-cyan)"/>
+          <line x1="690" y1="76" x2="497" y2="120" stroke="#00f5ff" stroke-width="1.2" stroke-opacity="0.5" marker-end="url(#arrow-cyan)"/>
+          <line x1="700" y1="76" x2="665" y2="120" stroke="#00f5ff" stroke-width="1.5" stroke-opacity="0.7" marker-end="url(#arrow-cyan)"/>
+          <line x1="720" y1="76" x2="845" y2="120" stroke="#00f5ff" stroke-width="1.2" stroke-opacity="0.5" marker-end="url(#arrow-cyan)"/>
+          <line x1="740" y1="76" x2="1047" y2="120" stroke="#00f5ff" stroke-width="1.2" stroke-opacity="0.5" marker-end="url(#arrow-cyan)"/>
+          <line x1="760" y1="76" x2="1230" y2="120" stroke="#00f5ff" stroke-width="1.2" stroke-opacity="0.5" marker-end="url(#arrow-cyan)"/>
+
+          <!-- ruby-hl7.rb → segment.rb (via require "segment") -->
+          <line x1="700" y1="76" x2="515" y2="250" stroke="#00f5ff" stroke-width="1.5" stroke-opacity="0.4" stroke-dasharray="6,4"/>
+          <!-- ruby-hl7.rb → segment_default.rb -->
+          <line x1="700" y1="76" x2="700" y2="250" stroke="#00f5ff" stroke-width="1.2" stroke-opacity="0.4" stroke-dasharray="6,4"/>
+          <!-- ruby-hl7.rb → core_ext -->
+          <line x1="700" y1="76" x2="885" y2="250" stroke="#ff2d78" stroke-width="1.2" stroke-opacity="0.4" stroke-dasharray="5,4"/>
+          <line x1="700" y1="76" x2="1067" y2="250" stroke="#ff2d78" stroke-width="1.2" stroke-opacity="0.4" stroke-dasharray="5,4"/>
+
+          <!-- segment.rb inherits from/uses -->
+          <line x1="515" y1="290" x2="230" y2="370" stroke="#bf00ff" stroke-width="1" stroke-opacity="0.4" marker-end="url(#arrow-purple)"/>
+          <line x1="515" y1="290" x2="640" y2="370" stroke="#bf00ff" stroke-width="1" stroke-opacity="0.4" marker-end="url(#arrow-purple)"/>
+          <line x1="515" y1="290" x2="722" y2="370" stroke="#bf00ff" stroke-width="1.5" stroke-opacity="0.6" marker-end="url(#arrow-purple)"/>
+          <line x1="515" y1="290" x2="804" y2="370" stroke="#bf00ff" stroke-width="1" stroke-opacity="0.4" marker-end="url(#arrow-purple)"/>
+
+          <!-- segment_default.rb → dir load → all segments -->
+          <path d="M700,290 C700,330 400,340 148,370" stroke="#bf00ff" stroke-width="1" stroke-opacity="0.35" fill="none" stroke-dasharray="4,3"/>
+
+          <!-- helpers -->
+          <line x1="515" y1="290" x2="372" y2="510" stroke="#ff2d78" stroke-width="1" stroke-opacity="0.35" stroke-dasharray="4,3"/>
+          <line x1="885" y1="290" x2="550" y2="510" stroke="#ff2d78" stroke-width="1" stroke-opacity="0.35" stroke-dasharray="4,3"/>
+          <line x1="1067" y1="290" x2="700" y2="510" stroke="#ff2d78" stroke-width="1" stroke-opacity="0.35" stroke-dasharray="4,3"/>
+
+          <!-- stdlib -->
+          <line x1="110" y1="160" x2="70" y2="618" stroke="#4a4400" stroke-width="0.8" stroke-opacity="0.3"/>
+          <line x1="497" y1="160" x2="155" y2="618" stroke="#4a4400" stroke-width="0.8" stroke-opacity="0.3"/>
+          <line x1="665" y1="160" x2="230" y2="618" stroke="#4a4400" stroke-width="0.8" stroke-opacity="0.3"/>
+
+          <!-- Legend -->
+          <rect x="30" y="28" width="500" height="80" rx="6" fill="rgba(0,0,0,0.4)" stroke="rgba(42,42,64,0.5)" stroke-width="1"/>
+          <circle cx="50" cy="50" r="5" fill="#00f5ff"/>
+          <text x="62" y="54" fill="#c8d0e0" font-size="10" font-family="monospace">Core Infrastructure</text>
+          <circle cx="180" cy="50" r="5" fill="#bf00ff"/>
+          <text x="192" y="54" fill="#c8d0e0" font-size="10" font-family="monospace">Segment Classes</text>
+          <circle cx="300" cy="50" r="5" fill="#ff2d78"/>
+          <text x="312" y="54" fill="#c8d0e0" font-size="10" font-family="monospace">Helpers/Ext</text>
+          <circle cx="405" cy="50" r="5" fill="#ffe600"/>
+          <text x="417" y="54" fill="#c8d0e0" font-size="10" font-family="monospace">Stdlib</text>
+          <line x1="40" y1="74" x2="70" y2="74" stroke="#00f5ff" stroke-width="1.5"/>
+          <text x="78" y="78" fill="#6b7280" font-size="10" font-family="monospace">require chain</text>
+          <line x1="160" y1="74" x2="190" y2="74" stroke="#00f5ff" stroke-width="1.5" stroke-dasharray="4,3"/>
+          <text x="198" y="78" fill="#6b7280" font-size="10" font-family="monospace">indirect / dynamic</text>
+          <rect x="310" y="66" width="10" height="10" rx="1" fill="none" stroke="#bf00ff" stroke-width="2"/>
+          <text x="328" y="78" fill="#6b7280" font-size="10" font-family="monospace">has_children (parent)</text>
+        </svg>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── SECTION 1: GEM DEPENDENCIES ──────────────────────── -->
+  <section class="section" id="gem-deps">
+    <div class="section-header">
+      <div class="section-num" style="background:rgba(255,230,0,0.12);color:var(--neon-yellow);border:1px solid rgba(255,230,0,0.3);">1</div>
+      <div>
+        <div class="section-title">External Gem Dependencies</div>
+        <div class="section-desc">All gems from gemspec + Gemfile + Gemfile.lock. ruby-hl7 has ZERO runtime dependencies — it is pure Ruby stdlib.</div>
+      </div>
+    </div>
+
+    <!-- Gem dependency chain SVG -->
+    <div class="card">
+      <div class="card-title">Gem Dependency Chain</div>
+      <div class="dep-svg-wrap">
+        <svg viewBox="0 0 1200 380" xmlns="http://www.w3.org/2000/svg" style="height:380px;">
+          <rect width="1200" height="380" fill="#12121a"/>
+          <defs>
+            <marker id="a2" markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto">
+              <path d="M0,0 L0,6 L7,3 z" fill="#4a4400"/>
+            </marker>
+          </defs>
+
+          <!-- ruby-hl7 (root) -->
+          <rect x="520" y="20" width="160" height="44" rx="8" fill="rgba(0,245,255,0.12)" stroke="#00f5ff" stroke-width="2"/>
+          <text x="600" y="39" text-anchor="middle" fill="#00f5ff" font-size="12" font-weight="700" font-family="monospace">ruby-hl7 1.4.0</text>
+          <text x="600" y="55" text-anchor="middle" fill="#006080" font-size="9" font-family="monospace">ZERO runtime deps</text>
+
+          <!-- Dev deps label -->
+          <text x="600" y="98" text-anchor="middle" fill="#4a4400" font-size="10" font-family="monospace" letter-spacing="2">DEVELOPMENT DEPENDENCIES (gemspec)</text>
+
+          <!-- Level 1 direct dev deps -->
+          <!-- rspec -->
+          <rect x="20" y="112" width="130" height="38" rx="6" fill="rgba(191,0,255,0.1)" stroke="#bf00ff" stroke-width="1.5"/>
+          <text x="85" y="128" text-anchor="middle" fill="#bf00ff" font-size="10" font-weight="700" font-family="monospace">rspec</text>
+          <text x="85" y="142" text-anchor="middle" fill="#600080" font-size="8" font-family="monospace">&gt;= 3.9.0</text>
+          <!-- simplecov -->
+          <rect x="165" y="112" width="130" height="38" rx="6" fill="rgba(191,0,255,0.1)" stroke="#bf00ff" stroke-width="1.5"/>
+          <text x="230" y="128" text-anchor="middle" fill="#bf00ff" font-size="10" font-weight="700" font-family="monospace">simplecov</text>
+          <text x="230" y="142" text-anchor="middle" fill="#600080" font-size="8" font-family="monospace">= 0.16.1</text>
+          <!-- simplecov-html -->
+          <rect x="310" y="112" width="140" height="38" rx="6" fill="rgba(191,0,255,0.1)" stroke="#bf00ff" stroke-width="1.5"/>
+          <text x="380" y="128" text-anchor="middle" fill="#bf00ff" font-size="10" font-weight="700" font-family="monospace">simplecov-html</text>
+          <text x="380" y="142" text-anchor="middle" fill="#600080" font-size="8" font-family="monospace">~&gt; 0.10.0</text>
+          <!-- rake -->
+          <rect x="465" y="112" width="110" height="38" rx="6" fill="rgba(191,0,255,0.1)" stroke="#bf00ff" stroke-width="1.5"/>
+          <text x="520" y="128" text-anchor="middle" fill="#bf00ff" font-size="10" font-weight="700" font-family="monospace">rake</text>
+          <text x="520" y="142" text-anchor="middle" fill="#600080" font-size="8" font-family="monospace">&gt;= 12.3.3</text>
+          <!-- rake-contrib -->
+          <rect x="590" y="112" width="120" height="38" rx="6" fill="rgba(191,0,255,0.1)" stroke="#bf00ff" stroke-width="1.5"/>
+          <text x="650" y="128" text-anchor="middle" fill="#bf00ff" font-size="10" font-weight="700" font-family="monospace">rake-contrib</text>
+          <text x="650" y="142" text-anchor="middle" fill="#600080" font-size="8" font-family="monospace">no pin</text>
+          <!-- rdoc -->
+          <rect x="725" y="112" width="110" height="38" rx="6" fill="rgba(191,0,255,0.1)" stroke="#bf00ff" stroke-width="1.5"/>
+          <text x="780" y="128" text-anchor="middle" fill="#bf00ff" font-size="10" font-weight="700" font-family="monospace">rdoc</text>
+          <text x="780" y="142" text-anchor="middle" fill="#600080" font-size="8" font-family="monospace">~&gt; 6.3</text>
+          <!-- bundler -->
+          <rect x="850" y="112" width="120" height="38" rx="6" fill="rgba(191,0,255,0.1)" stroke="#bf00ff" stroke-width="1.5"/>
+          <text x="910" y="128" text-anchor="middle" fill="#bf00ff" font-size="10" font-weight="700" font-family="monospace">bundler</text>
+          <text x="910" y="142" text-anchor="middle" fill="#600080" font-size="8" font-family="monospace">~&gt; 2.5</text>
+
+          <!-- Gemfile-only -->
+          <text x="600" y="178" text-anchor="middle" fill="#4a4400" font-size="10" font-family="monospace" letter-spacing="2">GEMFILE EXTRA (dev/test group)</text>
+          <!-- pry -->
+          <rect x="700" y="193" width="100" height="34" rx="5" fill="rgba(57,255,20,0.08)" stroke="#39ff14" stroke-width="1.5"/>
+          <text x="750" y="207" text-anchor="middle" fill="#39ff14" font-size="10" font-weight="700" font-family="monospace">pry</text>
+          <text x="750" y="219" text-anchor="middle" fill="#205010" font-size="8" font-family="monospace">no version pin</text>
+          <!-- rubocop -->
+          <rect x="810" y="193" width="120" height="34" rx="5" fill="rgba(57,255,20,0.08)" stroke="#39ff14" stroke-width="1.5"/>
+          <text x="870" y="207" text-anchor="middle" fill="#39ff14" font-size="10" font-weight="700" font-family="monospace">rubocop</text>
+          <text x="870" y="219" text-anchor="middle" fill="#205010" font-size="8" font-family="monospace">~&gt; 1.66</text>
+          <!-- rubocop-performance -->
+          <rect x="940" y="193" width="155" height="34" rx="5" fill="rgba(57,255,20,0.08)" stroke="#39ff14" stroke-width="1.5"/>
+          <text x="1017" y="207" text-anchor="middle" fill="#39ff14" font-size="10" font-weight="700" font-family="monospace">rubocop-performance</text>
+          <text x="1017" y="219" text-anchor="middle" fill="#205010" font-size="8" font-family="monospace">~&gt; 1.22</text>
+          <!-- rubocop-rake -->
+          <rect x="550" y="193" width="130" height="34" rx="5" fill="rgba(57,255,20,0.08)" stroke="#39ff14" stroke-width="1.5"/>
+          <text x="615" y="207" text-anchor="middle" fill="#39ff14" font-size="10" font-weight="700" font-family="monospace">rubocop-rake</text>
+          <text x="615" y="219" text-anchor="middle" fill="#205010" font-size="8" font-family="monospace">~&gt; 0.6</text>
+          <!-- rubocop-rspec -->
+          <rect x="390" y="193" width="140" height="34" rx="5" fill="rgba(57,255,20,0.08)" stroke="#39ff14" stroke-width="1.5"/>
+          <text x="460" y="207" text-anchor="middle" fill="#39ff14" font-size="10" font-weight="700" font-family="monospace">rubocop-rspec</text>
+          <text x="460" y="219" text-anchor="middle" fill="#205010" font-size="8" font-family="monospace">~&gt; 3.1</text>
+
+          <!-- Transitive deps row -->
+          <text x="600" y="254" text-anchor="middle" fill="#4a4400" font-size="10" font-family="monospace" letter-spacing="2">TRANSITIVE (lock file)</text>
+          <!-- row of transitive deps -->
+          <rect x="20" y="268" width="90" height="28" rx="4" fill="rgba(255,230,0,0.06)" stroke="#4a4400" stroke-width="1"/>
+          <text x="65" y="282" text-anchor="middle" fill="#806000" font-size="9" font-family="monospace">rspec-core</text>
+          <text x="65" y="292" text-anchor="middle" fill="#4a3000" font-size="7" font-family="monospace">3.13.1</text>
+
+          <rect x="120" y="268" width="110" height="28" rx="4" fill="rgba(255,230,0,0.06)" stroke="#4a4400" stroke-width="1"/>
+          <text x="175" y="282" text-anchor="middle" fill="#806000" font-size="9" font-family="monospace">rspec-expectations</text>
+          <text x="175" y="292" text-anchor="middle" fill="#4a3000" font-size="7" font-family="monospace">3.13.3</text>
+
+          <rect x="240" y="268" width="100" height="28" rx="4" fill="rgba(255,230,0,0.06)" stroke="#4a4400" stroke-width="1"/>
+          <text x="290" y="282" text-anchor="middle" fill="#806000" font-size="9" font-family="monospace">rspec-mocks</text>
+          <text x="290" y="292" text-anchor="middle" fill="#4a3000" font-size="7" font-family="monospace">3.13.2</text>
+
+          <rect x="350" y="268" width="100" height="28" rx="4" fill="rgba(255,230,0,0.06)" stroke="#4a4400" stroke-width="1"/>
+          <text x="400" y="282" text-anchor="middle" fill="#806000" font-size="9" font-family="monospace">rspec-support</text>
+          <text x="400" y="292" text-anchor="middle" fill="#4a3000" font-size="7" font-family="monospace">3.13.1</text>
+
+          <rect x="460" y="268" width="80" height="28" rx="4" fill="rgba(255,230,0,0.06)" stroke="#4a4400" stroke-width="1"/>
+          <text x="500" y="282" text-anchor="middle" fill="#806000" font-size="9" font-family="monospace">diff-lcs</text>
+          <text x="500" y="292" text-anchor="middle" fill="#4a3000" font-size="7" font-family="monospace">1.5.1</text>
+
+          <rect x="550" y="268" width="80" height="28" rx="4" fill="rgba(255,230,0,0.06)" stroke="#4a4400" stroke-width="1"/>
+          <text x="590" y="282" text-anchor="middle" fill="#806000" font-size="9" font-family="monospace">docile</text>
+          <text x="590" y="292" text-anchor="middle" fill="#4a3000" font-size="7" font-family="monospace">1.4.1</text>
+
+          <rect x="640" y="268" width="70" height="28" rx="4" fill="rgba(255,230,0,0.06)" stroke="#4a4400" stroke-width="1"/>
+          <text x="675" y="282" text-anchor="middle" fill="#806000" font-size="9" font-family="monospace">json</text>
+          <text x="675" y="292" text-anchor="middle" fill="#4a3000" font-size="7" font-family="monospace">2.7.2</text>
+
+          <rect x="720" y="268" width="80" height="28" rx="4" fill="rgba(255,230,0,0.06)" stroke="#4a4400" stroke-width="1"/>
+          <text x="760" y="282" text-anchor="middle" fill="#806000" font-size="9" font-family="monospace">parser</text>
+          <text x="760" y="292" text-anchor="middle" fill="#4a3000" font-size="7" font-family="monospace">3.3.5.0</text>
+
+          <rect x="810" y="268" width="60" height="28" rx="4" fill="rgba(255,230,0,0.06)" stroke="#4a4400" stroke-width="1"/>
+          <text x="840" y="282" text-anchor="middle" fill="#806000" font-size="9" font-family="monospace">racc</text>
+          <text x="840" y="292" text-anchor="middle" fill="#4a3000" font-size="7" font-family="monospace">1.8.1</text>
+
+          <rect x="880" y="268" width="70" height="28" rx="4" fill="rgba(255,230,0,0.06)" stroke="#4a4400" stroke-width="1"/>
+          <text x="915" y="282" text-anchor="middle" fill="#806000" font-size="9" font-family="monospace">rainbow</text>
+          <text x="915" y="292" text-anchor="middle" fill="#4a3000" font-size="7" font-family="monospace">3.1.1</text>
+
+          <rect x="960" y="268" width="100" height="28" rx="4" fill="rgba(255,230,0,0.06)" stroke="#4a4400" stroke-width="1"/>
+          <text x="1010" y="282" text-anchor="middle" fill="#806000" font-size="9" font-family="monospace">rubocop-ast</text>
+          <text x="1010" y="292" text-anchor="middle" fill="#4a3000" font-size="7" font-family="monospace">1.32.3</text>
+
+          <rect x="1070" y="268" width="110" height="28" rx="4" fill="rgba(255,230,0,0.06)" stroke="#4a4400" stroke-width="1"/>
+          <text x="1125" y="282" text-anchor="middle" fill="#806000" font-size="9" font-family="monospace">ruby-progressbar</text>
+          <text x="1125" y="292" text-anchor="middle" fill="#4a3000" font-size="7" font-family="monospace">1.13.0</text>
+
+          <rect x="20" y="310" width="90" height="28" rx="4" fill="rgba(255,230,0,0.06)" stroke="#4a4400" stroke-width="1"/>
+          <text x="65" y="324" text-anchor="middle" fill="#806000" font-size="9" font-family="monospace">parallel</text>
+          <text x="65" y="334" text-anchor="middle" fill="#4a3000" font-size="7" font-family="monospace">1.26.3</text>
+
+          <rect x="120" y="310" width="80" height="28" rx="4" fill="rgba(255,230,0,0.06)" stroke="#4a4400" stroke-width="1"/>
+          <text x="160" y="324" text-anchor="middle" fill="#806000" font-size="9" font-family="monospace">regexp_parser</text>
+          <text x="160" y="334" text-anchor="middle" fill="#4a3000" font-size="7" font-family="monospace">2.9.2</text>
+
+          <rect x="210" y="310" width="70" height="28" rx="4" fill="rgba(255,230,0,0.06)" stroke="#4a4400" stroke-width="1"/>
+          <text x="245" y="324" text-anchor="middle" fill="#806000" font-size="9" font-family="monospace">coderay</text>
+          <text x="245" y="334" text-anchor="middle" fill="#4a3000" font-size="7" font-family="monospace">1.1.3</text>
+
+          <rect x="290" y="310" width="100" height="28" rx="4" fill="rgba(255,230,0,0.06)" stroke="#4a4400" stroke-width="1"/>
+          <text x="340" y="324" text-anchor="middle" fill="#806000" font-size="9" font-family="monospace">method_source</text>
+          <text x="340" y="334" text-anchor="middle" fill="#4a3000" font-size="7" font-family="monospace">1.1.0</text>
+
+          <rect x="400" y="310" width="70" height="28" rx="4" fill="rgba(255,230,0,0.06)" stroke="#4a4400" stroke-width="1"/>
+          <text x="435" y="324" text-anchor="middle" fill="#806000" font-size="9" font-family="monospace">psych</text>
+          <text x="435" y="334" text-anchor="middle" fill="#4a3000" font-size="7" font-family="monospace">5.1.2</text>
+
+          <rect x="480" y="310" width="70" height="28" rx="4" fill="rgba(255,230,0,0.06)" stroke="#4a4400" stroke-width="1"/>
+          <text x="515" y="324" text-anchor="middle" fill="#806000" font-size="9" font-family="monospace">stringio</text>
+          <text x="515" y="334" text-anchor="middle" fill="#4a3000" font-size="7" font-family="monospace">3.1.1</text>
+
+          <rect x="560" y="310" width="110" height="28" rx="4" fill="rgba(255,230,0,0.06)" stroke="#4a4400" stroke-width="1"/>
+          <text x="615" y="324" text-anchor="middle" fill="#806000" font-size="9" font-family="monospace">unicode-display_w</text>
+          <text x="615" y="334" text-anchor="middle" fill="#4a3000" font-size="7" font-family="monospace">2.6.0</text>
+
+          <rect x="680" y="310" width="90" height="28" rx="4" fill="rgba(255,230,0,0.06)" stroke="#4a4400" stroke-width="1"/>
+          <text x="725" y="324" text-anchor="middle" fill="#806000" font-size="9" font-family="monospace">lang-server-proto</text>
+          <text x="725" y="334" text-anchor="middle" fill="#4a3000" font-size="7" font-family="monospace">3.17.0.3</text>
+
+          <rect x="780" y="310" width="60" height="28" rx="4" fill="rgba(255,230,0,0.06)" stroke="#4a4400" stroke-width="1"/>
+          <text x="810" y="324" text-anchor="middle" fill="#806000" font-size="9" font-family="monospace">ast</text>
+          <text x="810" y="334" text-anchor="middle" fill="#4a3000" font-size="7" font-family="monospace">2.4.2</text>
+
+          <!-- Edges from ruby-hl7 → direct deps -->
+          <line x1="575" y1="64" x2="85" y2="112" stroke="#bf00ff" stroke-width="1" stroke-opacity="0.5"/>
+          <line x1="580" y1="64" x2="230" y2="112" stroke="#bf00ff" stroke-width="1" stroke-opacity="0.5"/>
+          <line x1="590" y1="64" x2="380" y2="112" stroke="#bf00ff" stroke-width="1" stroke-opacity="0.5"/>
+          <line x1="600" y1="64" x2="520" y2="112" stroke="#bf00ff" stroke-width="1" stroke-opacity="0.5"/>
+          <line x1="610" y1="64" x2="650" y2="112" stroke="#bf00ff" stroke-width="1" stroke-opacity="0.5"/>
+          <line x1="620" y1="64" x2="780" y2="112" stroke="#bf00ff" stroke-width="1" stroke-opacity="0.5"/>
+          <line x1="625" y1="64" x2="910" y2="112" stroke="#bf00ff" stroke-width="1" stroke-opacity="0.5"/>
+        </svg>
+      </div>
+    </div>
+
+    <div class="gem-grid">
+      <div class="gem-card">
+        <div class="gem-name">rspec 3.13.0</div>
+        <div class="gem-version">rspec-core ~> 3.13.0 | rspec-expectations ~> 3.13.0 | rspec-mocks ~> 3.13.0</div>
+        <div class="gem-desc">BDD testing framework. Drives all 39 spec files via <code>spec/**/*.rb</code> pattern in Rakefile. RSpec::Core::RakeTask used in Rakefile.</div>
+        <span class="gem-type dev">development</span>
+      </div>
+      <div class="gem-card">
+        <div class="gem-name">simplecov 0.16.1 (exact pin)</div>
+        <div class="gem-version">simplecov-html ~> 0.10.0 | docile ~> 1.1 | json >= 1.8</div>
+        <div class="gem-desc">Code coverage analysis. Activated when <code>ENV["COVERAGE"]="true"</code>. Configured in spec_helper.rb to filter /test/ and /spec/ directories.</div>
+        <span class="gem-type dev">development</span>
+      </div>
+      <div class="gem-card">
+        <div class="gem-name">rubocop 1.66.1</div>
+        <div class="gem-version">+ rubocop-performance 1.22.1 | rubocop-rake 0.6.0 | rubocop-rspec 3.1.0</div>
+        <div class="gem-desc">Ruby static analysis and style enforcement. Four rubocop gems: core + three extension plugins for performance, rake tasks, and RSpec patterns.</div>
+        <span class="gem-type dev">development</span>
+      </div>
+      <div class="gem-card">
+        <div class="gem-name">rake 13.2.1</div>
+        <div class="gem-version">&gt;= 12.3.3 (gemspec) | rake-contrib 1.0.0</div>
+        <div class="gem-desc">Build automation. Provides tasks: <code>:spec</code>, <code>:spec_with_simplecov</code>, <code>:clean</code>, <code>:install_gem</code>. rake-contrib adds extra rake utilities.</div>
+        <span class="gem-type dev">development</span>
+      </div>
+      <div class="gem-card">
+        <div class="gem-name">rdoc 6.7.0</div>
+        <div class="gem-version">~> 6.3 | psych >= 4.0.0</div>
+        <div class="gem-desc">Documentation generation. Rakefile registers RDoc::Task with <code>--charset=UTF-8</code>. Extra rdoc files: LICENSE, README.rdoc.</div>
+        <span class="gem-type dev">development</span>
+      </div>
+      <div class="gem-card">
+        <div class="gem-name">pry 0.14.2</div>
+        <div class="gem-version">coderay ~> 1.1 | method_source ~> 1.0</div>
+        <div class="gem-desc">Interactive REPL for debugging sessions. Not referenced in source — loaded as a dev convenience tool. Gemfile-only (not in gemspec).</div>
+        <span class="gem-type dev">development</span>
+      </div>
+      <div class="gem-card">
+        <div class="gem-name">bundler 2.5.16</div>
+        <div class="gem-version">~> 2.5</div>
+        <div class="gem-desc">Dependency manager. Gemspec has MFA required metadata: <code>rubygems_mfa_required = true</code>. Locked on arm64-darwin-23 + ruby platforms.</div>
+        <span class="gem-type dev">development</span>
+      </div>
+      <div class="gem-card">
+        <div class="gem-name">Transitive: parser 3.3.5.0</div>
+        <div class="gem-version">ast ~> 2.4.1 | racc (runtime)</div>
+        <div class="gem-desc">Ruby parser used by rubocop to parse source files for static analysis. racc is the LALR parser generator backing it.</div>
+        <span class="gem-type transitive">transitive</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── SECTION 2: CLASS HIERARCHY ────────────────────────── -->
+  <section class="section" id="class-hierarchy">
+    <div class="section-header">
+      <div class="section-num" style="background:rgba(0,245,255,0.12);color:var(--neon-cyan);border:1px solid rgba(0,245,255,0.3);">2</div>
+      <div>
+        <div class="section-title">Internal Ruby Class / Module Hierarchy</div>
+        <div class="section-desc">Complete inheritance tree, module includes, extends, and mixin relationships</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Complete Hierarchy</div>
+      <div class="dep-svg-wrap">
+        <svg viewBox="0 0 1300 680" xmlns="http://www.w3.org/2000/svg" style="height:680px;">
+          <rect width="1300" height="680" fill="#12121a"/>
+
+          <!-- MODULES ROW (top) -->
+          <text x="20" y="30" fill="#2a2a40" font-size="10" font-family="monospace" letter-spacing="2">MODULES</text>
+
+          <!-- Enumerable (stdlib) -->
+          <rect x="20" y="42" width="120" height="34" rx="5" fill="rgba(255,230,0,0.07)" stroke="#4a4400" stroke-width="1"/>
+          <text x="80" y="55" text-anchor="middle" fill="#806000" font-size="10" font-family="monospace">Enumerable</text>
+          <text x="80" y="68" text-anchor="middle" fill="#4a3000" font-size="8" font-family="monospace">stdlib</text>
+
+          <!-- Comparable (stdlib) -->
+          <rect x="150" y="42" width="120" height="34" rx="5" fill="rgba(255,230,0,0.07)" stroke="#4a4400" stroke-width="1"/>
+          <text x="210" y="55" text-anchor="middle" fill="#806000" font-size="10" font-family="monospace">Comparable</text>
+          <text x="210" y="68" text-anchor="middle" fill="#4a3000" font-size="8" font-family="monospace">stdlib</text>
+
+          <!-- HL7::MessageBatchParser -->
+          <rect x="290" y="42" width="185" height="34" rx="5" fill="rgba(0,245,255,0.08)" stroke="#00f5ff" stroke-width="1.5"/>
+          <text x="382" y="55" text-anchor="middle" fill="#00f5ff" font-size="10" font-family="monospace">HL7::MessageBatchParser</text>
+          <text x="382" y="68" text-anchor="middle" fill="#006080" font-size="8" font-family="monospace">module · parse_batch, clean_batch_for_jruby</text>
+
+          <!-- HL7::Message::SegmentListStorage -->
+          <rect x="490" y="42" width="220" height="34" rx="5" fill="rgba(0,245,255,0.08)" stroke="#00f5ff" stroke-width="1.5"/>
+          <text x="600" y="55" text-anchor="middle" fill="#00f5ff" font-size="10" font-family="monospace">HL7::Message::SegmentListStorage</text>
+          <text x="600" y="68" text-anchor="middle" fill="#006080" font-size="8" font-family="monospace">module · has_children DSL</text>
+
+          <!-- HL7::Message::SegmentFields -->
+          <rect x="726" y="42" width="200" height="34" rx="5" fill="rgba(0,245,255,0.08)" stroke="#00f5ff" stroke-width="1.5"/>
+          <text x="826" y="55" text-anchor="middle" fill="#00f5ff" font-size="10" font-family="monospace">HL7::Message::SegmentFields</text>
+          <text x="826" y="68" text-anchor="middle" fill="#006080" font-size="8" font-family="monospace">module · add_field, read/write_field</text>
+
+          <!-- TimeFormatterHelper -->
+          <rect x="942" y="42" width="180" height="34" rx="5" fill="rgba(255,45,120,0.08)" stroke="#ff2d78" stroke-width="1.5"/>
+          <text x="1032" y="55" text-anchor="middle" fill="#ff2d78" font-size="10" font-family="monospace">TimeFormatterHelper</text>
+          <text x="1032" y="68" text-anchor="middle" fill="#803060" font-size="8" font-family="monospace">module · hl7_formatted_*</text>
+
+          <!-- HL7Time -->
+          <rect x="1138" y="42" width="130" height="34" rx="5" fill="rgba(255,45,120,0.08)" stroke="#ff2d78" stroke-width="1.5"/>
+          <text x="1203" y="55" text-anchor="middle" fill="#ff2d78" font-size="10" font-family="monospace">HL7Time</text>
+          <text x="1203" y="68" text-anchor="middle" fill="#803060" font-size="8" font-family="monospace">module · to_hl7</text>
+
+          <!-- ── EXCEPTIONS ──────────────────────────── -->
+          <text x="20" y="108" fill="#2a2a40" font-size="10" font-family="monospace" letter-spacing="2">EXCEPTIONS (StandardError subclasses)</text>
+
+          <rect x="20" y="120" width="145" height="32" rx="5" fill="rgba(255,107,26,0.08)" stroke="#ff6b1a" stroke-width="1.5"/>
+          <text x="92" y="134" text-anchor="middle" fill="#ff6b1a" font-size="10" font-weight="700" font-family="monospace">HL7::Exception</text>
+          <text x="92" y="146" text-anchor="middle" fill="#803000" font-size="8" font-family="monospace">base custom error</text>
+
+          <rect x="180" y="120" width="145" height="32" rx="5" fill="rgba(255,107,26,0.08)" stroke="#ff6b1a" stroke-width="1.5"/>
+          <text x="252" y="134" text-anchor="middle" fill="#ff6b1a" font-size="10" font-weight="700" font-family="monospace">HL7::ParseError</text>
+          <text x="252" y="146" text-anchor="middle" fill="#803000" font-size="8" font-family="monospace">&lt; Exception</text>
+
+          <rect x="340" y="120" width="165" height="32" rx="5" fill="rgba(255,107,26,0.08)" stroke="#ff6b1a" stroke-width="1.5"/>
+          <text x="422" y="134" text-anchor="middle" fill="#ff6b1a" font-size="10" font-weight="700" font-family="monospace">HL7::RangeError</text>
+          <text x="422" y="146" text-anchor="middle" fill="#803000" font-size="8" font-family="monospace">&lt; Exception</text>
+
+          <rect x="520" y="120" width="185" height="32" rx="5" fill="rgba(255,107,26,0.08)" stroke="#ff6b1a" stroke-width="1.5"/>
+          <text x="612" y="134" text-anchor="middle" fill="#ff6b1a" font-size="10" font-weight="700" font-family="monospace">HL7::InvalidDataError</text>
+          <text x="612" y="146" text-anchor="middle" fill="#803000" font-size="8" font-family="monospace">&lt; Exception</text>
+
+          <rect x="720" y="120" width="225" height="32" rx="5" fill="rgba(255,107,26,0.08)" stroke="#ff6b1a" stroke-width="1.5"/>
+          <text x="832" y="134" text-anchor="middle" fill="#ff6b1a" font-size="10" font-weight="700" font-family="monospace">HL7::EmptySegmentNotAllowed</text>
+          <text x="832" y="146" text-anchor="middle" fill="#803000" font-size="8" font-family="monospace">&lt; ParseError</text>
+
+          <!-- ── CORE CLASSES ───────────────────────── -->
+          <text x="20" y="184" fill="#2a2a40" font-size="10" font-family="monospace" letter-spacing="2">CORE CLASSES</text>
+
+          <!-- HL7::Configuration -->
+          <rect x="20" y="196" width="175" height="38" rx="6" fill="rgba(0,245,255,0.08)" stroke="#00f5ff" stroke-width="1.5"/>
+          <text x="107" y="212" text-anchor="middle" fill="#00f5ff" font-size="11" font-weight="700" font-family="monospace">HL7::Configuration</text>
+          <text x="107" y="226" text-anchor="middle" fill="#006080" font-size="9" font-family="monospace">attr: empty_segment_is_error</text>
+
+          <!-- HL7::MessageParser -->
+          <rect x="210" y="196" width="175" height="38" rx="6" fill="rgba(0,245,255,0.08)" stroke="#00f5ff" stroke-width="1.5"/>
+          <text x="297" y="212" text-anchor="middle" fill="#00f5ff" font-size="11" font-weight="700" font-family="monospace">HL7::MessageParser</text>
+          <text x="297" y="226" text-anchor="middle" fill="#006080" font-size="9" font-family="monospace">parse_string, element/item delim</text>
+
+          <!-- HL7::Message -->
+          <rect x="400" y="196" width="165" height="38" rx="6" fill="rgba(0,245,255,0.12)" stroke="#00f5ff" stroke-width="2"/>
+          <text x="482" y="212" text-anchor="middle" fill="#00f5ff" font-size="12" font-weight="700" font-family="monospace">HL7::Message</text>
+          <text x="482" y="226" text-anchor="middle" fill="#006080" font-size="9" font-family="monospace">include Enumerable | extend BatchParser</text>
+
+          <!-- HL7::Message::Delimiter -->
+          <rect x="580" y="196" width="195" height="38" rx="6" fill="rgba(0,245,255,0.08)" stroke="#00f5ff" stroke-width="1.5"/>
+          <text x="677" y="212" text-anchor="middle" fill="#00f5ff" font-size="11" font-weight="700" font-family="monospace">HL7::Message::Delimiter</text>
+          <text x="677" y="226" text-anchor="middle" fill="#006080" font-size="9" font-family="monospace">item, element, segment attrs</text>
+
+          <!-- HL7::Message::SegmentGenerator -->
+          <rect x="790" y="196" width="215" height="38" rx="6" fill="rgba(0,245,255,0.08)" stroke="#00f5ff" stroke-width="1.5"/>
+          <text x="897" y="212" text-anchor="middle" fill="#00f5ff" font-size="11" font-weight="700" font-family="monospace">HL7::Message::SegmentGenerator</text>
+          <text x="897" y="226" text-anchor="middle" fill="#006080" font-size="9" font-family="monospace">build, get_segment_class, valid_seg_parts?</text>
+
+          <!-- ── SEGMENT BASE ─────────────────────── -->
+          <text x="20" y="260" fill="#2a2a40" font-size="10" font-family="monospace" letter-spacing="2">SEGMENT BASE CLASS</text>
+
+          <rect x="350" y="272" width="360" height="52" rx="8" fill="rgba(191,0,255,0.12)" stroke="#bf00ff" stroke-width="2.5"/>
+          <text x="530" y="294" text-anchor="middle" fill="#df40ff" font-size="13" font-weight="800" font-family="monospace">HL7::Message::Segment</text>
+          <text x="530" y="310" text-anchor="middle" fill="#600080" font-size="9" font-family="monospace">extend SegmentListStorage | extend TimeFormatterHelper</text>
+          <text x="530" y="322" text-anchor="middle" fill="#600080" font-size="9" font-family="monospace">include SegmentFields | method_missing dispatch</text>
+
+          <!-- Default -->
+          <rect x="200" y="360" width="175" height="38" rx="6" fill="rgba(191,0,255,0.1)" stroke="#bf00ff" stroke-width="1.5"/>
+          <text x="287" y="376" text-anchor="middle" fill="#bf00ff" font-size="11" font-weight="700" font-family="monospace">Segment::Default</text>
+          <text x="287" y="390" text-anchor="middle" fill="#600080" font-size="9" font-family="monospace">catch-all, no named fields</text>
+
+          <!-- Named segment classes  -->
+          <text x="20" y="430" fill="#2a2a40" font-size="10" font-family="monospace" letter-spacing="2">NAMED SEGMENT SUBCLASSES (36 total)</text>
+
+          <!-- Scheduling group -->
+          <rect x="20" y="442" width="80" height="28" rx="4" fill="rgba(191,0,255,0.1)" stroke="#bf00ff" stroke-width="1"/>
+          <text x="60" y="455" text-anchor="middle" fill="#bf00ff" font-size="9" font-family="monospace">MSH</text>
+          <text x="60" y="466" text-anchor="middle" fill="#600080" font-size="7" font-family="monospace">w:-1</text>
+
+          <rect x="108" y="442" width="80" height="28" rx="4" fill="rgba(191,0,255,0.1)" stroke="#bf00ff" stroke-width="1"/>
+          <text x="148" y="455" text-anchor="middle" fill="#bf00ff" font-size="9" font-family="monospace">EVN</text>
+          <text x="148" y="466" text-anchor="middle" fill="#600080" font-size="7" font-family="monospace">w:0</text>
+
+          <rect x="196" y="442" width="80" height="28" rx="4" fill="rgba(191,0,255,0.14)" stroke="#bf00ff" stroke-width="1.5"/>
+          <text x="236" y="455" text-anchor="middle" fill="#df40ff" font-size="9" font-weight="700" font-family="monospace">PID ▸</text>
+          <text x="236" y="466" text-anchor="middle" fill="#600080" font-size="7" font-family="monospace">NK1,NTE,PV1,PV2</text>
+
+          <rect x="284" y="442" width="80" height="28" rx="4" fill="rgba(191,0,255,0.1)" stroke="#bf00ff" stroke-width="1"/>
+          <text x="324" y="455" text-anchor="middle" fill="#bf00ff" font-size="9" font-family="monospace">NK1</text>
+          <text x="324" y="466" text-anchor="middle" fill="#600080" font-size="7" font-family="monospace">no w</text>
+
+          <rect x="372" y="442" width="80" height="28" rx="4" fill="rgba(191,0,255,0.1)" stroke="#bf00ff" stroke-width="1"/>
+          <text x="412" y="455" text-anchor="middle" fill="#bf00ff" font-size="9" font-family="monospace">PV1</text>
+          <text x="412" y="466" text-anchor="middle" fill="#600080" font-size="7" font-family="monospace">w:2</text>
+
+          <rect x="460" y="442" width="80" height="28" rx="4" fill="rgba(191,0,255,0.1)" stroke="#bf00ff" stroke-width="1"/>
+          <text x="500" y="455" text-anchor="middle" fill="#bf00ff" font-size="9" font-family="monospace">PV2</text>
+          <text x="500" y="466" text-anchor="middle" fill="#600080" font-size="7" font-family="monospace">w:3</text>
+
+          <rect x="548" y="442" width="80" height="28" rx="4" fill="rgba(191,0,255,0.1)" stroke="#bf00ff" stroke-width="1"/>
+          <text x="588" y="455" text-anchor="middle" fill="#bf00ff" font-size="9" font-family="monospace">NTE</text>
+          <text x="588" y="466" text-anchor="middle" fill="#600080" font-size="7" font-family="monospace">w:4</text>
+
+          <rect x="636" y="442" width="80" height="28" rx="4" fill="rgba(191,0,255,0.14)" stroke="#bf00ff" stroke-width="1.5"/>
+          <text x="676" y="455" text-anchor="middle" fill="#df40ff" font-size="9" font-weight="700" font-family="monospace">ORC ▸</text>
+          <text x="676" y="466" text-anchor="middle" fill="#600080" font-size="7" font-family="monospace">w:88 / OBR</text>
+
+          <rect x="724" y="442" width="80" height="28" rx="4" fill="rgba(191,0,255,0.14)" stroke="#bf00ff" stroke-width="1.5"/>
+          <text x="764" y="455" text-anchor="middle" fill="#df40ff" font-size="9" font-weight="700" font-family="monospace">OBR ▸</text>
+          <text x="764" y="466" text-anchor="middle" fill="#600080" font-size="7" font-family="monospace">w:89 / NTE,OBX,SPM</text>
+
+          <rect x="812" y="442" width="80" height="28" rx="4" fill="rgba(191,0,255,0.14)" stroke="#bf00ff" stroke-width="1.5"/>
+          <text x="852" y="455" text-anchor="middle" fill="#df40ff" font-size="9" font-weight="700" font-family="monospace">OBX ▸</text>
+          <text x="852" y="466" text-anchor="middle" fill="#600080" font-size="7" font-family="monospace">w:90 / NTE</text>
+
+          <rect x="900" y="442" width="80" height="28" rx="4" fill="rgba(191,0,255,0.14)" stroke="#bf00ff" stroke-width="1.5"/>
+          <text x="940" y="455" text-anchor="middle" fill="#df40ff" font-size="9" font-weight="700" font-family="monospace">SPM ▸</text>
+          <text x="940" y="466" text-anchor="middle" fill="#600080" font-size="7" font-family="monospace">w:100 / OBX</text>
+
+          <rect x="988" y="442" width="80" height="28" rx="4" fill="rgba(191,0,255,0.1)" stroke="#bf00ff" stroke-width="1"/>
+          <text x="1028" y="455" text-anchor="middle" fill="#bf00ff" font-size="9" font-family="monospace">DG1</text>
+          <text x="1028" y="466" text-anchor="middle" fill="#600080" font-size="7" font-family="monospace">w:92</text>
+
+          <rect x="1076" y="442" width="80" height="28" rx="4" fill="rgba(191,0,255,0.1)" stroke="#bf00ff" stroke-width="1"/>
+          <text x="1116" y="455" text-anchor="middle" fill="#bf00ff" font-size="9" font-family="monospace">MSA</text>
+          <text x="1116" y="466" text-anchor="middle" fill="#600080" font-size="7" font-family="monospace">w:1</text>
+
+          <rect x="1164" y="442" width="80" height="28" rx="4" fill="rgba(191,0,255,0.1)" stroke="#bf00ff" stroke-width="1"/>
+          <text x="1204" y="455" text-anchor="middle" fill="#bf00ff" font-size="9" font-family="monospace">ERR</text>
+          <text x="1204" y="466" text-anchor="middle" fill="#600080" font-size="7" font-family="monospace">w:2</text>
+
+          <!-- Row 2 -->
+          <rect x="20" y="482" width="80" height="28" rx="4" fill="rgba(191,0,255,0.1)" stroke="#bf00ff" stroke-width="1"/>
+          <text x="60" y="495" text-anchor="middle" fill="#bf00ff" font-size="9" font-family="monospace">FT1</text>
+          <text x="60" y="506" text-anchor="middle" fill="#600080" font-size="7" font-family="monospace">w:10</text>
+
+          <rect x="108" y="482" width="80" height="28" rx="4" fill="rgba(191,0,255,0.1)" stroke="#bf00ff" stroke-width="1"/>
+          <text x="148" y="495" text-anchor="middle" fill="#bf00ff" font-size="9" font-family="monospace">GT1</text>
+          <text x="148" y="506" text-anchor="middle" fill="#600080" font-size="7" font-family="monospace">no w</text>
+
+          <rect x="196" y="482" width="80" height="28" rx="4" fill="rgba(191,0,255,0.1)" stroke="#bf00ff" stroke-width="1"/>
+          <text x="236" y="495" text-anchor="middle" fill="#bf00ff" font-size="9" font-family="monospace">IN1</text>
+          <text x="236" y="506" text-anchor="middle" fill="#600080" font-size="7" font-family="monospace">no w</text>
+
+          <rect x="284" y="482" width="80" height="28" rx="4" fill="rgba(191,0,255,0.1)" stroke="#bf00ff" stroke-width="1"/>
+          <text x="324" y="495" text-anchor="middle" fill="#bf00ff" font-size="9" font-family="monospace">MFE</text>
+          <text x="324" y="506" text-anchor="middle" fill="#600080" font-size="7" font-family="monospace">w:0</text>
+
+          <rect x="372" y="482" width="80" height="28" rx="4" fill="rgba(191,0,255,0.1)" stroke="#bf00ff" stroke-width="1"/>
+          <text x="412" y="495" text-anchor="middle" fill="#bf00ff" font-size="9" font-family="monospace">MFI</text>
+          <text x="412" y="506" text-anchor="middle" fill="#600080" font-size="7" font-family="monospace">w:0</text>
+
+          <rect x="460" y="482" width="80" height="28" rx="4" fill="rgba(191,0,255,0.1)" stroke="#bf00ff" stroke-width="1"/>
+          <text x="500" y="495" text-anchor="middle" fill="#bf00ff" font-size="9" font-family="monospace">MRG</text>
+          <text x="500" y="506" text-anchor="middle" fill="#600080" font-size="7" font-family="monospace">w:4</text>
+
+          <rect x="548" y="482" width="80" height="28" rx="4" fill="rgba(191,0,255,0.1)" stroke="#bf00ff" stroke-width="1"/>
+          <text x="588" y="495" text-anchor="middle" fill="#bf00ff" font-size="9" font-family="monospace">QRD</text>
+          <text x="588" y="506" text-anchor="middle" fill="#600080" font-size="7" font-family="monospace">w:84</text>
+
+          <rect x="636" y="482" width="80" height="28" rx="4" fill="rgba(191,0,255,0.1)" stroke="#bf00ff" stroke-width="1"/>
+          <text x="676" y="495" text-anchor="middle" fill="#bf00ff" font-size="9" font-family="monospace">QRF</text>
+          <text x="676" y="506" text-anchor="middle" fill="#600080" font-size="7" font-family="monospace">w:85</text>
+
+          <rect x="724" y="482" width="80" height="28" rx="4" fill="rgba(191,0,255,0.1)" stroke="#bf00ff" stroke-width="1"/>
+          <text x="764" y="495" text-anchor="middle" fill="#bf00ff" font-size="9" font-family="monospace">RF1</text>
+          <text x="764" y="506" text-anchor="middle" fill="#600080" font-size="7" font-family="monospace">w:0</text>
+
+          <rect x="812" y="482" width="80" height="28" rx="4" fill="rgba(191,0,255,0.1)" stroke="#bf00ff" stroke-width="1"/>
+          <text x="852" y="495" text-anchor="middle" fill="#bf00ff" font-size="9" font-family="monospace">ROL</text>
+          <text x="852" y="506" text-anchor="middle" fill="#600080" font-size="7" font-family="monospace">no w</text>
+
+          <rect x="900" y="482" width="80" height="28" rx="4" fill="rgba(191,0,255,0.1)" stroke="#bf00ff" stroke-width="1"/>
+          <text x="940" y="495" text-anchor="middle" fill="#bf00ff" font-size="9" font-family="monospace">SCH</text>
+          <text x="940" y="506" text-anchor="middle" fill="#600080" font-size="7" font-family="monospace">w:0</text>
+
+          <rect x="988" y="482" width="80" height="28" rx="4" fill="rgba(191,0,255,0.1)" stroke="#bf00ff" stroke-width="1"/>
+          <text x="1028" y="495" text-anchor="middle" fill="#bf00ff" font-size="9" font-family="monospace">SFT</text>
+          <text x="1028" y="506" text-anchor="middle" fill="#600080" font-size="7" font-family="monospace">w:0</text>
+
+          <rect x="1076" y="482" width="80" height="28" rx="4" fill="rgba(191,0,255,0.1)" stroke="#bf00ff" stroke-width="1"/>
+          <text x="1116" y="495" text-anchor="middle" fill="#bf00ff" font-size="9" font-family="monospace">TQ1</text>
+          <text x="1116" y="506" text-anchor="middle" fill="#600080" font-size="7" font-family="monospace">w:2</text>
+
+          <rect x="1164" y="482" width="80" height="28" rx="4" fill="rgba(191,0,255,0.1)" stroke="#bf00ff" stroke-width="1"/>
+          <text x="1204" y="495" text-anchor="middle" fill="#bf00ff" font-size="9" font-family="monospace">TXA</text>
+          <text x="1204" y="506" text-anchor="middle" fill="#600080" font-size="7" font-family="monospace">no w</text>
+
+          <!-- Row 3: scheduling -->
+          <rect x="20" y="522" width="80" height="28" rx="4" fill="rgba(191,0,255,0.1)" stroke="#bf00ff" stroke-width="1"/>
+          <text x="60" y="535" text-anchor="middle" fill="#bf00ff" font-size="9" font-family="monospace">RGS</text>
+          <text x="60" y="546" text-anchor="middle" fill="#600080" font-size="7" font-family="monospace">w:3</text>
+
+          <rect x="108" y="522" width="80" height="28" rx="4" fill="rgba(191,0,255,0.1)" stroke="#bf00ff" stroke-width="1"/>
+          <text x="148" y="535" text-anchor="middle" fill="#bf00ff" font-size="9" font-family="monospace">AIG</text>
+          <text x="148" y="546" text-anchor="middle" fill="#600080" font-size="7" font-family="monospace">w:1</text>
+
+          <rect x="196" y="522" width="80" height="28" rx="4" fill="rgba(191,0,255,0.1)" stroke="#bf00ff" stroke-width="1"/>
+          <text x="236" y="535" text-anchor="middle" fill="#bf00ff" font-size="9" font-family="monospace">AIL</text>
+          <text x="236" y="546" text-anchor="middle" fill="#600080" font-size="7" font-family="monospace">w:0</text>
+
+          <rect x="284" y="522" width="80" height="28" rx="4" fill="rgba(191,0,255,0.1)" stroke="#bf00ff" stroke-width="1"/>
+          <text x="324" y="535" text-anchor="middle" fill="#bf00ff" font-size="9" font-family="monospace">AIP</text>
+          <text x="324" y="546" text-anchor="middle" fill="#600080" font-size="7" font-family="monospace">w:0</text>
+
+          <rect x="372" y="522" width="80" height="28" rx="4" fill="rgba(191,0,255,0.1)" stroke="#bf00ff" stroke-width="1"/>
+          <text x="412" y="535" text-anchor="middle" fill="#bf00ff" font-size="9" font-family="monospace">AIS</text>
+          <text x="412" y="546" text-anchor="middle" fill="#600080" font-size="7" font-family="monospace">w:1</text>
+
+          <rect x="460" y="522" width="80" height="28" rx="4" fill="rgba(191,0,255,0.1)" stroke="#bf00ff" stroke-width="1"/>
+          <text x="500" y="535" text-anchor="middle" fill="#bf00ff" font-size="9" font-family="monospace">PRD</text>
+          <text x="500" y="546" text-anchor="middle" fill="#600080" font-size="7" font-family="monospace">w:2</text>
+
+          <rect x="548" y="522" width="80" height="28" rx="4" fill="rgba(191,0,255,0.1)" stroke="#bf00ff" stroke-width="1"/>
+          <text x="588" y="535" text-anchor="middle" fill="#bf00ff" font-size="9" font-family="monospace">PRT</text>
+          <text x="588" y="546" text-anchor="middle" fill="#600080" font-size="7" font-family="monospace">no w</text>
+
+          <rect x="636" y="522" width="80" height="28" rx="4" fill="rgba(191,0,255,0.1)" stroke="#bf00ff" stroke-width="1"/>
+          <text x="676" y="535" text-anchor="middle" fill="#bf00ff" font-size="9" font-family="monospace">FTS</text>
+          <text x="676" y="546" text-anchor="middle" fill="#600080" font-size="7" font-family="monospace">w:1001</text>
+
+          <rect x="724" y="522" width="80" height="28" rx="4" fill="rgba(191,0,255,0.1)" stroke="#bf00ff" stroke-width="1"/>
+          <text x="764" y="535" text-anchor="middle" fill="#bf00ff" font-size="9" font-family="monospace">ORU</text>
+          <text x="764" y="546" text-anchor="middle" fill="#600080" font-size="7" font-family="monospace">empty body</text>
+
+          <!-- Core ext patch targets -->
+          <text x="20" y="574" fill="#2a2a40" font-size="10" font-family="monospace" letter-spacing="2">MONKEY-PATCHED STDLIB CLASSES</text>
+
+          <rect x="20" y="586" width="100" height="32" rx="5" fill="rgba(255,45,120,0.08)" stroke="#ff2d78" stroke-width="1.5"/>
+          <text x="70" y="599" text-anchor="middle" fill="#ff2d78" font-size="10" font-family="monospace">Time</text>
+          <text x="70" y="611" text-anchor="middle" fill="#803060" font-size="8" font-family="monospace">include HL7Time</text>
+
+          <rect x="134" y="586" width="100" height="32" rx="5" fill="rgba(255,45,120,0.08)" stroke="#ff2d78" stroke-width="1.5"/>
+          <text x="184" y="599" text-anchor="middle" fill="#ff2d78" font-size="10" font-family="monospace">DateTime</text>
+          <text x="184" y="611" text-anchor="middle" fill="#803060" font-size="8" font-family="monospace">include HL7Time</text>
+
+          <rect x="248" y="586" width="100" height="32" rx="5" fill="rgba(255,45,120,0.08)" stroke="#ff2d78" stroke-width="1.5"/>
+          <text x="298" y="599" text-anchor="middle" fill="#ff2d78" font-size="10" font-family="monospace">Date</text>
+          <text x="298" y="611" text-anchor="middle" fill="#803060" font-size="8" font-family="monospace">adds to_hl7</text>
+
+          <rect x="362" y="586" width="100" height="32" rx="5" fill="rgba(255,45,120,0.08)" stroke="#ff2d78" stroke-width="1.5"/>
+          <text x="412" y="599" text-anchor="middle" fill="#ff2d78" font-size="10" font-family="monospace">String</text>
+          <text x="412" y="611" text-anchor="middle" fill="#803060" font-size="8" font-family="monospace">adds hl7_batch?</text>
+
+          <!-- Inheritance arrows: Segment → subclasses -->
+          <line x1="530" y1="324" x2="287" y2="360" stroke="#bf00ff" stroke-width="1.5" stroke-opacity="0.6"/>
+          <line x1="530" y1="324" x2="60" y2="442" stroke="#bf00ff" stroke-width="1" stroke-opacity="0.3"/>
+          <line x1="530" y1="324" x2="236" y2="442" stroke="#bf00ff" stroke-width="1" stroke-opacity="0.3"/>
+          <line x1="530" y1="324" x2="676" y2="442" stroke="#bf00ff" stroke-width="1" stroke-opacity="0.3"/>
+          <line x1="530" y1="324" x2="764" y2="442" stroke="#bf00ff" stroke-width="1" stroke-opacity="0.3"/>
+
+          <!-- Module include/extend arrows -->
+          <line x1="80" y1="76" x2="400" y2="196" stroke="#ffe600" stroke-width="1" stroke-opacity="0.4" stroke-dasharray="5,3"/>
+          <line x1="600" y1="76" x2="530" y2="272" stroke="#00f5ff" stroke-width="1" stroke-opacity="0.4" stroke-dasharray="5,3"/>
+          <line x1="826" y1="76" x2="530" y2="272" stroke="#00f5ff" stroke-width="1" stroke-opacity="0.4" stroke-dasharray="5,3"/>
+          <line x1="1032" y1="76" x2="530" y2="272" stroke="#ff2d78" stroke-width="1" stroke-opacity="0.4" stroke-dasharray="5,3"/>
+          <line x1="382" y1="76" x2="482" y2="196" stroke="#00f5ff" stroke-width="1" stroke-opacity="0.4" stroke-dasharray="5,3"/>
+        </svg>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── SECTION 3: LOAD ORDER WATERFALL ───────────────────── -->
+  <section class="section" id="load-order">
+    <div class="section-header">
+      <div class="section-num" style="background:rgba(57,255,20,0.1);color:var(--neon-green);border:1px solid rgba(57,255,20,0.3);">3</div>
+      <div>
+        <div class="section-title">Load Order Waterfall</div>
+        <div class="section-desc">Exact require/load sequence from entrypoint through all 14 core files and 36 segment files</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="waterfall">
+
+        <div class="wf-row">
+          <div class="wf-phase" style="color:#00f5ff;">ENTRY</div>
+          <div class="wf-connector"><div class="wf-dot b-core"></div><div class="wf-line"></div></div>
+          <div class="wf-content">
+            <div class="wf-file"><div class="dot b-core"></div><span class="c-core">lib/ruby-hl7.rb</span></div>
+            <div style="color:var(--text-dim);font-size:0.75rem;padding:4px 0 4px 12px;">Declares <code>module HL7</code>, 5 exception classes. Sets up <code>HL7.configure</code> DSL. Issues all top-level require calls.</div>
+          </div>
+        </div>
+
+        <div class="wf-row">
+          <div class="wf-phase" style="color:#ff2d78;">STDLIB</div>
+          <div class="wf-connector"><div class="wf-dot b-hlp"></div><div class="wf-line"></div></div>
+          <div class="wf-content">
+            <div class="wf-file"><div class="dot b-hlp"></div><span class="c-hlp">rubygems</span></div>
+            <div class="wf-file"><div class="dot b-hlp"></div><span class="c-hlp">stringio</span></div>
+            <div class="wf-file"><div class="dot b-hlp"></div><span class="c-hlp">date</span></div>
+            <div style="color:var(--text-dim);font-size:0.75rem;padding:4px 0 0 12px;">Standard library. <code>stringio</code> used by rdoc deps; <code>date</code> required for DateTime/Date handling in segment field blocks.</div>
+          </div>
+        </div>
+
+        <div class="wf-row">
+          <div class="wf-phase" style="color:#00f5ff;">CORE-1</div>
+          <div class="wf-connector"><div class="wf-dot b-core"></div><div class="wf-line"></div></div>
+          <div class="wf-content">
+            <div class="wf-file"><div class="dot b-core"></div><span class="c-core">lib/configuration.rb</span></div>
+            <div style="color:var(--text-dim);font-size:0.75rem;padding:4px 0 4px 12px;"><code>HL7::Configuration</code> class with <code>empty_segment_is_error</code> accessor (defaults true). Must load before anything tries to access <code>HL7.configuration</code>.</div>
+          </div>
+        </div>
+
+        <div class="wf-row">
+          <div class="wf-phase" style="color:#ff2d78;">HELPER</div>
+          <div class="wf-connector"><div class="wf-dot b-hlp"></div><div class="wf-line"></div></div>
+          <div class="wf-content">
+            <div class="wf-file"><div class="dot b-hlp"></div><span class="c-hlp">lib/helpers/time_formatter_helper.rb</span></div>
+            <div style="color:var(--text-dim);font-size:0.75rem;padding:4px 0 4px 12px;"><code>TimeFormatterHelper</code> module. Must load before <code>segment.rb</code> because <code>Segment</code> calls <code>extend TimeFormatterHelper</code>. Provides <code>hl7_formatted_timestamp</code> and <code>hl7_formatted_date</code>.</div>
+          </div>
+        </div>
+
+        <div class="wf-row">
+          <div class="wf-phase" style="color:#00f5ff;">CORE-2</div>
+          <div class="wf-connector"><div class="wf-dot b-core"></div><div class="wf-line"></div></div>
+          <div class="wf-content">
+            <div class="wf-file"><div class="dot b-core"></div><span class="c-core">lib/message_parser.rb</span></div>
+            <div style="color:var(--text-dim);font-size:0.75rem;padding:4px 0 4px 12px;">Defines <code>HL7::MessageBatchParser</code> module (extended onto Message) and <code>HL7::MessageParser</code> class. Provides <code>split_by_delimiter</code>, MLLP stripping, and delimiter detection.</div>
+          </div>
+        </div>
+
+        <div class="wf-row">
+          <div class="wf-phase" style="color:#00f5ff;">CORE-3</div>
+          <div class="wf-connector"><div class="wf-dot b-core"></div><div class="wf-line"></div></div>
+          <div class="wf-content">
+            <div class="wf-file"><div class="dot b-core"></div><span class="c-core">lib/message.rb</span></div>
+            <div style="color:var(--text-dim);font-size:0.75rem;padding:4px 0 4px 12px;"><code>HL7::Message</code> — the primary user-facing class. <code>include Enumerable</code> for iteration, <code>extend HL7::MessageBatchParser</code> for class-level <code>.parse</code> and <code>.parse_batch</code>. Owns <code>@segments</code> array and <code>@segments_by_name</code> hash.</div>
+          </div>
+        </div>
+
+        <div class="wf-row">
+          <div class="wf-phase" style="color:#00f5ff;">CORE-4</div>
+          <div class="wf-connector"><div class="wf-dot b-core"></div><div class="wf-line"></div></div>
+          <div class="wf-content">
+            <div class="wf-file"><div class="dot b-core"></div><span class="c-core">lib/segment_list_storage.rb</span></div>
+            <div style="color:var(--text-dim);font-size:0.75rem;padding:4px 0 4px 12px;"><code>HL7::Message::SegmentListStorage</code> module. Provides the <code>has_children</code> DSL used by PID, ORC, OBR, OBX, SPM. Dynamically defines <code>children</code>, <code>accepts?</code>, <code>child_types</code> on each segment class that calls it. Must load before segment.rb.</div>
+          </div>
+        </div>
+
+        <div class="wf-row">
+          <div class="wf-phase" style="color:#00f5ff;">CORE-5</div>
+          <div class="wf-connector"><div class="wf-dot b-core"></div><div class="wf-line"></div></div>
+          <div class="wf-content">
+            <div class="wf-file"><div class="dot b-core"></div><span class="c-core">lib/segment_generator.rb</span></div>
+            <div style="color:var(--text-dim);font-size:0.75rem;padding:4px 0 4px 12px;">Defines <code>HL7::Message::Delimiter</code> (item/element/segment delimiters) and <code>HL7::Message::SegmentGenerator</code> (factory that resolves segment class by name via <code>eval</code> on <code>HL7::Message::Segment</code> namespace, falling back to <code>Segment::Default</code>).</div>
+          </div>
+        </div>
+
+        <div class="wf-row">
+          <div class="wf-phase" style="color:#00f5ff;">CORE-6</div>
+          <div class="wf-connector"><div class="wf-dot b-core"></div><div class="wf-line"></div></div>
+          <div class="wf-content">
+            <div class="wf-file"><div class="dot b-core"></div><span class="c-core">lib/segment_fields.rb</span></div>
+            <div style="color:var(--text-dim);font-size:0.75rem;padding:4px 0 4px 12px;"><code>HL7::Message::SegmentFields</code> module. The DSL backbone — provides <code>add_field</code>, <code>alias_field</code>, <code>read_field</code>, <code>write_field</code>, <code>field_info</code>. Included into <code>Segment</code>. Uses <code>class_eval</code> to define named accessor methods at class load time.</div>
+          </div>
+        </div>
+
+        <div class="wf-row">
+          <div class="wf-phase" style="color:#00f5ff;">CORE-7</div>
+          <div class="wf-connector"><div class="wf-dot b-core"></div><div class="wf-line"></div></div>
+          <div class="wf-content">
+            <div class="wf-file"><div class="dot b-core"></div><span class="c-core">lib/segment.rb</span></div>
+            <div style="color:var(--text-dim);font-size:0.75rem;padding:4px 0 4px 12px;"><code>HL7::Message::Segment</code> — the abstract base. <code>extend SegmentListStorage</code>, <code>extend TimeFormatterHelper</code>, <code>include SegmentFields</code>. Defines <code>method_missing</code>, <code>weight</code> DSL, <code>&lt;=&gt;</code> comparator (Comparable integration). Houses <code>METHOD_MISSING_FOR_INITIALIZER</code> heredoc for block-based construction.</div>
+          </div>
+        </div>
+
+        <div class="wf-row">
+          <div class="wf-phase" style="color:#00f5ff;">CORE-8</div>
+          <div class="wf-connector"><div class="wf-dot b-core"></div><div class="wf-line"></div></div>
+          <div class="wf-content">
+            <div class="wf-file"><div class="dot b-core"></div><span class="c-core">lib/segment_default.rb</span></div>
+            <div style="color:var(--text-dim);font-size:0.75rem;padding:4px 0 4px 12px;"><code>HL7::Message::Segment::Default</code> — fallback for unknown segment types. Then executes: <code>Dir["lib/segments/*.rb"].each { load }</code> — this <strong>eagerly loads all 36 segment files</strong> in filesystem order (alphabetical on most systems). Load is unconditional; no lazy loading.</div>
+          </div>
+        </div>
+
+        <div class="wf-row">
+          <div class="wf-phase" style="color:#bf00ff;">SEGS</div>
+          <div class="wf-connector"><div class="wf-dot b-seg"></div><div class="wf-line"></div></div>
+          <div class="wf-content">
+            <div style="color:var(--text-dim);font-size:0.75rem;padding:0 0 6px 0;">All 36 segment files loaded by <code>Dir[].each { load }</code> — alphabetical order:</div>
+            <div class="wf-file"><div class="dot b-seg"></div><span class="c-seg">aig.rb</span></div>
+            <div class="wf-file"><div class="dot b-seg"></div><span class="c-seg">ail.rb</span></div>
+            <div class="wf-file"><div class="dot b-seg"></div><span class="c-seg">aip.rb</span></div>
+            <div class="wf-file"><div class="dot b-seg"></div><span class="c-seg">ais.rb</span></div>
+            <div class="wf-file"><div class="dot b-seg"></div><span class="c-seg">dg1.rb</span></div>
+            <div class="wf-file"><div class="dot b-seg"></div><span class="c-seg">err.rb</span></div>
+            <div class="wf-file"><div class="dot b-seg"></div><span class="c-seg">evn.rb</span></div>
+            <div class="wf-file"><div class="dot b-seg"></div><span class="c-seg">ft1.rb</span></div>
+            <div class="wf-file"><div class="dot b-seg"></div><span class="c-seg">fts.rb</span></div>
+            <div class="wf-file"><div class="dot b-seg"></div><span class="c-seg">gt1.rb</span></div>
+            <div class="wf-file"><div class="dot b-seg"></div><span class="c-seg">in1.rb</span></div>
+            <div class="wf-file"><div class="dot b-seg"></div><span class="c-seg">mfe.rb</span></div>
+            <div class="wf-file"><div class="dot b-seg"></div><span class="c-seg">mfi.rb</span></div>
+            <div class="wf-file"><div class="dot b-seg"></div><span class="c-seg">mrg.rb</span></div>
+            <div class="wf-file"><div class="dot b-seg"></div><span class="c-seg">msa.rb</span></div>
+            <div class="wf-file"><div class="dot b-seg"></div><span class="c-seg">msh.rb</span></div>
+            <div class="wf-file"><div class="dot b-seg"></div><span class="c-seg">nk1.rb</span></div>
+            <div class="wf-file"><div class="dot b-seg"></div><span class="c-seg">nte.rb</span></div>
+            <div class="wf-file"><div class="dot b-seg"></div><span class="c-seg">obr.rb</span></div>
+            <div class="wf-file"><div class="dot b-seg"></div><span class="c-seg">obx.rb</span></div>
+            <div class="wf-file"><div class="dot b-seg"></div><span class="c-seg">orc.rb</span></div>
+            <div class="wf-file"><div class="dot b-seg"></div><span class="c-seg">oru.rb</span></div>
+            <div class="wf-file"><div class="dot b-seg"></div><span class="c-seg">pid.rb</span></div>
+            <div class="wf-file"><div class="dot b-seg"></div><span class="c-seg">prd.rb</span></div>
+            <div class="wf-file"><div class="dot b-seg"></div><span class="c-seg">prt.rb</span></div>
+            <div class="wf-file"><div class="dot b-seg"></div><span class="c-seg">pv1.rb</span></div>
+            <div class="wf-file"><div class="dot b-seg"></div><span class="c-seg">pv2.rb</span></div>
+            <div class="wf-file"><div class="dot b-seg"></div><span class="c-seg">qrd.rb</span></div>
+            <div class="wf-file"><div class="dot b-seg"></div><span class="c-seg">qrf.rb</span></div>
+            <div class="wf-file"><div class="dot b-seg"></div><span class="c-seg">rf1.rb</span></div>
+            <div class="wf-file"><div class="dot b-seg"></div><span class="c-seg">rgs.rb</span></div>
+            <div class="wf-file"><div class="dot b-seg"></div><span class="c-seg">rol.rb</span></div>
+            <div class="wf-file"><div class="dot b-seg"></div><span class="c-seg">sch.rb</span></div>
+            <div class="wf-file"><div class="dot b-seg"></div><span class="c-seg">sft.rb</span></div>
+            <div class="wf-file"><div class="dot b-seg"></div><span class="c-seg">spm.rb</span></div>
+            <div class="wf-file"><div class="dot b-seg"></div><span class="c-seg">tq1.rb</span></div>
+            <div class="wf-file"><div class="dot b-seg"></div><span class="c-seg">txa.rb</span></div>
+          </div>
+        </div>
+
+        <div class="wf-row">
+          <div class="wf-phase" style="color:#ff2d78;">EXT</div>
+          <div class="wf-connector"><div class="wf-dot b-hlp"></div><div class="wf-line"></div></div>
+          <div class="wf-content">
+            <div class="wf-file"><div class="dot b-hlp"></div><span class="c-hlp">lib/core_ext/date_time.rb</span></div>
+            <div style="color:var(--text-dim);font-size:0.75rem;padding:4px 0 4px 12px;">Defines <code>module HL7Time</code> and patches <code>Time</code>, <code>DateTime</code> (include HL7Time) and <code>Date</code> (direct <code>to_hl7</code> method). These extend stdlib classes globally.</div>
+            <div class="wf-file"><div class="dot b-hlp"></div><span class="c-hlp">lib/core_ext/string.rb</span></div>
+            <div style="color:var(--text-dim);font-size:0.75rem;padding:4px 0 4px 12px;">Patches <code>String</code> with <code>#hl7_batch?</code> — checks if string starts with <code>/^FHS/</code> (File Header Segment). Used by <code>MessageBatchParser#parse_batch</code>.</div>
+          </div>
+        </div>
+
+        <div class="wf-row">
+          <div class="wf-phase" style="color:#ff6b1a;">TEST</div>
+          <div class="wf-connector"><div class="wf-dot b-test"></div><div class="wf-line"></div></div>
+          <div class="wf-content">
+            <div class="wf-file"><div class="dot b-test"></div><span class="c-test">spec/spec_helper.rb</span></div>
+            <div style="color:var(--text-dim);font-size:0.75rem;padding:4px 0 4px 12px;">Loads simplecov (if <code>COVERAGE</code> env set), then requires <code>lib/ruby-hl7</code> and <code>lib/test/hl7_messages</code>. Configures RSpec to <code>include TimeFormatterHelper</code> in <code>:type =&gt; :helper</code> specs.</div>
+            <div class="wf-file"><div class="dot b-test"></div><span class="c-test">lib/test/hl7_messages.rb</span></div>
+            <div style="color:var(--text-dim);font-size:0.75rem;padding:4px 0 4px 12px;">Defines <code>HL7MESSAGES</code> hash with 10+ named real-world HL7 message strings (arup_1, arup_2, arup_3, ihc_1, no_msh, no_pid, no_obr, no_obx, no_last_name, no_loinc_code, unknown_loinc, unlinked_loinc, unknown_observation_value). Shared fixture data across all spec files.</div>
+            <div class="wf-file"><div class="dot b-test"></div><span class="c-test">spec/*_spec.rb (39 files)</span></div>
+            <div style="color:var(--text-dim);font-size:0.75rem;padding:4px 0 4px 12px;">Each spec file <code>require "spec_helper"</code> at top, transitively loading the entire library. Segment specs are one-to-one with segment files.</div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ── SECTION 4: METHOD DISPATCH ────────────────────────── -->
+  <section class="section" id="method-dispatch">
+    <div class="section-header">
+      <div class="section-num" style="background:rgba(255,107,26,0.12);color:var(--neon-orange);border:1px solid rgba(255,107,26,0.3);">4</div>
+      <div>
+        <div class="section-title">method_missing Dispatch Chain</div>
+        <div class="section-desc">How field access and mutation is resolved at runtime — the complete resolution path</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Field Access: seg.sending_app / seg.e2 / seg.nonexistent</div>
+      <div class="chain">
+        <div class="chain-step">
+          <div class="chain-num">1</div>
+          <div class="chain-body">
+            <div class="chain-call">User calls a method on a Segment instance</div>
+            <div class="chain-detail">
+              e.g., <code>msg[:MSH].sending_app</code> or <code>seg.e4</code> or <code>seg.foo = "bar"</code>.
+              Ruby first checks for a real method defined on the object/class. Named field methods like <code>sending_app</code> are generated by <code>add_field</code> via <code>class_eval</code> at class load time — these resolve <em>without</em> hitting method_missing.
+            </div>
+          </div>
+        </div>
+        <div class="chain-step">
+          <div class="chain-num">2</div>
+          <div class="chain-body">
+            <div class="chain-call">method_missing(sym, *args, &blk) in segment.rb:97</div>
+            <div class="chain-detail">
+              Called only when no explicit method exists. Extracts <code>base_str = sym.to_s.delete("=")</code> to strip assignment suffix. Constructs <code>base_sym = base_str.to_sym</code>.
+            </div>
+          </div>
+        </div>
+        <div class="chain-step">
+          <div class="chain-num">3</div>
+          <div class="chain-body">
+            <div class="chain-call">Branch A: self.class.fields.include?(base_sym)?</div>
+            <div class="chain-detail">
+              Checks the class-level <code>@fields</code> hash (maintained by SegmentListStorage module singleton). If the symbol is a registered field alias, route to read_field/write_field with that symbol.
+            </div>
+          </div>
+        </div>
+        <div class="chain-step">
+          <div class="chain-num">4</div>
+          <div class="chain-body">
+            <div class="chain-call">Branch B: /e([0-9]+)/ =~ base_str → numeric element access</div>
+            <div class="chain-detail">
+              Matches <code>e0</code>, <code>e1</code>, <code>e15</code>, etc. Sets <code>base_sym = $1.to_i</code> (an Integer). This routes to read_field/write_field with an integer index directly into <code>@elements</code> array.
+            </div>
+          </div>
+        </div>
+        <div class="chain-step">
+          <div class="chain-num">5</div>
+          <div class="chain-body">
+            <div class="chain-call">Branch C: neither → super (raises NoMethodError)</div>
+            <div class="chain-detail">
+              Falls through to <code>super</code>, which raises <code>NoMethodError</code>. Spec confirms: <code>msg[:MSH].does_not_really_exist_here</code> raises NoMethodError.
+            </div>
+          </div>
+        </div>
+        <div class="chain-step">
+          <div class="chain-num">6</div>
+          <div class="chain-body">
+            <div class="chain-call">write_field(base_sym, args) or read_field(base_sym)</div>
+            <div class="chain-detail">
+              Determined by <code>sym.to_s.include?("=")</code> for writes, or whether args are present (non-zero args = write). Routes into SegmentFields module:<br/>
+              <code>read_field</code>: looks up idx from <code>field_info</code>, reads <code>@elements[idx]</code>, optionally applies <code>field_blk</code> lambda (the conversion/validation block passed to <code>add_field</code>).<br/>
+              <code>write_field</code>: same idx lookup, pads <code>@elements</code> if needed, applies <code>field_blk</code>, stores <code>value.to_s</code>.
+            </div>
+          </div>
+        </div>
+        <div class="chain-step">
+          <div class="chain-num">7</div>
+          <div class="chain-body">
+            <div class="chain-call">field_blk application (validation / conversion)</div>
+            <div class="chain-detail">
+              Each <code>add_field</code> block is run on both read AND write. Examples:<br/>
+              <code>convert_to_ts(value)</code> — converts Time/DateTime/Date to HL7 timestamp string via <code>TimeFormatterHelper</code>.<br/>
+              <code>sanitize_admin_sex!(sex)</code> — validates against <code>/^[FMOUANC]$/</code>, raises <code>HL7::InvalidDataError</code> on bad values.<br/>
+              These blocks are stored in <code>@fields[sym][:blk]</code>.
+            </div>
+          </div>
+        </div>
+        <div class="chain-step">
+          <div class="chain-num">8</div>
+          <div class="chain-body">
+            <div class="chain-call">Block-based initializer method_missing (special path)</div>
+            <div class="chain-detail">
+              When <code>Segment.new { |seg| seg.foo = "bar" }</code> is used, a special <code>METHOD_MISSING_FOR_INITIALIZER</code> heredoc is <code>eval</code>ed into the block binding. This temporarily installs a <code>method_missing</code> on the calling context that delegates to <code>__seg__</code> (the segment instance), then removes itself after the block exits. Allows bare method calls inside the block to route to the segment.
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">SegmentGenerator class resolution dispatch</div>
+      <div class="chain">
+        <div class="chain-step">
+          <div class="chain-num">1</div>
+          <div class="chain-body">
+            <div class="chain-call">Message#generate_segment(elm, segment_stack)</div>
+            <div class="chain-detail">Creates a new <code>HL7::Message::SegmentGenerator</code> with the raw element string, current stack, and delimiter. Calls <code>valid_segments_parts?</code> — raises <code>EmptySegmentNotAllowed</code> if config says so.</div>
+          </div>
+        </div>
+        <div class="chain-step">
+          <div class="chain-num">2</div>
+          <div class="chain-body">
+            <div class="chain-call">SegmentGenerator#get_segment_class</div>
+            <div class="chain-detail">
+              Looks up <code>segment_to_search = seg_name.to_sym</code>.
+              Checks: <code>HL7::Message::Segment.constants.index(segment_to_search)</code>.
+              If found: <code>eval("HL7::Message::Segment::#{seg_name}")</code>.
+              If not found: returns <code>HL7::Message::Segment::Default</code>.
+              Ruby 1.8 compatibility: uses string instead of symbol for <code>constants.index</code>.
+            </div>
+          </div>
+        </div>
+        <div class="chain-step">
+          <div class="chain-num">3</div>
+          <div class="chain-body">
+            <div class="chain-call">Message#choose_segment_from(segment_stack, new_seg, seg_name)</div>
+            <div class="chain-detail">
+              Walks the stack backwards. For each prior segment, calls <code>has_children?</code> (responds to <code>children</code>?) and <code>accepts?(seg_name)</code> (checks <code>child_types</code>).
+              If a parent accepts this child: appends to parent's children array, sets <code>is_child_segment = true</code>, pushes to stack.
+              If stack exhausted: appends to top-level <code>@segments</code>, registers in <code>@segments_by_name</code>.
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── SECTION 5: HL7 DOMAIN ──────────────────────────────── -->
+  <section class="section" id="hl7-domain">
+    <div class="section-header">
+      <div class="section-num" style="background:rgba(26,140,255,0.12);color:var(--neon-blue);border:1px solid rgba(26,140,255,0.3);">5</div>
+      <div>
+        <div class="section-title">HL7 Domain Dependencies</div>
+        <div class="section-desc">Segment parent-child trees, weight ordering, message type patterns, and field type dependencies</div>
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+      <div class="card">
+        <div class="card-title">Segment Parent-Child Relationships (has_children)</div>
+        <div class="tree">
+          <div class="tree-node">
+            <div class="tree-toggle">
+              <span class="tree-icon">▼</span>
+              <span class="tree-label c-seg">PID</span>
+              <span class="tree-meta">weight:1 | children: NK1, NTE, PV1, PV2</span>
+            </div>
+            <div class="tree-children">
+              <div class="tree-leaf"><div class="dot b-seg"></div><span class="c-seg">NK1</span> <span style="color:var(--text-dim);margin-left:8px;">no weight set</span></div>
+              <div class="tree-leaf"><div class="dot b-seg"></div><span class="c-seg">NTE</span> <span style="color:var(--text-dim);margin-left:8px;">weight:4</span></div>
+              <div class="tree-leaf"><div class="dot b-seg"></div><span class="c-seg">PV1</span> <span style="color:var(--text-dim);margin-left:8px;">weight:2</span></div>
+              <div class="tree-leaf"><div class="dot b-seg"></div><span class="c-seg">PV2</span> <span style="color:var(--text-dim);margin-left:8px;">weight:3</span></div>
+            </div>
+          </div>
+          <div class="tree-node" style="margin-top:8px;">
+            <div class="tree-toggle">
+              <span class="tree-icon">▼</span>
+              <span class="tree-label c-seg">ORC</span>
+              <span class="tree-meta">weight:88 | children: OBR</span>
+            </div>
+            <div class="tree-children">
+              <div class="tree-node">
+                <div class="tree-toggle">
+                  <span class="tree-icon">▼</span>
+                  <span class="tree-label c-seg">OBR</span>
+                  <span class="tree-meta">weight:89 | children: NTE, OBX, SPM</span>
+                </div>
+                <div class="tree-children">
+                  <div class="tree-leaf"><div class="dot b-seg"></div><span class="c-seg">NTE</span> <span style="color:var(--text-dim);margin-left:8px;">weight:4</span></div>
+                  <div class="tree-node">
+                    <div class="tree-toggle">
+                      <span class="tree-icon">▼</span>
+                      <span class="tree-label c-seg">OBX</span>
+                      <span class="tree-meta">weight:90 | children: NTE</span>
+                    </div>
+                    <div class="tree-children">
+                      <div class="tree-leaf"><div class="dot b-seg"></div><span class="c-seg">NTE</span> <span style="color:var(--text-dim);margin-left:8px;">note comment</span></div>
+                    </div>
+                  </div>
+                  <div class="tree-node">
+                    <div class="tree-toggle">
+                      <span class="tree-icon">▼</span>
+                      <span class="tree-label c-seg">SPM</span>
+                      <span class="tree-meta">weight:100 | children: OBX</span>
+                    </div>
+                    <div class="tree-children">
+                      <div class="tree-leaf"><div class="dot b-seg"></div><span class="c-seg">OBX</span> <span style="color:var(--text-dim);margin-left:8px;">weight:90</span></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Weight / Ordering System</div>
+        <div style="overflow-x:auto;">
+          <table>
+            <tr><th>Weight</th><th>Segment(s)</th><th>Notes</th></tr>
+            <tr><td class="seg-weight">-1</td><td class="seg-name">MSH</td><td class="seg-fields">Always first — message header</td></tr>
+            <tr><td class="seg-weight">0</td><td class="seg-name">EVN, MFE, MFI, RF1, SCH, SFT</td><td class="seg-fields">Early segments, after MSH</td></tr>
+            <tr><td class="seg-weight">1</td><td class="seg-name">PID, MSA, AIG, AIS, FTS</td><td class="seg-fields">Patient ID or ACK after header</td></tr>
+            <tr><td class="seg-weight">2</td><td class="seg-name">PV1, ERR, TQ1, PRD</td><td class="seg-fields">Visit / error / timing info</td></tr>
+            <tr><td class="seg-weight">3</td><td class="seg-name">PV2, RGS</td><td class="seg-fields">Extended visit / resource group</td></tr>
+            <tr><td class="seg-weight">4</td><td class="seg-name">NTE, MRG</td><td class="seg-fields">Notes, merge</td></tr>
+            <tr><td class="seg-weight">10</td><td class="seg-name">FT1</td><td class="seg-fields">Financial transaction</td></tr>
+            <tr><td class="seg-weight">84</td><td class="seg-name">QRD</td><td class="seg-fields">Query definition</td></tr>
+            <tr><td class="seg-weight">85</td><td class="seg-name">QRF</td><td class="seg-fields">Query filter</td></tr>
+            <tr><td class="seg-weight">88</td><td class="seg-name">ORC</td><td class="seg-fields">Common order (parent)</td></tr>
+            <tr><td class="seg-weight">89</td><td class="seg-name">OBR</td><td class="seg-fields">Observation request (parent)</td></tr>
+            <tr><td class="seg-weight">90</td><td class="seg-name">OBX</td><td class="seg-fields">Observation result (parent)</td></tr>
+            <tr><td class="seg-weight">92</td><td class="seg-name">DG1</td><td class="seg-fields">Diagnosis</td></tr>
+            <tr><td class="seg-weight">100</td><td class="seg-name">SPM</td><td class="seg-fields">Specimen</td></tr>
+            <tr><td class="seg-weight">999</td><td class="seg-name">(default)</td><td class="seg-fields">Unweighted segments</td></tr>
+            <tr><td class="seg-weight">1001</td><td class="seg-name">FTS</td><td class="seg-fields">File trailer — always last</td></tr>
+          </table>
+        </div>
+        <div style="margin-top:12px;color:var(--text-dim);font-size:0.78rem;">
+          Sorting is via <code>Segment#&lt;=&gt;</code> which calls <code>weight - other.weight</code>. Note the inverted comparison: <code>return -1 if diff.positive?</code> — segments with LOWER weight sort FIRST.
+        </div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:20px;">
+      <div class="card-title">Message Type Patterns (from test data)</div>
+      <table>
+        <tr><th>Message Type</th><th>Trigger Event</th><th>Required Segments</th><th>Optional Segments</th></tr>
+        <tr>
+          <td class="seg-name">ORU^R01</td>
+          <td style="color:var(--text);">Unsolicited Observation Result</td>
+          <td class="seg-fields">MSH, PID, OBR, OBX</td>
+          <td class="seg-fields">ORC, NTE, SPM, PV1</td>
+        </tr>
+        <tr>
+          <td class="seg-name">ORU^R03</td>
+          <td style="color:var(--text);">Unsolicited Result (Lab)</td>
+          <td class="seg-fields">MSH, PID</td>
+          <td class="seg-fields">OBR, OBX, NTE</td>
+        </tr>
+        <tr>
+          <td class="seg-name">ADT^A01</td>
+          <td style="color:var(--text);">Admit / Visit Notification</td>
+          <td class="seg-fields">MSH, EVN, PID, PV1</td>
+          <td class="seg-fields">NK1, PV2, DG1, IN1, GT1</td>
+        </tr>
+        <tr>
+          <td class="seg-name">RQI^R04</td>
+          <td style="color:var(--text);">Request Patient Information</td>
+          <td class="seg-fields">MSH, QRD</td>
+          <td class="seg-fields">QRF</td>
+        </tr>
+        <tr>
+          <td class="seg-name">Batch (FHS)</td>
+          <td style="color:var(--text);">File / Batch Envelope</td>
+          <td class="seg-fields">FHS, MSH...</td>
+          <td class="seg-fields">BTS, FTS</td>
+        </tr>
+      </table>
+    </div>
+
+    <div class="card" style="margin-top:20px;">
+      <div class="card-title">Field Type Dependencies (add_field block patterns)</div>
+      <table>
+        <tr><th>Pattern</th><th>Segments Using It</th><th>Behavior</th></tr>
+        <tr>
+          <td><span class="tag tag-ts">convert_to_ts</span></td>
+          <td class="seg-fields">MSH(time), PID(dob,death_date,last_update_date), EVN(recorded_date,planned_date,event_occurred), NK1(start_date,end_date,date_of_birth), PV1(admit_date,discharge_date), ORC(date_time_of_transaction,order_effective_date_time), OBR(requested_date,observation_date,observation_end_date,specimen_received_date,results_status_change_date,scheduled_date), OBX(effective_date_of_reference_range,observation_date,analysis_date), DG1(diagnosis_date_time,attestation_date_time), GT1(guarantor_begin/end_date,guarantor_date_of_death,guarantor_hire_effective_date,employment_stop_date), FT1(date_of_service,transaction_posting_date), MFE(effective_date_time), MFI(entered_date_time,effective_date_time), RF1(effective_date,expiration_date,process_date), PRD(effective_start/end_date), ROL(role_begin/end_date_time), PRT(participation_begin/end_date_time), NK1(start/end date)</td>
+          <td class="seg-fields">Calls <code>Segment.convert_to_ts(value)</code> which dispatches to <code>TimeFormatterHelper#hl7_formatted_timestamp</code> or <code>#hl7_formatted_date</code> based on type. Applied on both read and write.</td>
+        </tr>
+        <tr>
+          <td><span class="tag tag-validate">sanitize_admin_sex!</span></td>
+          <td class="seg-fields">PID(admin_sex), NK1(admin_sex), GT1(guarantor_sex)</td>
+          <td class="seg-fields">Validates against <code>/^[FMOUANC]$/</code>. Raises <code>HL7::InvalidDataError</code> on invalid value. Allows nil and empty string.</td>
+        </tr>
+        <tr>
+          <td><span class="tag tag-alias">alias_field</span></td>
+          <td class="seg-fields">TQ1(start_date→start_time, end_date→end_time), AIG(start_date→start_time, start_date_offset→..., start_date_offset_units→...), AIS (same pattern)</td>
+          <td class="seg-fields">Defines a method that delegates to the canonical named field. Provides backward-compatible API without duplicating storage.</td>
+        </tr>
+        <tr>
+          <td><span class="tag tag-child">has_children</span></td>
+          <td class="seg-fields">PID, ORC, OBR, OBX, SPM</td>
+          <td class="seg-fields">Dynamically defines <code>#children</code>, <code>#child_types</code>, <code>#accepts?</code> via <code>SegmentListStorage</code>. The <code>children</code> array is a smart Array with a patched <code>&lt;&lt;</code> that propagates segments up to the parent Message.</td>
+        </tr>
+        <tr>
+          <td><span class="tag tag-ts">set_id auto-sequencing</span></td>
+          <td class="seg-fields">Any segment with a <code>set_id</code> field (PID, NTE, OBR, OBX, DG1, etc.)</td>
+          <td class="seg-fields"><code>Message#sequence_segments</code> auto-assigns sequential integers to <code>set_id</code> when the same segment type appears multiple times. Called on every <code>append</code> (unless in <code>@parsing</code> mode).</td>
+        </tr>
+      </table>
+    </div>
+  </section>
+
+  <!-- ── SECTION 6: COMPLETE SEGMENT CATALOG ───────────────── -->
+  <section class="section" id="segments">
+    <div class="section-header">
+      <div class="section-num" style="background:rgba(191,0,255,0.12);color:var(--neon-purple);border:1px solid rgba(191,0,255,0.3);">6</div>
+      <div>
+        <div class="section-title">Complete Segment Catalog</div>
+        <div class="section-desc">All 36 named segment classes + Default, with weights, children, and field counts</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <table>
+        <tr>
+          <th>Segment</th>
+          <th>Weight</th>
+          <th>Children (has_children)</th>
+          <th>Field Count</th>
+          <th>Notable Fields / Features</th>
+          <th>Tags</th>
+        </tr>
+        <tr>
+          <td class="seg-name">MSH</td>
+          <td class="seg-weight">-1</td>
+          <td class="seg-children">—</td>
+          <td>23 fields</td>
+          <td class="seg-fields">enc_chars, sending_app/facility, recv_app/facility, time(TS), message_type, message_control_id, version_id, sending/receiving_network_address</td>
+          <td><span class="tag tag-ts">TS</span></td>
+        </tr>
+        <tr>
+          <td class="seg-name">EVN</td>
+          <td class="seg-weight">0</td>
+          <td class="seg-children">—</td>
+          <td>7 fields</td>
+          <td class="seg-fields">type_code, recorded_date(TS), planned_date(TS), reason_code, operator_id, event_occurred(TS), event_facility</td>
+          <td><span class="tag tag-ts">TS</span></td>
+        </tr>
+        <tr>
+          <td class="seg-name">PID</td>
+          <td class="seg-weight">1</td>
+          <td class="seg-children" style="color:var(--neon-purple);">NK1, NTE, PV1, PV2</td>
+          <td>35 fields</td>
+          <td class="seg-fields">patient_id_list, patient_name, dob(TS), admin_sex(validated), race, address, ssn, ethnic_group, death_date(TS), tribal_citizenship. Deprecated aliases: country_code, id_readability_code</td>
+          <td><span class="tag tag-ts">TS</span><span class="tag tag-validate">sex validate</span><span class="tag tag-child">parent</span></td>
+        </tr>
+        <tr>
+          <td class="seg-name">NK1</td>
+          <td class="seg-weight">999</td>
+          <td class="seg-children">—</td>
+          <td>41 fields</td>
+          <td class="seg-fields">name, relationship, address, phone/business phone, contact_role, start/end date(TS), job_title, admin_sex(validated), date_of_birth(TS), citizenship, nationality, religion</td>
+          <td><span class="tag tag-ts">TS</span><span class="tag tag-validate">sex validate</span></td>
+        </tr>
+        <tr>
+          <td class="seg-name">PV1</td>
+          <td class="seg-weight">2</td>
+          <td class="seg-children">—</td>
+          <td>51 fields</td>
+          <td class="seg-fields">patient_class, assigned_location, attending/referring/consulting/admitting_doctor, visit_number, financial_class, admit_date(TS), discharge_date(TS), current_patient_balance, total_charges/adjustments/payments</td>
+          <td><span class="tag tag-ts">TS</span></td>
+        </tr>
+        <tr>
+          <td class="seg-name">PV2</td>
+          <td class="seg-weight">3</td>
+          <td class="seg-children">—</td>
+          <td>49 fields</td>
+          <td class="seg-fields">prior_pending_location, admit_reason, transfer_reason, expected_admit/discharge_date, living_will_code, organ_donor_code, advance_directive_code. Deprecated: military_non_availibility_code</td>
+          <td>—</td>
+        </tr>
+        <tr>
+          <td class="seg-name">NTE</td>
+          <td class="seg-weight">4</td>
+          <td class="seg-children">—</td>
+          <td>4 fields</td>
+          <td class="seg-fields">set_id, source, comment, comment_type. Minimal note/comment segment. Used as child of PID, OBR, OBX.</td>
+          <td>—</td>
+        </tr>
+        <tr>
+          <td class="seg-name">MRG</td>
+          <td class="seg-weight">4</td>
+          <td class="seg-children">—</td>
+          <td>7 fields</td>
+          <td class="seg-fields">prior_patient_identifier_list, prior_alternate_patient_id, prior_patient_account_number, prior_patient_id, prior_visit_number, prior_alternate_visit_id, prior_patient_name</td>
+          <td>—</td>
+        </tr>
+        <tr>
+          <td class="seg-name">FT1</td>
+          <td class="seg-weight">10</td>
+          <td class="seg-children">—</td>
+          <td>42 fields</td>
+          <td class="seg-fields">transaction_id, date_of_service(TS), transaction_posting_date(TS), transaction_type/code/description, diagnosis_code(ICD-9/10), performed_by_provider(NPI), procedure_code(CPT), ndc_code, revenue_code, prescription_number</td>
+          <td><span class="tag tag-ts">TS</span></td>
+        </tr>
+        <tr>
+          <td class="seg-name">QRD</td>
+          <td class="seg-weight">84</td>
+          <td class="seg-children">—</td>
+          <td>12 fields</td>
+          <td class="seg-fields">query_date, query_format_code, query_priority, query_id, deferred_response_type/date, quantity_limited_request, who/what subject filters, what_department_code, query_results_level</td>
+          <td>—</td>
+        </tr>
+        <tr>
+          <td class="seg-name">QRF</td>
+          <td class="seg-weight">85</td>
+          <td class="seg-children">—</td>
+          <td>10 fields</td>
+          <td class="seg-fields">where_subject_filter, when_start/end_date, what_user_qualifier, other_qry_subject_filter, which_date/status_qualifier, date_selection_qualifier, search_confidence_threshold</td>
+          <td>—</td>
+        </tr>
+        <tr>
+          <td class="seg-name">ORC</td>
+          <td class="seg-weight">88</td>
+          <td class="seg-children" style="color:var(--neon-purple);">OBR</td>
+          <td>31 fields</td>
+          <td class="seg-fields">order_control, placer/filler_order_number, order_status, date_time_of_transaction(TS), entered_by, ordering_provider, ordering_facility, order_type. Overrides <code>convert_to_ts</code> to use <code>value.to_hl7</code>.</td>
+          <td><span class="tag tag-ts">TS override</span><span class="tag tag-child">parent</span></td>
+        </tr>
+        <tr>
+          <td class="seg-name">OBR</td>
+          <td class="seg-weight">89</td>
+          <td class="seg-children" style="color:var(--neon-purple);">NTE, OBX, SPM</td>
+          <td>47 fields</td>
+          <td class="seg-fields">placer/filler_order_number, universal_service_id, requested/observation/end dates(TS), specimen_source, ordering_provider, results_status_change_date(TS), result_status, principal_result_interpreter, technician, scheduled_date(TS)</td>
+          <td><span class="tag tag-ts">TS</span><span class="tag tag-child">parent</span></td>
+        </tr>
+        <tr>
+          <td class="seg-name">OBX</td>
+          <td class="seg-weight">90</td>
+          <td class="seg-children" style="color:var(--neon-purple);">NTE</td>
+          <td>26 fields</td>
+          <td class="seg-fields">value_type, observation_id/sub_id, observation_value, units, references_range, abnormal_flags, observation_result_status, observation_date(TS), analysis_date(TS). Extra: <code>correction?</code> method returns true if status=="C".</td>
+          <td><span class="tag tag-ts">TS</span><span class="tag tag-child">parent</span></td>
+        </tr>
+        <tr>
+          <td class="seg-name">DG1</td>
+          <td class="seg-weight">92</td>
+          <td class="seg-children">—</td>
+          <td>19 fields</td>
+          <td class="seg-fields">set_id, diagnosis_coding_method, diagnosis_code/description, diagnosis_date_time(TS), diagnosis_type, major_diagnostic_category, diagnosis_related_group, drg_approval_indicator, attestation_date_time(TS)</td>
+          <td><span class="tag tag-ts">TS</span></td>
+        </tr>
+        <tr>
+          <td class="seg-name">SPM</td>
+          <td class="seg-weight">100</td>
+          <td class="seg-children" style="color:var(--neon-purple);">OBX</td>
+          <td>29 fields</td>
+          <td class="seg-fields">specimen_id, specimen_parent_ids, specimen_type/modifier, specimen_additives, collection_method, specimen_source_site, collection_amount, grouped_specimen_count, handling/risk_code, reject_reason</td>
+          <td><span class="tag tag-child">parent</span></td>
+        </tr>
+        <tr>
+          <td class="seg-name">MSA</td>
+          <td class="seg-weight">1</td>
+          <td class="seg-children">—</td>
+          <td>6 fields</td>
+          <td class="seg-fields">ack_code, control_id, text, expected_seq, delayed_ack_type, error_cond</td>
+          <td>—</td>
+        </tr>
+        <tr>
+          <td class="seg-name">ERR</td>
+          <td class="seg-weight">2</td>
+          <td class="seg-children">—</td>
+          <td>12 fields</td>
+          <td class="seg-fields">error_code_and_location, error_location, hl7_error_code, severity, application_error_code, application_error_parameter, diagnostic_information, user_message, help_desk_contact_point(idx:12 — note gap)</td>
+          <td>—</td>
+        </tr>
+        <tr>
+          <td class="seg-name">TQ1</td>
+          <td class="seg-weight">2</td>
+          <td class="seg-children">—</td>
+          <td>14 fields</td>
+          <td class="seg-fields">quantity, repeat_pattern, explicit_time, relative_time_and_units, service_duration, start_time, end_time, priority, condition_text. <code>alias_field :start_date, :start_time</code> and <code>:end_date, :end_time</code></td>
+          <td><span class="tag tag-alias">alias</span></td>
+        </tr>
+        <tr>
+          <td class="seg-name">PRD</td>
+          <td class="seg-weight">2</td>
+          <td class="seg-children">—</td>
+          <td>9 fields</td>
+          <td class="seg-fields">provider_role, provider_name, address, location, communication_information, preferred_method_of_contact, provider_identifiers, effective_start/end_date_of_provider_role(TS)</td>
+          <td><span class="tag tag-ts">TS</span></td>
+        </tr>
+        <tr>
+          <td class="seg-name">RGS</td>
+          <td class="seg-weight">3</td>
+          <td class="seg-children">—</td>
+          <td>3 fields</td>
+          <td class="seg-fields">set_id, segment_action_code, resource_group_id</td>
+          <td>—</td>
+        </tr>
+        <tr>
+          <td class="seg-name">AIG</td>
+          <td class="seg-weight">1</td>
+          <td class="seg-children">—</td>
+          <td>14 fields</td>
+          <td class="seg-fields">resource_id/type/group, resource_quantity/units, start_time, start_time_offset/units, duration/units, allow_subsitution_code [sic typo in source]. <code>alias_field :start_date</code></td>
+          <td><span class="tag tag-alias">alias</span></td>
+        </tr>
+        <tr>
+          <td class="seg-name">AIL</td>
+          <td class="seg-weight">0</td>
+          <td class="seg-children">—</td>
+          <td>12 fields</td>
+          <td class="seg-fields">location_resource_id, location_type/group, start_date_time, start_date_time_offset/units, duration/units, allow_substitution_code, filler_status_code</td>
+          <td>—</td>
+        </tr>
+        <tr>
+          <td class="seg-name">AIP</td>
+          <td class="seg-weight">0</td>
+          <td class="seg-children">—</td>
+          <td>12 fields</td>
+          <td class="seg-fields">personnel_resource_id, resource_role/group, start_date_time, start_date_time_offset/units, duration/units, allow_substitution_code, filler_status_code</td>
+          <td>—</td>
+        </tr>
+        <tr>
+          <td class="seg-name">AIS</td>
+          <td class="seg-weight">1</td>
+          <td class="seg-children">—</td>
+          <td>12 fields</td>
+          <td class="seg-fields">universal_service_identifier, start_time, start_time_offset/units, duration/units, allow_subsitution_code [sic], filler/placer_supplemental_service_information. <code>alias_field :start_date</code></td>
+          <td><span class="tag tag-alias">alias</span></td>
+        </tr>
+        <tr>
+          <td class="seg-name">MFE</td>
+          <td class="seg-weight">0</td>
+          <td class="seg-children">—</td>
+          <td>5 fields</td>
+          <td class="seg-fields">record_level_event_code, mfn_control_id, effective_date_time(TS), primary_key_value, primary_key_value_type</td>
+          <td><span class="tag tag-ts">TS</span></td>
+        </tr>
+        <tr>
+          <td class="seg-name">MFI</td>
+          <td class="seg-weight">0</td>
+          <td class="seg-children">—</td>
+          <td>6 fields</td>
+          <td class="seg-fields">master_file_identifier, master_file_application_identifier, file_level_event_code, entered_date_time(TS), effective_date_time(TS), response_level_code</td>
+          <td><span class="tag tag-ts">TS</span></td>
+        </tr>
+        <tr>
+          <td class="seg-name">RF1</td>
+          <td class="seg-weight">0</td>
+          <td class="seg-children">—</td>
+          <td>11 fields</td>
+          <td class="seg-fields">referral_status/priority/type/disposition/category, originating_referral_identifier, effective/expiration/process_date(TS), referral_reason, external_referral_identifier</td>
+          <td><span class="tag tag-ts">TS</span></td>
+        </tr>
+        <tr>
+          <td class="seg-name">ROL</td>
+          <td class="seg-weight">999</td>
+          <td class="seg-children">—</td>
+          <td>14 fields</td>
+          <td class="seg-fields">role_instance, action_code, role, role_person, role_begin/end_date_time(TS), role_duration, role_action_reason, provider_type, organization_unit_type, office_home_address_birthplace, phone_number, person_location, organization</td>
+          <td><span class="tag tag-ts">TS</span></td>
+        </tr>
+        <tr>
+          <td class="seg-name">SCH</td>
+          <td class="seg-weight">0</td>
+          <td class="seg-children">—</td>
+          <td>28 fields</td>
+          <td class="seg-fields">placer/filler_appointment_id, occurance_number [sic typo in source], schedule_id, event_reason, appointment_reason/type/duration/units/timing_quantity, placer/filler contact fields, entered_by fields, parent appointment IDs, filler_status_code</td>
+          <td>—</td>
+        </tr>
+        <tr>
+          <td class="seg-name">SFT</td>
+          <td class="seg-weight">0</td>
+          <td class="seg-children">—</td>
+          <td>6 fields</td>
+          <td class="seg-fields">software_vendor_organization, software_certified_version_or_release_number ("NEW longest method name ever"), software_product_name, software_binary_id, software_product_information, software_install_date</td>
+          <td>—</td>
+        </tr>
+        <tr>
+          <td class="seg-name">SFT</td>
+          <td class="seg-weight">0</td>
+          <td class="seg-children">—</td>
+          <td>6 fields</td>
+          <td class="seg-fields">software_vendor_organization, software_certified_version_or_release_number, software_product_name, software_binary_id, software_product_information, software_install_date</td>
+          <td>—</td>
+        </tr>
+        <tr>
+          <td class="seg-name">SPM</td>
+          <td class="seg-weight">100</td>
+          <td class="seg-children" style="color:var(--neon-purple);">OBX</td>
+          <td>29 fields</td>
+          <td class="seg-fields">Full specimen metadata: id, parent_ids, type/modifier, additives, collection_method, source/site/modifier, collection_site/amount, number_of_containers, container_type/condition, child_role</td>
+          <td><span class="tag tag-child">parent</span></td>
+        </tr>
+        <tr>
+          <td class="seg-name">TXA</td>
+          <td class="seg-weight">999</td>
+          <td class="seg-children">—</td>
+          <td>26 fields</td>
+          <td class="seg-fields">document_type/content_presentation, activity_date_time, primary_activity_provider_code, origination/transcription/edit_date_time, originator_code, unique_document_number, parent_document_number, document_completion/confidentiality/availability/storage_status, authentication_person_time_stamp, agreed_due_date_time</td>
+          <td>—</td>
+        </tr>
+        <tr>
+          <td class="seg-name">IN1</td>
+          <td class="seg-weight">999</td>
+          <td class="seg-children">—</td>
+          <td>53 fields</td>
+          <td class="seg-fields">Full insurance plan: insurance_company_id/name/address, group_number/name, plan_effective/expiration_date, name_of_insured, insureds_date_of_birth, assignment_of_benefits, coordination_of_benefits, policy_number/deductible/limit, insureds_employment_status/sex, insureds_employer_address, signature_code, vip_indicator</td>
+          <td>—</td>
+        </tr>
+        <tr>
+          <td class="seg-name">GT1</td>
+          <td class="seg-weight">999</td>
+          <td class="seg-children">—</td>
+          <td>52 fields</td>
+          <td class="seg-fields">Full guarantor info: guarantor_number/name/spouse_name/address, guarantor_date_of_birth, guarantor_sex(validated), guarantor_begin/end_date(TS), guarantor_date_of_death(TS), guarantor_hire_effective_date(TS), employment_stop_date(TS), contact info</td>
+          <td><span class="tag tag-ts">TS</span><span class="tag tag-validate">sex validate</span></td>
+        </tr>
+        <tr>
+          <td class="seg-name">PRT</td>
+          <td class="seg-weight">999</td>
+          <td class="seg-children">—</td>
+          <td>15 fields</td>
+          <td class="seg-fields">participation_instance_id, action_code/reason, participation, participation_person, provider_type, organization_unit_type, organization, location, device, begin/end_date_time(TS), qualitative_duration, address, telecommunication_address</td>
+          <td><span class="tag tag-ts">TS</span></td>
+        </tr>
+        <tr>
+          <td class="seg-name">ORU</td>
+          <td class="seg-weight">999</td>
+          <td class="seg-children">—</td>
+          <td>0 fields</td>
+          <td class="seg-fields">Empty class body — placeholder only. No fields defined. Inherits all base Segment behavior.</td>
+          <td>—</td>
+        </tr>
+        <tr>
+          <td class="seg-name">FTS</td>
+          <td class="seg-weight">1001</td>
+          <td class="seg-children">—</td>
+          <td>2 fields</td>
+          <td class="seg-fields">file_batch_count, file_trailer_comment. Always last in message.</td>
+          <td>—</td>
+        </tr>
+        <tr>
+          <td class="seg-name">Default</td>
+          <td class="seg-weight">999</td>
+          <td class="seg-children">—</td>
+          <td>dynamic</td>
+          <td class="seg-fields">Catch-all for unknown segment types. No named fields — access via <code>e0</code>, <code>e1</code>, etc. numeric accessors only. Preserves all raw field data.</td>
+          <td>—</td>
+        </tr>
+      </table>
+    </div>
+  </section>
+
+  <!-- ── SECTION 7: EXTENSION POINTS ───────────────────────── -->
+  <section class="section" id="extension-points">
+    <div class="section-header">
+      <div class="section-num" style="background:rgba(57,255,20,0.1);color:var(--neon-green);border:1px solid rgba(57,255,20,0.3);">7</div>
+      <div>
+        <div class="section-title">Extension Points</div>
+        <div class="section-desc">How user code extends the library, plugin architecture, and JRuby-specific code paths</div>
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+      <div class="card">
+        <div class="card-title">Custom Segment Classes</div>
+        <div style="font-size:0.82rem;line-height:1.8;color:var(--text);">
+          The primary extension mechanism. Users subclass <code>HL7::Message::Segment</code> directly:
+          <pre style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:14px;margin:12px 0;font-size:0.78rem;overflow-x:auto;color:#c8d0e0;"><span style="color:#ff2d78;">class</span> <span style="color:#00f5ff;">HL7::Message::Segment::ZZZ</span> <span style="color:#4a8090;">&lt;</span> <span style="color:#00f5ff;">HL7::Message::Segment</span>
+  weight <span style="color:#ffe600;">50</span>
+  add_field <span style="color:#39ff14;">:my_field</span>
+  add_field <span style="color:#39ff14;">:validated_field</span> <span style="color:#ff2d78;">do</span> |value|
+    raise <span style="color:#ff6b1a;">HL7::InvalidDataError</span> unless valid?(value)
+    value
+  end
+  has_children [<span style="color:#39ff14;">:OBX</span>]
+end</pre>
+          Once the class is defined, <code>SegmentGenerator#get_segment_class</code> will automatically find it via <code>HL7::Message::Segment.constants</code>. No registration step required — namespace lookup is the registration.
+        </div>
+        <div style="margin-top:12px;">
+          <div style="font-size:0.8rem;color:var(--text-dim);margin-bottom:6px;">Dynamic segment definition (segment_generator_spec.rb pattern):</div>
+          <pre style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:12px;font-size:0.78rem;overflow-x:auto;color:#c8d0e0;"><span style="color:#4a8090;"># Segments can be defined at runtime</span>
+<span style="color:#ff2d78;">klass</span> = Class.new(<span style="color:#00f5ff;">HL7::Message::Segment</span>)
+klass.add_field <span style="color:#39ff14;">:dynamic_field</span>
+<span style="color:#00f5ff;">HL7::Message::Segment</span>.const_set(<span style="color:#39ff14;">:DYN</span>, klass)</pre>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Configuration Extension</div>
+        <div style="font-size:0.82rem;line-height:1.8;color:var(--text);">
+          <code>HL7::Configuration</code> is the single configuration object. Extended via the configure DSL:
+          <pre style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:14px;margin:12px 0;font-size:0.78rem;overflow-x:auto;color:#c8d0e0;"><span style="color:#ff6b1a;">HL7</span>.configure <span style="color:#ff2d78;">do</span> |config|
+  <span style="color:#4a8090;"># Allow empty segments instead of raising error</span>
+  config.empty_segment_is_error = <span style="color:#ffe600;">false</span>
+end</pre>
+          The configuration object is memoized at <code>HL7.configuration ||= Configuration.new</code>. Thread-safety is not guaranteed (no mutex). The <code>empty_segment_is_error</code> flag is checked inside <code>SegmentGenerator#valid_segments_parts?</code> to decide whether to raise <code>EmptySegmentNotAllowed</code> or return false.
+        </div>
+        <div style="margin-top:8px;font-size:0.8rem;color:var(--text-dim);">
+          <strong style="color:var(--neon-cyan);">Planned extension points</strong> (based on Configuration class structure): additional parser options, custom delimiter configuration, strict mode flags.
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Message Batch / MLLP Protocol Extension</div>
+        <div style="font-size:0.82rem;line-height:1.8;color:var(--text);">
+          <code>HL7::MessageBatchParser</code> is extended onto <code>HL7::Message</code> as a module:
+          <pre style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:14px;margin:12px 0;font-size:0.78rem;overflow-x:auto;color:#c8d0e0;"><span style="color:#4a8090;"># Batch parsing (FHS-wrapped batches)</span>
+<span style="color:#00f5ff;">HL7::Message</span>.parse_batch(batch_string) <span style="color:#ff2d78;">do</span> |msg|
+  <span style="color:#4a8090;"># each message in the batch</span>
+end
+
+<span style="color:#4a8090;"># MLLP framing (vertical-tab + FS + CR)</span>
+msg.to_mllp  <span style="color:#4a8090;"># wraps in \x0b...\x1c\r</span>
+<span style="color:#00f5ff;">HL7::Message</span>.parse(mllp_string) <span style="color:#4a8090;"># strips MLLP automatically</span></pre>
+          The proxy server example (<code>examples/proxy_server.rb</code>) demonstrates reading raw TCP input, parsing as HL7::Message, and re-sending as MLLP via TCPSocket.
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">JRuby-Specific Code Paths</div>
+        <div style="font-size:0.82rem;line-height:1.8;color:var(--text);">
+          Two JRuby workarounds are documented in the source:
+          <div style="margin:12px 0;padding:12px;background:var(--surface2);border-left:3px solid var(--neon-orange);border-radius:4px;">
+            <div style="color:var(--neon-orange);font-size:0.8rem;font-weight:700;margin-bottom:4px;">1. Batch Parser — clean_batch_for_jruby (message_parser.rb:42)</div>
+            <div style="font-size:0.78rem;color:var(--text-dim);">JRuby converts literal <code>\r</code> characters in heredoc strings to newlines. The private method <code>clean_batch_for_jruby(batch)</code> detects this via <code>batch.include?("\n")</code> and returns <code>batch.tr("\n", "\r")</code>. Only triggered for batch parsing where <code>hl7_batch?</code> returns true. The comment notes this does not occur when posts are received with actual CR characters — only in test heredocs.</div>
+          </div>
+          <div style="padding:12px;background:var(--surface2);border-left:3px solid var(--neon-orange);border-radius:4px;">
+            <div style="color:var(--neon-orange);font-size:0.8rem;font-weight:700;margin-bottom:4px;">2. Segment class lookup — Ruby version fork (segment_generator.rb:43)</div>
+            <div style="font-size:0.78rem;color:var(--text-dim);">In <code>get_segment_class</code>: <code>segment_to_search = @seg_name if RUBY_VERSION &lt; "1.9"</code>. Ruby 1.8 requires a String for <code>constants.index</code>; Ruby 1.9+ uses Symbols. This guards against JRuby versions running in Ruby 1.8 compatibility mode.</div>
+          </div>
+          <div style="margin-top:12px;font-size:0.78rem;color:var(--text-dim);">The Gemfile.lock PLATFORMS section lists <code>arm64-darwin-23</code> and <code>ruby</code> — no explicit JRuby platform, though the code still maintains compatibility.</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Block-Based Segment Construction</div>
+        <div style="font-size:0.82rem;line-height:1.8;color:var(--text);">
+          Segments support a block constructor pattern via the <code>METHOD_MISSING_FOR_INITIALIZER</code> heredoc trick:
+          <pre style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:14px;margin:12px 0;font-size:0.78rem;overflow-x:auto;color:#c8d0e0;"><span style="color:#4a8090;"># Block allows bare field assignments</span>
+msh = <span style="color:#00f5ff;">HL7::Message::Segment::MSH</span>.new <span style="color:#ff2d78;">do</span> |seg|
+  seg.recv_app = <span style="color:#39ff14;">"ruby hl7"</span>
+  seg.recv_facility = <span style="color:#39ff14;">"my office"</span>
+  seg.processing_id = rand(<span style="color:#ffe600;">10000</span>).to_s
+end</pre>
+          Implementation: <code>eval(METHOD_MISSING_FOR_INITIALIZER, blk.binding)</code> installs a temporary <code>method_missing</code> into the calling binding that routes to <code>__seg__</code> (the segment). After the block runs, <code>remove_method :method_missing</code> is called on the singleton class of the block's context. The comment warns this may "pollute the calling namespace permanently" — a known limitation.
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">add_child_type — Runtime Child Registration</div>
+        <div style="font-size:0.82rem;line-height:1.8;color:var(--text);">
+          Beyond <code>has_children</code> at class definition time, the <code>SegmentListStorage</code> module exposes <code>add_child_type</code> for runtime extension:
+          <pre style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:14px;margin:12px 0;font-size:0.78rem;overflow-x:auto;color:#c8d0e0;"><span style="color:#4a8090;"># Add a new accepted child type at runtime</span>
+<span style="color:#00f5ff;">HL7::Message::Segment::OBR</span>.add_child_type(<span style="color:#39ff14;">:ZZZ</span>)
+<span style="color:#4a8090;"># Now OBR accepts ZZZ as a child segment</span></pre>
+          If <code>@child_types</code> is already defined (has_children was called), <code>add_child_type</code> appends to the existing array. If not yet defined, it calls <code>has_children([child_type])</code> which bootstraps the full machinery.
+        </div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:20px;">
+      <div class="card-title">Test Infrastructure Dependencies</div>
+      <table>
+        <tr>
+          <th>Spec File</th>
+          <th>Tests</th>
+          <th>Depends On</th>
+        </tr>
+        <tr>
+          <td class="seg-name">spec_helper.rb</td>
+          <td class="seg-fields">Configuration hub</td>
+          <td class="seg-fields">simplecov, ruby-hl7, lib/test/hl7_messages, RSpec.configure</td>
+        </tr>
+        <tr>
+          <td class="seg-name">basic_parsing_spec.rb</td>
+          <td class="seg-fields">50+ examples</td>
+          <td class="seg-fields">HL7::Message, Segment::Default, MSH, NTE, OBR, OBX, PID, PV1</td>
+        </tr>
+        <tr>
+          <td class="seg-name">batch_parsing_spec.rb</td>
+          <td class="seg-fields">Batch/MLLP</td>
+          <td class="seg-fields">MessageBatchParser, String#hl7_batch?, HL7MESSAGES hash</td>
+        </tr>
+        <tr>
+          <td class="seg-name">child_segment_spec.rb</td>
+          <td class="seg-fields">Parent-child</td>
+          <td class="seg-fields">SegmentListStorage, OBR/OBX/NTE hierarchy, PID/NK1</td>
+        </tr>
+        <tr>
+          <td class="seg-name">segment_spec.rb</td>
+          <td class="seg-fields">Base segment</td>
+          <td class="seg-fields">HL7::Message::Segment, weight DSL, method_missing, Comparable</td>
+        </tr>
+        <tr>
+          <td class="seg-name">segment_field_spec.rb</td>
+          <td class="seg-fields">Field DSL</td>
+          <td class="seg-fields">SegmentFields: add_field, alias_field, read/write_field, field_info</td>
+        </tr>
+        <tr>
+          <td class="seg-name">segment_generator_spec.rb</td>
+          <td class="seg-fields">Class resolution</td>
+          <td class="seg-fields">SegmentGenerator, get_segment_class, Delimiter, dynamic class def</td>
+        </tr>
+        <tr>
+          <td class="seg-name">segment_list_storage_spec.rb</td>
+          <td class="seg-fields">Children DSL</td>
+          <td class="seg-fields">SegmentListStorage, has_children, accepts?, add_child_type</td>
+        </tr>
+        <tr>
+          <td class="seg-name">dynamic_segment_def_spec.rb</td>
+          <td class="seg-fields">Runtime segments</td>
+          <td class="seg-fields">Class.new(Segment), const_set, auto-discovery by SegmentGenerator</td>
+        </tr>
+        <tr>
+          <td class="seg-name">helpers/time_formatter_helper_spec.rb</td>
+          <td class="seg-fields">TS formatting</td>
+          <td class="seg-fields">TimeFormatterHelper, hl7_formatted_timestamp, fraction_digits</td>
+        </tr>
+        <tr>
+          <td class="seg-name">core_ext/date_time_spec.rb</td>
+          <td class="seg-fields">Core ext</td>
+          <td class="seg-fields">Time#to_hl7, DateTime#to_hl7, Date#to_hl7, HL7Time module</td>
+        </tr>
+        <tr>
+          <td class="seg-name">speed_parsing_spec.rb</td>
+          <td class="seg-fields">Performance</td>
+          <td class="seg-fields">Cerner test data files: cerner_bordetella.hl7, cerner_en.hl7, cerner_lead.hl7, cerner_sequential.hl7</td>
+        </tr>
+        <tr>
+          <td class="seg-name">messages_spec.rb</td>
+          <td class="seg-fields">Real-world msgs</td>
+          <td class="seg-fields">HL7MESSAGES fixtures: arup_1/2/3, ihc_1, no_msh, no_pid, no_obr, no_obx, NIST test cases</td>
+        </tr>
+        <tr>
+          <td class="seg-name">*_segment_spec.rb (25 files)</td>
+          <td class="seg-fields">Per-segment</td>
+          <td class="seg-fields">One spec per segment class. Tests field names, TS conversion, validation, children. AIL/AIP have dedicated specs.</td>
+        </tr>
+      </table>
+    </div>
+  </section>
+
+</main>
+
+<footer class="footer">
+  Generated by <span>Codebase Cartographer</span> · ruby-hl7 v1.4.0 ·
+  Analyzed: 14 core files + 36 segment files + 39 spec files + 4 helper/ext files = <span>93 Ruby files</span>
+</footer>
+
+<script>
+  // Toggle tree nodes
+  document.querySelectorAll('.tree-toggle').forEach(el => {
+    el.addEventListener('click', () => {
+      const children = el.nextElementSibling;
+      if (children && children.classList.contains('tree-children')) {
+        const isHidden = children.style.display === 'none';
+        children.style.display = isHidden ? '' : 'none';
+        const icon = el.querySelector('.tree-icon');
+        if (icon) icon.textContent = isHidden ? '▼' : '▶';
+      }
+    });
+  });
+
+  // Highlight active nav on scroll
+  const sections = document.querySelectorAll('.section');
+  const navLinks = document.querySelectorAll('.nav-bar a');
+  const observer = new IntersectionObserver(entries => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        navLinks.forEach(link => {
+          link.style.color = '';
+          link.style.borderColor = '';
+          if (link.getAttribute('href') === '#' + entry.target.id) {
+            link.style.color = 'var(--neon-cyan)';
+            link.style.borderColor = 'var(--neon-cyan)';
+          }
+        });
+      }
+    });
+  }, { threshold: 0.1 });
+  sections.forEach(s => observer.observe(s));
+</script>
+</body>
+</html>

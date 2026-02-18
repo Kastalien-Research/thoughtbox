@@ -1,0 +1,2027 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Simple Server — DORA Metrics &amp; HIPAA Compliance Audit Report</title>
+<style>
+  :root {
+    --bg: #0a0d12;
+    --bg2: #0f1318;
+    --bg3: #141920;
+    --bg4: #1a2030;
+    --border: #1e2840;
+    --text: #c8d8f0;
+    --text-dim: #7a92b8;
+    --text-bright: #e8f0ff;
+    --neon-blue: #00b4ff;
+    --neon-cyan: #00e5d4;
+    --neon-green: #00ff88;
+    --neon-yellow: #ffd700;
+    --neon-orange: #ff8c00;
+    --neon-red: #ff3366;
+    --neon-purple: #b060ff;
+    --elite: #00ff88;
+    --high: #7affcc;
+    --medium: #ffd700;
+    --low: #ff8c00;
+    --critical: #ff3366;
+    --pass: #00ff88;
+    --partial: #ffd700;
+    --fail: #ff3366;
+    --unknown: #7a92b8;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    font-size: 14px;
+    line-height: 1.6;
+  }
+  /* Header */
+  .report-header {
+    background: linear-gradient(135deg, #0a0d12 0%, #0c1420 50%, #080c14 100%);
+    border-bottom: 1px solid var(--neon-blue);
+    padding: 40px 60px;
+    position: relative;
+    overflow: hidden;
+  }
+  .report-header::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: radial-gradient(ellipse at 30% 50%, rgba(0,180,255,0.05) 0%, transparent 70%);
+    pointer-events: none;
+  }
+  .report-header h1 {
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--text-bright);
+    letter-spacing: 0.5px;
+    margin-bottom: 6px;
+  }
+  .report-header .subtitle {
+    color: var(--neon-blue);
+    font-size: 14px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    margin-bottom: 20px;
+  }
+  .meta-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 12px;
+    margin-top: 20px;
+  }
+  .meta-item {
+    background: rgba(0,180,255,0.05);
+    border: 1px solid rgba(0,180,255,0.15);
+    border-radius: 6px;
+    padding: 10px 14px;
+  }
+  .meta-item .label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text-dim);
+    margin-bottom: 4px;
+  }
+  .meta-item .value {
+    color: var(--text-bright);
+    font-weight: 600;
+    font-size: 13px;
+  }
+  /* Navigation */
+  .toc {
+    background: var(--bg2);
+    border-bottom: 1px solid var(--border);
+    padding: 16px 60px;
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+  .toc a {
+    color: var(--text-dim);
+    text-decoration: none;
+    font-size: 12px;
+    padding: 5px 12px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    transition: all 0.2s;
+  }
+  .toc a:hover {
+    color: var(--neon-cyan);
+    border-color: var(--neon-cyan);
+  }
+  /* Main content */
+  .container {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 40px 60px;
+  }
+  /* Sections */
+  .section {
+    margin-bottom: 60px;
+  }
+  .section-header {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 24px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid var(--border);
+  }
+  .section-number {
+    background: var(--neon-blue);
+    color: #000;
+    font-weight: 800;
+    font-size: 12px;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .section-header h2 {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--text-bright);
+  }
+  h3 {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--neon-cyan);
+    margin: 24px 0 12px;
+  }
+  h4 {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-bright);
+    margin: 16px 0 8px;
+  }
+  p { margin-bottom: 12px; color: var(--text); }
+  /* Executive Summary Box */
+  .exec-summary {
+    background: var(--bg3);
+    border: 1px solid var(--neon-blue);
+    border-radius: 10px;
+    padding: 28px 32px;
+    margin-bottom: 32px;
+    position: relative;
+    overflow: hidden;
+  }
+  .exec-summary::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0;
+    width: 4px; height: 100%;
+    background: var(--neon-blue);
+  }
+  .risk-rating {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    background: rgba(255,51,102,0.12);
+    border: 1px solid var(--neon-red);
+    border-radius: 8px;
+    padding: 10px 20px;
+    margin: 16px 0;
+  }
+  .risk-rating .label { color: var(--text-dim); font-size: 12px; }
+  .risk-rating .value { color: var(--neon-red); font-size: 22px; font-weight: 800; letter-spacing: 1px; }
+  /* DORA Scorecard */
+  .dora-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+  @media (max-width: 900px) { .dora-grid { grid-template-columns: 1fr; } }
+  .dora-card {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px 24px;
+  }
+  .dora-card.elite { border-color: var(--elite); }
+  .dora-card.high { border-color: var(--high); }
+  .dora-card.medium { border-color: var(--medium); }
+  .dora-card.low { border-color: var(--low); }
+  .dora-metric-name {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text-dim);
+    margin-bottom: 6px;
+  }
+  .dora-metric-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--text-bright);
+    margin-bottom: 10px;
+  }
+  .dora-badge {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    padding: 3px 10px;
+    border-radius: 4px;
+    margin-bottom: 12px;
+  }
+  .badge-elite { background: rgba(0,255,136,0.15); color: var(--elite); border: 1px solid var(--elite); }
+  .badge-high { background: rgba(122,255,204,0.12); color: var(--high); border: 1px solid var(--high); }
+  .badge-medium { background: rgba(255,215,0,0.12); color: var(--medium); border: 1px solid var(--medium); }
+  .badge-low { background: rgba(255,140,0,0.12); color: var(--low); border: 1px solid var(--low); }
+  .dora-evidence {
+    font-size: 12px;
+    color: var(--text-dim);
+    line-height: 1.6;
+  }
+  .dora-evidence code {
+    background: rgba(0,180,255,0.08);
+    color: var(--neon-cyan);
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-family: 'Fira Code', 'Consolas', monospace;
+    font-size: 11px;
+  }
+  /* HIPAA Compliance Matrix */
+  .compliance-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    margin-bottom: 24px;
+  }
+  .compliance-table thead th {
+    background: var(--bg4);
+    color: var(--text-dim);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    padding: 10px 14px;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+    border-top: 1px solid var(--border);
+  }
+  .compliance-table thead th:first-child { border-left: 1px solid var(--border); border-radius: 6px 0 0 0; }
+  .compliance-table thead th:last-child { border-right: 1px solid var(--border); border-radius: 0 6px 0 0; }
+  .compliance-table tbody tr:hover { background: rgba(0,180,255,0.03); }
+  .compliance-table tbody td {
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+    font-size: 12px;
+    vertical-align: top;
+  }
+  .compliance-table tbody td:first-child { border-left: 1px solid var(--border); }
+  .compliance-table tbody td:last-child { border-right: 1px solid var(--border); }
+  .compliance-table tbody tr:last-child td:first-child { border-radius: 0 0 0 6px; }
+  .compliance-table tbody tr:last-child td:last-child { border-radius: 0 0 6px 0; }
+  .status-pass { color: var(--pass); font-weight: 700; }
+  .status-partial { color: var(--partial); font-weight: 700; }
+  .status-fail { color: var(--fail); font-weight: 700; }
+  .status-unknown { color: var(--unknown); font-weight: 700; }
+  /* Finding cards */
+  .finding {
+    border-radius: 8px;
+    padding: 18px 20px;
+    margin-bottom: 14px;
+    border-left: 4px solid;
+    position: relative;
+  }
+  .finding-critical { background: rgba(255,51,102,0.06); border-color: var(--neon-red); }
+  .finding-high { background: rgba(255,140,0,0.06); border-color: var(--neon-orange); }
+  .finding-medium { background: rgba(255,215,0,0.06); border-color: var(--neon-yellow); }
+  .finding-positive { background: rgba(0,255,136,0.06); border-color: var(--neon-green); }
+  .finding-title {
+    font-weight: 700;
+    font-size: 14px;
+    margin-bottom: 6px;
+  }
+  .finding-critical .finding-title { color: var(--neon-red); }
+  .finding-high .finding-title { color: var(--neon-orange); }
+  .finding-medium .finding-title { color: var(--neon-yellow); }
+  .finding-positive .finding-title { color: var(--neon-green); }
+  .finding-body {
+    font-size: 12px;
+    color: var(--text);
+    line-height: 1.7;
+  }
+  .finding-tag {
+    display: inline-block;
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    padding: 2px 8px;
+    border-radius: 3px;
+    margin-bottom: 8px;
+  }
+  .tag-critical { background: rgba(255,51,102,0.2); color: var(--neon-red); }
+  .tag-high { background: rgba(255,140,0,0.2); color: var(--neon-orange); }
+  .tag-medium { background: rgba(255,215,0,0.2); color: var(--neon-yellow); }
+  .tag-positive { background: rgba(0,255,136,0.2); color: var(--neon-green); }
+  /* Code evidence */
+  .evidence-block {
+    background: var(--bg4);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 12px 14px;
+    margin: 10px 0;
+    font-family: 'Fira Code', 'Consolas', monospace;
+    font-size: 11px;
+    color: var(--text-dim);
+    overflow-x: auto;
+  }
+  .evidence-block .file-path {
+    color: var(--neon-blue);
+    font-size: 10px;
+    margin-bottom: 8px;
+    display: block;
+  }
+  .evidence-block .code-line {
+    color: var(--text);
+    line-height: 1.8;
+  }
+  .evidence-block .hl-green { color: var(--neon-green); }
+  .evidence-block .hl-red { color: var(--neon-red); }
+  .evidence-block .hl-yellow { color: var(--neon-yellow); }
+  .evidence-block .hl-blue { color: var(--neon-blue); }
+  .evidence-block .hl-cyan { color: var(--neon-cyan); }
+  /* Remediation table */
+  .remediation-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    margin-bottom: 24px;
+  }
+  .remediation-table th {
+    background: var(--bg4);
+    color: var(--text-dim);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    padding: 10px 14px;
+    text-align: left;
+    border: 1px solid var(--border);
+  }
+  .remediation-table td {
+    padding: 10px 14px;
+    border: 1px solid var(--border);
+    font-size: 12px;
+    vertical-align: top;
+    color: var(--text);
+  }
+  .remediation-table tr:hover td { background: rgba(0,180,255,0.02); }
+  .priority-p0 { color: var(--neon-red); font-weight: 700; }
+  .priority-p1 { color: var(--neon-orange); font-weight: 700; }
+  .priority-p2 { color: var(--neon-yellow); font-weight: 700; }
+  .priority-p3 { color: var(--neon-green); font-weight: 700; }
+  /* Country compliance matrix */
+  .country-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+  .country-card {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 18px 20px;
+  }
+  .country-card h4 {
+    color: var(--neon-cyan);
+    font-size: 14px;
+    margin-bottom: 10px;
+  }
+  .country-card ul {
+    list-style: none;
+    padding: 0;
+  }
+  .country-card ul li {
+    font-size: 12px;
+    color: var(--text-dim);
+    padding: 4px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
+  }
+  .country-card ul li::before { content: '›'; color: var(--neon-blue); flex-shrink: 0; }
+  /* Inline code */
+  code {
+    background: rgba(0,180,255,0.08);
+    color: var(--neon-cyan);
+    padding: 1px 6px;
+    border-radius: 3px;
+    font-family: 'Fira Code', 'Consolas', monospace;
+    font-size: 12px;
+  }
+  pre {
+    background: var(--bg4);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 14px;
+    overflow-x: auto;
+    font-family: 'Fira Code', 'Consolas', monospace;
+    font-size: 12px;
+    color: var(--text);
+    line-height: 1.7;
+    margin: 10px 0;
+  }
+  /* Summary banner */
+  .summary-banner {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin-bottom: 32px;
+  }
+  @media (max-width: 800px) { .summary-banner { grid-template-columns: repeat(2, 1fr); } }
+  .banner-item {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px 18px;
+    text-align: center;
+  }
+  .banner-count {
+    font-size: 28px;
+    font-weight: 800;
+    margin-bottom: 4px;
+  }
+  .banner-label {
+    font-size: 11px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+  }
+  .count-critical { color: var(--neon-red); }
+  .count-high { color: var(--neon-orange); }
+  .count-medium { color: var(--neon-yellow); }
+  .count-positive { color: var(--neon-green); }
+  /* PHI inventory table */
+  .phi-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    font-size: 12px;
+    margin-bottom: 20px;
+  }
+  .phi-table th {
+    background: var(--bg4);
+    color: var(--text-dim);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    padding: 8px 12px;
+    text-align: left;
+    border: 1px solid var(--border);
+  }
+  .phi-table td {
+    padding: 8px 12px;
+    border: 1px solid var(--border);
+    color: var(--text);
+    vertical-align: top;
+  }
+  .phi-table tr:hover td { background: rgba(0,180,255,0.02); }
+  .phi-sens-high { color: var(--neon-red); font-weight: 600; }
+  .phi-sens-med { color: var(--neon-yellow); }
+  .phi-sens-low { color: var(--neon-green); }
+  /* Footer */
+  .report-footer {
+    background: var(--bg2);
+    border-top: 1px solid var(--border);
+    padding: 24px 60px;
+    color: var(--text-dim);
+    font-size: 11px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  ul, ol { padding-left: 20px; margin-bottom: 12px; }
+  li { margin-bottom: 4px; color: var(--text); font-size: 13px; }
+  .callout {
+    background: rgba(0,229,212,0.06);
+    border: 1px solid rgba(0,229,212,0.2);
+    border-radius: 6px;
+    padding: 14px 18px;
+    margin: 16px 0;
+    font-size: 13px;
+    color: var(--neon-cyan);
+  }
+  .divider {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 32px 0;
+  }
+  .inline-badge {
+    display: inline-block;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding: 1px 6px;
+    border-radius: 3px;
+    vertical-align: middle;
+  }
+  .ib-pass { background: rgba(0,255,136,0.15); color: var(--pass); }
+  .ib-fail { background: rgba(255,51,102,0.15); color: var(--fail); }
+  .ib-partial { background: rgba(255,215,0,0.15); color: var(--partial); }
+  .ib-unknown { background: rgba(122,146,184,0.15); color: var(--unknown); }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="report-header">
+  <div class="subtitle">Security &amp; Engineering Audit Report</div>
+  <h1>Simple Server — DORA Metrics &amp; HIPAA Compliance Review</h1>
+  <div style="color:var(--text-dim); font-size:13px; margin-top:8px;">
+    Production backend for Simple.org — hypertension and diabetes care platform (South Asia &amp; Africa)
+  </div>
+  <div class="meta-grid">
+    <div class="meta-item"><div class="label">Repository</div><div class="value">simpledotorg/simple-server</div></div>
+    <div class="meta-item"><div class="label">Tech Stack</div><div class="value">Ruby 2.7.8 · Rails 6.1 · PostgreSQL · Sidekiq</div></div>
+    <div class="meta-item"><div class="label">Report Date</div><div class="value">2026-02-18</div></div>
+    <div class="meta-item"><div class="label">Deployment Type</div><div class="value">Capistrano + Kubernetes (multi-country)</div></div>
+    <div class="meta-item"><div class="label">Countries Active</div><div class="value">India · Bangladesh · Ethiopia · Sri Lanka</div></div>
+    <div class="meta-item"><div class="label">PHI Sensitivity</div><div class="value" style="color:var(--neon-red);">HIGHEST — Real Patient Data</div></div>
+    <div class="meta-item"><div class="label">Commits Analyzed</div><div class="value">50 (full history)</div></div>
+    <div class="meta-item"><div class="label">Audit Scope</div><div class="value">Full codebase · 68 migrations · 100+ specs</div></div>
+  </div>
+</div>
+
+<!-- TABLE OF CONTENTS -->
+<nav class="toc">
+  <a href="#executive-summary">Executive Summary</a>
+  <a href="#dora-scorecard">DORA Scorecard</a>
+  <a href="#dora-df">Deployment Frequency</a>
+  <a href="#dora-lt">Lead Time</a>
+  <a href="#dora-mttr">MTTR</a>
+  <a href="#dora-cfr">Change Failure Rate</a>
+  <a href="#hipaa-access">§164.312(a) Access Control</a>
+  <a href="#hipaa-audit">§164.312(b) Audit Controls</a>
+  <a href="#hipaa-integrity">§164.312(c) Integrity</a>
+  <a href="#hipaa-transmission">§164.312(e) Transmission</a>
+  <a href="#encryption">Encryption at Rest</a>
+  <a href="#phi-inventory">PHI Inventory</a>
+  <a href="#multi-country">Multi-Country Compliance</a>
+  <a href="#risk-areas">Specific Risk Areas</a>
+  <a href="#findings">Findings Summary</a>
+  <a href="#roadmap">Remediation Roadmap</a>
+</nav>
+
+<div class="container">
+
+<!-- ======================================== -->
+<!-- EXECUTIVE SUMMARY                        -->
+<!-- ======================================== -->
+<section class="section" id="executive-summary">
+  <div class="section-header">
+    <div class="section-number">1</div>
+    <h2>Executive Summary</h2>
+  </div>
+
+  <div class="exec-summary">
+    <p style="font-size:15px; color:var(--text-bright); margin-bottom:12px;">
+      Simple Server is a production Ruby on Rails application serving as the backend for Simple.org, a hypertension and diabetes management platform deployed across India, Bangladesh, Ethiopia, and Sri Lanka. It stores highly sensitive protected health information (PHI) including patient names, dates of birth, phone numbers, addresses, blood pressure and blood sugar measurements, diagnoses, prescription drugs, and treatment history for hundreds of thousands of patients.
+    </p>
+    <div class="risk-rating">
+      <div>
+        <div class="label">Overall HIPAA Risk Rating</div>
+        <div class="value">HIGH-MEDIUM</div>
+      </div>
+    </div>
+    <p style="margin-top:12px;">
+      The application demonstrates a mature engineering culture with strong fundamentals: comprehensive RBAC, SSL enforcement, parameter filtering, audit logging infrastructure, and a well-structured test suite. However, several gaps represent genuine HIPAA compliance risks in a formal HHS audit context, particularly around encryption at rest for individual PHI fields, session timeout enforcement, account lockout configuration for admin users, content security policy deployment mode, and cross-country data segregation controls. No PHI is exposed in plaintext logs due to explicit filtering, which is a significant positive. The DORA metrics profile shows a <strong>High</strong> performance team with deployment frequency approaching Elite territory.
+    </p>
+  </div>
+
+  <div class="summary-banner">
+    <div class="banner-item">
+      <div class="banner-count count-critical">5</div>
+      <div class="banner-label">Critical Findings</div>
+    </div>
+    <div class="banner-item">
+      <div class="banner-count count-high">7</div>
+      <div class="banner-label">High Findings</div>
+    </div>
+    <div class="banner-item">
+      <div class="banner-count count-medium">9</div>
+      <div class="banner-label">Medium Findings</div>
+    </div>
+    <div class="banner-item">
+      <div class="banner-count count-positive">12</div>
+      <div class="banner-label">Positive Findings</div>
+    </div>
+  </div>
+</section>
+
+<!-- ======================================== -->
+<!-- DORA SCORECARD                           -->
+<!-- ======================================== -->
+<section class="section" id="dora-scorecard">
+  <div class="section-header">
+    <div class="section-number">2</div>
+    <h2>DORA Metrics Scorecard</h2>
+  </div>
+
+  <div class="dora-grid">
+    <div class="dora-card high">
+      <div class="dora-metric-name">DORA Metric 1</div>
+      <div class="dora-metric-title">Deployment Frequency</div>
+      <span class="dora-badge badge-high">HIGH</span>
+      <div class="dora-evidence">
+        Averaging 5–18 commits/month on master branch with direct deploy coupling (Capistrano). Active PR-based workflow with ~50 PRs in the visible commit history. Near-Elite given infrastructure maturity. Feature flags (Flipper) enable trunk-based development decoupling features from releases.
+      </div>
+    </div>
+    <div class="dora-card medium">
+      <div class="dora-metric-name">DORA Metric 2</div>
+      <div class="dora-metric-title">Lead Time for Changes</div>
+      <span class="dora-badge badge-medium">MEDIUM</span>
+      <div class="dora-evidence">
+        Capistrano deployment pipeline with manual confirmation gates for production (<code>CONFIRM=true</code>). No automated CI/CD trigger on push to master visible in <code>.github/workflows/</code>. Only 3 workflow files total (manifest deploy, mobile build review, stale issues). Likely 1–3 day lead time due to manual deploy process.
+      </div>
+    </div>
+    <div class="dora-card high">
+      <div class="dora-metric-name">DORA Metric 3</div>
+      <div class="dora-metric-title">Mean Time to Restore (MTTR)</div>
+      <span class="dora-badge badge-high">HIGH</span>
+      <div class="dora-evidence">
+        Sentry integration for error tracking. Prometheus metrics middleware. Flipper feature flags enable instant kill-switch capability. Capistrano rollback available. Many <code>fix()</code> commits ship same-day as bugs discovered (e.g., <code>834ed84</code> fixing failing deployment, <code>ca27993</code> fixing sync order). MTTR estimated at hours.
+      </div>
+    </div>
+    <div class="dora-card high">
+      <div class="dora-metric-name">DORA Metric 4</div>
+      <div class="dora-metric-title">Change Failure Rate</div>
+      <span class="dora-badge badge-high">HIGH</span>
+      <div class="dora-evidence">
+        63 model specs, 28 service specs, 16 job specs, 17 API V4 specs, extensive request specs. RSpec with shoulda-matchers, simplecov, factory_bot. Reversible migrations (mostly). One recent revert (<code>f034253</code> revert of indicator aggregation strategy). CFR estimated &lt;10%.
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ======================================== -->
+<!-- DORA DETAIL: DEPLOYMENT FREQUENCY        -->
+<!-- ======================================== -->
+<section class="section" id="dora-df">
+  <div class="section-header">
+    <div class="section-number">3</div>
+    <h2>Deployment Frequency — Deep Analysis</h2>
+  </div>
+
+  <h3>Commit Cadence</h3>
+  <p>From git log analysis, the repository shows active development activity with the following monthly commit counts over the most recent period available:</p>
+  <div class="evidence-block">
+    <span class="file-path">git log --format="%ad" --date=format:"%Y-%m" | uniq -c</span>
+    <div class="code-line">2025-09: <span class="hl-green">18 commits</span></div>
+    <div class="code-line">2025-10:  <span class="hl-green">9 commits</span></div>
+    <div class="code-line">2025-11:  <span class="hl-green">5 commits</span></div>
+    <div class="code-line">2025-12:  <span class="hl-green">3 commits</span></div>
+    <div class="code-line">2026-01: <span class="hl-green">10 commits</span></div>
+    <div class="code-line">2026-02:  <span class="hl-green">5 commits (partial month)</span></div>
+  </div>
+
+  <h3>Deployment Infrastructure</h3>
+  <p>Deployments are managed via Capistrano configured at <code>config/deploy.rb</code> and <code>config/deploy/</code> (per-country configurations for Bangladesh, Ethiopia, Sri Lanka). The deploy pipeline:</p>
+  <ul>
+    <li>Confirmation gate before production and staging deploys (prevents accidental pushes)</li>
+    <li>Sentry deployment notifications (<code>sentry:notice_deployment</code> after publish)</li>
+    <li>Database migrations run via <code>db:migrate:with_data</code> (data migrations included)</li>
+    <li>Passenger web server restart with sudo</li>
+    <li>Sidekiq worker management (4 processes)</li>
+    <li>Whenever/cron schedule updated on deploy</li>
+  </ul>
+
+  <div class="evidence-block">
+    <span class="file-path">config/deploy.rb (key settings)</span>
+    <div class="code-line"><span class="hl-blue">set</span> :branch, ENV["BRANCH"] || <span class="hl-green">"master"</span></div>
+    <div class="code-line"><span class="hl-blue">set</span> :migration_command, <span class="hl-green">"db:migrate:with_data"</span></div>
+    <div class="code-line"><span class="hl-blue">set</span> :enable_confirmation, ENV["CONFIRM"] || <span class="hl-green">"true"</span></div>
+    <div class="code-line"><span class="hl-blue">set</span> :envs_for_confirmation_step, [<span class="hl-green">"production"</span>, <span class="hl-green">"staging"</span>]</div>
+    <div class="code-line"><span class="hl-blue">after</span> "deploy:published", <span class="hl-green">"sentry:notice_deployment"</span></div>
+  </div>
+
+  <h3>Feature Flag Usage (Flipper)</h3>
+  <p>The codebase uses Flipper for feature flags stored in ActiveRecord, enabling trunk-based development where incomplete features can be shipped to production gated behind flags. This is a DORA best practice:</p>
+  <div class="evidence-block">
+    <span class="file-path">config/initializers/flipper.rb</span>
+    <div class="code-line">Flipper.register(<span class="hl-green">:power_users</span>) <span class="hl-blue">do</span> |actor|</div>
+    <div class="code-line">  actor.respond_to?(:power_user?) &amp;&amp; actor.power_user?</div>
+    <div class="code-line"><span class="hl-blue">end</span></div>
+  </div>
+  <p>Feature flags used across codebase: <code>:notifications</code>, <code>:experiment</code>, <code>:fixed_otp</code>, <code>:auto_approve_users</code>, <code>:drug_stocks</code>, and many more. This enables gradual rollout and instant kill-switches.</p>
+
+  <h3>CI/CD Gap</h3>
+  <div class="finding finding-high">
+    <span class="finding-tag tag-high">High</span>
+    <div class="finding-title">No Automated CI/CD Pipeline for Main Branch</div>
+    <div class="finding-body">
+      Only 3 GitHub Actions workflows exist: manifest deploy to GitHub Pages, mobile app build review, and stale issue management. There is no workflow that runs tests on push to master, no automated deployment trigger, and no quality gate enforcing test passage before deploy. This places Simple in the "Medium" lead time category and increases change failure risk. Semaphore CI is referenced in <code>script/semaphore_deploy</code> and <code>script/semaphore_setup</code>, suggesting CI may run on an external platform not visible in the repository.
+    </div>
+    <div class="evidence-block">
+      <span class="file-path">.github/workflows/ — only 3 files found</span>
+      <div class="code-line">deploy-manifest.yml — GitHub Pages only</div>
+      <div class="code-line">review-mobile-app-build.yml — mobile PR reviews</div>
+      <div class="code-line">stale.yml — issue management</div>
+    </div>
+  </div>
+</section>
+
+<!-- ======================================== -->
+<!-- DORA: LEAD TIME                          -->
+<!-- ======================================== -->
+<section class="section" id="dora-lt">
+  <div class="section-header">
+    <div class="section-number">4</div>
+    <h2>Lead Time for Changes — Deep Analysis</h2>
+  </div>
+
+  <h3>Pipeline Analysis</h3>
+  <p>The commit-to-production pipeline consists of:</p>
+  <ol>
+    <li><strong>Development</strong> — Feature branch development with PR-based workflow (all commits reference PR numbers, e.g., <code>#5769</code>, <code>#5768</code>)</li>
+    <li><strong>Review</strong> — PR review (human gate)</li>
+    <li><strong>CI</strong> — External Semaphore CI (referenced in <code>script/semaphore_setup</code>)</li>
+    <li><strong>Merge to master</strong></li>
+    <li><strong>Manual deploy</strong> — Capistrano with production confirmation</li>
+    <li><strong>Migration + restart</strong></li>
+  </ol>
+
+  <h3>Migration Safety</h3>
+  <p>Database migrations use the <code>data_migrate</code> gem which enables data migrations alongside schema migrations. A review of recent migrations shows:</p>
+  <ul>
+    <li>Primarily use <code>def change</code> (reversible) — good practice</li>
+    <li>View updates (Scenic gem) create database views as migrations</li>
+    <li>Partitioned table migrations for reporting data</li>
+    <li>One known long-running migration caused a failing deployment: <code>834ed84 fixing failing deployment due to long running migration</code></li>
+    <li>Foreign key removal (<code>20260212195326_unlink_patients_from_cvd_risks.rb</code>) is irreversible without a compensating migration</li>
+  </ul>
+
+  <div class="evidence-block">
+    <span class="file-path">db/migrate/20260212195326_unlink_patients_from_cvd_risks.rb</span>
+    <div class="code-line"><span class="hl-blue">class</span> UnlinkPatientsFromCvdRisks &lt; ActiveRecord::Migration[6.1]</div>
+    <div class="code-line">  <span class="hl-blue">def</span> change</div>
+    <div class="code-line">    <span class="hl-red">remove_foreign_key</span> :cvd_risks, :patients  <span class="hl-yellow"># irreversible</span></div>
+    <div class="code-line">  <span class="hl-blue">end</span></div>
+    <div class="code-line"><span class="hl-blue">end</span></div>
+  </div>
+
+  <div class="callout">
+    Lead time is estimated at 1–5 days based on PR merge to deployment. The manual confirmation gate is a deliberate safety choice for a medical system but does reduce deployment frequency. Evidence of same-day hotfixes shows the team can move fast when needed.
+  </div>
+</section>
+
+<!-- ======================================== -->
+<!-- DORA: MTTR                               -->
+<!-- ======================================== -->
+<section class="section" id="dora-mttr">
+  <div class="section-header">
+    <div class="section-number">5</div>
+    <h2>Mean Time to Restore (MTTR) — Deep Analysis</h2>
+  </div>
+
+  <h3>Monitoring Stack</h3>
+  <p>The application has a multi-layer monitoring and observability stack:</p>
+
+  <div class="finding finding-positive">
+    <span class="finding-tag tag-positive">Positive</span>
+    <div class="finding-title">Comprehensive Observability Stack</div>
+    <div class="finding-body">
+      <strong>Sentry</strong>: Full integration via <code>sentry-rails</code>, <code>sentry-ruby</code>, <code>sentry-sidekiq</code> gems with configurable sample rate (<code>SENTRY_SAMPLE_RATE</code>). Security headers via <code>SENTRY_SECURITY_HEADER_ENDPOINT</code>. CSP violations reported to Sentry.<br><br>
+      <strong>Prometheus</strong>: Custom middleware (<code>SimplePrometheusMiddleware</code>) reports per-request HTTP status and timings in production. Metrics tracked via <code>lib/metrics.rb</code> with Datadog StatsD integration (<code>dogstatsd-ruby</code>).<br><br>
+      <strong>Structured Logging</strong>: JSON logging via <code>JsonLogger</code> class with Lograge for request log formatting. Tagged logging (<code>ActiveSupport::TaggedLogging</code>). LogFriend for structured child loggers.<br><br>
+      <strong>Sidekiq monitoring</strong>: sidekiq-statsd for queue metrics. Sidekiq web UI available.<br><br>
+      <strong>Slack notifications</strong>: <code>slack-notifier</code> gem present for alerting.
+    </div>
+  </div>
+
+  <h3>Rollback Mechanisms</h3>
+  <ul>
+    <li><strong>Capistrano rollback</strong>: <code>cap production deploy:rollback</code> returns to previous release</li>
+    <li><strong>Feature flags</strong>: Flipper can disable any feature instantly without deploy</li>
+    <li><strong>Data migrations</strong>: <code>data_migrate</code> gem provides separate rollback for data changes</li>
+    <li><strong>Sidekiq retries</strong>: Background jobs retry automatically on failure</li>
+  </ul>
+
+  <h3>Evidence of Fast Incident Response</h3>
+  <p>Git log shows same-day or next-day fix commits following incidents:</p>
+  <div class="evidence-block">
+    <span class="file-path">git log — incident response pattern</span>
+    <div class="code-line"><span class="hl-green">834ed84</span> fixing failing deployment due to long running migration</div>
+    <div class="code-line"><span class="hl-green">ca27993</span> fix(Sync): Order Problem (#5768)</div>
+    <div class="code-line"><span class="hl-green">6360bce</span> fix(Deduplicator): Filter deduplicated active patients</div>
+    <div class="code-line"><span class="hl-green">f034253</span> fix(Dr. Rai Reports): Revert default indicator aggregation strategy</div>
+  </div>
+
+  <div class="finding finding-medium">
+    <span class="finding-tag tag-medium">Medium</span>
+    <div class="finding-title">No On-Call Runbook or Incident Response Procedure in Repository</div>
+    <div class="finding-body">
+      No <code>INCIDENT_RESPONSE.md</code>, <code>RUNBOOK.md</code>, or on-call documentation is present in the repository. For a system storing real patient PHI, a documented incident response plan is a HIPAA requirement under the Security Rule. The absence of an on-call schedule or escalation matrix in the codebase means this is either managed externally or missing entirely.
+    </div>
+  </div>
+</section>
+
+<!-- ======================================== -->
+<!-- DORA: CHANGE FAILURE RATE                -->
+<!-- ======================================== -->
+<section class="section" id="dora-cfr">
+  <div class="section-header">
+    <div class="section-number">6</div>
+    <h2>Change Failure Rate — Deep Analysis</h2>
+  </div>
+
+  <h3>Test Suite Comprehensiveness</h3>
+  <div class="finding finding-positive">
+    <span class="finding-tag tag-positive">Positive</span>
+    <div class="finding-title">Broad Test Coverage Across All Layers</div>
+    <div class="finding-body">
+      The test suite covers all application layers with dedicated spec directories:
+      <ul style="margin-top:8px;">
+        <li><strong>Models</strong>: 63 model spec files covering business logic and validations</li>
+        <li><strong>Services</strong>: 28 service spec files (merge, deduplication, notification services)</li>
+        <li><strong>API</strong>: Complete V3/V4 API specs including patients, blood pressures, blood sugars, appointments</li>
+        <li><strong>Jobs</strong>: 16 background job specs</li>
+        <li><strong>Exporters</strong>: CSV export specs (important for PHI handling)</li>
+        <li><strong>Controllers</strong>: Admin, webview, and API controllers</li>
+        <li><strong>Features</strong>: Capybara integration tests</li>
+        <li><strong>Mailers</strong>: Email template tests</li>
+      </ul>
+      Tools: RSpec 4, shoulda-matchers 5.1, factory_bot_rails 6.1, simplecov, webmock, capybara, webdrivers.
+    </div>
+  </div>
+
+  <h3>Quality Gates</h3>
+  <ul>
+    <li>StandardRB linting (<code>standard 1.6.0</code>) for code style</li>
+    <li>N+1 query detection via Prosopite in development/test</li>
+    <li>RSpec Sidekiq for background job testing</li>
+    <li>Parallel test execution (<code>parallel_tests</code> gem)</li>
+    <li>Guard for continuous test running in development</li>
+  </ul>
+
+  <h3>Dependency Management</h3>
+  <div class="finding finding-medium">
+    <span class="finding-tag tag-medium">Medium</span>
+    <div class="finding-title">Ruby 2.7.8 End-of-Life — Security Risk</div>
+    <div class="finding-body">
+      The application targets Ruby 2.7.8 (<code>Gemfile:2</code>) which reached end-of-life on March 31, 2023. No security patches are being issued for this Ruby version. This is a significant supply-chain security risk for a medical system. Rails 6.1.7.10 is the latest 6.1.x patch but Rails 6.1 also reached end-of-life in June 2024.
+    </div>
+    <div class="evidence-block">
+      <span class="file-path">Gemfile:2</span>
+      <div class="code-line">ruby <span class="hl-red">"2.7.8"</span>  <span class="hl-yellow"># EOL since March 2023</span></div>
+      <div class="code-line">gem <span class="hl-green">"rails"</span>, <span class="hl-red">"6.1.7.10"</span>  <span class="hl-yellow"># EOL June 2024</span></div>
+    </div>
+  </div>
+
+  <p>No Dependabot configuration is visible in the repository. Gem versions appear to be managed manually with some pinned to specific versions.</p>
+</section>
+
+<!-- ======================================== -->
+<!-- HIPAA §164.312(a) ACCESS CONTROL        -->
+<!-- ======================================== -->
+<section class="section" id="hipaa-access">
+  <div class="section-header">
+    <div class="section-number">7</div>
+    <h2>HIPAA Technical Safeguards — §164.312(a) Access Control</h2>
+  </div>
+
+  <table class="compliance-table">
+    <thead>
+      <tr>
+        <th style="width:30%">Control</th>
+        <th style="width:12%">Status</th>
+        <th>Evidence / Notes</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Unique user identification</td>
+        <td><span class="status-pass">PASS</span></td>
+        <td>Every user has a UUID primary key. Mobile users authenticated via <code>PhoneNumberAuthentication</code> with unique phone + OTP. Admin users via Devise email authentication. Machine users have separate model. <code>app/models/user.rb</code>, <code>app/models/machine_user.rb</code></td>
+      </tr>
+      <tr>
+        <td>Emergency access procedure</td>
+        <td><span class="status-unknown">UNKNOWN</span></td>
+        <td>No emergency break-glass procedure documented in codebase. Power users can access all data but no documented emergency escalation path exists.</td>
+      </tr>
+      <tr>
+        <td>Automatic logoff (session timeout)</td>
+        <td><span class="status-fail">FAIL</span></td>
+        <td>Devise timeoutable module is <strong>commented out</strong> in <code>config/initializers/devise.rb:224</code>. <code># config.timeout_in = 30.minutes</code>. Admin web sessions have no configured timeout, violating the requirement for automatic logoff after inactivity.</td>
+      </tr>
+      <tr>
+        <td>Encryption and decryption (access)</td>
+        <td><span class="status-partial">PARTIAL</span></td>
+        <td>Access tokens generated with <code>SecureRandom.hex(32)</code> (128-bit entropy, strong). OTPs 6 digits, valid for configured duration. No application-level encryption of PHI fields at rest.</td>
+      </tr>
+      <tr>
+        <td>Mobile API authentication</td>
+        <td><span class="status-pass">PASS</span></td>
+        <td>Bearer token authentication via <code>authenticate_or_request_with_http_token</code> with <code>ActiveSupport::SecurityUtils.secure_compare</code> (constant-time comparison, prevents timing attacks). Token validated against <code>sync_approval_status</code>. <code>app/controllers/api_controller.rb:93-99</code></td>
+      </tr>
+      <tr>
+        <td>Admin web authentication</td>
+        <td><span class="status-pass">PASS</span></td>
+        <td>Devise with bcrypt (11 stretches), email+password, invitation-based signup (<code>devise_invitable</code>), email reconfirmation for changes, paranoid mode (timing-safe). Password minimum 10 chars. <code>config/initializers/devise.rb</code></td>
+      </tr>
+      <tr>
+        <td>Multi-factor authentication</td>
+        <td><span class="status-fail">FAIL</span></td>
+        <td>No MFA for admin web dashboard. Mobile users use OTP + password (effectively 2FA) but admin email/password login has no second factor. For a system with access to patient records at scale, admin MFA is strongly recommended.</td>
+      </tr>
+      <tr>
+        <td>Account lockout</td>
+        <td><span class="status-partial">PARTIAL</span></td>
+        <td>Mobile API: lockout after 5 failed attempts (configurable via <code>USER_AUTH_MAX_FAILED_ATTEMPTS</code>), 20-minute lockout period (<code>USER_AUTH_LOCKOUT_IN_MINUTES</code>). Admin/Devise: lockable module commented out (<code># config.lock_strategy = :failed_attempts</code>). Admin accounts have NO lockout protection.</td>
+      </tr>
+      <tr>
+        <td>Role-based access control</td>
+        <td><span class="status-pass">PASS</span></td>
+        <td>Comprehensive RBAC via <code>UserAccess</code> class with 5 access levels: <code>manager</code>, <code>viewer_reports_only</code>, <code>viewer_all</code>, <code>call_center</code>, <code>power_user</code>. Actions mapped to levels: <code>view_pii</code> restricted to manager/viewer_all. Facility-scoped access via <code>Access</code> records. <code>app/models/user_access.rb</code></td>
+      </tr>
+      <tr>
+        <td>Minimum necessary access</td>
+        <td><span class="status-pass">PASS</span></td>
+        <td>Mobile users scoped to their registration facility group. Sync returns only records for the user's sync region. <code>view_pii</code> action distinct from <code>view_reports</code>. Call center staff can only manage overdue list, not view all PHI.</td>
+      </tr>
+      <tr>
+        <td>API rate limiting</td>
+        <td><span class="status-pass">PASS</span></td>
+        <td>Rack::Attack configured with limits: login 5/min, user activation 5/min (by IP) + 5/30min (by user), patient lookup 5/10sec. <code>config/initializers/rate_limiter.rb</code></td>
+      </tr>
+      <tr>
+        <td>Sync approval workflow</td>
+        <td><span class="status-pass">PASS</span></td>
+        <td>Newly registered mobile devices require admin approval before sync is permitted (<code>sync_approval_status: requested → allowed</code>). This is a strong access gate. <code>app/models/user.rb:sync_approval_status</code></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="finding finding-critical">
+    <span class="finding-tag tag-critical">Critical</span>
+    <div class="finding-title">HIPAA-Fail: Admin Session Timeout Disabled</div>
+    <div class="finding-body">
+      The Devise <code>:timeoutable</code> module is not configured, meaning admin web sessions never expire automatically. A healthcare worker or administrator who leaves a browser session open exposes all accessible patient data indefinitely. HIPAA §164.312(a)(2)(iii) explicitly requires automatic logoff. This would be a direct finding in an HHS audit.
+    </div>
+    <div class="evidence-block">
+      <span class="file-path">config/initializers/devise.rb:223-225</span>
+      <div class="code-line"><span class="hl-yellow"># ==> Configuration for :timeoutable</span></div>
+      <div class="code-line"><span class="hl-yellow"># The time you want to timeout the user session without activity.</span></div>
+      <div class="code-line"><span class="hl-red"># config.timeout_in = 30.minutes   &lt;&lt;&lt; COMMENTED OUT</span></div>
+    </div>
+  </div>
+
+  <div class="finding finding-critical">
+    <span class="finding-tag tag-critical">Critical</span>
+    <div class="finding-title">HIPAA-Fail: Admin Account Lockout Not Configured</div>
+    <div class="finding-body">
+      Devise lockable is not configured for admin accounts. The lockout options are all commented out. Admin accounts are vulnerable to brute-force password attacks. Combined with no MFA, a compromised admin account provides unrestricted PHI access across all accessible facilities. Mobile users have lockout (5 attempts, 20 min) but admins do not.
+    </div>
+    <div class="evidence-block">
+      <span class="file-path">config/initializers/devise.rb:228-245</span>
+      <div class="code-line"><span class="hl-red"># config.lock_strategy = :failed_attempts   &lt;&lt;&lt; NOT SET</span></div>
+      <div class="code-line"><span class="hl-red"># config.maximum_attempts = 20               &lt;&lt;&lt; NOT SET</span></div>
+      <div class="code-line"><span class="hl-red"># config.unlock_in = 1.hour                  &lt;&lt;&lt; NOT SET</span></div>
+    </div>
+    <div class="evidence-block">
+      <span class="file-path">app/models/phone_number_authentication.rb:5-6 (mobile DOES have lockout)</span>
+      <div class="code-line"><span class="hl-green">USER_AUTH_MAX_FAILED_ATTEMPTS</span> = Integer(ENV["USER_AUTH_MAX_FAILED_ATTEMPTS"] || 5).freeze</div>
+      <div class="code-line"><span class="hl-green">USER_AUTH_LOCKOUT_IN_MINUTES</span> = Integer(ENV["USER_AUTH_LOCKOUT_IN_MINUTES"] || 20).freeze</div>
+    </div>
+  </div>
+</section>
+
+<!-- ======================================== -->
+<!-- HIPAA §164.312(b) AUDIT CONTROLS         -->
+<!-- ======================================== -->
+<section class="section" id="hipaa-audit">
+  <div class="section-header">
+    <div class="section-number">8</div>
+    <h2>HIPAA Technical Safeguards — §164.312(b) Audit Controls</h2>
+  </div>
+
+  <table class="compliance-table">
+    <thead>
+      <tr>
+        <th style="width:30%">Control</th>
+        <th style="width:12%">Status</th>
+        <th>Evidence / Notes</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>PHI access logging</td>
+        <td><span class="status-partial">PARTIAL</span></td>
+        <td>Dedicated <code>AuditLog</code> class logs fetch, create, update, login events to <code>log/audit.log</code>. Separate <code>PatientLookupAuditLogger</code> logs to <code>log/patient_lookup_audit.log</code>. <code>app/models/audit_log.rb</code>, <code>config/initializers/audit_logger.rb</code>. However, audit log writes are async (Sidekiq worker) which means failures could result in missing audit records.</td>
+      </tr>
+      <tr>
+        <td>Who accessed which records</td>
+        <td><span class="status-pass">PASS</span></td>
+        <td>Audit log records: <code>user_id</code>, <code>auditable_type</code>, <code>auditable_id</code>, <code>action</code>, <code>time</code>. Patient lookup specifically logs user_id, facility_id, identifier, patient_ids. <code>app/models/audit_log.rb</code></td>
+      </tr>
+      <tr>
+        <td>Login event logging</td>
+        <td><span class="status-pass">PASS</span></td>
+        <td><code>AuditLog.login_log(user)</code> called on successful mobile login (<code>app/controllers/api/v3/logins_controller.rb:16</code>) and on OTP activation (<code>app/controllers/api/v4/users_controller.rb:36</code>).</td>
+      </tr>
+      <tr>
+        <td>PHI field filtering in logs</td>
+        <td><span class="status-pass">PASS</span></td>
+        <td>Strict parameter filtering via <code>ParameterFiltering</code> — whitelist approach with explicit allow-list. Any parameter not explicitly permitted is replaced with <code>[FILTERED]</code>. PHI fields (name, DOB, phone, etc.) are not in the allow-list. <code>config/initializers/filter_parameter_logging.rb</code></td>
+      </tr>
+      <tr>
+        <td>Log integrity</td>
+        <td><span class="status-unknown">UNKNOWN</span></td>
+        <td>Audit logs are written to flat files in <code>log/</code>. No log integrity mechanism (WORM, append-only, cryptographic signing) is visible in the codebase. Log files on the application server could potentially be modified by someone with server access.</td>
+      </tr>
+      <tr>
+        <td>Log retention policy</td>
+        <td><span class="status-unknown">UNKNOWN</span></td>
+        <td>No log retention policy, rotation schedule, or archival procedure is defined in the codebase. Audit logs may be rotated by the OS logrotate without guaranteed retention period. HIPAA requires audit logs to be retained for 6 years.</td>
+      </tr>
+      <tr>
+        <td>Data versioning / change trail</td>
+        <td><span class="status-partial">PARTIAL</span></td>
+        <td>No PaperTrail gem present. Changes are tracked via device timestamps (<code>device_created_at</code>, <code>device_updated_at</code>) and <code>AuditLog.merge_log</code> records who performed the last sync merge. However, there is no full field-level change history (what the previous value was).</td>
+      </tr>
+      <tr>
+        <td>Admin action logging</td>
+        <td><span class="status-partial">PARTIAL</span></td>
+        <td>Admin actions log to Rails logger. CPHC migration audit logs exist for that specific feature. Patient deduplication is logged. However, there is no comprehensive admin action log tracking who changed facility configurations, user access levels, or other administrative PHI-adjacent operations.</td>
+      </tr>
+      <tr>
+        <td>Sentry PII exposure</td>
+        <td><span class="status-partial">PARTIAL</span></td>
+        <td>Sentry context set with <code>user_id</code> and <code>facility_id</code> (not PHI). <code>app/controllers/api_controller.rb:102-107</code>. However, Sentry is initialized with minimal configuration (<code>sample_rate</code> only) — no explicit <code>before_send</code> hook to scrub PHI from error payloads. Error traces could contain PHI in exception messages or request params if they leak through.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="finding finding-critical">
+    <span class="finding-tag tag-critical">Critical</span>
+    <div class="finding-title">Audit Log Async Write — PHI Access May Go Unlogged</div>
+    <div class="finding-body">
+      <code>AuditLog.create_logs_async</code> dispatches audit log writes to <code>CreateAuditLogsWorker</code> via Sidekiq. If Sidekiq is down, overloaded, or a job fails permanently, patient record access events are silently lost. For HIPAA compliance, audit logging must be synchronous and durable. The patient lookup audit log uses a separate async job (<code>PatientLookupAuditLogJob</code>) with the lowest priority queue (<code>:low</code>), meaning it's deprioritized relative to other work.
+    </div>
+    <div class="evidence-block">
+      <span class="file-path">app/models/audit_log.rb:50-64</span>
+      <div class="code-line"><span class="hl-blue">def</span> self.create_logs_async(user, records, action, time)</div>
+      <div class="code-line">  records_by_class.each <span class="hl-blue">do</span> |record_class, records_for_class|</div>
+      <div class="code-line">    <span class="hl-red">CreateAuditLogsWorker.perform_async(log_data)</span>  <span class="hl-yellow"># async = not durable</span></div>
+      <div class="code-line">  <span class="hl-blue">end</span></div>
+      <div class="code-line"><span class="hl-blue">end</span></div>
+    </div>
+    <div class="evidence-block">
+      <span class="file-path">app/jobs/patient_lookup_audit_log_job.rb:5</span>
+      <div class="code-line">sidekiq_options queue: <span class="hl-red">:low</span>  <span class="hl-yellow"># lowest priority queue</span></div>
+    </div>
+  </div>
+
+  <div class="finding finding-high">
+    <span class="finding-tag tag-high">High</span>
+    <div class="finding-title">No Log Retention Policy or Integrity Controls</div>
+    <div class="finding-body">
+      Audit logs are flat files in <code>log/audit.log</code> and <code>log/patient_lookup_audit.log</code> on the application server. No WORM storage, cryptographic signing, or immutable log shipping is configured. HIPAA requires audit records to be retained for 6 years from creation. Without explicit retention and integrity controls, log data could be lost, corrupted, or tampered.
+    </div>
+  </div>
+
+  <div class="finding finding-high">
+    <span class="finding-tag tag-high">High</span>
+    <div class="finding-title">Sentry Configuration Lacks PHI Scrubbing</div>
+    <div class="finding-body">
+      The Sentry initializer has only 3 lines and no <code>before_send</code> callback to scrub potentially sensitive data from error payloads. While parameter filtering prevents PHI in request logs, exception messages and backtraces may contain PHI (e.g., validation errors with field values, SQL queries with patient data). Sentry transmits error data to a third-party US-based service, which is a cross-border PHI transfer concern for India/Bangladesh patients.
+    </div>
+    <div class="evidence-block">
+      <span class="file-path">config/initializers/sentry.rb</span>
+      <div class="code-line">Sentry.init <span class="hl-blue">do</span> |config|</div>
+      <div class="code-line">  config.sample_rate = ENV.fetch(<span class="hl-green">"SENTRY_SAMPLE_RATE"</span>, 1.0).to_f</div>
+      <div class="code-line">  <span class="hl-red"># No before_send scrubbing, no sensitive_parameters config</span></div>
+      <div class="code-line"><span class="hl-blue">end</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ======================================== -->
+<!-- HIPAA §164.312(c) INTEGRITY              -->
+<!-- ======================================== -->
+<section class="section" id="hipaa-integrity">
+  <div class="section-header">
+    <div class="section-number">9</div>
+    <h2>HIPAA Technical Safeguards — §164.312(c) Integrity</h2>
+  </div>
+
+  <table class="compliance-table">
+    <thead>
+      <tr>
+        <th style="width:30%">Control</th>
+        <th style="width:12%">Status</th>
+        <th>Evidence / Notes</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Data validation on PHI fields</td>
+        <td><span class="status-pass">PASS</span></td>
+        <td>Patient model validates: status presence, date_of_birth (no future dates), associated address and phone numbers. <code>PhoneNumberAuthentication</code> validates phone uniqueness. <code>MedicalHistory</code> enforces one-way enum rules (preventing downgrade from yes/no to suspected). Extensive validation across all models.</td>
+      </tr>
+      <tr>
+        <td>Sync conflict resolution</td>
+        <td><span class="status-pass">PASS</span></td>
+        <td>Device-timestamped conflict resolution via <code>Mergeable</code> concern: compares <code>device_updated_at</code>, keeps newer record (last-write-wins). Handles discarded/invalid/identical states. Idempotent by UUID — same record merged multiple times produces same result. <code>app/models/concerns/mergeable.rb</code></td>
+      </tr>
+      <tr>
+        <td>Medical history integrity rules</td>
+        <td><span class="status-pass">PASS</span></td>
+        <td>One-way enum enforcement silently prevents degrading a confirmed diagnosis (yes/no) back to suspected. Date rules prevent <code>htn_diagnosed_at</code> from being changed once set. <code>app/models/medical_history.rb:69-113</code>. This is a meaningful clinical data integrity control.</td>
+      </tr>
+      <tr>
+        <td>Strong parameters / mass assignment</td>
+        <td><span class="status-pass">PASS</span></td>
+        <td>All API endpoints use explicit <code>params.require().permit()</code> with allowlists. Patient sync enumerates every permitted field explicitly. <code>app/controllers/api/v3/patients_controller.rb:67-124</code></td>
+      </tr>
+      <tr>
+        <td>Database constraints on PHI tables</td>
+        <td><span class="status-pass">PASS</span></td>
+        <td>PostgreSQL foreign keys, NOT NULL constraints (enforced by <code>structure.sql</code>), and unique constraints on phone numbers and UUIDs ensure referential integrity at the DB level.</td>
+      </tr>
+      <tr>
+        <td>Soft delete integrity</td>
+        <td><span class="status-partial">PARTIAL</span></td>
+        <td>The <code>discard</code> gem provides soft-delete. <code>Patient#discard_data</code> soft-deletes patient and all associated records in a transaction. However, soft-deleted records remain in the database and are syncable (<code>scope :for_sync, -> { with_discarded }</code>). Soft-deleted patient data is still accessible via raw database query.</td>
+      </tr>
+      <tr>
+        <td>Idempotency / duplicate prevention</td>
+        <td><span class="status-pass">PASS</span></td>
+        <td>UUID-based idempotency for all sync operations. Sidekiq unique jobs (<code>sidekiq-unique-jobs 7.1</code>) prevent duplicate background job execution. Patient deduplication service handles duplicate passport identifiers.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="finding finding-medium">
+    <span class="finding-tag tag-medium">Medium</span>
+    <div class="finding-title">SQL Interpolation Risk in Patient Age Scope</div>
+    <div class="finding-body">
+      The <code>where_current_age</code> scope in <code>Patient</code> model directly interpolates a <code>comparison_operator</code> parameter into a raw SQL string. While the <code>age</code> parameter is passed as a separate integer, the comparison operator is not sanitized. If this scope is ever called with user-provided input for the comparison operator, it would create a SQL injection vulnerability.
+    </div>
+    <div class="evidence-block">
+      <span class="file-path">app/models/patient.rb:112-118</span>
+      <div class="code-line">scope :where_current_age, ->(comparison_operator, age) <span class="hl-blue">do</span></div>
+      <div class="code-line">  where(<span class="hl-red">"EXTRACT(YEAR FROM ...) #{comparison_operator} #{age}"</span>)</div>
+      <div class="code-line">  <span class="hl-yellow"># comparison_operator is interpolated — not parameterized</span></div>
+      <div class="code-line"><span class="hl-blue">end</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ======================================== -->
+<!-- HIPAA §164.312(e) TRANSMISSION SECURITY  -->
+<!-- ======================================== -->
+<section class="section" id="hipaa-transmission">
+  <div class="section-header">
+    <div class="section-number">10</div>
+    <h2>HIPAA Technical Safeguards — §164.312(e) Transmission Security</h2>
+  </div>
+
+  <table class="compliance-table">
+    <thead>
+      <tr>
+        <th style="width:30%">Control</th>
+        <th style="width:12%">Status</th>
+        <th>Evidence / Notes</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>HTTPS enforcement</td>
+        <td><span class="status-pass">PASS</span></td>
+        <td><code>config.force_ssl = true</code> in production.rb (line 51). This enforces SSL for all connections, adds HSTS headers, and redirects HTTP to HTTPS. Strong control.</td>
+      </tr>
+      <tr>
+        <td>SMTP transport security</td>
+        <td><span class="status-pass">PASS</span></td>
+        <td>SendGrid SMTP configured with <code>enable_starttls_auto: true</code> and <code>authentication: :plain</code> over port 587. <code>config/environments/production.rb:79-87</code></td>
+      </tr>
+      <tr>
+        <td>Content Security Policy</td>
+        <td><span class="status-partial">PARTIAL</span></td>
+        <td>CSP is configured for production but with <code>content_security_policy_report_only = true</code>. This means CSP violations are only reported, NOT enforced. XSS attacks would succeed despite CSP configuration. This is a significant weakness. <code>config/initializers/content_security_policy.rb:26</code></td>
+      </tr>
+      <tr>
+        <td>Mobile app ↔ server communication</td>
+        <td><span class="status-pass">PASS</span></td>
+        <td>All API endpoints require HTTPS (force_ssl). Bearer token authentication over TLS. API responses use JSON with Oj serializer. No cleartext protocols.</td>
+      </tr>
+      <tr>
+        <td>SMS content security</td>
+        <td><span class="status-partial">PARTIAL</span></td>
+        <td>OTP SMS sent via Twilio contains <code>user.otp</code> (6-digit code) and app signature, but NOT patient PHI. Patient reminder SMS contains <code>facility_name</code> and <code>patient_name</code>. Patient name in SMS is indirect PHI disclosure to the mobile carrier. This is inherent to appointment reminder use cases but should be documented as a risk acceptance.</td>
+      </tr>
+      <tr>
+        <td>Redis cache security</td>
+        <td><span class="status-partial">PARTIAL</span></td>
+        <td>Redis used for caching (URL from <code>RAILS_CACHE_REDIS_URL</code> or <code>REDIS_URL</code>) and Sidekiq. Redis password configured via <code>RAILS_CACHE_REDIS_PASSWORD</code> (required env). However, no explicit TLS configuration for Redis connections is visible, and Redis does not encrypt data at rest natively.</td>
+      </tr>
+      <tr>
+        <td>Inter-service communication</td>
+        <td><span class="status-unknown">UNKNOWN</span></td>
+        <td>Exotel, Twilio, BSNL, AlphaSMS, Mobitel integrations all use HTTPS endpoints. DHIS2 integration uses HTTPS. However, internal service-to-service authentication (DB, Redis, sidekiq) relies on network isolation which cannot be verified from codebase alone.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="finding finding-high">
+    <span class="finding-tag tag-high">High</span>
+    <div class="finding-title">Content Security Policy in Report-Only Mode</div>
+    <div class="finding-body">
+      The Content Security Policy is configured as <code>report_only = true</code>, which means it is purely advisory. XSS attacks against the admin dashboard will succeed because the browser does not block any script execution. Given that the admin dashboard renders patient PHI, this is a meaningful risk. The CSP also allows <code>unsafe_inline</code> for both scripts and styles, which would need to be addressed before enforcement is enabled.
+    </div>
+    <div class="evidence-block">
+      <span class="file-path">config/initializers/content_security_policy.rb:26</span>
+      <div class="code-line">Rails.application.config.<span class="hl-red">content_security_policy_report_only = true</span></div>
+      <div class="code-line"><span class="hl-yellow"># CSP violations are reported but NOT enforced</span></div>
+      <div class="code-line"><span class="hl-red">policy.script_src(:self, :https, :unsafe_inline)</span>  <span class="hl-yellow"># unsafe_inline blocks nonce-based enforcement</span></div>
+    </div>
+  </div>
+
+  <div class="finding finding-medium">
+    <span class="finding-tag tag-medium">Medium</span>
+    <div class="finding-title">Patient Name in SMS Appointment Reminders</div>
+    <div class="finding-body">
+      SMS notifications include <code>patient_name</code> in the message body (<code>app/models/notification.rb:47-53</code>). This transmits patient PHI (name + appointment date + facility name) via SMS, which is transmitted through carrier networks without encryption. This is a known and accepted risk for appointment reminder systems, but should be formally documented as a risk acceptance with patient consent (reminder_consent field — good, this is checked). The system correctly checks <code>reminder_consent: "granted"</code> before sending (<code>app/models/patient.rb:104-110</code>).
+    </div>
+  </div>
+</section>
+
+<!-- ======================================== -->
+<!-- ENCRYPTION AT REST                       -->
+<!-- ======================================== -->
+<section class="section" id="encryption">
+  <div class="section-header">
+    <div class="section-number">11</div>
+    <h2>Encryption at Rest</h2>
+  </div>
+
+  <div class="finding finding-critical">
+    <span class="finding-tag tag-critical">Critical</span>
+    <div class="finding-title">No Application-Level Encryption of PHI Fields</div>
+    <div class="finding-body">
+      There is no encrypted column gem (<code>attr_encrypted</code>, <code>lockbox</code>, <code>blind_index</code>) in the Gemfile. Patient PHI including names, dates of birth, phone numbers, addresses, and medical history is stored in plaintext PostgreSQL columns. Database-level encryption (Transparent Data Encryption) cannot be verified from the codebase alone, but is not configured at the application level. For a HIPAA-regulated system, encryption at rest for PHI is a Required Implementation Specification under §164.312(a)(2)(iv) when the relevant risk analysis determines it is a reasonable safeguard.
+      <br><br>
+      This means: if the PostgreSQL database is compromised (backup theft, misconfigured backups, insider threat), ALL patient data is immediately readable without any additional decryption step.
+    </div>
+    <div class="evidence-block">
+      <span class="file-path">Gemfile — no encryption gem found</span>
+      <div class="code-line"><span class="hl-red"># No attr_encrypted, lockbox, blind_index, or similar</span></div>
+      <div class="code-line"><span class="hl-yellow"># PHI columns stored in plaintext PostgreSQL</span></div>
+      <div class="code-line"><span class="hl-yellow"># Example PHI fields (patient.rb associations):</span></div>
+      <div class="code-line"><span class="hl-red">full_name, date_of_birth, age, gender</span>  <span class="hl-yellow"># Patient table</span></div>
+      <div class="code-line"><span class="hl-red">street_address, village_or_colony, district, state</span>  <span class="hl-yellow"># Address table</span></div>
+      <div class="code-line"><span class="hl-red">number (phone_number)</span>  <span class="hl-yellow"># PatientPhoneNumber table</span></div>
+    </div>
+  </div>
+
+  <h3>What Is Encrypted</h3>
+  <ul>
+    <li>Admin passwords: bcrypt (11 stretches) via Devise — <span class="inline-badge ib-pass">PASS</span></li>
+    <li>Mobile passwords: bcrypt via <code>has_secure_password</code> — <span class="inline-badge ib-pass">PASS</span></li>
+    <li>Access tokens: random 64-character hex, stored hashed/plain — <span class="inline-badge ib-partial">PARTIAL</span></li>
+    <li>Rails secrets: encrypted via <code>read_encrypted_secrets = true</code> — <span class="inline-badge ib-pass">PASS</span></li>
+    <li>PHI fields: plaintext in PostgreSQL — <span class="inline-badge ib-fail">FAIL</span></li>
+    <li>Backup encryption: not verifiable from codebase — <span class="inline-badge ib-unknown">UNKNOWN</span></li>
+    <li>Doorkeeper OAuth tokens: stored unhashed (hash_token_secrets not enabled) — <span class="inline-badge ib-fail">FAIL</span></li>
+  </ul>
+
+  <div class="finding finding-high">
+    <span class="finding-tag tag-high">High</span>
+    <div class="finding-title">Doorkeeper OAuth Tokens Not Hashed</div>
+    <div class="finding-body">
+      Doorkeeper OAuth access tokens are stored in plaintext in the database (hash_token_secrets not enabled). If the <code>oauth_access_tokens</code> table is compromised, all valid access tokens are exposed and can be used to make authenticated API requests. The Doorkeeper configuration explicitly comments out <code>hash_token_secrets</code> as a possibility but does not enable it. Used by machine users for the DHIS2 integration and other server-to-server authentication.
+    </div>
+    <div class="evidence-block">
+      <span class="file-path">config/initializers/doorkeeper.rb:165-179</span>
+      <div class="code-line"><span class="hl-red"># hash_token_secrets   &lt;&lt;&lt; NOT ENABLED</span></div>
+      <div class="code-line"><span class="hl-yellow"># OAuth tokens stored in plaintext in oauth_access_tokens table</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ======================================== -->
+<!-- PHI INVENTORY                            -->
+<!-- ======================================== -->
+<section class="section" id="phi-inventory">
+  <div class="section-header">
+    <div class="section-number">12</div>
+    <h2>PHI Inventory</h2>
+  </div>
+
+  <p>The following PHI fields are stored in the database based on model analysis:</p>
+
+  <table class="phi-table">
+    <thead>
+      <tr>
+        <th>Model / Table</th>
+        <th>PHI Fields</th>
+        <th>Sensitivity</th>
+        <th>Encrypted</th>
+        <th>Notes</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>patients</code></td>
+        <td>full_name, date_of_birth, age, gender, status, recorded_at, reminder_consent</td>
+        <td><span class="phi-sens-high">CRITICAL</span></td>
+        <td><span class="status-fail">NO</span></td>
+        <td>Core identity PHI. Soft-delete only.</td>
+      </tr>
+      <tr>
+        <td><code>addresses</code></td>
+        <td>street_address, village_or_colony, zone, district, state, pin</td>
+        <td><span class="phi-sens-high">HIGH</span></td>
+        <td><span class="status-fail">NO</span></td>
+        <td>Geolocation PHI. Linked 1:1 to patient.</td>
+      </tr>
+      <tr>
+        <td><code>patient_phone_numbers</code></td>
+        <td>number, phone_type</td>
+        <td><span class="phi-sens-high">HIGH</span></td>
+        <td><span class="status-fail">NO</span></td>
+        <td>Direct contact identifier. Used for SMS.</td>
+      </tr>
+      <tr>
+        <td><code>blood_pressures</code></td>
+        <td>systolic, diastolic, recorded_at, patient_id, facility_id, user_id</td>
+        <td><span class="phi-sens-high">HIGH</span></td>
+        <td><span class="status-fail">NO</span></td>
+        <td>Clinical measurements. Core clinical PHI.</td>
+      </tr>
+      <tr>
+        <td><code>blood_sugars</code></td>
+        <td>blood_sugar_type, blood_sugar_value, recorded_at</td>
+        <td><span class="phi-sens-high">HIGH</span></td>
+        <td><span class="status-fail">NO</span></td>
+        <td>Diabetes clinical data.</td>
+      </tr>
+      <tr>
+        <td><code>medical_histories</code></td>
+        <td>prior_heart_attack, prior_stroke, chronic_kidney_disease, diabetes, hypertension, smoking, htn_diagnosed_at, dm_diagnosed_at</td>
+        <td><span class="phi-sens-high">CRITICAL</span></td>
+        <td><span class="status-fail">NO</span></td>
+        <td>Highly sensitive diagnostic history.</td>
+      </tr>
+      <tr>
+        <td><code>prescription_drugs</code></td>
+        <td>name, dosage, rxnorm_code, frequency, duration, device_created_at</td>
+        <td><span class="phi-sens-high">HIGH</span></td>
+        <td><span class="status-fail">NO</span></td>
+        <td>Medication PHI reveals diagnoses.</td>
+      </tr>
+      <tr>
+        <td><code>appointments</code></td>
+        <td>scheduled_date, status, facility_id, patient_id</td>
+        <td><span class="phi-sens-med">MEDIUM</span></td>
+        <td><span class="status-fail">NO</span></td>
+        <td>Treatment schedule data.</td>
+      </tr>
+      <tr>
+        <td><code>phone_number_authentications</code></td>
+        <td>phone_number, otp, otp_expires_at, password_digest, access_token</td>
+        <td><span class="phi-sens-high">HIGH</span></td>
+        <td><span class="status-partial">PARTIAL</span></td>
+        <td>Password is bcrypt, OTP/token plaintext.</td>
+      </tr>
+      <tr>
+        <td><code>call_logs / call_results</code></td>
+        <td>called_at, result, patient_id, user_id</td>
+        <td><span class="phi-sens-med">MEDIUM</span></td>
+        <td><span class="status-fail">NO</span></td>
+        <td>Call center interaction log with patient.</td>
+      </tr>
+      <tr>
+        <td><code>teleconsultations</code></td>
+        <td>medical_advice, follow_up_after, patient_id, requester_id, medical_officer_id</td>
+        <td><span class="phi-sens-high">HIGH</span></td>
+        <td><span class="status-fail">NO</span></td>
+        <td>Medical advice content — highly sensitive.</td>
+      </tr>
+      <tr>
+        <td><code>notifications</code></td>
+        <td>message, patient_id, remind_on</td>
+        <td><span class="phi-sens-med">MEDIUM</span></td>
+        <td><span class="status-fail">NO</span></td>
+        <td>Contains facility name + patient link.</td>
+      </tr>
+      <tr>
+        <td><code>users</code></td>
+        <td>full_name, teleconsultation_phone_number</td>
+        <td><span class="phi-sens-med">MEDIUM</span></td>
+        <td><span class="status-fail">NO</span></td>
+        <td>Healthcare worker PII, not patient PHI.</td>
+      </tr>
+      <tr>
+        <td><code>cvd_risks</code></td>
+        <td>cvd_risk_score, patient_id</td>
+        <td><span class="phi-sens-high">HIGH</span></td>
+        <td><span class="status-fail">NO</span></td>
+        <td>Cardiovascular risk score — clinical PHI.</td>
+      </tr>
+      <tr>
+        <td><code>questionnaire_responses</code></td>
+        <td>content (JSONB), patient_id</td>
+        <td><span class="phi-sens-high">HIGH</span></td>
+        <td><span class="status-fail">NO</span></td>
+        <td>Structured survey responses — variable PHI.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>Data Deletion and Right to Erasure</h3>
+  <p>The <code>Patient#discard_data</code> method provides soft-deletion of all patient-associated records in a single transaction. This covers: address, appointments, blood pressures, blood sugars, business identifiers, observations, encounters, medical history, phone numbers, prescription drugs, teleconsultations. However:</p>
+  <ul>
+    <li>Soft-delete (discard) leaves data in the database — data is not actually deleted</li>
+    <li>Audit logs referencing patient IDs remain</li>
+    <li>Materialized views may cache patient data after soft-delete</li>
+    <li>No documented data retention or hard-delete capability for regulatory "right to erasure" requests</li>
+  </ul>
+
+  <h3>CSV Exports / PHI in Downloads</h3>
+  <div class="finding finding-high">
+    <span class="finding-tag tag-high">High</span>
+    <div class="finding-title">CSV Exports Contain Full Patient PHI Without Download Authorization Logging</div>
+    <div class="finding-body">
+      <code>PatientsWithHistoryExporter</code> generates CSV files containing: patient name, phone number, address, diagnosis, blood pressure history, blood sugar history, medication history, and more. These exports are downloadable by any user with <code>view_pii</code> access (managers and viewer_all). No audit logging is performed when a PHI export is downloaded. This represents a potential mass PHI exfiltration vector that would not be detectable after the fact.
+    </div>
+    <div class="evidence-block">
+      <span class="file-path">app/exporters/patients_with_history_exporter.rb:86-119</span>
+      <div class="code-line">csv_headers: [<span class="hl-red">"Patient Name"</span>, <span class="hl-red">"Patient Phone Number"</span>,</div>
+      <div class="code-line">  <span class="hl-red">"Patient Street Address"</span>, <span class="hl-red">"Patient Village/Colony"</span>,</div>
+      <div class="code-line">  <span class="hl-red">"Diagnosed with Hypertension"</span>, <span class="hl-red">"Diagnosed with Diabetes"</span>,</div>
+      <div class="code-line">  <span class="hl-yellow"># ... BP readings, medications, all PHI ...</span></div>
+      <div class="code-line">]</div>
+      <div class="code-line"><span class="hl-red"># No audit log on export/download event</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ======================================== -->
+<!-- MULTI-COUNTRY COMPLIANCE                 -->
+<!-- ======================================== -->
+<section class="section" id="multi-country">
+  <div class="section-header">
+    <div class="section-number">13</div>
+    <h2>Multi-Country Compliance</h2>
+  </div>
+
+  <div class="finding finding-critical">
+    <span class="finding-tag tag-critical">Critical</span>
+    <div class="finding-title">No Data Residency Segregation by Country</div>
+    <div class="finding-body">
+      The application uses a single shared database schema across all countries (configured via <code>DEFAULT_COUNTRY</code> env var per deployment). There is no database-level partitioning of patient data by country or any data residency enforcement. Country-specific deployments are separate infrastructure instances (separate Capistrano deploy configs) but there is no architectural enforcement preventing cross-country data access at the application level. Power users have access to all data regardless of country.
+      <br><br>
+      This is relevant because: India's DPDP Act requires data localization for certain categories. Bangladesh personal data regulations are evolving. Ethiopia has data residency concerns for health data. Cross-border transfer controls between these jurisdictions are not implemented.
+    </div>
+    <div class="evidence-block">
+      <span class="file-path">config/initializers/country_config.rb:137-138</span>
+      <div class="code-line">Rails.application.config.country = CountryConfig.for(ENV.fetch(<span class="hl-red">"DEFAULT_COUNTRY"</span>))</div>
+      <div class="code-line"><span class="hl-yellow"># Single-country deployment model — data not co-mingled, but</span></div>
+      <div class="code-line"><span class="hl-yellow"># no in-application data residency enforcement or audit trail</span></div>
+    </div>
+    <div class="evidence-block">
+      <span class="file-path">app/models/user_access.rb:67 (power_user bypass)</span>
+      <div class="code-line"><span class="hl-blue">def</span> accessible_organizations(action)</div>
+      <div class="code-line">  <span class="hl-red">return Organization.all if power_user?</span>  <span class="hl-yellow"># Unrestricted cross-country access</span></div>
+      <div class="code-line"><span class="hl-blue">end</span></div>
+    </div>
+  </div>
+
+  <div class="country-grid">
+    <div class="country-card">
+      <h4>India (IN) — Primary Deployment</h4>
+      <ul>
+        <li>DPDP Act 2023 — data localization requirements pending finalization</li>
+        <li>BSNL SMS integration (domestic carrier) — good for data residency</li>
+        <li>Sensitive personal data (health data) requires explicit consent</li>
+        <li>Consent captured via <code>reminder_consent</code> field — partial compliance</li>
+        <li>Purpose limitation: reminder_consent gates only SMS, not full data processing consent</li>
+        <li>Data retention: no policy implemented</li>
+      </ul>
+    </div>
+    <div class="country-card">
+      <h4>Bangladesh (BD)</h4>
+      <ul>
+        <li>Digital Security Act 2018 / Data Protection Act (draft)</li>
+        <li>AlphaSMS integration (domestic carrier)</li>
+        <li>Patient zone field shown in exports (additional granularity)</li>
+        <li>No Bangladesh-specific data processing agreement visible</li>
+        <li>Evolving regulatory environment — watch 2025+ legislation</li>
+      </ul>
+    </div>
+    <div class="country-card">
+      <h4>Ethiopia (ET)</h4>
+      <ul>
+        <li>Computer Crime Proclamation 2016, draft privacy legislation</li>
+        <li>Twilio SMS integration — US-based carrier, cross-border PHI</li>
+        <li>Patient data potentially crosses borders via Twilio</li>
+        <li>DHIS2 integration may export to Ministry of Health systems</li>
+        <li>No data processing impact assessment visible</li>
+      </ul>
+    </div>
+    <div class="country-card">
+      <h4>Sri Lanka (LK)</h4>
+      <ul>
+        <li>Personal Data Protection Act 2022 (PDPA) — enacted</li>
+        <li>Mobitel SMS (domestic carrier) — good</li>
+        <li>Health data is "sensitive personal data" under LK PDPA</li>
+        <li>LK PDPA requires Data Protection Officer appointment</li>
+        <li>Cross-border transfer restrictions for sensitive data</li>
+        <li>Sentry (US) receives error data — possible cross-border transfer</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ======================================== -->
+<!-- SPECIFIC RISK AREAS                      -->
+<!-- ======================================== -->
+<section class="section" id="risk-areas">
+  <div class="section-header">
+    <div class="section-number">14</div>
+    <h2>Specific Risk Areas Deep Dive</h2>
+  </div>
+
+  <h3>IDOR / Cross-Facility Data Access</h3>
+  <div class="finding finding-medium">
+    <span class="finding-tag tag-medium">Medium</span>
+    <div class="finding-title">Partial IDOR Risk: Facility Validation Has TODO Comment</div>
+    <div class="finding-body">
+      In <code>UserAccess#prepare_grantable_resources</code>, there is an explicit TODO comment noting that the system does not verify that <code>selected_facility_ids</code> is a strict subset of the current user's accessible facilities. This could allow a manager to grant access to facilities they don't control. The code currently validates at the organization/facility_group level but may miss edge cases for individual facility grants.
+    </div>
+    <div class="evidence-block">
+      <span class="file-path">app/models/user_access.rb:254</span>
+      <div class="code-line"><span class="hl-red"># TODO: if selected_facility_ids is not a subset of accessible_facilities,</span></div>
+      <div class="code-line"><span class="hl-red"># then raise NotAuthorizedError</span></div>
+    </div>
+  </div>
+
+  <div class="finding finding-positive">
+    <span class="finding-tag tag-positive">Positive</span>
+    <div class="finding-title">Strong API-Level Facility Authorization</div>
+    <div class="finding-body">
+      Mobile API validates both user presence AND facility membership before any data access: <code>validate_current_facility_belongs_to_users_facility_group</code> ensures the requesting facility is within the user's authorized scope. Patient sync further scopes to <code>current_sync_region.syncable_patients</code>, preventing access to out-of-region patients. Patient lookup additionally scopes to <code>current_state.syncable_patients</code>. This is a well-designed defense-in-depth approach.
+    </div>
+  </div>
+
+  <h3>Background Job PHI Handling</h3>
+  <div class="finding finding-medium">
+    <span class="finding-tag tag-medium">Medium</span>
+    <div class="finding-title">Sidekiq Job Arguments May Persist PHI in Redis</div>
+    <div class="finding-body">
+      Sidekiq serializes job arguments to Redis. The <code>PatientLookupAuditLogJob</code> passes <code>{user_id, facility_id, identifier, patient_ids}</code> as JSON. The <code>identifier</code> field is the patient's BP passport number — a PHI-adjacent identifier. Sidekiq stores dead job payloads in Redis for a configurable period. If Redis is accessible to unauthorized parties or not encrypted, these payloads expose PHI metadata. Note: patient_ids (UUIDs) and identifier are not direct PHI but are linkable.
+    </div>
+    <div class="evidence-block">
+      <span class="file-path">app/controllers/api/v4/patients_controller.rb:43-53</span>
+      <div class="code-line">PatientLookupAuditLogJob.perform_async(</div>
+      <div class="code-line">  { user_id: current_user.id, facility_id: current_facility.id,</div>
+      <div class="code-line">    <span class="hl-yellow">identifier: identifier</span>,  <span class="hl-yellow"># BP passport identifier</span></div>
+      <div class="code-line">    patient_ids: patients.pluck(:id), time: Time.current }.to_json</div>
+      <div class="code-line">)</div>
+    </div>
+  </div>
+
+  <h3>Deduplication Pipeline PHI Exposure</h3>
+  <div class="finding finding-medium">
+    <span class="finding-tag tag-medium">Medium</span>
+    <div class="finding-title">Patient Deduplication Renders Full PHI to Admin Interface</div>
+    <div class="finding-body">
+      The deduplication controller loads full patient objects including associated PHI for display to the admin doing the merge. The merge operation requires careful handling to ensure PHI from discarded patients is not leaked in error messages or audit trails. The <code>AuthorizationNotPerformedError</code> check in <code>verify_authorization_attempted</code> provides a safety net but the individual <code>can_admin_deduplicate_patients?</code> check only verifies facility access by assigned_facility_id, which may not cover all patient registrations.
+    </div>
+    <div class="evidence-block">
+      <span class="file-path">app/controllers/admin/deduplicate_patients_controller.rb:41-45</span>
+      <div class="code-line"><span class="hl-blue">def</span> can_admin_deduplicate_patients?(patients)</div>
+      <div class="code-line">  current_admin.accessible_facilities(:manage)</div>
+      <div class="code-line">    .where(id: patients.pluck(<span class="hl-yellow">:assigned_facility_id</span>))  <span class="hl-yellow"># only assigned, not registration</span></div>
+      <div class="code-line">    .any?</div>
+      <div class="code-line"><span class="hl-blue">end</span></div>
+    </div>
+  </div>
+
+  <h3>Admin Endpoint: CSRF Protection</h3>
+  <div class="finding finding-positive">
+    <span class="finding-tag tag-positive">Positive</span>
+    <div class="finding-title">CSRF Protection Active for Admin Web Interface</div>
+    <div class="finding-body">
+      <code>ApplicationController</code> uses <code>protect_from_forgery with: :exception</code> which enforces CSRF token validation for all state-changing requests to the admin web interface. The API endpoints correctly skip CSRF verification (<code>skip_before_action :verify_authenticity_token</code>) since they use token-based auth. The deduplication controller incorrectly skips CSRF verification (<code>skip_before_action :verify_authenticity_token</code> in <code>Admin::DeduplicatePatientsController</code>) for its merge action, which is a web-facing admin action — this is a vulnerability.
+    </div>
+    <div class="evidence-block">
+      <span class="file-path">app/controllers/admin/deduplicate_patients_controller.rb:2</span>
+      <div class="code-line"><span class="hl-red">skip_before_action :verify_authenticity_token</span>  <span class="hl-yellow"># CSRF disabled for admin merge action</span></div>
+    </div>
+  </div>
+
+  <h3>Auto-Approve Feature Flag</h3>
+  <div class="finding finding-medium">
+    <span class="finding-tag tag-medium">Medium</span>
+    <div class="finding-title">auto_approve_users Feature Flag Bypasses Sync Approval Workflow</div>
+    <div class="finding-body">
+      When the <code>:auto_approve_users</code> Flipper flag is enabled, newly registered mobile users are automatically approved for sync without admin review. This bypasses the security gate designed to ensure only authorized healthcare workers can access patient data. If this flag is enabled in production (it appears to exist for convenience/testing), unauthorized devices could access patient data.
+    </div>
+    <div class="evidence-block">
+      <span class="file-path">app/models/user.rb:233</span>
+      <div class="code-line">sync_approval_requested(I18n.t("reset_password")) <span class="hl-red">unless</span> feature_enabled?(:auto_approve_users)</div>
+      <div class="code-line"><span class="hl-yellow"># If auto_approve_users enabled, password reset does NOT re-trigger approval</span></div>
+    </div>
+  </div>
+
+  <h3>fixed_otp Feature Flag</h3>
+  <div class="finding finding-critical">
+    <span class="finding-tag tag-critical">Critical</span>
+    <div class="finding-title">fixed_otp Feature Flag Creates Authentication Vulnerability</div>
+    <div class="finding-body">
+      The <code>:fixed_otp</code> Flipper flag causes OTP generation to always produce "000000" (sampling only <code>[0]</code>). This is clearly a development convenience feature but if accidentally enabled in production it would allow any attacker to authenticate as any mobile user by knowing their phone number and using OTP "000000". The flag must be verified to be disabled in all production environments.
+    </div>
+    <div class="evidence-block">
+      <span class="file-path">app/models/phone_number_authentication.rb:92-99</span>
+      <div class="code-line"><span class="hl-blue">def</span> self.generate_otp</div>
+      <div class="code-line">  digits = Flipper.enabled?(:fixed_otp) ? <span class="hl-red">[0]</span> : (0..9).to_a</div>
+      <div class="code-line">  <span class="hl-yellow"># If :fixed_otp enabled, OTP is always "000000"</span></div>
+      <div class="code-line">  otp = <span class="hl-green">""</span></div>
+      <div class="code-line">  6.times { otp += digits.sample.to_s }</div>
+      <div class="code-line"><span class="hl-blue">end</span></div>
+    </div>
+  </div>
+
+  <h3>Incident Response</h3>
+  <div class="finding finding-medium">
+    <span class="finding-tag tag-medium">Medium</span>
+    <div class="finding-title">No Documented Breach Detection or Incident Response Procedure</div>
+    <div class="finding-body">
+      No incident response runbook, breach notification procedure, or security contact information is present in the repository. HIPAA requires a documented security incident response procedure (§164.308(a)(6)). The Sentry integration provides error alerting but no documented process for evaluating whether an error constitutes a PHI breach exists in the codebase.
+    </div>
+  </div>
+</section>
+
+<!-- ======================================== -->
+<!-- FINDINGS SUMMARY                         -->
+<!-- ======================================== -->
+<section class="section" id="findings">
+  <div class="section-header">
+    <div class="section-number">15</div>
+    <h2>Consolidated Findings</h2>
+  </div>
+
+  <h3 style="color: var(--neon-red);">Critical Findings — Would Fail HHS Audit</h3>
+
+  <div class="finding finding-critical">
+    <span class="finding-tag tag-critical">C-01 · Critical</span>
+    <div class="finding-title">No PHI Field-Level Encryption at Rest</div>
+    <div class="finding-body">All PHI stored in plaintext PostgreSQL. Database backup compromise = immediate full PHI exposure. <code>Gemfile</code> — no encryption gem. §164.312(a)(2)(iv).</div>
+  </div>
+  <div class="finding finding-critical">
+    <span class="finding-tag tag-critical">C-02 · Critical</span>
+    <div class="finding-title">Admin Session Timeout Not Configured</div>
+    <div class="finding-body">Devise timeoutable disabled (<code>config/initializers/devise.rb:224</code>). Admin sessions never expire. Direct §164.312(a)(2)(iii) violation.</div>
+  </div>
+  <div class="finding finding-critical">
+    <span class="finding-tag tag-critical">C-03 · Critical</span>
+    <div class="finding-title">Admin Account Lockout Not Configured</div>
+    <div class="finding-body">Devise lockable not configured (<code>devise.rb:228-245</code>). Admin accounts vulnerable to brute-force. Mobile users have lockout; admins do not.</div>
+  </div>
+  <div class="finding finding-critical">
+    <span class="finding-tag tag-critical">C-04 · Critical</span>
+    <div class="finding-title">fixed_otp Feature Flag Is a Backdoor</div>
+    <div class="finding-body">OTP always "000000" when enabled (<code>phone_number_authentication.rb:92</code>). Must be verified disabled in all production environments. Authentication bypass risk.</div>
+  </div>
+  <div class="finding finding-critical">
+    <span class="finding-tag tag-critical">C-05 · Critical</span>
+    <div class="finding-title">Async Audit Logging — PHI Access May Be Unrecorded</div>
+    <div class="finding-body">Audit logs written via Sidekiq (<code>audit_log.rb:51</code>), lowest priority queue. Sidekiq failure = lost audit records. §164.312(b) requires complete audit trail.</div>
+  </div>
+
+  <hr class="divider">
+
+  <h3 style="color: var(--neon-orange);">High Findings — Significant Gaps</h3>
+
+  <div class="finding finding-high">
+    <span class="finding-tag tag-high">H-01 · High</span>
+    <div class="finding-title">No MFA for Admin Dashboard</div>
+    <div class="finding-body">Single-factor (email+password) for admin access to all patient data. No TOTP, SMS, or hardware key support. High-value target for phishing.</div>
+  </div>
+  <div class="finding finding-high">
+    <span class="finding-tag tag-high">H-02 · High</span>
+    <div class="finding-title">Doorkeeper OAuth Tokens Stored in Plaintext</div>
+    <div class="finding-body"><code>hash_token_secrets</code> not enabled (<code>doorkeeper.rb:165</code>). Machine user tokens compromisable via DB read access.</div>
+  </div>
+  <div class="finding finding-high">
+    <span class="finding-tag tag-high">H-03 · High</span>
+    <div class="finding-title">No Audit Log on PHI CSV Export Downloads</div>
+    <div class="finding-body"><code>PatientsWithHistoryExporter</code> generates full PHI CSV with no download event logged. Mass exfiltration undetectable after the fact.</div>
+  </div>
+  <div class="finding finding-high">
+    <span class="finding-tag tag-high">H-04 · High</span>
+    <div class="finding-title">Sentry No PHI Scrubbing Configuration</div>
+    <div class="finding-body">Sentry initializer has no <code>before_send</code> PHI scrubbing (<code>sentry.rb</code>). Error payloads may contain PHI transmitted to US-based Sentry. Cross-border transfer concern for non-US patients.</div>
+  </div>
+  <div class="finding finding-high">
+    <span class="finding-tag tag-high">H-05 · High</span>
+    <div class="finding-title">No Audit Log Retention Policy</div>
+    <div class="finding-body">Flat file audit logs with no retention/archival/integrity controls. HIPAA requires 6-year retention of security records.</div>
+  </div>
+  <div class="finding finding-high">
+    <span class="finding-tag tag-high">H-06 · High</span>
+    <div class="finding-title">Ruby 2.7.8 and Rails 6.1 Both End-of-Life</div>
+    <div class="finding-body">No security patches from Ruby core team since March 2023. Rails 6.1 EOL June 2024. Known CVEs may be unpatched. <code>Gemfile:2</code>.</div>
+  </div>
+  <div class="finding finding-high">
+    <span class="finding-tag tag-high">H-07 · High</span>
+    <div class="finding-title">CSP in Report-Only Mode — XSS Unblocked</div>
+    <div class="finding-body"><code>content_security_policy_report_only = true</code> (<code>content_security_policy.rb:26</code>). CSP violations reported but not blocked. Admin dashboard PHI accessible via XSS.</div>
+  </div>
+
+  <hr class="divider">
+
+  <h3 style="color: var(--neon-yellow);">Medium Findings — Improvements Needed</h3>
+
+  <div class="finding finding-medium">
+    <span class="finding-tag tag-medium">M-01 · Medium</span>
+    <div class="finding-title">CSRF Disabled on Deduplication Merge Action</div>
+    <div class="finding-body"><code>skip_before_action :verify_authenticity_token</code> in admin deduplication controller (<code>deduplicate_patients_controller.rb:2</code>) removes CSRF protection from a PHI-modifying admin action.</div>
+  </div>
+  <div class="finding finding-medium">
+    <span class="finding-tag tag-medium">M-02 · Medium</span>
+    <div class="finding-title">SQL Interpolation in where_current_age Scope</div>
+    <div class="finding-body">Comparison operator interpolated into raw SQL (<code>patient.rb:114-117</code>). Potential injection if operator comes from untrusted input.</div>
+  </div>
+  <div class="finding finding-medium">
+    <span class="finding-tag tag-medium">M-03 · Medium</span>
+    <div class="finding-title">auto_approve_users Bypasses Security Gate</div>
+    <div class="finding-body">Feature flag skips sync approval for new devices (<code>user.rb:233</code>). Must be verified disabled in production.</div>
+  </div>
+  <div class="finding finding-medium">
+    <span class="finding-tag tag-medium">M-04 · Medium</span>
+    <div class="finding-title">Sidekiq Job Arguments Contain PHI-Adjacent Identifiers</div>
+    <div class="finding-body">BP passport identifiers in Sidekiq job args persist in Redis. Redis encryption at rest not configured in application code.</div>
+  </div>
+  <div class="finding finding-medium">
+    <span class="finding-tag tag-medium">M-05 · Medium</span>
+    <div class="finding-title">No MFA for Admin Dashboard</div>
+    <div class="finding-body">See H-01. Repeated here at medium because second-factor for email login is an industry standard for healthcare systems.</div>
+  </div>
+  <div class="finding finding-medium">
+    <span class="finding-tag tag-medium">M-06 · Medium</span>
+    <div class="finding-title">Patient Name in SMS — Implicit PHI Disclosure</div>
+    <div class="finding-body">Appointment reminder SMS includes patient name + facility name. Transmitted via carrier network unencrypted. Risk accepted with consent but should be formally documented.</div>
+  </div>
+  <div class="finding finding-medium">
+    <span class="finding-tag tag-medium">M-07 · Medium</span>
+    <div class="finding-title">Soft Delete Leaves PHI in Database</div>
+    <div class="finding-body">No hard delete capability. Cannot fully honor data deletion requests. Soft-deleted records remain readable via database access.</div>
+  </div>
+  <div class="finding finding-medium">
+    <span class="finding-tag tag-medium">M-08 · Medium</span>
+    <div class="finding-title">No Incident Response Runbook in Repository</div>
+    <div class="finding-body">No documented breach detection, notification, or response procedure. HIPAA §164.308(a)(6) requirement.</div>
+  </div>
+  <div class="finding finding-medium">
+    <span class="finding-tag tag-medium">M-09 · Medium</span>
+    <div class="finding-title">Deduplication Authorization Checks Only Assigned Facility</div>
+    <div class="finding-body">Merge authorization checks <code>assigned_facility_id</code> only (<code>deduplicate_patients_controller.rb:42-44</code>), not registration facility. Edge case may allow unauthorized patient access.</div>
+  </div>
+
+  <hr class="divider">
+
+  <h3 style="color: var(--neon-green);">Positive Findings — What They Do Well</h3>
+
+  <div class="finding finding-positive">
+    <span class="finding-tag tag-positive">P-01 · Positive</span>
+    <div class="finding-title">Strict Whitelist Parameter Filtering in Logs</div>
+    <div class="finding-body">Explicit whitelist approach to parameter logging — any attribute not on the allow-list is replaced with [FILTERED]. PHI never appears in request logs. <code>config/initializers/filter_parameter_logging.rb</code></div>
+  </div>
+  <div class="finding finding-positive">
+    <span class="finding-tag tag-positive">P-02 · Positive</span>
+    <div class="finding-title">HTTPS Enforced with force_ssl</div>
+    <div class="finding-body">All connections require TLS. HSTS headers set. Zero cleartext PHI transmission possible via HTTP. <code>config/environments/production.rb:51</code></div>
+  </div>
+  <div class="finding finding-positive">
+    <span class="finding-tag tag-positive">P-03 · Positive</span>
+    <div class="finding-title">Strong RBAC with Minimum Necessary Access</div>
+    <div class="finding-body">5-level access control, facility-scoped, action-mapped. <code>view_pii</code> distinct from <code>view_reports</code>. Call center staff can't see PHI. <code>app/models/user_access.rb</code></div>
+  </div>
+  <div class="finding finding-positive">
+    <span class="finding-tag tag-positive">P-04 · Positive</span>
+    <div class="finding-title">Device Sync Approval Workflow</div>
+    <div class="finding-body">All new mobile devices require explicit admin approval before data access. Strong gate against unauthorized device access. <code>sync_approval_status</code> field.</div>
+  </div>
+  <div class="finding finding-positive">
+    <span class="finding-tag tag-positive">P-05 · Positive</span>
+    <div class="finding-title">Constant-Time Token Comparison</div>
+    <div class="finding-body"><code>ActiveSupport::SecurityUtils.secure_compare</code> used for access token validation. Prevents timing attacks. <code>api_controller.rb:94</code></div>
+  </div>
+  <div class="finding finding-positive">
+    <span class="finding-tag tag-positive">P-06 · Positive</span>
+    <div class="finding-title">Reminder Consent Gating</div>
+    <div class="finding-body">SMS reminders only sent to patients with <code>reminder_consent: "granted"</code>. Contactable scope enforces both consent AND active status. Proper consent management.</div>
+  </div>
+  <div class="finding finding-positive">
+    <span class="finding-tag tag-positive">P-07 · Positive</span>
+    <div class="finding-title">API Rate Limiting</div>
+    <div class="finding-body">Rack::Attack configured for login (5/min), patient lookup (5/10sec), user activation (IP + user-based). Prevents brute force and enumeration attacks.</div>
+  </div>
+  <div class="finding finding-positive">
+    <span class="finding-tag tag-positive">P-08 · Positive</span>
+    <div class="finding-title">Paranoid Mode for Email Authentication</div>
+    <div class="finding-body">Devise paranoid mode prevents email enumeration — "wrong email or password" vs specific messages. <code>devise.rb:84</code></div>
+  </div>
+  <div class="finding finding-positive">
+    <span class="finding-tag tag-positive">P-09 · Positive</span>
+    <div class="finding-title">Medical History Data Integrity Rules</div>
+    <div class="finding-body">One-way enum enforcement prevents diagnosis downgrade. Diagnosis date immutability once set. Clinical data integrity controls beyond typical CRUD systems.</div>
+  </div>
+  <div class="finding finding-positive">
+    <span class="finding-tag tag-positive">P-10 · Positive</span>
+    <div class="finding-title">Feature Flag Infrastructure for Safe Rollout</div>
+    <div class="finding-body">Flipper feature flags allow instant kill-switches for any feature. Per-user, per-group, per-percentage rollout. Supports trunk-based development. Strong DORA best practice.</div>
+  </div>
+  <div class="finding finding-positive">
+    <span class="finding-tag tag-positive">P-11 · Positive</span>
+    <div class="finding-title">Comprehensive Test Suite</div>
+    <div class="finding-body">63 model specs, 28 service specs, 16 job specs, full API spec coverage. Factory_bot, shoulda-matchers, simplecov. High confidence in regression detection.</div>
+  </div>
+  <div class="finding finding-positive">
+    <span class="finding-tag tag-positive">P-12 · Positive</span>
+    <div class="finding-title">ANONYMIZED_DATA_FIELDS on Patient Model</div>
+    <div class="finding-body"><code>ANONYMIZED_DATA_FIELDS</code> constant explicitly defines which fields are safe for anonymized export (hashed IDs, no direct identifiers). Shows awareness of PHI minimization.</div>
+  </div>
+</section>
+
+<!-- ======================================== -->
+<!-- REMEDIATION ROADMAP                      -->
+<!-- ======================================== -->
+<section class="section" id="roadmap">
+  <div class="section-header">
+    <div class="section-number">16</div>
+    <h2>Prioritized Remediation Roadmap</h2>
+  </div>
+
+  <table class="remediation-table">
+    <thead>
+      <tr>
+        <th>Priority</th>
+        <th>Finding</th>
+        <th>Remediation Action</th>
+        <th>Effort</th>
+        <th>HIPAA Section</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><span class="priority-p0">P0 — Immediate</span></td>
+        <td>C-04: fixed_otp in production</td>
+        <td>Verify <code>:fixed_otp</code> flag is disabled in all production Flipper configs. Add monitoring alert if flag enabled in prod.</td>
+        <td>Low (1 day)</td>
+        <td>§164.312(a)</td>
+      </tr>
+      <tr>
+        <td><span class="priority-p0">P0 — Immediate</span></td>
+        <td>C-02: Admin session timeout</td>
+        <td>Enable Devise timeoutable: <code>config.timeout_in = 30.minutes</code>. Add idle warning. Test admin workflow impact.</td>
+        <td>Low (1 day)</td>
+        <td>§164.312(a)(2)(iii)</td>
+      </tr>
+      <tr>
+        <td><span class="priority-p0">P0 — Immediate</span></td>
+        <td>C-03: Admin account lockout</td>
+        <td>Enable Devise lockable: <code>lock_strategy :failed_attempts</code>, <code>maximum_attempts 5</code>, <code>unlock_in 1.hour</code>. Run migration.</td>
+        <td>Low (1 day)</td>
+        <td>§164.312(a)</td>
+      </tr>
+      <tr>
+        <td><span class="priority-p0">P0 — Immediate</span></td>
+        <td>M-03: auto_approve_users in prod</td>
+        <td>Verify <code>:auto_approve_users</code> flag disabled in all production environments. Document as restricted flag.</td>
+        <td>Low (1 day)</td>
+        <td>§164.312(a)</td>
+      </tr>
+      <tr>
+        <td><span class="priority-p1">P1 — Sprint 1</span></td>
+        <td>C-05: Async audit logging</td>
+        <td>Make audit log writes synchronous for all PHI access events. Use synchronous <code>AuditLogger.info</code> directly (as already done for <code>fetch_log</code> and <code>login_log</code>). Remove async path for PHI access.</td>
+        <td>Medium (3 days)</td>
+        <td>§164.312(b)</td>
+      </tr>
+      <tr>
+        <td><span class="priority-p1">P1 — Sprint 1</span></td>
+        <td>H-07: CSP report-only</td>
+        <td>Enable CSP enforcement. Replace <code>:unsafe_inline</code> with nonce-based CSP. Audit existing inline scripts/styles.</td>
+        <td>High (2 weeks)</td>
+        <td>§164.312(e)</td>
+      </tr>
+      <tr>
+        <td><span class="priority-p1">P1 — Sprint 1</span></td>
+        <td>H-04: Sentry PHI scrubbing</td>
+        <td>Add <code>before_send</code> callback to Sentry config to scrub PHI fields from error payloads. Configure <code>send_default_pii = false</code>.</td>
+        <td>Low (1 day)</td>
+        <td>§164.312(b)</td>
+      </tr>
+      <tr>
+        <td><span class="priority-p1">P1 — Sprint 1</span></td>
+        <td>H-03: No CSV export audit log</td>
+        <td>Add audit log entry when patient CSV is downloaded (record who, when, how many patients, which region).</td>
+        <td>Low (2 days)</td>
+        <td>§164.312(b)</td>
+      </tr>
+      <tr>
+        <td><span class="priority-p1">P1 — Sprint 1</span></td>
+        <td>M-01: CSRF on deduplication</td>
+        <td>Remove <code>skip_before_action :verify_authenticity_token</code> from <code>DeduplicatePatientsController</code>. Ensure JavaScript fetch uses CSRF token header.</td>
+        <td>Low (1 day)</td>
+        <td>§164.312(c)</td>
+      </tr>
+      <tr>
+        <td><span class="priority-p2">P2 — Sprint 2</span></td>
+        <td>H-01: No admin MFA</td>
+        <td>Implement TOTP MFA for admin accounts using <code>devise-two-factor</code> gem. Require for all roles that have <code>view_pii</code> access.</td>
+        <td>High (1 week)</td>
+        <td>§164.312(a)</td>
+      </tr>
+      <tr>
+        <td><span class="priority-p2">P2 — Sprint 2</span></td>
+        <td>H-02: OAuth tokens plaintext</td>
+        <td>Enable Doorkeeper <code>hash_token_secrets</code>. Plan migration of existing tokens. Use BCrypt hashing strategy.</td>
+        <td>Medium (3 days)</td>
+        <td>§164.312(a)</td>
+      </tr>
+      <tr>
+        <td><span class="priority-p2">P2 — Sprint 2</span></td>
+        <td>H-05: Audit log retention</td>
+        <td>Implement log shipping to immutable storage (S3 with Object Lock, or CloudWatch Logs with retention policy). Minimum 6-year retention. Consider log integrity signing.</td>
+        <td>Medium (1 week)</td>
+        <td>§164.312(b)</td>
+      </tr>
+      <tr>
+        <td><span class="priority-p2">P2 — Sprint 2</span></td>
+        <td>M-02: SQL injection risk</td>
+        <td>Parameterize comparison operator in <code>where_current_age</code> scope using Arel or a whitelist (<code>raise unless ["=", "&gt;", "&lt;"].include?(comparison_operator)</code>).</td>
+        <td>Low (1 day)</td>
+        <td>§164.312(c)</td>
+      </tr>
+      <tr>
+        <td><span class="priority-p2">P2 — Sprint 2</span></td>
+        <td>M-08: Incident response</td>
+        <td>Create INCIDENT_RESPONSE.md with breach detection criteria, 60-hour HHS notification requirement, internal escalation path, and post-incident review process.</td>
+        <td>Medium (3 days)</td>
+        <td>§164.308(a)(6)</td>
+      </tr>
+      <tr>
+        <td><span class="priority-p3">P3 — Quarter</span></td>
+        <td>C-01: No PHI encryption at rest</td>
+        <td>Evaluate <code>lockbox</code> gem with <code>blind_index</code> for searchable encrypted fields. Prioritize: phone numbers, full_name, date_of_birth. Requires data migration and thorough testing of sync.</td>
+        <td>Very High (4-8 weeks)</td>
+        <td>§164.312(a)(2)(iv)</td>
+      </tr>
+      <tr>
+        <td><span class="priority-p3">P3 — Quarter</span></td>
+        <td>H-06: Ruby/Rails EOL</td>
+        <td>Upgrade path: Ruby 2.7 → 3.1 → 3.2+. Rails 6.1 → 7.0 → 7.1+. This is a significant engineering effort but critical for supply chain security.</td>
+        <td>Very High (2-3 months)</td>
+        <td>General security hygiene</td>
+      </tr>
+      <tr>
+        <td><span class="priority-p3">P3 — Quarter</span></td>
+        <td>M-07: Soft delete only</td>
+        <td>Implement hard-delete capability with documented retention periods. Consider GDPR/DPDP compliance for right-to-erasure requests. Add scheduled purge for records past retention period.</td>
+        <td>High (2 weeks)</td>
+        <td>§164.312(c)</td>
+      </tr>
+      <tr>
+        <td><span class="priority-p3">P3 — Quarter</span></td>
+        <td>General: No CI/CD automation</td>
+        <td>Add GitHub Actions workflow to run test suite on PR and master push. Add deployment automation for staging. Reduce lead time to Elite DORA category.</td>
+        <td>Medium (1 week)</td>
+        <td>DORA / Engineering</td>
+      </tr>
+    </tbody>
+  </table>
+</section>
+
+</div> <!-- /container -->
+
+<!-- FOOTER -->
+<div class="report-footer">
+  <div>
+    Simple Server — DORA Metrics &amp; HIPAA Compliance Audit &nbsp;|&nbsp; simpledotorg/simple-server &nbsp;|&nbsp; Report Date: 2026-02-18
+  </div>
+  <div style="color:var(--text-dim);">
+    This report was generated by automated codebase analysis. It supplements but does not replace a formal security assessment by a qualified HIPAA security officer. All findings require validation against the deployed production configuration.
+  </div>
+</div>
+
+</body>
+</html>

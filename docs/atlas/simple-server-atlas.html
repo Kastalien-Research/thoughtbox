@@ -1,0 +1,2448 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Simple Server — Codebase Atlas</title>
+<style>
+  :root {
+    --bg-deep:    #050810;
+    --bg-panel:   #0b0f1e;
+    --bg-card:    #0e1328;
+    --bg-hover:   #131929;
+    --border:     #1e2d50;
+    --border-glow:#2563eb44;
+    --neon-blue:  #3b82f6;
+    --neon-cyan:  #06b6d4;
+    --neon-green: #10b981;
+    --neon-purple:#8b5cf6;
+    --neon-pink:  #ec4899;
+    --neon-amber: #f59e0b;
+    --neon-red:   #ef4444;
+    --neon-teal:  #14b8a6;
+    --text-primary:   #e2e8f0;
+    --text-secondary: #94a3b8;
+    --text-dim:       #475569;
+    --font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+    --font-sans: 'Inter', 'Segoe UI', system-ui, sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg-deep);
+    color: var(--text-primary);
+    font-family: var(--font-sans);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Starfield */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      radial-gradient(1px 1px at 10% 15%, #ffffff22 0%, transparent 100%),
+      radial-gradient(1px 1px at 25% 40%, #ffffff18 0%, transparent 100%),
+      radial-gradient(1px 1px at 50% 20%, #ffffff20 0%, transparent 100%),
+      radial-gradient(1px 1px at 75% 55%, #ffffff15 0%, transparent 100%),
+      radial-gradient(1px 1px at 90% 30%, #ffffff22 0%, transparent 100%),
+      radial-gradient(1px 1px at 40% 70%, #ffffff18 0%, transparent 100%),
+      radial-gradient(1px 1px at 65% 85%, #ffffff20 0%, transparent 100%),
+      radial-gradient(1px 1px at 15% 80%, #ffffff15 0%, transparent 100%),
+      radial-gradient(1px 1px at 85% 10%, #ffffff22 0%, transparent 100%),
+      radial-gradient(1px 1px at 30% 95%, #ffffff18 0%, transparent 100%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* Top ambient glow */
+  body::after {
+    content: '';
+    position: fixed;
+    top: -200px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 900px;
+    height: 400px;
+    background: radial-gradient(ellipse, #1d4ed820 0%, transparent 70%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .container {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 0 24px;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* ── HEADER ────────────────────────────────────────────── */
+  header {
+    padding: 48px 0 32px;
+    border-bottom: 1px solid var(--border);
+    position: relative;
+    overflow: hidden;
+  }
+
+  header::before {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--neon-blue), var(--neon-cyan), var(--neon-blue), transparent);
+    opacity: 0.6;
+  }
+
+  .header-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: #1e2d5044;
+    border: 1px solid #2563eb44;
+    border-radius: 999px;
+    padding: 4px 14px;
+    font-size: 11px;
+    font-family: var(--font-mono);
+    color: var(--neon-cyan);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-bottom: 20px;
+  }
+
+  .header-badge::before {
+    content: '';
+    width: 6px;
+    height: 6px;
+    background: var(--neon-green);
+    border-radius: 50%;
+    box-shadow: 0 0 6px var(--neon-green);
+    animation: pulse 2s infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+  }
+
+  h1 {
+    font-size: clamp(28px, 5vw, 52px);
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    background: linear-gradient(135deg, #e2e8f0 0%, var(--neon-blue) 50%, var(--neon-cyan) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    line-height: 1.1;
+    margin-bottom: 12px;
+  }
+
+  .header-sub {
+    font-size: 15px;
+    color: var(--text-secondary);
+    max-width: 680px;
+    line-height: 1.6;
+    margin-bottom: 28px;
+  }
+
+  .header-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+  }
+
+  .meta-chip {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    font-family: var(--font-mono);
+    color: var(--text-secondary);
+  }
+
+  .meta-chip .val {
+    color: var(--neon-cyan);
+    font-weight: 600;
+  }
+
+  /* ── NAV ────────────────────────────────────────────────── */
+  nav {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: #050810ee;
+    backdrop-filter: blur(16px);
+    border-bottom: 1px solid var(--border);
+    padding: 0;
+  }
+
+  .nav-inner {
+    display: flex;
+    gap: 2px;
+    padding: 0 24px;
+    max-width: 1400px;
+    margin: 0 auto;
+    overflow-x: auto;
+  }
+
+  .nav-tab {
+    padding: 14px 18px;
+    font-size: 12px;
+    font-family: var(--font-mono);
+    color: var(--text-dim);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    white-space: nowrap;
+    transition: all 0.2s;
+    user-select: none;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+
+  .nav-tab:hover { color: var(--text-secondary); }
+
+  .nav-tab.active {
+    color: var(--neon-cyan);
+    border-bottom-color: var(--neon-cyan);
+  }
+
+  /* ── SECTIONS ───────────────────────────────────────────── */
+  .section {
+    display: none;
+    padding: 48px 0;
+  }
+
+  .section.active { display: block; }
+
+  .section-title {
+    font-size: 13px;
+    font-family: var(--font-mono);
+    color: var(--neon-blue);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+
+  .section-heading {
+    font-size: clamp(22px, 3vw, 34px);
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    margin-bottom: 12px;
+    color: var(--text-primary);
+  }
+
+  .section-desc {
+    font-size: 14px;
+    color: var(--text-secondary);
+    max-width: 700px;
+    line-height: 1.65;
+    margin-bottom: 40px;
+  }
+
+  /* ── GRID LAYOUTS ───────────────────────────────────────── */
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+  .grid-auto { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
+
+  @media (max-width: 900px) {
+    .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; }
+  }
+
+  /* ── CARDS ──────────────────────────────────────────────── */
+  .card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+
+  .card:hover {
+    border-color: var(--border-glow);
+    box-shadow: 0 0 20px #2563eb15;
+  }
+
+  .card-title {
+    font-size: 11px;
+    font-family: var(--font-mono);
+    color: var(--text-dim);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+
+  .card-value {
+    font-size: 32px;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    font-family: var(--font-mono);
+  }
+
+  .card-detail {
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin-top: 4px;
+  }
+
+  /* ── STAT COLORS ────────────────────────────────────────── */
+  .c-blue   { color: var(--neon-blue);   }
+  .c-cyan   { color: var(--neon-cyan);   }
+  .c-green  { color: var(--neon-green);  }
+  .c-purple { color: var(--neon-purple); }
+  .c-pink   { color: var(--neon-pink);   }
+  .c-amber  { color: var(--neon-amber);  }
+  .c-red    { color: var(--neon-red);    }
+  .c-teal   { color: var(--neon-teal);   }
+
+  /* ── LAYER BADGE ────────────────────────────────────────── */
+  .layer-badge {
+    display: inline-block;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 700;
+    padding: 3px 8px;
+    border-radius: 4px;
+    letter-spacing: 0.06em;
+    margin-bottom: 10px;
+  }
+
+  .lb-0  { background: #1e3a5f44; color: var(--neon-blue);   border: 1px solid #2563eb44; }
+  .lb-1  { background: #14532d44; color: var(--neon-green);  border: 1px solid #10b98144; }
+  .lb-2  { background: #4c1d9544; color: var(--neon-purple); border: 1px solid #8b5cf644; }
+  .lb-5  { background: #7c2d1244; color: var(--neon-amber);  border: 1px solid #f59e0b44; }
+
+  /* ── DIRECTORY TREE ─────────────────────────────────────── */
+  .dir-tree {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    line-height: 1.9;
+    color: var(--text-secondary);
+  }
+
+  .dir-tree .dir {
+    color: var(--neon-blue);
+    font-weight: 600;
+  }
+
+  .dir-tree .file { color: var(--text-secondary); }
+  .dir-tree .hot  { color: var(--neon-amber); }
+  .dir-tree .core { color: var(--neon-cyan);  }
+  .dir-tree .note {
+    color: var(--text-dim);
+    font-size: 10px;
+    margin-left: 8px;
+    font-style: italic;
+  }
+
+  /* ── MODULE DIAGRAM ─────────────────────────────────────── */
+  .module-map {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 14px;
+  }
+
+  .module-node {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
+    cursor: default;
+  }
+
+  .module-node::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+  }
+
+  .module-node:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px #00000040;
+    border-color: #334155;
+  }
+
+  .mn-blue::before   { background: var(--neon-blue);   }
+  .mn-cyan::before   { background: var(--neon-cyan);   }
+  .mn-green::before  { background: var(--neon-green);  }
+  .mn-purple::before { background: var(--neon-purple); }
+  .mn-pink::before   { background: var(--neon-pink);   }
+  .mn-amber::before  { background: var(--neon-amber);  }
+  .mn-teal::before   { background: var(--neon-teal);   }
+  .mn-red::before    { background: var(--neon-red);    }
+
+  .mn-name {
+    font-size: 13px;
+    font-weight: 700;
+    margin-bottom: 4px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .mn-icon {
+    font-size: 16px;
+    line-height: 1;
+  }
+
+  .mn-desc {
+    font-size: 11px;
+    color: var(--text-dim);
+    line-height: 1.5;
+    margin-bottom: 10px;
+  }
+
+  .mn-files {
+    font-size: 10px;
+    font-family: var(--font-mono);
+    color: var(--text-dim);
+  }
+
+  .mn-count {
+    font-size: 22px;
+    font-weight: 800;
+    font-family: var(--font-mono);
+    float: right;
+    margin-top: -2px;
+    opacity: 0.4;
+  }
+
+  /* ── RELATIONSHIP DIAGRAM ───────────────────────────────── */
+  .rel-svg-container {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+    overflow: hidden;
+  }
+
+  /* ── HOTSPOT TABLE ──────────────────────────────────────── */
+  .hotspot-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+
+  .hotspot-table th {
+    text-align: left;
+    font-size: 10px;
+    font-family: var(--font-mono);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .hotspot-table td {
+    padding: 10px 12px;
+    border-bottom: 1px solid #0e1328;
+    vertical-align: middle;
+  }
+
+  .hotspot-table tr:hover td {
+    background: var(--bg-hover);
+  }
+
+  .hotspot-table tr:last-child td { border-bottom: none; }
+
+  .path-cell {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--text-secondary);
+  }
+
+  .path-cell .path-dir { color: var(--text-dim); }
+  .path-cell .path-file { color: var(--neon-cyan); }
+
+  .heat-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .heat-bar-bg {
+    flex: 1;
+    height: 6px;
+    background: var(--border);
+    border-radius: 3px;
+    overflow: hidden;
+    max-width: 120px;
+  }
+
+  .heat-bar-fill {
+    height: 100%;
+    border-radius: 3px;
+    background: linear-gradient(90deg, var(--neon-amber), var(--neon-red));
+    transition: width 0.3s;
+  }
+
+  .heat-count {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--neon-amber);
+    font-weight: 700;
+    min-width: 20px;
+    text-align: right;
+  }
+
+  .domain-tag {
+    display: inline-block;
+    font-size: 10px;
+    font-family: var(--font-mono);
+    padding: 2px 7px;
+    border-radius: 4px;
+    font-weight: 600;
+  }
+
+  /* ── FLOW DIAGRAM ───────────────────────────────────────── */
+  .flow-step {
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+    padding: 16px 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .flow-step:last-child { border-bottom: none; }
+
+  .flow-num {
+    flex-shrink: 0;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-weight: 700;
+    border: 1px solid;
+  }
+
+  .flow-body { flex: 1; }
+
+  .flow-name {
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 4px;
+  }
+
+  .flow-detail {
+    font-size: 12px;
+    color: var(--text-secondary);
+    font-family: var(--font-mono);
+    line-height: 1.5;
+  }
+
+  /* ── CODE BLOCK ─────────────────────────────────────────── */
+  pre {
+    background: #00000033;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    line-height: 1.7;
+    color: var(--text-secondary);
+    overflow-x: auto;
+    margin: 12px 0;
+  }
+
+  pre .kw  { color: var(--neon-purple); }
+  pre .str { color: var(--neon-green);  }
+  pre .cm  { color: var(--text-dim); font-style: italic; }
+  pre .cls { color: var(--neon-cyan);   }
+  pre .mth { color: var(--neon-blue);   }
+  pre .sym { color: var(--neon-amber);  }
+
+  /* ── CALLOUT ────────────────────────────────────────────── */
+  .callout {
+    border-left: 3px solid;
+    padding: 14px 18px;
+    border-radius: 0 8px 8px 0;
+    margin: 16px 0;
+    font-size: 13px;
+    line-height: 1.6;
+  }
+
+  .callout-blue   { border-color: var(--neon-blue);   background: #1e40af11; }
+  .callout-green  { border-color: var(--neon-green);  background: #05966911; }
+  .callout-amber  { border-color: var(--neon-amber);  background: #d9770611; }
+  .callout-purple { border-color: var(--neon-purple); background: #7c3aed11; }
+
+  .callout strong { color: var(--text-primary); }
+
+  /* ── TAG LIST ───────────────────────────────────────────── */
+  .tag-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 10px;
+  }
+
+  .tag {
+    font-size: 11px;
+    font-family: var(--font-mono);
+    padding: 4px 10px;
+    border-radius: 4px;
+    border: 1px solid;
+  }
+
+  /* ── TIMELINE ───────────────────────────────────────────── */
+  .timeline {
+    position: relative;
+    padding-left: 28px;
+  }
+
+  .timeline::before {
+    content: '';
+    position: absolute;
+    left: 8px;
+    top: 0;
+    bottom: 0;
+    width: 1px;
+    background: linear-gradient(180deg, var(--neon-blue), var(--neon-cyan), var(--neon-purple), transparent);
+  }
+
+  .timeline-item {
+    position: relative;
+    padding: 0 0 28px;
+  }
+
+  .timeline-item::before {
+    content: '';
+    position: absolute;
+    left: -24px;
+    top: 6px;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--neon-blue);
+    border: 1px solid var(--bg-deep);
+    box-shadow: 0 0 6px var(--neon-blue);
+  }
+
+  .tl-date {
+    font-size: 11px;
+    font-family: var(--font-mono);
+    color: var(--text-dim);
+    margin-bottom: 4px;
+  }
+
+  .tl-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 4px;
+  }
+
+  .tl-detail {
+    font-size: 12px;
+    color: var(--text-secondary);
+    line-height: 1.5;
+  }
+
+  /* ── VELOCITY CHART ─────────────────────────────────────── */
+  .velocity-chart {
+    display: flex;
+    align-items: flex-end;
+    gap: 12px;
+    height: 120px;
+    padding: 16px 0 0;
+  }
+
+  .vel-bar-wrap {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    height: 100%;
+    justify-content: flex-end;
+  }
+
+  .vel-bar {
+    width: 100%;
+    border-radius: 3px 3px 0 0;
+    background: linear-gradient(180deg, var(--neon-blue), var(--neon-cyan));
+    min-height: 2px;
+    position: relative;
+    transition: opacity 0.2s;
+    box-shadow: 0 0 8px #3b82f640;
+  }
+
+  .vel-bar:hover { opacity: 0.8; }
+
+  .vel-label {
+    font-size: 10px;
+    font-family: var(--font-mono);
+    color: var(--text-dim);
+    text-align: center;
+  }
+
+  .vel-count {
+    font-size: 10px;
+    font-family: var(--font-mono);
+    color: var(--neon-cyan);
+    font-weight: 700;
+    text-align: center;
+  }
+
+  /* ── ARCH DIAGRAM (SVG) ──────────────────────────────────── */
+  svg text { font-family: var(--font-mono); }
+
+  /* ── PATTERN ITEM ───────────────────────────────────────── */
+  .pattern-item {
+    display: flex;
+    gap: 16px;
+    padding: 18px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    margin-bottom: 14px;
+    transition: border-color 0.2s;
+  }
+
+  .pattern-item:hover { border-color: #334155; }
+
+  .pattern-icon {
+    font-size: 28px;
+    flex-shrink: 0;
+    width: 48px;
+    height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #ffffff08;
+    border-radius: 8px;
+  }
+
+  .pattern-body { flex: 1; }
+
+  .pattern-name {
+    font-size: 14px;
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+
+  .pattern-desc {
+    font-size: 12px;
+    color: var(--text-secondary);
+    line-height: 1.6;
+  }
+
+  .pattern-examples {
+    margin-top: 8px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .ex-tag {
+    font-size: 10px;
+    font-family: var(--font-mono);
+    color: var(--text-dim);
+    background: #ffffff08;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 2px 8px;
+  }
+
+  /* ── SCROLLBAR ──────────────────────────────────────────── */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg-deep); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: #334155; }
+
+  /* ── DIVIDER ────────────────────────────────────────────── */
+  .divider {
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--border), transparent);
+    margin: 32px 0;
+  }
+
+  /* ── PILL BADGE ─────────────────────────────────────────── */
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+    font-family: var(--font-mono);
+    padding: 3px 10px;
+    border-radius: 999px;
+    border: 1px solid;
+    font-weight: 600;
+  }
+
+  /* ── REGION HIERARCHY ───────────────────────────────────── */
+  .region-tree {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+  }
+
+  .region-level {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    border-left: 2px solid;
+    margin-left: calc(var(--depth) * 20px);
+    border-radius: 0 6px 6px 0;
+    background: #ffffff04;
+  }
+
+  .rl-icon { font-size: 14px; }
+  .rl-name { font-weight: 600; }
+  .rl-desc { color: var(--text-dim); font-size: 11px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="container">
+    <div class="header-badge">Codebase Atlas &bull; Production Medical App &bull; Ruby on Rails</div>
+    <h1>Simple Server</h1>
+    <p class="header-sub">
+      The Rails API backend for Simple.org — a hypertension and diabetes tracking system deployed across
+      South Asia and Africa. Real clinical data. Real healthcare workers. Built for low-resource settings
+      where reliability is measured in patient lives.
+    </p>
+    <div class="header-meta">
+      <div class="meta-chip">Ruby <span class="val">91,520 LOC</span></div>
+      <div class="meta-chip">SQL <span class="val">8,672 LOC</span></div>
+      <div class="meta-chip">YAML <span class="val">21,222 LOC</span></div>
+      <div class="meta-chip">Models <span class="val">76 files</span></div>
+      <div class="meta-chip">API Routes <span class="val">v3 + v4</span></div>
+      <div class="meta-chip">Commits <span class="val">50 recent</span></div>
+      <div class="meta-chip">Est. Total <span class="val">5,700+ commits</span></div>
+      <div class="meta-chip">Migrations <span class="val">68</span></div>
+      <div class="meta-chip">Snapshot <span class="val">2026-02-18</span></div>
+    </div>
+  </div>
+</header>
+
+<nav>
+  <div class="nav-inner">
+    <div class="nav-tab active" onclick="showSection('overview')">Overview</div>
+    <div class="nav-tab" onclick="showSection('structure')">L0 · Structure</div>
+    <div class="nav-tab" onclick="showSection('modules')">L1 · Modules</div>
+    <div class="nav-tab" onclick="showSection('components')">L2 · Components</div>
+    <div class="nav-tab" onclick="showSection('api')">API Design</div>
+    <div class="nav-tab" onclick="showSection('evolution')">L5 · Evolution</div>
+    <div class="nav-tab" onclick="showSection('patterns')">Patterns</div>
+  </div>
+</nav>
+
+<!-- ══════════════════════════════════════════════════════════
+     OVERVIEW
+═══════════════════════════════════════════════════════════ -->
+<div id="overview" class="section active">
+<div class="container">
+
+  <div class="section-title">Atlas Overview</div>
+  <h2 class="section-heading">Medical Backend at Scale</h2>
+  <p class="section-desc">
+    Simple Server is a production Rails 7 API powering hypertension and diabetes care across India, Bangladesh,
+    Sri Lanka, Ethiopia, and beyond. It serves mobile health workers who record patient vitals offline and
+    sync to a central server — making data integrity, conflict resolution, and offline-first sync the
+    architectural core of everything.
+  </p>
+
+  <!-- Stat Grid -->
+  <div class="grid-4" style="margin-bottom: 32px;">
+    <div class="card">
+      <div class="card-title">Ruby Code</div>
+      <div class="card-value c-cyan">91.5K</div>
+      <div class="card-detail">lines across 1,315 Ruby files</div>
+    </div>
+    <div class="card">
+      <div class="card-title">SQL / Views</div>
+      <div class="card-value c-purple">8.7K</div>
+      <div class="card-detail">lines — 42 SQL files, heavy on materialized views</div>
+    </div>
+    <div class="card">
+      <div class="card-title">Configuration</div>
+      <div class="card-value c-green">21.2K</div>
+      <div class="card-detail">lines of YAML — country configs, experiments, schedules</div>
+    </div>
+    <div class="card">
+      <div class="card-title">Rails Models</div>
+      <div class="card-value c-amber">76</div>
+      <div class="card-detail">model files, deeply interconnected</div>
+    </div>
+  </div>
+
+  <div class="grid-2" style="margin-bottom: 32px;">
+    <div class="card">
+      <div class="card-title">Active Clinical Domains</div>
+      <div style="margin-top: 12px; display: flex; flex-direction: column; gap: 10px;">
+
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <span style="font-size: 18px;">🩺</span>
+          <div>
+            <div style="font-size: 13px; font-weight: 600; color: var(--text-primary);">Hypertension (HTN)</div>
+            <div style="font-size: 11px; color: var(--text-dim);">Blood pressure tracking, control rates, cohort analysis</div>
+          </div>
+        </div>
+
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <span style="font-size: 18px;">🩸</span>
+          <div>
+            <div style="font-size: 13px; font-weight: 600; color: var(--text-primary);">Diabetes (DM)</div>
+            <div style="font-size: 11px; color: var(--text-dim);">Blood sugar tracking, HbA1c, diabetes management</div>
+          </div>
+        </div>
+
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <span style="font-size: 18px;">💊</span>
+          <div>
+            <div style="font-size: 13px; font-weight: 600; color: var(--text-primary);">Medications &amp; Drug Stocks</div>
+            <div style="font-size: 11px; color: var(--text-dim);">Prescription tracking, protocol drugs, drug stock reports</div>
+          </div>
+        </div>
+
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <span style="font-size: 18px;">📅</span>
+          <div>
+            <div style="font-size: 13px; font-weight: 600; color: var(--text-primary);">Appointments &amp; Overdue</div>
+            <div style="font-size: 11px; color: var(--text-dim);">Scheduled visits, SMS reminders, overdue patient lists</div>
+          </div>
+        </div>
+
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <span style="font-size: 18px;">📊</span>
+          <div>
+            <div style="font-size: 13px; font-weight: 600; color: var(--text-primary);">Performance Reporting</div>
+            <div style="font-size: 11px; color: var(--text-dim);">Region-based dashboards, WHO HEARTS360 metrics</div>
+          </div>
+        </div>
+
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <span style="font-size: 18px;">🧪</span>
+          <div>
+            <div style="font-size: 13px; font-weight: 600; color: var(--text-primary);">A/B Experimentation</div>
+            <div style="font-size: 11px; color: var(--text-dim);">SMS reminder experiments across treatment groups</div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Key Architectural Challenges</div>
+      <div style="margin-top: 12px; display: flex; flex-direction: column; gap: 10px;">
+
+        <div class="callout callout-blue" style="margin: 0;">
+          <strong>Offline-first mobile sync.</strong> Health workers record data offline on Android devices.
+          The bidirectional sync protocol (GET/POST /sync) must handle conflict resolution, out-of-order
+          delivery, and partial syncs across unstable connections.
+        </div>
+
+        <div class="callout callout-amber" style="margin: 0;">
+          <strong>Multi-country deployment.</strong> Country configs (YAML) drive locale, supported genders,
+          SMS providers, calendar systems (Ethiopia), and feature flags per region. Same codebase, dozens of
+          deployment contexts.
+        </div>
+
+        <div class="callout callout-purple" style="margin: 0;">
+          <strong>Materialized reporting at scale.</strong> Patient population analytics use PostgreSQL
+          ltree, partitioned tables, and materialized views refreshed on schedule — not real-time queries —
+          to serve dashboards to program managers.
+        </div>
+
+        <div class="callout callout-green" style="margin: 0;">
+          <strong>Patient deduplication.</strong> Patients registered at multiple facilities need merging
+          without losing clinical history. The deduplication pipeline is a recurring hotspot.
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <div class="section-title">Region Hierarchy</div>
+  <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 20px; max-width: 600px;">
+    The entire organizational structure is modeled as a PostgreSQL ltree path. Every report, sync, and
+    access control decision traverses this tree.
+  </p>
+
+  <div class="card" style="max-width: 520px;">
+    <div class="region-tree">
+      <div class="region-level" style="--depth: 0; border-color: var(--neon-blue);">
+        <span class="rl-icon">🌍</span>
+        <span class="rl-name" style="color: var(--neon-blue);">root</span>
+        <span class="rl-desc">global singleton</span>
+      </div>
+      <div class="region-level" style="--depth: 1; border-color: var(--neon-cyan);">
+        <span class="rl-icon">🏢</span>
+        <span class="rl-name" style="color: var(--neon-cyan);">organization</span>
+        <span class="rl-desc">e.g. NHM India</span>
+      </div>
+      <div class="region-level" style="--depth: 2; border-color: var(--neon-green);">
+        <span class="rl-icon">🗺</span>
+        <span class="rl-name" style="color: var(--neon-green);">state</span>
+        <span class="rl-desc">e.g. Punjab, Maharashtra</span>
+      </div>
+      <div class="region-level" style="--depth: 3; border-color: var(--neon-purple);">
+        <span class="rl-icon">🏙</span>
+        <span class="rl-name" style="color: var(--neon-purple);">district</span>
+        <span class="rl-desc">primary reporting unit</span>
+      </div>
+      <div class="region-level" style="--depth: 4; border-color: var(--neon-amber);">
+        <span class="rl-icon">🧱</span>
+        <span class="rl-name" style="color: var(--neon-amber);">block</span>
+        <span class="rl-desc">sub-district grouping</span>
+      </div>
+      <div class="region-level" style="--depth: 5; border-color: var(--neon-pink);">
+        <span class="rl-icon">🏥</span>
+        <span class="rl-name" style="color: var(--neon-pink);">facility</span>
+        <span class="rl-desc">health center / clinic</span>
+      </div>
+    </div>
+    <div style="margin-top: 14px; font-size: 11px; color: var(--text-dim); font-family: var(--font-mono);">
+      stored as PostgreSQL ltree paths &bull; e.g. india.punjab.amritsar.block_a.facility_xyz
+    </div>
+  </div>
+
+</div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     L0 · STRUCTURE
+═══════════════════════════════════════════════════════════ -->
+<div id="structure" class="section">
+<div class="container">
+
+  <div class="layer-badge lb-0">L0 · File Structure</div>
+  <h2 class="section-heading">Rails Directory Map</h2>
+  <p class="section-desc">
+    A standard Rails layout extended with domain-specific layers: <code>queries/</code> for complex SQL,
+    <code>services/</code> for business logic, <code>exporters/</code> for report generation,
+    <code>transformers/</code> for API payload transformation, and <code>schema/</code> for API contract
+    definitions. The <code>app/models/reports/</code> subdirectory is effectively a mini reporting engine.
+  </p>
+
+  <div class="grid-2" style="gap: 24px;">
+
+    <!-- Left: App directory tree -->
+    <div class="card">
+      <div class="card-title">app/ — Application Core</div>
+      <div class="dir-tree" style="margin-top: 12px;">
+        <div><span class="dir">app/</span></div>
+        <div style="margin-left: 16px;"><span class="dir">models/</span> <span class="note">76 files, clinical domain</span></div>
+        <div style="margin-left: 32px;"><span class="core">patient.rb</span> <span class="note">255 LOC — hub model</span></div>
+        <div style="margin-left: 32px;"><span class="core">facility.rb</span> <span class="note">320 LOC</span></div>
+        <div style="margin-left: 32px;"><span class="core">region.rb</span> <span class="note">282 LOC — ltree hierarchy</span></div>
+        <div style="margin-left: 32px;"><span class="core">appointment.rb</span> <span class="note">176 LOC</span></div>
+        <div style="margin-left: 32px;"><span class="dir">reports/</span> <span class="note">28 model files — analytics engine</span></div>
+        <div style="margin-left: 32px;"><span class="dir">experimentation/</span> <span class="note">7 files — SMS A/B tests</span></div>
+        <div style="margin-left: 32px;"><span class="dir">dr_rai/</span> <span class="note">13 files — performance AI</span></div>
+        <div style="margin-left: 32px;"><span class="dir">concerns/</span> <span class="note">Mergeable, Hashable, etc.</span></div>
+        <div style="margin-left: 16px;"><span class="dir">controllers/</span></div>
+        <div style="margin-left: 32px;"><span class="dir">api/v3/</span> <span class="note">19 controllers — mobile API</span></div>
+        <div style="margin-left: 32px;"><span class="dir">api/v4/</span> <span class="note">20 controllers — current mobile API</span></div>
+        <div style="margin-left: 32px;"><span class="dir">admin/</span> <span class="note">web admin panel</span></div>
+        <div style="margin-left: 32px;"><span class="dir">reports/</span> <span class="note">region dashboard controllers</span></div>
+        <div style="margin-left: 16px;"><span class="dir">services/</span> <span class="note">business logic, 30+ services</span></div>
+        <div style="margin-left: 32px;"><span class="dir">messaging/</span> <span class="note">Alpha, BSNL, Twilio, Mobitel</span></div>
+        <div style="margin-left: 32px;"><span class="dir">experimentation/</span></div>
+        <div style="margin-left: 32px;"><span class="dir">patient_deduplication/</span></div>
+        <div style="margin-left: 32px;"><span class="dir">patient_import/</span></div>
+        <div style="margin-left: 16px;"><span class="dir">queries/</span> <span class="note">14 query objects</span></div>
+        <div style="margin-left: 16px;"><span class="dir">jobs/</span> <span class="note">Sidekiq workers — SMS, sync, DHIS2</span></div>
+        <div style="margin-left: 16px;"><span class="dir">components/</span> <span class="note">ViewComponent — dashboard widgets</span></div>
+        <div style="margin-left: 16px;"><span class="dir">exporters/</span> <span class="note">CSV/Excel report generators</span></div>
+        <div style="margin-left: 16px;"><span class="dir">transformers/api/</span> <span class="note">sync payload transforms</span></div>
+        <div style="margin-left: 16px;"><span class="dir">validators/api/</span> <span class="note">sync payload validators</span></div>
+        <div style="margin-left: 16px;"><span class="dir">schema/api/</span> <span class="note">OpenAPI / rswag definitions</span></div>
+        <div style="margin-left: 16px;"><span class="dir">presenters/</span> <span class="note">view-layer adapters</span></div>
+        <div style="margin-left: 16px;"><span class="dir">views/</span> <span class="note">web dashboard, ERB templates</span></div>
+      </div>
+    </div>
+
+    <!-- Right: Config + DB tree -->
+    <div style="display: flex; flex-direction: column; gap: 16px;">
+      <div class="card">
+        <div class="card-title">config/ — Configuration Layer</div>
+        <div class="dir-tree" style="margin-top: 12px;">
+          <div><span class="dir">config/</span></div>
+          <div style="margin-left: 16px;"><span class="file">routes.rb</span> <span class="note">326 LOC — v3, v4, admin, reports</span></div>
+          <div style="margin-left: 16px;"><span class="file">schedule.rb</span> <span class="note">Whenever — cron jobs</span></div>
+          <div style="margin-left: 16px;"><span class="file">database.yml</span> <span class="note">PostgreSQL, replicas</span></div>
+          <div style="margin-left: 16px;"><span class="dir">initializers/</span></div>
+          <div style="margin-left: 32px;"><span class="file">flipper.rb</span> <span class="note">feature flags per region</span></div>
+          <div style="margin-left: 32px;"><span class="file">country_config.rb</span> <span class="note">multi-country adapters</span></div>
+          <div style="margin-left: 16px;"><span class="dir">data/</span> <span class="note">27 data migrations (SMS experiments)</span></div>
+          <div style="margin-left: 16px;"><span class="dir">environments/</span></div>
+          <div style="margin-left: 32px;"><span class="file">production.rb</span></div>
+          <div style="margin-left: 32px;"><span class="file">staging.rb</span></div>
+          <div style="margin-left: 16px;"><span class="dir">deploy/</span> <span class="note">Capistrano stages</span></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">db/ — Database Layer</div>
+        <div class="dir-tree" style="margin-top: 12px;">
+          <div><span class="dir">db/</span></div>
+          <div style="margin-left: 16px;"><span class="hot">structure.sql</span> <span class="note">top hotspot — 11 commits</span></div>
+          <div style="margin-left: 16px;"><span class="dir">migrate/</span> <span class="note">68 migrations in snapshot</span></div>
+          <div style="margin-left: 16px;"><span class="dir">data/</span> <span class="note">27 data migrations (seed experiments)</span></div>
+          <div style="margin-left: 16px;"><span class="file">bd_regions.csv</span> <span class="note">Bangladesh region seed data</span></div>
+        </div>
+        <div style="margin-top: 12px;" class="callout callout-amber">
+          <strong>Notable:</strong> Uses <code>structure.sql</code> instead of <code>schema.rb</code> —
+          required for PostgreSQL-specific features: ltree paths, custom functions, partitioned tables,
+          and materialized views. The most-changed file in the repository.
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">lib/ — Background Infrastructure</div>
+        <div class="dir-tree" style="margin-top: 12px;">
+          <div><span class="dir">lib/</span></div>
+          <div style="margin-left: 16px;"><span class="dir">tasks/</span></div>
+          <div style="margin-left: 32px;"><span class="hot">reporting.rake</span> <span class="note">4 commits — materialized view refresh</span></div>
+          <div style="margin-left: 32px;"><span class="file">scripts.rake</span></div>
+          <div style="margin-left: 16px;"><span class="file">country_config.rb</span> <span class="note">multi-country YAML loader</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- File count breakdown -->
+  <div class="section-title">File Count by Layer</div>
+  <div class="grid-4" style="margin-top: 16px;">
+    <div class="card">
+      <div class="card-title">Ruby Files</div>
+      <div class="card-value c-cyan">1,315</div>
+      <div class="card-detail">models, controllers, services, specs</div>
+    </div>
+    <div class="card">
+      <div class="card-title">SQL Files</div>
+      <div class="card-value c-purple">42</div>
+      <div class="card-detail">migrations, views, structure.sql</div>
+    </div>
+    <div class="card">
+      <div class="card-title">YAML Config</div>
+      <div class="card-value c-green">62</div>
+      <div class="card-detail">locales, country configs, experiments</div>
+    </div>
+    <div class="card">
+      <div class="card-title">Sass Stylesheets</div>
+      <div class="card-value c-pink">24</div>
+      <div class="card-detail">web dashboard UI</div>
+    </div>
+  </div>
+
+</div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     L1 · MODULES
+═══════════════════════════════════════════════════════════ -->
+<div id="modules" class="section">
+<div class="container">
+
+  <div class="layer-badge lb-1">L1 · Module Boundaries</div>
+  <h2 class="section-heading">Domain Modules</h2>
+  <p class="section-desc">
+    Simple Server is organized into eight major domain modules, each with its own models, services, and
+    controllers. These are not Rails engines but strong naming conventions that create clear ownership
+    boundaries — enforced by directory structure and namespace prefixes.
+  </p>
+
+  <div class="module-map">
+
+    <div class="module-node mn-cyan">
+      <div class="mn-count">255L</div>
+      <div class="mn-name">
+        <span class="mn-icon">👤</span>
+        Patient Core
+      </div>
+      <div class="mn-desc">
+        The central clinical record. Tracks hypertension/diabetes diagnosis, status (active/dead/migrated),
+        gender, age, consent, and facility registration. Hub of all clinical associations.
+      </div>
+      <div class="mn-files">
+        patient.rb · address.rb · medical_history.rb · encounter.rb · observation.rb
+      </div>
+      <div class="tag-list">
+        <span class="tag" style="color: var(--neon-cyan); border-color: #06b6d444; background: #06b6d411;">risk_priority</span>
+        <span class="tag" style="color: var(--neon-cyan); border-color: #06b6d444; background: #06b6d411;">reminder_consent</span>
+        <span class="tag" style="color: var(--neon-cyan); border-color: #06b6d444; background: #06b6d411;">Mergeable</span>
+      </div>
+    </div>
+
+    <div class="module-node mn-red">
+      <div class="mn-count">74L</div>
+      <div class="mn-name">
+        <span class="mn-icon">🩺</span>
+        Clinical Vitals
+      </div>
+      <div class="mn-desc">
+        Blood pressure and blood sugar readings recorded per visit. Supports critical/hypertensive
+        thresholds. Drives the core health outcome metrics (BP control rate).
+      </div>
+      <div class="mn-files">
+        blood_pressure.rb · blood_sugar.rb · cvd_risk.rb
+      </div>
+      <div class="tag-list">
+        <span class="tag" style="color: var(--neon-red); border-color: #ef444444; background: #ef444411;">critical?</span>
+        <span class="tag" style="color: var(--neon-red); border-color: #ef444444; background: #ef444411;">hypertensive?</span>
+        <span class="tag" style="color: var(--neon-red); border-color: #ef444444; background: #ef444411;">diabetic?</span>
+      </div>
+    </div>
+
+    <div class="module-node mn-purple">
+      <div class="mn-count">176L</div>
+      <div class="mn-name">
+        <span class="mn-icon">📅</span>
+        Appointments
+      </div>
+      <div class="mn-desc">
+        Scheduled follow-up visits. Tracks overdue patients, powers the SMS reminder experiments,
+        and drives the overdue patient list for health workers.
+      </div>
+      <div class="mn-files">
+        appointment.rb · notification.rb · communication.rb
+      </div>
+      <div class="tag-list">
+        <span class="tag" style="color: var(--neon-purple); border-color: #8b5cf644; background: #8b5cf611;">overdue?</span>
+        <span class="tag" style="color: var(--neon-purple); border-color: #8b5cf644; background: #8b5cf611;">scheduled</span>
+        <span class="tag" style="color: var(--neon-purple); border-color: #8b5cf644; background: #8b5cf611;">missed_visit</span>
+      </div>
+    </div>
+
+    <div class="module-node mn-green">
+      <div class="mn-count">320L</div>
+      <div class="mn-name">
+        <span class="mn-icon">🏥</span>
+        Facilities &amp; Regions
+      </div>
+      <div class="mn-desc">
+        The geographic and organizational hierarchy. Facilities belong to a PostgreSQL ltree region path
+        (root → org → state → district → block → facility). All access control, reporting, and sync scope
+        derives from this tree.
+      </div>
+      <div class="mn-files">
+        facility.rb (320L) · region.rb (282L) · organization.rb · facility_group.rb
+      </div>
+      <div class="tag-list">
+        <span class="tag" style="color: var(--neon-green); border-color: #10b98144; background: #10b98111;">ltree paths</span>
+        <span class="tag" style="color: var(--neon-green); border-color: #10b98144; background: #10b98111;">FriendlyId</span>
+        <span class="tag" style="color: var(--neon-green); border-color: #10b98144; background: #10b98111;">Flipperable</span>
+      </div>
+    </div>
+
+    <div class="module-node mn-amber">
+      <div class="mn-count">28 files</div>
+      <div class="mn-name">
+        <span class="mn-icon">📊</span>
+        Reports Engine
+      </div>
+      <div class="mn-desc">
+        A mini analytics engine inside <code>app/models/reports/</code>. Computes cohort statistics,
+        coverage rates, performance scores, and facility state — stored in materialized views and
+        refreshed on schedule. Drives program manager dashboards.
+      </div>
+      <div class="mn-files">
+        reports/region_summary.rb · reports/patient_state.rb · reports/repository.rb · reports/view.rb
+      </div>
+      <div class="tag-list">
+        <span class="tag" style="color: var(--neon-amber); border-color: #f59e0b44; background: #f59e0b11;">materialized views</span>
+        <span class="tag" style="color: var(--neon-amber); border-color: #f59e0b44; background: #f59e0b11;">partitioned tables</span>
+        <span class="tag" style="color: var(--neon-amber); border-color: #f59e0b44; background: #f59e0b11;">Refreshable</span>
+      </div>
+    </div>
+
+    <div class="module-node mn-pink">
+      <div class="mn-count">7 files</div>
+      <div class="mn-name">
+        <span class="mn-icon">🧪</span>
+        Experimentation
+      </div>
+      <div class="mn-desc">
+        A/B testing infrastructure for SMS reminder campaigns. Experiments assign patients to treatment
+        groups with different messaging strategies. Running continuously across Bangladesh, India, Sri Lanka.
+      </div>
+      <div class="mn-files">
+        experimentation/experiment.rb · treatment_group.rb · treatment_group_membership.rb · reminder_template.rb
+      </div>
+      <div class="tag-list">
+        <span class="tag" style="color: var(--neon-pink); border-color: #ec489944; background: #ec489911;">treatment groups</span>
+        <span class="tag" style="color: var(--neon-pink); border-color: #ec489944; background: #ec489911;">stale/current patients</span>
+      </div>
+    </div>
+
+    <div class="module-node mn-teal">
+      <div class="mn-count">4 providers</div>
+      <div class="mn-name">
+        <span class="mn-icon">📱</span>
+        Messaging
+      </div>
+      <div class="mn-desc">
+        Multi-provider SMS infrastructure. Supports Twilio (global), Alpha SMS (Bangladesh), BSNL (India),
+        and Mobitel (Sri Lanka). Channel abstraction hides provider differences. Delivery tracking per message.
+      </div>
+      <div class="mn-files">
+        messaging/channel.rb · alpha_sms/ · bsnl/ · twilio/ · mobitel/
+      </div>
+      <div class="tag-list">
+        <span class="tag" style="color: var(--neon-teal); border-color: #14b8a644; background: #14b8a611;">channel abstraction</span>
+        <span class="tag" style="color: var(--neon-teal); border-color: #14b8a644; background: #14b8a611;">delivery tracking</span>
+      </div>
+    </div>
+
+    <div class="module-node mn-blue">
+      <div class="mn-count">13 files</div>
+      <div class="mn-name">
+        <span class="mn-icon">🤖</span>
+        Dr. Rai Reports
+      </div>
+      <div class="mn-desc">
+        AI-assisted facility performance monitoring. Tracks indicators (titration, BP fudging, overdue
+        contact rates) against targets, generates action plans for health managers. The most actively
+        developed module as of late 2025–2026.
+      </div>
+      <div class="mn-files">
+        dr_rai/indicator.rb · bp_fudging_indicator.rb · titration_indicator.rb · target.rb · action_plan.rb
+      </div>
+      <div class="tag-list">
+        <span class="tag" style="color: var(--neon-blue); border-color: #3b82f644; background: #3b82f611;">BP fudging detection</span>
+        <span class="tag" style="color: var(--neon-blue); border-color: #3b82f644; background: #3b82f611;">action plans</span>
+        <span class="tag" style="color: var(--neon-blue); border-color: #3b82f644; background: #3b82f611;">indicator targets</span>
+      </div>
+    </div>
+
+    <div class="module-node mn-green">
+      <div class="mn-count">2 auth</div>
+      <div class="mn-name">
+        <span class="mn-icon">🔐</span>
+        Authentication
+      </div>
+      <div class="mn-desc">
+        Dual auth system: health workers authenticate via OTP on their phone number (passport auth),
+        while program managers use email/password via Devise. Machine users exist for API integrations.
+      </div>
+      <div class="mn-files">
+        passport_authentication.rb · phone_number_authentication.rb · email_authentication.rb · machine_user.rb
+      </div>
+      <div class="tag-list">
+        <span class="tag" style="color: var(--neon-green); border-color: #10b98144; background: #10b98111;">OTP auth</span>
+        <span class="tag" style="color: var(--neon-green); border-color: #10b98144; background: #10b98111;">Devise</span>
+        <span class="tag" style="color: var(--neon-green); border-color: #10b98144; background: #10b98111;">Doorkeeper</span>
+      </div>
+    </div>
+
+  </div>
+
+</div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     L2 · COMPONENT RELATIONSHIPS
+═══════════════════════════════════════════════════════════ -->
+<div id="components" class="section">
+<div class="container">
+
+  <div class="layer-badge lb-2">L2 · Component Relationships</div>
+  <h2 class="section-heading">Model Dependency Graph</h2>
+  <p class="section-desc">
+    Patient is the gravity well of this system. Every clinical record — blood pressures, blood sugars,
+    prescriptions, appointments, encounters — belongs to a Patient. The Facility and Region models form
+    the structural backbone through which access control, reporting scope, and mobile sync are all scoped.
+  </p>
+
+  <!-- SVG Relationship Diagram -->
+  <div class="rel-svg-container" style="margin-bottom: 32px;">
+    <svg viewBox="0 0 900 560" xmlns="http://www.w3.org/2000/svg" style="width: 100%; height: auto; max-height: 560px;">
+      <defs>
+        <marker id="arr-blue" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+          <path d="M0,0 L0,6 L8,3 z" fill="#3b82f6" opacity="0.6"/>
+        </marker>
+        <marker id="arr-cyan" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+          <path d="M0,0 L0,6 L8,3 z" fill="#06b6d4" opacity="0.6"/>
+        </marker>
+        <marker id="arr-green" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+          <path d="M0,0 L0,6 L8,3 z" fill="#10b981" opacity="0.6"/>
+        </marker>
+        <marker id="arr-purple" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+          <path d="M0,0 L0,6 L8,3 z" fill="#8b5cf6" opacity="0.6"/>
+        </marker>
+        <marker id="arr-amber" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+          <path d="M0,0 L0,6 L8,3 z" fill="#f59e0b" opacity="0.6"/>
+        </marker>
+        <marker id="arr-pink" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+          <path d="M0,0 L0,6 L8,3 z" fill="#ec4899" opacity="0.6"/>
+        </marker>
+        <filter id="glow-blue">
+          <feGaussianBlur stdDeviation="3" result="blur"/>
+          <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+        </filter>
+        <filter id="glow-cyan">
+          <feGaussianBlur stdDeviation="2" result="blur"/>
+          <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+        </filter>
+      </defs>
+
+      <!-- Background grid lines -->
+      <line x1="0" y1="280" x2="900" y2="280" stroke="#1e2d50" stroke-width="1" opacity="0.3"/>
+      <line x1="450" y1="0" x2="450" y2="560" stroke="#1e2d50" stroke-width="1" opacity="0.3"/>
+
+      <!-- ── REGION (top left) ── -->
+      <rect x="20" y="20" width="140" height="56" rx="8" fill="#0e1328" stroke="#10b981" stroke-width="1.5"/>
+      <text x="90" y="43" text-anchor="middle" fill="#10b981" font-size="12" font-weight="700">Region</text>
+      <text x="90" y="60" text-anchor="middle" fill="#475569" font-size="10">ltree path hierarchy</text>
+      <text x="90" y="72" text-anchor="middle" fill="#475569" font-size="9">root→org→state→district→facility</text>
+
+      <!-- ── ORGANIZATION (top) ── -->
+      <rect x="210" y="20" width="120" height="44" rx="8" fill="#0e1328" stroke="#06b6d4" stroke-width="1"/>
+      <text x="270" y="40" text-anchor="middle" fill="#06b6d4" font-size="12" font-weight="700">Organization</text>
+      <text x="270" y="56" text-anchor="middle" fill="#475569" font-size="10">NHM, icddr,b etc.</text>
+
+      <!-- ── FACILITY (left-center) ── -->
+      <rect x="20" y="130" width="140" height="44" rx="8" fill="#0e1328" stroke="#14b8a6" stroke-width="1.5"/>
+      <text x="90" y="150" text-anchor="middle" fill="#14b8a6" font-size="12" font-weight="700">Facility</text>
+      <text x="90" y="167" text-anchor="middle" fill="#475569" font-size="10">health center (320 LOC)</text>
+
+      <!-- Region → Facility -->
+      <line x1="90" y1="76" x2="90" y2="130" stroke="#10b981" stroke-width="1.5" stroke-dasharray="4,3" marker-end="url(#arr-green)" opacity="0.6"/>
+
+      <!-- ── PATIENT (CENTER — the hub) ── -->
+      <rect x="340" y="220" width="160" height="60" rx="10" fill="#0b1530" stroke="#3b82f6" stroke-width="2.5" filter="url(#glow-blue)"/>
+      <text x="420" y="246" text-anchor="middle" fill="#3b82f6" font-size="14" font-weight="800">Patient</text>
+      <text x="420" y="262" text-anchor="middle" fill="#94a3b8" font-size="10">255 LOC · hub model</text>
+      <text x="420" y="274" text-anchor="middle" fill="#475569" font-size="9">active/dead/migrated/inactive</text>
+
+      <!-- ── BLOOD PRESSURE (top right) ── -->
+      <rect x="580" y="80" width="150" height="44" rx="8" fill="#0e1328" stroke="#ef4444" stroke-width="1.5"/>
+      <text x="655" y="100" text-anchor="middle" fill="#ef4444" font-size="12" font-weight="700">BloodPressure</text>
+      <text x="655" y="117" text-anchor="middle" fill="#475569" font-size="10">systolic/diastolic · critical?</text>
+
+      <!-- Patient → Blood Pressure -->
+      <path d="M500,240 Q560,160 580,102" stroke="#ef4444" stroke-width="1.5" fill="none" marker-end="url(#arr-blue)" opacity="0.7"/>
+      <text x="560" y="180" fill="#475569" font-size="9" font-style="italic">has_many</text>
+
+      <!-- ── BLOOD SUGAR (right) ── -->
+      <rect x="720" y="160" width="150" height="44" rx="8" fill="#0e1328" stroke="#f59e0b" stroke-width="1"/>
+      <text x="795" y="180" text-anchor="middle" fill="#f59e0b" font-size="12" font-weight="700">BloodSugar</text>
+      <text x="795" y="197" text-anchor="middle" fill="#475569" font-size="10">HbA1c · fasting · diabetic?</text>
+
+      <!-- Patient → Blood Sugar -->
+      <path d="M500,240 Q640,200 720,182" stroke="#f59e0b" stroke-width="1.5" fill="none" marker-end="url(#arr-amber)" opacity="0.7"/>
+
+      <!-- ── APPOINTMENT (right lower) ── -->
+      <rect x="620" y="300" width="150" height="44" rx="8" fill="#0e1328" stroke="#8b5cf6" stroke-width="1.5"/>
+      <text x="695" y="320" text-anchor="middle" fill="#8b5cf6" font-size="12" font-weight="700">Appointment</text>
+      <text x="695" y="337" text-anchor="middle" fill="#475569" font-size="10">176 LOC · overdue? · SMS</text>
+
+      <!-- Patient → Appointment -->
+      <line x1="500" y1="255" x2="620" y2="322" stroke="#8b5cf6" stroke-width="1.5" marker-end="url(#arr-purple)" opacity="0.7"/>
+      <text x="570" y="290" fill="#475569" font-size="9" font-style="italic">has_many</text>
+
+      <!-- ── MEDICAL HISTORY (top center) ── -->
+      <rect x="330" y="80" width="150" height="44" rx="8" fill="#0e1328" stroke="#06b6d4" stroke-width="1"/>
+      <text x="405" y="100" text-anchor="middle" fill="#06b6d4" font-size="12" font-weight="700">MedicalHistory</text>
+      <text x="405" y="117" text-anchor="middle" fill="#475569" font-size="10">HTN/DM diagnosis · risk</text>
+
+      <!-- Patient → Medical History -->
+      <line x1="405" y1="220" x2="405" y2="124" stroke="#06b6d4" stroke-width="1.5" marker-end="url(#arr-cyan)" opacity="0.7"/>
+      <text x="415" y="180" fill="#475569" font-size="9" font-style="italic">has_one</text>
+
+      <!-- ── PRESCRIPTION DRUG (bottom center) ── -->
+      <rect x="330" y="380" width="150" height="44" rx="8" fill="#0e1328" stroke="#10b981" stroke-width="1"/>
+      <text x="405" y="400" text-anchor="middle" fill="#10b981" font-size="12" font-weight="700">PrescriptionDrug</text>
+      <text x="405" y="417" text-anchor="middle" fill="#475569" font-size="10">protocol · is_deleted · dosage</text>
+
+      <!-- Patient → Prescription Drug -->
+      <line x1="405" y1="280" x2="405" y2="380" stroke="#10b981" stroke-width="1.5" marker-end="url(#arr-green)" opacity="0.7"/>
+
+      <!-- ── ENCOUNTER (bottom left) ── -->
+      <rect x="160" y="380" width="140" height="44" rx="8" fill="#0e1328" stroke="#ec4899" stroke-width="1"/>
+      <text x="230" y="400" text-anchor="middle" fill="#ec4899" font-size="12" font-weight="700">Encounter</text>
+      <text x="230" y="417" text-anchor="middle" fill="#475569" font-size="10">links obs to patient+facility</text>
+
+      <!-- Patient → Encounter -->
+      <path d="M380,280 Q300,320 300,402" stroke="#ec4899" stroke-width="1.5" fill="none" marker-end="url(#arr-pink)" opacity="0.7"/>
+
+      <!-- ── USER (bottom right) ── -->
+      <rect x="620" y="440" width="120" height="44" rx="8" fill="#0e1328" stroke="#3b82f6" stroke-width="1"/>
+      <text x="680" y="460" text-anchor="middle" fill="#3b82f6" font-size="12" font-weight="700">User</text>
+      <text x="680" y="477" text-anchor="middle" fill="#475569" font-size="10">health worker · OTP auth</text>
+
+      <!-- Patient → User (registration) -->
+      <path d="M500,270 Q580,360 620,462" stroke="#3b82f6" stroke-width="1" fill="none" stroke-dasharray="4,3" marker-end="url(#arr-blue)" opacity="0.5"/>
+      <text x="570" y="380" fill="#475569" font-size="9" font-style="italic">registered_by</text>
+
+      <!-- ── NOTIFICATION (bottom far right) ── -->
+      <rect x="760" y="380" width="120" height="44" rx="8" fill="#0e1328" stroke="#14b8a6" stroke-width="1"/>
+      <text x="820" y="400" text-anchor="middle" fill="#14b8a6" font-size="12" font-weight="700">Notification</text>
+      <text x="820" y="417" text-anchor="middle" fill="#475569" font-size="10">SMS reminders · whatsapp</text>
+
+      <!-- Patient → Notification -->
+      <path d="M500,260 Q680,300 760,400" stroke="#14b8a6" stroke-width="1" fill="none" marker-end="url(#arr-cyan)" opacity="0.5"/>
+
+      <!-- ── FACILITY → PATIENT ── -->
+      <path d="M160,152 Q220,190 340,240" stroke="#14b8a6" stroke-width="1.5" fill="none" stroke-dasharray="4,3" marker-end="url(#arr-cyan)" opacity="0.5"/>
+      <text x="200" y="205" fill="#475569" font-size="9" font-style="italic">registration_facility</text>
+
+      <!-- ── EXPERIMENT (far left bottom) ── -->
+      <rect x="20" y="380" width="120" height="44" rx="8" fill="#0e1328" stroke="#ec4899" stroke-width="1" stroke-dasharray="4,2"/>
+      <text x="80" y="400" text-anchor="middle" fill="#ec4899" font-size="11" font-weight="700">Experiment</text>
+      <text x="80" y="417" text-anchor="middle" fill="#475569" font-size="10">SMS A/B treatment</text>
+
+      <!-- Patient → Experiment (via treatment group) -->
+      <path d="M340,270 Q200,310 140,400" stroke="#ec4899" stroke-width="1" fill="none" stroke-dasharray="4,3" opacity="0.4"/>
+
+      <!-- ── LEGEND ── -->
+      <rect x="20" y="490" width="380" height="60" rx="6" fill="#0b0f1e" stroke="#1e2d50" stroke-width="1"/>
+      <text x="32" y="510" fill="#475569" font-size="10" font-weight="700">LEGEND</text>
+      <line x1="32" y1="525" x2="70" y2="525" stroke="#3b82f6" stroke-width="1.5" marker-end="url(#arr-blue)"/>
+      <text x="76" y="528" fill="#475569" font-size="9">has_many / belongs_to</text>
+      <line x1="32" y1="540" x2="70" y2="540" stroke="#3b82f6" stroke-width="1.5" stroke-dasharray="4,3" marker-end="url(#arr-blue)"/>
+      <text x="76" y="543" fill="#475569" font-size="9">optional / indirect association</text>
+      <rect x="180" y="516" width="10" height="10" rx="2" fill="#0b1530" stroke="#3b82f6" stroke-width="2"/>
+      <text x="196" y="527" fill="#3b82f6" font-size="9" font-weight="700">thick border = core model</text>
+    </svg>
+  </div>
+
+  <!-- Key associations in code form -->
+  <div class="grid-2" style="gap: 20px;">
+    <div class="card">
+      <div class="card-title">Patient — Full Association Surface</div>
+      <pre><span class="cm"># Patient is the hub — every record hangs off it</span>
+<span class="kw">class</span> <span class="cls">Patient</span> &lt; ApplicationRecord
+  <span class="kw">include</span> Mergeable        <span class="cm"># conflict resolution</span>
+  <span class="kw">include</span> Hashable         <span class="cm"># anonymized exports</span>
+  <span class="kw">include</span> PatientReportable
+
+  <span class="cm"># Clinical records</span>
+  has_many <span class="sym">:blood_pressures</span>
+  has_many <span class="sym">:blood_sugars</span>
+  has_many <span class="sym">:prescription_drugs</span>
+  has_one  <span class="sym">:medical_history</span>
+  has_many <span class="sym">:encounters</span>
+  has_many <span class="sym">:observations</span>, through: <span class="sym">:encounters</span>
+
+  <span class="cm"># Scheduling</span>
+  has_many <span class="sym">:appointments</span>
+  has_many <span class="sym">:notifications</span>
+  has_many <span class="sym">:call_results</span>
+
+  <span class="cm"># Teleconsult</span>
+  has_many <span class="sym">:teleconsultations</span>
+
+  <span class="cm"># Identity</span>
+  has_many <span class="sym">:phone_numbers</span>
+  has_many <span class="sym">:business_identifiers</span>
+  belongs_to <span class="sym">:address</span>, optional: true
+
+  <span class="cm"># Facilities (dual: registration + assigned)</span>
+  belongs_to <span class="sym">:registration_facility</span>
+  belongs_to <span class="sym">:assigned_facility</span>
+
+  <span class="cm"># Experimentation</span>
+  has_many <span class="sym">:treatment_group_memberships</span>
+  has_many <span class="sym">:treatment_groups</span>
+  has_many <span class="sym">:experiments</span>
+<span class="kw">end</span></pre>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Sync Concern — Mergeable</div>
+      <pre><span class="cm"># The key concern for offline-first sync.
+# Every syncable model includes this.
+# Handles: conflict resolution, soft deletes,
+# device timestamps vs server timestamps.</span>
+
+<span class="kw">module</span> <span class="cls">Mergeable</span>
+  <span class="cm"># device_created_at: when recorded on device
+  # device_updated_at: last update on device
+  # recorded_at:       clinical timestamp
+  # deleted_at:        soft delete (Discard)</span>
+</pre>
+
+      <div class="callout callout-blue" style="margin-top: 12px;">
+        <strong>Sync protocol design:</strong> Clients POST local records with device timestamps.
+        Server resolves conflicts using <code>device_updated_at</code> — last writer wins per record.
+        GET /sync returns records changed since a <code>process_token</code> (cursor-based pagination).
+      </div>
+    </div>
+  </div>
+
+</div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     API DESIGN
+═══════════════════════════════════════════════════════════ -->
+<div id="api" class="section">
+<div class="container">
+
+  <div class="layer-badge lb-2">API Surface</div>
+  <h2 class="section-heading">Mobile API Design</h2>
+  <p class="section-desc">
+    Simple Server exposes two versioned API namespaces for the Android mobile app. v3 is the stable
+    production API. v4 extends it with teleconsultations, CVD risk, questionnaires, and patient-facing
+    features. v1 and v2 are permanently deprecated (HTTP 410). The sync protocol is the architectural core.
+  </p>
+
+  <div class="grid-2" style="margin-bottom: 32px; gap: 20px;">
+
+    <div class="card">
+      <div class="card-title">API v3 — Core Sync (Stable)</div>
+      <div style="margin-top: 10px; display: flex; flex-direction: column; gap: 6px;">
+
+        <div class="flow-step" style="padding: 10px 0; border-bottom: 1px solid #0e1328;">
+          <div style="font-family: var(--font-mono); font-size: 11px; color: var(--neon-green); width: 80px; flex-shrink: 0;">POST /login</div>
+          <div style="font-size: 12px; color: var(--text-secondary);">OTP authentication for health workers</div>
+        </div>
+
+        <div class="flow-step" style="padding: 10px 0; border-bottom: 1px solid #0e1328;">
+          <div style="font-family: var(--font-mono); font-size: 11px; color: var(--neon-cyan); width: 80px; flex-shrink: 0;">GET/POST /patients/sync</div>
+          <div style="font-size: 12px; color: var(--text-secondary);">Bidirectional patient sync with cursor pagination</div>
+        </div>
+
+        <div class="flow-step" style="padding: 10px 0; border-bottom: 1px solid #0e1328;">
+          <div style="font-family: var(--font-mono); font-size: 11px; color: var(--neon-cyan); width: 80px; flex-shrink: 0;">GET/POST /blood_pressures/sync</div>
+          <div style="font-size: 12px; color: var(--text-secondary);">BP readings sync — the primary clinical data</div>
+        </div>
+
+        <div class="flow-step" style="padding: 10px 0; border-bottom: 1px solid #0e1328;">
+          <div style="font-family: var(--font-mono); font-size: 11px; color: var(--neon-cyan); width: 80px; flex-shrink: 0;">GET/POST /appointments/sync</div>
+          <div style="font-size: 12px; color: var(--text-secondary);">Scheduled visits — drives overdue lists</div>
+        </div>
+
+        <div class="flow-step" style="padding: 10px 0; border-bottom: 1px solid #0e1328;">
+          <div style="font-family: var(--font-mono); font-size: 11px; color: var(--neon-cyan); width: 80px; flex-shrink: 0;">GET/POST /medical_histories/sync</div>
+          <div style="font-size: 12px; color: var(--text-secondary);">HTN/DM diagnosis history</div>
+        </div>
+
+        <div class="flow-step" style="padding: 10px 0; border-bottom: 1px solid #0e1328;">
+          <div style="font-family: var(--font-mono); font-size: 11px; color: var(--neon-cyan); width: 80px; flex-shrink: 0;">GET/POST /prescription_drugs/sync</div>
+          <div style="font-size: 12px; color: var(--text-secondary);">Current medication list</div>
+        </div>
+
+        <div class="flow-step" style="padding: 10px 0; border-bottom: 1px solid #0e1328;">
+          <div style="font-family: var(--font-mono); font-size: 11px; color: var(--neon-blue); width: 80px; flex-shrink: 0;">GET /facilities/sync</div>
+          <div style="font-size: 12px; color: var(--text-secondary);">Facility list (read-only from device)</div>
+        </div>
+
+        <div class="flow-step" style="padding: 10px 0; border-bottom: 1px solid #0e1328;">
+          <div style="font-family: var(--font-mono); font-size: 11px; color: var(--neon-blue); width: 80px; flex-shrink: 0;">GET /protocols/sync</div>
+          <div style="font-size: 12px; color: var(--text-secondary);">Treatment protocol drugs</div>
+        </div>
+
+        <div class="flow-step" style="padding: 10px 0;">
+          <div style="font-family: var(--font-mono); font-size: 11px; color: var(--neon-amber); width: 80px; flex-shrink: 0;">GET/POST /encounters/sync</div>
+          <div style="font-size: 12px; color: var(--text-secondary);">Visit encounters (links observations to date+facility)</div>
+        </div>
+
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">API v4 — Extended (Current)</div>
+      <div style="margin-top: 10px; display: flex; flex-direction: column; gap: 6px;">
+
+        <div class="flow-step" style="padding: 10px 0; border-bottom: 1px solid #0e1328;">
+          <div style="font-family: var(--font-mono); font-size: 11px; color: var(--neon-purple); width: 90px; flex-shrink: 0;">GET/POST /blood_sugars/sync</div>
+          <div style="font-size: 12px; color: var(--text-secondary);">Diabetes-specific: HbA1c, fasting, random BS</div>
+        </div>
+
+        <div class="flow-step" style="padding: 10px 0; border-bottom: 1px solid #0e1328;">
+          <div style="font-family: var(--font-mono); font-size: 11px; color: var(--neon-purple); width: 90px; flex-shrink: 0;">GET/POST /cvd_risks/sync</div>
+          <div style="font-size: 12px; color: var(--text-secondary);">Cardiovascular risk scores</div>
+        </div>
+
+        <div class="flow-step" style="padding: 10px 0; border-bottom: 1px solid #0e1328;">
+          <div style="font-family: var(--font-mono); font-size: 11px; color: var(--neon-purple); width: 90px; flex-shrink: 0;">POST /teleconsultations/sync</div>
+          <div style="font-size: 12px; color: var(--text-secondary);">Telemedicine consultations via Exotel</div>
+        </div>
+
+        <div class="flow-step" style="padding: 10px 0; border-bottom: 1px solid #0e1328;">
+          <div style="font-family: var(--font-mono); font-size: 11px; color: var(--neon-pink); width: 90px; flex-shrink: 0;">GET/POST /questionnaires/sync</div>
+          <div style="font-size: 12px; color: var(--text-secondary);">Dynamic questionnaire forms (drug stock, monthly supply)</div>
+        </div>
+
+        <div class="flow-step" style="padding: 10px 0; border-bottom: 1px solid #0e1328;">
+          <div style="font-family: var(--font-mono); font-size: 11px; color: var(--neon-pink); width: 90px; flex-shrink: 0;">GET/POST /patient_attributes/sync</div>
+          <div style="font-size: 12px; color: var(--text-secondary);">Extended patient metadata</div>
+        </div>
+
+        <div class="flow-step" style="padding: 10px 0; border-bottom: 1px solid #0e1328;">
+          <div style="font-family: var(--font-mono); font-size: 11px; color: var(--neon-teal); width: 90px; flex-shrink: 0;">POST /patients/lookup</div>
+          <div style="font-size: 12px; color: var(--text-secondary);">Find patient by BP passport (QR code scan)</div>
+        </div>
+
+        <div class="flow-step" style="padding: 10px 0; border-bottom: 1px solid #0e1328;">
+          <div style="font-family: var(--font-mono); font-size: 11px; color: var(--neon-teal); width: 90px; flex-shrink: 0;">GET/POST /call_results/sync</div>
+          <div style="font-size: 12px; color: var(--text-secondary);">Overdue call outcomes recorded by counsellors</div>
+        </div>
+
+        <div class="flow-step" style="padding: 10px 0; border-bottom: 1px solid #0e1328;">
+          <div style="font-family: var(--font-mono); font-size: 11px; color: var(--neon-amber); width: 90px; flex-shrink: 0;">GET /drug_stocks</div>
+          <div style="font-size: 12px; color: var(--text-secondary);">Facility drug inventory (read)</div>
+        </div>
+
+        <div class="flow-step" style="padding: 10px 0;">
+          <div style="font-family: var(--font-mono); font-size: 11px; color: var(--neon-red); width: 90px; flex-shrink: 0;">POST /import</div>
+          <div style="font-size: 12px; color: var(--text-secondary);">Bulk patient import (CPHC/DHIS2 migration)</div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- Sync Protocol Flow -->
+  <div class="section-title">Sync Protocol — How It Works</div>
+  <div class="card" style="margin-top: 16px;">
+
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
+      <div>
+        <div style="font-size: 13px; font-weight: 700; margin-bottom: 12px; color: var(--text-primary);">Upload Flow (Device → Server)</div>
+
+        <div class="flow-step">
+          <div class="flow-num" style="background: #1e3a5f44; color: var(--neon-blue); border-color: var(--neon-blue);">1</div>
+          <div class="flow-body">
+            <div class="flow-name">Device collects records offline</div>
+            <div class="flow-detail">Blood pressures, appointments, patients written to local SQLite while offline</div>
+          </div>
+        </div>
+
+        <div class="flow-step">
+          <div class="flow-num" style="background: #1e3a5f44; color: var(--neon-cyan); border-color: var(--neon-cyan);">2</div>
+          <div class="flow-body">
+            <div class="flow-name">POST /patients/sync</div>
+            <div class="flow-detail">Batch of records sent with <code>device_created_at</code>, <code>device_updated_at</code>, UUID identifiers</div>
+          </div>
+        </div>
+
+        <div class="flow-step">
+          <div class="flow-num" style="background: #14532d44; color: var(--neon-green); border-color: var(--neon-green);">3</div>
+          <div class="flow-body">
+            <div class="flow-name">MergePatientService resolves conflicts</div>
+            <div class="flow-detail">Last <code>device_updated_at</code> wins. Soft-deleted records preserved with <code>deleted_at</code>.</div>
+          </div>
+        </div>
+
+        <div class="flow-step">
+          <div class="flow-num" style="background: #4c1d9544; color: var(--neon-purple); border-color: var(--neon-purple);">4</div>
+          <div class="flow-body">
+            <div class="flow-name">Audit log written (async)</div>
+            <div class="flow-detail">CreateAuditLogsWorker queued in Sidekiq for compliance tracking</div>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div style="font-size: 13px; font-weight: 700; margin-bottom: 12px; color: var(--text-primary);">Download Flow (Server → Device)</div>
+
+        <div class="flow-step">
+          <div class="flow-num" style="background: #1e3a5f44; color: var(--neon-blue); border-color: var(--neon-blue);">1</div>
+          <div class="flow-body">
+            <div class="flow-name">GET /patients/sync?limit=100&amp;process_token=...</div>
+            <div class="flow-detail">Cursor-based pagination using opaque <code>process_token</code> (encoded timestamp)</div>
+          </div>
+        </div>
+
+        <div class="flow-step">
+          <div class="flow-num" style="background: #1e3a5f44; color: var(--neon-cyan); border-color: var(--neon-cyan);">2</div>
+          <div class="flow-body">
+            <div class="flow-name">Scope by facility region</div>
+            <div class="flow-detail">Returns patients registered or assigned within the health worker's block — not all patients</div>
+          </div>
+        </div>
+
+        <div class="flow-step">
+          <div class="flow-num" style="background: #14532d44; color: var(--neon-green); border-color: var(--neon-green);">3</div>
+          <div class="flow-body">
+            <div class="flow-name">Transforms + serializes</div>
+            <div class="flow-detail"><code>app/transformers/api/</code> converts Rails model to versioned API payload format</div>
+          </div>
+        </div>
+
+        <div class="flow-step">
+          <div class="flow-num" style="background: #4c1d9544; color: var(--neon-purple); border-color: var(--neon-purple);">4</div>
+          <div class="flow-body">
+            <div class="flow-name">Returns next process_token</div>
+            <div class="flow-detail">Client continues paging until empty result set, then considers sync complete</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="callout callout-green" style="margin-top: 20px;">
+      <strong>Historical sync tolerance (added 2026-01):</strong> <code>sc-17557</code> added the ability to accept
+      invalid app data in historical sync APIs — an acknowledgment that real-world devices send malformed
+      records and the server must be resilient rather than rejecting data from patients' clinical histories.
+    </div>
+  </div>
+
+  <!-- Deprecated versions notice -->
+  <div style="margin-top: 20px;" class="callout callout-amber">
+    <strong>API v1 + v2 are gone.</strong> Both namespaces return HTTP 410 Gone for all routes.
+    The codebase is explicit: <code>match "*all", via: [:get, :post, :put, :delete, :patch], to: proc { [410, {}, [""]] }</code>.
+    Maintains clean version history without dead code accumulation.
+  </div>
+
+</div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     L5 · GIT EVOLUTION
+═══════════════════════════════════════════════════════════ -->
+<div id="evolution" class="section">
+<div class="container">
+
+  <div class="layer-badge lb-5">L5 · Git Evolution</div>
+  <h2 class="section-heading">What Changes in a Production Medical App</h2>
+  <p class="section-desc">
+    This snapshot covers 50 commits from September 2025 through February 2026. The signal is clear:
+    the Dr. Rai facility performance module is the active frontier. The database schema is the permanent
+    hotspot (as expected in a PostgreSQL-heavy app). Patient deduplication resurfaces regularly. Mobile sync
+    edge cases keep appearing.
+  </p>
+
+  <!-- Commit velocity chart -->
+  <div class="grid-2" style="margin-bottom: 32px; gap: 20px;">
+    <div class="card">
+      <div class="card-title">Monthly Commit Velocity</div>
+      <div class="velocity-chart">
+        <!-- Sep: 18, Oct: 9, Nov: 5, Dec: 3, Jan: 10, Feb: 5 — max = 18 -->
+        <div class="vel-bar-wrap">
+          <div class="vel-bar" style="height: calc(18/18 * 80px);"></div>
+          <div class="vel-count">18</div>
+          <div class="vel-label">Sep</div>
+        </div>
+        <div class="vel-bar-wrap">
+          <div class="vel-bar" style="height: calc(9/18 * 80px); background: linear-gradient(180deg, #8b5cf6, #06b6d4);"></div>
+          <div class="vel-count">9</div>
+          <div class="vel-label">Oct</div>
+        </div>
+        <div class="vel-bar-wrap">
+          <div class="vel-bar" style="height: calc(5/18 * 80px); background: linear-gradient(180deg, #10b981, #06b6d4);"></div>
+          <div class="vel-count">5</div>
+          <div class="vel-label">Nov</div>
+        </div>
+        <div class="vel-bar-wrap">
+          <div class="vel-bar" style="height: calc(3/18 * 80px); background: linear-gradient(180deg, #f59e0b, #10b981);"></div>
+          <div class="vel-count">3</div>
+          <div class="vel-label">Dec</div>
+        </div>
+        <div class="vel-bar-wrap">
+          <div class="vel-bar" style="height: calc(10/18 * 80px); background: linear-gradient(180deg, #ec4899, #8b5cf6);"></div>
+          <div class="vel-count">10</div>
+          <div class="vel-label">Jan</div>
+        </div>
+        <div class="vel-bar-wrap">
+          <div class="vel-bar" style="height: calc(5/18 * 80px); background: linear-gradient(180deg, #ef4444, #f59e0b);"></div>
+          <div class="vel-count">5</div>
+          <div class="vel-label">Feb</div>
+        </div>
+      </div>
+      <div style="margin-top: 16px; font-size: 11px; color: var(--text-dim); font-family: var(--font-mono);">
+        2025-09 through 2026-02 · 50 total commits in snapshot
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Commit Category Breakdown</div>
+      <div style="margin-top: 12px; display: flex; flex-direction: column; gap: 8px;">
+
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <div style="font-size: 11px; font-family: var(--font-mono); color: var(--text-dim); width: 140px; flex-shrink: 0;">Dr. Rai Reports</div>
+          <div style="flex: 1; height: 8px; background: var(--border); border-radius: 4px; overflow: hidden;">
+            <div style="height: 100%; width: calc(12/15 * 100%); background: linear-gradient(90deg, var(--neon-blue), var(--neon-cyan)); border-radius: 4px;"></div>
+          </div>
+          <div style="font-family: var(--font-mono); font-size: 11px; color: var(--neon-cyan); width: 24px; text-align: right;">12</div>
+        </div>
+
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <div style="font-size: 11px; font-family: var(--font-mono); color: var(--text-dim); width: 140px; flex-shrink: 0;">Other / Infra</div>
+          <div style="flex: 1; height: 8px; background: var(--border); border-radius: 4px; overflow: hidden;">
+            <div style="height: 100%; width: calc(15/15 * 100%); background: linear-gradient(90deg, #334155, #475569); border-radius: 4px;"></div>
+          </div>
+          <div style="font-family: var(--font-mono); font-size: 11px; color: var(--text-secondary); width: 24px; text-align: right;">15</div>
+        </div>
+
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <div style="font-size: 11px; font-family: var(--font-mono); color: var(--text-dim); width: 140px; flex-shrink: 0;">Reporting Engine</div>
+          <div style="flex: 1; height: 8px; background: var(--border); border-radius: 4px; overflow: hidden;">
+            <div style="height: 100%; width: calc(6/15 * 100%); background: linear-gradient(90deg, var(--neon-amber), var(--neon-green)); border-radius: 4px;"></div>
+          </div>
+          <div style="font-family: var(--font-mono); font-size: 11px; color: var(--neon-amber); width: 24px; text-align: right;">6</div>
+        </div>
+
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <div style="font-size: 11px; font-family: var(--font-mono); color: var(--text-dim); width: 140px; flex-shrink: 0;">Mobile Sync</div>
+          <div style="flex: 1; height: 8px; background: var(--border); border-radius: 4px; overflow: hidden;">
+            <div style="height: 100%; width: calc(4/15 * 100%); background: linear-gradient(90deg, var(--neon-purple), var(--neon-blue)); border-radius: 4px;"></div>
+          </div>
+          <div style="font-family: var(--font-mono); font-size: 11px; color: var(--neon-purple); width: 24px; text-align: right;">4</div>
+        </div>
+
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <div style="font-size: 11px; font-family: var(--font-mono); color: var(--text-dim); width: 140px; flex-shrink: 0;">Patient Management</div>
+          <div style="flex: 1; height: 8px; background: var(--border); border-radius: 4px; overflow: hidden;">
+            <div style="height: 100%; width: calc(4/15 * 100%); background: linear-gradient(90deg, var(--neon-pink), var(--neon-purple)); border-radius: 4px;"></div>
+          </div>
+          <div style="font-family: var(--font-mono); font-size: 11px; color: var(--neon-pink); width: 24px; text-align: right;">4</div>
+        </div>
+
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <div style="font-size: 11px; font-family: var(--font-mono); color: var(--text-dim); width: 140px; flex-shrink: 0;">Bug Fixes</div>
+          <div style="flex: 1; height: 8px; background: var(--border); border-radius: 4px; overflow: hidden;">
+            <div style="height: 100%; width: calc(5/15 * 100%); background: linear-gradient(90deg, var(--neon-red), var(--neon-amber)); border-radius: 4px;"></div>
+          </div>
+          <div style="font-family: var(--font-mono); font-size: 11px; color: var(--neon-red); width: 24px; text-align: right;">5</div>
+        </div>
+
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <div style="font-size: 11px; font-family: var(--font-mono); color: var(--text-dim); width: 140px; flex-shrink: 0;">Deduplication</div>
+          <div style="flex: 1; height: 8px; background: var(--border); border-radius: 4px; overflow: hidden;">
+            <div style="height: 100%; width: calc(2/15 * 100%); background: linear-gradient(90deg, var(--neon-teal), var(--neon-cyan)); border-radius: 4px;"></div>
+          </div>
+          <div style="font-family: var(--font-mono); font-size: 11px; color: var(--neon-teal); width: 24px; text-align: right;">2</div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- Hotspot Table -->
+  <div class="section-title" style="margin-bottom: 16px;">File Hotspots — by Commit Frequency</div>
+  <div class="card" style="padding: 0; overflow: hidden;">
+    <table class="hotspot-table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>File Path</th>
+          <th>Domain</th>
+          <th>Heat</th>
+          <th>Why It Changes</th>
+        </tr>
+      </thead>
+      <tbody>
+
+        <tr>
+          <td style="font-family: var(--font-mono); font-size: 12px; color: var(--text-dim);">1</td>
+          <td class="path-cell">
+            <span class="path-dir">db/</span><span class="path-file" style="color: var(--neon-red);">structure.sql</span>
+          </td>
+          <td><span class="domain-tag" style="background: #ef444422; color: var(--neon-red); border: 1px solid #ef444444;">Database</span></td>
+          <td>
+            <div class="heat-bar">
+              <div class="heat-bar-bg"><div class="heat-bar-fill" style="width: 100%;"></div></div>
+              <span class="heat-count">11</span>
+            </div>
+          </td>
+          <td style="font-size: 11px; color: var(--text-secondary);">Every schema migration regenerates this. PostgreSQL-specific: ltree, partitioned tables, materialized views, custom functions — cannot use schema.rb.</td>
+        </tr>
+
+        <tr>
+          <td style="font-family: var(--font-mono); font-size: 12px; color: var(--text-dim);">2</td>
+          <td class="path-cell">
+            <span class="path-dir">lib/tasks/</span><span class="path-file">reporting.rake</span>
+          </td>
+          <td><span class="domain-tag" style="background: #f59e0b22; color: var(--neon-amber); border: 1px solid #f59e0b44;">Reporting</span></td>
+          <td>
+            <div class="heat-bar">
+              <div class="heat-bar-bg"><div class="heat-bar-fill" style="width: calc(4/11 * 100%);"></div></div>
+              <span class="heat-count">4</span>
+            </div>
+          </td>
+          <td style="font-size: 11px; color: var(--text-secondary);">Materialized view refresh orchestration. As partitioned tables replace mat views, this task evolves with each architectural shift.</td>
+        </tr>
+
+        <tr>
+          <td style="font-family: var(--font-mono); font-size: 12px; color: var(--text-dim);">3</td>
+          <td class="path-cell">
+            <span class="path-dir">app/models/dr_rai/</span><span class="path-file">indicator.rb</span>
+          </td>
+          <td><span class="domain-tag" style="background: #3b82f622; color: var(--neon-blue); border: 1px solid #3b82f644;">Dr. Rai</span></td>
+          <td>
+            <div class="heat-bar">
+              <div class="heat-bar-bg"><div class="heat-bar-fill" style="width: calc(4/11 * 100%);"></div></div>
+              <span class="heat-count">4</span>
+            </div>
+          </td>
+          <td style="font-size: 11px; color: var(--text-secondary);">Core indicator logic evolving rapidly. New indicator types (BP fudging, titration, statins) added each sprint.</td>
+        </tr>
+
+        <tr>
+          <td style="font-family: var(--font-mono); font-size: 12px; color: var(--text-dim);">4</td>
+          <td class="path-cell">
+            <span class="path-dir">app/components/dashboard/</span><span class="path-file">dr_rai_report.html.erb</span>
+          </td>
+          <td><span class="domain-tag" style="background: #3b82f622; color: var(--neon-blue); border: 1px solid #3b82f644;">Dr. Rai</span></td>
+          <td>
+            <div class="heat-bar">
+              <div class="heat-bar-bg"><div class="heat-bar-fill" style="width: calc(4/11 * 100%);"></div></div>
+              <span class="heat-count">4</span>
+            </div>
+          </td>
+          <td style="font-size: 11px; color: var(--text-secondary);">UI component for facility report dashboard. Redesigned multiple times as the feature matures.</td>
+        </tr>
+
+        <tr>
+          <td style="font-family: var(--font-mono); font-size: 12px; color: var(--text-dim);">5</td>
+          <td class="path-cell">
+            <span class="path-dir">app/assets/stylesheets/</span><span class="path-file">dr_rai.scss</span>
+          </td>
+          <td><span class="domain-tag" style="background: #3b82f622; color: var(--neon-blue); border: 1px solid #3b82f644;">Dr. Rai</span></td>
+          <td>
+            <div class="heat-bar">
+              <div class="heat-bar-bg"><div class="heat-bar-fill" style="width: calc(4/11 * 100%);"></div></div>
+              <span class="heat-count">4</span>
+            </div>
+          </td>
+          <td style="font-size: 11px; color: var(--text-secondary);">Styles co-evolve with the report UI redesigns.</td>
+        </tr>
+
+        <tr>
+          <td style="font-family: var(--font-mono); font-size: 12px; color: var(--text-dim);">6</td>
+          <td class="path-cell">
+            <span class="path-dir">app/models/reports/</span><span class="path-file">patient_state.rb</span>
+          </td>
+          <td><span class="domain-tag" style="background: #f59e0b22; color: var(--neon-amber); border: 1px solid #f59e0b44;">Reporting</span></td>
+          <td>
+            <div class="heat-bar">
+              <div class="heat-bar-bg"><div class="heat-bar-fill" style="width: calc(2/11 * 100%);"></div></div>
+              <span class="heat-count">2</span>
+            </div>
+          </td>
+          <td style="font-size: 11px; color: var(--text-secondary);">Patient state classification (controlled, uncontrolled, lost to follow-up) being migrated from materialized view to partitioned table.</td>
+        </tr>
+
+        <tr>
+          <td style="font-family: var(--font-mono); font-size: 12px; color: var(--text-dim);">7</td>
+          <td class="path-cell">
+            <span class="path-dir">app/models/reports/</span><span class="path-file">facility_monthly_follow_up_and_registration.rb</span>
+          </td>
+          <td><span class="domain-tag" style="background: #f59e0b22; color: var(--neon-amber); border: 1px solid #f59e0b44;">Reporting</span></td>
+          <td>
+            <div class="heat-bar">
+              <div class="heat-bar-bg"><div class="heat-bar-fill" style="width: calc(2/11 * 100%);"></div></div>
+              <span class="heat-count">2</span>
+            </div>
+          </td>
+          <td style="font-size: 11px; color: var(--text-secondary);">The materialized view for this was removed and replaced with a partitioned table — a major architectural shift in this snapshot window.</td>
+        </tr>
+
+        <tr>
+          <td style="font-family: var(--font-mono); font-size: 12px; color: var(--text-dim);">8</td>
+          <td class="path-cell">
+            <span class="path-dir">app/views/reports/regions/</span><span class="path-file">show.html.erb</span>
+          </td>
+          <td><span class="domain-tag" style="background: #8b5cf622; color: var(--neon-purple); border: 1px solid #8b5cf644;">Dashboard</span></td>
+          <td>
+            <div class="heat-bar">
+              <div class="heat-bar-bg"><div class="heat-bar-fill" style="width: calc(3/11 * 100%);"></div></div>
+              <span class="heat-count">3</span>
+            </div>
+          </td>
+          <td style="font-size: 11px; color: var(--text-secondary);">Main program manager dashboard view. HEARTS360 design updates, diabetes integration, goal line fixes.</td>
+        </tr>
+
+        <tr>
+          <td style="font-family: var(--font-mono); font-size: 12px; color: var(--text-dim);">9</td>
+          <td class="path-cell">
+            <span class="path-dir">config/</span><span class="path-file">schedule.rb</span>
+          </td>
+          <td><span class="domain-tag" style="background: #14b8a622; color: var(--neon-teal); border: 1px solid #14b8a644;">Infra</span></td>
+          <td>
+            <div class="heat-bar">
+              <div class="heat-bar-bg"><div class="heat-bar-fill" style="width: calc(2/11 * 100%);"></div></div>
+              <span class="heat-count">2</span>
+            </div>
+          </td>
+          <td style="font-size: 11px; color: var(--text-secondary);">Whenever/cron configuration. Changes as reporting refresh jobs shift from mat views to partitioned tables.</td>
+        </tr>
+
+        <tr>
+          <td style="font-family: var(--font-mono); font-size: 12px; color: var(--text-dim);">10</td>
+          <td class="path-cell">
+            <span class="path-dir">app/controllers/api/v4/</span><span class="path-file">legacy_data_dumps_controller.rb</span>
+          </td>
+          <td><span class="domain-tag" style="background: #06b6d422; color: var(--neon-cyan); border: 1px solid #06b6d444;">API</span></td>
+          <td>
+            <div class="heat-bar">
+              <div class="heat-bar-bg"><div class="heat-bar-fill" style="width: calc(2/11 * 100%);"></div></div>
+              <span class="heat-count">2</span>
+            </div>
+          </td>
+          <td style="font-size: 11px; color: var(--text-secondary);">External data export API for national health programs (SIMPLEBACK-45: error response format changes).</td>
+        </tr>
+
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Evolution Timeline -->
+  <div class="divider"></div>
+  <div class="section-title">Architectural Evolution Timeline</div>
+
+  <div class="timeline" style="margin-top: 24px; max-width: 720px;">
+
+    <div class="timeline-item">
+      <div class="tl-date">2025-09</div>
+      <div class="tl-title">Ruby &amp; Rails Upgrade + HEARTS360 Dashboard Redesign</div>
+      <div class="tl-detail">
+        <code>sc-16690</code> upgraded Ruby and Rails versions. Simultaneously, the diabetes management
+        dashboard was redesigned to follow WHO HEARTS360 visual standards. Dr. Rai reports new data
+        aggregation algorithms deployed.
+      </div>
+    </div>
+
+    <div class="timeline-item">
+      <div class="tl-date">2025-10</div>
+      <div class="tl-title">Reporting Performance: Materialized View → Partitioned Tables</div>
+      <div class="tl-detail">
+        Initial commit begins replacing <code>reporting_patient_states</code> materialized view with a
+        PostgreSQL partitioned table. This is a significant schema architecture change for query performance
+        at scale. Drug stocks page resilience fixes.
+      </div>
+    </div>
+
+    <div class="timeline-item">
+      <div class="tl-date">2025-11</div>
+      <div class="tl-title">Dr. Rai BP Fudging Indicator + CVD Risk Sync Fix</div>
+      <div class="tl-detail">
+        New indicator detects potential data quality issues (BP values being recorded incorrectly).
+        CVD risk sync and patient attributes sync both fixed retroactively — device data that had failed
+        to sync was reprocessed.
+      </div>
+    </div>
+
+    <div class="timeline-item">
+      <div class="tl-date">2025-12</div>
+      <div class="tl-title">Partitioned Reporting Refresh + Dr. Rai Target Decoupling</div>
+      <div class="tl-detail">
+        Partitioned table refresh cycle set to weekly. Dr. Rai indicators decoupled from ActionPlan
+        target periods, allowing more flexible goal-setting. Partition statement prevention initializer
+        added to avoid accidental schema leaks.
+      </div>
+    </div>
+
+    <div class="timeline-item">
+      <div class="tl-date">2026-01</div>
+      <div class="tl-title">Screening Phase 1 + Historical Sync Tolerance + Diagnosis Timestamps</div>
+      <div class="tl-detail">
+        Patient screening feature (Phase 1) introduced. Historical sync APIs updated to accept invalid
+        app data rather than rejecting it — critical for data completeness. Diagnosis date timestamps
+        added to medical histories and patient records.
+      </div>
+    </div>
+
+    <div class="timeline-item">
+      <div class="tl-date">2026-02</div>
+      <div class="tl-title">Deduplication Fixes + Legacy Data Dump API + Drug Summary Table</div>
+      <div class="tl-detail">
+        Deduplication pipeline fixed for duplicate immutable associations and active patient filtering.
+        Legacy data dump API improved with structured error objects (SIMPLEBACK-45). Drug consumption
+        summary table added to facility management.
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Key architectural shift callout -->
+  <div class="callout callout-purple" style="margin-top: 32px; max-width: 720px;">
+    <strong>The dominant architectural shift in this window:</strong> PostgreSQL materialized views
+    are being replaced by partitioned tables across the reporting layer. Materialized views require
+    a full refresh and are heavyweight. Partitioned tables allow incremental inserts and faster range
+    queries. This refactor touches <code>structure.sql</code>, <code>reporting.rake</code>,
+    <code>schedule.rb</code>, and multiple report model files simultaneously — explaining why those
+    files cluster at the top of the hotspot list.
+  </div>
+
+</div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     PATTERNS
+═══════════════════════════════════════════════════════════ -->
+<div id="patterns" class="section">
+<div class="container">
+
+  <div class="layer-badge lb-0">L4 · Patterns</div>
+  <h2 class="section-heading">Key Architectural Patterns</h2>
+  <p class="section-desc">
+    Simple Server uses a consistent set of architectural patterns that reflect the constraints of
+    deploying healthcare software in low-resource environments: unreliable connectivity, multi-country
+    contexts, data quality challenges, and the need for program managers to see meaningful health outcome
+    metrics without SQL access.
+  </p>
+
+  <div class="pattern-item">
+    <div class="pattern-icon">🔄</div>
+    <div class="pattern-body">
+      <div class="pattern-name c-cyan">Bidirectional Cursor-Based Sync</div>
+      <div class="pattern-desc">
+        Every syncable resource implements GET + POST at <code>/sync</code>. Upload uses device UUIDs and
+        timestamps to identify records. Download uses an opaque <code>process_token</code> cursor for
+        pagination. Conflict resolution is last-write-wins on <code>device_updated_at</code>.
+        This design handles offline-first mobile clients that may sync days after recording.
+        The <code>Mergeable</code> concern provides the conflict resolution logic.
+        The <code>Transformers::Api</code> and <code>Validators::Api</code> layers handle versioned
+        serialization and input validation cleanly separated from the domain model.
+      </div>
+      <div class="pattern-examples">
+        <span class="ex-tag">app/controllers/api/v3/sync_controller.rb</span>
+        <span class="ex-tag">app/models/concerns/mergeable.rb</span>
+        <span class="ex-tag">app/transformers/api/</span>
+        <span class="ex-tag">app/validators/api/</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="pattern-item">
+    <div class="pattern-icon">🌳</div>
+    <div class="pattern-body">
+      <div class="pattern-name c-green">PostgreSQL ltree for Organizational Hierarchy</div>
+      <div class="pattern-desc">
+        The Region model uses PostgreSQL's ltree extension to store organizational paths as strings
+        (e.g., <code>india.punjab.amritsar</code>). This enables efficient ancestor/descendant queries
+        using standard ltree operators, drives all access control decisions (admins see their subtree),
+        and scopes mobile sync (health workers download their block's patients). Every report is
+        parameterized on a Region path prefix. FriendlyId provides human-readable slugs for URLs.
+      </div>
+      <div class="pattern-examples">
+        <span class="ex-tag">app/models/region.rb</span>
+        <span class="ex-tag">app/models/facility_group.rb</span>
+        <span class="ex-tag">app/services/region_tree_service.rb</span>
+        <span class="ex-tag">db/structure.sql (ltree extension)</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="pattern-item">
+    <div class="pattern-icon">📈</div>
+    <div class="pattern-body">
+      <div class="pattern-name c-amber">Query Object Pattern</div>
+      <div class="pattern-desc">
+        Complex analytical SQL is extracted into dedicated Query Objects in <code>app/queries/</code>.
+        Each encapsulates a specific question: <em>Which patients are overdue?</em>
+        (<code>OverduePatientsQuery</code>), <em>What are the cohort follow-up rates?</em>
+        (<code>CohortAnalyticsQuery</code>), <em>How many follow-ups at each facility?</em>
+        (<code>FacilityAnalyticsQuery</code>). This keeps models clean and queries testable in isolation.
+      </div>
+      <div class="pattern-examples">
+        <span class="ex-tag">app/queries/overdue_patients_query.rb</span>
+        <span class="ex-tag">app/queries/cohort_analytics_query.rb</span>
+        <span class="ex-tag">app/queries/follow_ups_query.rb</span>
+        <span class="ex-tag">app/queries/district_analytics_query.rb</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="pattern-item">
+    <div class="pattern-icon">🗄</div>
+    <div class="pattern-body">
+      <div class="pattern-name c-purple">Materialized Views + Partitioned Tables for Analytics</div>
+      <div class="pattern-desc">
+        Program manager dashboards cannot run analytical queries in real-time across millions of patient
+        records. The solution: pre-compute everything. The <code>Reports::Refreshable</code> concern
+        marks models backed by materialized views or partitioned tables. A Sidekiq job
+        (<code>RefreshReportingPartitionedTableJob</code>) and Rake task (<code>reporting.rake</code>)
+        refresh them on schedule. Currently mid-migration from materialized views (heavyweight, full refresh)
+        to partitioned tables (incremental, query-efficient).
+      </div>
+      <div class="pattern-examples">
+        <span class="ex-tag">app/models/reports/refreshable.rb</span>
+        <span class="ex-tag">app/services/refresh_reporting_views.rb</span>
+        <span class="ex-tag">app/jobs/refresh_reporting_partitioned_table_job.rb</span>
+        <span class="ex-tag">lib/tasks/reporting.rake</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="pattern-item">
+    <div class="pattern-icon">🧪</div>
+    <div class="pattern-body">
+      <div class="pattern-name c-pink">Feature Flags via Flipper (Per-Region)</div>
+      <div class="pattern-desc">
+        The <code>Flipperable</code> concern exposes Flipper feature flags to the Region model.
+        Features can be enabled for specific organizations, states, or facilities. This is how
+        multi-country deployment is managed: diabetes management, experimental SMS providers,
+        Dr. Rai reports, and teleconsultation are all flag-gated. The admin can enable features
+        for Bangladesh without affecting India.
+      </div>
+      <div class="pattern-examples">
+        <span class="ex-tag">app/models/concerns/flipperable.rb</span>
+        <span class="ex-tag">app/helpers/flipper_helper.rb</span>
+        <span class="ex-tag">config/initializers/flipper.rb</span>
+        <span class="ex-tag">/flipper (Flipper::UI mounted)</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="pattern-item">
+    <div class="pattern-icon">🔀</div>
+    <div class="pattern-body">
+      <div class="pattern-name c-teal">Multi-Provider SMS Channel Abstraction</div>
+      <div class="pattern-desc">
+        SMS delivery is abstracted behind a <code>Messaging::Channel</code> interface with four
+        concrete implementations: Twilio (global), Alpha SMS (Bangladesh), BSNL (India), Mobitel
+        (Sri Lanka). The <code>NotificationDispatchService</code> selects the right provider based
+        on the patient's assigned facility region. Each provider has its own delivery detail model
+        for tracking. Experimenting on which SMS content improves appointment adherence is handled
+        by the <code>Experimentation</code> module.
+      </div>
+      <div class="pattern-examples">
+        <span class="ex-tag">app/services/messaging/channel.rb</span>
+        <span class="ex-tag">app/services/messaging/twilio/</span>
+        <span class="ex-tag">app/services/messaging/alpha_sms/</span>
+        <span class="ex-tag">app/services/notification_dispatch_service.rb</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="pattern-item">
+    <div class="pattern-icon">🔍</div>
+    <div class="pattern-body">
+      <div class="pattern-name c-blue">Patient Deduplication Pipeline</div>
+      <div class="pattern-desc">
+        Patients registered at multiple facilities with slightly different names or phone numbers
+        create duplicate records. The deduplication pipeline in <code>app/services/patient_deduplication/</code>
+        identifies likely duplicates using passport IDs (BP passport QR codes) and phone number matching.
+        <code>MergePatientService</code> merges clinical histories without data loss.
+        A <code>DeduplicationLog</code> tracks merged pairs. The admin panel exposes a manual deduplication
+        review UI. This is a recurring source of hotspot activity because real-world data is messy.
+      </div>
+      <div class="pattern-examples">
+        <span class="ex-tag">app/services/patient_deduplication/</span>
+        <span class="ex-tag">app/services/merge_patient_service.rb</span>
+        <span class="ex-tag">app/models/deduplication_log.rb</span>
+        <span class="ex-tag">app/controllers/admin/deduplicate_patients_controller.rb</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="pattern-item">
+    <div class="pattern-icon">📊</div>
+    <div class="pattern-body">
+      <div class="pattern-name c-red">ViewComponent for Dashboard Widgets</div>
+      <div class="pattern-desc">
+        The program manager dashboard uses GitHub's ViewComponent library for encapsulated UI components
+        in <code>app/components/</code>. The Dr. Rai report widget, diabetes registrations chart,
+        and progress tab are each independent ViewComponents with their own Ruby class and ERB template.
+        This replaces Rails partials with testable, encapsulated view logic.
+      </div>
+      <div class="pattern-examples">
+        <span class="ex-tag">app/components/application_component.rb</span>
+        <span class="ex-tag">app/components/dashboard/dr_rai_report.html.erb</span>
+        <span class="ex-tag">app/components/reports/</span>
+        <span class="ex-tag">app/components/progress_tab/</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- Anti-patterns / tech debt callout -->
+  <div class="section-title">Notable Technical Debt Signals</div>
+
+  <div style="margin-top: 16px; display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
+
+    <div class="callout callout-amber">
+      <strong>structure.sql is the bottleneck.</strong>
+      Every schema change regenerates the entire file (11 commits in 50). All developers see merge
+      conflicts in this file constantly. The PostgreSQL-specific features make schema.rb impossible,
+      but the file is still a coordination overhead.
+    </div>
+
+    <div class="callout callout-amber">
+      <strong>Parallel materialized view + partitioned table world.</strong>
+      Both architectures coexist during the migration. Some report models still use mat views,
+      others use partitioned tables. The <code>Refreshable</code> concern must handle both,
+      creating dual-path complexity until the migration completes.
+    </div>
+
+    <div class="callout callout-amber">
+      <strong>Multi-version API maintenance cost.</strong>
+      v3 and v4 overlap significantly. Both have their own controllers, transformers, and validators
+      for many of the same resources (patients, appointments, sync). This duplication means changes
+      to the data model must often be reflected in two controllers.
+    </div>
+
+    <div class="callout callout-amber">
+      <strong>Data migration files accumulate.</strong>
+      <code>db/data/</code> contains 27 data migration files, many for specific country SMS
+      experiment setups. These are idempotent but accumulate over time, representing historical
+      operational state rather than schema evolution.
+    </div>
+
+  </div>
+
+</div>
+</div>
+
+<footer style="border-top: 1px solid var(--border); padding: 32px 0; margin-top: 60px;">
+  <div class="container">
+    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
+      <div>
+        <div style="font-size: 12px; font-family: var(--font-mono); color: var(--text-dim);">
+          Codebase Atlas &bull; simple-server &bull; Generated 2026-02-18
+        </div>
+        <div style="font-size: 11px; color: var(--text-dim); margin-top: 4px;">
+          Layers: L0 (Structure) &bull; L1 (Modules) &bull; L2 (Components) &bull; L5 (Evolution)
+        </div>
+      </div>
+      <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+        <span class="pill" style="color: var(--neon-cyan); border-color: #06b6d444; background: #06b6d411;">Ruby on Rails 7</span>
+        <span class="pill" style="color: var(--neon-green); border-color: #10b98144; background: #10b98111;">PostgreSQL + ltree</span>
+        <span class="pill" style="color: var(--neon-purple); border-color: #8b5cf644; background: #8b5cf611;">Sidekiq</span>
+        <span class="pill" style="color: var(--neon-amber); border-color: #f59e0b44; background: #f59e0b11;">Flipper</span>
+        <span class="pill" style="color: var(--neon-pink); border-color: #ec489944; background: #ec489911;">ViewComponent</span>
+        <span class="pill" style="color: var(--neon-blue); border-color: #3b82f644; background: #3b82f611;">Rswag / OpenAPI</span>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script>
+function showSection(id) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+
+  const tabs = {
+    overview: 0,
+    structure: 1,
+    modules: 2,
+    components: 3,
+    api: 4,
+    evolution: 5,
+    patterns: 6
+  };
+
+  const allTabs = document.querySelectorAll('.nav-tab');
+  if (allTabs[tabs[id]]) {
+    allTabs[tabs[id]].classList.add('active');
+  }
+
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+</script>
+
+</body>
+</html>

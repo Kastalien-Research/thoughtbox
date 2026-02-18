@@ -1,0 +1,1482 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CyDoc — DORA Metrics &amp; HIPAA Compliance Report</title>
+<style>
+  :root {
+    --bg: #0c0f18;
+    --surface: #161924;
+    --surface2: #1d2133;
+    --border: #2b3050;
+    --text: #e5e7ef;
+    --text-dim: #9095b0;
+    --text-bright: #f0f3ff;
+    --accent: #58a6ff;
+    --accent2: #79c0ff;
+    --gold: #e3b341;
+    --gold-bg: rgba(227,179,65,0.12);
+    --gold-border: rgba(227,179,65,0.4);
+    --elite: #3fb950;
+    --elite-bg: rgba(63,185,80,0.12);
+    --elite-border: rgba(63,185,80,0.4);
+    --high: #58a6ff;
+    --high-bg: rgba(88,166,255,0.12);
+    --high-border: rgba(88,166,255,0.4);
+    --medium: #d29922;
+    --medium-bg: rgba(210,153,34,0.12);
+    --medium-border: rgba(210,153,34,0.4);
+    --low: #f78166;
+    --low-bg: rgba(247,129,102,0.12);
+    --low-border: rgba(247,129,102,0.4);
+    --pass: #3fb950;
+    --pass-bg: rgba(63,185,80,0.12);
+    --pass-border: rgba(63,185,80,0.35);
+    --fail: #f85149;
+    --fail-bg: rgba(248,81,73,0.12);
+    --fail-border: rgba(248,81,73,0.4);
+    --partial: #d29922;
+    --partial-bg: rgba(210,153,34,0.12);
+    --partial-border: rgba(210,153,34,0.4);
+    --unknown: #484f58;
+    --unknown-bg: rgba(72,79,88,0.15);
+    --unknown-border: rgba(72,79,88,0.4);
+    --critical: #f85149;
+    --critical-bg: rgba(248,81,73,0.08);
+    --critical-border: rgba(248,81,73,0.35);
+    --code-bg: #0d1117;
+    --node-radius: 8px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    line-height: 1.6;
+  }
+
+  /* ---- Header ---- */
+  .header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 20px 32px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .header-left h1 {
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--text-bright);
+    letter-spacing: -0.3px;
+  }
+  .header-left .subtitle {
+    font-size: 13px;
+    color: var(--text-dim);
+    margin-top: 3px;
+  }
+  .header-meta {
+    display: flex;
+    gap: 14px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .meta-pill {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 4px 12px;
+    font-size: 12px;
+    color: var(--text-dim);
+  }
+  .meta-pill span { color: var(--text-bright); font-weight: 600; }
+
+  /* ---- Layout ---- */
+  .main {
+    max-width: 1280px;
+    margin: 0 auto;
+    padding: 32px 24px 64px;
+  }
+
+  /* ---- Section headers ---- */
+  .section-header {
+    margin: 40px 0 20px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .section-header h2 {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--text-bright);
+    letter-spacing: -0.2px;
+  }
+  .section-tag {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    padding: 3px 10px;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    background: var(--surface);
+  }
+
+  /* ---- Intro banner ---- */
+  .intro-banner {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--accent);
+    border-radius: var(--node-radius);
+    padding: 18px 22px;
+    margin-bottom: 32px;
+    font-size: 14px;
+    color: var(--text-dim);
+    line-height: 1.7;
+  }
+  .intro-banner strong { color: var(--text-bright); }
+
+  /* ---- DORA scorecard grid ---- */
+  .dora-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 16px;
+    margin-bottom: 32px;
+  }
+  .dora-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--node-radius);
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .dora-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .dora-metric-name {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+  .rating-badge {
+    font-size: 11px;
+    font-weight: 700;
+    padding: 3px 10px;
+    border-radius: 20px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+  .rating-elite { background: var(--elite-bg); border: 1px solid var(--elite-border); color: var(--elite); }
+  .rating-high   { background: var(--high-bg);  border: 1px solid var(--high-border);  color: var(--high);  }
+  .rating-medium { background: var(--medium-bg);border: 1px solid var(--medium-border);color: var(--medium);}
+  .rating-low    { background: var(--low-bg);   border: 1px solid var(--low-border);   color: var(--low);   }
+
+  .dora-value {
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--text-bright);
+    line-height: 1;
+  }
+  .dora-value-sub {
+    font-size: 12px;
+    color: var(--text-dim);
+    margin-top: 2px;
+  }
+  .dora-evidence {
+    font-size: 13px;
+    color: var(--text-dim);
+    line-height: 1.6;
+    border-top: 1px solid var(--border);
+    padding-top: 10px;
+  }
+  .dora-evidence li {
+    margin-left: 14px;
+    margin-bottom: 4px;
+  }
+
+  /* ---- HIPAA checklist ---- */
+  .hipaa-section {
+    margin-bottom: 28px;
+  }
+  .hipaa-category {
+    font-size: 13px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--accent2);
+    margin: 22px 0 10px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .hipaa-category::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  .hipaa-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13.5px;
+  }
+  .hipaa-table th {
+    text-align: left;
+    padding: 9px 14px;
+    background: var(--surface2);
+    color: var(--text-dim);
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    border-bottom: 1px solid var(--border);
+  }
+  .hipaa-table td {
+    padding: 10px 14px;
+    border-bottom: 1px solid rgba(43,48,80,0.5);
+    vertical-align: top;
+    color: var(--text);
+  }
+  .hipaa-table tr:hover td { background: rgba(255,255,255,0.015); }
+
+  .status-badge {
+    display: inline-block;
+    font-size: 10.5px;
+    font-weight: 700;
+    padding: 2px 9px;
+    border-radius: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    white-space: nowrap;
+  }
+  .status-pass    { background: var(--pass-bg);    border: 1px solid var(--pass-border);    color: var(--pass);    }
+  .status-fail    { background: var(--fail-bg);    border: 1px solid var(--fail-border);    color: var(--fail);    }
+  .status-partial { background: var(--partial-bg); border: 1px solid var(--partial-border); color: var(--partial); }
+  .status-unknown { background: var(--unknown-bg); border: 1px solid var(--unknown-border); color: #8b949e;        }
+
+  .evidence-note {
+    font-size: 12px;
+    color: var(--text-dim);
+    margin-top: 4px;
+    font-style: italic;
+  }
+
+  /* ---- Critical findings ---- */
+  .critical-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+  .critical-card {
+    background: var(--critical-bg);
+    border: 1px solid var(--critical-border);
+    border-radius: var(--node-radius);
+    padding: 18px 20px;
+  }
+  .critical-card-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--fail);
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .critical-card-body {
+    font-size: 13px;
+    color: var(--text);
+    line-height: 1.65;
+  }
+  .severity-tag {
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 7px;
+    border-radius: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    border: 1px solid var(--critical-border);
+    color: var(--fail);
+    background: var(--fail-bg);
+  }
+
+  /* ---- Code blocks ---- */
+  .code-block {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 12px 14px;
+    font-family: 'SF Mono', 'JetBrains Mono', 'Fira Code', Consolas, monospace;
+    font-size: 12px;
+    line-height: 1.6;
+    color: #c9d1d9;
+    overflow-x: auto;
+    margin: 8px 0 4px;
+    white-space: pre;
+  }
+  .code-block .kw   { color: #ff7b72; }
+  .code-block .str  { color: #a5d6ff; }
+  .code-block .cmt  { color: #8b949e; }
+  .code-block .fn   { color: #d2a8ff; }
+  .code-block .cls  { color: #ffa657; }
+  .code-block .sym  { color: #79c0ff; }
+  .code-block .hl   { background: rgba(248,81,73,0.15); border-radius: 3px; }
+
+  .file-ref {
+    font-size: 11px;
+    color: var(--accent2);
+    font-family: monospace;
+    background: rgba(88,166,255,0.06);
+    padding: 1px 6px;
+    border-radius: 4px;
+    border: 1px solid rgba(88,166,255,0.15);
+  }
+
+  /* ---- Recommendations ---- */
+  .rec-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .rec-item {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--node-radius);
+    padding: 16px 20px;
+    display: flex;
+    gap: 16px;
+    align-items: flex-start;
+  }
+  .rec-priority {
+    min-width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+  .rec-p1 { background: var(--fail-bg); border: 2px solid var(--fail-border); color: var(--fail); }
+  .rec-p2 { background: var(--low-bg);  border: 2px solid var(--low-border);  color: var(--low);  }
+  .rec-p3 { background: var(--medium-bg); border: 2px solid var(--medium-border); color: var(--medium); }
+  .rec-p4 { background: var(--high-bg); border: 2px solid var(--high-border); color: var(--high); }
+  .rec-p5 { background: var(--elite-bg); border: 2px solid var(--elite-border); color: var(--elite); }
+  .rec-body { flex: 1; }
+  .rec-title { font-size: 14px; font-weight: 600; color: var(--text-bright); margin-bottom: 5px; }
+  .rec-desc  { font-size: 13px; color: var(--text-dim); line-height: 1.6; }
+
+  /* ---- PHI inventory ---- */
+  .phi-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+  .phi-table th {
+    text-align: left;
+    padding: 8px 12px;
+    background: var(--surface2);
+    color: var(--text-dim);
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    border-bottom: 1px solid var(--border);
+  }
+  .phi-table td {
+    padding: 9px 12px;
+    border-bottom: 1px solid rgba(43,48,80,0.5);
+    color: var(--text);
+    vertical-align: top;
+  }
+  .phi-table tr:hover td { background: rgba(255,255,255,0.015); }
+  .phi-sensitive { color: var(--fail); font-weight: 600; }
+  .phi-moderate  { color: var(--medium); font-weight: 600; }
+  .phi-low       { color: var(--text-dim); }
+
+  /* ---- Summary scorecard ---- */
+  .summary-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 14px;
+    margin-bottom: 36px;
+  }
+  .summary-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--node-radius);
+    padding: 18px;
+    text-align: center;
+  }
+  .summary-count {
+    font-size: 36px;
+    font-weight: 700;
+    line-height: 1;
+  }
+  .summary-label {
+    font-size: 12px;
+    color: var(--text-dim);
+    margin-top: 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+
+  /* overall verdict */
+  .verdict-banner {
+    border-radius: var(--node-radius);
+    padding: 20px 24px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 36px;
+  }
+  .verdict-fail { background: var(--critical-bg); border: 1px solid var(--critical-border); }
+  .verdict-icon { font-size: 28px; }
+  .verdict-title { font-size: 17px; font-weight: 700; color: var(--fail); }
+  .verdict-desc  { font-size: 13px; color: var(--text-dim); margin-top: 4px; line-height: 1.6; }
+
+  /* sticky nav */
+  .toc {
+    position: sticky;
+    top: 73px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 10px 32px;
+    display: flex;
+    gap: 20px;
+    z-index: 90;
+    overflow-x: auto;
+  }
+  .toc a {
+    font-size: 13px;
+    color: var(--text-dim);
+    text-decoration: none;
+    white-space: nowrap;
+    padding: 4px 0;
+    border-bottom: 2px solid transparent;
+    transition: color 0.15s, border-color 0.15s;
+  }
+  .toc a:hover { color: var(--text-bright); border-color: var(--accent); }
+
+  .footnote {
+    font-size: 12px;
+    color: var(--text-dim);
+    border-top: 1px solid var(--border);
+    padding-top: 20px;
+    margin-top: 40px;
+    line-height: 1.7;
+  }
+</style>
+</head>
+<body>
+
+<!-- =================== HEADER =================== -->
+<div class="header">
+  <div class="header-left">
+    <h1>CyDoc — DORA &amp; HIPAA Compliance Report</h1>
+    <div class="subtitle">Swiss Doctor's Office EMR (est. 2009) &bull; Ruby on Rails 3.2 &bull; Last commit: July 2016</div>
+  </div>
+  <div class="header-meta">
+    <div class="meta-pill">Rails <span>3.2.19</span></div>
+    <div class="meta-pill">Commits <span>63</span></div>
+    <div class="meta-pill">Migrations <span>226+</span></div>
+    <div class="meta-pill">Analysis Date <span>2026-02-18</span></div>
+  </div>
+</div>
+
+<!-- =================== TOC =================== -->
+<nav class="toc">
+  <a href="#overview">Overview</a>
+  <a href="#dora">DORA Metrics</a>
+  <a href="#phi-inventory">PHI Inventory</a>
+  <a href="#hipaa">HIPAA Controls</a>
+  <a href="#critical">Critical Findings</a>
+  <a href="#recommendations">Recommendations</a>
+</nav>
+
+<div class="main">
+
+  <!-- =================== INTRO =================== -->
+  <div class="intro-banner" id="overview">
+    <strong>Context:</strong> CyDoc is a 2009-era Swiss doctor's office EMR application for patient records, TARMED billing,
+    and insurance integration. Swiss law applies <strong>DSG/nDSG</strong> (Federal Data Protection Act), <strong>KVG</strong>
+    (health insurance), and <strong>UVG</strong> (accident insurance) rather than HIPAA. This report applies
+    <strong>HIPAA as a reference standard</strong> for technical best-practice evaluation of medical data handling. All
+    findings should be mapped to applicable Swiss law before acting. The codebase was last actively maintained in 2014–2016
+    and targets Rails 3.2 — a version with no security support since 2013.
+  </div>
+
+  <!-- =================== VERDICT =================== -->
+  <div class="verdict-banner verdict-fail">
+    <div class="verdict-icon">&#9888;</div>
+    <div>
+      <div class="verdict-title">Would Not Pass a Medical Compliance Audit</div>
+      <div class="verdict-desc">
+        The application stores substantial Protected Health Information with <strong>no encryption at rest</strong>,
+        a <strong>hardcoded secret token committed to git</strong>, no dedicated audit logging of PHI access,
+        session timeout disabled by default, account lockout unconfigured, and a Rails version with
+        <strong>zero security support</strong> since June 2013. DORA performance is "Low" across all four metrics,
+        reflecting a project in maintenance-only mode with no CI pipeline and manual deployment via Capistrano.
+      </div>
+    </div>
+  </div>
+
+  <!-- HIPAA summary counts -->
+  <div class="summary-grid">
+    <div class="summary-card">
+      <div class="summary-count" style="color: var(--pass)">3</div>
+      <div class="summary-label">Pass</div>
+    </div>
+    <div class="summary-card">
+      <div class="summary-count" style="color: var(--fail)">14</div>
+      <div class="summary-label">Fail</div>
+    </div>
+    <div class="summary-card">
+      <div class="summary-count" style="color: var(--partial)">6</div>
+      <div class="summary-label">Partial</div>
+    </div>
+    <div class="summary-card">
+      <div class="summary-count" style="color: #8b949e">4</div>
+      <div class="summary-label">Unknown</div>
+    </div>
+    <div class="summary-card">
+      <div class="summary-count" style="color: var(--low)">Low</div>
+      <div class="summary-label">DORA Performance</div>
+    </div>
+  </div>
+
+  <!-- =================== DORA METRICS =================== -->
+  <div class="section-header" id="dora">
+    <h2>DORA Metrics</h2>
+    <span class="section-tag">DevOps Research &amp; Assessment</span>
+  </div>
+
+  <div class="dora-grid">
+
+    <!-- Deployment Frequency -->
+    <div class="dora-card">
+      <div class="dora-card-header">
+        <div class="dora-metric-name">Deployment Frequency</div>
+        <span class="rating-badge rating-low">Low</span>
+      </div>
+      <div class="dora-value">~8/yr</div>
+      <div class="dora-value-sub">estimated from commit clustering, 2014 peak</div>
+      <div class="dora-evidence">
+        <ul>
+          <li>63 total commits across ~2.5 years (Apr 2014 – Jul 2016)</li>
+          <li>Activity clustered: 48 commits in 2014, 12 in 2015, 3 in 2016</li>
+          <li>Only 5 release tags exist: <code>2.0.0.rc3</code> through <code>2.0.0.rc8</code> — never reached final release</li>
+          <li>Single <code>master</code> branch + <code>staging</code> merge pattern; no feature branches observed</li>
+          <li>Capistrano deployment: manual <code>cap deploy</code> via SSH — no automated triggering</li>
+          <li>No CI service configured (.travis.yml absent, no GitHub Actions, no CircleCI)</li>
+          <li>DORA "Low" = fewer than once per month; evidence points to ad-hoc deploys when bugs found</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- Lead Time for Changes -->
+    <div class="dora-card">
+      <div class="dora-card-header">
+        <div class="dora-metric-name">Lead Time for Changes</div>
+        <span class="rating-badge rating-low">Low</span>
+      </div>
+      <div class="dora-value">&gt; 1 week</div>
+      <div class="dora-value-sub">estimated; no PR timestamps available</div>
+      <div class="dora-evidence">
+        <ul>
+          <li>No pull request metadata in git history (most commits pushed directly to master)</li>
+          <li>Only 2 PR merges visible: #6 and #13 — both for documentation</li>
+          <li>October 2014 burst (26 commits in one month) suggests batched work rather than continuous flow</li>
+          <li>No CI pipeline means every change requires manual test-and-deploy cycle</li>
+          <li>Thinking-Sphinx search requires a daemon restart on deploy (added manual step)</li>
+          <li>Staging → master merge pattern implies multi-day or multi-week staging period</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- Mean Time to Restore -->
+    <div class="dora-card">
+      <div class="dora-card-header">
+        <div class="dora-metric-name">Mean Time to Restore (MTTR)</div>
+        <span class="rating-badge rating-low">Low</span>
+      </div>
+      <div class="dora-value">Hours–Days</div>
+      <div class="dora-value-sub">based on rollback capability, no monitoring</div>
+      <div class="dora-evidence">
+        <ul>
+          <li><strong>Positive:</strong> Unicorn USR2 hot-reload enables zero-downtime restarts (<span class="file-ref">config/unicorn.rb</span>)</li>
+          <li><strong>Positive:</strong> Capistrano keeps previous release directory for quick rollback (<code>cap deploy:rollback</code>)</li>
+          <li><strong>Negative:</strong> No monitoring or alerting setup (no NewRelic, no Sentry, no health check endpoint)</li>
+          <li><strong>Negative:</strong> No log aggregation — failures visible only by SSH-ing to server</li>
+          <li><strong>Negative:</strong> Revert-on-revert pattern seen: a fix was reverted and then re-applied across 3 commits (contextual_link_to bug)</li>
+          <li><strong>Negative:</strong> Migrations often destructive (many <code>drop_</code> columns) with no <code>down</code> method reversal</li>
+          <li>SQLite in development, MySQL in production — environment mismatch increases restore risk</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- Change Failure Rate -->
+    <div class="dora-card">
+      <div class="dora-card-header">
+        <div class="dora-metric-name">Change Failure Rate</div>
+        <span class="rating-badge rating-medium">Medium</span>
+      </div>
+      <div class="dora-value">~12%</div>
+      <div class="dora-value-sub">2 reverts / ~16 substantive changes in tracked period</div>
+      <div class="dora-evidence">
+        <ul>
+          <li>2 explicit <code>Revert</code> commits in git history (double-revert on contextual_link_to)</li>
+          <li>~10 fix commits targeting UI/calculation bugs introduced in same release window</li>
+          <li>Test suite exists (unit + functional) but coverage is shallow — many test methods commented out in <span class="file-ref">test/unit/patient_test.rb</span></li>
+          <li>No CI pipeline means tests may not run before deploys</li>
+          <li>Cucumber integration tests present but minimal (1 feature file: <span class="file-ref">features/welcome.feature</span>)</li>
+          <li>DORA "Medium" threshold: 0–15% change failure rate — this project sits at the edge</li>
+          <li>Migration safety is low (destructive drops without <code>down</code> blocks) but no production DB corruption commits visible</li>
+        </ul>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- DORA additional detail -->
+  <div class="hipaa-section">
+    <div class="hipaa-category">CI/CD Pipeline Assessment</div>
+    <table class="hipaa-table">
+      <thead>
+        <tr>
+          <th style="width:30%">Capability</th>
+          <th style="width:15%">Status</th>
+          <th>Evidence</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Continuous Integration</td>
+          <td><span class="status-badge status-fail">Absent</span></td>
+          <td>No .travis.yml, no GitHub Actions, no CircleCI config. No CI-related commits in history.</td>
+        </tr>
+        <tr>
+          <td>Automated Test Execution</td>
+          <td><span class="status-badge status-partial">Partial</span></td>
+          <td>Test suite exists (<span class="file-ref">test/</span> MiniTest, <span class="file-ref">spec/</span> RSpec, <span class="file-ref">features/</span> Cucumber). Must be run manually.</td>
+        </tr>
+        <tr>
+          <td>Deployment Automation</td>
+          <td><span class="status-badge status-partial">Partial</span></td>
+          <td>Capistrano (<span class="file-ref">config/deploy.rb</span>) automates SSH deploy steps but must be triggered manually. Zero-downtime via Unicorn USR2.</td>
+        </tr>
+        <tr>
+          <td>Staging Environment</td>
+          <td><span class="status-badge status-pass">Present</span></td>
+          <td>Explicit staging branch and <span class="file-ref">config/deploy/demo.rb</span>. Merge pattern: staging → master.</td>
+        </tr>
+        <tr>
+          <td>Database Migration Safety</td>
+          <td><span class="status-badge status-fail">Unsafe</span></td>
+          <td>226+ migrations. Many use only <code>self.up</code> with no <code>self.down</code>. Destructive drops common (e.g. <span class="file-ref">010_drop_amount_column_from_record_tarmed.rb</span>). No irreversible-migration guards.</td>
+        </tr>
+        <tr>
+          <td>Dependency Freshness</td>
+          <td><span class="status-badge status-fail">Critical</span></td>
+          <td>Rails 3.2.19 (EOL 2013). bcrypt-ruby 3.0.1, cancan 1.6.8, devise older release — all extremely stale. Gemfile uses <code>source 'http://rubygems.org'</code> (HTTP, not HTTPS).</td>
+        </tr>
+        <tr>
+          <td>Monitoring / Alerting</td>
+          <td><span class="status-badge status-fail">Absent</span></td>
+          <td>No APM gem (NewRelic, Scout, Skylight). No exception tracker (Sentry, Honeybadger, Rollbar). Logs written to local files only.</td>
+        </tr>
+        <tr>
+          <td>Health Check Endpoint</td>
+          <td><span class="status-badge status-fail">Absent</span></td>
+          <td>Routes file has no <code>/health</code> or <code>/status</code> endpoint. Load balancer cannot detect application failures.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- =================== PHI INVENTORY =================== -->
+  <div class="section-header" id="phi-inventory">
+    <h2>PHI Inventory</h2>
+    <span class="section-tag">Protected Health Information</span>
+  </div>
+
+  <table class="phi-table">
+    <thead>
+      <tr>
+        <th>Data Element</th>
+        <th>Model / Table</th>
+        <th>Sensitivity</th>
+        <th>Encrypted</th>
+        <th>Notes</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Patient full name, given name, family name</td>
+        <td><span class="file-ref">vcards</span> / <code>Patient#vcard</code></td>
+        <td><span class="phi-sensitive">High</span></td>
+        <td><span class="status-badge status-fail">No</span></td>
+        <td>Stored as plaintext strings in vcards table. Indexed by Thinking-Sphinx daemon.</td>
+      </tr>
+      <tr>
+        <td>Date of birth</td>
+        <td><span class="file-ref">patients.birth_date</span></td>
+        <td><span class="phi-sensitive">High</span></td>
+        <td><span class="status-badge status-fail">No</span></td>
+        <td>Plaintext DATE column. Used in Sphinx search index. Key de-identification risk.</td>
+      </tr>
+      <tr>
+        <td>Sex (biological)</td>
+        <td><span class="file-ref">patients.sex</span></td>
+        <td><span class="phi-moderate">Medium</span></td>
+        <td><span class="status-badge status-fail">No</span></td>
+        <td>Integer column (1=M, 2=F). Required for invoice XML generation.</td>
+      </tr>
+      <tr>
+        <td>Home address (street, city, postal code)</td>
+        <td><span class="file-ref">addresses</span> via vcards</td>
+        <td><span class="phi-sensitive">High</span></td>
+        <td><span class="status-badge status-fail">No</span></td>
+        <td>Full address stored unencrypted. Also in Sphinx search index.</td>
+      </tr>
+      <tr>
+        <td>Insurance number, insurance policy</td>
+        <td><span class="file-ref">insurance_policies.number</span></td>
+        <td><span class="phi-sensitive">High</span></td>
+        <td><span class="status-badge status-fail">No</span></td>
+        <td>KVG/UVG policy numbers. Direct link between identity and healthcare coverage.</td>
+      </tr>
+      <tr>
+        <td>Diagnoses (ICD codes and free text)</td>
+        <td><span class="file-ref">diagnoses</span>, <span class="file-ref">medical_cases</span></td>
+        <td><span class="phi-sensitive">High</span></td>
+        <td><span class="status-badge status-fail">No</span></td>
+        <td>ICD-10 diagnosis codes + freetext findings stored plaintext. Most sensitive PHI category.</td>
+      </tr>
+      <tr>
+        <td>Treatment records (reason, dates, sessions)</td>
+        <td><span class="file-ref">treatments</span>, <span class="file-ref">sessions</span></td>
+        <td><span class="phi-sensitive">High</span></td>
+        <td><span class="status-badge status-fail">No</span></td>
+        <td>Treatment reasons (Krankheit/Unfall/Mutterschaft etc.) with begin/end dates.</td>
+      </tr>
+      <tr>
+        <td>Service records (billed procedures, TARMED codes)</td>
+        <td><span class="file-ref">service_records</span></td>
+        <td><span class="phi-sensitive">High</span></td>
+        <td><span class="status-badge status-fail">No</span></td>
+        <td>Detailed medical procedures linked to patient + invoice. Reveals nature of care.</td>
+      </tr>
+      <tr>
+        <td>Doctor notes / finding text</td>
+        <td><span class="file-ref">cases.finding_text</span>, <span class="file-ref">cases.remarks</span></td>
+        <td><span class="phi-sensitive">High</span></td>
+        <td><span class="status-badge status-fail">No</span></td>
+        <td>Freetext clinical notes. TEXT column, no length limit, no encryption.</td>
+      </tr>
+      <tr>
+        <td>Uploaded attachments (lab results, documents)</td>
+        <td><span class="file-ref">attachments</span> / CarrierWave</td>
+        <td><span class="phi-sensitive">High</span></td>
+        <td><span class="status-badge status-fail">No</span></td>
+        <td>Files stored in <code>uploads/</code> directory. No encryption. CarrierWave config: <code>config.root = Rails.root.join('uploads')</code></td>
+      </tr>
+      <tr>
+        <td>Drug prescriptions (drug articles, prices)</td>
+        <td><span class="file-ref">drug_articles</span>, <span class="file-ref">drug_prices</span></td>
+        <td><span class="phi-moderate">Medium</span></td>
+        <td><span class="status-badge status-fail">No</span></td>
+        <td>Links drugs to patients indirectly via service records.</td>
+      </tr>
+      <tr>
+        <td>Appointment history</td>
+        <td><span class="file-ref">appointments</span></td>
+        <td><span class="phi-moderate">Medium</span></td>
+        <td><span class="status-badge status-fail">No</span></td>
+        <td>Reveals healthcare visit patterns. Associated with patient via <code>patient_id</code>.</td>
+      </tr>
+      <tr>
+        <td>Recall notices (follow-up reminders)</td>
+        <td><span class="file-ref">recalls</span></td>
+        <td><span class="phi-moderate">Medium</span></td>
+        <td><span class="status-badge status-fail">No</span></td>
+        <td>Condition-specific follow-up reminders stored with due dates.</td>
+      </tr>
+      <tr>
+        <td>Invoice data (amounts, billing addresses)</td>
+        <td><span class="file-ref">invoices</span>, <span class="file-ref">tiers</span></td>
+        <td><span class="phi-moderate">Medium</span></td>
+        <td><span class="status-badge status-fail">No</span></td>
+        <td>Financial records imply healthcare activity. ESR payment slips generated.</td>
+      </tr>
+      <tr>
+        <td>User credentials (hashed passwords)</td>
+        <td><span class="file-ref">users</span> (Devise)</td>
+        <td><span class="phi-moderate">Medium</span></td>
+        <td><span class="status-badge status-partial">bcrypt</span></td>
+        <td>Passwords are bcrypt-hashed (stretches=10). Email stored plaintext. Login stored plaintext.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- =================== HIPAA CONTROLS =================== -->
+  <div class="section-header" id="hipaa">
+    <h2>HIPAA Control Assessment</h2>
+    <span class="section-tag">Technical &amp; Administrative Safeguards</span>
+  </div>
+
+  <!-- Technical Safeguards -->
+  <div class="hipaa-section">
+    <div class="hipaa-category">Technical Safeguards — Access Controls</div>
+    <table class="hipaa-table">
+      <thead>
+        <tr><th style="width:32%">Control</th><th style="width:14%">Status</th><th>Evidence &amp; Analysis</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Authentication mechanism</td>
+          <td><span class="status-badge status-partial">Partial</span></td>
+          <td>
+            Devise with <code>:database_authenticatable</code>, <code>:recoverable</code>, <code>:trackable</code>, <code>:timeoutable</code>, <code>:lockable</code>, <code>:rememberable</code>, <code>:validatable</code> declared in <span class="file-ref">app/models/user.rb</span>. Authentication keys use <code>:login</code> (username), not email alone.
+            <div class="evidence-note">Positive: bcrypt with 10 stretches. Negative: :lockable declared but <code>config.lock_strategy</code> is commented out in devise.rb — account lockout is NOT actually active.</div>
+            <div class="code-block"><span class="kw">devise</span> :database_authenticatable, :recoverable, :trackable,
+       :timeoutable, :lockable, :rememberable, :validatable
+<span class="cmt"># devise.rb — lockable strategy commented out:</span>
+<span class="cmt"># config.lock_strategy = :failed_attempts</span>
+<span class="cmt"># config.maximum_attempts = 20</span></div>
+          </td>
+        </tr>
+        <tr>
+          <td>Session timeout (automatic logoff)</td>
+          <td><span class="status-badge status-fail">Fail</span></td>
+          <td>
+            Devise <code>:timeoutable</code> module is declared but <code>config.timeout_in</code> is commented out in <span class="file-ref">config/initializers/devise.rb</span>. The application uses cookie-based session storage with no server-side expiration. HIPAA requires automatic logoff after inactivity.
+            <div class="code-block"><span class="cmt"># ==> Configuration for :timeoutable</span>
+<span class="cmt"># config.timeout_in = 30.minutes  &lt;-- COMMENTED OUT</span></div>
+          </td>
+        </tr>
+        <tr>
+          <td>Account lockout after failed attempts</td>
+          <td><span class="status-badge status-fail">Fail</span></td>
+          <td>
+            Despite <code>:lockable</code> being in the Devise strategy list, the lockout configuration in <span class="file-ref">config/initializers/devise.rb</span> has every <code>:lockable</code> option commented out. No brute-force protection is active.
+          </td>
+        </tr>
+        <tr>
+          <td>Role-based access control</td>
+          <td><span class="status-badge status-fail">Fail</span></td>
+          <td>
+            CanCan <code>Ability</code> class in <span class="file-ref">app/models/ability.rb</span> defines only <code>admin</code> and <code>sysadmin</code> roles — both get <code>can :manage, :all</code>. There are no restricted roles (e.g., receptionist, billing-only). All authenticated users with admin role have unrestricted access to all patient data.
+            <div class="code-block"><span class="kw">def</span> <span class="fn">admin_abilities</span>
+  <span class="fn">can</span> :manage, :all  <span class="cmt"># Full access to ALL models</span>
+<span class="kw">end</span>
+
+<span class="kw">def</span> <span class="fn">sysadmin_abilities</span>
+  <span class="fn">can</span> :manage, :all  <span class="cmt"># Identical — no differentiation</span>
+<span class="kw">end</span></div>
+            <div class="evidence-note">No principle of least privilege. A billing clerk and a treating physician have identical access to all records.</div>
+          </td>
+        </tr>
+        <tr>
+          <td>Unique user identification</td>
+          <td><span class="status-badge status-pass">Pass</span></td>
+          <td>Each user has a unique login + email via Devise's <code>:validatable</code>. Users are linked to a specific tenant (doctor's office).</td>
+        </tr>
+        <tr>
+          <td>Emergency access procedure</td>
+          <td><span class="status-badge status-unknown">Unknown</span></td>
+          <td>No break-glass procedure or emergency override mechanism visible in code. Seeds create one initial admin user. No documentation of emergency access protocol.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="hipaa-category">Technical Safeguards — Audit Controls</div>
+    <table class="hipaa-table">
+      <thead>
+        <tr><th style="width:32%">Control</th><th style="width:14%">Status</th><th>Evidence &amp; Analysis</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Audit log of PHI access</td>
+          <td><span class="status-badge status-fail">Fail</span></td>
+          <td>
+            No audit logging gem (PaperTrail, Audited, Logidze) in <span class="file-ref">Gemfile</span> or <span class="file-ref">Gemfile.lock</span>. No custom audit log callbacks in any model. HIPAA requires recording who accessed which patient records and when.
+            <div class="evidence-note">Devise :trackable logs sign-in count, IP, and timestamp — this is login tracking only, not PHI access tracking.</div>
+          </td>
+        </tr>
+        <tr>
+          <td>Activity tracking (who did what)</td>
+          <td><span class="status-badge status-fail">Fail</span></td>
+          <td>Controllers do not log the current user identity when records are read or modified. Standard Rails logs will record HTTP requests but not user identity or the specific patient records accessed.</td>
+        </tr>
+        <tr>
+          <td>Log protection / tamper-resistance</td>
+          <td><span class="status-badge status-fail">Fail</span></td>
+          <td>Logs written to local filesystem (<span class="file-ref">log/unicorn.stderr.log</span>, Rails log). No log shipping, no WORM storage, no integrity checksums.</td>
+        </tr>
+        <tr>
+          <td>Login/logout tracking</td>
+          <td><span class="status-badge status-partial">Partial</span></td>
+          <td>Devise <code>:trackable</code> records <code>sign_in_count</code>, <code>last_sign_in_at</code>, and <code>last_sign_in_ip</code>. Logoff is not explicitly tracked (cookie deletion only).</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="hipaa-category">Technical Safeguards — Integrity &amp; Transmission Security</div>
+    <table class="hipaa-table">
+      <thead>
+        <tr><th style="width:32%">Control</th><th style="width:14%">Status</th><th>Evidence &amp; Analysis</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>TLS/SSL for data in transit</td>
+          <td><span class="status-badge status-unknown">Unknown</span></td>
+          <td>
+            No SSL enforcement in <span class="file-ref">config/environments/production.rb</span> — <code>config.force_ssl = true</code> is absent. Unicorn listens on a Unix socket (nginx fronted), so SSL depends entirely on nginx configuration which is not in this repository. Gemfile source uses HTTP not HTTPS: <code>source 'http://rubygems.org'</code>.
+          </td>
+        </tr>
+        <tr>
+          <td>Encryption at rest (database)</td>
+          <td><span class="status-badge status-fail">Fail</span></td>
+          <td>
+            No field-level encryption gem (attr_encrypted, lockbox, ActiveRecord Encryption). All PHI columns are stored as plaintext in MySQL. Database-level encryption is not configured in the application layer. This is the single highest-impact compliance gap.
+          </td>
+        </tr>
+        <tr>
+          <td>Encryption at rest (uploaded files)</td>
+          <td><span class="status-badge status-fail">Fail</span></td>
+          <td>
+            CarrierWave configured with <code>config.root = Rails.root.join('uploads')</code> in <span class="file-ref">config/initializers/carrier_wave.rb</span>. Files stored in plaintext on local filesystem. No S3 server-side encryption, no client-side encryption.
+          </td>
+        </tr>
+        <tr>
+          <td>Data integrity validation</td>
+          <td><span class="status-badge status-partial">Partial</span></td>
+          <td>ActiveRecord validations present (presence, date format, etc.). No cryptographic checksums on stored records. No tamper detection. Rails CSRF protection is active (<code>protect_from_forgery</code> in <span class="file-ref">app/controllers/application_controller.rb</span>).</td>
+        </tr>
+        <tr>
+          <td>Secret key management</td>
+          <td><span class="status-badge status-fail">Fail</span></td>
+          <td>
+            The Rails secret token is hardcoded in <span class="file-ref">config/initializers/secret_token.rb</span> and committed to the git repository. Anyone with read access to the repository can forge session cookies.
+            <div class="code-block"><span class="cls">CyDoc</span>::Application.config.secret_token = <span class="str">'2b3ab0cce593906df7b9913f235be...'</span>
+<span class="cmt"># This value is in git history and cannot be revoked without key rotation</span></div>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Administrative Safeguards -->
+  <div class="hipaa-section">
+    <div class="hipaa-category">Administrative Safeguards</div>
+    <table class="hipaa-table">
+      <thead>
+        <tr><th style="width:32%">Control</th><th style="width:14%">Status</th><th>Evidence &amp; Analysis</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>User account management</td>
+          <td><span class="status-badge status-partial">Partial</span></td>
+          <td>
+            Users managed via Devise with tenant scoping (<code>belongs_to :tenant</code>). <span class="file-ref">app/models/user.rb</span> shows role assignment. No account lifecycle automation (auto-disable on termination, account expiry). Admin interface present via <code>lyb_devise_admin</code> gem.
+          </td>
+        </tr>
+        <tr>
+          <td>Minimum necessary access</td>
+          <td><span class="status-badge status-fail">Fail</span></td>
+          <td>
+            As noted in RBAC analysis, only admin/sysadmin roles exist — both with full access. No read-only roles, no billing-only roles, no role restricting access to specific patients.
+          </td>
+        </tr>
+        <tr>
+          <td>Security training evidence</td>
+          <td><span class="status-badge status-unknown">Unknown</span></td>
+          <td>No code-level evidence of workforce security training requirements. Out of scope for code analysis.</td>
+        </tr>
+        <tr>
+          <td>Data retention / deletion</td>
+          <td><span class="status-badge status-fail">Fail</span></td>
+          <td>
+            No data retention policy enforced in code. Patients can be deleted only if no treatments exist (<code>deletable?</code> method in <span class="file-ref">app/models/patient.rb</span>) but there is no right-to-erasure workflow, no anonymization, and no scheduled purge mechanism.
+            <div class="code-block"><span class="kw">def</span> <span class="fn">deletable?</span>
+  treatments.empty?  <span class="cmt"># Can delete only if no treatments</span>
+<span class="kw">end</span>
+<span class="cmt"># No anonymization, no GDPR/DSG erasure workflow</span></div>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Physical Safeguards -->
+  <div class="hipaa-section">
+    <div class="hipaa-category">Physical Safeguards (Infrastructure Evidence)</div>
+    <table class="hipaa-table">
+      <thead>
+        <tr><th style="width:32%">Control</th><th style="width:14%">Status</th><th>Evidence &amp; Analysis</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Hosting environment</td>
+          <td><span class="status-badge status-unknown">Unknown</span></td>
+          <td>Production hostname is <code>heusser.cyt.ch</code> (seen in <span class="file-ref">config/environments/production.rb</span>). This appears to be a dedicated server. Cloud provider, data centre location, and physical security controls are unknown from codebase analysis.</td>
+        </tr>
+        <tr>
+          <td>Backup configuration</td>
+          <td><span class="status-badge status-partial">Partial</span></td>
+          <td>
+            Capistrano sync config: <code>set :sync_directories, ['uploads']</code> and <code>set :sync_backups, 3</code> — upload files are synced with 3 backups kept. No database backup automation visible in codebase. No backup encryption.
+          </td>
+        </tr>
+        <tr>
+          <td>Workstation security</td>
+          <td><span class="status-badge status-unknown">Unknown</span></td>
+          <td>Web-based application. Client-side security depends on browser and workstation controls outside codebase scope.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Application-Specific Vulnerabilities -->
+  <div class="hipaa-section">
+    <div class="hipaa-category">Application Security — Code-Level Vulnerabilities</div>
+    <table class="hipaa-table">
+      <thead>
+        <tr><th style="width:32%">Vulnerability</th><th style="width:14%">Status</th><th>Evidence &amp; Analysis</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Mass assignment (attr_accessible era)</td>
+          <td><span class="status-badge status-partial">Partial</span></td>
+          <td>
+            Uses Rails 3 <code>attr_accessible</code> whitelist pattern. Most models define explicit whitelists. However, <span class="file-ref">app/models/user.rb</span> exposes <code>:object_id</code>, <code>:object_type</code>, and <code>:tenant</code> — allowing potential tenant-switching via mass assignment.
+            <div class="code-block"><span class="fn">attr_accessible</span> :object_id, :object_type  <span class="cmt"># Risk: user can change their own tenant</span>
+<span class="fn">attr_accessible</span> :tenant</div>
+          </td>
+        </tr>
+        <tr>
+          <td>Insecure Direct Object Reference (IDOR)</td>
+          <td><span class="status-badge status-partial">Partial</span></td>
+          <td>
+            CanCan <code>load_and_authorize_resource</code> used in <code>AuthorizedController</code> scopes most resources. However, <code>SearchController</code> inherits from <code>ApplicationController</code> (not <code>AuthorizedController</code>) and calls <code>Patient.by_text</code> across all tenants — no tenant scope applied.
+            <div class="code-block"><span class="kw">class</span> <span class="cls">SearchController</span> &lt; ApplicationController  <span class="cmt"># Not AuthorizedController</span>
+  <span class="kw">def</span> <span class="fn">index</span>
+    <span class="cls">Patient</span>.by_text(query, ...)  <span class="cmt"># No tenant filter — cross-tenant data exposure</span>
+  <span class="kw">end</span>
+<span class="kw">end</span></div>
+          </td>
+        </tr>
+        <tr>
+          <td>SQL injection</td>
+          <td><span class="status-badge status-partial">Partial</span></td>
+          <td>
+            Most queries use ActiveRecord parameterized methods. However, <span class="file-ref">app/controllers/bookkeeping_controller.rb</span> line 51 interpolates an account ID directly into a SQL string (though it comes from a database lookup, not user input). The <code>BookkeepingController</code> also uses raw SQL fragments with user-supplied date params without explicit sanitization.
+            <div class="code-block"><span class="cmt"># bookkeeping_controller.rb:51</span>
+:select => <span class="str">"invoices.*, sum(IF(bookings.debit_account_id = #{debit_account_id}, ..."</span></div>
+          </td>
+        </tr>
+        <tr>
+          <td>PHI in log files</td>
+          <td><span class="status-badge status-fail">Fail</span></td>
+          <td>
+            Default Rails logging logs all request parameters. Patient names, birth dates, diagnosis codes, and insurance numbers passed via GET/POST params will appear in <span class="file-ref">log/production.log</span> in plaintext. No <code>config.filter_parameters</code> additions beyond Rails defaults.
+          </td>
+        </tr>
+        <tr>
+          <td>CSRF protection</td>
+          <td><span class="status-badge status-pass">Pass</span></td>
+          <td><code>protect_from_forgery</code> enabled in <span class="file-ref">app/controllers/application_controller.rb</span>. Rails 3 CSRF token included in forms.</td>
+        </tr>
+        <tr>
+          <td>Secure cookie configuration</td>
+          <td><span class="status-badge status-fail">Fail</span></td>
+          <td>
+            Session store uses <code>:cookie_store</code> (<span class="file-ref">config/initializers/session_store.rb</span>). Devise cookie config comment notes <code>:secure => true</code> is available but commented out. Cookies not forced to HTTPS-only or HttpOnly in production config.
+          </td>
+        </tr>
+        <tr>
+          <td>File upload security</td>
+          <td><span class="status-badge status-partial">Partial</span></td>
+          <td>
+            CarrierWave used for file uploads. <span class="file-ref">app/controllers/attachments_controller.rb</span> serves files via <code>send_file</code> with authorization from CanCan. No explicit content-type whitelist or file size limit visible in the uploader configuration.
+          </td>
+        </tr>
+        <tr>
+          <td>Password reset security</td>
+          <td><span class="status-badge status-pass">Pass</span></td>
+          <td>Devise <code>:recoverable</code> with <code>config.reset_password_within = 6.hours</code>. Reasonable token expiry. Tokens are bcrypt-based in newer Devise versions.</td>
+        </tr>
+        <tr>
+          <td>HTTP security headers</td>
+          <td><span class="status-badge status-fail">Fail</span></td>
+          <td>No SecureHeaders gem, no <code>Content-Security-Policy</code>, no <code>X-Content-Type-Options</code>, no <code>X-Frame-Options</code>, no <code>Strict-Transport-Security</code> set in application config. Rails 3 does not set these by default.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- =================== CRITICAL FINDINGS =================== -->
+  <div class="section-header" id="critical">
+    <h2>Critical Findings</h2>
+    <span class="section-tag">Would Fail a Real Audit</span>
+  </div>
+
+  <div class="critical-grid">
+
+    <div class="critical-card">
+      <div class="critical-card-title">
+        <span class="severity-tag">Critical</span>
+        Secret Token Committed to Git
+      </div>
+      <div class="critical-card-body">
+        The Rails <code>secret_token</code> (used to sign all session cookies) is hardcoded in
+        <span class="file-ref">config/initializers/secret_token.rb</span> and present in git history.
+        Any party who has ever cloned this repository can forge valid session cookies and impersonate
+        any user — including administrators — with full access to all patient data.
+        <div class="code-block"><span class="cmt"># config/initializers/secret_token.rb</span>
+<span class="cls">CyDoc</span>::Application.config.secret_token =
+  <span class="str">'2b3ab0cce593906df7b9913f235be9aa9142cd12...'</span></div>
+        The token cannot be considered secret. It must be rotated immediately and moved to an
+        environment variable, invalidating all current sessions.
+      </div>
+    </div>
+
+    <div class="critical-card">
+      <div class="critical-card-title">
+        <span class="severity-tag">Critical</span>
+        Rails 3.2 — Zero Security Support Since 2013
+      </div>
+      <div class="critical-card-body">
+        The application runs Rails 3.2.19 (locked in <span class="file-ref">Gemfile.lock</span>).
+        Rails 3.x reached end-of-life in June 2013. Over a decade of known CVEs — including SQL injection,
+        remote code execution, and XSS vulnerabilities — are unpatched. This is a critical compliance
+        failure for any application storing medical records.
+        <div class="code-block">actionpack (3.2.19)   <span class="cmt"># EOL 2013-06</span>
+activerecord (3.2.19) <span class="cmt"># 10+ years of unpatched CVEs</span>
+cancan (1.6.8)        <span class="cmt"># Succeeded by cancancan</span>
+bcrypt-ruby (3.0.1)   <span class="cmt"># Old version</span></div>
+      </div>
+    </div>
+
+    <div class="critical-card">
+      <div class="critical-card-title">
+        <span class="severity-tag">Critical</span>
+        No Encryption at Rest for Any PHI
+      </div>
+      <div class="critical-card-body">
+        Every sensitive field — patient names, birth dates, diagnoses, insurance numbers, treatment
+        records, clinical notes — is stored in plaintext in the MySQL database. Uploaded attachments
+        (lab results, medical documents) are stored in plaintext on the local filesystem.
+        A database backup file or disk image provides immediate access to all patient health information
+        with no cryptographic barrier.
+      </div>
+    </div>
+
+    <div class="critical-card">
+      <div class="critical-card-title">
+        <span class="severity-tag">Critical</span>
+        Session Timeout Disabled
+      </div>
+      <div class="critical-card-body">
+        Despite declaring <code>:timeoutable</code> in the Devise strategy list, the timeout duration
+        is commented out in <span class="file-ref">config/initializers/devise.rb</span>. This means
+        authenticated sessions never expire from inactivity — a workstation left logged in is
+        permanently accessible. HIPAA § 164.312(a)(2)(iii) explicitly requires automatic logoff.
+        <div class="code-block"><span class="cmt"># config/initializers/devise.rb</span>
+<span class="cmt"># config.timeout_in = 30.minutes  &lt;-- NEVER SET</span></div>
+      </div>
+    </div>
+
+    <div class="critical-card">
+      <div class="critical-card-title">
+        <span class="severity-tag">Critical</span>
+        No Audit Log of PHI Access
+      </div>
+      <div class="critical-card-body">
+        HIPAA § 164.312(b) requires audit controls that record and examine activity in information
+        systems containing PHI. No audit logging gem (PaperTrail, Audited) is present. No custom
+        logging of record access is implemented in any controller or model. PHI reads are completely
+        untracked — there is no way to determine who accessed which patient records.
+      </div>
+    </div>
+
+    <div class="critical-card">
+      <div class="critical-card-title">
+        <span class="severity-tag">Critical</span>
+        No Account Lockout — Brute Force Possible
+      </div>
+      <div class="critical-card-body">
+        Devise <code>:lockable</code> is listed in the User model strategies but the lockout policy
+        is entirely commented out in the configuration file. There is no limit on failed login attempts.
+        An attacker can attempt unlimited password guesses against any known username without triggering
+        any account protection mechanism.
+        <div class="code-block"><span class="cmt"># devise.rb — all lockable config commented out:</span>
+<span class="cmt"># config.lock_strategy = :failed_attempts</span>
+<span class="cmt"># config.maximum_attempts = 20</span>
+<span class="cmt"># config.unlock_in = 1.hour</span></div>
+      </div>
+    </div>
+
+    <div class="critical-card">
+      <div class="critical-card-title">
+        <span class="severity-tag">High</span>
+        Cross-Tenant Patient Data Exposure in Search
+      </div>
+      <div class="critical-card-body">
+        <span class="file-ref">app/controllers/search_controller.rb</span> inherits from
+        <code>ApplicationController</code>, not <code>AuthorizedController</code>. It calls
+        <code>Patient.by_text(query)</code> and <code>Case.where(:praxistar_eingangsnr => code)</code>
+        without any tenant scope. In a multi-tenant deployment, a user from one practice could search
+        and view patients belonging to another practice.
+        <div class="code-block"><span class="kw">class</span> <span class="cls">SearchController</span> &lt; ApplicationController
+  <span class="kw">def</span> <span class="fn">index</span>
+    <span class="cls">Patient</span>.by_text(query, ...)  <span class="cmt"># No .where(tenant: current_tenant)</span>
+    <span class="cls">Case</span>.where(:praxistar_eingangsnr => code) <span class="cmt"># No tenant filter</span>
+  <span class="kw">end</span>
+<span class="kw">end</span></div>
+      </div>
+    </div>
+
+    <div class="critical-card">
+      <div class="critical-card-title">
+        <span class="severity-tag">High</span>
+        PHI Leakage into Application Logs
+      </div>
+      <div class="critical-card-body">
+        Rails default parameter logging will record patient names, birth dates, diagnosis codes,
+        and insurance numbers passed in URL parameters or POST bodies into
+        <span class="file-ref">log/production.log</span>. These logs are stored in plaintext with no
+        access controls beyond filesystem permissions. The TARMED billing search
+        (<span class="file-ref">app/controllers/search_controller.rb</span>) and patient search pass
+        PHI through <code>params[:query]</code> which is logged.
+      </div>
+    </div>
+
+    <div class="critical-card">
+      <div class="critical-card-title">
+        <span class="severity-tag">High</span>
+        No Role Differentiation — All Admins See Everything
+      </div>
+      <div class="critical-card-body">
+        The <code>Ability</code> class grants <code>can :manage, :all</code> to both <code>admin</code>
+        and <code>sysadmin</code> roles, with no other roles defined. A receptionist booking
+        appointments has identical data access to the treating physician. The minimum necessary access
+        standard (HIPAA § 164.514(d)) is not implemented at any level.
+      </div>
+    </div>
+
+  </div>
+
+  <!-- =================== RECOMMENDATIONS =================== -->
+  <div class="section-header" id="recommendations">
+    <h2>Improvement Recommendations</h2>
+    <span class="section-tag">Ordered by Risk Priority</span>
+  </div>
+
+  <div class="rec-list">
+
+    <div class="rec-item">
+      <div class="rec-priority rec-p1">1</div>
+      <div class="rec-body">
+        <div class="rec-title">Rotate the Secret Token and Remove from Version Control</div>
+        <div class="rec-desc">
+          Immediately replace the hardcoded <code>secret_token</code> in
+          <span class="file-ref">config/initializers/secret_token.rb</span> with an environment variable
+          (<code>ENV['SECRET_TOKEN']</code>). Rewrite git history or treat the old token as permanently
+          compromised. This invalidates all existing user sessions — acceptable as it closes the
+          session-forgery attack vector. Do not store secrets in any tracked file.
+        </div>
+      </div>
+    </div>
+
+    <div class="rec-item">
+      <div class="rec-priority rec-p1">1</div>
+      <div class="rec-body">
+        <div class="rec-title">Enable Session Timeout</div>
+        <div class="rec-desc">
+          Uncomment <code>config.timeout_in = 30.minutes</code> in
+          <span class="file-ref">config/initializers/devise.rb</span>. This is a one-line change
+          that immediately satisfies HIPAA § 164.312(a)(2)(iii). Consider 15 minutes for a clinical
+          environment where workstations may be shared. Also enable cookie <code>:secure</code> flag.
+        </div>
+      </div>
+    </div>
+
+    <div class="rec-item">
+      <div class="rec-priority rec-p1">1</div>
+      <div class="rec-body">
+        <div class="rec-title">Enable Account Lockout</div>
+        <div class="rec-desc">
+          Uncomment and configure the Devise lockable strategy in
+          <span class="file-ref">config/initializers/devise.rb</span>:
+          <code>config.lock_strategy = :failed_attempts</code>,
+          <code>config.maximum_attempts = 10</code>,
+          <code>config.unlock_strategy = :email</code>.
+          This prevents brute-force attacks against provider credentials.
+        </div>
+      </div>
+    </div>
+
+    <div class="rec-item">
+      <div class="rec-priority rec-p1">1</div>
+      <div class="rec-body">
+        <div class="rec-title">Add Audit Logging for PHI Access</div>
+        <div class="rec-desc">
+          Add PaperTrail or the Audited gem and enable it on <code>Patient</code>, <code>Treatment</code>,
+          <code>MedicalCase</code>, <code>Diagnosis</code>, and <code>ServiceRecord</code> models.
+          Store <code>whodunnit</code> (current user ID) for every create/update/destroy event.
+          Additionally, log read access to patient records in a separate audit table (PaperTrail does not
+          log reads — implement a <code>before_action</code> callback for this).
+        </div>
+      </div>
+    </div>
+
+    <div class="rec-item">
+      <div class="rec-priority rec-p2">2</div>
+      <div class="rec-body">
+        <div class="rec-title">Fix Cross-Tenant Exposure in SearchController</div>
+        <div class="rec-desc">
+          Either move <code>SearchController</code> to inherit from <code>AuthorizedController</code>
+          and add tenant scoping to all queries, or add explicit <code>where(doctor_id: current_tenant.id)</code>
+          (or equivalent) scopes to <code>Patient.by_text</code> and the <code>Case</code> lookup.
+          Also add an authorization check to verify the found <code>Case</code> belongs to the current tenant.
+        </div>
+      </div>
+    </div>
+
+    <div class="rec-item">
+      <div class="rec-priority rec-p2">2</div>
+      <div class="rec-body">
+        <div class="rec-title">Add Role-Based Access Control with Minimum Necessary Privilege</div>
+        <div class="rec-desc">
+          Expand the <code>Ability</code> class in <span class="file-ref">app/models/ability.rb</span>
+          to define at least three roles: <strong>admin</strong> (full access), <strong>physician</strong>
+          (access to own patients only), and <strong>receptionist</strong> (appointments, recalls, billing
+          only — no clinical data). This is the most architecturally significant change and should be
+          planned carefully, but it is required for any reasonable compliance posture.
+        </div>
+      </div>
+    </div>
+
+    <div class="rec-item">
+      <div class="rec-priority rec-p2">2</div>
+      <div class="rec-body">
+        <div class="rec-title">Filter PHI from Request Logs</div>
+        <div class="rec-desc">
+          Add PHI-containing parameter names to <code>config.filter_parameters</code> in
+          <span class="file-ref">config/application.rb</span>. At minimum, filter:
+          <code>:query</code>, <code>:birth_date</code>, <code>:insurance_nr</code>,
+          <code>:family_name</code>, <code>:given_name</code>, <code>:finding_text</code>.
+          Also enable <code>config.log_tags</code> to associate requests with user IDs for traceability.
+        </div>
+      </div>
+    </div>
+
+    <div class="rec-item">
+      <div class="rec-priority rec-p3">3</div>
+      <div class="rec-body">
+        <div class="rec-title">Upgrade Rails and All Dependencies</div>
+        <div class="rec-desc">
+          Rails 3.2 has been end-of-life since 2013 with numerous known CVEs. The upgrade path
+          (3.2 → 4.0 → 4.2 → 5.0 → 5.2 → 6.1 → 7.x) is substantial but necessary. As an interim
+          measure, evaluate which specific CVEs are exploitable in the current deployment context.
+          Replace the CanCan gem with CanCanCan (the maintained fork). Update Devise to current stable.
+          Change Gemfile source to <code>https://rubygems.org</code>.
+        </div>
+      </div>
+    </div>
+
+    <div class="rec-item">
+      <div class="rec-priority rec-p3">3</div>
+      <div class="rec-body">
+        <div class="rec-title">Enable SSL Enforcement and Security Headers</div>
+        <div class="rec-desc">
+          Add <code>config.force_ssl = true</code> to
+          <span class="file-ref">config/environments/production.rb</span>. Add the SecureHeaders gem
+          to set <code>Content-Security-Policy</code>, <code>X-Frame-Options: DENY</code>,
+          <code>X-Content-Type-Options: nosniff</code>, and <code>Strict-Transport-Security</code>.
+          Enable <code>:secure</code> and <code>:httponly</code> for session cookies.
+        </div>
+      </div>
+    </div>
+
+    <div class="rec-item">
+      <div class="rec-priority rec-p4">4</div>
+      <div class="rec-body">
+        <div class="rec-title">Implement a CI/CD Pipeline</div>
+        <div class="rec-desc">
+          Add GitHub Actions (or equivalent) to run the test suite on every push. This is foundational
+          for DORA improvement. The existing test infrastructure (MiniTest + RSpec + Cucumber) provides
+          a starting point. Fix or remove the heavily commented-out test code in
+          <span class="file-ref">test/unit/patient_test.rb</span>. Add Brakeman (static security
+          analysis for Rails) to the CI pipeline to catch new security issues automatically.
+        </div>
+      </div>
+    </div>
+
+    <div class="rec-item">
+      <div class="rec-priority rec-p4">4</div>
+      <div class="rec-body">
+        <div class="rec-title">Add Monitoring, Health Checks, and Alerting</div>
+        <div class="rec-desc">
+          Add a <code>/health</code> endpoint returning 200 OK when the application is operational.
+          Integrate an exception tracker (Sentry or Honeybadger). Add application performance monitoring.
+          Configure log shipping to a tamper-resistant destination (centralized log management). These
+          improvements directly address the DORA MTTR metric and are required for a production medical
+          application.
+        </div>
+      </div>
+    </div>
+
+    <div class="rec-item">
+      <div class="rec-priority rec-p5">5</div>
+      <div class="rec-body">
+        <div class="rec-title">Evaluate Encryption at Rest (Long-Term)</div>
+        <div class="rec-desc">
+          Field-level encryption with the lockbox gem (Rails 7+) or attr_encrypted is the recommended
+          long-term approach for PHI fields. In the near term, ensure the database server uses full-disk
+          encryption (e.g., dm-crypt/LUKS on Linux) and that the uploads directory is on an encrypted
+          volume. Document the encryption status for Swiss DSG/nDSG compliance reporting.
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- =================== FOOTNOTE =================== -->
+  <div class="footnote">
+    <strong>Disclaimer:</strong> This analysis is based on static code review of the CyDoc repository as it exists in the
+    git history (last commit July 2016). It does not represent a dynamic penetration test or full security assessment.
+    Actual security posture depends on server configuration, network controls, database access controls, and operational
+    procedures not visible in the codebase. Swiss healthcare data is governed by the <strong>Datenschutzgesetz (DSG/nDSG)</strong>,
+    <strong>Bundesgesetz über die Krankenversicherung (KVG)</strong>, and cantonal regulations — not HIPAA. HIPAA has been
+    applied as a reference standard for technical best practices. Consult a Swiss healthcare compliance specialist
+    before using this report for regulatory purposes.
+    <br><br>
+    <strong>Generated:</strong> 2026-02-18 &bull;
+    <strong>Repository:</strong> github.com/huerlisi/CyDoc &bull;
+    <strong>Rails version:</strong> 3.2.19 (EOL June 2013) &bull;
+    <strong>Total migrations analyzed:</strong> 226 &bull;
+    <strong>Total commits analyzed:</strong> 63
+  </div>
+
+</div>
+</body>
+</html>

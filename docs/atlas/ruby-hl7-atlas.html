@@ -1,0 +1,1956 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ruby-hl7 Codebase Atlas</title>
+<style>
+  :root {
+    --bg-deep:     #050810;
+    --bg-panel:    #090e1a;
+    --bg-card:     #0d1424;
+    --bg-hover:    #111c30;
+    --border:      #1a2a4a;
+    --border-glow: #1e3a6e;
+
+    --neon-cyan:   #00f5ff;
+    --neon-blue:   #4488ff;
+    --neon-purple: #a855f7;
+    --neon-green:  #00ff88;
+    --neon-amber:  #ffb800;
+    --neon-red:    #ff4466;
+    --neon-pink:   #ff00cc;
+
+    --text-primary:   #e2eaf8;
+    --text-secondary: #8aa0c8;
+    --text-muted:     #4a6080;
+    --text-label:     #2a4060;
+
+    --font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+    --font-sans: 'Inter', 'Segoe UI', system-ui, sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg-deep);
+    color: var(--text-primary);
+    font-family: var(--font-sans);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ── Scrollbar ────────────────────────────────────────────── */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg-deep); }
+  ::-webkit-scrollbar-thumb { background: var(--border-glow); border-radius: 3px; }
+
+  /* ── Background grid ──────────────────────────────────────── */
+  body::before {
+    content: '';
+    position: fixed; inset: 0; z-index: 0;
+    background-image:
+      linear-gradient(var(--border) 1px, transparent 1px),
+      linear-gradient(90deg, var(--border) 1px, transparent 1px);
+    background-size: 40px 40px;
+    opacity: .35;
+    pointer-events: none;
+  }
+
+  /* ── Layout ───────────────────────────────────────────────── */
+  .shell {
+    position: relative; z-index: 1;
+    max-width: 1600px;
+    margin: 0 auto;
+    padding: 0 24px 80px;
+  }
+
+  /* ── Hero header ──────────────────────────────────────────── */
+  .hero {
+    padding: 56px 0 48px;
+    border-bottom: 1px solid var(--border);
+    position: relative;
+    overflow: hidden;
+  }
+  .hero::after {
+    content: '';
+    position: absolute;
+    bottom: -1px; left: 0; right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--neon-cyan), var(--neon-purple), transparent);
+  }
+  .hero-eyebrow {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--neon-cyan);
+    opacity: .7;
+    margin-bottom: 16px;
+  }
+  .hero-title {
+    font-size: clamp(32px, 5vw, 60px);
+    font-weight: 800;
+    letter-spacing: -1.5px;
+    line-height: 1.05;
+    background: linear-gradient(135deg, #fff 0%, var(--neon-cyan) 45%, var(--neon-purple) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 16px;
+  }
+  .hero-subtitle {
+    font-size: 15px;
+    color: var(--text-secondary);
+    max-width: 680px;
+    line-height: 1.7;
+  }
+  .hero-meta {
+    margin-top: 28px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: center;
+  }
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 12px;
+    border-radius: 20px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .5px;
+    border: 1px solid;
+  }
+  .badge-cyan  { color: var(--neon-cyan);   border-color: var(--neon-cyan);   background: rgba(0,245,255,.06); }
+  .badge-purple{ color: var(--neon-purple); border-color: var(--neon-purple); background: rgba(168,85,247,.06); }
+  .badge-green { color: var(--neon-green);  border-color: var(--neon-green);  background: rgba(0,255,136,.06); }
+  .badge-amber { color: var(--neon-amber);  border-color: var(--neon-amber);  background: rgba(255,184,0,.06); }
+
+  /* ── Section titles ───────────────────────────────────────── */
+  .section {
+    margin-top: 64px;
+  }
+  .section-header {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 28px;
+  }
+  .section-num {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text-muted);
+    letter-spacing: 1px;
+  }
+  .section-title {
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: -.3px;
+    color: var(--text-primary);
+  }
+  .section-line {
+    flex: 1;
+    height: 1px;
+    background: linear-gradient(90deg, var(--border-glow), transparent);
+  }
+  .section-tag {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--neon-cyan);
+    opacity: .6;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+
+  /* ── Cards / panels ───────────────────────────────────────── */
+  .card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 22px 24px;
+    transition: border-color .2s, background .2s;
+  }
+  .card:hover {
+    border-color: var(--border-glow);
+    background: var(--bg-hover);
+  }
+
+  /* ── Grid layouts ─────────────────────────────────────────── */
+  .grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
+  .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+  @media(max-width:1100px){ .grid-4 { grid-template-columns: repeat(2,1fr); } }
+  @media(max-width: 800px){ .grid-3,.grid-2 { grid-template-columns: 1fr; } }
+  @media(max-width: 600px){ .grid-4 { grid-template-columns: 1fr; } }
+
+  /* ── File tree ────────────────────────────────────────────── */
+  .file-tree {
+    font-family: var(--font-mono);
+    font-size: 12.5px;
+    line-height: 1.9;
+    color: var(--text-secondary);
+  }
+  .tree-dir  { color: var(--neon-cyan); font-weight: 600; }
+  .tree-file { color: var(--text-secondary); }
+  .tree-file.highlight { color: var(--neon-green); font-weight: 600; }
+  .tree-file.dim      { color: var(--text-muted); }
+  .tree-indent { padding-left: 20px; border-left: 1px solid var(--border); margin-left: 8px; }
+  .tree-row { display: flex; align-items: center; gap: 8px; padding: 1px 0; }
+  .tree-icon { font-size: 11px; opacity: .7; }
+  .tree-badge {
+    margin-left: auto;
+    font-size: 9.5px;
+    padding: 1px 7px;
+    border-radius: 8px;
+    background: rgba(0,245,255,.08);
+    color: var(--neon-cyan);
+    border: 1px solid rgba(0,245,255,.2);
+    white-space: nowrap;
+  }
+  .tree-badge.purple { background: rgba(168,85,247,.08); color: var(--neon-purple); border-color: rgba(168,85,247,.2); }
+  .tree-badge.green  { background: rgba(0,255,136,.08);  color: var(--neon-green);  border-color: rgba(0,255,136,.2); }
+  .tree-badge.amber  { background: rgba(255,184,0,.08);  color: var(--neon-amber);  border-color: rgba(255,184,0,.2); }
+
+  /* ── Module cards ─────────────────────────────────────────── */
+  .mod-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 18px 20px;
+    position: relative;
+    overflow: hidden;
+    transition: all .2s;
+  }
+  .mod-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+  }
+  .mod-card.cyan::before   { background: linear-gradient(90deg, transparent, var(--neon-cyan), transparent); }
+  .mod-card.purple::before { background: linear-gradient(90deg, transparent, var(--neon-purple), transparent); }
+  .mod-card.green::before  { background: linear-gradient(90deg, transparent, var(--neon-green), transparent); }
+  .mod-card.amber::before  { background: linear-gradient(90deg, transparent, var(--neon-amber), transparent); }
+  .mod-card.red::before    { background: linear-gradient(90deg, transparent, var(--neon-red), transparent); }
+  .mod-card.pink::before   { background: linear-gradient(90deg, transparent, var(--neon-pink), transparent); }
+  .mod-card.blue::before   { background: linear-gradient(90deg, transparent, var(--neon-blue), transparent); }
+  .mod-card:hover {
+    border-color: var(--border-glow);
+    background: var(--bg-hover);
+    transform: translateY(-1px);
+    box-shadow: 0 8px 32px rgba(0,0,0,.4);
+  }
+  .mod-name {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    font-weight: 700;
+    margin-bottom: 6px;
+  }
+  .mod-name.cyan   { color: var(--neon-cyan); }
+  .mod-name.purple { color: var(--neon-purple); }
+  .mod-name.green  { color: var(--neon-green); }
+  .mod-name.amber  { color: var(--neon-amber); }
+  .mod-name.red    { color: var(--neon-red); }
+  .mod-name.pink   { color: var(--neon-pink); }
+  .mod-name.blue   { color: var(--neon-blue); }
+  .mod-desc {
+    font-size: 12px;
+    color: var(--text-secondary);
+    line-height: 1.6;
+    margin-bottom: 12px;
+  }
+  .mod-attrs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .attr-pill {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    padding: 2px 8px;
+    border-radius: 6px;
+    background: rgba(255,255,255,.04);
+    color: var(--text-muted);
+    border: 1px solid var(--border);
+  }
+
+  /* ── Diagram / flow boxes ─────────────────────────────────── */
+  .flow-container {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 32px 24px;
+    overflow-x: auto;
+  }
+  .flow-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0;
+    flex-wrap: nowrap;
+    margin-bottom: 0;
+  }
+  .flow-box {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    padding: 14px 18px;
+    border-radius: 8px;
+    border: 1px solid;
+    min-width: 130px;
+    position: relative;
+  }
+  .flow-box.cyan   { border-color: var(--neon-cyan);   background: rgba(0,245,255,.05); }
+  .flow-box.purple { border-color: var(--neon-purple); background: rgba(168,85,247,.05); }
+  .flow-box.green  { border-color: var(--neon-green);  background: rgba(0,255,136,.05); }
+  .flow-box.amber  { border-color: var(--neon-amber);  background: rgba(255,184,0,.05); }
+  .flow-box.blue   { border-color: var(--neon-blue);   background: rgba(68,136,255,.05); }
+  .flow-box.red    { border-color: var(--neon-red);    background: rgba(255,68,102,.05); }
+  .flow-box-label {
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+  .flow-box-label.cyan   { color: var(--neon-cyan); }
+  .flow-box-label.purple { color: var(--neon-purple); }
+  .flow-box-label.green  { color: var(--neon-green); }
+  .flow-box-label.amber  { color: var(--neon-amber); }
+  .flow-box-label.blue   { color: var(--neon-blue); }
+  .flow-box-label.red    { color: var(--neon-red); }
+  .flow-box-sub {
+    font-size: 10px;
+    color: var(--text-muted);
+    line-height: 1.4;
+  }
+  .flow-arrow {
+    padding: 0 8px;
+    color: var(--text-muted);
+    font-size: 18px;
+    flex-shrink: 0;
+  }
+
+  /* ── Segment table ────────────────────────────────────────── */
+  .seg-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12.5px;
+    font-family: var(--font-mono);
+  }
+  .seg-table th {
+    text-align: left;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border-glow);
+    color: var(--text-muted);
+    font-weight: 600;
+    font-size: 10px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+  }
+  .seg-table td {
+    padding: 9px 14px;
+    border-bottom: 1px solid var(--border);
+    color: var(--text-secondary);
+    vertical-align: top;
+  }
+  .seg-table tr:hover td {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+  }
+  .seg-code {
+    font-weight: 700;
+    padding: 2px 7px;
+    border-radius: 5px;
+    font-size: 11px;
+  }
+  .seg-code.admin  { color: var(--neon-cyan);   background: rgba(0,245,255,.08);   border: 1px solid rgba(0,245,255,.2); }
+  .seg-code.patient{ color: var(--neon-green);  background: rgba(0,255,136,.08);   border: 1px solid rgba(0,255,136,.2); }
+  .seg-code.order  { color: var(--neon-amber);  background: rgba(255,184,0,.08);   border: 1px solid rgba(255,184,0,.2); }
+  .seg-code.obs    { color: var(--neon-purple); background: rgba(168,85,247,.08);  border: 1px solid rgba(168,85,247,.2); }
+  .seg-code.sched  { color: var(--neon-blue);   background: rgba(68,136,255,.08);  border: 1px solid rgba(68,136,255,.2); }
+  .seg-code.fin    { color: var(--neon-pink);   background: rgba(255,0,204,.08);   border: 1px solid rgba(255,0,204,.2); }
+  .seg-code.ctrl   { color: var(--neon-red);    background: rgba(255,68,102,.08);  border: 1px solid rgba(255,68,102,.2); }
+  .seg-code.default{ color: var(--text-muted);  background: rgba(255,255,255,.04); border: 1px solid var(--border); }
+  .seg-weight {
+    font-size: 11px;
+    color: var(--text-muted);
+    text-align: right;
+  }
+  .seg-weight.low  { color: var(--neon-red); }
+  .seg-weight.mid  { color: var(--neon-amber); }
+  .seg-weight.high { color: var(--neon-green); }
+  .child-pill {
+    display: inline-block;
+    font-size: 10px;
+    padding: 1px 6px;
+    border-radius: 4px;
+    background: rgba(168,85,247,.1);
+    color: var(--neon-purple);
+    border: 1px solid rgba(168,85,247,.25);
+    margin: 1px;
+  }
+
+  /* ── Inheritance diagram ──────────────────────────────────── */
+  .inherit-tree {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    line-height: 2;
+    padding: 20px 24px;
+  }
+  .inherit-node {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 14px;
+    border-radius: 6px;
+    border: 1px solid;
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .inherit-node.root  { border-color: var(--neon-cyan);   color: var(--neon-cyan);   background: rgba(0,245,255,.07); }
+  .inherit-node.mid   { border-color: var(--neon-purple); color: var(--neon-purple); background: rgba(168,85,247,.07); }
+  .inherit-node.leaf  { border-color: var(--border-glow); color: var(--text-secondary); background: var(--bg-card); }
+  .inherit-connector {
+    display: block;
+    margin-left: 30px;
+    padding-left: 18px;
+    border-left: 1px dashed var(--border-glow);
+  }
+  .inherit-level { margin: 4px 0; }
+
+  /* ── Data flow diagram ────────────────────────────────────── */
+  .dataflow {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    align-items: stretch;
+    padding: 24px;
+  }
+  .df-stage {
+    display: grid;
+    grid-template-columns: 200px 1fr;
+    align-items: start;
+    gap: 24px;
+    padding: 16px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .df-stage:last-child { border-bottom: none; }
+  .df-label {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 700;
+    text-align: right;
+    padding-right: 20px;
+    padding-top: 4px;
+    position: relative;
+  }
+  .df-label::after {
+    content: '';
+    position: absolute;
+    right: -1px; top: 10px;
+    width: 10px; height: 1px;
+    background: var(--border-glow);
+  }
+  .df-content {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: flex-start;
+  }
+  .df-node {
+    padding: 7px 13px;
+    border-radius: 6px;
+    border: 1px solid;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 600;
+    position: relative;
+  }
+  .df-node .df-arrow-right {
+    position: absolute;
+    right: -16px; top: 50%;
+    transform: translateY(-50%);
+    font-size: 12px;
+    color: var(--text-muted);
+  }
+  .df-node.cyan   { border-color: var(--neon-cyan);   color: var(--neon-cyan);   background: rgba(0,245,255,.05); }
+  .df-node.green  { border-color: var(--neon-green);  color: var(--neon-green);  background: rgba(0,255,136,.05); }
+  .df-node.purple { border-color: var(--neon-purple); color: var(--neon-purple); background: rgba(168,85,247,.05); }
+  .df-node.amber  { border-color: var(--neon-amber);  color: var(--neon-amber);  background: rgba(255,184,0,.05); }
+  .df-note {
+    font-size: 11px;
+    color: var(--text-muted);
+    line-height: 1.5;
+    font-style: italic;
+  }
+
+  /* ── Pattern cards ────────────────────────────────────────── */
+  .pattern-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 22px 24px;
+  }
+  .pattern-title {
+    font-size: 14px;
+    font-weight: 700;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .pattern-icon {
+    width: 28px; height: 28px;
+    border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px;
+    flex-shrink: 0;
+  }
+  .pattern-icon.cyan   { background: rgba(0,245,255,.1);  color: var(--neon-cyan); }
+  .pattern-icon.purple { background: rgba(168,85,247,.1); color: var(--neon-purple); }
+  .pattern-icon.green  { background: rgba(0,255,136,.1);  color: var(--neon-green); }
+  .pattern-icon.amber  { background: rgba(255,184,0,.1);  color: var(--neon-amber); }
+  .pattern-icon.blue   { background: rgba(68,136,255,.1); color: var(--neon-blue); }
+  .pattern-body {
+    font-size: 12.5px;
+    color: var(--text-secondary);
+    line-height: 1.7;
+    margin-bottom: 12px;
+  }
+  .code-snippet {
+    background: #060b14;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 12px 14px;
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    line-height: 1.7;
+    color: var(--text-secondary);
+    overflow-x: auto;
+  }
+  .code-kw  { color: var(--neon-purple); }
+  .code-cls { color: var(--neon-cyan); }
+  .code-str { color: var(--neon-green); }
+  .code-sym { color: var(--neon-amber); }
+  .code-cmt { color: var(--text-label); font-style: italic; }
+  .code-num { color: var(--neon-red); }
+  .code-met { color: #88ccff; }
+
+  /* ── Stats bar ────────────────────────────────────────────── */
+  .stats-row {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-bottom: 32px;
+  }
+  .stat-box {
+    flex: 1;
+    min-width: 130px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px 18px;
+    text-align: center;
+  }
+  .stat-num {
+    font-family: var(--font-mono);
+    font-size: 28px;
+    font-weight: 800;
+    line-height: 1;
+    margin-bottom: 4px;
+  }
+  .stat-label {
+    font-size: 10.5px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+
+  /* ── Mixin / extension table ──────────────────────────────── */
+  .ext-list {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .ext-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 10px 14px;
+    border-radius: 7px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+  }
+  .ext-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    margin-top: 5px;
+    flex-shrink: 0;
+  }
+  .ext-dot.cyan   { background: var(--neon-cyan); }
+  .ext-dot.purple { background: var(--neon-purple); }
+  .ext-dot.green  { background: var(--neon-green); }
+  .ext-dot.amber  { background: var(--neon-amber); }
+  .ext-name {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-weight: 700;
+    margin-bottom: 2px;
+    color: var(--text-primary);
+  }
+  .ext-desc {
+    font-size: 11.5px;
+    color: var(--text-secondary);
+    line-height: 1.5;
+  }
+
+  /* ── Segment relationship diagram ─────────────────────────── */
+  .rel-diagram {
+    display: flex;
+    gap: 24px;
+    padding: 24px;
+    overflow-x: auto;
+    align-items: flex-start;
+  }
+  .rel-col {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-width: 120px;
+  }
+  .rel-col-header {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    margin-bottom: 6px;
+    text-align: center;
+  }
+  .rel-node {
+    padding: 8px 12px;
+    border-radius: 6px;
+    border: 1px solid;
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    font-weight: 700;
+    text-align: center;
+  }
+  .rel-node.cyan   { border-color: var(--neon-cyan);   color: var(--neon-cyan);   background: rgba(0,245,255,.06); }
+  .rel-node.green  { border-color: var(--neon-green);  color: var(--neon-green);  background: rgba(0,255,136,.06); }
+  .rel-node.amber  { border-color: var(--neon-amber);  color: var(--neon-amber);  background: rgba(255,184,0,.06); }
+  .rel-node.purple { border-color: var(--neon-purple); color: var(--neon-purple); background: rgba(168,85,247,.06); }
+  .rel-node.blue   { border-color: var(--neon-blue);   color: var(--neon-blue);   background: rgba(68,136,255,.06); }
+  .rel-node.gray   { border-color: var(--border);      color: var(--text-muted);  background: var(--bg-card); }
+  .rel-connector {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    color: var(--text-label);
+    padding-top: 32px;
+  }
+
+  /* ── Footer ───────────────────────────────────────────────── */
+  .footer {
+    margin-top: 80px;
+    padding: 24px 0;
+    border-top: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+    font-size: 11px;
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+  }
+
+  /* ── Glow effects ─────────────────────────────────────────── */
+  .glow-cyan   { text-shadow: 0 0 12px rgba(0,245,255,.5); }
+  .glow-purple { text-shadow: 0 0 12px rgba(168,85,247,.5); }
+  .glow-green  { text-shadow: 0 0 12px rgba(0,255,136,.5); }
+
+  /* ── Tooltip dot ──────────────────────────────────────────── */
+  .live-dot {
+    display: inline-block;
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--neon-green);
+    box-shadow: 0 0 8px var(--neon-green);
+    animation: pulse 2s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    0%,100% { opacity: 1; }
+    50%      { opacity: .3; }
+  }
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <!-- ═══════════════════════════════════════════════════════════
+       HERO
+  ═══════════════════════════════════════════════════════════ -->
+  <header class="hero">
+    <div class="hero-eyebrow">Codebase Atlas &nbsp;/&nbsp; L0 &middot; L1 &middot; L2 &middot; L3</div>
+    <h1 class="hero-title">ruby-hl7</h1>
+    <p class="hero-subtitle">
+      A Ruby library for parsing and generating HL7 2.x healthcare messages.
+      Wraps the Health Level 7 messaging standard — the dominant wire format for
+      exchanging clinical and administrative data between hospital information systems
+      — in an idiomatic Ruby object model with a segment DSL, hierarchical parent-child
+      relationships, MLLP transport encoding, and batch-message support.
+    </p>
+    <div class="hero-meta">
+      <span class="badge badge-cyan"><span class="live-dot"></span> Expert Audience</span>
+      <span class="badge badge-purple">HL7 2.x</span>
+      <span class="badge badge-green">Ruby Gem</span>
+      <span class="badge badge-amber">36 Segment Types</span>
+      <span class="badge badge-cyan">4 Layers Analyzed</span>
+    </div>
+  </header>
+
+  <!-- ═══════════════════════════════════════════════════════════
+       STATS
+  ═══════════════════════════════════════════════════════════ -->
+  <section class="section">
+    <div class="section-header">
+      <span class="section-num">00</span>
+      <h2 class="section-title">Codebase Vitals</h2>
+      <div class="section-line"></div>
+      <span class="section-tag">Metrics</span>
+    </div>
+    <div class="stats-row">
+      <div class="stat-box">
+        <div class="stat-num" style="color:var(--neon-cyan)">36</div>
+        <div class="stat-label">Segment Classes</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-num" style="color:var(--neon-purple)">14</div>
+        <div class="stat-label">Core Source Files</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-num" style="color:var(--neon-green)">47</div>
+        <div class="stat-label">Spec Files</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-num" style="color:var(--neon-amber)">6</div>
+        <div class="stat-label">Exception Types</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-num" style="color:var(--neon-blue)">8</div>
+        <div class="stat-label">Modules / Mixins</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-num" style="color:var(--neon-pink)">3</div>
+        <div class="stat-label">Wire Formats</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════
+       L0 — FILE STRUCTURE
+  ═══════════════════════════════════════════════════════════ -->
+  <section class="section">
+    <div class="section-header">
+      <span class="section-num">L0</span>
+      <h2 class="section-title">File Structure</h2>
+      <div class="section-line"></div>
+      <span class="section-tag">Physical Layout</span>
+    </div>
+
+    <div class="grid-2">
+      <!-- Tree -->
+      <div class="card">
+        <div class="file-tree">
+          <div class="tree-row">
+            <span class="tree-icon">&#x25A3;</span>
+            <span class="tree-dir">ruby-hl7/</span>
+            <span class="tree-badge">gem root</span>
+          </div>
+          <div class="tree-indent">
+            <div class="tree-row"><span class="tree-icon">&#x25B8;</span><span class="tree-dir">lib/</span></div>
+            <div class="tree-indent">
+              <div class="tree-row"><span class="tree-icon">F</span><span class="tree-file highlight">ruby-hl7.rb</span><span class="tree-badge green">entrypoint</span></div>
+              <div class="tree-row"><span class="tree-icon">F</span><span class="tree-file highlight">message.rb</span><span class="tree-badge">core</span></div>
+              <div class="tree-row"><span class="tree-icon">F</span><span class="tree-file highlight">message_parser.rb</span><span class="tree-badge">core</span></div>
+              <div class="tree-row"><span class="tree-icon">F</span><span class="tree-file highlight">segment.rb</span><span class="tree-badge">core</span></div>
+              <div class="tree-row"><span class="tree-icon">F</span><span class="tree-file highlight">segment_fields.rb</span><span class="tree-badge">core</span></div>
+              <div class="tree-row"><span class="tree-icon">F</span><span class="tree-file highlight">segment_generator.rb</span><span class="tree-badge">core</span></div>
+              <div class="tree-row"><span class="tree-icon">F</span><span class="tree-file highlight">segment_list_storage.rb</span><span class="tree-badge">core</span></div>
+              <div class="tree-row"><span class="tree-icon">F</span><span class="tree-file">segment_default.rb</span></div>
+              <div class="tree-row"><span class="tree-icon">F</span><span class="tree-file">configuration.rb</span></div>
+              <div class="tree-row"><span class="tree-icon">F</span><span class="tree-file">version.rb</span></div>
+              <div class="tree-row"><span class="tree-icon">&#x25B8;</span><span class="tree-dir">segments/</span><span class="tree-badge purple">36 files</span></div>
+              <div class="tree-indent">
+                <div class="tree-row"><span class="tree-icon">F</span><span class="tree-file highlight">msh.rb</span><span class="tree-badge">header</span></div>
+                <div class="tree-row"><span class="tree-icon">F</span><span class="tree-file highlight">pid.rb</span><span class="tree-badge">patient</span></div>
+                <div class="tree-row"><span class="tree-icon">F</span><span class="tree-file highlight">obr.rb</span><span class="tree-badge amber">order</span></div>
+                <div class="tree-row"><span class="tree-icon">F</span><span class="tree-file highlight">obx.rb</span><span class="tree-badge purple">result</span></div>
+                <div class="tree-row"><span class="tree-icon">F</span><span class="tree-file highlight">orc.rb</span><span class="tree-badge amber">order</span></div>
+                <div class="tree-row"><span class="tree-icon">F</span><span class="tree-file highlight">pv1.rb</span><span class="tree-badge">visit</span></div>
+                <div class="tree-row"><span class="tree-icon">F</span><span class="tree-file dim">evn.rb, msa.rb, nk1.rb…</span></div>
+              </div>
+              <div class="tree-row"><span class="tree-icon">&#x25B8;</span><span class="tree-dir">helpers/</span></div>
+              <div class="tree-indent">
+                <div class="tree-row"><span class="tree-icon">F</span><span class="tree-file">time_formatter_helper.rb</span></div>
+              </div>
+              <div class="tree-row"><span class="tree-icon">&#x25B8;</span><span class="tree-dir">core_ext/</span></div>
+              <div class="tree-indent">
+                <div class="tree-row"><span class="tree-icon">F</span><span class="tree-file">date_time.rb</span></div>
+                <div class="tree-row"><span class="tree-icon">F</span><span class="tree-file">string.rb</span></div>
+              </div>
+              <div class="tree-row"><span class="tree-icon">&#x25B8;</span><span class="tree-dir">test/</span></div>
+              <div class="tree-indent">
+                <div class="tree-row"><span class="tree-icon">F</span><span class="tree-file">hl7_messages.rb</span></div>
+              </div>
+            </div>
+            <div class="tree-row"><span class="tree-icon">&#x25B8;</span><span class="tree-dir">spec/</span><span class="tree-badge purple">47 specs</span></div>
+            <div class="tree-row"><span class="tree-icon">&#x25B8;</span><span class="tree-dir">test_data/</span><span class="tree-badge">real HL7 samples</span></div>
+            <div class="tree-indent">
+              <div class="tree-row"><span class="tree-icon">&#x25B8;</span><span class="tree-dir">cerner/</span></div>
+              <div class="tree-row"><span class="tree-icon">&#x25B8;</span><span class="tree-dir">nist/</span></div>
+              <div class="tree-row"><span class="tree-icon">&#x25B8;</span><span class="tree-dir">realm/</span></div>
+            </div>
+            <div class="tree-row"><span class="tree-icon">F</span><span class="tree-file">ruby-hl7.gemspec</span></div>
+            <div class="tree-row"><span class="tree-icon">F</span><span class="tree-file">examples/proxy_server.rb</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Directory roles -->
+      <div style="display:flex;flex-direction:column;gap:12px;">
+        <div class="card">
+          <div style="font-family:var(--font-mono);font-size:11px;color:var(--neon-cyan);font-weight:700;margin-bottom:6px;">lib/ &mdash; Core Library</div>
+          <p style="font-size:12.5px;color:var(--text-secondary);line-height:1.6;">All runtime code. The flat top level holds the 9 core files; <code style="color:var(--neon-amber)">segments/</code> holds the 36 typed segment subclasses auto-loaded at startup via <code style="color:var(--neon-amber)">Dir[...].each{|f| load f}</code>.</p>
+        </div>
+        <div class="card">
+          <div style="font-family:var(--font-mono);font-size:11px;color:var(--neon-purple);font-weight:700;margin-bottom:6px;">spec/ &mdash; RSpec Test Suite</div>
+          <p style="font-size:12.5px;color:var(--text-secondary);line-height:1.6;">One spec file per segment type, plus integration specs for parsing, batches, dynamic segment definitions, field access, and speed benchmarks.</p>
+        </div>
+        <div class="card">
+          <div style="font-family:var(--font-mono);font-size:11px;color:var(--neon-green);font-weight:700;margin-bottom:6px;">test_data/ &mdash; Real-world HL7 Corpus</div>
+          <p style="font-size:12.5px;color:var(--text-secondary);line-height:1.6;">Fixture files from Cerner EMR, NIST HL7 conformance test suite, and Realm lab systems. Includes ADT A01, ORU R01, and batch-format messages for cross-vendor validation.</p>
+        </div>
+        <div class="card">
+          <div style="font-family:var(--font-mono);font-size:11px;color:var(--neon-amber);font-weight:700;margin-bottom:6px;">core_ext/ &mdash; Ruby Monkey-patches</div>
+          <p style="font-size:12.5px;color:var(--text-secondary);line-height:1.6;"><code style="color:var(--neon-amber)">String#hl7_batch?</code> detects FHS-wrapped batch files. <code style="color:var(--neon-amber)">DateTime</code> gains HL7 timestamp serialization methods.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════
+       L1 — MODULES & CLASS HIERARCHY
+  ═══════════════════════════════════════════════════════════ -->
+  <section class="section">
+    <div class="section-header">
+      <span class="section-num">L1</span>
+      <h2 class="section-title">Module &amp; Class Hierarchy</h2>
+      <div class="section-line"></div>
+      <span class="section-tag">Namespace Map</span>
+    </div>
+
+    <!-- Inheritance tree -->
+    <div class="card" style="margin-bottom:20px;">
+      <div style="font-size:12px;color:var(--text-muted);font-family:var(--font-mono);margin-bottom:18px;letter-spacing:1px;">CLASS INHERITANCE &amp; MODULE MIXIN MAP</div>
+      <div class="inherit-tree">
+        <!-- Top-level HL7 module -->
+        <div class="inherit-level">
+          <span class="inherit-node root">HL7 (module)</span>
+          <span style="margin-left:12px;font-size:11px;color:var(--text-muted)">&#x2014; namespace root, configuration accessor</span>
+        </div>
+        <div class="inherit-connector">
+          <div class="inherit-level" style="margin-top:6px;">
+            <span class="inherit-node mid">HL7::Message</span>
+            <span style="margin-left:12px;font-size:11px;color:var(--text-muted)">includes Enumerable &nbsp;&#x2022;&nbsp; extends HL7::MessageBatchParser</span>
+          </div>
+          <div class="inherit-connector">
+            <div class="inherit-level">
+              <span class="inherit-node mid">HL7::Message::Segment</span>
+              <span style="margin-left:12px;font-size:11px;color:var(--text-muted)">extends SegmentListStorage &nbsp;&#x2022;&nbsp; extends TimeFormatterHelper &nbsp;&#x2022;&nbsp; includes SegmentFields</span>
+            </div>
+            <div class="inherit-connector">
+              <div class="inherit-level">
+                <span class="inherit-node leaf">Segment::Default</span>
+                <span style="margin-left:10px;font-size:10px;color:var(--text-muted)">catch-all, no named fields</span>
+              </div>
+              <div class="inherit-level">
+                <span class="inherit-node leaf">Segment::MSH</span>
+                <span style="margin-left:10px;font-size:10px;color:var(--text-muted)">weight(-1) &mdash; always first</span>
+              </div>
+              <div class="inherit-level">
+                <span class="inherit-node leaf">Segment::PID</span>
+                <span style="margin-left:10px;font-size:10px;color:var(--text-muted)">weight(1) &mdash; has_children [:NK1,:NTE,:PV1,:PV2]</span>
+              </div>
+              <div class="inherit-level">
+                <span class="inherit-node leaf">Segment::PV1 / PV2</span>
+                <span style="margin-left:10px;font-size:10px;color:var(--text-muted)">weight(2 / 3)</span>
+              </div>
+              <div class="inherit-level">
+                <span class="inherit-node leaf">Segment::ORC</span>
+                <span style="margin-left:10px;font-size:10px;color:var(--text-muted)">weight(88) &mdash; has_children [:OBR]</span>
+              </div>
+              <div class="inherit-level">
+                <span class="inherit-node leaf">Segment::OBR</span>
+                <span style="margin-left:10px;font-size:10px;color:var(--text-muted)">weight(89) &mdash; has_children [:NTE,:OBX,:SPM]</span>
+              </div>
+              <div class="inherit-level">
+                <span class="inherit-node leaf">Segment::OBX</span>
+                <span style="margin-left:10px;font-size:10px;color:var(--text-muted)">weight(90) &mdash; has_children [:NTE]</span>
+              </div>
+              <div class="inherit-level">
+                <span class="inherit-node leaf" style="color:var(--text-muted)">&#x2026; 29 more typed subclasses</span>
+              </div>
+            </div>
+          </div>
+          <div class="inherit-level" style="margin-top:8px;">
+            <span class="inherit-node mid">HL7::Message::Delimiter</span>
+            <span style="margin-left:12px;font-size:11px;color:var(--text-muted)">value object: element / item / segment delimiters</span>
+          </div>
+          <div class="inherit-level" style="margin-top:6px;">
+            <span class="inherit-node mid">HL7::Message::SegmentGenerator</span>
+            <span style="margin-left:12px;font-size:11px;color:var(--text-muted)">factory — resolves segment class, instantiates segment</span>
+          </div>
+        </div>
+
+        <div class="inherit-level" style="margin-top:12px;">
+          <span class="inherit-node root">HL7::MessageParser</span>
+          <span style="margin-left:12px;font-size:11px;color:var(--text-muted)">string splitter &mdash; MLLP strip &mdash; delimiter detection</span>
+        </div>
+
+        <div class="inherit-level" style="margin-top:8px;">
+          <span class="inherit-node root" style="border-color:var(--neon-green);color:var(--neon-green);">HL7::Exception hierarchy</span>
+          <span style="margin-left:12px;font-size:11px;color:var(--text-muted)">ParseError &nbsp;&#x2022;&nbsp; RangeError &nbsp;&#x2022;&nbsp; InvalidDataError &nbsp;&#x2022;&nbsp; EmptySegmentNotAllowed</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Module cards -->
+    <div class="grid-4">
+      <div class="mod-card cyan">
+        <div class="mod-name cyan">HL7::Message</div>
+        <div class="mod-desc">Top-level container. Smart collection of Segment objects with dual-index access (positional integer or symbolic segment name). Owns the parse pipeline and MLLP serialization.</div>
+        <div class="mod-attrs">
+          <span class="attr-pill">Enumerable</span>
+          <span class="attr-pill">MessageBatchParser</span>
+          <span class="attr-pill">to_hl7</span>
+          <span class="attr-pill">to_mllp</span>
+          <span class="attr-pill">sequence_segments</span>
+        </div>
+      </div>
+      <div class="mod-card purple">
+        <div class="mod-name purple">HL7::Message::Segment</div>
+        <div class="mod-desc">Abstract base for all segment types. Provides DSL (<code>add_field</code>, <code>weight</code>, <code>has_children</code>), element array storage, method-missing field dispatch, and sort comparison via weight.</div>
+        <div class="mod-attrs">
+          <span class="attr-pill">SegmentFields</span>
+          <span class="attr-pill">SegmentListStorage</span>
+          <span class="attr-pill">TimeFormatterHelper</span>
+          <span class="attr-pill">Comparable</span>
+        </div>
+      </div>
+      <div class="mod-card green">
+        <div class="mod-name green">HL7::MessageParser</div>
+        <div class="mod-desc">Stateless parsing utilities. Splits raw strings on segment delimiter (<code>\r</code>), strips MLLP framing bytes (<code>\v … \x1C\r</code>), extracts element and item delimiter characters from the MSH header.</div>
+        <div class="mod-attrs">
+          <span class="attr-pill">split_by_delimiter</span>
+          <span class="attr-pill">parse_string</span>
+          <span class="attr-pill">parse_element_delim</span>
+          <span class="attr-pill">parse_item_delim</span>
+        </div>
+      </div>
+      <div class="mod-card amber">
+        <div class="mod-name amber">HL7::Message::SegmentGenerator</div>
+        <div class="mod-desc">Factory that resolves the correct Ruby class for each raw segment string during parsing. Falls back to <code>Segment::Default</code> for unknown segment types, ensuring round-trip fidelity for non-standard segments.</div>
+        <div class="mod-attrs">
+          <span class="attr-pill">get_segment_class</span>
+          <span class="attr-pill">build</span>
+          <span class="attr-pill">valid_segments_parts?</span>
+        </div>
+      </div>
+      <div class="mod-card blue">
+        <div class="mod-name blue">HL7::Message::SegmentFields</div>
+        <div class="mod-desc">Mixin that provides the class-level <code>add_field</code> DSL and instance-level <code>read_field</code>/<code>write_field</code> methods. Supports optional validation/conversion blocks that run on both read and write.</div>
+        <div class="mod-attrs">
+          <span class="attr-pill">add_field :name, idx:</span>
+          <span class="attr-pill">alias_field</span>
+          <span class="attr-pill">read_field</span>
+          <span class="attr-pill">write_field</span>
+          <span class="attr-pill">field_info</span>
+        </div>
+      </div>
+      <div class="mod-card pink">
+        <div class="mod-name pink">HL7::Message::SegmentListStorage</div>
+        <div class="mod-desc">Mixin that dynamically defines <code>children</code>, <code>child_types</code>, and <code>accepts?</code> on segment classes. Enables hierarchical parent→child segment trees (e.g., OBR owns its OBX results).</div>
+        <div class="mod-attrs">
+          <span class="attr-pill">has_children(types)</span>
+          <span class="attr-pill">add_child_type</span>
+          <span class="attr-pill">accepts?(name)</span>
+          <span class="attr-pill">children</span>
+        </div>
+      </div>
+      <div class="mod-card red">
+        <div class="mod-name red">HL7::MessageBatchParser</div>
+        <div class="mod-desc">Module extended onto <code>HL7::Message</code> class (not instances). Implements batch-file parsing: splits FHS-wrapped multi-message files at <code>MSH</code> boundaries and yields individual <code>HL7::Message</code> objects.</div>
+        <div class="mod-attrs">
+          <span class="attr-pill">parse_batch(batch)</span>
+          <span class="attr-pill">hl7_batch? check</span>
+          <span class="attr-pill">BTS segment handling</span>
+          <span class="attr-pill">JRuby CR fix</span>
+        </div>
+      </div>
+      <div class="mod-card cyan" style="border-color:var(--neon-green);">
+        <div class="mod-name" style="color:var(--neon-green);">TimeFormatterHelper</div>
+        <div class="mod-desc">Provides <code>hl7_formatted_timestamp</code> and <code>hl7_formatted_date</code> for converting Ruby <code>Time</code>/<code>DateTime</code>/<code>Date</code> instances to HL7 TS-format strings. Supports fractional seconds.</div>
+        <div class="mod-attrs">
+          <span class="attr-pill">hl7_formatted_timestamp</span>
+          <span class="attr-pill">hl7_formatted_date</span>
+          <span class="attr-pill">hl7_formatted_fractions</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════
+       L2 — COMPONENT RELATIONSHIPS
+  ═══════════════════════════════════════════════════════════ -->
+  <section class="section">
+    <div class="section-header">
+      <span class="section-num">L2</span>
+      <h2 class="section-title">Component Relationships</h2>
+      <div class="section-line"></div>
+      <span class="section-tag">Structural Topology</span>
+    </div>
+
+    <!-- Relationship diagram -->
+    <div class="flow-container" style="margin-bottom:20px;">
+      <div style="font-size:11px;color:var(--text-muted);font-family:var(--font-mono);margin-bottom:20px;letter-spacing:1px;">OWNERSHIP &amp; DEPENDENCY GRAPH</div>
+      <div class="rel-diagram">
+
+        <div class="rel-col">
+          <div class="rel-col-header">User Interface</div>
+          <div class="rel-node cyan">HL7::Message</div>
+          <div style="font-size:10px;color:var(--text-muted);text-align:center;margin-top:4px;">
+            []&nbsp; &lt;&lt;&nbsp; each<br>to_s&nbsp; to_hl7&nbsp; to_mllp
+          </div>
+        </div>
+
+        <div class="rel-connector">&#x2192;</div>
+
+        <div class="rel-col">
+          <div class="rel-col-header">Parse Engine</div>
+          <div class="rel-node amber">MessageParser</div>
+          <div style="margin-top:8px;"></div>
+          <div class="rel-node amber" style="border-style:dashed;">MessageBatchParser</div>
+          <div style="margin-top:8px;"></div>
+          <div class="rel-node amber">Delimiter</div>
+        </div>
+
+        <div class="rel-connector">&#x2192;</div>
+
+        <div class="rel-col">
+          <div class="rel-col-header">Factory</div>
+          <div class="rel-node green">SegmentGenerator</div>
+          <div style="font-size:10px;color:var(--text-muted);text-align:center;margin-top:6px;">
+            resolves class<br>instantiates segment
+          </div>
+        </div>
+
+        <div class="rel-connector">&#x2192;</div>
+
+        <div class="rel-col">
+          <div class="rel-col-header">Segment Base</div>
+          <div class="rel-node purple">Segment (abstract)</div>
+          <div style="font-size:10px;color:var(--text-muted);text-align:center;margin-top:6px;">
+            + SegmentFields<br>+ SegmentListStorage<br>+ TimeFormatterHelper
+          </div>
+        </div>
+
+        <div class="rel-connector">&#x2192;</div>
+
+        <div class="rel-col">
+          <div class="rel-col-header">Concrete Segments</div>
+          <div class="rel-node cyan">MSH</div>
+          <div style="margin-top:4px;"></div>
+          <div class="rel-node green">PID&nbsp;&#x25BE;&nbsp;NK1</div>
+          <div style="margin-top:4px;"></div>
+          <div class="rel-node amber">ORC&nbsp;&#x25BE;&nbsp;OBR&nbsp;&#x25BE;&nbsp;OBX</div>
+          <div style="margin-top:4px;"></div>
+          <div class="rel-node blue">SCH&nbsp;&#x25BE;&nbsp;AIG…</div>
+          <div style="margin-top:4px;"></div>
+          <div class="rel-node gray">Default (fallback)</div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Segment catalog table -->
+    <div class="flow-container">
+      <div style="font-size:11px;color:var(--text-muted);font-family:var(--font-mono);margin-bottom:16px;letter-spacing:1px;">ALL SEGMENT TYPES &mdash; WEIGHTS &amp; RELATIONSHIPS</div>
+      <table class="seg-table">
+        <thead>
+          <tr>
+            <th>Segment</th>
+            <th>Category</th>
+            <th>Weight</th>
+            <th>Children</th>
+            <th>Purpose</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><span class="seg-code admin">MSH</span></td>
+            <td style="color:var(--neon-cyan);font-size:11px;">Control / Header</td>
+            <td><span class="seg-weight low">-1</span></td>
+            <td><span style="color:var(--text-muted)">none</span></td>
+            <td>Message header — encoding chars, routing, message type, version</td>
+          </tr>
+          <tr>
+            <td><span class="seg-code patient">EVN</span></td>
+            <td style="color:var(--neon-green);font-size:11px;">Admin / Event</td>
+            <td><span class="seg-weight low">999</span></td>
+            <td></td>
+            <td>Event type and occurrence date/time trigger</td>
+          </tr>
+          <tr>
+            <td><span class="seg-code patient">PID</span></td>
+            <td style="color:var(--neon-green);font-size:11px;">Patient</td>
+            <td><span class="seg-weight low">1</span></td>
+            <td><span class="child-pill">NK1</span><span class="child-pill">NTE</span><span class="child-pill">PV1</span><span class="child-pill">PV2</span></td>
+            <td>Patient identification — demographics, IDs, DOB, sex, address</td>
+          </tr>
+          <tr>
+            <td><span class="seg-code patient">NK1</span></td>
+            <td style="color:var(--neon-green);font-size:11px;">Patient</td>
+            <td><span class="seg-weight mid">999</span></td>
+            <td></td>
+            <td>Next of kin / associated parties</td>
+          </tr>
+          <tr>
+            <td><span class="seg-code patient">MRG</span></td>
+            <td style="color:var(--neon-green);font-size:11px;">Patient</td>
+            <td></td>
+            <td></td>
+            <td>Merge patient information — prior identifiers for ADT A40</td>
+          </tr>
+          <tr>
+            <td><span class="seg-code admin">PV1</span></td>
+            <td style="color:var(--neon-cyan);font-size:11px;">Visit</td>
+            <td><span class="seg-weight low">2</span></td>
+            <td></td>
+            <td>Patient visit — assigned location, doctors, admission/discharge</td>
+          </tr>
+          <tr>
+            <td><span class="seg-code admin">PV2</span></td>
+            <td style="color:var(--neon-cyan);font-size:11px;">Visit</td>
+            <td><span class="seg-weight low">3</span></td>
+            <td></td>
+            <td>Patient visit additional info — transfer reason, expected LOS</td>
+          </tr>
+          <tr>
+            <td><span class="seg-code order">ORC</span></td>
+            <td style="color:var(--neon-amber);font-size:11px;">Order</td>
+            <td><span class="seg-weight mid">88</span></td>
+            <td><span class="child-pill">OBR</span></td>
+            <td>Common order — control code, status, ordering provider, timestamps</td>
+          </tr>
+          <tr>
+            <td><span class="seg-code order">OBR</span></td>
+            <td style="color:var(--neon-amber);font-size:11px;">Order / Results</td>
+            <td><span class="seg-weight mid">89</span></td>
+            <td><span class="child-pill">NTE</span><span class="child-pill">OBX</span><span class="child-pill">SPM</span></td>
+            <td>Observation request — universal service ID, specimen, ordering provider</td>
+          </tr>
+          <tr>
+            <td><span class="seg-code obs">OBX</span></td>
+            <td style="color:var(--neon-purple);font-size:11px;">Observation</td>
+            <td><span class="seg-weight mid">90</span></td>
+            <td><span class="child-pill">NTE</span></td>
+            <td>Observation result — value type, value, units, normal range, flags, status</td>
+          </tr>
+          <tr>
+            <td><span class="seg-code obs">NTE</span></td>
+            <td style="color:var(--neon-purple);font-size:11px;">Observation</td>
+            <td></td>
+            <td></td>
+            <td>Notes and comments — free-text annotation on parent segment</td>
+          </tr>
+          <tr>
+            <td><span class="seg-code obs">SPM</span></td>
+            <td style="color:var(--neon-purple);font-size:11px;">Specimen</td>
+            <td></td>
+            <td></td>
+            <td>Specimen — type, source, collection method, container</td>
+          </tr>
+          <tr>
+            <td><span class="seg-code ctrl">MSA</span></td>
+            <td style="color:var(--neon-red);font-size:11px;">Acknowledgement</td>
+            <td></td>
+            <td></td>
+            <td>Message acknowledgement — AA/AE/AR codes, error text</td>
+          </tr>
+          <tr>
+            <td><span class="seg-code ctrl">ERR</span></td>
+            <td style="color:var(--neon-red);font-size:11px;">Error</td>
+            <td></td>
+            <td></td>
+            <td>Error — HL7 v2.5+ structured error segments, location, severity</td>
+          </tr>
+          <tr>
+            <td><span class="seg-code sched">SCH</span></td>
+            <td style="color:var(--neon-blue);font-size:11px;">Scheduling</td>
+            <td></td>
+            <td></td>
+            <td>Scheduling activity information (SIU messages)</td>
+          </tr>
+          <tr>
+            <td><span class="seg-code sched">AIG</span></td>
+            <td style="color:var(--neon-blue);font-size:11px;">Scheduling</td>
+            <td></td>
+            <td></td>
+            <td>Appointment information — general resource</td>
+          </tr>
+          <tr>
+            <td><span class="seg-code sched">AIL</span></td>
+            <td style="color:var(--neon-blue);font-size:11px;">Scheduling</td>
+            <td></td>
+            <td></td>
+            <td>Appointment information — location resource</td>
+          </tr>
+          <tr>
+            <td><span class="seg-code sched">AIP</span></td>
+            <td style="color:var(--neon-blue);font-size:11px;">Scheduling</td>
+            <td></td>
+            <td></td>
+            <td>Appointment information — personnel resource</td>
+          </tr>
+          <tr>
+            <td><span class="seg-code sched">AIS</span></td>
+            <td style="color:var(--neon-blue);font-size:11px;">Scheduling</td>
+            <td></td>
+            <td></td>
+            <td>Appointment information — service resource</td>
+          </tr>
+          <tr>
+            <td><span class="seg-code fin">DG1</span></td>
+            <td style="color:var(--neon-pink);font-size:11px;">Clinical</td>
+            <td></td>
+            <td></td>
+            <td>Diagnosis — ICD code, description, coding method, type</td>
+          </tr>
+          <tr>
+            <td><span class="seg-code fin">GT1</span></td>
+            <td style="color:var(--neon-pink);font-size:11px;">Financial</td>
+            <td></td>
+            <td></td>
+            <td>Guarantor — financial responsibility party for the account</td>
+          </tr>
+          <tr>
+            <td><span class="seg-code fin">IN1</span></td>
+            <td style="color:var(--neon-pink);font-size:11px;">Financial</td>
+            <td></td>
+            <td></td>
+            <td>Insurance — plan, company, group, policy holder</td>
+          </tr>
+          <tr>
+            <td><span class="seg-code fin">FT1</span></td>
+            <td style="color:var(--neon-pink);font-size:11px;">Financial</td>
+            <td></td>
+            <td></td>
+            <td>Financial transaction — charge, procedure code, amounts</td>
+          </tr>
+          <tr>
+            <td><span class="seg-code order">MFI</span></td>
+            <td style="color:var(--neon-amber);font-size:11px;">Master File</td>
+            <td></td>
+            <td></td>
+            <td>Master file identification (MFN messages)</td>
+          </tr>
+          <tr>
+            <td><span class="seg-code order">MFE</span></td>
+            <td style="color:var(--neon-amber);font-size:11px;">Master File</td>
+            <td></td>
+            <td></td>
+            <td>Master file entry — action code, key, effective date</td>
+          </tr>
+          <tr>
+            <td><span class="seg-code ctrl">SFT</span></td>
+            <td style="color:var(--neon-red);font-size:11px;">Control</td>
+            <td></td>
+            <td></td>
+            <td>Software segment — HL7 2.5+ sending application metadata</td>
+          </tr>
+          <tr>
+            <td><span class="seg-code ctrl">FTS</span></td>
+            <td style="color:var(--neon-red);font-size:11px;">Batch Control</td>
+            <td></td>
+            <td></td>
+            <td>File trailer segment — batch file terminator</td>
+          </tr>
+          <tr>
+            <td><span class="seg-code obs">TXA</span></td>
+            <td style="color:var(--neon-purple);font-size:11px;">Document</td>
+            <td></td>
+            <td></td>
+            <td>Transcription document header (MDM messages)</td>
+          </tr>
+          <tr>
+            <td><span class="seg-code obs">TQ1</span></td>
+            <td style="color:var(--neon-purple);font-size:11px;">Timing</td>
+            <td></td>
+            <td></td>
+            <td>Timing/quantity — HL7 2.5+ quantity and timing specification</td>
+          </tr>
+          <tr>
+            <td><span class="seg-code admin">ROL</span></td>
+            <td style="color:var(--neon-cyan);font-size:11px;">Provider</td>
+            <td></td>
+            <td></td>
+            <td>Role — provider role in clinical event or order</td>
+          </tr>
+          <tr>
+            <td><span class="seg-code admin">PRD</span></td>
+            <td style="color:var(--neon-cyan);font-size:11px;">Provider</td>
+            <td></td>
+            <td></td>
+            <td>Provider data — name, address, IDs for referral (REF messages)</td>
+          </tr>
+          <tr>
+            <td><span class="seg-code admin">PRT</span></td>
+            <td style="color:var(--neon-cyan);font-size:11px;">Provider</td>
+            <td></td>
+            <td></td>
+            <td>Participation — HL7 2.7+ replaces ROL for participant tracking</td>
+          </tr>
+          <tr>
+            <td><span class="seg-code order">RF1</span></td>
+            <td style="color:var(--neon-amber);font-size:11px;">Referral</td>
+            <td></td>
+            <td></td>
+            <td>Referral information — status, type, disposition, expiration</td>
+          </tr>
+          <tr>
+            <td><span class="seg-code sched">RGS</span></td>
+            <td style="color:var(--neon-blue);font-size:11px;">Scheduling</td>
+            <td></td>
+            <td></td>
+            <td>Resource group segment — scheduling resource grouping</td>
+          </tr>
+          <tr>
+            <td><span class="seg-code order">QRD / QRF</span></td>
+            <td style="color:var(--neon-amber);font-size:11px;">Query</td>
+            <td></td>
+            <td></td>
+            <td>Original query definition and filter (legacy QRY messages)</td>
+          </tr>
+          <tr>
+            <td><span class="seg-code obs">ORU</span></td>
+            <td style="color:var(--neon-purple);font-size:11px;">Result</td>
+            <td></td>
+            <td></td>
+            <td>Observation result — message-level wrapper for ORU^R01</td>
+          </tr>
+          <tr>
+            <td><span class="seg-code default">Default</span></td>
+            <td style="color:var(--text-muted);font-size:11px;">Fallback</td>
+            <td></td>
+            <td></td>
+            <td>Unknown segment catch-all — preserves data via e0…eN accessor</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Child relationship diagram -->
+    <div class="flow-container" style="margin-top:20px;">
+      <div style="font-size:11px;color:var(--text-muted);font-family:var(--font-mono);margin-bottom:20px;letter-spacing:1px;">SEGMENT PARENT-CHILD HIERARCHY (Lab Result Message — ORU^R01)</div>
+      <div style="font-family:var(--font-mono);font-size:12.5px;line-height:2;padding:0 12px;">
+        <div style="color:var(--neon-cyan);font-weight:700;">MSH <span style="color:var(--text-muted);font-weight:400;font-size:11px;">&mdash; weight -1 &mdash; Message Header</span></div>
+        <div style="color:var(--neon-green);font-weight:700;margin-left:24px;">PID <span style="color:var(--text-muted);font-weight:400;font-size:11px;">&mdash; weight 1 &mdash; Patient Identification</span></div>
+        <div style="color:var(--neon-cyan);font-weight:700;margin-left:48px;">PV1 <span style="color:var(--text-muted);font-weight:400;font-size:11px;">&mdash; weight 2 &mdash; Patient Visit (child of PID)</span></div>
+        <div style="color:var(--neon-cyan);font-weight:700;margin-left:48px;">NK1 <span style="color:var(--text-muted);font-weight:400;font-size:11px;">&mdash; Next of Kin (child of PID)</span></div>
+        <div style="color:var(--neon-amber);font-weight:700;margin-left:24px;">ORC <span style="color:var(--text-muted);font-weight:400;font-size:11px;">&mdash; weight 88 &mdash; Common Order</span></div>
+        <div style="color:var(--neon-amber);font-weight:700;margin-left:48px;">OBR <span style="color:var(--text-muted);font-weight:400;font-size:11px;">&mdash; weight 89 &mdash; Observation Request (child of ORC)</span></div>
+        <div style="color:var(--neon-purple);font-weight:700;margin-left:72px;">OBX <span style="color:var(--text-muted);font-weight:400;font-size:11px;">&mdash; weight 90 &mdash; Observation Result (child of OBR)</span></div>
+        <div style="color:var(--text-secondary);font-weight:700;margin-left:96px;">NTE <span style="color:var(--text-muted);font-weight:400;font-size:11px;">&mdash; Note (child of OBX)</span></div>
+        <div style="color:var(--neon-purple);font-weight:700;margin-left:72px;">OBX <span style="color:var(--text-muted);font-weight:400;font-size:11px;">&mdash; second result (set_id auto-sequenced)</span></div>
+        <div style="color:var(--neon-purple);font-weight:700;margin-left:72px;">SPM <span style="color:var(--text-muted);font-weight:400;font-size:11px;">&mdash; Specimen (child of OBR)</span></div>
+        <div style="color:var(--text-secondary);font-weight:700;margin-left:24px;">NTE <span style="color:var(--text-muted);font-weight:400;font-size:11px;">&mdash; Order-level note (root segment)</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════
+       L3 — DATA FLOW
+  ═══════════════════════════════════════════════════════════ -->
+  <section class="section">
+    <div class="section-header">
+      <span class="section-num">L3</span>
+      <h2 class="section-title">Data Flow</h2>
+      <div class="section-line"></div>
+      <span class="section-tag">Runtime Pipelines</span>
+    </div>
+
+    <!-- Parse pipeline -->
+    <div style="margin-bottom:20px;">
+      <div style="font-size:12px;color:var(--text-secondary);font-weight:600;margin-bottom:12px;font-family:var(--font-mono);">PIPELINE A &mdash; Inbound Parse (String or Enumerable &rarr; Message)</div>
+      <div class="flow-container">
+        <div class="dataflow">
+          <div class="df-stage">
+            <div class="df-label" style="color:var(--neon-cyan);">1. Input</div>
+            <div class="df-content">
+              <div class="df-node cyan">Raw String<br><span style="font-weight:400;font-size:10px;color:var(--text-muted)">HL7 or MLLP</span></div>
+              <span style="color:var(--text-muted);padding:0 6px;align-self:center;">or</span>
+              <div class="df-node cyan">Enumerable<br><span style="font-weight:400;font-size:10px;color:var(--text-muted)">Array / IO lines</span></div>
+              <div class="df-note" style="align-self:center;margin-left:12px;">HL7::Message.new(raw) or HL7::Message.parse(raw)</div>
+            </div>
+          </div>
+          <div class="df-stage">
+            <div class="df-label" style="color:var(--neon-amber);">2. MLLP Strip</div>
+            <div class="df-content">
+              <div class="df-node amber">MessageParser#parse_string</div>
+              <div class="df-note" style="align-self:center;margin-left:12px;">Strips <code>\v … \x1C\r</code> MLLP framing bytes. Splits on <code>\r</code> (segment delimiter) to get raw segment array.</div>
+            </div>
+          </div>
+          <div class="df-stage">
+            <div class="df-label" style="color:var(--neon-purple);">3. MSH Detection</div>
+            <div class="df-content">
+              <div class="df-node purple">Message#update_delimiters</div>
+              <div class="df-note" style="align-self:center;margin-left:12px;">First segment checked for "MSH" prefix. Element delimiter extracted from MSH[3], item delimiter from MSH[4]. Delimiter object updated for remainder of parse.</div>
+            </div>
+          </div>
+          <div class="df-stage">
+            <div class="df-label" style="color:var(--neon-green);">4. Segment Factory</div>
+            <div class="df-content">
+              <div class="df-node green">SegmentGenerator#build</div>
+              <div class="df-note" style="align-self:center;margin-left:12px;">For each raw segment string: split on element delimiter, look up <code>HL7::Message::Segment::{NAME}</code> constant. If found, instantiate typed subclass; otherwise instantiate <code>Segment::Default</code>.</div>
+            </div>
+          </div>
+          <div class="df-stage">
+            <div class="df-label" style="color:var(--neon-cyan);">5. Tree Placement</div>
+            <div class="df-content">
+              <div class="df-node cyan">Message#choose_segment_from</div>
+              <div class="df-note" style="align-self:center;margin-left:12px;">Walks a segment stack. If the last segment <code>has_children?</code> and <code>accepts?(new_seg_name)</code>, the new segment becomes a child. Otherwise it pops the stack until a valid parent is found or it becomes a root segment.</div>
+            </div>
+          </div>
+          <div class="df-stage">
+            <div class="df-label" style="color:var(--neon-amber);">6. Index Registration</div>
+            <div class="df-content">
+              <div class="df-node amber">@segments + @segments_by_name</div>
+              <div class="df-note" style="align-self:center;margin-left:12px;">Root segments pushed to <code>@segments</code> array (positional) and <code>@segments_by_name</code> hash keyed by symbol (e.g., <code>:OBX</code>). Children only appear in parent's <code>children</code> array.</div>
+            </div>
+          </div>
+          <div class="df-stage">
+            <div class="df-label" style="color:var(--neon-green);">7. set_id Sequencing</div>
+            <div class="df-content">
+              <div class="df-node green">Message#sequence_segments</div>
+              <div class="df-note" style="align-self:center;margin-left:12px;">Post-parse: for each run of same-class segments, auto-assigns sequential <code>set_id</code> values (1, 2, 3…). Recurses into <code>children</code> arrays. Skipped during the parse itself (<code>@parsing</code> flag).</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Field access pipeline -->
+    <div style="margin-bottom:20px;">
+      <div style="font-size:12px;color:var(--text-secondary);font-weight:600;margin-bottom:12px;font-family:var(--font-mono);">PIPELINE B &mdash; Field Access (Read / Write)</div>
+      <div class="flow-container">
+        <div class="flow-row" style="gap:0;flex-wrap:wrap;justify-content:flex-start;">
+          <div class="flow-box cyan" style="min-width:150px;">
+            <div class="flow-box-label cyan">seg.patient_name</div>
+            <div class="flow-box-sub">Named accessor<br>or seg.e5 (index)</div>
+          </div>
+          <div class="flow-arrow">&#x2192;</div>
+          <div class="flow-box purple">
+            <div class="flow-box-label purple">method_missing</div>
+            <div class="flow-box-sub">Resolves :patient_name<br>or /e([0-9]+)/ regex</div>
+          </div>
+          <div class="flow-arrow">&#x2192;</div>
+          <div class="flow-box amber">
+            <div class="flow-box-label amber">SegmentFields#read_field</div>
+            <div class="flow-box-sub">Looks up idx from<br>@fields class hash</div>
+          </div>
+          <div class="flow-arrow">&#x2192;</div>
+          <div class="flow-box green">
+            <div class="flow-box-label green">@elements[idx]</div>
+            <div class="flow-box-sub">Raw string from<br>element array</div>
+          </div>
+          <div class="flow-arrow">&#x2192;</div>
+          <div class="flow-box blue">
+            <div class="flow-box-label blue">field_blk.call(val)</div>
+            <div class="flow-box-sub">Optional validation /<br>conversion proc</div>
+          </div>
+          <div class="flow-arrow">&#x2192;</div>
+          <div class="flow-box cyan">
+            <div class="flow-box-label cyan">Returned value</div>
+            <div class="flow-box-sub">String, nil, or<br>converted type</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Serialization pipeline -->
+    <div style="margin-bottom:20px;">
+      <div style="font-size:12px;color:var(--text-secondary);font-weight:600;margin-bottom:12px;font-family:var(--font-mono);">PIPELINE C &mdash; Outbound Serialization (Message &rarr; Wire)</div>
+      <div class="flow-container">
+        <div class="flow-row" style="gap:0;flex-wrap:wrap;justify-content:flex-start;">
+          <div class="flow-box cyan">
+            <div class="flow-box-label cyan">HL7::Message</div>
+            <div class="flow-box-sub">@segments array</div>
+          </div>
+          <div class="flow-arrow">&#x2192;</div>
+          <div class="flow-box purple">
+            <div class="flow-box-label purple">Segment#to_s</div>
+            <div class="flow-box-sub">@elements.join(element_delim)<br>= pipe-delimited string</div>
+          </div>
+          <div class="flow-arrow">&#x2192;</div>
+          <div class="flow-box amber">
+            <div class="flow-box-label amber">Message#to_hl7</div>
+            <div class="flow-box-sub">segments.join("\r")<br>= CR-separated segments</div>
+          </div>
+          <div class="flow-arrow">&#x2192;</div>
+          <div class="flow-box green">
+            <div class="flow-box-label green">Message#to_mllp</div>
+            <div class="flow-box-sub">"\v" + hl7 + "\x1C\r"<br>= MLLP framing</div>
+          </div>
+          <div class="flow-arrow">&#x2192;</div>
+          <div class="flow-box blue">
+            <div class="flow-box-label blue">TCP Socket</div>
+            <div class="flow-box-sub">Ready for transmission<br>to EMR / HIS</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Batch parse pipeline -->
+    <div>
+      <div style="font-size:12px;color:var(--text-secondary);font-weight:600;margin-bottom:12px;font-family:var(--font-mono);">PIPELINE D &mdash; Batch Parse (FHS-wrapped multi-message file)</div>
+      <div class="flow-container">
+        <div class="flow-row" style="gap:0;flex-wrap:wrap;justify-content:flex-start;">
+          <div class="flow-box cyan">
+            <div class="flow-box-label cyan">Batch String</div>
+            <div class="flow-box-sub">Starts with FHS<br>String#hl7_batch?</div>
+          </div>
+          <div class="flow-arrow">&#x2192;</div>
+          <div class="flow-box amber">
+            <div class="flow-box-label amber">MessageBatchParser</div>
+            <div class="flow-box-sub">#parse_batch(batch)<br>validates FHS prefix</div>
+          </div>
+          <div class="flow-arrow">&#x2192;</div>
+          <div class="flow-box purple">
+            <div class="flow-box-label purple">Split on "\rMSH"</div>
+            <div class="flow-box-sub">Each chunk = one<br>embedded message</div>
+          </div>
+          <div class="flow-arrow">&#x2192;</div>
+          <div class="flow-box green">
+            <div class="flow-box-label green">BTS trim</div>
+            <div class="flow-box-sub">Strips batch trailer<br>segment from last msg</div>
+          </div>
+          <div class="flow-arrow">&#x2192;</div>
+          <div class="flow-box cyan">
+            <div class="flow-box-label cyan">yield "MSH#{msg}"</div>
+            <div class="flow-box-sub">Caller receives each<br>HL7::Message in turn</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════
+       KEY ABSTRACTIONS
+  ═══════════════════════════════════════════════════════════ -->
+  <section class="section">
+    <div class="section-header">
+      <span class="section-num">04</span>
+      <h2 class="section-title">Key Abstractions &amp; Design Patterns</h2>
+      <div class="section-line"></div>
+      <span class="section-tag">Architecture</span>
+    </div>
+
+    <div class="grid-2">
+
+      <!-- Pattern: add_field DSL -->
+      <div class="pattern-card">
+        <div class="pattern-title">
+          <div class="pattern-icon cyan">&#x03BB;</div>
+          <span>Declarative Field DSL (<code style="color:var(--neon-cyan);">add_field</code>)</span>
+        </div>
+        <div class="pattern-body">
+          Each concrete segment subclass declares its fields via a class-level DSL. The macro generates named reader/writer methods, registers the field index in a class-level <code>@fields</code> hash, and optionally wraps both read and write through a user-supplied block for validation or type conversion. Auto-incrementing field indices eliminate off-by-one errors common in raw array manipulation.
+        </div>
+        <div class="code-snippet">
+<span class="code-kw">class</span> <span class="code-cls">HL7::Message::Segment::PID</span> &lt; <span class="code-cls">HL7::Message::Segment</span>
+  <span class="code-met">weight</span> <span class="code-num">1</span>
+  <span class="code-met">has_children</span> <span class="code-sym">%i[NK1 NTE PV1 PV2]</span>
+  <span class="code-met">add_field</span> <span class="code-sym">:patient_id</span>          <span class="code-cmt"># idx auto = 2</span>
+  <span class="code-met">add_field</span> <span class="code-sym">:patient_dob</span> <span class="code-kw">do</span> |val|
+    convert_to_ts(val)          <span class="code-cmt"># TS format on read+write</span>
+  <span class="code-kw">end</span>
+  <span class="code-met">add_field</span> <span class="code-sym">:admin_sex</span> <span class="code-kw">do</span> |sex|
+    sanitize_admin_sex!(sex)    <span class="code-cmt"># validates F|M|O|U|A|N|C</span>
+  <span class="code-kw">end</span>
+<span class="code-kw">end</span>
+
+<span class="code-cmt"># Usage</span>
+pid = msg[<span class="code-sym">:PID</span>]
+pid.patient_dob              <span class="code-cmt"># => "19800101" (HL7 TS string)</span>
+pid.admin_sex = <span class="code-str">"X"</span>         <span class="code-cmt"># => raises InvalidDataError</span></div>
+      </div>
+
+      <!-- Pattern: Weight-based sorting -->
+      <div class="pattern-card">
+        <div class="pattern-title">
+          <div class="pattern-icon amber">&#x2195;</div>
+          <span>Weight-based Segment Ordering</span>
+        </div>
+        <div class="pattern-body">
+          Every segment class declares an integer <code>weight</code> via a class-level DSL. The weight is stored in the singleton class so subclasses inherit and can override it independently. <code>Segment#&lt;=&gt;</code> implements <code>Comparable</code> by weight diff, allowing <code>Array#sort</code> on a message's segment list. MSH is always first (weight -1). Default is 999 (last). The ORC → OBR → OBX chain uses 88 → 89 → 90 to maintain ordering after dynamic insertion.
+        </div>
+        <div class="code-snippet">
+<span class="code-kw">class</span> <span class="code-cls">HL7::Message::Segment::ORC</span>
+  <span class="code-met">weight</span> <span class="code-num">88</span>   <span class="code-cmt"># Common Order — before OBR</span>
+<span class="code-kw">end</span>
+
+<span class="code-kw">class</span> <span class="code-cls">HL7::Message::Segment::OBR</span>
+  <span class="code-met">weight</span> <span class="code-num">89</span>   <span class="code-cmt"># Observation Req — before OBX</span>
+<span class="code-kw">end</span>
+
+<span class="code-kw">def</span> <span class="code-met">&lt;=&gt;</span>(other)
+  diff = <span class="code-met">weight</span> - other.<span class="code-met">weight</span>
+  <span class="code-kw">return</span> <span class="code-num">-1</span> <span class="code-kw">if</span> diff.<span class="code-met">positive?</span>
+  <span class="code-kw">return</span>  <span class="code-num">1</span> <span class="code-kw">if</span> diff.<span class="code-met">negative?</span>
+  <span class="code-num">0</span>
+<span class="code-kw">end</span></div>
+      </div>
+
+      <!-- Pattern: has_children -->
+      <div class="pattern-card">
+        <div class="pattern-title">
+          <div class="pattern-icon purple">&#x229E;</div>
+          <span>Dynamic Child Segment Trees (<code style="color:var(--neon-purple);">has_children</code>)</span>
+        </div>
+        <div class="pattern-body">
+          <code>SegmentListStorage#has_children</code> dynamically defines three instance methods on the calling segment class at class evaluation time: <code>children</code> (lazy-init array with a custom <code>&lt;&lt;</code>), <code>child_types</code>, and <code>accepts?(name)</code>. The custom <code>&lt;&lt;</code> on the children array also propagates the child into the parent <code>HL7::Message</code>'s root index, so segment lookup by symbol name works across the hierarchy.
+        </div>
+        <div class="code-snippet">
+<span class="code-kw">class</span> <span class="code-cls">HL7::Message::Segment::OBR</span>
+  <span class="code-met">has_children</span> <span class="code-sym">%i[NTE OBX SPM]</span>
+<span class="code-kw">end</span>
+
+<span class="code-cmt"># Parser builds the tree automatically:</span>
+obr = msg[<span class="code-sym">:OBR</span>]
+obr.<span class="code-met">has_children?</span>              <span class="code-cmt"># => true</span>
+obr.<span class="code-met">accepts?</span>(<span class="code-sym">:OBX</span>)             <span class="code-cmt"># => true</span>
+obr.<span class="code-met">children</span>                    <span class="code-cmt"># => [OBX, OBX, SPM, NTE]</span>
+
+<span class="code-cmt"># Adding a child also registers it in msg:</span>
+obr.children &lt;&lt; new_obx
+msg[<span class="code-sym">:OBX</span>]                       <span class="code-cmt"># => [new_obx, ...]</span></div>
+      </div>
+
+      <!-- Pattern: SegmentGenerator fallback -->
+      <div class="pattern-card">
+        <div class="pattern-title">
+          <div class="pattern-icon green">&#x2731;</div>
+          <span>Open-World Segment Resolution</span>
+        </div>
+        <div class="pattern-body">
+          <code>SegmentGenerator#get_segment_class</code> performs a constant lookup via <code>HL7::Message::Segment.constants.index(segment_name.to_sym)</code>. If found, the typed class is instantiated via <code>eval("HL7::Message::Segment::#{seg_name}")</code>. For any unknown segment type (Z-segments, proprietary extensions), it silently falls back to <code>Segment::Default</code> which stores all fields as numbered elements. This guarantees lossless round-tripping of any conformant HL7 message regardless of whether the gem knows the segment type.
+        </div>
+        <div class="code-snippet">
+<span class="code-kw">def</span> <span class="code-met">get_segment_class</span>
+  seg = <span class="code-cls">HL7::Message::Segment</span>
+  <span class="code-kw">if</span> seg.<span class="code-met">constants</span>.<span class="code-met">index</span>(@seg_name.<span class="code-met">to_sym</span>)
+    <span class="code-met">eval</span>(<span class="code-str">"HL7::Message::Segment::%s"</span> % @seg_name)
+  <span class="code-kw">else</span>
+    <span class="code-cls">HL7::Message::Segment::Default</span>  <span class="code-cmt"># lossless fallback</span>
+  <span class="code-kw">end</span>
+<span class="code-kw">end</span>
+
+<span class="code-cmt"># Z-segment round-trip:</span>
+msg = <span class="code-cls">HL7::Message</span>.<span class="code-met">new</span>(<span class="code-str">"MSH|...\rZPD|custom|data"</span>)
+zpd = msg.<span class="code-met">detect</span> { |s| s.e0 == <span class="code-str">"ZPD"</span> }
+zpd.e1   <span class="code-cmt"># => "custom"</span></div>
+      </div>
+
+      <!-- Pattern: MLLP -->
+      <div class="pattern-card">
+        <div class="pattern-title">
+          <div class="pattern-icon blue">&#x21C4;</div>
+          <span>MLLP Transport Framing</span>
+        </div>
+        <div class="pattern-body">
+          The Minimal Lower Layer Protocol is the standard TCP transport wrapper for HL7 2.x. The library handles both directions: <code>parse_string</code> strips the MLLP envelope from inbound messages using a regex on the VT (<code>\x0B</code>) and FS (<code>\x1C</code>) byte markers, while <code>to_mllp</code> wraps outbound HL7 text with the same framing. The proxy server example demonstrates using this in a real TCP listener.
+        </div>
+        <div class="code-snippet">
+<span class="code-cmt"># Inbound: strip MLLP framing</span>
+<span class="code-kw">def</span> <span class="code-met">parse_string</span>(instr)
+  <span class="code-kw">if</span> <span class="code-str">/\x0b((:?.|\r|\n)+)\x1c\r/</span> =~ instr
+    post_mllp = $1   <span class="code-cmt"># strip bytes</span>
+  <span class="code-kw">end</span>
+  split_by_delimiter(post_mllp, @delimiter.segment)
+<span class="code-kw">end</span>
+
+<span class="code-cmt"># Outbound: add MLLP framing</span>
+<span class="code-kw">def</span> <span class="code-met">to_mllp</span>
+  <span class="code-str">"\v"</span> + to_hl7 + <span class="code-str">"\u001C\r"</span>
+<span class="code-kw">end</span>
+
+<span class="code-cmt"># Wire format:</span>
+<span class="code-cmt"># 0x0B | MSH|...\rPID|...\r | 0x1C 0x0D</span></div>
+      </div>
+
+      <!-- Pattern: method_missing -->
+      <div class="pattern-card">
+        <div class="pattern-title">
+          <div class="pattern-icon purple">&#x25C6;</div>
+          <span>Dual-Mode Field Access via method_missing</span>
+        </div>
+        <div class="pattern-body">
+          <code>Segment#method_missing</code> provides two orthogonal access modes on top of the named DSL accessors. Named symbols (e.g., <code>:patient_name</code>) route through the fields hash. Index symbols matching <code>e[0-9]+</code> (e.g., <code>:e5</code>) route directly to element position. This enables generic segment traversal code without knowing field names, while typed code can use readable accessors. Both modes respect the write-path validation blocks.
+        </div>
+        <div class="code-snippet">
+<span class="code-kw">def</span> <span class="code-met">method_missing</span>(sym, *args)
+  base = sym.<span class="code-met">to_s</span>.<span class="code-met">delete</span>(<span class="code-str">"="</span>).<span class="code-met">to_sym</span>
+
+  <span class="code-kw">if</span> self.<span class="code-kw">class</span>.<span class="code-met">fields</span>.<span class="code-met">include?</span>(base)
+    <span class="code-cmt"># named field path</span>
+  <span class="code-kw">elsif</span> <span class="code-str">/e([0-9]+)/</span> =~ base.<span class="code-met">to_s</span>
+    base = $1.<span class="code-met">to_i</span>      <span class="code-cmt"># positional path</span>
+  <span class="code-kw">else</span>
+    <span class="code-kw">super</span>
+  <span class="code-kw">end</span>
+
+  sym.<span class="code-met">to_s</span>.<span class="code-met">include?</span>(<span class="code-str">"="</span>) ?
+    <span class="code-met">write_field</span>(base, args) :
+    <span class="code-met">read_field</span>(base)
+<span class="code-kw">end</span></div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════
+       EXTENSIBILITY
+  ═══════════════════════════════════════════════════════════ -->
+  <section class="section">
+    <div class="section-header">
+      <span class="section-num">05</span>
+      <h2 class="section-title">Extensibility Architecture</h2>
+      <div class="section-line"></div>
+      <span class="section-tag">Open/Closed Design</span>
+    </div>
+
+    <div class="grid-2">
+      <div>
+        <div style="font-size:13px;font-weight:600;color:var(--text-primary);margin-bottom:14px;">Extension Points</div>
+        <ul class="ext-list">
+          <li class="ext-item">
+            <div class="ext-dot cyan"></div>
+            <div>
+              <div class="ext-name">Custom Segment Types (Z-segments)</div>
+              <div class="ext-desc">Subclass <code>HL7::Message::Segment</code>, use <code>add_field</code> DSL, declare <code>weight</code> and optional <code>has_children</code>. The segment auto-registers via constant lookup — no registration step needed. Place in any require-able file; load before use.</div>
+            </div>
+          </li>
+          <li class="ext-item">
+            <div class="ext-dot purple"></div>
+            <div>
+              <div class="ext-name">Field Validation / Conversion Blocks</div>
+              <div class="ext-desc"><code>add_field :name do |val| ... end</code> attaches a proc executed on both read and write. Used for type coercion (timestamps via <code>convert_to_ts</code>), value validation (<code>sanitize_admin_sex!</code>), and computed fields.</div>
+            </div>
+          </li>
+          <li class="ext-item">
+            <div class="ext-dot green"></div>
+            <div>
+              <div class="ext-name">Dynamic Segment Definitions at Runtime</div>
+              <div class="ext-desc">The spec suite (<code>dynamic_segment_def_spec.rb</code>) demonstrates calling <code>add_field</code> on existing segment classes at runtime to add fields to deployed gems without forking. Enables vendor-specific field extensions without patching the gem.</div>
+            </div>
+          </li>
+          <li class="ext-item">
+            <div class="ext-dot amber"></div>
+            <div>
+              <div class="ext-name">HL7::Configuration</div>
+              <div class="ext-desc"><code>HL7.configure { |c| c.empty_segment_is_error = false }</code> controls whether empty segment strings raise <code>EmptySegmentNotAllowed</code> or are silently skipped. Easily extended with additional parser knobs without breaking the API.</div>
+            </div>
+          </li>
+          <li class="ext-item">
+            <div class="ext-dot cyan"></div>
+            <div>
+              <div class="ext-name">Block-form Message Constructor</div>
+              <div class="ext-desc"><code>HL7::Message.new { |msg| msg &lt;&lt; msh; msg &lt;&lt; pid }</code> allows builder-pattern message construction. Inside the block, <code>method_missing</code> on the binding context is shimmed to delegate to the segment, enabling a fluent DSL for message assembly.</div>
+            </div>
+          </li>
+          <li class="ext-item">
+            <div class="ext-dot purple"></div>
+            <div>
+              <div class="ext-name">Child Type Registration (<code>add_child_type</code>)</div>
+              <div class="ext-desc"><code>SegmentListStorage#add_child_type</code> allows appending additional acceptable child segment types to an existing segment class post-definition, enabling incremental extension of the parent-child relationship graph without redefining the whole class.</div>
+            </div>
+          </li>
+        </ul>
+      </div>
+
+      <div>
+        <div style="font-size:13px;font-weight:600;color:var(--text-primary);margin-bottom:14px;">Message Type Coverage</div>
+        <div class="card" style="margin-bottom:16px;">
+          <div style="font-family:var(--font-mono);font-size:11px;color:var(--neon-cyan);margin-bottom:12px;font-weight:700;">ADT — Admission / Discharge / Transfer</div>
+          <div class="mod-attrs">
+            <span class="attr-pill">A01 Admit</span>
+            <span class="attr-pill">A02 Transfer</span>
+            <span class="attr-pill">A03 Discharge</span>
+            <span class="attr-pill">A04 Register</span>
+            <span class="attr-pill">A08 Update</span>
+            <span class="attr-pill">A40 Merge</span>
+          </div>
+          <div style="margin-top:8px;font-size:11.5px;color:var(--text-muted);">MSH + EVN + PID + PV1 + PV2 + NK1 + MRG + DG1</div>
+        </div>
+        <div class="card" style="margin-bottom:16px;">
+          <div style="font-family:var(--font-mono);font-size:11px;color:var(--neon-amber);margin-bottom:12px;font-weight:700;">ORU — Observation Result (Lab Results)</div>
+          <div class="mod-attrs">
+            <span class="attr-pill">R01 Result</span>
+          </div>
+          <div style="margin-top:8px;font-size:11.5px;color:var(--text-muted);">MSH + PID + ORC + OBR + OBX + NTE + SPM<br>Full NIST conformance test data included</div>
+        </div>
+        <div class="card" style="margin-bottom:16px;">
+          <div style="font-family:var(--font-mono);font-size:11px;color:var(--neon-blue);margin-bottom:12px;font-weight:700;">SIU — Scheduling Information Unsolicited</div>
+          <div class="mod-attrs">
+            <span class="attr-pill">S12–S17</span>
+          </div>
+          <div style="margin-top:8px;font-size:11.5px;color:var(--text-muted);">MSH + SCH + NTE + PID + RGS + AIG + AIL + AIP + AIS</div>
+        </div>
+        <div class="card" style="margin-bottom:16px;">
+          <div style="font-family:var(--font-mono);font-size:11px;color:var(--neon-pink);margin-bottom:12px;font-weight:700;">DFT — Detailed Financial Transaction</div>
+          <div class="mod-attrs">
+            <span class="attr-pill">P03</span>
+          </div>
+          <div style="margin-top:8px;font-size:11.5px;color:var(--text-muted);">MSH + EVN + PID + PV1 + FT1 + GT1 + IN1</div>
+        </div>
+        <div class="card">
+          <div style="font-family:var(--font-mono);font-size:11px;color:var(--neon-purple);margin-bottom:12px;font-weight:700;">REF / MDM / MFN / QRY</div>
+          <div class="mod-attrs">
+            <span class="attr-pill">REF I12</span>
+            <span class="attr-pill">MDM T01</span>
+            <span class="attr-pill">MFN M01</span>
+            <span class="attr-pill">QRY Q01</span>
+          </div>
+          <div style="margin-top:8px;font-size:11.5px;color:var(--text-muted);">RF1 + PRD + PRT + TXA + MFI + MFE + QRD + QRF</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════
+       MIXIN DEPENDENCY MAP
+  ═══════════════════════════════════════════════════════════ -->
+  <section class="section">
+    <div class="section-header">
+      <span class="section-num">06</span>
+      <h2 class="section-title">Mixin Dependency Map</h2>
+      <div class="section-line"></div>
+      <span class="section-tag">Composition Graph</span>
+    </div>
+
+    <div class="flow-container">
+      <div style="font-size:11px;color:var(--text-muted);font-family:var(--font-mono);margin-bottom:24px;letter-spacing:1px;">HOW MODULES ARE COMPOSED INTO CLASSES</div>
+
+      <div style="display:grid;grid-template-columns:1fr 60px 1fr;gap:0;align-items:center;max-width:900px;margin:0 auto;">
+
+        <!-- Modules column -->
+        <div style="display:flex;flex-direction:column;gap:10px;">
+          <div style="font-size:10px;color:var(--text-muted);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:4px;font-family:var(--font-mono);">Modules</div>
+          <div style="padding:10px 16px;border-radius:6px;border:1px solid var(--neon-purple);background:rgba(168,85,247,.06);font-family:var(--font-mono);font-size:11.5px;color:var(--neon-purple);font-weight:700;">HL7::Message::SegmentFields <span style="font-size:9px;font-weight:400;color:var(--text-muted);">include</span></div>
+          <div style="padding:10px 16px;border-radius:6px;border:1px solid var(--neon-cyan);background:rgba(0,245,255,.06);font-family:var(--font-mono);font-size:11.5px;color:var(--neon-cyan);font-weight:700;">HL7::Message::SegmentListStorage <span style="font-size:9px;font-weight:400;color:var(--text-muted);">extend</span></div>
+          <div style="padding:10px 16px;border-radius:6px;border:1px solid var(--neon-green);background:rgba(0,255,136,.06);font-family:var(--font-mono);font-size:11.5px;color:var(--neon-green);font-weight:700;">TimeFormatterHelper <span style="font-size:9px;font-weight:400;color:var(--text-muted);">extend</span></div>
+          <div style="margin-top:20px;padding:10px 16px;border-radius:6px;border:1px solid var(--neon-amber);background:rgba(255,184,0,.06);font-family:var(--font-mono);font-size:11.5px;color:var(--neon-amber);font-weight:700;">Enumerable <span style="font-size:9px;font-weight:400;color:var(--text-muted);">include</span></div>
+          <div style="padding:10px 16px;border-radius:6px;border:1px solid var(--neon-blue);background:rgba(68,136,255,.06);font-family:var(--font-mono);font-size:11.5px;color:var(--neon-blue);font-weight:700;">HL7::MessageBatchParser <span style="font-size:9px;font-weight:400;color:var(--text-muted);">extend (class)</span></div>
+        </div>
+
+        <!-- Arrow column -->
+        <div style="display:flex;flex-direction:column;align-items:center;gap:10px;padding-top:34px;">
+          <div style="color:var(--text-muted);font-size:22px;line-height:2.1;">&#x2192;</div>
+          <div style="color:var(--text-muted);font-size:22px;line-height:2.1;">&#x2192;</div>
+          <div style="color:var(--text-muted);font-size:22px;line-height:2.1;">&#x2192;</div>
+          <div style="color:var(--text-muted);font-size:22px;line-height:2.1;margin-top:20px;">&#x2192;</div>
+          <div style="color:var(--text-muted);font-size:22px;line-height:2.1;">&#x2192;</div>
+        </div>
+
+        <!-- Classes column -->
+        <div style="display:flex;flex-direction:column;gap:10px;">
+          <div style="font-size:10px;color:var(--text-muted);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:4px;font-family:var(--font-mono);">Composed Into</div>
+          <div style="padding:10px 16px;border-radius:6px;border:1px solid var(--border-glow);background:var(--bg-card);font-family:var(--font-mono);font-size:11.5px;color:var(--text-primary);">HL7::Message::Segment (base + all subclasses)</div>
+          <div style="padding:10px 16px;border-radius:6px;border:1px solid var(--border-glow);background:var(--bg-card);font-family:var(--font-mono);font-size:11.5px;color:var(--text-primary);">HL7::Message::Segment (base + all subclasses)</div>
+          <div style="padding:10px 16px;border-radius:6px;border:1px solid var(--border-glow);background:var(--bg-card);font-family:var(--font-mono);font-size:11.5px;color:var(--text-primary);">HL7::Message::Segment (base + all subclasses)</div>
+          <div style="padding:10px 16px;border-radius:6px;margin-top:20px;border:1px solid var(--border-glow);background:var(--bg-card);font-family:var(--font-mono);font-size:11.5px;color:var(--text-primary);">HL7::Message (instances)</div>
+          <div style="padding:10px 16px;border-radius:6px;border:1px solid var(--border-glow);background:var(--bg-card);font-family:var(--font-mono);font-size:11.5px;color:var(--text-primary);">HL7::Message (class-level)</div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════
+       NOTABLE IMPLEMENTATION DETAILS
+  ═══════════════════════════════════════════════════════════ -->
+  <section class="section">
+    <div class="section-header">
+      <span class="section-num">07</span>
+      <h2 class="section-title">Notable Implementation Details</h2>
+      <div class="section-line"></div>
+      <span class="section-tag">Expert Notes</span>
+    </div>
+
+    <div class="grid-3">
+      <div class="card">
+        <div style="font-family:var(--font-mono);font-size:11px;color:var(--neon-red);font-weight:700;margin-bottom:8px;">Delimiter Mutability During Parse</div>
+        <p style="font-size:12px;color:var(--text-secondary);line-height:1.7;">The MSH segment encodes the delimiters it uses (MSH[3] = element sep, MSH[4] = item sep). The parser reads these from the first MSH encountered and mutates the <code>Delimiter</code> value object in-place. This means the same <code>HL7::Message</code> instance can correctly parse messages from different systems with different delimiter choices. The delimiters are per-message, not global.</p>
+      </div>
+      <div class="card">
+        <div style="font-family:var(--font-mono);font-size:11px;color:var(--neon-amber);font-weight:700;margin-bottom:8px;">Segment Stack vs. Root Array</div>
+        <p style="font-size:12px;color:var(--text-secondary);line-height:1.7;">During parsing, a <code>segment_stack</code> local array (not stored on the message) tracks the current depth. Each new segment either becomes a child of the stack top (if accepted) or pops the stack until it finds an ancestor that accepts it, or becomes a new root. This implements a simple pushdown automaton for the HL7 message grammar without a formal grammar or recursive descent parser.</p>
+      </div>
+      <div class="card">
+        <div style="font-family:var(--font-mono);font-size:11px;color:var(--neon-cyan);font-weight:700;margin-bottom:8px;">JRuby CR/LF Normalization</div>
+        <p style="font-size:12px;color:var(--text-secondary);line-height:1.7;">JRuby's heredoc handling converts <code>\r</code> to <code>\n</code> in string literals, breaking the HL7 segment delimiter assumption. <code>MessageBatchParser#clean_batch_for_jruby</code> detects the presence of <code>\n</code> and does a full <code>String#tr</code> to restore CR characters before splitting — but only for batch parsing, adding a copy only when required.</p>
+      </div>
+      <div class="card">
+        <div style="font-family:var(--font-mono);font-size:11px;color:var(--neon-purple);font-weight:700;margin-bottom:8px;">Singleton Class Metaprogramming</div>
+        <p style="font-size:12px;color:var(--text-secondary);line-height:1.7;"><code>Segment.weight</code> and <code>SegmentFields.add_field</code> store per-class state (weight, field definitions) in the singleton class via <code>module_eval</code> with an ivar (<code>@my_weight</code>, <code>@fields</code>). This ensures each subclass has its own independent field registry without polluting parent class state — a critical correctness requirement for the segment DSL.</p>
+      </div>
+      <div class="card">
+        <div style="font-family:var(--font-mono);font-size:11px;color:var(--neon-green);font-weight:700;margin-bottom:8px;">Block Binding Shim in Segment Constructor</div>
+        <p style="font-size:12px;color:var(--text-secondary);line-height:1.7;">The block-form <code>Segment.new { |seg| seg.field = val }</code> installs a temporary <code>method_missing</code> on the caller's binding object (<code>eval("self", blk.binding…)</code>) that delegates to the segment instance. This lets block code access the segment as if it were <code>self</code>. The <code>method_missing</code> is removed after the block executes. An acknowledged potential namespace pollution issue is documented in a TODO comment.</p>
+      </div>
+      <div class="card">
+        <div style="font-family:var(--font-mono);font-size:11px;color:var(--neon-blue);font-weight:700;margin-bottom:8px;">Children Array Self-registration</div>
+        <p style="font-size:12px;color:var(--text-secondary);line-height:1.7;">The dynamically-defined <code>children</code> method on segment instances returns a special array whose <code>&lt;&lt;</code> method is overridden to walk up the <code>segment_parent</code> chain to find the owning <code>HL7::Message</code> and also appends the child to the message's root <code>@segments</code> list. This dual-registration ensures that <code>msg[:OBX]</code> finds OBX segments regardless of whether they were added as children of OBR or directly to the message.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════
+       FOOTER
+  ═══════════════════════════════════════════════════════════ -->
+  <footer class="footer">
+    <div>
+      <span style="color:var(--neon-cyan);">ruby-hl7</span>
+      &nbsp;&bull;&nbsp; Codebase Atlas
+      &nbsp;&bull;&nbsp; Layers L0 &middot; L1 &middot; L2 &middot; L3
+      &nbsp;&bull;&nbsp; Expert Audience
+    </div>
+    <div>
+      Generated by Codebase Cartographer
+      &nbsp;&bull;&nbsp; <span style="color:var(--neon-green);">36 segments</span>
+      &nbsp;&bull;&nbsp; <span style="color:var(--neon-purple);">8 modules</span>
+      &nbsp;&bull;&nbsp; <span style="color:var(--neon-amber);">4 wire formats</span>
+    </div>
+  </footer>
+
+</div>
+</body>
+</html>

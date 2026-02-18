@@ -1,0 +1,2043 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CyDoc Dependency Atlas</title>
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --bg2: #0f0f1a;
+    --bg3: #141428;
+    --border: #1e1e3a;
+    --neon-blue: #00d4ff;
+    --neon-green: #00ff9d;
+    --neon-purple: #bf00ff;
+    --neon-pink: #ff0080;
+    --neon-yellow: #ffcc00;
+    --neon-orange: #ff6b00;
+    --neon-red: #ff2244;
+    --text: #c8d0e8;
+    --text-dim: #6677aa;
+    --text-bright: #e8eeff;
+    --glow-blue: 0 0 8px #00d4ff66, 0 0 20px #00d4ff22;
+    --glow-green: 0 0 8px #00ff9d66, 0 0 20px #00ff9d22;
+    --glow-purple: 0 0 8px #bf00ff66, 0 0 20px #bf00ff22;
+    --glow-pink: 0 0 8px #ff008066, 0 0 20px #ff008022;
+    --glow-yellow: 0 0 8px #ffcc0066, 0 0 20px #ffcc0022;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    line-height: 1.6;
+  }
+  /* HEADER */
+  .hero {
+    background: linear-gradient(135deg, #0a0a1a 0%, #0d0d25 50%, #0a1520 100%);
+    border-bottom: 1px solid var(--neon-blue);
+    padding: 2.5rem 2rem 2rem;
+    position: relative;
+    overflow: hidden;
+  }
+  .hero::before {
+    content: '';
+    position: absolute; inset: 0;
+    background: radial-gradient(ellipse at 20% 50%, rgba(0,212,255,0.05) 0%, transparent 60%),
+                radial-gradient(ellipse at 80% 20%, rgba(191,0,255,0.05) 0%, transparent 60%);
+  }
+  .hero h1 {
+    font-size: 2.2rem;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+    color: var(--neon-blue);
+    text-shadow: var(--glow-blue);
+    position: relative;
+  }
+  .hero h1 span { color: var(--neon-purple); text-shadow: var(--glow-purple); }
+  .hero-meta {
+    display: flex; gap: 1.5rem; margin-top: 0.75rem;
+    flex-wrap: wrap; position: relative;
+  }
+  .badge {
+    padding: 0.2rem 0.7rem;
+    border-radius: 999px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    border: 1px solid;
+  }
+  .badge-blue { color: var(--neon-blue); border-color: var(--neon-blue); background: rgba(0,212,255,0.08); }
+  .badge-green { color: var(--neon-green); border-color: var(--neon-green); background: rgba(0,255,157,0.08); }
+  .badge-purple { color: var(--neon-purple); border-color: var(--neon-purple); background: rgba(191,0,255,0.08); }
+  .badge-pink { color: var(--neon-pink); border-color: var(--neon-pink); background: rgba(255,0,128,0.08); }
+  .badge-yellow { color: var(--neon-yellow); border-color: var(--neon-yellow); background: rgba(255,204,0,0.08); }
+  .badge-orange { color: var(--neon-orange); border-color: var(--neon-orange); background: rgba(255,107,0,0.08); }
+  /* TABS */
+  .tabs-nav {
+    display: flex;
+    gap: 0;
+    background: var(--bg2);
+    border-bottom: 1px solid var(--border);
+    overflow-x: auto;
+    position: sticky; top: 0; z-index: 100;
+  }
+  .tab-btn {
+    padding: 0.9rem 1.4rem;
+    background: none;
+    border: none;
+    border-bottom: 3px solid transparent;
+    color: var(--text-dim);
+    font-size: 0.82rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.2s;
+  }
+  .tab-btn:hover { color: var(--text); background: rgba(255,255,255,0.03); }
+  .tab-btn.active { color: var(--neon-blue); border-bottom-color: var(--neon-blue); }
+  /* PANELS */
+  .tab-panel { display: none; padding: 2rem; max-width: 1600px; margin: 0 auto; }
+  .tab-panel.active { display: block; }
+  /* SECTION */
+  .section { margin-bottom: 2.5rem; }
+  .section-title {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--neon-blue);
+    text-shadow: var(--glow-blue);
+    margin-bottom: 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 0.5rem;
+  }
+  .section-title .dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--neon-blue);
+    box-shadow: var(--glow-blue);
+  }
+  /* TABLE */
+  .dep-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.84rem;
+    background: var(--bg2);
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+  }
+  .dep-table th {
+    background: var(--bg3);
+    color: var(--text-dim);
+    font-weight: 600;
+    font-size: 0.72rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 0.6rem 1rem;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+  }
+  .dep-table td {
+    padding: 0.5rem 1rem;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+  .dep-table tr:last-child td { border-bottom: none; }
+  .dep-table tr:hover td { background: rgba(255,255,255,0.02); }
+  .dep-table .gem-name { color: var(--neon-blue); font-weight: 600; font-family: monospace; }
+  .dep-table .version { color: var(--neon-green); font-family: monospace; font-size: 0.78rem; }
+  .dep-table .purpose { color: var(--text); }
+  .dep-table .used-by { color: var(--text-dim); font-size: 0.78rem; }
+  /* GRID */
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1.5rem; }
+  @media (max-width: 900px) { .grid-2, .grid-3 { grid-template-columns: 1fr; } }
+  /* CARD */
+  .card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1.25rem;
+  }
+  .card-title {
+    font-size: 0.85rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-bottom: 0.75rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--border);
+  }
+  /* SVG GRAPHS */
+  .graph-container {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+    position: relative;
+  }
+  .graph-container svg { display: block; width: 100%; }
+  /* TAGS */
+  .tag {
+    display: inline-block;
+    padding: 0.15rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    margin: 0.1rem;
+  }
+  .tag-auth { background: rgba(191,0,255,0.15); color: var(--neon-purple); border: 1px solid rgba(191,0,255,0.3); }
+  .tag-billing { background: rgba(0,255,157,0.1); color: var(--neon-green); border: 1px solid rgba(0,255,157,0.25); }
+  .tag-ui { background: rgba(0,212,255,0.1); color: var(--neon-blue); border: 1px solid rgba(0,212,255,0.25); }
+  .tag-pdf { background: rgba(255,107,0,0.12); color: var(--neon-orange); border: 1px solid rgba(255,107,0,0.3); }
+  .tag-db { background: rgba(255,204,0,0.1); color: var(--neon-yellow); border: 1px solid rgba(255,204,0,0.25); }
+  .tag-swiss { background: rgba(255,0,128,0.1); color: var(--neon-pink); border: 1px solid rgba(255,0,128,0.25); }
+  .tag-test { background: rgba(120,120,200,0.12); color: #aab; border: 1px solid rgba(120,120,200,0.25); }
+  .tag-search { background: rgba(255,204,0,0.1); color: #ffcc00; border: 1px solid rgba(255,204,0,0.25); }
+  .tag-import { background: rgba(255,68,68,0.1); color: #ff8888; border: 1px solid rgba(255,68,68,0.25); }
+  .tag-server { background: rgba(0,212,255,0.08); color: #88ccff; border: 1px solid rgba(0,212,255,0.2); }
+  /* INHERITANCE */
+  .inherit-tree { font-size: 0.82rem; }
+  .inherit-item {
+    padding: 0.3rem 0.6rem;
+    border-left: 2px solid var(--border);
+    margin-left: 1rem;
+    color: var(--text);
+  }
+  .inherit-item.root {
+    margin-left: 0;
+    border-left: 2px solid var(--neon-blue);
+    color: var(--neon-blue);
+    font-weight: 700;
+  }
+  .inherit-item.l1 { border-left-color: var(--neon-purple); color: var(--neon-purple); margin-left: 1.2rem; }
+  .inherit-item.l2 { border-left-color: var(--neon-green); color: var(--neon-green); margin-left: 2.4rem; }
+  .inherit-item.l3 { border-left-color: var(--neon-yellow); color: var(--neon-yellow); margin-left: 3.6rem; }
+  /* MODULE MIXIN LIST */
+  .mixin-list { font-size: 0.82rem; }
+  .mixin-row { display: flex; align-items: flex-start; gap: 0.5rem; padding: 0.4rem 0; border-bottom: 1px solid var(--border); }
+  .mixin-row:last-child { border-bottom: none; }
+  .mixin-class { color: var(--neon-blue); font-weight: 600; min-width: 180px; font-family: monospace; }
+  .mixin-modules { flex: 1; display: flex; flex-wrap: wrap; gap: 0.25rem; }
+  /* FK TABLE */
+  .fk-table { font-size: 0.8rem; }
+  .fk-row { display: flex; align-items: center; padding: 0.4rem 0; border-bottom: 1px solid var(--border); gap: 0.5rem; }
+  .fk-row:last-child { border-bottom: none; }
+  .fk-from { color: var(--neon-blue); font-family: monospace; min-width: 140px; }
+  .fk-arrow { color: var(--text-dim); font-size: 0.9rem; }
+  .fk-to { color: var(--neon-green); font-family: monospace; min-width: 140px; }
+  .fk-via { color: var(--text-dim); font-size: 0.75rem; flex: 1; }
+  /* AASM */
+  .state-machine { font-size: 0.8rem; }
+  .sm-model { margin-bottom: 1rem; padding: 0.75rem; background: var(--bg3); border-radius: 6px; border: 1px solid var(--border); }
+  .sm-model-name { color: var(--neon-blue); font-weight: 700; font-family: monospace; margin-bottom: 0.5rem; }
+  .sm-states { display: flex; flex-wrap: wrap; gap: 0.3rem; margin-bottom: 0.4rem; }
+  .sm-state { padding: 0.15rem 0.5rem; border-radius: 3px; background: rgba(0,212,255,0.1); color: var(--neon-blue); font-size: 0.72rem; font-family: monospace; }
+  .sm-events { color: var(--text-dim); font-size: 0.78rem; }
+  /* SERVICE INFRA */
+  .infra-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; }
+  @media (max-width: 900px) { .infra-grid { grid-template-columns: 1fr; } }
+  .infra-card { background: var(--bg3); border-radius: 8px; padding: 1rem; border: 1px solid var(--border); }
+  .infra-label { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-dim); margin-bottom: 0.5rem; }
+  .infra-name { font-size: 0.95rem; font-weight: 700; margin-bottom: 0.25rem; }
+  .infra-detail { font-size: 0.78rem; color: var(--text-dim); }
+  /* SCROLLABLE */
+  .scrollable { max-height: 500px; overflow-y: auto; }
+  .scrollable::-webkit-scrollbar { width: 6px; }
+  .scrollable::-webkit-scrollbar-track { background: var(--bg3); }
+  .scrollable::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  /* METRIC BOXES */
+  .metrics { display: flex; flex-wrap: wrap; gap: 1rem; margin-bottom: 1.5rem; }
+  .metric {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1rem 1.5rem;
+    min-width: 130px;
+    text-align: center;
+  }
+  .metric-num { font-size: 2rem; font-weight: 800; line-height: 1; }
+  .metric-label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-dim); margin-top: 0.3rem; }
+  /* HABTM */
+  .habtm-row { display: flex; align-items: center; gap: 0.5rem; padding: 0.35rem 0; border-bottom: 1px solid var(--border); font-size: 0.82rem; }
+  .habtm-row:last-child { border-bottom: none; }
+  .habtm-a { color: var(--neon-blue); font-family: monospace; min-width: 130px; }
+  .habtm-b { color: var(--neon-purple); font-family: monospace; min-width: 130px; }
+  .habtm-join { color: var(--text-dim); font-size: 0.74rem; flex: 1; font-family: monospace; }
+  /* POLY */
+  .poly-row { display: flex; align-items: flex-start; gap: 0.5rem; padding: 0.4rem 0; border-bottom: 1px solid var(--border); font-size: 0.82rem; }
+  .poly-model { color: var(--neon-pink); font-family: monospace; min-width: 160px; }
+  .poly-assoc { color: var(--text-dim); min-width: 120px; font-size: 0.76rem; }
+  .poly-owners { flex: 1; color: var(--text); }
+  /* CONCERN / INCLUDE */
+  .include-row { display: flex; gap: 0.5rem; padding: 0.4rem 0; border-bottom: 1px solid var(--border); font-size: 0.82rem; align-items: flex-start; }
+  .include-row:last-child { border-bottom: none; }
+  .include-mod { color: var(--neon-green); font-family: monospace; min-width: 200px; }
+  .include-hosts { flex: 1; color: var(--text-dim); font-size: 0.78rem; }
+  /* CODE */
+  code { background: rgba(255,255,255,0.06); padding: 0.1rem 0.35rem; border-radius: 3px; font-family: monospace; font-size: 0.85em; color: var(--neon-yellow); }
+</style>
+</head>
+<body>
+
+<div class="hero">
+  <h1>CyDoc <span>Dependency Atlas</span></h1>
+  <div class="hero-meta">
+    <span class="badge badge-blue">Rails 3.2.19</span>
+    <span class="badge badge-green">Swiss Medical EHR</span>
+    <span class="badge badge-purple">70 Models</span>
+    <span class="badge badge-pink">TARMED / ESR / Covercard</span>
+    <span class="badge badge-yellow">57 Direct Gems</span>
+    <span class="badge badge-orange">MySQL + SQLite + MSSQL</span>
+  </div>
+</div>
+
+<nav class="tabs-nav">
+  <button class="tab-btn active" onclick="showTab('gems')">External Gems</button>
+  <button class="tab-btn" onclick="showTab('inheritance')">Inheritance Trees</button>
+  <button class="tab-btn" onclick="showTab('mixins')">Modules &amp; Mixins</button>
+  <button class="tab-btn" onclick="showTab('database')">Database Schema</button>
+  <button class="tab-btn" onclick="showTab('files')">File Dependencies</button>
+  <button class="tab-btn" onclick="showTab('infra')">Services &amp; Infrastructure</button>
+</nav>
+
+<!-- ============================= TAB 1: GEMS ============================= -->
+<div id="tab-gems" class="tab-panel active">
+  <div class="metrics">
+    <div class="metric"><div class="metric-num" style="color:var(--neon-blue)">57</div><div class="metric-label">Direct Deps</div></div>
+    <div class="metric"><div class="metric-num" style="color:var(--neon-green)">95</div><div class="metric-label">Total Resolved</div></div>
+    <div class="metric"><div class="metric-num" style="color:var(--neon-purple)">7</div><div class="metric-label">Categories</div></div>
+    <div class="metric"><div class="metric-num" style="color:var(--neon-pink)">4</div><div class="metric-label">Swiss-Specific</div></div>
+    <div class="metric"><div class="metric-num" style="color:var(--neon-yellow)">3</div><div class="metric-label">DB Adapters</div></div>
+  </div>
+
+  <!-- Authentication & Authorization -->
+  <div class="section">
+    <div class="section-title"><span class="dot" style="background:var(--neon-purple)"></span>Authentication &amp; Authorization</div>
+    <table class="dep-table">
+      <thead><tr><th>Gem</th><th>Version</th><th>Purpose</th><th>Used By</th></tr></thead>
+      <tbody>
+        <tr>
+          <td class="gem-name">devise</td>
+          <td class="version">2.1.2</td>
+          <td class="purpose"><span class="tag tag-auth">Auth</span> Full authentication stack: database_authenticatable, recoverable, trackable, timeoutable, lockable, rememberable, validatable. Login key: <code>:login</code> (not email).</td>
+          <td class="used-by"><code>User</code> model, <code>ApplicationController</code>, routes</td>
+        </tr>
+        <tr>
+          <td class="gem-name">cancan</td>
+          <td class="version">1.6.8</td>
+          <td class="purpose"><span class="tag tag-auth">AuthZ</span> Ability-based authorization. <code>Ability</code> class defines roles: admin, sysadmin. All controllers inherit from <code>AuthorizedController</code> which calls <code>load_and_authorize_resource</code>.</td>
+          <td class="used-by"><code>Ability</code>, <code>AuthorizedController</code></td>
+        </tr>
+        <tr>
+          <td class="gem-name">aasm</td>
+          <td class="version">3.0.13</td>
+          <td class="purpose"><span class="tag tag-auth">State Machine</span> Acts As State Machine. Drives state transitions on Appointment, Session, Recall, ReturnedInvoice. Exposes <code>aasm_state</code>, <code>aasm_event</code>, <code>aasm_initial_state</code>.</td>
+          <td class="used-by"><code>Appointment</code>, <code>Session</code>, <code>Recall</code>, <code>ReturnedInvoice</code></td>
+        </tr>
+        <tr>
+          <td class="gem-name">bcrypt-ruby</td>
+          <td class="version">3.0.1</td>
+          <td class="purpose">Password hashing backend for Devise.</td>
+          <td class="used-by">devise (transitive)</td>
+        </tr>
+        <tr>
+          <td class="gem-name">warden</td>
+          <td class="version">1.2.1</td>
+          <td class="purpose">Rack middleware authentication framework. Backend for Devise sessions.</td>
+          <td class="used-by">devise (transitive)</td>
+        </tr>
+        <tr>
+          <td class="gem-name">lyb_devise_admin</td>
+          <td class="version">0.3.5</td>
+          <td class="purpose">LYB custom Devise admin interface overlay.</td>
+          <td class="used-by">Admin UI</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Billing & Financial -->
+  <div class="section">
+    <div class="section-title"><span class="dot" style="background:var(--neon-green)"></span>Billing, Accounting &amp; Swiss Finance</div>
+    <table class="dep-table">
+      <thead><tr><th>Gem</th><th>Version</th><th>Purpose</th><th>Used By</th></tr></thead>
+      <tbody>
+        <tr>
+          <td class="gem-name">has_accounts</td>
+          <td class="version">1.1.1</td>
+          <td class="purpose"><span class="tag tag-billing">Finance</span> Double-entry bookkeeping accounts. Provides <code>Account</code>, <code>Booking</code>, <code>BankAccount</code> models. Invoice bookings use credit/debit accounts.</td>
+          <td class="used-by"><code>Invoice</code>, <code>Tenant</code>, <code>BookkeepingController</code></td>
+        </tr>
+        <tr>
+          <td class="gem-name">has_accounts_engine</td>
+          <td class="version">1.1.0</td>
+          <td class="purpose"><span class="tag tag-billing">Finance</span> Rails engine wrapper for has_accounts. Mounts account routes and views.</td>
+          <td class="used-by">Engine mount in application</td>
+        </tr>
+        <tr>
+          <td class="gem-name">vesr</td>
+          <td class="version">0.13.0</td>
+          <td class="purpose"><span class="tag tag-swiss">ESR</span> Swiss ESR (Einzahlungsschein mit Referenznummer) payment slip generation. Used in <code>PatientLetter</code> and <code>ReminderLetter</code> via <code>Prawn::EsrRecipe</code>. <code>Invoice#esr9</code> builds the ESR line code with MOD-10 check digit.</td>
+          <td class="used-by"><code>Invoice</code>, <code>PatientLetter</code>, <code>ReminderLetter</code>, <code>EsrFile</code>, <code>EsrRecord</code></td>
+        </tr>
+        <tr>
+          <td class="gem-name">acts-as-taggable-on</td>
+          <td class="version">2.4.1</td>
+          <td class="purpose">Tagging system. Used by <code>TariffPrice</code> to tag prices by canton, reason (Krankheit/Unfall/Mutterschaft/etc), and unit (medical/technical). <code>tagged_with(['reason:X', 'unit:Y'])</code>.</td>
+          <td class="used-by"><code>TariffPrice</code>, <code>ItemPrice</code></td>
+        </tr>
+        <tr>
+          <td class="gem-name">ledermann-rails-settings</td>
+          <td class="version">1.2.0</td>
+          <td class="purpose"><span class="tag tag-billing">Config</span> Per-model settings via <code>has_settings</code>. <code>Tenant</code> stores invoice.payment_period, invoices.grace_period, invoices.reminders.N.fee/grace_period/payment_period, invoices.profit_account_code, invoices.balance_account_code, printing.cups settings, modules.covercard settings.</td>
+          <td class="used-by"><code>Tenant</code>, <code>Invoice</code></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Swiss-Specific -->
+  <div class="section">
+    <div class="section-title"><span class="dot" style="background:var(--neon-pink)"></span>Swiss-Specific Integrations</div>
+    <table class="dep-table">
+      <thead><tr><th>Gem</th><th>Version</th><th>Purpose</th><th>Used By</th></tr></thead>
+      <tbody>
+        <tr>
+          <td class="gem-name">swissmatch</td>
+          <td class="version">0.0.3</td>
+          <td class="purpose"><span class="tag tag-swiss">Swiss</span> Swiss postal data. Bundles 4 sub-gems: swissmatch-location (postal codes/PLZ autocompletion), swissmatch-directories, swissmatch-rails, swissmatch-street. <code>TariffPrice</code> validates cantons against <code>SwissMatch.cantons.map(&amp;:license_tag)</code>. Initialized in <code>config/swissmatch.yml</code>.</td>
+          <td class="used-by"><code>TariffPrice</code>, patient address lookup, <code>PostalCode</code></td>
+        </tr>
+        <tr>
+          <td class="gem-name">has_vcards</td>
+          <td class="version">0.20.3</td>
+          <td class="purpose"><span class="tag tag-swiss">VCard</span> vCard-style contact management. Provides <code>Vcard</code>, <code>Address</code>, <code>PhoneNumber</code> models. <code>has_vcards</code> macro used on <code>Insurance</code>, <code>Patient</code>. Provides <code>vcard.salutation</code>, contact groups, etc.</td>
+          <td class="used-by"><code>Person</code>, <code>Insurance</code>, <code>Patient</code>, all PDF renderers</td>
+        </tr>
+        <tr>
+          <td class="gem-name">autocompletion</td>
+          <td class="version">0.0.3</td>
+          <td class="purpose">Auto-complete functionality for Swiss postal codes/locality lookup. Used by swissmatch-location for address fields.</td>
+          <td class="used-by">swissmatch-location (transitive)</td>
+        </tr>
+        <tr>
+          <td class="gem-name">unicode_utils</td>
+          <td class="version">1.4.0</td>
+          <td class="purpose">Unicode-aware string manipulation. Used for Swiss German character handling (Umlauts: ä/ö/ü) in patient names and addresses.</td>
+          <td class="used-by">Address/name normalization</td>
+        </tr>
+        <tr>
+          <td class="gem-name">activerecord-sqlserver-adapter</td>
+          <td class="version">3.2.9</td>
+          <td class="purpose"><span class="tag tag-swiss">TARMED DB</span> SQL Server adapter for connecting to external TARMED database. The TARMED tariff system is stored in a separate SQL Server database accessed via <code>use_db :prefix => "tarmed_"</code> on <code>Tarmed::Base</code>.</td>
+          <td class="used-by"><code>Tarmed::Base</code>, <code>Tarmed::Leistung</code> and subclasses</td>
+        </tr>
+        <tr>
+          <td class="gem-name">use_db</td>
+          <td class="version">0.2.0</td>
+          <td class="purpose">Multiple database connection support. <code>Tarmed::Base</code> calls <code>use_db :prefix => "tarmed_"</code> to route queries to a separate TARMED SQL Server database defined in database.yml.</td>
+          <td class="used-by"><code>Tarmed::Base</code> and all Tarmed:: subclasses</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- PDF Generation -->
+  <div class="section">
+    <div class="section-title"><span class="dot" style="background:var(--neon-orange)"></span>PDF Generation &amp; Printing</div>
+    <table class="dep-table">
+      <thead><tr><th>Gem</th><th>Version</th><th>Purpose</th><th>Used By</th></tr></thead>
+      <tbody>
+        <tr>
+          <td class="gem-name">prawn</td>
+          <td class="version">1.0.0.rc1 (git)</td>
+          <td class="purpose"><span class="tag tag-pdf">PDF</span> Pure Ruby PDF generation. Pinned to GitHub HEAD. All PDF documents extend <code>Prawn::Document</code> via <code>LetterDocument</code>. Uses measurement extensions (<code>1.cm</code>, <code>1.8.cm</code>). Renders TARMED Rückforderungsbeleg, PatientLetter, ReminderLetter, RecallLetter, ReturnedInvoiceRequestDocument. Custom OCRB10 font for ESR line printing.</td>
+          <td class="used-by"><code>LetterDocument</code>, <code>InsuranceRecipe</code>, <code>PatientLetter</code>, <code>ReminderLetter</code>, <code>RecallLetter</code>, <code>ReturnedInvoiceRequestDocument</code></td>
+        </tr>
+        <tr>
+          <td class="gem-name">prawnto</td>
+          <td class="version">0.1.1</td>
+          <td class="purpose">Prawn template handler for Rails views. Enables <code>format.pdf</code> responses in controllers.</td>
+          <td class="used-by"><code>InvoicesController</code>, <code>AppointmentsController</code></td>
+        </tr>
+        <tr>
+          <td class="gem-name">cupsffi</td>
+          <td class="version">0.1.1</td>
+          <td class="purpose"><span class="tag tag-pdf">Print</span> CUPS printing via FFI. <code>Tenant#printer_for(type)</code> creates <code>CupsPrinter</code> instances. Triggered when <code>settings['printing.cups'] == "1"</code>. Supports remote hostname via <code>printing.cups_hostname</code>.</td>
+          <td class="used-by"><code>Tenant</code>, <code>InvoicesController</code>, <code>InvoiceBatchJobsController</code>, <code>ReminderBatchJobsController</code></td>
+        </tr>
+        <tr>
+          <td class="gem-name">ffi</td>
+          <td class="version">1.9.3</td>
+          <td class="purpose">Foreign Function Interface — native dependency for cupsffi.</td>
+          <td class="used-by">cupsffi (transitive)</td>
+        </tr>
+        <tr>
+          <td class="gem-name">pdf-reader</td>
+          <td class="version">1.2.0</td>
+          <td class="purpose">PDF reading capability. Prawn dependency for verifying output.</td>
+          <td class="used-by">prawn (transitive)</td>
+        </tr>
+        <tr>
+          <td class="gem-name">ttfunk</td>
+          <td class="version">1.0.3</td>
+          <td class="purpose">TrueType font parser. Used by Prawn for custom font loading (DejaVuSans, OCRB10 for ESR).</td>
+          <td class="used-by">prawn (transitive)</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- UI / Frontend -->
+  <div class="section">
+    <div class="section-title"><span class="dot" style="background:var(--neon-blue)"></span>UI, Forms &amp; Frontend</div>
+    <table class="dep-table">
+      <thead><tr><th>Gem</th><th>Version</th><th>Purpose</th><th>Used By</th></tr></thead>
+      <tbody>
+        <tr>
+          <td class="gem-name">haml</td>
+          <td class="version">4.0.4</td>
+          <td class="purpose"><span class="tag tag-ui">Template</span> HAML templating engine for all views.</td>
+          <td class="used-by">All view files</td>
+        </tr>
+        <tr>
+          <td class="gem-name">twitter-bootstrap-rails</td>
+          <td class="version">2.2.0</td>
+          <td class="purpose"><span class="tag tag-ui">CSS Framework</span> Twitter Bootstrap 2.x. Topbar navigation, grid, forms, modals. Custom <code>BootstrapTopbarList</code> renderer in <code>lib/bootstrap_topbar_list.rb</code>.</td>
+          <td class="used-by">All views, navigation</td>
+        </tr>
+        <tr>
+          <td class="gem-name">lyb_sidebar</td>
+          <td class="version">0.1.1</td>
+          <td class="purpose">LYB custom sidebar navigation component.</td>
+          <td class="used-by">Layout views</td>
+        </tr>
+        <tr>
+          <td class="gem-name">simple-navigation</td>
+          <td class="version">3.9.0</td>
+          <td class="purpose">Navigation menus. Configured in <code>config/navigation.rb</code>. Custom renderer <code>BootstrapTopbarList</code>.</td>
+          <td class="used-by"><code>config/navigation.rb</code>, layout views</td>
+        </tr>
+        <tr>
+          <td class="gem-name">formtastic</td>
+          <td class="version">2.2.1</td>
+          <td class="purpose">Semantic form builder. Monkey-patched in <code>ApplicationController</code> to add <code>date_field_input</code> and <code>time_field_input</code> and to recognize <code>validates_date</code> as a required validator.</td>
+          <td class="used-by">All form views, <code>ApplicationController</code></td>
+        </tr>
+        <tr>
+          <td class="gem-name">simple_form</td>
+          <td class="version">2.1.1</td>
+          <td class="purpose">Alternative form builder. Used alongside formtastic for some views.</td>
+          <td class="used-by">Some views</td>
+        </tr>
+        <tr>
+          <td class="gem-name">kaminari</td>
+          <td class="version">0.14.1</td>
+          <td class="purpose">Pagination. <code>AuthorizedController</code> adds <code>has_scope :page</code> and <code>has_scope :per</code>. Used on index actions across all controllers.</td>
+          <td class="used-by"><code>AuthorizedController</code>, all index actions</td>
+        </tr>
+        <tr>
+          <td class="gem-name">jquery-rails</td>
+          <td class="version">2.1.3</td>
+          <td class="purpose">jQuery integration. Used for AJAX interactions in all controllers (RJS-style <code>render :update do |page|</code>).</td>
+          <td class="used-by">All views</td>
+        </tr>
+        <tr>
+          <td class="gem-name">select2-rails</td>
+          <td class="version">3.2.1</td>
+          <td class="purpose">Select2 dropdown enhancement for searchable select boxes.</td>
+          <td class="used-by">Insurance/doctor select fields</td>
+        </tr>
+        <tr>
+          <td class="gem-name">in_place_editing</td>
+          <td class="version">1.2.0</td>
+          <td class="purpose">Inline editing on HTML elements.</td>
+          <td class="used-by">Service record editing</td>
+        </tr>
+        <tr>
+          <td class="gem-name">show_for</td>
+          <td class="version">0.2.5</td>
+          <td class="purpose">Structured show page generator (label/value pairs).</td>
+          <td class="used-by">Show views</td>
+        </tr>
+        <tr>
+          <td class="gem-name">sass</td>
+          <td class="version">3.2.12</td>
+          <td class="purpose">SCSS/SASS stylesheet processing.</td>
+          <td class="used-by">Assets pipeline</td>
+        </tr>
+        <tr>
+          <td class="gem-name">less-rails</td>
+          <td class="version">2.2.6</td>
+          <td class="purpose">LESS stylesheet processing. Used by twitter-bootstrap-rails 2.x.</td>
+          <td class="used-by">Bootstrap compilation</td>
+        </tr>
+        <tr>
+          <td class="gem-name">coffee-rails</td>
+          <td class="version">3.2.2</td>
+          <td class="purpose">CoffeeScript asset compilation.</td>
+          <td class="used-by">Assets pipeline</td>
+        </tr>
+        <tr>
+          <td class="gem-name">i18n_rails_helpers</td>
+          <td class="version">1.3.0</td>
+          <td class="purpose">I18n helper methods for Rails. Provides <code>t_attr</code>, <code>t_action</code> etc used in PDF renderers.</td>
+          <td class="used-by">PDF renderers, views</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- CRUD / API Helpers -->
+  <div class="section">
+    <div class="section-title"><span class="dot" style="background:var(--neon-yellow)"></span>CRUD Scaffolding &amp; REST</div>
+    <table class="dep-table">
+      <thead><tr><th>Gem</th><th>Version</th><th>Purpose</th><th>Used By</th></tr></thead>
+      <tbody>
+        <tr>
+          <td class="gem-name">inherited_resources</td>
+          <td class="version">1.4.0</td>
+          <td class="purpose"><span class="tag tag-ui">CRUD</span> Provides <code>InheritedResources::Base</code>. <code>AuthorizedController</code> extends it. All controllers get standard CRUD actions. <code>defaults :resource_class</code> customizes model. <code>belongs_to</code> in controllers for nested resources.</td>
+          <td class="used-by"><code>AuthorizedController</code>, all controllers</td>
+        </tr>
+        <tr>
+          <td class="gem-name">inherited_resources_views</td>
+          <td class="version">0.4.1</td>
+          <td class="purpose">Default view templates for inherited_resources controllers.</td>
+          <td class="used-by">View fallbacks</td>
+        </tr>
+        <tr>
+          <td class="gem-name">has_scope</td>
+          <td class="version">0.5.1</td>
+          <td class="purpose">Maps request params to model scopes. <code>has_scope :by_period</code>, <code>has_scope :invoice_state</code>, <code>has_scope :page</code>, <code>has_scope :overdue</code> etc. Used heavily in index actions.</td>
+          <td class="used-by"><code>AuthorizedController</code>, <code>AppointmentsController</code>, <code>InvoicesController</code></td>
+        </tr>
+        <tr>
+          <td class="gem-name">responders</td>
+          <td class="version">0.9.3</td>
+          <td class="purpose">HTTP responders (transitive dep of inherited_resources).</td>
+          <td class="used-by">inherited_resources (transitive)</td>
+        </tr>
+        <tr>
+          <td class="gem-name">routing-filter</td>
+          <td class="version">0.3.1</td>
+          <td class="purpose">Locale-based URL filtering. Adds <code>filter 'locale'</code> to routes, prefixing URLs with locale (e.g. <code>/de-CH/patients</code>). <code>ApplicationController#set_locale</code> reads locale from params, cookies, or default.</td>
+          <td class="used-by"><code>config/routes.rb</code>, <code>ApplicationController</code></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Database / Search / Import -->
+  <div class="section">
+    <div class="section-title"><span class="dot" style="background:var(--neon-yellow)"></span>Database, Search &amp; Import</div>
+    <table class="dep-table">
+      <thead><tr><th>Gem</th><th>Version</th><th>Purpose</th><th>Used By</th></tr></thead>
+      <tbody>
+        <tr>
+          <td class="gem-name">mysql2</td>
+          <td class="version">0.3.11</td>
+          <td class="purpose"><span class="tag tag-db">Primary DB</span> MySQL adapter for the main application database (patients, invoices, sessions, treatments, etc).</td>
+          <td class="used-by">ActiveRecord main connection</td>
+        </tr>
+        <tr>
+          <td class="gem-name">sqlite3</td>
+          <td class="version">1.3.6</td>
+          <td class="purpose"><span class="tag tag-db">Dev/Test DB</span> SQLite adapter for development/test. <code>ApplicationController</code> has special REGEXP function registration for SQLite compatibility.</td>
+          <td class="used-by">Development environment</td>
+        </tr>
+        <tr>
+          <td class="gem-name">activerecord-sqlserver-adapter</td>
+          <td class="version">3.2.9</td>
+          <td class="purpose"><span class="tag tag-db">TARMED DB</span> SQL Server connection for external TARMED database.</td>
+          <td class="used-by"><code>Tarmed::Base</code></td>
+        </tr>
+        <tr>
+          <td class="gem-name">thinking-sphinx</td>
+          <td class="version">2.0.13</td>
+          <td class="purpose"><span class="tag tag-search">Search</span> Full-text search via Sphinx. <code>Patient</code> model defines <code>define_index</code> with delta indexing on vcard fields, billing_vcard, birth_date, doctor_patient_nr, and case praxistar_eingangsnr. Supports extended match mode.</td>
+          <td class="used-by"><code>Patient</code>, <code>SearchController</code></td>
+        </tr>
+        <tr>
+          <td class="gem-name">riddle</td>
+          <td class="version">1.5.3</td>
+          <td class="purpose">Sphinx client library (transitive dep of thinking-sphinx).</td>
+          <td class="used-by">thinking-sphinx (transitive)</td>
+        </tr>
+        <tr>
+          <td class="gem-name">fastercsv</td>
+          <td class="version">1.5.5</td>
+          <td class="purpose"><span class="tag tag-import">Import</span> Fast CSV parsing. Used in <code>Analyseliste::Base</code> to parse Analyseliste CSV files (lab tariffs). Also used in insurance import (<code>Insurances::Import</code>).</td>
+          <td class="used-by"><code>Analyseliste::Base</code>, <code>Insurances::Import</code></td>
+        </tr>
+        <tr>
+          <td class="gem-name">csv-mapper</td>
+          <td class="version">0.5.1</td>
+          <td class="purpose">CSV-to-object mapping helper (extends fastercsv).</td>
+          <td class="used-by">Insurance/data import tasks</td>
+        </tr>
+        <tr>
+          <td class="gem-name">nokogiri</td>
+          <td class="version">1.5.6</td>
+          <td class="purpose"><span class="tag tag-swiss">Covercard</span> XML parsing. Used in <code>Covercard::Patient.find</code> to parse the Covercard HIN service XML response — patient identity, insurance EAN, coverage info.</td>
+          <td class="used-by"><code>Covercard::Patient</code>, <code>swissmatch-directories</code></td>
+        </tr>
+        <tr>
+          <td class="gem-name">carrierwave</td>
+          <td class="version">0.7.0</td>
+          <td class="purpose">File upload management. <code>Attachment</code> model mounts <code>AttachmentUploader</code>. Stores uploads under <code>Rails.root/uploads</code> (configured in initializer). Used for letter templates (PDF backgrounds) attached to <code>Tenant</code> and <code>Person</code>.</td>
+          <td class="used-by"><code>Attachment</code>, <code>AttachmentUploader</code>, <code>LetterDocument</code></td>
+        </tr>
+        <tr>
+          <td class="gem-name">validates_timeliness</td>
+          <td class="version">3.0.14</td>
+          <td class="purpose">Date/time validation. <code>validates_date</code> macro used across <code>Patient</code>, <code>Person</code>, <code>Treatment</code>, <code>Tenant</code>, <code>Appointment</code>, <code>Recall</code>.</td>
+          <td class="used-by"><code>Patient</code>, <code>Person</code>, <code>Treatment</code>, <code>Tenant</code>, <code>Appointment</code>, <code>Recall</code></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Server / Deployment -->
+  <div class="section">
+    <div class="section-title"><span class="dot" style="background:var(--neon-blue)"></span>Server, Deployment &amp; Development</div>
+    <table class="dep-table">
+      <thead><tr><th>Gem</th><th>Version</th><th>Purpose</th><th>Used By</th></tr></thead>
+      <tbody>
+        <tr>
+          <td class="gem-name">unicorn</td>
+          <td class="version">4.3.1</td>
+          <td class="purpose"><span class="tag tag-server">Server</span> Rack HTTP server. Configured in <code>config/unicorn.rb</code>. Workers: kgio (async I/O), raindrops (stats).</td>
+          <td class="used-by">Production server</td>
+        </tr>
+        <tr>
+          <td class="gem-name">capones_recipes</td>
+          <td class="version">1.20.1</td>
+          <td class="purpose">Capistrano deployment recipes. Configured in <code>config/deploy.rb</code>.</td>
+          <td class="used-by">Deployment pipeline</td>
+        </tr>
+        <tr>
+          <td class="gem-name">capistrano</td>
+          <td class="version">2.15.5</td>
+          <td class="purpose">Deployment automation.</td>
+          <td class="used-by">capones_recipes (transitive)</td>
+        </tr>
+        <tr>
+          <td class="gem-name">therubyracer</td>
+          <td class="version">0.10.2</td>
+          <td class="purpose">V8 JavaScript runtime for asset pipeline (CoffeeScript, LESS compilation).</td>
+          <td class="used-by">Assets pipeline</td>
+        </tr>
+        <tr>
+          <td class="gem-name">uglifier</td>
+          <td class="version">1.3.0</td>
+          <td class="purpose">JavaScript minification in production assets.</td>
+          <td class="used-by">Assets pipeline</td>
+        </tr>
+        <tr>
+          <td class="gem-name">pry-rails</td>
+          <td class="version">0.3.2</td>
+          <td class="purpose">Pry REPL integration for <code>rails console</code>.</td>
+          <td class="used-by">Development</td>
+        </tr>
+        <tr>
+          <td class="gem-name">pry-debugger</td>
+          <td class="version">0.2.2</td>
+          <td class="purpose">Debugger integration with Pry.</td>
+          <td class="used-by">Development</td>
+        </tr>
+        <tr>
+          <td class="gem-name">cucumber</td>
+          <td class="version">1.2.1</td>
+          <td class="purpose"><span class="tag tag-test">Test</span> BDD acceptance tests. Test files in <code>features/</code> (manage_patients.feature, welcome.feature).</td>
+          <td class="used-by">Test suite</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Gem Dependency Chain SVG -->
+  <div class="section">
+    <div class="section-title"><span class="dot"></span>Key Gem Dependency Chains</div>
+    <div class="graph-container">
+      <svg viewBox="0 0 1200 520" xmlns="http://www.w3.org/2000/svg" style="background:#0f0f1a;">
+        <defs>
+          <marker id="arr" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+            <polygon points="0 0, 8 3, 0 6" fill="#00d4ff66"/>
+          </marker>
+          <marker id="arr-g" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+            <polygon points="0 0, 8 3, 0 6" fill="#00ff9d66"/>
+          </marker>
+          <marker id="arr-p" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+            <polygon points="0 0, 8 3, 0 6" fill="#bf00ff66"/>
+          </marker>
+          <filter id="glow-b"><feGaussianBlur stdDeviation="2" result="c"/><feMerge><feMergeNode in="c"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+          <filter id="glow-g"><feGaussianBlur stdDeviation="2" result="c"/><feMerge><feMergeNode in="c"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+        </defs>
+        <style>
+          .gn { font-family: monospace; font-size: 11px; fill: #00d4ff; }
+          .gn2 { font-family: monospace; font-size: 10px; fill: #00ff9d; }
+          .gn3 { font-family: monospace; font-size: 10px; fill: #bf00ff; }
+          .glabel { font-family: sans-serif; font-size: 9px; fill: #667; text-transform: uppercase; letter-spacing: 0.08em; }
+          .node-box { rx: 6; ry: 6; }
+        </style>
+
+        <!-- CHAIN 1: Swiss billing chain -->
+        <text x="20" y="22" class="glabel">SWISS BILLING CHAIN</text>
+        <rect x="20" y="30" width="120" height="28" class="node-box" fill="#0d1a2a" stroke="#00d4ff" stroke-width="1.5" filter="url(#glow-b)"/>
+        <text x="80" y="49" class="gn" text-anchor="middle">has_accounts</text>
+        <line x1="140" y1="44" x2="180" y2="44" stroke="#00d4ff44" stroke-width="1.5" marker-end="url(#arr)"/>
+        <rect x="180" y="30" width="90" height="28" class="node-box" fill="#0d1a2a" stroke="#00ff9d" stroke-width="1.5"/>
+        <text x="225" y="49" class="gn2" text-anchor="middle">has_vcards</text>
+        <line x1="270" y1="44" x2="310" y2="44" stroke="#00ff9d44" stroke-width="1.5" marker-end="url(#arr-g)"/>
+        <rect x="310" y="30" width="100" height="28" class="node-box" fill="#0d1a2a" stroke="#bf00ff" stroke-width="1.5"/>
+        <text x="360" y="49" class="gn3" text-anchor="middle">simple_form</text>
+        <line x1="410" y1="44" x2="450" y2="44" stroke="#bf00ff44" stroke-width="1.5" marker-end="url(#arr-p)"/>
+        <rect x="450" y="30" width="80" height="28" class="node-box" fill="#0d1a2a" stroke="#ffcc00" stroke-width="1.5"/>
+        <text x="490" y="49" font-family="monospace" font-size="10" fill="#ffcc00" text-anchor="middle">rails 3.2</text>
+        <line x1="530" y1="44" x2="570" y2="44" stroke="#ffcc0044" stroke-width="1.5" marker-end="url(#arr)"/>
+        <rect x="570" y="30" width="100" height="28" class="node-box" fill="#0d1a2a" stroke="#00d4ff" stroke-width="1"/>
+        <text x="620" y="49" class="gn" text-anchor="middle" font-size="9">activerecord</text>
+
+        <!-- CHAIN 2: ESR payment -->
+        <text x="20" y="100" class="glabel">ESR PAYMENT SLIP CHAIN</text>
+        <rect x="20" y="108" width="60" height="28" class="node-box" fill="#0d1a2a" stroke="#ff0080" stroke-width="1.5"/>
+        <text x="50" y="127" font-family="monospace" font-size="10" fill="#ff0080" text-anchor="middle">vesr</text>
+        <line x1="80" y1="122" x2="120" y2="122" stroke="#ff008044" stroke-width="1.5" marker-end="url(#arr)"/>
+        <rect x="120" y="108" width="60" height="28" class="node-box" fill="#0d1a2a" stroke="#ff6b00" stroke-width="1.5"/>
+        <text x="150" y="127" font-family="monospace" font-size="10" fill="#ff6b00" text-anchor="middle">prawn</text>
+        <line x1="180" y1="122" x2="220" y2="122" stroke="#ff6b0044" stroke-width="1.5" marker-end="url(#arr)"/>
+        <rect x="220" y="108" width="70" height="28" class="node-box" fill="#0d1a2a" stroke="#00ff9d" stroke-width="1.5"/>
+        <text x="255" y="127" font-family="monospace" font-size="10" fill="#00ff9d" text-anchor="middle">ttfunk</text>
+        <line x1="290" y1="122" x2="330" y2="122" stroke="#00ff9d44" stroke-width="1.5" marker-end="url(#arr-g)"/>
+        <rect x="330" y="108" width="80" height="28" class="node-box" fill="#0d1a2a" stroke="#00d4ff" stroke-width="1.5"/>
+        <text x="370" y="127" font-family="monospace" font-size="10" fill="#00d4ff" text-anchor="middle">pdf-reader</text>
+        <line x1="410" y1="122" x2="450" y2="122" stroke="#00d4ff44" stroke-width="1.5" marker-end="url(#arr)"/>
+        <rect x="450" y="108" width="70" height="28" class="node-box" fill="#0d1a2a" stroke="#bf00ff" stroke-width="1.5"/>
+        <text x="485" y="127" font-family="monospace" font-size="10" fill="#bf00ff" text-anchor="middle">Ascii85</text>
+
+        <!-- CHAIN 3: TARMED -->
+        <text x="20" y="180" class="glabel">TARMED DATABASE CHAIN</text>
+        <rect x="20" y="188" width="100" height="28" class="node-box" fill="#0d1a2a" stroke="#ff0080" stroke-width="1.5"/>
+        <text x="70" y="207" font-family="monospace" font-size="10" fill="#ff0080" text-anchor="middle">use_db gem</text>
+        <line x1="120" y1="202" x2="160" y2="202" stroke="#ff008044" stroke-width="1.5" marker-end="url(#arr)"/>
+        <rect x="160" y="188" width="130" height="28" class="node-box" fill="#0d1a2a" stroke="#ff6b00" stroke-width="1.5"/>
+        <text x="225" y="207" font-family="monospace" font-size="10" fill="#ff6b00" text-anchor="middle">ar-sqlserver-adapter</text>
+        <line x1="290" y1="202" x2="330" y2="202" stroke="#ff6b0044" stroke-width="1.5" marker-end="url(#arr)"/>
+        <rect x="330" y="188" width="110" height="28" class="node-box" fill="#0d1a2a" stroke="#00d4ff" stroke-width="1.5"/>
+        <text x="385" y="207" font-family="monospace" font-size="10" fill="#00d4ff" text-anchor="middle">Tarmed::Base</text>
+        <line x1="440" y1="202" x2="480" y2="202" stroke="#00d4ff44" stroke-width="1.5" marker-end="url(#arr)"/>
+        <rect x="480" y="188" width="140" height="28" class="node-box" fill="#0d1a2a" stroke="#00ff9d" stroke-width="1.5"/>
+        <text x="550" y="207" font-family="monospace" font-size="10" fill="#00ff9d" text-anchor="middle">Tarmed::Leistung</text>
+        <line x1="620" y1="202" x2="660" y2="202" stroke="#00ff9d44" stroke-width="1.5" marker-end="url(#arr-g)"/>
+        <rect x="660" y="188" width="140" height="28" class="node-box" fill="#0d1a2a" stroke="#bf00ff" stroke-width="1.5"/>
+        <text x="730" y="207" font-family="monospace" font-size="10" fill="#bf00ff" text-anchor="middle">TarmedTariffItem</text>
+
+        <!-- CHAIN 4: Covercard -->
+        <text x="20" y="260" class="glabel">COVERCARD HIN CHAIN</text>
+        <rect x="20" y="268" width="110" height="28" class="node-box" fill="#0d1a2a" stroke="#ff0080" stroke-width="1.5"/>
+        <text x="75" y="287" font-family="monospace" font-size="10" fill="#ff0080" text-anchor="middle">HIN Covercard API</text>
+        <line x1="130" y1="282" x2="170" y2="282" stroke="#ff008044" stroke-width="1.5" marker-end="url(#arr)"/>
+        <rect x="170" y="268" width="80" height="28" class="node-box" fill="#0d1a2a" stroke="#ff6b00" stroke-width="1.5"/>
+        <text x="210" y="287" font-family="monospace" font-size="10" fill="#ff6b00" text-anchor="middle">nokogiri</text>
+        <line x1="250" y1="282" x2="290" y2="282" stroke="#ff6b0044" stroke-width="1.5" marker-end="url(#arr)"/>
+        <rect x="290" y="268" width="130" height="28" class="node-box" fill="#0d1a2a" stroke="#00d4ff" stroke-width="1.5"/>
+        <text x="355" y="287" font-family="monospace" font-size="10" fill="#00d4ff" text-anchor="middle">Covercard::Patient</text>
+        <line x1="420" y1="282" x2="460" y2="282" stroke="#00d4ff44" stroke-width="1.5" marker-end="url(#arr)"/>
+        <rect x="460" y="268" width="80" height="28" class="node-box" fill="#0d1a2a" stroke="#00ff9d" stroke-width="1.5"/>
+        <text x="500" y="287" font-family="monospace" font-size="10" fill="#00ff9d" text-anchor="middle">Patient</text>
+
+        <!-- CHAIN 5: Auth chain -->
+        <text x="20" y="340" class="glabel">AUTHENTICATION CHAIN</text>
+        <rect x="20" y="348" width="70" height="28" class="node-box" fill="#0d1a2a" stroke="#bf00ff" stroke-width="1.5"/>
+        <text x="55" y="367" font-family="monospace" font-size="10" fill="#bf00ff" text-anchor="middle">devise</text>
+        <line x1="90" y1="362" x2="130" y2="362" stroke="#bf00ff44" stroke-width="1.5" marker-end="url(#arr-p)"/>
+        <rect x="130" y="348" width="70" height="28" class="node-box" fill="#0d1a2a" stroke="#bf00ff" stroke-width="1.5"/>
+        <text x="165" y="367" font-family="monospace" font-size="10" fill="#bf00ff" text-anchor="middle">warden</text>
+        <line x1="200" y1="362" x2="240" y2="362" stroke="#bf00ff44" stroke-width="1.5" marker-end="url(#arr-p)"/>
+        <rect x="240" y="348" width="60" height="28" class="node-box" fill="#0d1a2a" stroke="#00d4ff" stroke-width="1.5"/>
+        <text x="270" y="367" font-family="monospace" font-size="10" fill="#00d4ff" text-anchor="middle">rack</text>
+        <rect x="340" y="348" width="70" height="28" class="node-box" fill="#0d1a2a" stroke="#ff6b00" stroke-width="1.5"/>
+        <text x="375" y="367" font-family="monospace" font-size="10" fill="#ff6b00" text-anchor="middle">cancan</text>
+        <line x1="410" y1="362" x2="450" y2="362" stroke="#ff6b0044" stroke-width="1.5" marker-end="url(#arr)"/>
+        <rect x="450" y="348" width="80" height="28" class="node-box" fill="#0d1a2a" stroke="#00ff9d" stroke-width="1.5"/>
+        <text x="490" y="367" font-family="monospace" font-size="10" fill="#00ff9d" text-anchor="middle">Ability</text>
+        <line x1="530" y1="362" x2="570" y2="362" stroke="#00ff9d44" stroke-width="1.5" marker-end="url(#arr-g)"/>
+        <rect x="570" y="348" width="130" height="28" class="node-box" fill="#0d1a2a" stroke="#00d4ff" stroke-width="1.5"/>
+        <text x="635" y="367" font-family="monospace" font-size="10" fill="#00d4ff" text-anchor="middle">AuthorizedController</text>
+
+        <!-- CHAIN 6: Search -->
+        <text x="20" y="420" class="glabel">SEARCH CHAIN</text>
+        <rect x="20" y="428" width="120" height="28" class="node-box" fill="#0d1a2a" stroke="#ffcc00" stroke-width="1.5"/>
+        <text x="80" y="447" font-family="monospace" font-size="10" fill="#ffcc00" text-anchor="middle">thinking-sphinx</text>
+        <line x1="140" y1="442" x2="180" y2="442" stroke="#ffcc0044" stroke-width="1.5" marker-end="url(#arr)"/>
+        <rect x="180" y="428" width="70" height="28" class="node-box" fill="#0d1a2a" stroke="#ffcc00" stroke-width="1.5"/>
+        <text x="215" y="447" font-family="monospace" font-size="10" fill="#ffcc00" text-anchor="middle">riddle</text>
+        <line x1="250" y1="442" x2="290" y2="442" stroke="#ffcc0044" stroke-width="1.5" marker-end="url(#arr)"/>
+        <rect x="290" y="428" width="140" height="28" class="node-box" fill="#0d1a2a" stroke="#00ff9d" stroke-width="1.5"/>
+        <text x="360" y="447" font-family="monospace" font-size="10" fill="#00ff9d" text-anchor="middle">Sphinx (external daemon)</text>
+        <rect x="470" y="428" width="70" height="28" class="node-box" fill="#0d1a2a" stroke="#00d4ff" stroke-width="1.5"/>
+        <text x="505" y="447" font-family="monospace" font-size="10" fill="#00d4ff" text-anchor="middle">Patient</text>
+        <text x="545" y="447" font-family="monospace" font-size="10" fill="#667" text-anchor="middle">→ by_text()</text>
+      </svg>
+    </div>
+  </div>
+</div>
+
+<!-- ============================= TAB 2: INHERITANCE ============================= -->
+<div id="tab-inheritance" class="tab-panel">
+  <div class="metrics">
+    <div class="metric"><div class="metric-num" style="color:var(--neon-blue)">8</div><div class="metric-label">STI Hierarchies</div></div>
+    <div class="metric"><div class="metric-num" style="color:var(--neon-green)">70+</div><div class="metric-label">Total Classes</div></div>
+    <div class="metric"><div class="metric-num" style="color:var(--neon-purple)">5</div><div class="metric-label">STI Tables</div></div>
+    <div class="metric"><div class="metric-num" style="color:var(--neon-pink)">3</div><div class="metric-label">Tiers Variants</div></div>
+  </div>
+
+  <div class="grid-2">
+    <!-- Person -->
+    <div class="section">
+      <div class="section-title"><span class="dot" style="background:var(--neon-purple)"></span>Person STI (table: people)</div>
+      <div class="card inherit-tree">
+        <div class="inherit-item root">ActiveRecord::Base</div>
+        <div class="inherit-item l1">Person &nbsp;<span style="color:var(--text-dim);font-size:0.75rem">table: people, type column</span></div>
+        <div class="inherit-item l2">Doctor &nbsp;<span style="color:var(--text-dim);font-size:0.75rem">has_many :patients, has_one :user</span></div>
+        <div class="inherit-item l2">Employee &nbsp;<span style="color:var(--text-dim);font-size:0.75rem">has_many :roles through user</span></div>
+      </div>
+      <p style="margin-top:0.5rem;font-size:0.78rem;color:var(--text-dim)">Person holds EAN party number (<code>ean_party</code>), ZSR number, IBAN/SWIFT for billing. Doctor and Employee share the same table with type discriminator.</p>
+    </div>
+
+    <!-- TariffItem -->
+    <div class="section">
+      <div class="section-title"><span class="dot" style="background:var(--neon-green)"></span>TariffItem STI (table: tariff_items)</div>
+      <div class="card inherit-tree">
+        <div class="inherit-item root">ActiveRecord::Base</div>
+        <div class="inherit-item l1">TariffItem &nbsp;<span style="color:var(--text-dim);font-size:0.75rem">tariff_type, code, amount_mt, amount_tt</span></div>
+        <div class="inherit-item l2">TarmedTariffItem &nbsp;<span style="color:var(--text-dim);font-size:0.75rem">tariff_type="001" (TARMED)</span></div>
+        <div class="inherit-item l2">DrugTariffItem &nbsp;<span style="color:var(--text-dim);font-size:0.75rem">tariff_type="400" (Medikamente)</span></div>
+        <div class="inherit-item l2">LabTariffItem &nbsp;<span style="color:var(--text-dim);font-size:0.75rem">tariff_type=316/317 (Analyseliste)</span></div>
+        <div class="inherit-item l2">PhysioTariffItem &nbsp;<span style="color:var(--text-dim);font-size:0.75rem">tariff_type="311" (Physiotherapy)</span></div>
+        <div class="inherit-item l2">MigelTariffItem &nbsp;<span style="color:var(--text-dim);font-size:0.75rem">tariff_type="452" (MiGel)</span></div>
+        <div class="inherit-item l2">FreeTariffItem &nbsp;<span style="color:var(--text-dim);font-size:0.75rem">tariff_type=999 (free)</span></div>
+        <div class="inherit-item l2">TariffItemGroup &nbsp;<span style="color:var(--text-dim);font-size:0.75rem">compound tariff sets</span></div>
+      </div>
+    </div>
+
+    <!-- MedicalCase -->
+    <div class="section">
+      <div class="section-title"><span class="dot" style="background:var(--neon-orange)"></span>MedicalCase STI (table: medical_cases)</div>
+      <div class="card inherit-tree">
+        <div class="inherit-item root">ActiveRecord::Base</div>
+        <div class="inherit-item l1">MedicalCase &nbsp;<span style="color:var(--text-dim);font-size:0.75rem">belongs_to :doctor, :treatment</span></div>
+        <div class="inherit-item l2">AnamnesisCase &nbsp;<span style="color:var(--text-dim);font-size:0.75rem">anamnesis records</span></div>
+        <div class="inherit-item l2">AttestationCase &nbsp;<span style="color:var(--text-dim);font-size:0.75rem">attestation</span></div>
+        <div class="inherit-item l2">DiagnosisCase &nbsp;<span style="color:var(--text-dim);font-size:0.75rem">belongs_to :diagnosis</span></div>
+        <div class="inherit-item l2">LaboratoryCase &nbsp;<span style="color:var(--text-dim);font-size:0.75rem">lab results</span></div>
+        <div class="inherit-item l2">PrescriptionCase &nbsp;<span style="color:var(--text-dim);font-size:0.75rem">prescriptions</span></div>
+        <div class="inherit-item l2">TherapyCase &nbsp;<span style="color:var(--text-dim);font-size:0.75rem">therapy sessions</span></div>
+      </div>
+    </div>
+
+    <!-- Tiers -->
+    <div class="section">
+      <div class="section-title"><span class="dot" style="background:var(--neon-pink)"></span>Tiers STI (table: tiers)</div>
+      <div class="card inherit-tree">
+        <div class="inherit-item root">ActiveRecord::Base</div>
+        <div class="inherit-item l1">Tiers &nbsp;<span style="color:var(--text-dim);font-size:0.75rem">biller, provider, insurance, patient, referrer, employer</span></div>
+        <div class="inherit-item l2">TiersGarant &nbsp;<span style="color:var(--text-dim);font-size:0.75rem">Patient pays directly; guarantor=Patient</span></div>
+        <div class="inherit-item l2">TiersPayant &nbsp;<span style="color:var(--text-dim);font-size:0.75rem">Insurance pays; guarantor=Insurance</span></div>
+        <div class="inherit-item l2">TiersSoldant &nbsp;<span style="color:var(--text-dim);font-size:0.75rem">partial payment split</span></div>
+      </div>
+      <p style="margin-top:0.5rem;font-size:0.78rem;color:var(--text-dim)">Swiss billing model: Tiers Garant = patient pays doctor, Tiers Payant = insurer pays doctor directly.</p>
+    </div>
+
+    <!-- Diagnosis -->
+    <div class="section">
+      <div class="section-title"><span class="dot" style="background:var(--neon-yellow)"></span>Diagnosis STI (table: diagnoses)</div>
+      <div class="card inherit-tree">
+        <div class="inherit-item root">ActiveRecord::Base</div>
+        <div class="inherit-item l1">Diagnosis &nbsp;<span style="color:var(--text-dim);font-size:0.75rem">has_and_belongs_to_many :treatments</span></div>
+        <div class="inherit-item l2">DiagnosisBirthdefect</div>
+        <div class="inherit-item l2">DiagnosisByContract &nbsp;<span style="color:var(--text-dim);font-size:0.75rem">type_xml="by_contract"</span></div>
+        <div class="inherit-item l2">DiagnosisCantonal</div>
+        <div class="inherit-item l2">DiagnosisFreetext</div>
+      </div>
+    </div>
+
+    <!-- Import -->
+    <div class="section">
+      <div class="section-title"><span class="dot" style="background:var(--neon-blue)"></span>Import STI (table: imports)</div>
+      <div class="card inherit-tree">
+        <div class="inherit-item root">ActiveRecord::Base</div>
+        <div class="inherit-item l1">Import &nbsp;<span style="color:var(--text-dim);font-size:0.75rem">serialize :error_ids, :error_messages</span></div>
+        <div class="inherit-item l2">InsuranceImport &nbsp;<span style="color:var(--text-dim);font-size:0.75rem">(type column)</span></div>
+      </div>
+    </div>
+
+    <!-- InvoiceBatchJob -->
+    <div class="section">
+      <div class="section-title"><span class="dot" style="background:var(--neon-green)"></span>InvoiceBatchJob STI (table: invoice_batch_jobs)</div>
+      <div class="card inherit-tree">
+        <div class="inherit-item root">ActiveRecord::Base</div>
+        <div class="inherit-item l1">InvoiceBatchJob &nbsp;<span style="color:var(--text-dim);font-size:0.75rem">has_and_belongs_to_many :invoices</span></div>
+        <div class="inherit-item l2">ReminderBatchJob &nbsp;<span style="color:var(--text-dim);font-size:0.75rem">reminder reminders in bulk</span></div>
+      </div>
+    </div>
+
+    <!-- Account (from has_accounts engine) -->
+    <div class="section">
+      <div class="section-title"><span class="dot" style="background:var(--neon-blue)"></span>Account STI (from has_accounts)</div>
+      <div class="card inherit-tree">
+        <div class="inherit-item root">ActiveRecord::Base</div>
+        <div class="inherit-item l1">Account &nbsp;<span style="color:var(--text-dim);font-size:0.75rem">table: accounts, type column, bank_id, holder polymorphic</span></div>
+        <div class="inherit-item l2">BankAccount &nbsp;<span style="color:var(--text-dim);font-size:0.75rem">has pc_id, esr_id for ESR slips</span></div>
+        <div class="inherit-item l2">RevenueAccount &nbsp;<span style="color:var(--text-dim);font-size:0.75rem">profit/balance accounts</span></div>
+      </div>
+    </div>
+
+    <!-- Tarmed External DB -->
+    <div class="section">
+      <div class="section-title"><span class="dot" style="background:var(--neon-orange)"></span>Tarmed External DB Hierarchy</div>
+      <div class="card inherit-tree">
+        <div class="inherit-item root">ActiveRecord::Base</div>
+        <div class="inherit-item l1">Tarmed::Base &nbsp;<span style="color:var(--text-dim);font-size:0.75rem">use_db :prefix => "tarmed_" (SQL Server)</span></div>
+        <div class="inherit-item l2">Tarmed::Leistung &nbsp;<span style="color:var(--text-dim);font-size:0.75rem">table: LEISTUNG, pk: LNR</span></div>
+        <div class="inherit-item l2">Tarmed::LeistungText &nbsp;<span style="color:var(--text-dim);font-size:0.75rem">table: LEISTUNG_TEXT</span></div>
+        <div class="inherit-item l2">Tarmed::LeistungDigniquali &nbsp;<span style="color:var(--text-dim);font-size:0.75rem">qualification requirements</span></div>
+        <div class="inherit-item l2">Tarmed::LeistungHierarchie &nbsp;<span style="color:var(--text-dim);font-size:0.75rem">master/slave relationships</span></div>
+      </div>
+    </div>
+
+    <!-- Controller hierarchy -->
+    <div class="section">
+      <div class="section-title"><span class="dot" style="background:var(--neon-blue)"></span>Controller Inheritance</div>
+      <div class="card inherit-tree">
+        <div class="inherit-item root">ActionController::Base</div>
+        <div class="inherit-item l1">ApplicationController &nbsp;<span style="color:var(--text-dim);font-size:0.75rem">authenticate_user!, set_locale, SQLite REGEXP patch</span></div>
+        <div class="inherit-item l2">AuthorizedController &nbsp;<span style="color:var(--text-dim);font-size:0.75rem">(InheritedResources::Base) load_and_authorize_resource</span></div>
+        <div class="inherit-item l3">AppointmentsController</div>
+        <div class="inherit-item l3">AttachmentsController</div>
+        <div class="inherit-item l3">BookkeepingController</div>
+        <div class="inherit-item l3">InsurancesController</div>
+        <div class="inherit-item l3">InvoicesController</div>
+        <div class="inherit-item l3">InvoiceBatchJobsController</div>
+        <div class="inherit-item l3">PeopleController</div>
+        <div class="inherit-item l3">DoctorsController &nbsp;<span style="color:var(--text-dim);font-size:0.75rem">defaults :resource_class => Doctor</span></div>
+        <div class="inherit-item l3">PatientsController</div>
+        <div class="inherit-item l3">RecallsController</div>
+        <div class="inherit-item l3">ReturnedInvoicesController</div>
+        <div class="inherit-item l3">ServiceRecordsController</div>
+        <div class="inherit-item l3">TariffItemsController</div>
+        <div class="inherit-item l3">TenantsController</div>
+        <div class="inherit-item l3">TreatmentsController</div>
+        <div class="inherit-item l2">ContactController</div>
+        <div class="inherit-item l2">DiagnosesController</div>
+        <div class="inherit-item l2">HelpController</div>
+      </div>
+    </div>
+
+    <!-- Prawn Document hierarchy -->
+    <div class="section">
+      <div class="section-title"><span class="dot" style="background:var(--neon-orange)"></span>PDF Document Hierarchy</div>
+      <div class="card inherit-tree">
+        <div class="inherit-item root">Prawn::Document</div>
+        <div class="inherit-item l1">LetterDocument &nbsp;<span style="color:var(--text-dim);font-size:0.75rem">include ApplicationHelper, ActionView::TranslationHelper, I18nHelpers, HasVcardsHelper</span></div>
+        <div class="inherit-item l2">InsuranceRecipe &nbsp;<span style="color:var(--text-dim);font-size:0.75rem">TARMED Rückforderungsbeleg, ESR line in OCRB10</span></div>
+        <div class="inherit-item l2">PatientLetter &nbsp;<span style="color:var(--text-dim);font-size:0.75rem">include Prawn::EsrRecipe (vesr gem)</span></div>
+        <div class="inherit-item l3">ReminderLetter &nbsp;<span style="color:var(--text-dim);font-size:0.75rem">1./2./3. Mahnung, Inkasso</span></div>
+        <div class="inherit-item l2">RecallLetter &nbsp;<span style="color:var(--text-dim);font-size:0.75rem">recall/appointment reminder</span></div>
+        <div class="inherit-item l2">ReturnedInvoiceRequestDocument &nbsp;<span style="color:var(--text-dim);font-size:0.75rem">address correction fax</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================= TAB 3: MIXINS ============================= -->
+<div id="tab-mixins" class="tab-panel">
+  <div class="section">
+    <div class="section-title"><span class="dot" style="background:var(--neon-green)"></span>Module Inclusions by Class</div>
+    <div class="card mixin-list">
+      <div class="mixin-row">
+        <div class="mixin-class">Ability</div>
+        <div class="mixin-modules">
+          <span class="tag tag-auth">include CanCan::Ability</span>
+        </div>
+      </div>
+      <div class="mixin-row">
+        <div class="mixin-class">Appointment</div>
+        <div class="mixin-modules">
+          <span class="tag tag-auth">include AASM</span>
+        </div>
+      </div>
+      <div class="mixin-row">
+        <div class="mixin-class">Session</div>
+        <div class="mixin-modules">
+          <span class="tag tag-auth">include AASM</span>
+        </div>
+      </div>
+      <div class="mixin-row">
+        <div class="mixin-class">Recall</div>
+        <div class="mixin-modules">
+          <span class="tag tag-auth">include AASM</span>
+          <span class="tag tag-pdf">include ActsAsDocument</span>
+        </div>
+      </div>
+      <div class="mixin-row">
+        <div class="mixin-class">ReturnedInvoice</div>
+        <div class="mixin-modules">
+          <span class="tag tag-auth">include AASM</span>
+        </div>
+      </div>
+      <div class="mixin-row">
+        <div class="mixin-class">Invoice</div>
+        <div class="mixin-modules">
+          <span class="tag tag-pdf">include ActsAsDocument</span>
+          <span class="tag tag-billing">ESR9 methods (inline)</span>
+        </div>
+      </div>
+      <div class="mixin-row">
+        <div class="mixin-class">Doctor</div>
+        <div class="mixin-modules">
+          <span class="tag tag-pdf">include ActsAsDocument</span>
+        </div>
+      </div>
+      <div class="mixin-row">
+        <div class="mixin-class">Insurance</div>
+        <div class="mixin-modules">
+          <span class="tag tag-swiss">has_vcards (macro)</span>
+        </div>
+      </div>
+      <div class="mixin-row">
+        <div class="mixin-class">Patient</div>
+        <div class="mixin-modules">
+          <span class="tag tag-swiss">has_vcards (macro)</span>
+          <span class="tag tag-search">ThinkingSphinx::Searchable (define_index)</span>
+        </div>
+      </div>
+      <div class="mixin-row">
+        <div class="mixin-class">Tenant</div>
+        <div class="mixin-modules">
+          <span class="tag tag-billing">has_settings</span>
+        </div>
+      </div>
+      <div class="mixin-row">
+        <div class="mixin-class">TariffPrice</div>
+        <div class="mixin-modules">
+          <span class="tag tag-billing">acts-as-taggable-on (tagged_with)</span>
+        </div>
+      </div>
+      <div class="mixin-row">
+        <div class="mixin-class">Importer</div>
+        <div class="mixin-modules">
+          <span class="tag tag-import">self.included(klass) extends ClassMethods</span>
+        </div>
+      </div>
+      <div class="mixin-row">
+        <div class="mixin-class">Analyseliste::Base</div>
+        <div class="mixin-modules">
+          <span class="tag tag-import">include Importer</span>
+        </div>
+      </div>
+      <div class="mixin-row">
+        <div class="mixin-class">InsurancesImport</div>
+        <div class="mixin-modules">
+          <span class="tag tag-import">included into Insurance at load time</span>
+        </div>
+      </div>
+      <div class="mixin-row">
+        <div class="mixin-class">ActiveRecord::Base (patched)</div>
+        <div class="mixin-modules">
+          <span class="tag tag-billing">ExcelCSVExporter (acts_as_csv.rb)</span>
+          <span class="tag tag-ui">becomes() monkey-patch (ApplicationController)</span>
+        </div>
+      </div>
+      <div class="mixin-row">
+        <div class="mixin-class">ActionController::Base (patched)</div>
+        <div class="mixin-modules">
+          <span class="tag tag-billing">include ExcelCSVExporter (send_csv method)</span>
+        </div>
+      </div>
+      <div class="mixin-row">
+        <div class="mixin-class">LetterDocument</div>
+        <div class="mixin-modules">
+          <span class="tag tag-ui">include ApplicationHelper</span>
+          <span class="tag tag-ui">include ActionView::Helpers::TranslationHelper</span>
+          <span class="tag tag-swiss">include I18nHelpers</span>
+          <span class="tag tag-swiss">include HasVcardsHelper</span>
+          <span class="tag tag-pdf">include Prawn::Measurements</span>
+        </div>
+      </div>
+      <div class="mixin-row">
+        <div class="mixin-class">InsuranceRecipe</div>
+        <div class="mixin-modules">
+          <span class="tag tag-billing">include InvoicesHelper</span>
+          <span class="tag tag-billing">include AccountsHelper</span>
+        </div>
+      </div>
+      <div class="mixin-row">
+        <div class="mixin-class">PatientLetter</div>
+        <div class="mixin-modules">
+          <span class="tag tag-billing">include InvoicesHelper</span>
+          <span class="tag tag-swiss">include Prawn::EsrRecipe</span>
+        </div>
+      </div>
+      <div class="mixin-row">
+        <div class="mixin-class">User</div>
+        <div class="mixin-modules">
+          <span class="tag tag-auth">devise :database_authenticatable, :recoverable, :trackable, :timeoutable, :lockable, :rememberable, :validatable</span>
+        </div>
+      </div>
+      <div class="mixin-row">
+        <div class="mixin-class">InvoicesController</div>
+        <div class="mixin-modules">
+          <span class="tag tag-billing">include I18nHelpers</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title"><span class="dot" style="background:var(--neon-blue)"></span>AASM State Machines</div>
+    <div class="state-machine">
+      <div class="sm-model">
+        <div class="sm-model-name">Appointment</div>
+        <div class="sm-states">
+          <span class="sm-state">proposed</span>
+          <span class="sm-state">scheduled (initial)</span>
+          <span class="sm-state">canceled</span>
+        </div>
+        <div class="sm-events">Events: <strong>accept</strong> (proposed→scheduled), <strong>cancel</strong> (proposed|scheduled→canceled)</div>
+      </div>
+      <div class="sm-model">
+        <div class="sm-model-name">Session</div>
+        <div class="sm-states">
+          <span class="sm-state">active (initial)</span>
+          <span class="sm-state">charged</span>
+        </div>
+        <div class="sm-events">Events: <strong>charge</strong> (active→charged), <strong>reactivate</strong> (charged→active)</div>
+      </div>
+      <div class="sm-model">
+        <div class="sm-model-name">Recall</div>
+        <div class="sm-states">
+          <span class="sm-state">scheduled (initial)</span>
+          <span class="sm-state">canceled</span>
+          <span class="sm-state">prepared</span>
+          <span class="sm-state">sent</span>
+          <span class="sm-state">obeyed</span>
+        </div>
+        <div class="sm-events">Events: <strong>cancel</strong>, <strong>prepare</strong>, <strong>send_notice</strong> (sets sent_at), <strong>obey</strong></div>
+      </div>
+      <div class="sm-model">
+        <div class="sm-model-name">ReturnedInvoice</div>
+        <div class="sm-states">
+          <span class="sm-state">ready (initial)</span>
+          <span class="sm-state">request_pending</span>
+          <span class="sm-state">resolved</span>
+        </div>
+        <div class="sm-events">Events: <strong>queue_request</strong>, <strong>reactivate</strong>, <strong>write_off</strong></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title"><span class="dot" style="background:var(--neon-orange)"></span>Invoice State Machine (manual — not AASM)</div>
+    <div class="graph-container">
+      <svg viewBox="0 0 1100 240" xmlns="http://www.w3.org/2000/svg" style="background:#0f0f1a;">
+        <defs>
+          <marker id="arr2" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+            <polygon points="0 0, 8 3, 0 6" fill="#00d4ff88"/>
+          </marker>
+        </defs>
+        <style>
+          .sn { font-family: monospace; font-size: 10px; text-anchor: middle; }
+          .sl { font-family: monospace; font-size: 8px; fill: #667; }
+        </style>
+        <!-- States -->
+        <rect x="20" y="90" width="80" height="30" rx="6" fill="#0d1a2a" stroke="#667" stroke-width="1"/>
+        <text x="60" y="110" class="sn" fill="#667">prepared</text>
+
+        <rect x="140" y="90" width="70" height="30" rx="6" fill="#0d1a2a" stroke="#00d4ff" stroke-width="1.5"/>
+        <text x="175" y="110" class="sn" fill="#00d4ff">booked</text>
+
+        <rect x="250" y="90" width="70" height="30" rx="6" fill="#0d1a2a" stroke="#00ff9d" stroke-width="1.5"/>
+        <text x="285" y="110" class="sn" fill="#00ff9d">printed</text>
+
+        <rect x="360" y="60" width="80" height="30" rx="6" fill="#0d1a2a" stroke="#ffcc00" stroke-width="1.5"/>
+        <text x="400" y="80" class="sn" fill="#ffcc00">reminded</text>
+
+        <rect x="360" y="110" width="90" height="30" rx="6" fill="#0d1a2a" stroke="#ffcc00" stroke-width="1"/>
+        <text x="405" y="130" class="sn" fill="#ffcc00">2xreminded</text>
+
+        <rect x="360" y="160" width="90" height="30" rx="6" fill="#0d1a2a" stroke="#ffcc00" stroke-width="1"/>
+        <text x="405" y="180" class="sn" fill="#ffcc00">3xreminded</text>
+
+        <rect x="490" y="140" width="80" height="30" rx="6" fill="#0d1a2a" stroke="#ff6b00" stroke-width="1.5"/>
+        <text x="530" y="160" class="sn" fill="#ff6b00">encashment</text>
+
+        <rect x="620" y="70" width="60" height="30" rx="6" fill="#0d1a2a" stroke="#00ff9d" stroke-width="2"/>
+        <text x="650" y="90" class="sn" fill="#00ff9d">paid</text>
+
+        <rect x="620" y="130" width="80" height="30" rx="6" fill="#0d1a2a" stroke="#ff2244" stroke-width="1.5"/>
+        <text x="660" y="150" class="sn" fill="#ff2244">canceled</text>
+
+        <rect x="720" y="90" width="90" height="30" rx="6" fill="#0d1a2a" stroke="#ff2244" stroke-width="1"/>
+        <text x="765" y="110" class="sn" fill="#ff2244">reactivated</text>
+
+        <rect x="620" y="190" width="85" height="30" rx="6" fill="#0d1a2a" stroke="#888" stroke-width="1.5"/>
+        <text x="662" y="210" class="sn" fill="#888">written_off</text>
+
+        <!-- Arrows -->
+        <line x1="100" y1="105" x2="138" y2="105" stroke="#00d4ff44" marker-end="url(#arr2)"/>
+        <text x="119" y="101" class="sl">book()</text>
+
+        <line x1="210" y1="105" x2="248" y2="105" stroke="#00d4ff44" marker-end="url(#arr2)"/>
+        <text x="225" y="101" class="sl">print</text>
+
+        <line x1="320" y1="100" x2="358" y2="82" stroke="#ffcc0044" marker-end="url(#arr2)"/>
+        <text x="330" y="86" class="sl">remind()</text>
+
+        <line x1="440" y1="75" x2="448" y2="112" stroke="#ffcc0044" marker-end="url(#arr2)"/>
+        <line x1="450" y1="127" x2="453" y2="162" stroke="#ffcc0044" marker-end="url(#arr2)"/>
+        <line x1="450" y1="175" x2="490" y2="157" stroke="#ff6b0044" marker-end="url(#arr2)"/>
+
+        <line x1="590" y1="70" x2="618" y2="80" stroke="#00ff9d44" marker-end="url(#arr2)"/>
+        <line x1="570" y1="155" x2="618" y2="148" stroke="#ff224444" marker-end="url(#arr2)"/>
+
+        <line x1="680" y1="130" x2="720" y2="110" stroke="#ff224444" marker-end="url(#arr2)"/>
+        <text x="692" y="127" class="sl">cancel()</text>
+
+        <line x1="660" y1="160" x2="660" y2="188" stroke="#88888844" marker-end="url(#arr2)"/>
+        <text x="665" y="177" class="sl">write_off()</text>
+
+        <!-- ESR payment incoming -->
+        <line x1="800" y1="105" x2="640" y2="82" stroke="#00ff9d22" stroke-dasharray="4" marker-end="url(#arr2)"/>
+        <text x="720" y="90" class="sl" fill="#00ff9d">ESR payment</text>
+        <text x="720" y="100" class="sl" fill="#00ff9d">booking_saved()</text>
+      </svg>
+    </div>
+  </div>
+</div>
+
+<!-- ============================= TAB 4: DATABASE ============================= -->
+<div id="tab-database" class="tab-panel">
+  <div class="metrics">
+    <div class="metric"><div class="metric-num" style="color:var(--neon-blue)">32</div><div class="metric-label">Tables</div></div>
+    <div class="metric"><div class="metric-num" style="color:var(--neon-green)">8</div><div class="metric-label">Join Tables (HABTM)</div></div>
+    <div class="metric"><div class="metric-num" style="color:var(--neon-purple)">12</div><div class="metric-label">Polymorphic Assoc</div></div>
+    <div class="metric"><div class="metric-num" style="color:var(--neon-pink)">5</div><div class="metric-label">STI Tables</div></div>
+    <div class="metric"><div class="metric-num" style="color:var(--neon-yellow)">40+</div><div class="metric-label">Foreign Keys</div></div>
+  </div>
+
+  <!-- HABTM tables -->
+  <div class="section">
+    <div class="section-title"><span class="dot" style="background:var(--neon-green)"></span>HABTM Join Tables</div>
+    <div class="card">
+      <div class="habtm-row">
+        <div class="habtm-a">Invoice</div>
+        <div style="color:var(--text-dim);margin:0 0.4rem">↔</div>
+        <div class="habtm-b">Session</div>
+        <div class="habtm-join">invoices_sessions (invoice_id, session_id)</div>
+      </div>
+      <div class="habtm-row">
+        <div class="habtm-a">Invoice</div>
+        <div style="color:var(--text-dim);margin:0 0.4rem">↔</div>
+        <div class="habtm-b">ServiceRecord</div>
+        <div class="habtm-join">invoices_service_records (invoice_id, service_record_id)</div>
+      </div>
+      <div class="habtm-row">
+        <div class="habtm-a">Invoice</div>
+        <div style="color:var(--text-dim);margin:0 0.4rem">↔</div>
+        <div class="habtm-b">InvoiceBatchJob</div>
+        <div class="habtm-join">invoice_batch_jobs_invoices (invoice_batch_job_id, invoice_id)</div>
+      </div>
+      <div class="habtm-row">
+        <div class="habtm-a">Session</div>
+        <div style="color:var(--text-dim);margin:0 0.4rem">↔</div>
+        <div class="habtm-b">ServiceRecord</div>
+        <div class="habtm-join">service_records_sessions (service_record_id, session_id)</div>
+      </div>
+      <div class="habtm-row">
+        <div class="habtm-a">Session</div>
+        <div style="color:var(--text-dim);margin:0 0.4rem">↔</div>
+        <div class="habtm-b">Diagnosis</div>
+        <div class="habtm-join">diagnoses_sessions (diagnosis_id, session_id)</div>
+      </div>
+      <div class="habtm-row">
+        <div class="habtm-a">Treatment</div>
+        <div style="color:var(--text-dim);margin:0 0.4rem">↔</div>
+        <div class="habtm-b">Diagnosis</div>
+        <div class="habtm-join">diagnoses_treatments (diagnosis_id, treatment_id)</div>
+      </div>
+      <div class="habtm-row">
+        <div class="habtm-a">User</div>
+        <div style="color:var(--text-dim);margin:0 0.4rem">↔</div>
+        <div class="habtm-b">Role</div>
+        <div class="habtm-join">roles_users (role_id, user_id)</div>
+      </div>
+      <div class="habtm-row">
+        <div class="habtm-a">Tag</div>
+        <div style="color:var(--text-dim);margin:0 0.4rem">↔</div>
+        <div class="habtm-b">TariffPrice (taggable)</div>
+        <div class="habtm-join">taggings (tag_id, taggable_id, taggable_type, context) — polymorphic</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Polymorphic Associations -->
+  <div class="section">
+    <div class="section-title"><span class="dot" style="background:var(--neon-pink)"></span>Polymorphic Associations</div>
+    <div class="card">
+      <div class="poly-row" style="font-weight:700;font-size:0.75rem;color:var(--text-dim);border-bottom:1px solid var(--border);padding-bottom:0.4rem;margin-bottom:0.2rem">
+        <div class="poly-model">Model</div>
+        <div class="poly-assoc">Assoc Name</div>
+        <div class="poly-owners">Owners (object_type values)</div>
+      </div>
+      <div class="poly-row">
+        <div class="poly-model">Attachment</div>
+        <div class="poly-assoc">object (obj_id, obj_type)</div>
+        <div class="poly-owners">Invoice, Employee, Person, Tenant, Case</div>
+      </div>
+      <div class="poly-row">
+        <div class="poly-model">Vcard</div>
+        <div class="poly-assoc">object (object_id, object_type)</div>
+        <div class="poly-owners">Person (Doctor, Employee), Insurance, Patient</div>
+      </div>
+      <div class="poly-row">
+        <div class="poly-model">PhoneNumber</div>
+        <div class="poly-assoc">object (object_id, object_type)</div>
+        <div class="poly-owners">Vcard (primary), Insurance, Doctor</div>
+      </div>
+      <div class="poly-row">
+        <div class="poly-model">Address</div>
+        <div class="poly-assoc">vcard (vcard_id → Vcard)</div>
+        <div class="poly-owners">Vcard (belongs_to)</div>
+      </div>
+      <div class="poly-row">
+        <div class="poly-model">Account</div>
+        <div class="poly-assoc">holder (holder_id, holder_type)</div>
+        <div class="poly-owners">Person, Tenant, Doctor</div>
+      </div>
+      <div class="poly-row">
+        <div class="poly-model">Booking</div>
+        <div class="poly-assoc">reference (reference_id, reference_type)</div>
+        <div class="poly-owners">Invoice (primary use), EsrRecord</div>
+      </div>
+      <div class="poly-row">
+        <div class="poly-model">Booking</div>
+        <div class="poly-assoc">template (template_id, template_type)</div>
+        <div class="poly-owners">BookingTemplate variants</div>
+      </div>
+      <div class="poly-row">
+        <div class="poly-model">User</div>
+        <div class="poly-assoc">object (object_id, object_type)</div>
+        <div class="poly-owners">Doctor, Employee — links user account to person</div>
+      </div>
+      <div class="poly-row">
+        <div class="poly-model">TariffItem</div>
+        <div class="poly-assoc">imported (imported_id, imported_type)</div>
+        <div class="poly-owners">DrugArticle (for DrugTariffItem), Tarmed records</div>
+      </div>
+      <div class="poly-row">
+        <div class="poly-model">Settings (rails-settings)</div>
+        <div class="poly-assoc">target (target_id, target_type)</div>
+        <div class="poly-owners">Tenant (primary), any model calling has_settings</div>
+      </div>
+      <div class="poly-row">
+        <div class="poly-model">Tagging (acts-as-taggable)</div>
+        <div class="poly-assoc">taggable (taggable_id, taggable_type)</div>
+        <div class="poly-owners">TariffPrice (canton/reason/unit tags)</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Direct Foreign Key relationships -->
+  <div class="section">
+    <div class="section-title"><span class="dot" style="background:var(--neon-yellow)"></span>Key Foreign Key Relationships</div>
+    <div class="grid-2">
+      <div class="card fk-table scrollable">
+        <div style="font-weight:700;font-size:0.75rem;color:var(--text-dim);margin-bottom:0.5rem">CLINICAL CHAIN</div>
+        <div class="fk-row"><div class="fk-from">Patient</div><div class="fk-arrow">→</div><div class="fk-to">Doctor</div><div class="fk-via">patient.doctor_id</div></div>
+        <div class="fk-row"><div class="fk-from">Treatment</div><div class="fk-arrow">→</div><div class="fk-to">Patient</div><div class="fk-via">treatment.patient_id</div></div>
+        <div class="fk-row"><div class="fk-from">Treatment</div><div class="fk-arrow">→</div><div class="fk-to">Law</div><div class="fk-via">treatment.law_id</div></div>
+        <div class="fk-row"><div class="fk-from">Treatment</div><div class="fk-arrow">→</div><div class="fk-to">Doctor (referrer)</div><div class="fk-via">treatment.referrer_id</div></div>
+        <div class="fk-row"><div class="fk-from">Session</div><div class="fk-arrow">→</div><div class="fk-to">Treatment</div><div class="fk-via">session.treatment_id</div></div>
+        <div class="fk-row"><div class="fk-from">Session</div><div class="fk-arrow">→</div><div class="fk-to">Patient</div><div class="fk-via">session.patient_id</div></div>
+        <div class="fk-row"><div class="fk-from">ServiceRecord</div><div class="fk-arrow">→</div><div class="fk-to">Patient</div><div class="fk-via">service_record.patient_id</div></div>
+        <div class="fk-row"><div class="fk-from">ServiceRecord</div><div class="fk-arrow">→</div><div class="fk-to">Doctor (provider)</div><div class="fk-via">service_record.provider_id</div></div>
+        <div class="fk-row"><div class="fk-from">ServiceRecord</div><div class="fk-arrow">→</div><div class="fk-to">Doctor (responsible)</div><div class="fk-via">service_record.responsible_id</div></div>
+        <div class="fk-row"><div class="fk-from">ServiceRecord</div><div class="fk-arrow">→</div><div class="fk-to">VatClass</div><div class="fk-via">service_record.vat_class_id</div></div>
+        <div class="fk-row"><div class="fk-from">ServiceRecord</div><div class="fk-arrow">→</div><div class="fk-to">TariffItem</div><div class="fk-via">service_record.tariff_item_id</div></div>
+        <div class="fk-row"><div class="fk-from">MedicalCase</div><div class="fk-arrow">→</div><div class="fk-to">Treatment</div><div class="fk-via">medical_case.treatment_id</div></div>
+        <div class="fk-row"><div class="fk-from">MedicalCase</div><div class="fk-arrow">→</div><div class="fk-to">Doctor</div><div class="fk-via">medical_case.doctor_id</div></div>
+        <div class="fk-row"><div class="fk-from">DiagnosisCase</div><div class="fk-arrow">→</div><div class="fk-to">Diagnosis</div><div class="fk-via">medical_case.diagnosis_id</div></div>
+        <div class="fk-row"><div class="fk-from">Recall</div><div class="fk-arrow">→</div><div class="fk-to">Patient</div><div class="fk-via">recall.patient_id</div></div>
+        <div class="fk-row"><div class="fk-from">Recall</div><div class="fk-arrow">→</div><div class="fk-to">Doctor</div><div class="fk-via">recall.doctor_id</div></div>
+        <div class="fk-row"><div class="fk-from">Recall</div><div class="fk-arrow">→</div><div class="fk-to">Appointment</div><div class="fk-via">recall.appointment_id</div></div>
+        <div class="fk-row"><div class="fk-from">Appointment</div><div class="fk-arrow">→</div><div class="fk-to">Patient</div><div class="fk-via">appointment.patient_id</div></div>
+      </div>
+      <div class="card fk-table scrollable">
+        <div style="font-weight:700;font-size:0.75rem;color:var(--text-dim);margin-bottom:0.5rem">BILLING CHAIN</div>
+        <div class="fk-row"><div class="fk-from">Invoice</div><div class="fk-arrow">→</div><div class="fk-to">TiersGarant</div><div class="fk-via">invoice.tiers_id</div></div>
+        <div class="fk-row"><div class="fk-from">Invoice</div><div class="fk-arrow">→</div><div class="fk-to">Law</div><div class="fk-via">invoice.law_id</div></div>
+        <div class="fk-row"><div class="fk-from">Invoice</div><div class="fk-arrow">→</div><div class="fk-to">Treatment</div><div class="fk-via">invoice.treatment_id</div></div>
+        <div class="fk-row"><div class="fk-from">Invoice</div><div class="fk-arrow">→</div><div class="fk-to">Vcard (patient)</div><div class="fk-via">invoice.patient_vcard_id</div></div>
+        <div class="fk-row"><div class="fk-from">Invoice</div><div class="fk-arrow">→</div><div class="fk-to">Vcard (billing)</div><div class="fk-via">invoice.billing_vcard_id</div></div>
+        <div class="fk-row"><div class="fk-from">Invoice</div><div class="fk-arrow">→</div><div class="fk-to">Invoice (replaced)</div><div class="fk-via">invoice.invoice_replaced_by</div></div>
+        <div class="fk-row"><div class="fk-from">Tiers</div><div class="fk-arrow">→</div><div class="fk-to">Person (biller)</div><div class="fk-via">tiers.biller_id</div></div>
+        <div class="fk-row"><div class="fk-from">Tiers</div><div class="fk-arrow">→</div><div class="fk-to">Person (provider)</div><div class="fk-via">tiers.provider_id</div></div>
+        <div class="fk-row"><div class="fk-from">Tiers</div><div class="fk-arrow">→</div><div class="fk-to">Insurance</div><div class="fk-via">tiers.insurance_id</div></div>
+        <div class="fk-row"><div class="fk-from">Tiers</div><div class="fk-arrow">→</div><div class="fk-to">Patient</div><div class="fk-via">tiers.patient_id</div></div>
+        <div class="fk-row"><div class="fk-from">Tiers</div><div class="fk-arrow">→</div><div class="fk-to">Doctor (referrer)</div><div class="fk-via">tiers.referrer_id</div></div>
+        <div class="fk-row"><div class="fk-from">InsurancePolicy</div><div class="fk-arrow">→</div><div class="fk-to">Insurance</div><div class="fk-via">insurance_policy.insurance_id</div></div>
+        <div class="fk-row"><div class="fk-from">InsurancePolicy</div><div class="fk-arrow">→</div><div class="fk-to">Patient</div><div class="fk-via">insurance_policy.patient_id</div></div>
+        <div class="fk-row"><div class="fk-from">EsrRecord</div><div class="fk-arrow">→</div><div class="fk-to">EsrFile</div><div class="fk-via">esr_record.esr_file_id</div></div>
+        <div class="fk-row"><div class="fk-from">EsrRecord</div><div class="fk-arrow">→</div><div class="fk-to">Booking</div><div class="fk-via">esr_record.booking_id</div></div>
+        <div class="fk-row"><div class="fk-from">EsrRecord</div><div class="fk-arrow">→</div><div class="fk-to">Invoice</div><div class="fk-via">esr_record.invoice_id</div></div>
+        <div class="fk-row"><div class="fk-from">ReturnedInvoice</div><div class="fk-arrow">→</div><div class="fk-to">Invoice</div><div class="fk-via">returned_invoice.invoice_id</div></div>
+        <div class="fk-row"><div class="fk-from">ReturnedInvoice</div><div class="fk-arrow">→</div><div class="fk-to">Doctor</div><div class="fk-via">returned_invoice.doctor_id</div></div>
+        <div class="fk-row"><div class="fk-from">User</div><div class="fk-arrow">→</div><div class="fk-to">Tenant</div><div class="fk-via">user.tenant_id</div></div>
+        <div class="fk-row"><div class="fk-from">Tenant</div><div class="fk-arrow">→</div><div class="fk-to">Person</div><div class="fk-via">tenant.person_id</div></div>
+        <div class="fk-row"><div class="fk-from">TariffItem</div><div class="fk-arrow">→</div><div class="fk-to">VatClass</div><div class="fk-via">tariff_item.vat_class_id</div></div>
+        <div class="fk-row"><div class="fk-from">DrugArticle</div><div class="fk-arrow">→</div><div class="fk-to">DrugProduct</div><div class="fk-via">drug_article.drug_product_id</div></div>
+        <div class="fk-row"><div class="fk-from">DrugPrice</div><div class="fk-arrow">→</div><div class="fk-to">DrugArticle</div><div class="fk-via">drug_price.drug_article_id</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Visual ERD -->
+  <div class="section">
+    <div class="section-title"><span class="dot"></span>Core Entity Relationship Diagram</div>
+    <div class="graph-container">
+      <svg viewBox="0 0 1200 700" xmlns="http://www.w3.org/2000/svg" style="background:#0f0f1a;">
+        <defs>
+          <marker id="fk" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+            <polygon points="0 0, 8 3, 0 6" fill="#00d4ff55"/>
+          </marker>
+          <marker id="fk-g" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+            <polygon points="0 0, 8 3, 0 6" fill="#00ff9d55"/>
+          </marker>
+          <marker id="fk-p" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+            <polygon points="0 0, 8 3, 0 6" fill="#bf00ff55"/>
+          </marker>
+          <marker id="fk-o" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+            <polygon points="0 0, 8 3, 0 6" fill="#ff6b0055"/>
+          </marker>
+        </defs>
+        <style>
+          .ent { font-family: monospace; font-size: 11px; font-weight: bold; }
+          .ent-field { font-family: monospace; font-size: 9px; }
+          .erd-line { stroke-width: 1.2; fill: none; }
+        </style>
+        <!-- Tenant box -->
+        <rect x="10" y="10" width="120" height="50" rx="6" fill="#0d1a2a" stroke="#ff6b00" stroke-width="1.5"/>
+        <text x="70" y="30" class="ent" fill="#ff6b00" text-anchor="middle">Tenant</text>
+        <text x="14" y="45" class="ent-field" fill="#667">person_id</text>
+        <text x="14" y="55" class="ent-field" fill="#667">has_settings</text>
+
+        <!-- Person box -->
+        <rect x="160" y="10" width="120" height="60" rx="6" fill="#0d1a2a" stroke="#bf00ff" stroke-width="1.5"/>
+        <text x="220" y="30" class="ent" fill="#bf00ff" text-anchor="middle">Person [STI]</text>
+        <text x="164" y="45" class="ent-field" fill="#667">ean_party, zsr</text>
+        <text x="164" y="55" class="ent-field" fill="#667">→ Doctor, Employee</text>
+        <text x="164" y="65" class="ent-field" fill="#667">vcards (poly)</text>
+
+        <!-- User box -->
+        <rect x="310" y="10" width="110" height="60" rx="6" fill="#0d1a2a" stroke="#ff0080" stroke-width="1.5"/>
+        <text x="365" y="30" class="ent" fill="#ff0080" text-anchor="middle">User</text>
+        <text x="314" y="45" class="ent-field" fill="#667">tenant_id</text>
+        <text x="314" y="55" class="ent-field" fill="#667">object (poly→Doctor)</text>
+        <text x="314" y="65" class="ent-field" fill="#667">roles (habtm)</text>
+
+        <!-- Patient box -->
+        <rect x="460" y="10" width="140" height="70" rx="6" fill="#0d1a2a" stroke="#00d4ff" stroke-width="2"/>
+        <text x="530" y="30" class="ent" fill="#00d4ff" text-anchor="middle">Patient</text>
+        <text x="464" y="45" class="ent-field" fill="#667">doctor_id, birth_date</text>
+        <text x="464" y="55" class="ent-field" fill="#667">covercard_code</text>
+        <text x="464" y="65" class="ent-field" fill="#667">vcards, insurances</text>
+        <text x="464" y="75" class="ent-field" fill="#667">Sphinx indexed</text>
+
+        <!-- Treatment box -->
+        <rect x="630" y="10" width="130" height="70" rx="6" fill="#0d1a2a" stroke="#00ff9d" stroke-width="1.5"/>
+        <text x="695" y="30" class="ent" fill="#00ff9d" text-anchor="middle">Treatment</text>
+        <text x="634" y="45" class="ent-field" fill="#667">patient_id, law_id</text>
+        <text x="634" y="55" class="ent-field" fill="#667">referrer_id (Doctor)</text>
+        <text x="634" y="65" class="ent-field" fill="#667">state, reason</text>
+        <text x="634" y="75" class="ent-field" fill="#667">canton, place_type</text>
+
+        <!-- Session box -->
+        <rect x="790" y="10" width="130" height="60" rx="6" fill="#0d1a2a" stroke="#00d4ff" stroke-width="1.5"/>
+        <text x="855" y="30" class="ent" fill="#00d4ff" text-anchor="middle">Session</text>
+        <text x="794" y="45" class="ent-field" fill="#667">treatment_id, patient_id</text>
+        <text x="794" y="55" class="ent-field" fill="#667">state: active/charged</text>
+        <text x="794" y="65" class="ent-field" fill="#667">HABTM: invoices, SRs</text>
+
+        <!-- ServiceRecord box -->
+        <rect x="950" y="10" width="145" height="80" rx="6" fill="#0d1a2a" stroke="#ffcc00" stroke-width="1.5"/>
+        <text x="1022" y="30" class="ent" fill="#ffcc00" text-anchor="middle">ServiceRecord</text>
+        <text x="954" y="45" class="ent-field" fill="#667">tariff_type, code</text>
+        <text x="954" y="55" class="ent-field" fill="#667">amount_mt/tt, unit_mt/tt</text>
+        <text x="954" y="65" class="ent-field" fill="#667">provider_id (Doctor)</text>
+        <text x="954" y="75" class="ent-field" fill="#667">vat_class_id</text>
+        <text x="954" y="85" class="ent-field" fill="#667">tariff_item_id</text>
+
+        <!-- Invoice box -->
+        <rect x="460" y="140" width="160" height="90" rx="6" fill="#0d1a2a" stroke="#00ff9d" stroke-width="2"/>
+        <text x="540" y="162" class="ent" fill="#00ff9d" text-anchor="middle">Invoice</text>
+        <text x="464" y="177" class="ent-field" fill="#667">tiers_id, law_id, treatment_id</text>
+        <text x="464" y="187" class="ent-field" fill="#667">patient_vcard_id</text>
+        <text x="464" y="197" class="ent-field" fill="#667">billing_vcard_id</text>
+        <text x="464" y="207" class="ent-field" fill="#667">state, value_date, due_date</text>
+        <text x="464" y="217" class="ent-field" fill="#667">reminder_due_dates (3x)</text>
+        <text x="464" y="225" class="ent-field" fill="#667">HABTM: sessions, SRs</text>
+
+        <!-- Tiers box -->
+        <rect x="250" y="160" width="140" height="70" rx="6" fill="#0d1a2a" stroke="#ff6b00" stroke-width="1.5"/>
+        <text x="320" y="180" class="ent" fill="#ff6b00" text-anchor="middle">Tiers [STI]</text>
+        <text x="254" y="195" class="ent-field" fill="#667">biller_id, provider_id</text>
+        <text x="254" y="205" class="ent-field" fill="#667">insurance_id, patient_id</text>
+        <text x="254" y="215" class="ent-field" fill="#667">referrer_id</text>
+        <text x="254" y="225" class="ent-field" fill="#667">TiersGarant/Payant</text>
+
+        <!-- Law box -->
+        <rect x="650" y="140" width="110" height="60" rx="6" fill="#0d1a2a" stroke="#888" stroke-width="1.5"/>
+        <text x="705" y="160" class="ent" fill="#aaa" text-anchor="middle">Law</text>
+        <text x="654" y="175" class="ent-field" fill="#667">code (LawKvg, LawUvg)</text>
+        <text x="654" y="185" class="ent-field" fill="#667">insured_id, ssn, nif</text>
+        <text x="654" y="195" class="ent-field" fill="#667">case_id</text>
+
+        <!-- EsrRecord box -->
+        <rect x="250" y="280" width="140" height="70" rx="6" fill="#0d1a2a" stroke="#ff0080" stroke-width="1.5"/>
+        <text x="320" y="300" class="ent" fill="#ff0080" text-anchor="middle">EsrRecord</text>
+        <text x="254" y="315" class="ent-field" fill="#667">esr_file_id, booking_id</text>
+        <text x="254" y="325" class="ent-field" fill="#667">invoice_id, reference</text>
+        <text x="254" y="335" class="ent-field" fill="#667">state, amount, payment_date</text>
+        <text x="254" y="345" class="ent-field" fill="#667">bank_pc_id</text>
+
+        <!-- Booking box (from has_accounts) -->
+        <rect x="460" y="280" width="130" height="60" rx="6" fill="#0d1a2a" stroke="#00ff9d" stroke-width="1.5"/>
+        <text x="525" y="300" class="ent" fill="#00ff9d" text-anchor="middle">Booking</text>
+        <text x="464" y="315" class="ent-field" fill="#667">reference (poly→Invoice)</text>
+        <text x="464" y="325" class="ent-field" fill="#667">credit_account_id</text>
+        <text x="464" y="335" class="ent-field" fill="#667">debit_account_id</text>
+
+        <!-- Insurance box -->
+        <rect x="700" y="180" width="130" height="60" rx="6" fill="#0d1a2a" stroke="#bf00ff" stroke-width="1.5"/>
+        <text x="765" y="200" class="ent" fill="#bf00ff" text-anchor="middle">Insurance</text>
+        <text x="704" y="215" class="ent-field" fill="#667">ean_party, bsv_code</text>
+        <text x="704" y="225" class="ent-field" fill="#667">role (H=health, A=accident)</text>
+        <text x="704" y="235" class="ent-field" fill="#667">group_ean_party</text>
+
+        <!-- TariffItem box -->
+        <rect x="850" y="140" width="120" height="70" rx="6" fill="#0d1a2a" stroke="#ffcc00" stroke-width="1.5"/>
+        <text x="910" y="162" class="ent" fill="#ffcc00" text-anchor="middle">TariffItem [STI]</text>
+        <text x="854" y="177" class="ent-field" fill="#667">code, tariff_type</text>
+        <text x="854" y="187" class="ent-field" fill="#667">amount_mt, amount_tt</text>
+        <text x="854" y="197" class="ent-field" fill="#667">duration_from/to</text>
+        <text x="854" y="207" class="ent-field" fill="#667">7 subtypes</text>
+
+        <!-- Arrows -->
+        <line x1="130" y1="35" x2="158" y2="35" stroke="#ff6b0055" class="erd-line" marker-end="url(#fk-o)"/>
+        <line x1="280" y1="40" x2="308" y2="40" stroke="#bf00ff55" class="erd-line" marker-end="url(#fk-p)"/>
+        <line x1="420" y1="40" x2="458" y2="40" stroke="#ff008055" class="erd-line" marker-end="url(#fk)"/>
+        <line x1="600" y1="40" x2="628" y2="40" stroke="#00d4ff55" class="erd-line" marker-end="url(#fk)"/>
+        <line x1="760" y1="40" x2="788" y2="40" stroke="#00ff9d55" class="erd-line" marker-end="url(#fk-g)"/>
+        <line x1="920" y1="40" x2="948" y2="40" stroke="#00d4ff55" class="erd-line" marker-end="url(#fk)"/>
+        <line x1="530" y1="80" x2="530" y2="138" stroke="#00d4ff55" class="erd-line" marker-end="url(#fk)"/>
+        <line x1="390" y1="185" x2="458" y2="185" stroke="#ff6b0055" class="erd-line" marker-end="url(#fk-o)"/>
+        <line x1="620" y1="185" x2="648" y2="165" stroke="#00ff9d55" class="erd-line" marker-end="url(#fk-g)"/>
+        <line x1="700" y1="195" x2="698" y2="198" stroke="#bf00ff55" class="erd-line"/>
+        <line x1="525" y1="230" x2="525" y2="278" stroke="#00ff9d55" class="erd-line" marker-end="url(#fk-g)"/>
+        <line x1="390" y1="300" x2="458" y2="308" stroke="#ff008055" class="erd-line" marker-end="url(#fk)"/>
+        <line x1="970" y1="80" x2="920" y2="142" stroke="#ffcc0055" class="erd-line" marker-end="url(#fk)"/>
+      </svg>
+    </div>
+  </div>
+</div>
+
+<!-- ============================= TAB 5: FILES ============================= -->
+<div id="tab-files" class="tab-panel">
+  <div class="metrics">
+    <div class="metric"><div class="metric-num" style="color:var(--neon-blue)">3</div><div class="metric-label">Entry Points</div></div>
+    <div class="metric"><div class="metric-num" style="color:var(--neon-green)">70+</div><div class="metric-label">Model Files</div></div>
+    <div class="metric"><div class="metric-num" style="color:var(--neon-purple)">30</div><div class="metric-label">Controllers</div></div>
+    <div class="metric"><div class="metric-num" style="color:var(--neon-pink)">6</div><div class="metric-label">PDF Renderers</div></div>
+    <div class="metric"><div class="metric-num" style="color:var(--neon-yellow)">3</div><div class="metric-label">Lib Modules</div></div>
+  </div>
+
+  <div class="section">
+    <div class="section-title"><span class="dot"></span>Application Entry Points</div>
+    <div class="grid-3">
+      <div class="infra-card">
+        <div class="infra-label">Primary Entry</div>
+        <div class="infra-name" style="color:var(--neon-blue)">config.ru</div>
+        <div class="infra-detail">Rack entrypoint → <code>CyDoc::Application</code></div>
+      </div>
+      <div class="infra-card">
+        <div class="infra-label">Rails Boot</div>
+        <div class="infra-name" style="color:var(--neon-green)">config/boot.rb</div>
+        <div class="infra-detail">Bundler setup → <code>config/application.rb</code></div>
+      </div>
+      <div class="infra-card">
+        <div class="infra-label">Server</div>
+        <div class="infra-name" style="color:var(--neon-purple)">config/unicorn.rb</div>
+        <div class="infra-detail">Unicorn workers, backlog, timeout config</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title"><span class="dot" style="background:var(--neon-green)"></span>Module / Library Loading Chain</div>
+    <div class="card include-list">
+      <div class="include-row">
+        <div class="include-mod">lib/acts_as_csv.rb</div>
+        <div class="include-hosts">Loaded via <code>config/initializers/acts_as_csv.rb</code>. Adds <code>to_csv</code> to ActiveRecord::Base and Array. Adds <code>send_csv</code> to ActionController::Base via ExcelCSVExporter module.</div>
+      </div>
+      <div class="include-row">
+        <div class="include-mod">lib/acts_as_document.rb</div>
+        <div class="include-hosts">Loaded automatically (autoload or require). Mixed into <code>Invoice</code>, <code>Doctor</code>, <code>Recall</code>. Provides <code>document_to_pdf</code>, <code>print_document</code>, <code>pdf_name</code>.</div>
+      </div>
+      <div class="include-row">
+        <div class="include-mod">lib/bootstrap_topbar_list.rb</div>
+        <div class="include-hosts">Custom <code>SimpleNavigation::Renderer::Base</code> subclass. Used in <code>config/navigation.rb</code> via <code>renderer: :bootstrap_topbar_list</code>.</div>
+      </div>
+      <div class="include-row">
+        <div class="include-mod">app/models/importer.rb</div>
+        <div class="include-hosts">Module mixed into <code>Analyseliste::Base</code> and <code>Insurances::Import</code>. Provides ClassMethods: <code>import()</code>, <code>clean()</code>, <code>int_class</code>.</div>
+      </div>
+      <div class="include-row">
+        <div class="include-mod">config/initializers/carrier_wave.rb</div>
+        <div class="include-hosts">Sets CarrierWave root to <code>Rails.root/uploads</code>. Used by <code>Attachment#mount_uploader :file, AttachmentUploader</code>.</div>
+      </div>
+      <div class="include-row">
+        <div class="include-mod">config/initializers/devise.rb</div>
+        <div class="include-hosts">Configures <code>authentication_keys: [:login]</code>, <code>case_insensitive_keys: [:email, :login]</code>, lockable, timeoutable.</div>
+      </div>
+      <div class="include-row">
+        <div class="include-mod">config/initializers/swissmatch.rb</div>
+        <div class="include-hosts">Initializes Swiss postal database from <code>config/swissmatch.yml</code>. Loaded into <code>SwissMatch</code> namespace used by <code>TariffPrice</code> canton validation.</div>
+      </div>
+      <div class="include-row">
+        <div class="include-mod">config/initializers/settings.rb</div>
+        <div class="include-hosts">Configures ledermann-rails-settings. Makes <code>has_settings</code> macro available to <code>Tenant</code>.</div>
+      </div>
+      <div class="include-row">
+        <div class="include-mod">app/models/insurances/import.rb</div>
+        <div class="include-hosts">Requires 'insurance'. At file end: <code>Insurance.send :include, Insurances::Import</code> — dynamically extends Insurance at load time.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title"><span class="dot" style="background:var(--neon-orange)"></span>PDF Renderer Dependency Graph</div>
+    <div class="graph-container">
+      <svg viewBox="0 0 900 320" xmlns="http://www.w3.org/2000/svg" style="background:#0f0f1a;">
+        <defs>
+          <marker id="arr3" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+            <polygon points="0 0, 8 3, 0 6" fill="#ff6b0088"/>
+          </marker>
+        </defs>
+        <style>
+          .pdf-cls { font-family: monospace; font-size: 10px; }
+          .pdf-inc { font-family: monospace; font-size: 8.5px; fill: #667; }
+        </style>
+
+        <!-- Prawn::Document (top) -->
+        <rect x="330" y="10" width="150" height="35" rx="6" fill="#0d1a2a" stroke="#ff6b00" stroke-width="2"/>
+        <text x="405" y="30" class="pdf-cls" fill="#ff6b00" text-anchor="middle">Prawn::Document</text>
+        <text x="405" y="42" class="pdf-inc" text-anchor="middle">gem: prawn (GitHub)</text>
+
+        <!-- LetterDocument -->
+        <rect x="300" y="80" width="210" height="55" rx="6" fill="#0d1a2a" stroke="#ffcc00" stroke-width="1.5"/>
+        <text x="405" y="100" class="pdf-cls" fill="#ffcc00" text-anchor="middle">LetterDocument</text>
+        <text x="304" y="115" class="pdf-inc">+ ApplicationHelper</text>
+        <text x="304" y="125" class="pdf-inc">+ TranslationHelper + I18nHelpers + HasVcardsHelper</text>
+
+        <!-- InsuranceRecipe -->
+        <rect x="20" y="200" width="170" height="50" rx="6" fill="#0d1a2a" stroke="#ff6b00" stroke-width="1.5"/>
+        <text x="105" y="220" class="pdf-cls" fill="#ff6b00" text-anchor="middle">InsuranceRecipe</text>
+        <text x="24" y="235" class="pdf-inc">+ InvoicesHelper + AccountsHelper</text>
+        <text x="24" y="245" class="pdf-inc">OCRB10 font, ESR line, TARMED table</text>
+
+        <!-- PatientLetter -->
+        <rect x="220" y="200" width="160" height="50" rx="6" fill="#0d1a2a" stroke="#00d4ff" stroke-width="1.5"/>
+        <text x="300" y="220" class="pdf-cls" fill="#00d4ff" text-anchor="middle">PatientLetter</text>
+        <text x="224" y="235" class="pdf-inc">+ InvoicesHelper</text>
+        <text x="224" y="245" class="pdf-inc">+ Prawn::EsrRecipe (vesr gem)</text>
+
+        <!-- ReminderLetter -->
+        <rect x="220" y="280" width="160" height="35" rx="6" fill="#0d1a2a" stroke="#ff0080" stroke-width="1.5"/>
+        <text x="300" y="300" class="pdf-cls" fill="#ff0080" text-anchor="middle">ReminderLetter</text>
+        <text x="224" y="310" class="pdf-inc">extends PatientLetter</text>
+
+        <!-- RecallLetter -->
+        <rect x="410" y="200" width="130" height="35" rx="6" fill="#0d1a2a" stroke="#00ff9d" stroke-width="1.5"/>
+        <text x="475" y="220" class="pdf-cls" fill="#00ff9d" text-anchor="middle">RecallLetter</text>
+
+        <!-- ReturnedInvoiceRequestDocument -->
+        <rect x="570" y="200" width="230" height="35" rx="6" fill="#0d1a2a" stroke="#bf00ff" stroke-width="1.5"/>
+        <text x="685" y="220" class="pdf-cls" fill="#bf00ff" text-anchor="middle">ReturnedInvoiceRequestDocument</text>
+
+        <!-- Arrows -->
+        <line x1="405" y1="45" x2="405" y2="78" stroke="#ff6b0055" stroke-width="1.5" marker-end="url(#arr3)"/>
+        <line x1="350" y1="135" x2="150" y2="198" stroke="#ff6b0055" stroke-width="1.5" marker-end="url(#arr3)"/>
+        <line x1="390" y1="135" x2="330" y2="198" stroke="#00d4ff55" stroke-width="1.5" marker-end="url(#arr3)"/>
+        <line x1="440" y1="135" x2="510" y2="198" stroke="#00ff9d55" stroke-width="1.5" marker-end="url(#arr3)"/>
+        <line x1="460" y1="135" x2="680" y2="198" stroke="#bf00ff55" stroke-width="1.5" marker-end="url(#arr3)"/>
+        <line x1="300" y1="250" x2="300" y2="278" stroke="#ff008055" stroke-width="1.5" marker-end="url(#arr3)"/>
+
+        <!-- prawn::EsrRecipe -->
+        <rect x="680" y="260" width="130" height="30" rx="6" fill="#0d1a2a" stroke="#ff0080" stroke-width="1"/>
+        <text x="745" y="278" class="pdf-cls" fill="#ff0080" text-anchor="middle">Prawn::EsrRecipe</text>
+        <text x="685" y="288" class="pdf-inc">from vesr gem</text>
+        <line x1="375" y1="245" x2="680" y2="265" stroke="#ff008033" stroke-dasharray="4" stroke-width="1"/>
+
+        <!-- AttachmentUploader -->
+        <rect x="680" y="80" width="160" height="35" rx="6" fill="#0d1a2a" stroke="#00ff9d" stroke-width="1"/>
+        <text x="760" y="100" class="pdf-cls" fill="#00ff9d" text-anchor="middle">AttachmentUploader</text>
+        <text x="684" y="112" class="pdf-inc">(CarrierWave) → PDF template</text>
+        <line x1="405" y1="80" x2="678" y2="97" stroke="#00ff9d33" stroke-dasharray="4" stroke-width="1"/>
+      </svg>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title"><span class="dot" style="background:var(--neon-blue)"></span>File Load Order (Application Boot)</div>
+    <div class="card" style="font-size:0.82rem;">
+      <ol style="list-style:decimal;padding-left:1.5rem;line-height:2.2;">
+        <li><code>config.ru</code> → requires <code>config/environment.rb</code></li>
+        <li><code>config/environment.rb</code> → <code>config/application.rb</code> → <code>config/boot.rb</code> (Bundler)</li>
+        <li>Bundler loads all gems from <code>Gemfile.lock</code></li>
+        <li><code>config/initializers/</code> files run alphabetically: acts_as_csv, carrier_wave, devise, formtastic, german_dates, inflections, kaminari_config, locale_route_filter, mime_types, secret_token, session_store, settings, simple_form, swissmatch</li>
+        <li>Rails autoloads <code>app/models/</code>, <code>app/controllers/</code>, <code>app/helpers/</code></li>
+        <li>At model load time: <code>app/models/insurances/import.rb</code> calls <code>Insurance.send :include, Insurances::Import</code></li>
+        <li>Route drawing: <code>config/routes.rb</code> (locale filter applied by routing-filter)</li>
+        <li>First request: Sphinx daemon contacted for Patient search; CUPS checked if configured</li>
+      </ol>
+    </div>
+  </div>
+</div>
+
+<!-- ============================= TAB 6: INFRASTRUCTURE ============================= -->
+<div id="tab-infra" class="tab-panel">
+  <div class="section">
+    <div class="section-title"><span class="dot" style="background:var(--neon-pink)"></span>External Services &amp; APIs</div>
+    <div class="infra-grid">
+      <div class="infra-card" style="border-color:#ff0080;border-width:2px;">
+        <div class="infra-label" style="color:#ff0080">Swiss Insurance API</div>
+        <div class="infra-name" style="color:#ff0080">Covercard HIN</div>
+        <div class="infra-detail">URL: <code>covercard.hin.ch</code><br>Configurable proxy host/port via Tenant settings<br>Protocol: HTTP/XML<br>Returns: patient identity, insurance EAN, coverage details<br>Trigger: <code>Patient#clean_covercard_code</code> callback, <code>Covercard::Patient.find(code)</code><br>Parsing: nokogiri XML</div>
+      </div>
+      <div class="infra-card" style="border-color:#bf00ff;border-width:2px;">
+        <div class="infra-label" style="color:#bf00ff">Full-Text Search</div>
+        <div class="infra-name" style="color:#bf00ff">Sphinx Search Daemon</div>
+        <div class="infra-detail">Configured in <code>config/sphinx.yml</code><br>Delta indexing on Patient (real-time updates)<br>Index fields: vcard name, address, birth_date, doctor_patient_nr, case praxistar nr<br>Query via <code>Patient.by_text(query)</code> → ThinkingSphinx<br>Match mode: extended (supports OR, quotes)</div>
+      </div>
+      <div class="infra-card" style="border-color:#ff6b00;border-width:2px;">
+        <div class="infra-label" style="color:#ff6b00">Print Service</div>
+        <div class="infra-name" style="color:#ff6b00">CUPS Printing</div>
+        <div class="infra-detail">Via <code>cupsffi</code> gem (FFI)<br>Configured when <code>settings['printing.cups'] == "1"</code><br><code>Tenant#printer_for(:invoice)</code> → CupsPrinter<br>Supports remote hostname: <code>printing.cups_hostname</code><br>Used in InvoiceBatchJob, ReminderBatchJob, InvoicesController<br>Prints: PatientLetter, InsuranceRecipe, ReminderLetter</div>
+      </div>
+      <div class="infra-card" style="border-color:#ffcc00;border-width:2px;">
+        <div class="infra-label" style="color:#ffcc00">TARMED Database</div>
+        <div class="infra-name" style="color:#ffcc00">SQL Server (MSSQL)</div>
+        <div class="infra-detail">Separate DB connection via <code>use_db :prefix => "tarmed_"</code><br>Tables: LEISTUNG, LEISTUNG_TEXT, LEISTUNG_DIGNIQUALI, LEISTUNG_HIERARCHIE<br>Primary key column: LNR<br>Import: <code>Tarmed::Base.import_all</code> → creates TarmedTariffItem records<br>Swiss TARMED medical billing tariff system (version filtering by GUELTIG_BIS)</div>
+      </div>
+      <div class="infra-card" style="border-color:#00d4ff;border-width:2px;">
+        <div class="infra-label" style="color:#00d4ff">ESR Payments</div>
+        <div class="infra-name" style="color:#00d4ff">Swiss Post / Bank ESR</div>
+        <div class="infra-detail">ESR file upload → parsed into EsrFile/EsrRecord<br>EsrRecord states: unprocessed → matched → booked<br>Auto-matching: reference code → invoice via <code>esr_number(esr_id, patient_id)</code><br>ESR9 line format: MOD-10 check digit algorithm (in Invoice model)<br>Printed on PatientLetter via Prawn::EsrRecipe (vesr gem)<br>OCRB10 font from <code>data/ocrb10.ttf</code></div>
+      </div>
+      <div class="infra-card" style="border-color:#00ff9d;border-width:2px;">
+        <div class="infra-label" style="color:#00ff9d">Analyseliste Import</div>
+        <div class="infra-name" style="color:#00ff9d">Swiss Analyseliste CSV</div>
+        <div class="infra-detail">File: <code>data/analyseliste.csv</code> (+ analyseliste_old.csv)<br>Parsed via FasterCSV (xls2csv output, form-feed sheet separators)<br>Creates LabTariffItem records (tariff_type 316=old, 317=new)<br>Import task in <code>lib/tasks/</code><br>Converts Swiss lab tariff codes to billing positions</div>
+      </div>
+      <div class="infra-card" style="border-color:#00ff9d;border-width:2px;">
+        <div class="infra-label" style="color:#00ff9d">Insurance Import</div>
+        <div class="infra-name" style="color:#00ff9d">admin.ch Insurance CSV</div>
+        <div class="infra-detail">File: <code>data/admin.ch/insurances.csv</code><br>Script: <code>data/admin_ch_import.sh</code><br>Imports KVG/UVG insurance company list from Swiss government<br>Creates Insurance + Vcard records<br>Updates EAN party numbers used in invoice XML</div>
+      </div>
+      <div class="infra-card" style="border-color:#bf00ff;border-width:2px;">
+        <div class="infra-label" style="color:#bf00ff">Background Jobs</div>
+        <div class="infra-name" style="color:#bf00ff">Batch Jobs (synchronous)</div>
+        <div class="infra-detail"><code>InvoiceBatchJob#create_invoices</code> — creates invoices for active treatments<br><code>InvoiceBatchJob#print</code> — sends to CUPS printer<br><code>ReminderBatchJob</code> — dunning (Mahnung) in bulk<br>Note: NO async queue (no Sidekiq/Delayed::Job) — all synchronous in request cycle</div>
+      </div>
+      <div class="infra-card" style="border-color:#ff6b00;border-width:2px;">
+        <div class="infra-label" style="color:#ff6b00">Server Infrastructure</div>
+        <div class="infra-name" style="color:#ff6b00">Unicorn + Nginx</div>
+        <div class="infra-detail">Unicorn: multi-process Rack server<br>Config: <code>config/unicorn.rb</code><br>Socket-based IPC (kgio, raindrops)<br>Deployment: Capistrano via capones_recipes<br>Stages: <code>config/deploy/</code> directory<br>Locale URLs: <code>/de-CH/patients/...</code></div>
+      </div>
+      <div class="infra-card" style="border-color:#00d4ff;border-width:2px;">
+        <div class="infra-label" style="color:#00d4ff">Google Contacts</div>
+        <div class="infra-name" style="color:#00d4ff">Google Contacts API</div>
+        <div class="infra-detail">Model: <code>app/models/google/contacts_importer.rb</code><br>Imports contacts from Google (doctor's contact list)</div>
+      </div>
+      <div class="infra-card" style="border-color:#888;border-width:1px;">
+        <div class="infra-label" style="color:#888">File Storage</div>
+        <div class="infra-name" style="color:#aaa">CarrierWave / Local FS</div>
+        <div class="infra-detail">Uploads root: <code>Rails.root/uploads/</code><br>Attachment model stores letter template PDFs<br>LetterDocument.initialize reads template via <code>Attachment.for_class(self.class)</code> — walks class hierarchy for defaults<br>Lookup: finds attachment where code = class name (or superclass)</div>
+      </div>
+      <div class="infra-card" style="border-color:#888;border-width:1px;">
+        <div class="infra-label" style="color:#888">Mailers</div>
+        <div class="infra-name" style="color:#aaa">ActionMailer (Devise only)</div>
+        <div class="infra-detail">Devise mailer: password reset, confirmation<br>Sender: configured in <code>config/initializers/devise.rb</code><br>No custom mailers found — patient communication via PDF/print only</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title"><span class="dot" style="background:var(--neon-blue)"></span>Data Import Pipelines</div>
+    <div class="graph-container">
+      <svg viewBox="0 0 1100 280" xmlns="http://www.w3.org/2000/svg" style="background:#0f0f1a;">
+        <defs>
+          <marker id="arr4" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+            <polygon points="0 0, 8 3, 0 6" fill="#00d4ff88"/>
+          </marker>
+        </defs>
+        <style>.imp { font-family: monospace; font-size: 10px; } .imps { font-family: monospace; font-size: 8.5px; fill: #667; }</style>
+
+        <!-- TARMED pipeline -->
+        <text x="10" y="20" style="font-family:sans-serif;font-size:9px;fill:#667;text-transform:uppercase;letter-spacing:0.08em">TARMED IMPORT</text>
+        <rect x="10" y="28" width="100" height="30" rx="5" fill="#0d1a2a" stroke="#ffcc00" stroke-width="1.5"/>
+        <text x="60" y="45" class="imp" fill="#ffcc00" text-anchor="middle">SQL Server DB</text>
+        <text x="60" y="55" class="imps" text-anchor="middle">LEISTUNG table</text>
+        <line x1="110" y1="43" x2="148" y2="43" stroke="#ffcc0055" stroke-width="1.5" marker-end="url(#arr4)"/>
+        <rect x="150" y="28" width="110" height="30" rx="5" fill="#0d1a2a" stroke="#ffcc00" stroke-width="1.5"/>
+        <text x="205" y="45" class="imp" fill="#ffcc00" text-anchor="middle">Tarmed::Leistung</text>
+        <text x="205" y="55" class="imps" text-anchor="middle">use_db :prefix=>"tarmed_"</text>
+        <line x1="260" y1="43" x2="298" y2="43" stroke="#ffcc0055" stroke-width="1.5" marker-end="url(#arr4)"/>
+        <rect x="300" y="28" width="120" height="30" rx="5" fill="#0d1a2a" stroke="#00ff9d" stroke-width="1.5"/>
+        <text x="360" y="45" class="imp" fill="#00ff9d" text-anchor="middle">TarmedTariffItem</text>
+        <text x="360" y="55" class="imps" text-anchor="middle">import_all task</text>
+        <line x1="420" y1="43" x2="458" y2="43" stroke="#00ff9d55" stroke-width="1.5" marker-end="url(#arr4)"/>
+        <rect x="460" y="28" width="110" height="30" rx="5" fill="#0d1a2a" stroke="#00d4ff" stroke-width="1.5"/>
+        <text x="515" y="45" class="imp" fill="#00d4ff" text-anchor="middle">ServiceRecord</text>
+        <text x="515" y="55" class="imps" text-anchor="middle">tariff_type="001"</text>
+
+        <!-- Analyseliste pipeline -->
+        <text x="10" y="90" style="font-family:sans-serif;font-size:9px;fill:#667;text-transform:uppercase;letter-spacing:0.08em">ANALYSELISTE IMPORT</text>
+        <rect x="10" y="98" width="110" height="30" rx="5" fill="#0d1a2a" stroke="#ff6b00" stroke-width="1.5"/>
+        <text x="65" y="115" class="imp" fill="#ff6b00" text-anchor="middle">analyseliste.csv</text>
+        <text x="65" y="125" class="imps" text-anchor="middle">FasterCSV parse</text>
+        <line x1="120" y1="113" x2="158" y2="113" stroke="#ff6b0055" stroke-width="1.5" marker-end="url(#arr4)"/>
+        <rect x="160" y="98" width="130" height="30" rx="5" fill="#0d1a2a" stroke="#ff6b00" stroke-width="1.5"/>
+        <text x="225" y="115" class="imp" fill="#ff6b00" text-anchor="middle">Analyseliste::LabTariffItem</text>
+        <text x="225" y="125" class="imps" text-anchor="middle">include Importer</text>
+        <line x1="290" y1="113" x2="328" y2="113" stroke="#ff6b0055" stroke-width="1.5" marker-end="url(#arr4)"/>
+        <rect x="330" y="98" width="100" height="30" rx="5" fill="#0d1a2a" stroke="#00ff9d" stroke-width="1.5"/>
+        <text x="380" y="115" class="imp" fill="#00ff9d" text-anchor="middle">LabTariffItem</text>
+        <text x="380" y="125" class="imps" text-anchor="middle">316/317</text>
+
+        <!-- Insurance pipeline -->
+        <text x="10" y="160" style="font-family:sans-serif;font-size:9px;fill:#667;text-transform:uppercase;letter-spacing:0.08em">INSURANCE IMPORT</text>
+        <rect x="10" y="168" width="120" height="30" rx="5" fill="#0d1a2a" stroke="#bf00ff" stroke-width="1.5"/>
+        <text x="70" y="185" class="imp" fill="#bf00ff" text-anchor="middle">admin.ch CSV</text>
+        <text x="70" y="195" class="imps" text-anchor="middle">insurances.csv</text>
+        <line x1="130" y1="183" x2="168" y2="183" stroke="#bf00ff55" stroke-width="1.5" marker-end="url(#arr4)"/>
+        <rect x="170" y="168" width="130" height="30" rx="5" fill="#0d1a2a" stroke="#bf00ff" stroke-width="1.5"/>
+        <text x="235" y="185" class="imp" fill="#bf00ff" text-anchor="middle">Insurances::Import</text>
+        <text x="235" y="195" class="imps" text-anchor="middle">included in Insurance</text>
+        <line x1="300" y1="183" x2="338" y2="183" stroke="#bf00ff55" stroke-width="1.5" marker-end="url(#arr4)"/>
+        <rect x="340" y="168" width="110" height="30" rx="5" fill="#0d1a2a" stroke="#00d4ff" stroke-width="1.5"/>
+        <text x="395" y="185" class="imp" fill="#00d4ff" text-anchor="middle">Insurance + Vcard</text>
+
+        <!-- ESR pipeline -->
+        <text x="10" y="230" style="font-family:sans-serif;font-size:9px;fill:#667;text-transform:uppercase;letter-spacing:0.08em">ESR PAYMENT RECONCILIATION</text>
+        <rect x="10" y="238" width="90" height="30" rx="5" fill="#0d1a2a" stroke="#ff0080" stroke-width="1.5"/>
+        <text x="55" y="255" class="imp" fill="#ff0080" text-anchor="middle">EsrFile upload</text>
+        <line x1="100" y1="253" x2="138" y2="253" stroke="#ff008055" stroke-width="1.5" marker-end="url(#arr4)"/>
+        <rect x="140" y="238" width="90" height="30" rx="5" fill="#0d1a2a" stroke="#ff0080" stroke-width="1.5"/>
+        <text x="185" y="255" class="imp" fill="#ff0080" text-anchor="middle">EsrRecord</text>
+        <text x="185" y="265" class="imps" text-anchor="middle">parse + match</text>
+        <line x1="230" y1="253" x2="268" y2="253" stroke="#ff008055" stroke-width="1.5" marker-end="url(#arr4)"/>
+        <rect x="270" y="238" width="80" height="30" rx="5" fill="#0d1a2a" stroke="#00d4ff" stroke-width="1.5"/>
+        <text x="310" y="255" class="imp" fill="#00d4ff" text-anchor="middle">Booking</text>
+        <text x="310" y="265" class="imps" text-anchor="middle">debit_account</text>
+        <line x1="350" y1="253" x2="388" y2="253" stroke="#00d4ff55" stroke-width="1.5" marker-end="url(#arr4)"/>
+        <rect x="390" y="238" width="80" height="30" rx="5" fill="#0d1a2a" stroke="#00ff9d" stroke-width="1.5"/>
+        <text x="430" y="255" class="imp" fill="#00ff9d" text-anchor="middle">Invoice</text>
+        <text x="430" y="265" class="imps" text-anchor="middle">booking_saved()</text>
+        <line x1="470" y1="253" x2="508" y2="253" stroke="#00ff9d55" stroke-width="1.5" marker-end="url(#arr4)"/>
+        <rect x="510" y="238" width="90" height="30" rx="5" fill="#0d1a2a" stroke="#00ff9d" stroke-width="1.5"/>
+        <text x="555" y="255" class="imp" fill="#00ff9d" text-anchor="middle">→ state: paid</text>
+      </svg>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title"><span class="dot" style="background:var(--neon-green)"></span>Swiss Regulatory Compliance Points</div>
+    <div class="grid-2">
+      <div class="card" style="border-color:var(--neon-pink)">
+        <div class="card-title" style="color:var(--neon-pink)">TARMED Billing Standard</div>
+        <ul style="font-size:0.82rem;padding-left:1.2rem;line-height:2;">
+          <li>Tariff types: 001 (TARMED), 311 (Physio), 316/317 (Lab), 400 (Drugs), 452 (MiGel)</li>
+          <li>Service records carry: code, ref_code, quantity, amount_mt (medical), amount_tt (technical)</li>
+          <li>Unit factors: <code>unit_factor_mt/tt</code>, scale/external factors</li>
+          <li>Obligation flag: determines patient vs insurance coverage</li>
+          <li>Billing roles: both/self_employed; medical roles</li>
+          <li>InsuranceRecipe PDF: exact Rückforderungsbeleg 4.0M format</li>
+          <li>Ref code validation: positions starting with '+' require reference</li>
+        </ul>
+      </div>
+      <div class="card" style="border-color:var(--neon-blue)">
+        <div class="card-title" style="color:var(--neon-blue)">Swiss Billing Law Codes</div>
+        <ul style="font-size:0.82rem;padding-left:1.2rem;line-height:2;">
+          <li><code>LawKvg</code> — Krankenkasse (health insurance)</li>
+          <li><code>LawUvg</code> — Unfallversicherung (accident)</li>
+          <li><code>LawMvg</code> — Militärversicherung</li>
+          <li><code>LawIvg</code> — Invalidenversicherung</li>
+          <li>Tiers models: TiersGarant (patient pays), TiersPayant (insurer pays)</li>
+          <li>Treatment reasons: Krankheit, Mutterschaft, Prävention, Unfall, Geburtsfehler</li>
+          <li>EAN party (13-digit): identifies billers and insurers in XML invoices</li>
+          <li>ZSR number (7-char): Swiss provider registration</li>
+          <li>AHV-Nr / SSN: patient social security number on invoices</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title"><span class="dot" style="background:var(--neon-yellow)"></span>Tenant Settings Reference</div>
+    <table class="dep-table">
+      <thead><tr><th>Setting Key</th><th>Type</th><th>Used In</th></tr></thead>
+      <tbody>
+        <tr><td class="gem-name">invoices.payment_period</td><td class="version">integer (days)</td><td class="purpose">Invoice#due_date calculation on creation</td></tr>
+        <tr><td class="gem-name">invoices.grace_period</td><td class="version">integer (days)</td><td class="purpose">Invoice.no_grace scope</td></tr>
+        <tr><td class="gem-name">invoices.reminders.1.fee</td><td class="version">decimal CHF</td><td class="purpose">Invoice#reminder_fee for 1st reminder</td></tr>
+        <tr><td class="gem-name">invoices.reminders.1.payment_period</td><td class="version">integer (days)</td><td class="purpose">Invoice#reminder_payment_period</td></tr>
+        <tr><td class="gem-name">invoices.reminders.1.grace_period</td><td class="version">integer (days)</td><td class="purpose">Invoice.no_grace reminder scope</td></tr>
+        <tr><td class="gem-name">invoices.profit_account_code</td><td class="version">string</td><td class="purpose">Invoice#profit_account lookup</td></tr>
+        <tr><td class="gem-name">invoices.balance_account_code</td><td class="version">string</td><td class="purpose">Invoice#balance_account lookup, open items</td></tr>
+        <tr><td class="gem-name">invoices.extra_earnings_account_code</td><td class="version">string</td><td class="purpose">Invoice#book_extra_earning</td></tr>
+        <tr><td class="gem-name">invoices.defaults.biller_id</td><td class="version">integer</td><td class="purpose">InvoiceBatchJobsController default biller</td></tr>
+        <tr><td class="gem-name">invoices.defaults.provider_id</td><td class="version">integer</td><td class="purpose">InvoiceBatchJobsController default provider</td></tr>
+        <tr><td class="gem-name">invoices.print_payment_for</td><td class="version">"0" or "1"</td><td class="purpose">PatientLetter: show ESR slip</td></tr>
+        <tr><td class="gem-name">printing.cups</td><td class="version">"0" or "1"</td><td class="purpose">Enable CUPS printing in controllers</td></tr>
+        <tr><td class="gem-name">printing.cups_hostname</td><td class="version">string</td><td class="purpose">Remote CUPS server hostname</td></tr>
+        <tr><td class="gem-name">printing.invoice</td><td class="version">printer name</td><td class="purpose">Tenant#printer_for(:invoice)</td></tr>
+        <tr><td class="gem-name">printing.plain</td><td class="version">printer name</td><td class="purpose">Tenant#printer_for(:plain) for insurance recipe</td></tr>
+        <tr><td class="gem-name">modules.covercard</td><td class="version">"0" or "1"</td><td class="purpose">Covercard::Patient.find guard</td></tr>
+        <tr><td class="gem-name">modules.covercard.host</td><td class="version">string</td><td class="purpose">HTTP proxy for Covercard HIN API</td></tr>
+        <tr><td class="gem-name">modules.covercard.port</td><td class="version">integer</td><td class="purpose">HTTP proxy port for Covercard HIN API</td></tr>
+        <tr><td class="gem-name">validation.tarmed</td><td class="version">"0" or "1"</td><td class="purpose">Require valid ref_code on service records</td></tr>
+        <tr><td class="gem-name">validation.medical_case_present</td><td class="version">"0" or "1"</td><td class="purpose">Require DiagnosisCase on Treatment for invoice</td></tr>
+        <tr><td class="gem-name">fiscal_year_ends_on</td><td class="version">date</td><td class="purpose">Tenant#fiscal_year_ends_on, fiscal period calc</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+function showTab(name) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  event.target.classList.add('active');
+}
+</script>
+</body>
+</html>
