@@ -204,7 +204,7 @@ async function startHttpServer() {
       status: "ok",
       transport: "streamable-http",
       server: "thoughtbox",
-      version: "1.2.2",
+      version: "2.0.0",
     })
   );
 
