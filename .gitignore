@@ -134,3 +134,6 @@ kastalien-srcbook/
 .spec-validator/
 ai_docs/claude-platform-docs/
 dgm-specs/history/runs/*.json
+
+# bv (beads viewer) local config and caches
+.bv/
