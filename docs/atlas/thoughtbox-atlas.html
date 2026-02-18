@@ -1,0 +1,2773 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Thoughtbox MCP Server — Codebase Atlas</title>
+<style>
+  :root {
+    --bg: #0d1117;
+    --surface: #161b22;
+    --surface2: #21262d;
+    --border: #30363d;
+    --text: #c9d1d9;
+    --text-dim: #8b949e;
+    --text-bright: #f0f6fc;
+    --accent: #58a6ff;
+    --accent2: #79c0ff;
+    --gold: #e3b341;
+    --gold-bg: rgba(227,179,65,0.12);
+    --gold-border: rgba(227,179,65,0.4);
+    --stable: #3fb950;
+    --stable-bg: rgba(63,185,80,0.12);
+    --stable-border: rgba(63,185,80,0.4);
+    --recoverable: #f78166;
+    --recoverable-bg: rgba(247,129,102,0.12);
+    --recoverable-border: rgba(247,129,102,0.4);
+    --needs-work: #d29922;
+    --needs-work-bg: rgba(210,153,34,0.12);
+    --needs-work-border: rgba(210,153,34,0.4);
+    --archive: #484f58;
+    --archive-bg: rgba(72,79,88,0.12);
+    --archive-border: rgba(72,79,88,0.4);
+    --aspirational: #8b949e;
+    --aspirational-bg: rgba(139,148,158,0.12);
+    --aspirational-border: rgba(139,148,158,0.4);
+    --partial: #a5d6ff;
+    --partial-bg: rgba(165,214,255,0.12);
+    --partial-border: rgba(165,214,255,0.4);
+    --stale: #6e7681;
+    --node-radius: 8px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'SF Pro Display', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+  }
+
+  /* ---- Header ---- */
+  .header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 20px 32px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .header-left h1 {
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--text-bright);
+    letter-spacing: -0.3px;
+  }
+  .header-left .subtitle {
+    font-size: 13px;
+    color: var(--text-dim);
+    margin-top: 3px;
+  }
+  .header-meta {
+    display: flex;
+    gap: 20px;
+    align-items: center;
+  }
+  .meta-pill {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 4px 12px;
+    font-size: 12px;
+    color: var(--text-dim);
+  }
+  .meta-pill span { color: var(--text-bright); font-weight: 600; }
+
+  /* ---- Nav tabs ---- */
+  .nav {
+    display: flex;
+    gap: 2px;
+    padding: 0 32px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+  }
+  .nav-tab {
+    padding: 10px 18px;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-dim);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: all 0.15s;
+    user-select: none;
+  }
+  .nav-tab:hover { color: var(--text); }
+  .nav-tab.active {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+  }
+
+  /* ---- Main layout ---- */
+  .main { display: flex; min-height: calc(100vh - 100px); }
+
+  /* ---- Sidebar ---- */
+  .sidebar {
+    width: 260px;
+    min-width: 260px;
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    padding: 16px 0;
+    overflow-y: auto;
+    position: sticky;
+    top: 100px;
+    height: calc(100vh - 100px);
+  }
+  .sidebar-section-title {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: var(--text-dim);
+    padding: 8px 16px 4px;
+  }
+  .sidebar-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 16px;
+    font-size: 13px;
+    color: var(--text);
+    cursor: pointer;
+    border-left: 2px solid transparent;
+    transition: all 0.1s;
+    text-decoration: none;
+  }
+  .sidebar-item:hover { background: var(--surface2); }
+  .sidebar-item.active {
+    color: var(--accent);
+    border-left-color: var(--accent);
+    background: rgba(88,166,255,0.06);
+  }
+  .sidebar-badge {
+    margin-left: auto;
+    font-size: 10px;
+    padding: 1px 6px;
+    border-radius: 10px;
+    font-weight: 600;
+  }
+  .badge-gold { background: var(--gold-bg); color: var(--gold); border: 1px solid var(--gold-border); }
+  .badge-stable { background: var(--stable-bg); color: var(--stable); border: 1px solid var(--stable-border); }
+  .badge-recoverable { background: var(--recoverable-bg); color: var(--recoverable); border: 1px solid var(--recoverable-border); }
+  .badge-needs-work { background: var(--needs-work-bg); color: var(--needs-work); border: 1px solid var(--needs-work-border); }
+  .badge-archive { background: var(--archive-bg); color: var(--archive); border: 1px solid var(--archive-border); }
+  .badge-aspirational { background: var(--aspirational-bg); color: var(--aspirational); border: 1px solid var(--aspirational-border); }
+  .badge-partial { background: var(--partial-bg); color: var(--partial); border: 1px solid var(--partial-border); }
+  .badge-stale { background: rgba(110,118,129,0.15); color: var(--stale); border: 1px solid rgba(110,118,129,0.3); }
+
+  .sidebar-divider {
+    height: 1px;
+    background: var(--border);
+    margin: 8px 16px;
+  }
+
+  /* ---- Content area ---- */
+  .content {
+    flex: 1;
+    padding: 32px;
+    overflow-y: auto;
+  }
+
+  /* ---- Panels (tab views) ---- */
+  .panel { display: none; }
+  .panel.active { display: block; }
+
+  /* ---- Section headings ---- */
+  .section-heading {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--text-bright);
+    margin-bottom: 6px;
+  }
+  .section-desc {
+    font-size: 13px;
+    color: var(--text-dim);
+    margin-bottom: 24px;
+    line-height: 1.6;
+  }
+
+  /* ---- Module cards ---- */
+  .module-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    gap: 16px;
+    margin-bottom: 32px;
+  }
+
+  .module-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 18px;
+    cursor: pointer;
+    transition: all 0.15s;
+    position: relative;
+  }
+  .module-card:hover {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 1px rgba(88,166,255,0.15);
+    transform: translateY(-1px);
+  }
+
+  .module-card.gold { border-left: 3px solid var(--gold); }
+  .module-card.stable { border-left: 3px solid var(--stable); }
+  .module-card.recoverable { border-left: 3px solid var(--recoverable); }
+  .module-card.needs-work { border-left: 3px solid var(--needs-work); }
+  .module-card.archive { border-left: 3px solid var(--archive); }
+  .module-card.aspirational { border-left: 3px solid var(--aspirational); }
+  .module-card.partial { border-left: 3px solid var(--partial); }
+  .module-card.stale { border-left: 3px solid var(--stale); }
+
+  .module-card-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    margin-bottom: 8px;
+  }
+  .module-card-name {
+    font-family: 'SF Mono', 'Consolas', monospace;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-bright);
+  }
+  .module-card-desc {
+    font-size: 12px;
+    color: var(--text-dim);
+    line-height: 1.5;
+    margin-bottom: 10px;
+  }
+  .module-card-meta {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .meta-tag {
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    background: var(--surface2);
+    color: var(--text-dim);
+    border: 1px solid var(--border);
+    font-family: 'SF Mono', monospace;
+  }
+  .meta-tag.lines { color: var(--accent2); }
+  .meta-tag.tests { color: var(--stable); }
+  .meta-tag.bug { color: var(--recoverable); }
+
+  /* ---- Dependency graph (SVG canvas) ---- */
+  #dep-graph-svg {
+    width: 100%;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+
+  /* ---- Mermaid-style flow diagrams ---- */
+  .flow-container {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 24px;
+    margin-bottom: 24px;
+    overflow-x: auto;
+  }
+  .flow-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-bright);
+    margin-bottom: 16px;
+  }
+
+  /* ---- Data flow diagram (CSS-based) ---- */
+  .dataflow {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    overflow-x: auto;
+    padding: 20px 0;
+  }
+  .flow-node {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--node-radius);
+    padding: 12px 16px;
+    min-width: 120px;
+    text-align: center;
+    flex-shrink: 0;
+    position: relative;
+    transition: all 0.15s;
+    cursor: default;
+  }
+  .flow-node:hover {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 1px rgba(88,166,255,0.2);
+  }
+  .flow-node-label {
+    font-size: 11px;
+    font-weight: 600;
+    font-family: 'SF Mono', monospace;
+    color: var(--text-bright);
+  }
+  .flow-node-sub {
+    font-size: 10px;
+    color: var(--text-dim);
+    margin-top: 3px;
+  }
+  .flow-node.gold-node { border-color: var(--gold); }
+  .flow-node.stable-node { border-color: var(--stable); }
+  .flow-node.entry-node {
+    background: rgba(88,166,255,0.08);
+    border-color: var(--accent);
+  }
+  .flow-arrow {
+    display: flex;
+    align-items: center;
+    color: var(--text-dim);
+    padding: 0 4px;
+    font-size: 18px;
+    flex-shrink: 0;
+    position: relative;
+  }
+  .flow-arrow-label {
+    position: absolute;
+    top: -18px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 10px;
+    color: var(--text-dim);
+    white-space: nowrap;
+    background: var(--bg);
+    padding: 0 4px;
+    border-radius: 3px;
+  }
+
+  /* ---- Stage diagram ---- */
+  .stage-flow {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+  .stage-card {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+    position: relative;
+  }
+  .stage-card::after {
+    content: '→';
+    position: absolute;
+    right: -14px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-dim);
+    font-size: 18px;
+    z-index: 2;
+  }
+  .stage-card:last-child::after { display: none; }
+  .stage-number {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    color: var(--text-dim);
+    margin-bottom: 6px;
+  }
+  .stage-name {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-bright);
+    margin-bottom: 8px;
+  }
+  .stage-tools {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .stage-tool-pill {
+    font-size: 10px;
+    font-family: 'SF Mono', monospace;
+    padding: 2px 7px;
+    border-radius: 4px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    width: fit-content;
+  }
+  .stage-tool-pill.new { color: var(--accent); border-color: rgba(88,166,255,0.3); background: rgba(88,166,255,0.06); }
+  .stage-trigger {
+    font-size: 10px;
+    color: var(--gold);
+    margin-top: 8px;
+    font-style: italic;
+  }
+
+  /* ---- Stats row ---- */
+  .stats-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 12px;
+    margin-bottom: 28px;
+  }
+  .stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px;
+  }
+  .stat-value {
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--text-bright);
+    line-height: 1;
+    margin-bottom: 4px;
+  }
+  .stat-label {
+    font-size: 12px;
+    color: var(--text-dim);
+  }
+
+  /* ---- Dependency matrix ---- */
+  .dep-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+    margin-bottom: 24px;
+  }
+  .dep-table th {
+    text-align: left;
+    padding: 8px 12px;
+    background: var(--surface2);
+    color: var(--text-dim);
+    font-weight: 600;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+  }
+  .dep-table td {
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border);
+    color: var(--text);
+    vertical-align: top;
+  }
+  .dep-table tr:hover td { background: var(--surface2); }
+  .dep-table td:first-child {
+    font-family: 'SF Mono', monospace;
+    color: var(--text-bright);
+    font-weight: 500;
+  }
+  .dep-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+  .dep-chip {
+    font-size: 10px;
+    font-family: 'SF Mono', monospace;
+    padding: 1px 6px;
+    border-radius: 3px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+  }
+
+  /* ---- Legend ---- */
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 24px;
+    padding: 12px 16px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--text-dim);
+  }
+  .legend-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  /* ---- SVG dep graph ---- */
+  .svg-wrapper {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+    margin-bottom: 24px;
+  }
+  svg text { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+
+  /* ---- Patterns section ---- */
+  .pattern-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px;
+    margin-bottom: 16px;
+  }
+  .pattern-title {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text-bright);
+    margin-bottom: 6px;
+  }
+  .pattern-desc {
+    font-size: 13px;
+    color: var(--text-dim);
+    line-height: 1.6;
+    margin-bottom: 12px;
+  }
+  .pattern-code {
+    font-family: 'SF Mono', 'Consolas', monospace;
+    font-size: 12px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 12px 14px;
+    color: var(--text);
+    white-space: pre;
+    overflow-x: auto;
+    line-height: 1.5;
+  }
+  .kw { color: #ff7b72; }
+  .fn { color: #d2a8ff; }
+  .str { color: #a5d6ff; }
+  .cm { color: #8b949e; font-style: italic; }
+  .type { color: #79c0ff; }
+
+  /* ---- Timeline ---- */
+  .timeline {
+    position: relative;
+    padding-left: 32px;
+  }
+  .timeline::before {
+    content: '';
+    position: absolute;
+    left: 10px;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: var(--border);
+  }
+  .timeline-item {
+    position: relative;
+    margin-bottom: 24px;
+  }
+  .timeline-dot {
+    position: absolute;
+    left: -26px;
+    top: 4px;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: var(--accent);
+    border: 2px solid var(--bg);
+  }
+  .timeline-dot.gold { background: var(--gold); }
+  .timeline-dot.stable { background: var(--stable); }
+  .timeline-dot.dim { background: var(--archive); }
+  .timeline-date {
+    font-size: 11px;
+    color: var(--text-dim);
+    margin-bottom: 4px;
+  }
+  .timeline-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-bright);
+    margin-bottom: 4px;
+  }
+  .timeline-desc {
+    font-size: 12px;
+    color: var(--text-dim);
+    line-height: 1.5;
+  }
+
+  /* ---- Search ---- */
+  .search-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 20px;
+  }
+  .search-input {
+    flex: 1;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px 14px;
+    font-size: 13px;
+    color: var(--text);
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  .search-input::placeholder { color: var(--text-dim); }
+  .search-input:focus { border-color: var(--accent); }
+
+  /* ---- Expandable detail ---- */
+  .detail-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.7);
+    z-index: 200;
+    align-items: center;
+    justify-content: center;
+  }
+  .detail-overlay.open { display: flex; }
+  .detail-panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    width: 680px;
+    max-width: 90vw;
+    max-height: 80vh;
+    overflow-y: auto;
+    padding: 28px;
+    position: relative;
+  }
+  .detail-close {
+    position: absolute;
+    right: 16px;
+    top: 16px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text-dim);
+    cursor: pointer;
+    padding: 4px 10px;
+    font-size: 13px;
+  }
+  .detail-title {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--text-bright);
+    font-family: 'SF Mono', monospace;
+    margin-bottom: 4px;
+  }
+  .detail-status-line {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+  .detail-section {
+    margin-bottom: 20px;
+  }
+  .detail-section-title {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    color: var(--text-dim);
+    margin-bottom: 8px;
+  }
+  .detail-content {
+    font-size: 13px;
+    color: var(--text);
+    line-height: 1.6;
+  }
+  .detail-file-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .detail-file {
+    font-family: 'SF Mono', monospace;
+    font-size: 12px;
+    padding: 5px 10px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--text-dim);
+    display: flex;
+    justify-content: space-between;
+  }
+  .detail-file-lines { color: var(--accent2); }
+
+  /* ---- Hub domain model ---- */
+  .hub-model-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+  .hub-entity {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px;
+  }
+  .hub-entity-name {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--accent);
+    font-family: 'SF Mono', monospace;
+    margin-bottom: 6px;
+  }
+  .hub-entity-fields {
+    font-size: 11px;
+    color: var(--text-dim);
+    font-family: 'SF Mono', monospace;
+    line-height: 1.7;
+  }
+  .hub-entity-field { display: block; }
+  .hub-entity-field .field-type { color: var(--text-dim); }
+  .hub-entity-field .field-name { color: var(--text); }
+
+  /* ---- Responsive tweaks ---- */
+  @media (max-width: 900px) {
+    .sidebar { display: none; }
+    .stage-flow { grid-template-columns: repeat(2, 1fr); }
+    .hub-model-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+
+  /* ---- Tooltip ---- */
+  [data-tip] { position: relative; cursor: help; }
+  [data-tip]:hover::after {
+    content: attr(data-tip);
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    padding: 5px 10px;
+    font-size: 11px;
+    color: var(--text);
+    white-space: nowrap;
+    z-index: 300;
+    margin-bottom: 4px;
+    pointer-events: none;
+  }
+
+  /* ---- Scroll indicator ---- */
+  .scroll-fade {
+    position: sticky;
+    bottom: 0;
+    height: 40px;
+    background: linear-gradient(transparent, var(--bg));
+    pointer-events: none;
+  }
+
+  hr.section-divider {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 28px 0;
+  }
+</style>
+</head>
+<body>
+
+<!-- ================================================================ HEADER -->
+<header class="header">
+  <div class="header-left">
+    <h1>Thoughtbox MCP Server</h1>
+    <div class="subtitle">Codebase Atlas — Full 6-Layer Analysis &nbsp;·&nbsp; Generated 2026-02-18</div>
+  </div>
+  <div class="header-meta">
+    <div class="meta-pill">Files: <span>523</span></div>
+    <div class="meta-pill">LOC: <span>64,826</span></div>
+    <div class="meta-pill">Modules: <span>18</span></div>
+    <div class="meta-pill">Tests: <span>117+</span></div>
+    <div class="meta-pill">Branch: <span>main</span></div>
+  </div>
+</header>
+
+<!-- ================================================================ NAV -->
+<nav class="nav">
+  <div class="nav-tab active" onclick="showTab('overview')">Overview</div>
+  <div class="nav-tab" onclick="showTab('modules')">Module Map</div>
+  <div class="nav-tab" onclick="showTab('architecture')">Architecture</div>
+  <div class="nav-tab" onclick="showTab('dataflow')">Data Flow</div>
+  <div class="nav-tab" onclick="showTab('patterns')">Patterns</div>
+  <div class="nav-tab" onclick="showTab('hub')">Hub Domain</div>
+  <div class="nav-tab" onclick="showTab('deps')">Dependencies</div>
+  <div class="nav-tab" onclick="showTab('evolution')">Evolution</div>
+</nav>
+
+<!-- ================================================================ BODY -->
+<div class="main">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-section-title">Core Modules</div>
+    <a class="sidebar-item" onclick="showModuleDetail('gateway')">
+      src/gateway/
+      <span class="sidebar-badge badge-gold">GOLD</span>
+    </a>
+    <a class="sidebar-item" onclick="showModuleDetail('hub')">
+      src/hub/
+      <span class="sidebar-badge badge-gold">GOLD</span>
+    </a>
+    <a class="sidebar-item" onclick="showModuleDetail('evaluation')">
+      src/evaluation/
+      <span class="sidebar-badge badge-gold">GOLD</span>
+    </a>
+    <a class="sidebar-item" onclick="showModuleDetail('observatory')">
+      src/observatory/
+      <span class="sidebar-badge badge-gold">GOLD</span>
+    </a>
+    <a class="sidebar-item" onclick="showModuleDetail('init')">
+      src/init/
+      <span class="sidebar-badge badge-gold">GOLD</span>
+    </a>
+    <a class="sidebar-item" onclick="showModuleDetail('thought-handler')">
+      thought-handler.ts
+      <span class="sidebar-badge badge-gold">GOLD</span>
+    </a>
+    <a class="sidebar-item" onclick="showModuleDetail('tool-registry')">
+      tool-registry.ts
+      <span class="sidebar-badge badge-gold">GOLD</span>
+    </a>
+    <a class="sidebar-item" onclick="showModuleDetail('server-factory')">
+      server-factory.ts
+      <span class="sidebar-badge badge-gold">GOLD</span>
+    </a>
+
+    <div class="sidebar-section-title">Storage & Knowledge</div>
+    <a class="sidebar-item" onclick="showModuleDetail('persistence')">
+      src/persistence/
+      <span class="sidebar-badge badge-gold">GOLD (P1)</span>
+    </a>
+    <a class="sidebar-item" onclick="showModuleDetail('knowledge')">
+      src/knowledge/
+      <span class="sidebar-badge badge-gold">GOLD</span>
+    </a>
+    <a class="sidebar-item" onclick="showModuleDetail('mental-models')">
+      src/mental-models/
+      <span class="sidebar-badge badge-gold">GOLD</span>
+    </a>
+    <a class="sidebar-item" onclick="showModuleDetail('notebook')">
+      src/notebook/
+      <span class="sidebar-badge badge-stable">STABLE</span>
+    </a>
+
+    <div class="sidebar-divider"></div>
+    <div class="sidebar-section-title">Needs Work</div>
+    <a class="sidebar-item" onclick="showModuleDetail('resources')">
+      src/resources/
+      <span class="sidebar-badge badge-recoverable">RECOVERABLE</span>
+    </a>
+    <a class="sidebar-item" onclick="showModuleDetail('multi-agent')">
+      src/multi-agent/
+      <span class="sidebar-badge badge-needs-work">NEEDS WORK</span>
+    </a>
+    <a class="sidebar-item" onclick="showModuleDetail('dgm-specs')">
+      dgm-specs/
+      <span class="sidebar-badge badge-partial">PARTIAL</span>
+    </a>
+
+    <div class="sidebar-divider"></div>
+    <div class="sidebar-section-title">Supporting</div>
+    <a class="sidebar-item" onclick="showModuleDetail('agentops')">
+      agentops/
+      <span class="sidebar-badge badge-stable">STABLE</span>
+    </a>
+    <a class="sidebar-item" onclick="showModuleDetail('self-improvement')">
+      self-improvement/
+      <span class="sidebar-badge badge-aspirational">ASPIRATIONAL</span>
+    </a>
+    <a class="sidebar-item" onclick="showModuleDetail('archive')">
+      .archive/
+      <span class="sidebar-badge badge-archive">ARCHIVE</span>
+    </a>
+    <a class="sidebar-item" onclick="showModuleDetail('demo')">
+      demo/multi-agent/
+      <span class="sidebar-badge badge-stale">STALE</span>
+    </a>
+  </aside>
+
+  <!-- CONTENT -->
+  <main class="content">
+
+    <!-- ============================================ TAB: OVERVIEW -->
+    <div id="tab-overview" class="panel active">
+      <div class="section-heading">Codebase Overview</div>
+      <div class="section-desc">
+        Thoughtbox is a structured reasoning MCP server that provides branching thought chains, multi-agent collaboration (Hub), real-time observability (Observatory), and progressive tool disclosure. Built in TypeScript, targeting Node.js 20+ with ESM modules.
+      </div>
+
+      <div class="stats-row">
+        <div class="stat-card">
+          <div class="stat-value" style="color: var(--gold)">10</div>
+          <div class="stat-label">GOLD modules</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" style="color: var(--stable)">2</div>
+          <div class="stat-label">STABLE modules</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" style="color: var(--recoverable)">1</div>
+          <div class="stat-label">RECOVERABLE</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" style="color: var(--needs-work)">1</div>
+          <div class="stat-label">NEEDS WORK</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" style="color: var(--accent2)">2,067</div>
+          <div class="stat-label">server-factory.ts lines</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" style="color: var(--accent2)">891</div>
+          <div class="stat-label">thought-handler.ts lines</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" style="color: var(--accent2)">1,092</div>
+          <div class="stat-label">gateway-handler.ts lines</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" style="color: var(--stable)">117+</div>
+          <div class="stat-label">Hub test files</div>
+        </div>
+      </div>
+
+      <div class="legend">
+        <div class="legend-item"><div class="legend-dot" style="background:var(--gold)"></div>GOLD — production-ready, well-tested</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--stable)"></div>STABLE — functional, limited tests</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--recoverable)"></div>RECOVERABLE — restored/fixable</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--needs-work)"></div>NEEDS WORK — limited integration</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--partial)"></div>PARTIAL — harness works, placeholders empty</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--aspirational)"></div>ASPIRATIONAL — planning docs, not built</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--archive)"></div>ARCHIVE — moved out of active use</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--stale)"></div>STALE — port/config inconsistency</div>
+      </div>
+
+      <hr class="section-divider">
+
+      <div class="section-heading" style="font-size:15px;margin-bottom:12px;">Key Insights</div>
+
+      <div class="module-grid">
+        <div class="module-card gold" style="cursor:default;">
+          <div class="module-card-header">
+            <div class="module-card-name">Central Assembly Point</div>
+            <span class="sidebar-badge badge-gold">GOLD</span>
+          </div>
+          <div class="module-card-desc">
+            <code style="font-size:11px;color:var(--accent2)">src/server-factory.ts</code> (2,067 lines) is the single assembly file that imports all 18+ modules and wires them into the MCP server. Every handler, tool, resource, and capability is registered here.
+          </div>
+        </div>
+        <div class="module-card gold" style="cursor:default;">
+          <div class="module-card-header">
+            <div class="module-card-name">Progressive Disclosure State Machine</div>
+            <span class="sidebar-badge badge-gold">GOLD</span>
+          </div>
+          <div class="module-card-desc">
+            <code style="font-size:11px;color:var(--accent2)">ToolRegistry</code> manages 4 disclosure stages (S0 Entry → S1 Init → S2 Cipher → S3 Domain). Tools are enabled/disabled dynamically as the workflow advances. Domain filtering at S3 enables context-specific tool sets.
+          </div>
+        </div>
+        <div class="module-card gold" style="cursor:default;">
+          <div class="module-card-header">
+            <div class="module-card-name">Gateway as Single Entry Point</div>
+            <span class="sidebar-badge badge-gold">GOLD</span>
+          </div>
+          <div class="module-card-desc">
+            The always-enabled <code style="font-size:11px;color:var(--accent2)">thoughtbox_gateway</code> tool routes all 30+ operations internally. Solves the MCP client tool-list refresh problem by never changing the visible tool count — all routing is internal.
+          </div>
+        </div>
+        <div class="module-card recoverable" style="cursor:default;">
+          <div class="module-card-header">
+            <div class="module-card-name">Known P1 Bug: ESM/CJS Export</div>
+            <span class="sidebar-badge badge-recoverable">P1 BUG</span>
+          </div>
+          <div class="module-card-desc">
+            <code style="font-size:11px;color:var(--recoverable)">src/persistence/export.ts</code> has a broken export path due to ESM/CJS module mismatch. Session export functionality (<code style="font-size:11px">exportSession</code>) fails at runtime. All other persistence operations unaffected.
+          </div>
+        </div>
+        <div class="module-card gold" style="cursor:default;">
+          <div class="module-card-header">
+            <div class="module-card-name">Hub: Full Multi-Agent Protocol</div>
+            <span class="sidebar-badge badge-gold">GOLD</span>
+          </div>
+          <div class="module-card-desc">
+            Hub implements a complete agent coordination protocol: identity/profiles, workspaces, problems (with sub-problems + dependencies), proposals (with reviews), consensus markers, and real-time channels. 36 test files, 117+ test cases.
+          </div>
+        </div>
+        <div class="module-card gold" style="cursor:default;">
+          <div class="module-card-header">
+            <div class="module-card-name">Observatory: Real-Time WebSocket</div>
+            <span class="sidebar-badge badge-gold">GOLD</span>
+          </div>
+          <div class="module-card-desc">
+            Observatory provides a fire-and-forget <code style="font-size:11px;color:var(--accent2)">thoughtEmitter</code> that publishes thought events over WebSocket channels. Three channel types: reasoning, observatory (meta), and workspace. Includes bundled HTML UI at <code style="font-size:11px">src/observatory/ui/observatory.html</code>.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================ TAB: MODULE MAP -->
+    <div id="tab-modules" class="panel">
+      <div class="section-heading">Module Map</div>
+      <div class="section-desc">All source modules with status, file counts, and line counts. Click a card to see detailed breakdown.</div>
+
+      <div class="search-bar">
+        <input class="search-input" id="module-search" type="text" placeholder="Filter modules..." oninput="filterModules(this.value)">
+      </div>
+
+      <div class="module-grid" id="module-grid">
+
+        <div class="module-card gold" onclick="showModuleDetail('server-factory')" data-tags="core assembly entry">
+          <div class="module-card-header">
+            <div class="module-card-name">src/server-factory.ts</div>
+            <span class="sidebar-badge badge-gold">GOLD</span>
+          </div>
+          <div class="module-card-desc">Central assembly point. Imports all modules, wires all MCP tools/resources/prompts, registers handlers. The single source of truth for what capabilities the server exposes.</div>
+          <div class="module-card-meta">
+            <span class="meta-tag lines">2,067 lines</span>
+            <span class="meta-tag">1 file</span>
+            <span class="meta-tag">32 imports</span>
+          </div>
+        </div>
+
+        <div class="module-card gold" onclick="showModuleDetail('gateway')" data-tags="core routing gateway">
+          <div class="module-card-header">
+            <div class="module-card-name">src/gateway/</div>
+            <span class="sidebar-badge badge-gold">GOLD</span>
+          </div>
+          <div class="module-card-desc">Single always-enabled MCP tool that routes all 30+ operations. Enforces progressive disclosure stages. Solves client tool-list refresh by keeping a stable API surface. 5 test files.</div>
+          <div class="module-card-meta">
+            <span class="meta-tag lines">1,318+ lines</span>
+            <span class="meta-tag">4 files</span>
+            <span class="meta-tag tests">5 test files</span>
+          </div>
+        </div>
+
+        <div class="module-card gold" onclick="showModuleDetail('thought-handler')" data-tags="core reasoning thoughts">
+          <div class="module-card-header">
+            <div class="module-card-name">src/thought-handler.ts</div>
+            <span class="sidebar-badge badge-gold">GOLD</span>
+          </div>
+          <div class="module-card-desc">Core reasoning engine. Manages thought history, branches, revisions, autonomous critique (Phase 3 Sampling), persistence integration, and event emission. Serial processing queue prevents race conditions.</div>
+          <div class="module-card-meta">
+            <span class="meta-tag lines">891 lines</span>
+            <span class="meta-tag">1 file</span>
+          </div>
+        </div>
+
+        <div class="module-card gold" onclick="showModuleDetail('tool-registry')" data-tags="core disclosure staging">
+          <div class="module-card-header">
+            <div class="module-card-name">src/tool-registry.ts</div>
+            <span class="sidebar-badge badge-gold">GOLD</span>
+          </div>
+          <div class="module-card-desc">4-stage progressive disclosure state machine. Manages tool enable/disable via MCP SDK RegisteredTool API. Domain filtering for Stage 3 enables context-specific tool sets without server restart.</div>
+          <div class="module-card-meta">
+            <span class="meta-tag lines">252 lines</span>
+            <span class="meta-tag">4 stages</span>
+          </div>
+        </div>
+
+        <div class="module-card gold" onclick="showModuleDetail('hub')" data-tags="multi-agent hub collaboration workspace">
+          <div class="module-card-header">
+            <div class="module-card-name">src/hub/</div>
+            <span class="sidebar-badge badge-gold">GOLD</span>
+          </div>
+          <div class="module-card-desc">Full multi-agent coordination protocol. Agent identity+profiles, workspaces, problems/sub-problems/dependencies, proposals/reviews, consensus markers, real-time channels. The richest domain in the codebase.</div>
+          <div class="module-card-meta">
+            <span class="meta-tag lines">~80k chars</span>
+            <span class="meta-tag">20 src files</span>
+            <span class="meta-tag tests">36 test files</span>
+          </div>
+        </div>
+
+        <div class="module-card gold" onclick="showModuleDetail('observatory')" data-tags="observability websocket realtime monitoring">
+          <div class="module-card-header">
+            <div class="module-card-name">src/observatory/</div>
+            <span class="sidebar-badge badge-gold">GOLD</span>
+          </div>
+          <div class="module-card-desc">Real-time WebSocket monitoring. Fire-and-forget ThoughtEmitter, channel-based WS server, improvement tracking, evaluation gatekeeper, scorecard aggregation, and bundled HTML UI. Grafana-ready.</div>
+          <div class="module-card-meta">
+            <span class="meta-tag lines">~60k chars</span>
+            <span class="meta-tag">14 files</span>
+            <span class="meta-tag tests">2 test files</span>
+          </div>
+        </div>
+
+        <div class="module-card gold" onclick="showModuleDetail('evaluation')" data-tags="evaluation langsmith quality phases">
+          <div class="module-card-header">
+            <div class="module-card-name">src/evaluation/</div>
+            <span class="sidebar-badge badge-gold">GOLD</span>
+          </div>
+          <div class="module-card-desc">LangSmith integration for quality evaluation. Phases 1-3: dataset management, online monitoring, reasoning coherence, memory quality, session quality, and DGM fitness evaluators.</div>
+          <div class="module-card-meta">
+            <span class="meta-tag lines">~40k chars</span>
+            <span class="meta-tag">11 files</span>
+          </div>
+        </div>
+
+        <div class="module-card gold" onclick="showModuleDetail('init')" data-tags="init progressive disclosure state">
+          <div class="module-card-header">
+            <div class="module-card-name">src/init/</div>
+            <span class="sidebar-badge badge-gold">GOLD</span>
+          </div>
+          <div class="module-card-desc">Init flow and progressive disclosure state management. Index builder, state manager, filesystem/in-memory sources, markdown renderer. Entry point for every new MCP session.</div>
+          <div class="module-card-meta">
+            <span class="meta-tag lines">~30k chars</span>
+            <span class="meta-tag">10 files</span>
+          </div>
+        </div>
+
+        <div class="module-card gold" onclick="showModuleDetail('persistence')" data-tags="storage persistence sessions thoughts filesystem">
+          <div class="module-card-header">
+            <div class="module-card-name">src/persistence/</div>
+            <span class="sidebar-badge badge-gold">GOLD</span>
+          </div>
+          <div class="module-card-desc">Storage abstraction with InMemory and FileSystem implementations. Monthly time-partitioned session directories, SQLite metadata, doubly-linked ThoughtNode graph, Merkle chain content hashing.</div>
+          <div class="module-card-meta">
+            <span class="meta-tag lines">~50k chars</span>
+            <span class="meta-tag">6 files</span>
+            <span class="meta-tag bug">P1: export ESM/CJS</span>
+          </div>
+        </div>
+
+        <div class="module-card gold" onclick="showModuleDetail('knowledge')" data-tags="knowledge graph entities relations memory">
+          <div class="module-card-header">
+            <div class="module-card-name">src/knowledge/</div>
+            <span class="sidebar-badge badge-gold">GOLD</span>
+          </div>
+          <div class="module-card-desc">Entity/Relation/Observation knowledge graph. Pattern storage and scratchpad notes. Structured memory layer for cross-session knowledge retention distinct from ephemeral thoughts.</div>
+          <div class="module-card-meta">
+            <span class="meta-tag lines">~20k chars</span>
+            <span class="meta-tag">5 files</span>
+          </div>
+        </div>
+
+        <div class="module-card gold" onclick="showModuleDetail('mental-models')" data-tags="reasoning frameworks mental models">
+          <div class="module-card-header">
+            <div class="module-card-name">src/mental-models/</div>
+            <span class="sidebar-badge badge-gold">GOLD</span>
+          </div>
+          <div class="module-card-desc">15 reasoning frameworks as MCP resources: inversion, pre-mortem, five-whys, fermi estimation, rubber duck, steelmanning, decomposition, impact-effort grid, and 7 more. Each is a self-contained TypeScript module.</div>
+          <div class="module-card-meta">
+            <span class="meta-tag lines">~25k chars</span>
+            <span class="meta-tag">18 files</span>
+            <span class="meta-tag">15 frameworks</span>
+          </div>
+        </div>
+
+        <div class="module-card stable" onclick="showModuleDetail('notebook')" data-tags="notebook literate programming execution">
+          <div class="module-card-header">
+            <div class="module-card-name">src/notebook/</div>
+            <span class="sidebar-badge badge-stable">STABLE</span>
+          </div>
+          <div class="module-card-desc">Literate programming notebook with cell execution, encoding, state management, and pre-built templates. Enables executable reasoning sessions alongside thought chains.</div>
+          <div class="module-card-meta">
+            <span class="meta-tag lines">~20k chars</span>
+            <span class="meta-tag">7 files</span>
+          </div>
+        </div>
+
+        <div class="module-card recoverable" onclick="showModuleDetail('resources')" data-tags="resources content loops">
+          <div class="module-card-header">
+            <div class="module-card-name">src/resources/</div>
+            <span class="sidebar-badge badge-recoverable">RECOVERABLE</span>
+          </div>
+          <div class="module-card-desc">Static content resources: patterns cookbook, cipher, server architecture guide, loops catalog, behavioral tests, evolution check, session analysis guide. loops-content.ts was restored from HEAD after deletion.</div>
+          <div class="module-card-meta">
+            <span class="meta-tag lines">~30k chars</span>
+            <span class="meta-tag">10 files</span>
+          </div>
+        </div>
+
+        <div class="module-card needs-work" onclick="showModuleDetail('multi-agent')" data-tags="multi-agent cipher attribution diff">
+          <div class="module-card-header">
+            <div class="module-card-name">src/multi-agent/</div>
+            <span class="sidebar-badge badge-needs-work">NEEDS WORK</span>
+          </div>
+          <div class="module-card-desc">Cipher extension for multi-agent notation, claim parsing, conflict detection, content hashing (Merkle chain), and thought diffing. Limited integration with the main thought flow. 10 test files exist.</div>
+          <div class="module-card-meta">
+            <span class="meta-tag lines">~15k chars</span>
+            <span class="meta-tag">6 src files</span>
+            <span class="meta-tag tests">10 test files</span>
+          </div>
+        </div>
+
+        <div class="module-card partial" onclick="showModuleDetail('dgm-specs')" data-tags="dgm benchmark harness evolution">
+          <div class="module-card-header">
+            <div class="module-card-name">dgm-specs/</div>
+            <span class="sidebar-badge badge-partial">PARTIAL</span>
+          </div>
+          <div class="module-card-desc">Darwin Growth Machine specs. Benchmark harness and CLI work. Most hypothesis and target directories contain only README placeholders. implementation-status.json tracks progress.</div>
+          <div class="module-card-meta">
+            <span class="meta-tag">Harness: working</span>
+            <span class="meta-tag">Targets: empty</span>
+          </div>
+        </div>
+
+        <div class="module-card aspirational" onclick="showModuleDetail('self-improvement')" data-tags="self improvement planning aspirational">
+          <div class="module-card-header">
+            <div class="module-card-name">self-improvement/</div>
+            <span class="sidebar-badge badge-aspirational">ASPIRATIONAL</span>
+          </div>
+          <div class="module-card-desc">Planning documents for an autonomous self-improvement loop. Not yet implemented as running code. Contains design specs for the improvement cycle that Observatory and evaluation infrastructure will eventually support.</div>
+          <div class="module-card-meta">
+            <span class="meta-tag">Docs only</span>
+          </div>
+        </div>
+
+        <div class="module-card stale" onclick="showModuleDetail('demo')" data-tags="demo docker multi-agent stale">
+          <div class="module-card-header">
+            <div class="module-card-name">demo/multi-agent/</div>
+            <span class="sidebar-badge badge-stale">STALE</span>
+          </div>
+          <div class="module-card-desc">Docker Compose demo for multi-agent setup. Port inconsistency: docker-compose.yml references port 3100 but actual Observatory server uses port 1731. Needs update before use.</div>
+          <div class="module-card-meta">
+            <span class="meta-tag bug">Port: 3100 vs 1731</span>
+          </div>
+        </div>
+
+        <div class="module-card archive" onclick="showModuleDetail('archive')" data-tags="archive claude agents">
+          <div class="module-card-header">
+            <div class="module-card-name">.archive/</div>
+            <span class="sidebar-badge badge-archive">ARCHIVE</span>
+          </div>
+          <div class="module-card-desc">Moved from .claude/ directory. Contains archived agent implementations, hooks, skills, and team prompts from previous development cycles. Not active but preserved for reference.</div>
+          <div class="module-card-meta">
+            <span class="meta-tag">Moved from .claude/</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ============================================ TAB: ARCHITECTURE -->
+    <div id="tab-architecture" class="panel">
+      <div class="section-heading">Architecture</div>
+      <div class="section-desc">Structural overview from L0 (directory) through L2 (component) layers. The server uses a layered architecture with a single assembly point (server-factory.ts) and a gateway routing layer.</div>
+
+      <!-- L0: Directory structure as SVG -->
+      <div class="flow-container">
+        <div class="flow-title">L0 — Top-Level Structure</div>
+        <svg id="dep-graph-svg" viewBox="0 0 900 420" style="height:420px">
+          <defs>
+            <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="#58a6ff" opacity="0.7"/>
+            </marker>
+            <marker id="arrow-dim" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="#484f58" opacity="0.7"/>
+            </marker>
+          </defs>
+
+          <!-- Background sections -->
+          <rect x="10" y="10" width="880" height="60" rx="8" fill="#21262d" stroke="#30363d"/>
+          <text x="20" y="30" font-size="11" fill="#8b949e" font-weight="600">ENTRY</text>
+          <text x="440" y="35" font-size="13" fill="#c9d1d9" text-anchor="middle">MCP Client (Claude Code / any MCP host)</text>
+          <text x="440" y="52" font-size="11" fill="#58a6ff" text-anchor="middle">stdio transport → McpServer (SDK)</text>
+
+          <!-- Arrow down to gateway -->
+          <line x1="440" y1="70" x2="440" y2="100" stroke="#58a6ff" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+          <!-- Gateway box -->
+          <rect x="300" y="100" width="280" height="50" rx="8" fill="#1a2a3a" stroke="#58a6ff" stroke-width="1.5"/>
+          <text x="440" y="122" font-size="13" fill="#79c0ff" text-anchor="middle" font-weight="700">thoughtbox_gateway (always-on)</text>
+          <text x="440" y="140" font-size="11" fill="#8b949e" text-anchor="middle">GatewayHandler · 30+ operations</text>
+
+          <!-- Arrow down to factory -->
+          <line x1="440" y1="150" x2="440" y2="180" stroke="#58a6ff" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+          <!-- server-factory box -->
+          <rect x="200" y="180" width="480" height="50" rx="8" fill="#21262d" stroke="#e3b341" stroke-width="1.5"/>
+          <text x="440" y="202" font-size="13" fill="#e3b341" text-anchor="middle" font-weight="700">server-factory.ts (2,067 lines)</text>
+          <text x="440" y="220" font-size="11" fill="#8b949e" text-anchor="middle">McpServer · ToolRegistry · All handler wiring</text>
+
+          <!-- Domain modules row -->
+          <!-- ThoughtHandler -->
+          <rect x="10" y="260" width="130" height="50" rx="6" fill="#21262d" stroke="#e3b341"/>
+          <text x="75" y="280" font-size="11" fill="#e3b341" text-anchor="middle" font-weight="600">ThoughtHandler</text>
+          <text x="75" y="296" font-size="10" fill="#8b949e" text-anchor="middle">891 lines</text>
+
+          <!-- Hub -->
+          <rect x="155" y="260" width="100" height="50" rx="6" fill="#21262d" stroke="#e3b341"/>
+          <text x="205" y="280" font-size="11" fill="#e3b341" text-anchor="middle" font-weight="600">Hub</text>
+          <text x="205" y="296" font-size="10" fill="#8b949e" text-anchor="middle">36 tests</text>
+
+          <!-- Observatory -->
+          <rect x="270" y="260" width="120" height="50" rx="6" fill="#21262d" stroke="#e3b341"/>
+          <text x="330" y="280" font-size="11" fill="#e3b341" text-anchor="middle" font-weight="600">Observatory</text>
+          <text x="330" y="296" font-size="10" fill="#8b949e" text-anchor="middle">WS + UI</text>
+
+          <!-- Init -->
+          <rect x="405" y="260" width="90" height="50" rx="6" fill="#21262d" stroke="#e3b341"/>
+          <text x="450" y="280" font-size="11" fill="#e3b341" text-anchor="middle" font-weight="600">Init Flow</text>
+          <text x="450" y="296" font-size="10" fill="#8b949e" text-anchor="middle">StateManager</text>
+
+          <!-- Persistence -->
+          <rect x="510" y="260" width="110" height="50" rx="6" fill="#21262d" stroke="#e3b341"/>
+          <text x="565" y="280" font-size="11" fill="#e3b341" text-anchor="middle" font-weight="600">Persistence</text>
+          <text x="565" y="296" font-size="10" fill="#8b949e" text-anchor="middle">FS + SQLite</text>
+
+          <!-- Knowledge -->
+          <rect x="635" y="260" width="100" height="50" rx="6" fill="#21262d" stroke="#e3b341"/>
+          <text x="685" y="280" font-size="11" fill="#e3b341" text-anchor="middle" font-weight="600">Knowledge</text>
+          <text x="685" y="296" font-size="10" fill="#8b949e" text-anchor="middle">Graph</text>
+
+          <!-- Mental Models -->
+          <rect x="750" y="260" width="130" height="50" rx="6" fill="#21262d" stroke="#e3b341"/>
+          <text x="815" y="280" font-size="11" fill="#e3b341" text-anchor="middle" font-weight="600">Mental Models</text>
+          <text x="815" y="296" font-size="10" fill="#8b949e" text-anchor="middle">15 frameworks</text>
+
+          <!-- Arrows from factory to all -->
+          <line x1="440" y1="230" x2="75" y2="260" stroke="#30363d" stroke-width="1" marker-end="url(#arrow-dim)"/>
+          <line x1="440" y1="230" x2="205" y2="260" stroke="#30363d" stroke-width="1" marker-end="url(#arrow-dim)"/>
+          <line x1="440" y1="230" x2="330" y2="260" stroke="#30363d" stroke-width="1" marker-end="url(#arrow-dim)"/>
+          <line x1="440" y1="230" x2="450" y2="260" stroke="#30363d" stroke-width="1" marker-end="url(#arrow-dim)"/>
+          <line x1="440" y1="230" x2="565" y2="260" stroke="#30363d" stroke-width="1" marker-end="url(#arrow-dim)"/>
+          <line x1="440" y1="230" x2="685" y2="260" stroke="#30363d" stroke-width="1" marker-end="url(#arrow-dim)"/>
+          <line x1="440" y1="230" x2="815" y2="260" stroke="#30363d" stroke-width="1" marker-end="url(#arrow-dim)"/>
+
+          <!-- Storage layer -->
+          <rect x="120" y="340" width="660" height="50" rx="8" fill="#0d1117" stroke="#30363d"/>
+          <text x="450" y="362" font-size="11" fill="#8b949e" text-anchor="middle">STORAGE — ~/.thoughtbox/ · sessions/{year-month}/{uuid}/ · thoughts/001.json · branches/ · hub/ · knowledge/</text>
+          <text x="450" y="378" font-size="10" fill="#484f58" text-anchor="middle">SQLite metadata · JSON thought files · Merkle chain content hashes</text>
+
+          <!-- Arrow from persistence to storage -->
+          <line x1="565" y1="310" x2="450" y2="340" stroke="#30363d" stroke-width="1" marker-end="url(#arrow-dim)"/>
+        </svg>
+      </div>
+
+      <!-- L1: Module inventory as table -->
+      <div class="flow-container">
+        <div class="flow-title">L1 — Module Inventory (src/ only)</div>
+        <table class="dep-table">
+          <thead>
+            <tr>
+              <th>Module</th>
+              <th>Role</th>
+              <th>Files</th>
+              <th>Status</th>
+              <th>Key exports</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>server-factory.ts</td>
+              <td>Central assembly</td>
+              <td>1</td>
+              <td><span class="sidebar-badge badge-gold">GOLD</span></td>
+              <td><span class="dep-chip">createServer</span> <span class="dep-chip">configSchema</span></td>
+            </tr>
+            <tr>
+              <td>gateway/</td>
+              <td>Single routing tool</td>
+              <td>4 + 5 tests</td>
+              <td><span class="sidebar-badge badge-gold">GOLD</span></td>
+              <td><span class="dep-chip">GatewayHandler</span> <span class="dep-chip">gatewayToolInputSchema</span></td>
+            </tr>
+            <tr>
+              <td>thought-handler.ts</td>
+              <td>Reasoning engine</td>
+              <td>1</td>
+              <td><span class="sidebar-badge badge-gold">GOLD</span></td>
+              <td><span class="dep-chip">ThoughtHandler</span> <span class="dep-chip">ThoughtData</span></td>
+            </tr>
+            <tr>
+              <td>tool-registry.ts</td>
+              <td>Stage state machine</td>
+              <td>1</td>
+              <td><span class="sidebar-badge badge-gold">GOLD</span></td>
+              <td><span class="dep-chip">ToolRegistry</span> <span class="dep-chip">DisclosureStage</span></td>
+            </tr>
+            <tr>
+              <td>hub/</td>
+              <td>Multi-agent protocol</td>
+              <td>20 + 36 tests</td>
+              <td><span class="sidebar-badge badge-gold">GOLD</span></td>
+              <td><span class="dep-chip">HubHandler</span> <span class="dep-chip">HubStorage</span> <span class="dep-chip">AgentIdentity</span></td>
+            </tr>
+            <tr>
+              <td>observatory/</td>
+              <td>WS monitoring + UI</td>
+              <td>14 + 2 tests</td>
+              <td><span class="sidebar-badge badge-gold">GOLD</span></td>
+              <td><span class="dep-chip">thoughtEmitter</span> <span class="dep-chip">createObservatoryServer</span></td>
+            </tr>
+            <tr>
+              <td>evaluation/</td>
+              <td>LangSmith integration</td>
+              <td>11</td>
+              <td><span class="sidebar-badge badge-gold">GOLD</span></td>
+              <td><span class="dep-chip">ExperimentRunner</span> <span class="dep-chip">OnlineMonitor</span></td>
+            </tr>
+            <tr>
+              <td>init/</td>
+              <td>Session bootstrap</td>
+              <td>10</td>
+              <td><span class="sidebar-badge badge-gold">GOLD</span></td>
+              <td><span class="dep-chip">createInitFlow</span> <span class="dep-chip">StateManager</span></td>
+            </tr>
+            <tr>
+              <td>persistence/</td>
+              <td>Storage abstraction</td>
+              <td>6</td>
+              <td><span class="sidebar-badge badge-gold">GOLD (P1)</span></td>
+              <td><span class="dep-chip">InMemoryStorage</span> <span class="dep-chip">FileSystemStorage</span> <span class="dep-chip">ThoughtboxStorage</span></td>
+            </tr>
+            <tr>
+              <td>knowledge/</td>
+              <td>Knowledge graph</td>
+              <td>5</td>
+              <td><span class="sidebar-badge badge-gold">GOLD</span></td>
+              <td><span class="dep-chip">KnowledgeHandler</span> <span class="dep-chip">FileSystemKnowledgeStorage</span></td>
+            </tr>
+            <tr>
+              <td>mental-models/</td>
+              <td>Reasoning frameworks</td>
+              <td>18</td>
+              <td><span class="sidebar-badge badge-gold">GOLD</span></td>
+              <td><span class="dep-chip">MentalModelsHandler</span> <span class="dep-chip">getMentalModelsResources</span></td>
+            </tr>
+            <tr>
+              <td>notebook/</td>
+              <td>Literate programming</td>
+              <td>7</td>
+              <td><span class="sidebar-badge badge-stable">STABLE</span></td>
+              <td><span class="dep-chip">NotebookHandler</span></td>
+            </tr>
+            <tr>
+              <td>resources/</td>
+              <td>Static content</td>
+              <td>10</td>
+              <td><span class="sidebar-badge badge-recoverable">RECOVERABLE</span></td>
+              <td><span class="dep-chip">LOOPS_CATALOG</span> <span class="dep-chip">THOUGHTBOX_CIPHER</span></td>
+            </tr>
+            <tr>
+              <td>multi-agent/</td>
+              <td>Cipher + attribution</td>
+              <td>6 + 10 tests</td>
+              <td><span class="sidebar-badge badge-needs-work">NEEDS WORK</span></td>
+              <td><span class="dep-chip">getExtendedCipher</span> <span class="dep-chip">ContentHasher</span></td>
+            </tr>
+            <tr>
+              <td>sessions/</td>
+              <td>Session lifecycle</td>
+              <td>3</td>
+              <td><span class="sidebar-badge badge-gold">GOLD</span></td>
+              <td><span class="dep-chip">SessionHandler</span></td>
+            </tr>
+            <tr>
+              <td>events/</td>
+              <td>Event bus</td>
+              <td>3</td>
+              <td><span class="sidebar-badge badge-gold">GOLD</span></td>
+              <td><span class="dep-chip">ThoughtboxEventEmitter</span></td>
+            </tr>
+            <tr>
+              <td>sampling/</td>
+              <td>Autonomous critique</td>
+              <td>2</td>
+              <td><span class="sidebar-badge badge-gold">GOLD</span></td>
+              <td><span class="dep-chip">SamplingHandler</span></td>
+            </tr>
+            <tr>
+              <td>observability/</td>
+              <td>Prometheus/OTel</td>
+              <td>6</td>
+              <td><span class="sidebar-badge badge-gold">GOLD</span></td>
+              <td><span class="dep-chip">ObservabilityGatewayHandler</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ============================================ TAB: DATA FLOW -->
+    <div id="tab-dataflow" class="panel">
+      <div class="section-heading">Data Flow</div>
+      <div class="section-desc">How data moves from a thought operation through the system to storage, monitoring, and external consumers.</div>
+
+      <!-- Primary thought flow -->
+      <div class="flow-container">
+        <div class="flow-title">Primary Flow: Thought → Storage → Observatory → Grafana</div>
+        <div class="dataflow">
+          <div class="flow-node entry-node">
+            <div class="flow-node-label">MCP Client</div>
+            <div class="flow-node-sub">thoughtbox_gateway<br>operation: "thought"</div>
+          </div>
+          <div class="flow-arrow"><div class="flow-arrow-label">routes to</div>→</div>
+          <div class="flow-node gold-node">
+            <div class="flow-node-label">GatewayHandler</div>
+            <div class="flow-node-sub">Stage check<br>Auth + dispatch</div>
+          </div>
+          <div class="flow-arrow"><div class="flow-arrow-label">delegates</div>→</div>
+          <div class="flow-node gold-node">
+            <div class="flow-node-label">ThoughtHandler</div>
+            <div class="flow-node-sub">Serial queue<br>Branch/revision logic</div>
+          </div>
+          <div class="flow-arrow"><div class="flow-arrow-label">saves to</div>→</div>
+          <div class="flow-node gold-node">
+            <div class="flow-node-label">ThoughtboxStorage</div>
+            <div class="flow-node-sub">JSON file + SQLite<br>Merkle chain hash</div>
+          </div>
+          <div class="flow-arrow"><div class="flow-arrow-label">emits</div>→</div>
+          <div class="flow-node gold-node">
+            <div class="flow-node-label">thoughtEmitter</div>
+            <div class="flow-node-sub">fire-and-forget<br>ThoughtAdded event</div>
+          </div>
+          <div class="flow-arrow"><div class="flow-arrow-label">WS push</div>→</div>
+          <div class="flow-node gold-node">
+            <div class="flow-node-label">Observatory</div>
+            <div class="flow-node-sub">WebSocket server<br>reasoning channel</div>
+          </div>
+          <div class="flow-arrow"><div class="flow-arrow-label">scrapes</div>→</div>
+          <div class="flow-node stable-node">
+            <div class="flow-node-label">Prometheus</div>
+            <div class="flow-node-sub">Metrics endpoint<br>→ Grafana</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Autonomous critique flow -->
+      <div class="flow-container">
+        <div class="flow-title">Phase 3: Autonomous Critique Flow (critique: true)</div>
+        <div class="dataflow">
+          <div class="flow-node gold-node">
+            <div class="flow-node-label">ThoughtHandler</div>
+            <div class="flow-node-sub">thought saved</div>
+          </div>
+          <div class="flow-arrow"><div class="flow-arrow-label">if critique=true</div>→</div>
+          <div class="flow-node gold-node">
+            <div class="flow-node-label">SamplingHandler</div>
+            <div class="flow-node-sub">MCP sampling API<br>createMessage</div>
+          </div>
+          <div class="flow-arrow"><div class="flow-arrow-label">returns</div>→</div>
+          <div class="flow-node gold-node">
+            <div class="flow-node-label">Model Critique</div>
+            <div class="flow-node-sub">text + model + ts</div>
+          </div>
+          <div class="flow-arrow"><div class="flow-arrow-label">updates</div>→</div>
+          <div class="flow-node gold-node">
+            <div class="flow-node-label">Storage</div>
+            <div class="flow-node-sub">updateThoughtCritique<br>on existing thought</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Hub multi-agent flow -->
+      <div class="flow-container">
+        <div class="flow-title">Multi-Agent Collaboration Flow</div>
+        <div class="dataflow">
+          <div class="flow-node entry-node">
+            <div class="flow-node-label">Agent A</div>
+            <div class="flow-node-sub">hub: register<br>quick_join</div>
+          </div>
+          <div class="flow-arrow">→</div>
+          <div class="flow-node gold-node">
+            <div class="flow-node-label">HubHandler</div>
+            <div class="flow-node-sub">AgentIdentity<br>+ Profile</div>
+          </div>
+          <div class="flow-arrow">→</div>
+          <div class="flow-node gold-node">
+            <div class="flow-node-label">Workspace</div>
+            <div class="flow-node-sub">create / join<br>coordinator role</div>
+          </div>
+          <div class="flow-arrow">→</div>
+          <div class="flow-node gold-node">
+            <div class="flow-node-label">Problem</div>
+            <div class="flow-node-sub">create/claim<br>sub-problems</div>
+          </div>
+          <div class="flow-arrow">→</div>
+          <div class="flow-node gold-node">
+            <div class="flow-node-label">Proposal + Review</div>
+            <div class="flow-node-sub">code review<br>protocol</div>
+          </div>
+          <div class="flow-arrow">→</div>
+          <div class="flow-node gold-node">
+            <div class="flow-node-label">Consensus</div>
+            <div class="flow-node-sub">markers + endorsements<br>→ merged</div>
+          </div>
+          <div class="flow-arrow">→</div>
+          <div class="flow-node gold-node">
+            <div class="flow-node-label">HubStorage</div>
+            <div class="flow-node-sub">FileSystem<br>persistence</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Init / Progressive Disclosure flow -->
+      <div class="flow-container">
+        <div class="flow-title">Session Bootstrap: Init Flow + Progressive Disclosure</div>
+        <div class="stage-flow">
+          <div class="stage-card">
+            <div class="stage-number">Stage 0 — Entry</div>
+            <div class="stage-name">Cold Start</div>
+            <div class="stage-tools">
+              <span class="stage-tool-pill new">thoughtbox_gateway</span>
+              <span class="stage-tool-pill" style="color:var(--text-dim)">op: get_state</span>
+              <span class="stage-tool-pill" style="color:var(--text-dim)">op: navigate</span>
+              <span class="stage-tool-pill" style="color:var(--text-dim)">op: start_new</span>
+            </div>
+            <div class="stage-trigger">All sessions start here</div>
+          </div>
+          <div class="stage-card">
+            <div class="stage-number">Stage 1 — Init Complete</div>
+            <div class="stage-name">Context Loaded</div>
+            <div class="stage-tools">
+              <span class="stage-tool-pill new">op: cipher</span>
+              <span class="stage-tool-pill new">op: session</span>
+              <span class="stage-tool-pill new">op: deep_analysis</span>
+              <span class="stage-tool-pill" style="color:var(--text-dim)">hub: register</span>
+            </div>
+            <div class="stage-trigger">Trigger: init → load_context</div>
+          </div>
+          <div class="stage-card">
+            <div class="stage-number">Stage 2 — Cipher Loaded</div>
+            <div class="stage-name">Full Reasoning</div>
+            <div class="stage-tools">
+              <span class="stage-tool-pill new">op: thought</span>
+              <span class="stage-tool-pill new">op: notebook</span>
+              <span class="stage-tool-pill new">op: mental_models</span>
+              <span class="stage-tool-pill new">op: knowledge</span>
+            </div>
+            <div class="stage-trigger">Trigger: cipher loaded</div>
+          </div>
+          <div class="stage-card">
+            <div class="stage-number">Stage 3 — Domain Active</div>
+            <div class="stage-name">Domain-Specific</div>
+            <div class="stage-tools">
+              <span class="stage-tool-pill new">Domain tools</span>
+              <span class="stage-tool-pill" style="color:var(--text-dim)">Filtered by</span>
+              <span class="stage-tool-pill" style="color:var(--text-dim)">activeDomain</span>
+            </div>
+            <div class="stage-trigger">Trigger: domain set</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Evaluation flow -->
+      <div class="flow-container">
+        <div class="flow-title">Evaluation Pipeline (LangSmith / Phase 1-3)</div>
+        <div class="dataflow">
+          <div class="flow-node gold-node">
+            <div class="flow-node-label">Sessions</div>
+            <div class="flow-node-sub">completed reasoning<br>sessions in storage</div>
+          </div>
+          <div class="flow-arrow">→</div>
+          <div class="flow-node gold-node">
+            <div class="flow-node-label">DatasetManager</div>
+            <div class="flow-node-sub">LangSmith<br>dataset creation</div>
+          </div>
+          <div class="flow-arrow">→</div>
+          <div class="flow-node gold-node">
+            <div class="flow-node-label">ExperimentRunner</div>
+            <div class="flow-node-sub">runs evaluators<br>against dataset</div>
+          </div>
+          <div class="flow-arrow">→</div>
+          <div class="flow-node gold-node">
+            <div class="flow-node-label">Evaluators</div>
+            <div class="flow-node-sub">coherence · memory<br>session · dgm-fitness</div>
+          </div>
+          <div class="flow-arrow">→</div>
+          <div class="flow-node gold-node">
+            <div class="flow-node-label">ScorecardAggregator</div>
+            <div class="flow-node-sub">iteration summaries<br>trend directions</div>
+          </div>
+          <div class="flow-arrow">→</div>
+          <div class="flow-node stable-node">
+            <div class="flow-node-label">LangSmith UI</div>
+            <div class="flow-node-sub">traces + scores<br>dashboard</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================ TAB: PATTERNS -->
+    <div id="tab-patterns" class="panel">
+      <div class="section-heading">Architectural Patterns</div>
+      <div class="section-desc">Key recurring design patterns found across the codebase. These patterns are consistently applied and define the system's architectural DNA.</div>
+
+      <div class="pattern-card">
+        <div class="pattern-title">Pattern 1: Gateway Routing (Single Tool, Internal Dispatch)</div>
+        <div class="pattern-desc">
+          Instead of exposing many MCP tools (which causes client tool-list refresh churn), the server exposes exactly ONE always-enabled tool (<code>thoughtbox_gateway</code>) and routes all operations internally. New operations are added to the schema enum — no tool count changes.
+        </div>
+        <div class="pattern-code"><span class="cm">// gateway-handler.ts — the core routing pattern</span>
+<span class="kw">export const</span> gatewayToolInputSchema = z.object({
+  operation: z.enum([
+    <span class="str">'get_state'</span>, <span class="str">'navigate'</span>, <span class="str">'start_new'</span>, <span class="str">'cipher'</span>, <span class="str">'thought'</span>,
+    <span class="str">'notebook'</span>, <span class="str">'session'</span>, <span class="str">'mental_models'</span>, <span class="str">'knowledge'</span>,
+    <span class="str">'hub'</span>, <span class="str">'read_thoughts'</span>, <span class="str">'get_structure'</span>, <span class="str">'deep_analysis'</span>,
+    <span class="cm">// ... 20+ more operations, all routed through ONE tool</span>
+  ]),
+  args: z.record(z.any()).optional(),
+});
+
+<span class="cm">// server-factory.ts — single tool registration</span>
+server.tool(<span class="str">'thoughtbox_gateway'</span>, GATEWAY_DESCRIPTION, gatewayToolInputSchema,
+  <span class="kw">async</span> (input) =&gt; gatewayHandler.handle(input)
+);</div>
+      </div>
+
+      <div class="pattern-card">
+        <div class="pattern-title">Pattern 2: Progressive Disclosure State Machine</div>
+        <div class="pattern-desc">
+          The <code>ToolRegistry</code> implements a one-way state machine with 4 stages. Tools register with an <code>enabledAtStage</code> declaration and are automatically enabled/disabled as the session advances. Stage 3 adds domain filtering — only tools matching the <code>activeDomain</code> are enabled.
+        </div>
+        <div class="pattern-code"><span class="kw">export enum</span> <span class="type">DisclosureStage</span> {
+  STAGE_0_ENTRY       = <span class="str">"entry"</span>,           <span class="cm">// only: init operations</span>
+  STAGE_1_INIT_COMPLETE = <span class="str">"init_complete"</span>,  <span class="cm">// adds: cipher, session</span>
+  STAGE_2_CIPHER_LOADED = <span class="str">"cipher_loaded"</span>,  <span class="cm">// adds: thought, notebook, mm</span>
+  STAGE_3_DOMAIN_ACTIVE = <span class="str">"domain_active"</span>,  <span class="cm">// adds: domain-filtered tools</span>
+}
+
+<span class="cm">// Tools self-declare their activation stage:</span>
+registry.register(<span class="str">'thoughtbox'</span>, tool, <span class="type">DisclosureStage</span>.STAGE_2_CIPHER_LOADED, {
+  [<span class="type">DisclosureStage</span>.STAGE_2_CIPHER_LOADED]: <span class="str">"Full reasoning with branching..."</span>
+});
+
+<span class="cm">// Stage advancement is one-way (no regressions):</span>
+<span class="kw">if</span> (targetIdx &lt; currentIdx) {
+  console.warn(<span class="str">"Ignoring backward stage transition"</span>); <span class="kw">return</span>;
+}</div>
+      </div>
+
+      <div class="pattern-card">
+        <div class="pattern-title">Pattern 3: Storage Abstraction + Doubly-Linked Thought Graph</div>
+        <div class="pattern-desc">
+          The <code>ThoughtboxStorage</code> interface decouples all persistence from implementation. Thoughts are stored as a doubly-linked tree (not just an array) to support branching, revision chains, and sub-problem hierarchies. Each node has <code>prev</code>, <code>next[]</code>, <code>revisesNode</code>, and <code>branchOrigin</code> pointers. Content hashing uses a Merkle chain for integrity.
+        </div>
+        <div class="pattern-code"><span class="kw">interface</span> <span class="type">ThoughtNode</span> {
+  id: <span class="type">ThoughtNodeId</span>;     <span class="cm">// "{sessionId}:{thoughtNumber}"</span>
+  data: <span class="type">ThoughtData</span>;
+  prev: <span class="type">ThoughtNodeId</span> | <span class="kw">null</span>;
+  next: <span class="type">ThoughtNodeId</span>[];  <span class="cm">// array enables branching (tree not list)</span>
+  revisesNode: <span class="type">ThoughtNodeId</span> | <span class="kw">null</span>;
+  branchOrigin: <span class="type">ThoughtNodeId</span> | <span class="kw">null</span>;
+  branchId: <span class="kw">string</span> | <span class="kw">null</span>;
+  <span class="cm">// Merkle chain:</span>
+  contentHash?: <span class="kw">string</span>; <span class="cm">// SHA-256(content+thoughtNumber+parentHash+agentId+ts)</span>
+  parentHash?: <span class="kw">string</span>;
+}</div>
+      </div>
+
+      <div class="pattern-card">
+        <div class="pattern-title">Pattern 4: Fire-and-Forget Event Emission (Observatory)</div>
+        <div class="pattern-desc">
+          The <code>thoughtEmitter</code> singleton uses a fire-and-forget pattern — events are emitted synchronously but listener failures are completely isolated. Reasoning performance is never degraded by monitoring. The emitter checks <code>hasListeners()</code> before constructing payloads.
+        </div>
+        <div class="pattern-code"><span class="cm">// In ThoughtHandler.processThought():</span>
+<span class="kw">if</span> (thoughtEmitter.hasListeners()) {
+  thoughtEmitter.emitThoughtAdded({
+    sessionId: <span class="kw">this</span>.currentSessionId,
+    thought: observatoryThought,
+    parentId: previousThought?.id ?? <span class="kw">null</span>,
+  });
+  <span class="cm">// No await — never blocks the reasoning path</span>
+}
+
+<span class="cm">// Observatory WebSocket server routes by channel:</span>
+<span class="cm">// ws://localhost:1731/reasoning   → thought stream</span>
+<span class="cm">// ws://localhost:1731/observatory → meta/improvement events</span>
+<span class="cm">// ws://localhost:1731/workspace   → hub collaboration events</span></div>
+      </div>
+
+      <div class="pattern-card">
+        <div class="pattern-title">Pattern 5: Operations Catalog Pattern</div>
+        <div class="pattern-desc">
+          Each domain module (gateway, init, sessions, knowledge, hub) exports a <code>getOperationsCatalog()</code> and <code>getOperation(name)</code> pair. This allows the gateway handler to dynamically look up operation handlers without compile-time coupling to every operation implementation.
+        </div>
+        <div class="pattern-code"><span class="cm">// server-factory.ts imports all catalogs:</span>
+<span class="kw">import</span> { getOperationsCatalog <span class="kw">as</span> getGatewayOps, getOperation <span class="kw">as</span> getGwOp }
+  <span class="kw">from</span> <span class="str">"./gateway/operations.js"</span>;
+<span class="kw">import</span> { getOperationsCatalog <span class="kw">as</span> getInitOps, getOperation <span class="kw">as</span> getInitOp }
+  <span class="kw">from</span> <span class="str">"./init/operations.js"</span>;
+<span class="kw">import</span> { getOperation <span class="kw">as</span> getHubOp } <span class="kw">from</span> <span class="str">"./hub/operations.js"</span>;
+<span class="cm">// ... 6 domain catalogs total</span>
+
+<span class="cm">// GatewayHandler routes at runtime:</span>
+<span class="kw">const</span> op = getGwOp(input.operation) ?? getInitOp(input.operation) ?? ...;
+<span class="kw">return</span> op.handle(input.args, context);</div>
+      </div>
+
+      <div class="pattern-card">
+        <div class="pattern-title">Pattern 6: Hub Progressive Disclosure (3 stages within Hub)</div>
+        <div class="pattern-desc">
+          Hub has its own 3-stage disclosure separate from the global ToolRegistry stages. Stage 0 allows only identity and workspace discovery. Stage 1 adds workspace creation and profile access. Stage 2 unlocks full problem/proposal/consensus/channel operations. This layering prevents information overload for new agents.
+        </div>
+        <div class="pattern-code"><span class="cm">// hub-types.ts — Hub's internal 3-stage system:</span>
+<span class="kw">export const</span> STAGE_OPERATIONS: <span class="type">Record</span>&lt;<span class="type">DisclosureStage</span>, <span class="type">HubOperation</span>[]&gt; = {
+  <span class="kw">0</span>: [<span class="str">'register'</span>, <span class="str">'list_workspaces'</span>, <span class="str">'quick_join'</span>],
+  <span class="kw">1</span>: [<span class="str">'whoami'</span>, <span class="str">'create_workspace'</span>, <span class="str">'join_workspace'</span>, <span class="str">'get_profile_prompt'</span>],
+  <span class="kw">2</span>: [
+    <span class="str">'create_problem'</span>, <span class="str">'claim_problem'</span>, <span class="str">'list_problems'</span>,
+    <span class="str">'create_proposal'</span>, <span class="str">'review_proposal'</span>, <span class="str">'merge_proposal'</span>,
+    <span class="str">'mark_consensus'</span>, <span class="str">'post_message'</span>, <span class="str">'workspace_digest'</span>,
+    <span class="cm">// ... 15+ more operations</span>
+  ],
+};</div>
+      </div>
+    </div>
+
+    <!-- ============================================ TAB: HUB DOMAIN -->
+    <div id="tab-hub" class="panel">
+      <div class="section-heading">Hub Domain Model</div>
+      <div class="section-desc">
+        The Hub is the richest domain in the codebase — a full multi-agent coordination protocol. 36 test files cover agent identity, workspace coordination, problem decomposition, proposal review, consensus, and real-time channels. Data model defined in <code>src/hub/hub-types.ts</code>.
+      </div>
+
+      <div class="stats-row">
+        <div class="stat-card">
+          <div class="stat-value" style="color:var(--gold)">36</div>
+          <div class="stat-label">test files</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" style="color:var(--gold)">20</div>
+          <div class="stat-label">source files</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" style="color:var(--accent2)">724</div>
+          <div class="stat-label">operations.ts lines</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" style="color:var(--accent2)">328</div>
+          <div class="stat-label">hub-handler.ts lines</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" style="color:var(--accent2)">3</div>
+          <div class="stat-label">Hub stages</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" style="color:var(--accent2)">25+</div>
+          <div class="stat-label">operations</div>
+        </div>
+      </div>
+
+      <div class="section-heading" style="font-size:15px;margin-bottom:12px;">Entity Model</div>
+      <div class="hub-model-grid">
+        <div class="hub-entity">
+          <div class="hub-entity-name">AgentIdentity</div>
+          <div class="hub-entity-fields">
+            <span class="hub-entity-field"><span class="field-type">string </span><span class="field-name">agentId</span></span>
+            <span class="hub-entity-field"><span class="field-type">string </span><span class="field-name">name</span></span>
+            <span class="hub-entity-field"><span class="field-type">'coordinator'|'contributor' </span><span class="field-name">role</span></span>
+            <span class="hub-entity-field"><span class="field-type">string? </span><span class="field-name">profile</span> <span style="color:var(--text-dim);font-size:10px">// MANAGER, DEBUGGER…</span></span>
+            <span class="hub-entity-field"><span class="field-type">string </span><span class="field-name">registeredAt</span></span>
+          </div>
+        </div>
+        <div class="hub-entity">
+          <div class="hub-entity-name">Workspace</div>
+          <div class="hub-entity-fields">
+            <span class="hub-entity-field"><span class="field-type">string </span><span class="field-name">id, name, description</span></span>
+            <span class="hub-entity-field"><span class="field-type">string </span><span class="field-name">createdBy</span> <span style="color:var(--text-dim);font-size:10px">// agentId</span></span>
+            <span class="hub-entity-field"><span class="field-type">string </span><span class="field-name">mainSessionId</span></span>
+            <span class="hub-entity-field"><span class="field-type">WorkspaceAgent[] </span><span class="field-name">agents</span></span>
+          </div>
+        </div>
+        <div class="hub-entity">
+          <div class="hub-entity-name">Problem</div>
+          <div class="hub-entity-fields">
+            <span class="hub-entity-field"><span class="field-type">string </span><span class="field-name">id, workspaceId, title</span></span>
+            <span class="hub-entity-field"><span class="field-type">ProblemStatus </span><span class="field-name">status</span></span>
+            <span class="hub-entity-field"><span class="field-type">string? </span><span class="field-name">assignedTo, parentId</span></span>
+            <span class="hub-entity-field"><span class="field-type">string[] </span><span class="field-name">dependsOn</span> <span style="color:var(--text-dim);font-size:10px">// DAG</span></span>
+            <span class="hub-entity-field"><span class="field-type">Comment[] </span><span class="field-name">comments</span></span>
+          </div>
+        </div>
+        <div class="hub-entity">
+          <div class="hub-entity-name">Proposal</div>
+          <div class="hub-entity-fields">
+            <span class="hub-entity-field"><span class="field-type">string </span><span class="field-name">id, workspaceId, title</span></span>
+            <span class="hub-entity-field"><span class="field-type">ProposalStatus </span><span class="field-name">status</span></span>
+            <span class="hub-entity-field"><span class="field-type">string </span><span class="field-name">sourceBranch</span></span>
+            <span class="hub-entity-field"><span class="field-type">Review[] </span><span class="field-name">reviews</span></span>
+            <span class="hub-entity-field"><span class="field-type">number? </span><span class="field-name">mergeThoughtNumber</span></span>
+          </div>
+        </div>
+        <div class="hub-entity">
+          <div class="hub-entity-name">ConsensusMarker</div>
+          <div class="hub-entity-fields">
+            <span class="hub-entity-field"><span class="field-type">string </span><span class="field-name">id, name, description</span></span>
+            <span class="hub-entity-field"><span class="field-type">number </span><span class="field-name">thoughtRef</span></span>
+            <span class="hub-entity-field"><span class="field-type">string? </span><span class="field-name">branchId</span></span>
+            <span class="hub-entity-field"><span class="field-type">string[] </span><span class="field-name">agreedBy</span> <span style="color:var(--text-dim);font-size:10px">// agentIds</span></span>
+          </div>
+        </div>
+        <div class="hub-entity">
+          <div class="hub-entity-name">Channel + Message</div>
+          <div class="hub-entity-fields">
+            <span class="hub-entity-field"><span class="field-type">string </span><span class="field-name">id, workspaceId, problemId</span></span>
+            <span class="hub-entity-field"><span class="field-type">ChannelMessage[] </span><span class="field-name">messages</span></span>
+            <span class="hub-entity-field"><span class="field-type">ref?: </span><span class="field-name">{ sessionId, thoughtNumber, branchId }</span></span>
+          </div>
+        </div>
+      </div>
+
+      <hr class="section-divider">
+
+      <div class="section-heading" style="font-size:15px;margin-bottom:12px;">Hub Operation Catalog (25+ operations)</div>
+      <table class="dep-table">
+        <thead>
+          <tr><th>Stage</th><th>Operation</th><th>Description</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>S0</td><td>register</td><td>Register agent identity with role and optional profile</td></tr>
+          <tr><td>S0</td><td>list_workspaces</td><td>Discover existing workspaces before joining</td></tr>
+          <tr><td>S0</td><td>quick_join</td><td>Bootstrap shortcut: register + create/join in one call</td></tr>
+          <tr><td>S1</td><td>whoami</td><td>Get registered agent identity for current session</td></tr>
+          <tr><td>S1</td><td>create_workspace</td><td>Create a workspace as coordinator</td></tr>
+          <tr><td>S1</td><td>join_workspace</td><td>Join an existing workspace as contributor</td></tr>
+          <tr><td>S1</td><td>get_profile_prompt</td><td>Fetch profile-specific behavior instructions</td></tr>
+          <tr><td>S2</td><td>create_problem</td><td>Define a problem in the workspace problem board</td></tr>
+          <tr><td>S2</td><td>claim_problem</td><td>Claim ownership of a problem (set status in-progress)</td></tr>
+          <tr><td>S2</td><td>create_sub_problem</td><td>Decompose a problem into child problems</td></tr>
+          <tr><td>S2</td><td>add_dependency</td><td>Add DAG edge between problems (blocks ordering)</td></tr>
+          <tr><td>S2</td><td>ready_problems</td><td>List problems with no unresolved dependencies</td></tr>
+          <tr><td>S2</td><td>blocked_problems</td><td>List problems blocked by dependencies</td></tr>
+          <tr><td>S2</td><td>create_proposal</td><td>Submit work for review against a problem</td></tr>
+          <tr><td>S2</td><td>review_proposal</td><td>Approve / request-changes / comment</td></tr>
+          <tr><td>S2</td><td>merge_proposal</td><td>Merge an approved proposal</td></tr>
+          <tr><td>S2</td><td>mark_consensus</td><td>Record an agreed-upon consensus at a thought ref</td></tr>
+          <tr><td>S2</td><td>endorse_consensus</td><td>Add agent endorsement to existing consensus marker</td></tr>
+          <tr><td>S2</td><td>post_message</td><td>Post to a problem's channel with optional thought ref</td></tr>
+          <tr><td>S2</td><td>read_channel</td><td>Read all messages in a problem channel</td></tr>
+          <tr><td>S2</td><td>workspace_digest</td><td>Full workspace state snapshot for orientation</td></tr>
+          <tr><td>S2</td><td>workspace_status</td><td>Agent activity summary for the workspace</td></tr>
+        </tbody>
+      </table>
+
+      <hr class="section-divider">
+
+      <div class="section-heading" style="font-size:15px;margin-bottom:12px;">Hub File Map</div>
+      <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:24px;">
+        <div class="detail-file"><span>hub-types.ts</span><span class="detail-file-lines">276 lines — all domain types</span></div>
+        <div class="detail-file"><span>operations.ts</span><span class="detail-file-lines">724 lines — all op implementations</span></div>
+        <div class="detail-file"><span>hub-handler.ts</span><span class="detail-file-lines">328 lines — MCP tool wiring</span></div>
+        <div class="detail-file"><span>hub-storage-fs.ts</span><span class="detail-file-lines">FileSystem persistence</span></div>
+        <div class="detail-file"><span>agent-identity.ts</span><span class="detail-file-lines">identity management</span></div>
+        <div class="detail-file"><span>channels.ts</span><span class="detail-file-lines">real-time messaging</span></div>
+        <div class="detail-file"><span>consensus.ts</span><span class="detail-file-lines">consensus protocol</span></div>
+        <div class="detail-file"><span>problems.ts</span><span class="detail-file-lines">10k chars — DAG + sub-problems</span></div>
+        <div class="detail-file"><span>proposals.ts</span><span class="detail-file-lines">review lifecycle</span></div>
+        <div class="detail-file"><span>profiles-registry.ts</span><span class="detail-file-lines">MANAGER/DEBUGGER profiles</span></div>
+        <div class="detail-file"><span>workspace.ts</span><span class="detail-file-lines">workspace coordination</span></div>
+        <div class="detail-file"><span>thought-store-adapter.ts</span><span class="detail-file-lines">bridges ThoughtHandler ↔ Hub</span></div>
+        <div class="detail-file"><span>proxy.ts</span><span class="detail-file-lines">capability proxy detection</span></div>
+        <div class="detail-file"><span>hub-task-store.ts</span><span class="detail-file-lines">FileSystem task persistence</span></div>
+        <div class="detail-file"><span>hub-tool-handler.ts</span><span class="detail-file-lines">tool dispatch layer</span></div>
+        <div class="detail-file"><span>identity.ts</span><span class="detail-file-lines">per-session identity</span></div>
+      </div>
+    </div>
+
+    <!-- ============================================ TAB: DEPENDENCIES -->
+    <div id="tab-deps" class="panel">
+      <div class="section-heading">Module Dependencies</div>
+      <div class="section-desc">Import relationships verified against <code>src/server-factory.ts</code> and module index files. The dependency graph flows from server-factory.ts outward to all domain modules. No circular dependencies at the module level.</div>
+
+      <!-- Dependency graph SVG -->
+      <div class="svg-wrapper" style="margin-bottom:24px;">
+        <svg viewBox="0 0 860 500" style="width:100%;height:500px;display:block;">
+          <defs>
+            <marker id="arr2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="#30363d"/>
+            </marker>
+            <marker id="arr-gold" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="#e3b341" opacity="0.6"/>
+            </marker>
+            <marker id="arr-blue" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="#58a6ff" opacity="0.6"/>
+            </marker>
+          </defs>
+
+          <!-- server-factory (center-top) -->
+          <rect x="300" y="20" width="260" height="44" rx="7" fill="#1a1f26" stroke="#e3b341" stroke-width="2"/>
+          <text x="430" y="38" font-size="12" fill="#e3b341" text-anchor="middle" font-weight="700">server-factory.ts</text>
+          <text x="430" y="54" font-size="10" fill="#8b949e" text-anchor="middle">2,067 lines · central assembly</text>
+
+          <!-- GatewayHandler -->
+          <rect x="20" y="110" width="150" height="40" rx="6" fill="#161b22" stroke="#58a6ff" stroke-width="1.5"/>
+          <text x="95" y="127" font-size="11" fill="#79c0ff" text-anchor="middle" font-weight="600">GatewayHandler</text>
+          <text x="95" y="142" font-size="10" fill="#8b949e" text-anchor="middle">+ ToolRegistry</text>
+
+          <!-- ThoughtHandler -->
+          <rect x="190" y="110" width="140" height="40" rx="6" fill="#161b22" stroke="#e3b341" stroke-width="1.5"/>
+          <text x="260" y="127" font-size="11" fill="#e3b341" text-anchor="middle" font-weight="600">ThoughtHandler</text>
+          <text x="260" y="142" font-size="10" fill="#8b949e" text-anchor="middle">891 lines</text>
+
+          <!-- HubToolHandler -->
+          <rect x="350" y="110" width="140" height="40" rx="6" fill="#161b22" stroke="#e3b341" stroke-width="1.5"/>
+          <text x="420" y="127" font-size="11" fill="#e3b341" text-anchor="middle" font-weight="600">HubToolHandler</text>
+          <text x="420" y="142" font-size="10" fill="#8b949e" text-anchor="middle">→ HubStorage</text>
+
+          <!-- Observatory -->
+          <rect x="510" y="110" width="140" height="40" rx="6" fill="#161b22" stroke="#e3b341" stroke-width="1.5"/>
+          <text x="580" y="127" font-size="11" fill="#e3b341" text-anchor="middle" font-weight="600">Observatory</text>
+          <text x="580" y="142" font-size="10" fill="#8b949e" text-anchor="middle">thoughtEmitter</text>
+
+          <!-- Evaluation -->
+          <rect x="670" y="110" width="130" height="40" rx="6" fill="#161b22" stroke="#e3b341" stroke-width="1.5"/>
+          <text x="735" y="127" font-size="11" fill="#e3b341" text-anchor="middle" font-weight="600">Evaluation</text>
+          <text x="735" y="142" font-size="10" fill="#8b949e" text-anchor="middle">LangSmith</text>
+
+          <!-- Arrows from factory -->
+          <line x1="370" y1="64" x2="150" y2="110" stroke="#30363d" stroke-width="1.2" marker-end="url(#arr2)"/>
+          <line x1="400" y1="64" x2="280" y2="110" stroke="#30363d" stroke-width="1.2" marker-end="url(#arr2)"/>
+          <line x1="430" y1="64" x2="420" y2="110" stroke="#30363d" stroke-width="1.2" marker-end="url(#arr2)"/>
+          <line x1="470" y1="64" x2="565" y2="110" stroke="#30363d" stroke-width="1.2" marker-end="url(#arr2)"/>
+          <line x1="510" y1="64" x2="720" y2="110" stroke="#30363d" stroke-width="1.2" marker-end="url(#arr2)"/>
+
+          <!-- Persistence (shared) -->
+          <rect x="190" y="210" width="140" height="40" rx="6" fill="#161b22" stroke="#e3b341" stroke-width="1.5"/>
+          <text x="260" y="227" font-size="11" fill="#e3b341" text-anchor="middle" font-weight="600">Persistence</text>
+          <text x="260" y="242" font-size="10" fill="#8b949e" text-anchor="middle">InMemory + FS</text>
+
+          <!-- Init -->
+          <rect x="20" y="210" width="150" height="40" rx="6" fill="#161b22" stroke="#e3b341" stroke-width="1.5"/>
+          <text x="95" y="227" font-size="11" fill="#e3b341" text-anchor="middle" font-weight="600">Init / StateManager</text>
+          <text x="95" y="242" font-size="10" fill="#8b949e" text-anchor="middle">→ DiscoveryRegistry</text>
+
+          <!-- Knowledge -->
+          <rect x="350" y="210" width="140" height="40" rx="6" fill="#161b22" stroke="#e3b341" stroke-width="1.5"/>
+          <text x="420" y="227" font-size="11" fill="#e3b341" text-anchor="middle" font-weight="600">Knowledge</text>
+          <text x="420" y="242" font-size="10" fill="#8b949e" text-anchor="middle">Entity/Relation graph</text>
+
+          <!-- MentalModels -->
+          <rect x="510" y="210" width="140" height="40" rx="6" fill="#161b22" stroke="#e3b341" stroke-width="1.5"/>
+          <text x="580" y="227" font-size="11" fill="#e3b341" text-anchor="middle" font-weight="600">Mental Models</text>
+          <text x="580" y="242" font-size="10" fill="#8b949e" text-anchor="middle">15 frameworks</text>
+
+          <!-- Notebook -->
+          <rect x="670" y="210" width="130" height="40" rx="6" fill="#161b22" stroke="#3fb950" stroke-width="1.5"/>
+          <text x="735" y="227" font-size="11" fill="#3fb950" text-anchor="middle" font-weight="600">Notebook</text>
+          <text x="735" y="242" font-size="10" fill="#8b949e" text-anchor="middle">Execution + state</text>
+
+          <!-- Arrows from first row -->
+          <line x1="95" y1="150" x2="95" y2="210" stroke="#30363d" stroke-width="1" marker-end="url(#arr2)"/>
+          <line x1="260" y1="150" x2="260" y2="210" stroke="#30363d" stroke-width="1" marker-end="url(#arr2)"/>
+          <line x1="420" y1="150" x2="420" y2="210" stroke="#30363d" stroke-width="1" marker-end="url(#arr2)"/>
+          <line x1="580" y1="150" x2="580" y2="210" stroke="#30363d" stroke-width="1" marker-end="url(#arr2)"/>
+          <line x1="735" y1="150" x2="735" y2="210" stroke="#30363d" stroke-width="1" marker-end="url(#arr2)"/>
+
+          <!-- Storage row -->
+          <rect x="100" y="310" width="140" height="40" rx="6" fill="#161b22" stroke="#30363d"/>
+          <text x="170" y="327" font-size="11" fill="#c9d1d9" text-anchor="middle" font-weight="600">Sessions</text>
+          <text x="170" y="342" font-size="10" fill="#8b949e" text-anchor="middle">handlers + ops</text>
+
+          <rect x="260" y="310" width="140" height="40" rx="6" fill="#161b22" stroke="#30363d"/>
+          <text x="330" y="327" font-size="11" fill="#c9d1d9" text-anchor="middle" font-weight="600">Sampling</text>
+          <text x="330" y="342" font-size="10" fill="#8b949e" text-anchor="middle">autonomous critique</text>
+
+          <rect x="420" y="310" width="140" height="40" rx="6" fill="#161b22" stroke="#30363d"/>
+          <text x="490" y="327" font-size="11" fill="#c9d1d9" text-anchor="middle" font-weight="600">Events</text>
+          <text x="490" y="342" font-size="10" fill="#8b949e" text-anchor="middle">ThoughtboxEventEmitter</text>
+
+          <rect x="580" y="310" width="140" height="40" rx="6" fill="#161b22" stroke="#30363d"/>
+          <text x="650" y="327" font-size="11" fill="#c9d1d9" text-anchor="middle" font-weight="600">Prompts</text>
+          <text x="650" y="342" font-size="10" fill="#8b949e" text-anchor="middle">spec suite + interleaved</text>
+
+          <rect x="730" y="310" width="100" height="40" rx="6" fill="#161b22" stroke="#30363d"/>
+          <text x="780" y="327" font-size="11" fill="#c9d1d9" text-anchor="middle" font-weight="600">Resources</text>
+          <text x="780" y="342" font-size="10" fill="#8b949e" text-anchor="middle">static content</text>
+
+          <!-- From ThoughtHandler to Sessions + Sampling + Events -->
+          <line x1="240" y1="250" x2="170" y2="310" stroke="#30363d" stroke-width="1" marker-end="url(#arr2)"/>
+          <line x1="270" y1="250" x2="330" y2="310" stroke="#30363d" stroke-width="1" marker-end="url(#arr2)"/>
+          <line x1="280" y1="250" x2="490" y2="310" stroke="#30363d" stroke-width="1" marker-end="url(#arr2)"/>
+
+          <!-- Filesystem storage at bottom -->
+          <rect x="60" y="400" width="680" height="50" rx="8" fill="#0d1117" stroke="#30363d"/>
+          <text x="400" y="420" font-size="11" fill="#484f58" text-anchor="middle">FILESYSTEM: ~/.thoughtbox/ · sessions/{year-month}/{uuid}/ · manifest.json · thoughts/001.json · hub/ · knowledge/</text>
+          <text x="400" y="438" font-size="10" fill="#30363d" text-anchor="middle">SQLite (sessions.db) · JSON thought files · Merkle chain (SHA-256)</text>
+
+          <!-- Multi-agent badge -->
+          <rect x="20" y="310" width="60" height="40" rx="6" fill="#161b22" stroke="#d29922" stroke-width="1.2"/>
+          <text x="50" y="327" font-size="10" fill="#d29922" text-anchor="middle" font-weight="600">Multi</text>
+          <text x="50" y="341" font-size="10" fill="#d29922" text-anchor="middle">Agent</text>
+
+          <line x1="260" y1="250" x2="50" y2="310" stroke="#d29922" stroke-width="0.8" stroke-dasharray="3,3" marker-end="url(#arr2)"/>
+
+          <!-- Arrow from factory to second row -->
+          <line x1="360" y1="64" x2="95" y2="210" stroke="#30363d" stroke-width="0.8" stroke-dasharray="2,4" marker-end="url(#arr2)"/>
+        </svg>
+      </div>
+
+      <div class="flow-container">
+        <div class="flow-title">Import Matrix — server-factory.ts dependencies</div>
+        <table class="dep-table">
+          <thead>
+            <tr><th>Module</th><th>Imports from</th><th>Notes</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>server-factory.ts</td>
+              <td><div class="dep-chips">
+                <span class="dep-chip">gateway/</span>
+                <span class="dep-chip">hub/</span>
+                <span class="dep-chip">observatory/</span>
+                <span class="dep-chip">init/</span>
+                <span class="dep-chip">persistence/</span>
+                <span class="dep-chip">knowledge/</span>
+                <span class="dep-chip">mental-models/</span>
+                <span class="dep-chip">notebook/</span>
+                <span class="dep-chip">thought-handler.ts</span>
+                <span class="dep-chip">tool-registry.ts</span>
+                <span class="dep-chip">sampling/</span>
+                <span class="dep-chip">sessions/</span>
+                <span class="dep-chip">events/</span>
+                <span class="dep-chip">resources/</span>
+                <span class="dep-chip">prompts/</span>
+                <span class="dep-chip">multi-agent/</span>
+                <span class="dep-chip">observability/</span>
+                <span class="dep-chip">claude-folder-integration.ts</span>
+                <span class="dep-chip">discovery-registry.ts</span>
+              </div></td>
+              <td>Fan-out from single file to all domains</td>
+            </tr>
+            <tr>
+              <td>gateway/gateway-handler.ts</td>
+              <td><div class="dep-chips">
+                <span class="dep-chip">tool-registry.ts</span>
+                <span class="dep-chip">init/</span>
+                <span class="dep-chip">thought-handler.ts</span>
+                <span class="dep-chip">notebook/</span>
+                <span class="dep-chip">sessions/</span>
+                <span class="dep-chip">mental-models/</span>
+                <span class="dep-chip">persistence/</span>
+                <span class="dep-chip">resources/</span>
+                <span class="dep-chip">multi-agent/</span>
+                <span class="dep-chip">hub/profile-primer.ts</span>
+                <span class="dep-chip">gateway/operations.ts</span>
+                <span class="dep-chip">init/operations.ts</span>
+              </div></td>
+              <td>Routing layer — knows about all sub-handlers</td>
+            </tr>
+            <tr>
+              <td>thought-handler.ts</td>
+              <td><div class="dep-chips">
+                <span class="dep-chip">persistence/</span>
+                <span class="dep-chip">observatory/emitter</span>
+                <span class="dep-chip">sampling/</span>
+                <span class="dep-chip">events/</span>
+                <span class="dep-chip">resources/patterns-cookbook</span>
+              </div></td>
+              <td>Core engine — depends on storage + monitoring</td>
+            </tr>
+            <tr>
+              <td>hub/</td>
+              <td><div class="dep-chips">
+                <span class="dep-chip">hub-types.ts</span>
+                <span class="dep-chip">hub-storage-fs.ts</span>
+                <span class="dep-chip">persistence/</span>
+                <span class="dep-chip">observatory/channels/workspace</span>
+              </div></td>
+              <td>Self-contained domain — minimal external imports</td>
+            </tr>
+            <tr>
+              <td>observatory/</td>
+              <td><div class="dep-chips">
+                <span class="dep-chip">observatory/schemas/</span>
+                <span class="dep-chip">observatory/channels/</span>
+                <span class="dep-chip">persistence/ (via storage-adapter)</span>
+              </div></td>
+              <td>Largely self-contained; reads from persistence</td>
+            </tr>
+            <tr>
+              <td>init/</td>
+              <td><div class="dep-chips">
+                <span class="dep-chip">init/sources/</span>
+                <span class="dep-chip">init/renderers/</span>
+                <span class="dep-chip">discovery-registry.ts</span>
+              </div></td>
+              <td>Self-contained — only needs sources + discovery</td>
+            </tr>
+            <tr>
+              <td>persistence/</td>
+              <td><div class="dep-chips">
+                <span class="dep-chip">better-sqlite3</span>
+                <span class="dep-chip">node:fs</span>
+                <span class="dep-chip">node:path</span>
+                <span class="dep-chip">node:crypto</span>
+              </div></td>
+              <td>Leaf module — no internal imports (P1: export.ts ESM bug)</td>
+            </tr>
+            <tr>
+              <td>mental-models/</td>
+              <td><div class="dep-chips">
+                <span class="dep-chip">mental-models/contents/</span>
+                <span class="dep-chip">mental-models/types.ts</span>
+              </div></td>
+              <td>Leaf module — pure content, no external deps</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ============================================ TAB: EVOLUTION -->
+    <div id="tab-evolution" class="panel">
+      <div class="section-heading">Evolution Timeline</div>
+      <div class="section-desc">Development milestones inferred from commit history, CHANGELOG.md, proof-run findings, and implementation summaries. The project shows a clear arc from single-tool reasoning server to full multi-agent coordination platform.</div>
+
+      <div class="timeline">
+
+        <div class="timeline-item">
+          <div class="timeline-dot"></div>
+          <div class="timeline-date">Early 2025</div>
+          <div class="timeline-title">v1 — Sequential Thinking MCP</div>
+          <div class="timeline-desc">Original single-tool ThoughtHandler with basic sequential thought chains. InMemoryStorage only. No branching or revision support. Spawned from "sequential-thinking" MCP pattern.</div>
+        </div>
+
+        <div class="timeline-item">
+          <div class="timeline-dot gold"></div>
+          <div class="timeline-date">Jan 2025</div>
+          <div class="timeline-title">Persistence Layer + FileSystem Storage</div>
+          <div class="timeline-desc">Added SQLite metadata + JSON file storage. Monthly time-partitioned session directories. Doubly-linked ThoughtNode graph for branching support. Merkle chain content hashing for integrity.</div>
+        </div>
+
+        <div class="timeline-item">
+          <div class="timeline-dot gold"></div>
+          <div class="timeline-date">Jan 2025</div>
+          <div class="timeline-title">Progressive Disclosure (ToolRegistry + 4 Stages)</div>
+          <div class="timeline-desc">Introduced ToolRegistry with STAGE_0 through STAGE_3. Solved MCP client tool-list refresh problem. Gateway tool pattern established as primary API surface. This is the architectural inflection point.</div>
+        </div>
+
+        <div class="timeline-item">
+          <div class="timeline-dot gold"></div>
+          <div class="timeline-date">Jan 2025</div>
+          <div class="timeline-title">Observatory + WebSocket Monitoring</div>
+          <div class="timeline-desc">Added real-time WebSocket server with fire-and-forget ThoughtEmitter. Three channel types (reasoning/observatory/workspace). Bundled HTML UI. Prometheus metrics endpoint for Grafana integration.</div>
+        </div>
+
+        <div class="timeline-item">
+          <div class="timeline-dot gold"></div>
+          <div class="timeline-date">Jan 2025</div>
+          <div class="timeline-title">Hub: Multi-Agent Coordination Protocol</div>
+          <div class="timeline-desc">Major feature: full multi-agent protocol with AgentIdentity, Workspaces, Problems (DAG dependencies), Proposals (review lifecycle), Consensus markers, and real-time Channels. 36 test files. Defined in ADR-002.</div>
+        </div>
+
+        <div class="timeline-item">
+          <div class="timeline-dot gold"></div>
+          <div class="timeline-date">Jan 2025</div>
+          <div class="timeline-title">Phase 3: Autonomous Critique (Sampling Loops)</div>
+          <div class="timeline-desc">SamplingHandler added for autonomous self-critique. When critique:true is set in a thought, the server calls MCP createMessage API to get model feedback and stores it back on the thought.</div>
+        </div>
+
+        <div class="timeline-item">
+          <div class="timeline-dot gold"></div>
+          <div class="timeline-date">Jan 2025</div>
+          <div class="timeline-title">Evaluation Pipeline (LangSmith, Phases 1-3)</div>
+          <div class="timeline-desc">Added LangSmith integration with dataset management, experiment runner, online monitor, and 4 evaluator types (reasoning coherence, memory quality, session quality, DGM fitness). ScorecardAggregator for trend tracking.</div>
+        </div>
+
+        <div class="timeline-item">
+          <div class="timeline-dot gold"></div>
+          <div class="timeline-date">Jan-Feb 2025</div>
+          <div class="timeline-title">Mental Models (15 frameworks) + Knowledge Graph</div>
+          <div class="timeline-desc">Added 15 reasoning framework resources. Added Entity/Relation/Observation knowledge graph for cross-session memory. Distinct from ephemeral thought sessions.</div>
+        </div>
+
+        <div class="timeline-item">
+          <div class="timeline-dot gold"></div>
+          <div class="timeline-date">Feb 2025</div>
+          <div class="timeline-title">Docker + OTel + Prometheus stack</div>
+          <div class="timeline-desc">Dockerfile with native better-sqlite3 compilation. Docker Compose with Prometheus + Grafana. OTel sidecar. Fixed /tmp permissions for OTel. Observatory sidecar for external consumers.</div>
+        </div>
+
+        <div class="timeline-item">
+          <div class="timeline-dot dim"></div>
+          <div class="timeline-date">Feb 2025 (current)</div>
+          <div class="timeline-title">Active: Gitignore cleanup + loops-content restoration</div>
+          <div class="timeline-desc">Stopped blanket-ignoring .claude/ directory. Restored loops-content.ts from HEAD after accidental deletion. Known open issues: P1 ESM/CJS export bug in persistence, multi-agent cipher limited integration, demo port mismatch.</div>
+        </div>
+
+        <div class="timeline-item">
+          <div class="timeline-dot" style="background:var(--aspirational)"></div>
+          <div class="timeline-date">Planned</div>
+          <div class="timeline-title">DGM Self-Improvement Loop</div>
+          <div class="timeline-desc">Darwin Growth Machine: autonomous improvement cycles where the server modifies itself based on evaluation scores. dgm-specs/ harness is functional; hypothesis and target directories are placeholder stubs. self-improvement/ contains planning docs.</div>
+        </div>
+
+      </div>
+
+      <hr class="section-divider">
+
+      <div class="section-heading" style="font-size:15px;margin-bottom:12px;">Open Issues by Priority</div>
+      <table class="dep-table">
+        <thead>
+          <tr><th>Priority</th><th>Module</th><th>Issue</th><th>Status</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><span style="color:var(--recoverable);font-weight:700">P1</span></td>
+            <td>src/persistence/export.ts</td>
+            <td>ESM/CJS module mismatch breaks <code>exportSession()</code>. FileSystem export path fails at runtime. InMemoryStorage and all other ops unaffected.</td>
+            <td><span class="sidebar-badge badge-recoverable">FIXABLE</span></td>
+          </tr>
+          <tr>
+            <td><span style="color:var(--needs-work);font-weight:700">P2</span></td>
+            <td>src/multi-agent/</td>
+            <td>Cipher extension, claim parser, and content hasher have test coverage but limited integration with main thought flow. Merkle chain in ThoughtData not yet connected to multi-agent attribution.</td>
+            <td><span class="sidebar-badge badge-needs-work">NEEDS WORK</span></td>
+          </tr>
+          <tr>
+            <td><span style="color:var(--needs-work);font-weight:700">P2</span></td>
+            <td>demo/multi-agent/</td>
+            <td>docker-compose.yml references port 3100 but Observatory server listens on 1731. Demo will fail to connect without port correction.</td>
+            <td><span class="sidebar-badge badge-stale">STALE</span></td>
+          </tr>
+          <tr>
+            <td><span style="color:var(--aspirational);font-weight:700">P3</span></td>
+            <td>dgm-specs/</td>
+            <td>Benchmark harness and CLI work. Hypothesis active/ and tested/ directories are empty. Targets README only. No running self-modification capability yet.</td>
+            <td><span class="sidebar-badge badge-partial">PARTIAL</span></td>
+          </tr>
+          <tr>
+            <td><span style="color:var(--aspirational);font-weight:700">P3</span></td>
+            <td>scripts/agents/</td>
+            <td>SIL harness and archived agent implementations need assessment. Status unclear — not verified against current server API.</td>
+            <td><span class="sidebar-badge badge-aspirational">ASSESS</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+  </main>
+</div>
+
+<!-- ================================================================ DETAIL OVERLAY -->
+<div class="detail-overlay" id="detail-overlay" onclick="closeDetail(event)">
+  <div class="detail-panel" id="detail-panel">
+    <button class="detail-close" onclick="closeDetail()">Close</button>
+    <div id="detail-content"></div>
+  </div>
+</div>
+
+<!-- ================================================================ SCRIPTS -->
+<script>
+// ---- Tab switching ----
+function showTab(name) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  event.target.classList.add('active');
+}
+
+// ---- Module search ----
+function filterModules(query) {
+  const q = query.toLowerCase();
+  document.querySelectorAll('#module-grid .module-card').forEach(card => {
+    const tags = (card.dataset.tags || '') + card.textContent.toLowerCase();
+    card.style.display = tags.includes(q) ? '' : 'none';
+  });
+}
+
+// ---- Module detail overlay ----
+const moduleDetails = {
+  'gateway': {
+    title: 'src/gateway/',
+    status: 'gold',
+    statusLabel: 'GOLD',
+    desc: 'Single always-enabled MCP tool that routes all 30+ operations. Solves MCP client tool-list refresh by keeping API surface stable — the tool count never changes, operations are added to the schema enum. Enforces progressive disclosure stages internally.',
+    files: [
+      ['gateway-handler.ts', '1,092 lines — main routing logic, stage enforcement'],
+      ['operations.ts', '~200 lines — operation catalog'],
+      ['index.ts', '~30 lines — re-exports'],
+      ['__tests__/branch-retrieval.test.ts', 'branch retrieval'],
+      ['__tests__/per-session-gateway.test.ts', 'per-session isolation'],
+      ['__tests__/gateway-profile-priming.test.ts', 'profile priming'],
+      ['__tests__/sub-agent-stage-reset.test.ts', 'stage reset behavior'],
+      ['__tests__/profile-priming.test.ts', 'profile priming'],
+    ],
+    deps: ['tool-registry.ts', 'init/', 'thought-handler.ts', 'notebook/', 'sessions/', 'mental-models/', 'persistence/', 'multi-agent/', 'hub/profile-primer'],
+    notes: 'The gateway pattern means clients never see tool list changes. All routing is internal via operation: string dispatch. Profile priming injects agent-specific system context at Session 0.',
+  },
+  'hub': {
+    title: 'src/hub/',
+    status: 'gold',
+    statusLabel: 'GOLD',
+    desc: 'Full multi-agent coordination protocol. Implements identity/profiles, workspaces, problems (with DAG dependencies and sub-problem hierarchies), proposals (with review lifecycle), consensus markers, and real-time channels. The richest domain in the codebase.',
+    files: [
+      ['hub-types.ts', '276 lines — all domain types (ADR-002)'],
+      ['operations.ts', '724 lines — all operation implementations'],
+      ['hub-handler.ts', '328 lines — MCP tool wiring'],
+      ['hub-storage-fs.ts', 'FileSystem persistence for all hub entities'],
+      ['agent-identity.ts', 'per-session identity management'],
+      ['channels.ts', 'real-time channel messaging'],
+      ['consensus.ts', 'consensus marker + endorsement protocol'],
+      ['problems.ts', '10k chars — DAG dependencies + sub-problems'],
+      ['proposals.ts', 'proposal creation + review lifecycle'],
+      ['profiles-registry.ts', 'MANAGER/DEBUGGER/RESEARCHER agent profiles'],
+      ['workspace.ts', 'workspace coordination + digest'],
+      ['thought-store-adapter.ts', 'bridges ThoughtHandler ↔ Hub storage'],
+      ['proxy.ts', 'client capability detection'],
+      ['hub-task-store.ts', 'FileSystem task persistence (SDK tasks API)'],
+    ],
+    deps: ['hub-types.ts', 'persistence/', 'observatory/channels/workspace'],
+    notes: '36 test files covering concurrent access, consensus voting, dependency DAG, sub-problem hierarchies, profile prompt injection, workspace digest, thought priming, and isolation between sessions.',
+  },
+  'server-factory': {
+    title: 'src/server-factory.ts',
+    status: 'gold',
+    statusLabel: 'GOLD',
+    desc: 'The central assembly point for the entire server. All 18+ modules are imported here and wired into the MCP server instance. All tool registrations, resource registrations, prompt registrations, and handler wiring happen in this file.',
+    files: [
+      ['server-factory.ts', '2,067 lines — complete server assembly'],
+    ],
+    deps: ['All 18 domain modules', '@modelcontextprotocol/sdk', 'zod'],
+    notes: 'The configSchema defined here controls runtime behavior (disableThoughtLogging, dataDir, sessionPartitionGranularity). The createServer() export is the single entry point used by index.ts and test harnesses.',
+  },
+  'thought-handler': {
+    title: 'src/thought-handler.ts',
+    status: 'gold',
+    statusLabel: 'GOLD',
+    desc: 'Core reasoning engine. Manages thought history, branching, revisions, autonomous critique (Phase 3 Sampling Loops), persistence integration, and event emission to Observatory. A serial processing queue prevents race conditions when multiple thoughts arrive simultaneously.',
+    files: [
+      ['thought-handler.ts', '891 lines — complete reasoning engine'],
+    ],
+    deps: ['persistence/', 'observatory/emitter', 'sampling/', 'events/', 'resources/patterns-cookbook'],
+    notes: 'SIL-101: verbose mode (default off) returns minimal responses. SIL-102: thoughtNumber and totalThoughts are now optional — server auto-assigns. SIL-104: event emitter for external JSONL stream consumers. Processing queue serializes concurrent ops.',
+  },
+  'tool-registry': {
+    title: 'src/tool-registry.ts',
+    status: 'gold',
+    statusLabel: 'GOLD',
+    desc: '4-stage progressive disclosure state machine. Uses MCP SDK RegisteredTool enable/disable API. Stage transitions are one-way (no regressions). Domain filtering at Stage 3 enables context-specific tool sets without server restart.',
+    files: [
+      ['tool-registry.ts', '252 lines — complete state machine'],
+    ],
+    deps: ['@modelcontextprotocol/sdk/server/mcp'],
+    notes: 'Stage 0: only init ops. Stage 1: adds cipher/session. Stage 2: adds thought/notebook/mental-models/knowledge. Stage 3: adds domain-filtered tools. Caller must call server.sendToolListChanged() after advanceToStage() for clients to update.',
+  },
+  'evaluation': {
+    title: 'src/evaluation/',
+    status: 'gold',
+    statusLabel: 'GOLD',
+    desc: 'LangSmith integration for quality evaluation. Implements Phases 1-3 of the evaluation pipeline: dataset management, online monitoring, reasoning coherence evaluator, memory quality evaluator, session quality evaluator, and DGM fitness evaluator.',
+    files: [
+      ['client.ts', 'LangSmith client wrapper'],
+      ['dataset-manager.ts', 'dataset creation and management'],
+      ['experiment-runner.ts', 'batch evaluation runs'],
+      ['online-monitor.ts', 'real-time quality monitoring'],
+      ['trace-listener.ts', 'traces from Observatory'],
+      ['evaluators/reasoning-coherence.ts', 'logical consistency scoring'],
+      ['evaluators/memory-quality.ts', 'knowledge retention scoring'],
+      ['evaluators/session-quality.ts', 'session structure scoring'],
+      ['evaluators/dgm-fitness.ts', 'Darwin Growth Machine fitness'],
+      ['evaluators/utils.ts', 'shared scoring utilities'],
+    ],
+    deps: ['langsmith', 'observatory/', 'persistence/'],
+    notes: 'Phases 1-3 correspond to dataset creation, experiment running, and online monitoring respectively. ScorecardAggregator in observatory/ aggregates per-iteration results with trend analysis.',
+  },
+  'observatory': {
+    title: 'src/observatory/',
+    status: 'gold',
+    statusLabel: 'GOLD',
+    desc: 'Real-time observability for reasoning processes. Fire-and-forget ThoughtEmitter, channel-based WebSocket server (reasoning/observatory/workspace channels), improvement tracking, evaluation gatekeeper, scorecard aggregation. Bundled HTML UI.',
+    files: [
+      ['emitter.ts', 'ThoughtEmitter singleton — fire-and-forget'],
+      ['ws-server.ts', 'WebSocket server — port 1731'],
+      ['server.ts', 'createObservatoryServer factory'],
+      ['channel.ts', 'Channel base class + topic routing'],
+      ['channels/reasoning.ts', 'thought stream channel'],
+      ['channels/observatory.ts', 'meta/improvement channel'],
+      ['channels/workspace.ts', 'hub collaboration channel'],
+      ['improvement-tracker.ts', 'improvement event tracking'],
+      ['improvement-store.ts', 'improvement event persistence'],
+      ['evaluation-gatekeeper.ts', 'tiered evaluation gates'],
+      ['scorecard-aggregator.ts', 'iteration scoring + trends'],
+      ['storage-adapter.ts', 'reads from persistence for historical data'],
+      ['ui/observatory.html', 'bundled HTML monitoring UI'],
+      ['schemas/thought.ts', 'Thought/Session/Branch Zod schemas'],
+      ['schemas/events.ts', 'event payload Zod schemas'],
+    ],
+    deps: ['ws', 'persistence/ (via storage-adapter)', 'zod'],
+    notes: 'Observatory port: 1731 (not 3100 — demo/multi-agent docker-compose is stale). Fire-and-forget means Observatory failures never degrade reasoning. HasListeners() check avoids payload construction when no clients connected.',
+  },
+  'init': {
+    title: 'src/init/',
+    status: 'gold',
+    statusLabel: 'GOLD',
+    desc: 'Session bootstrap and progressive disclosure state management. Index builder creates the initial context view. StateManager tracks disclosure stage. Multiple source types (filesystem, in-memory) allow different initialization strategies.',
+    files: [
+      ['index.ts', 're-exports'],
+      ['init-handler.ts', 'main init operation handler'],
+      ['state-manager.ts', 'disclosure stage state'],
+      ['index-builder.ts', 'context index construction'],
+      ['interfaces.ts', 'IInitHandler interface'],
+      ['operations.ts', 'operation catalog'],
+      ['tool-handler.ts', 'MCP tool wiring'],
+      ['types.ts', 'Init-specific types'],
+      ['sources/filesystem.ts', 'reads from ~/.thoughtbox/'],
+      ['sources/in-memory.ts', 'ephemeral source'],
+      ['renderers/markdown.ts', 'markdown renderer for context'],
+    ],
+    deps: ['discovery-registry.ts', 'persistence/'],
+    notes: 'The init flow is the entry point for every new MCP session. get_state, navigate, and load_context are the Stage 0 operations that advance to Stage 1 once context is loaded.',
+  },
+  'persistence': {
+    title: 'src/persistence/',
+    status: 'gold',
+    statusLabel: 'GOLD (P1 Bug)',
+    desc: 'Storage abstraction with InMemory and FileSystem implementations. Monthly time-partitioned session directories. SQLite metadata for fast listing. JSON thought files. Doubly-linked ThoughtNode tree. Merkle chain content hashing. P1: export.ts has ESM/CJS mismatch breaking exportSession().',
+    files: [
+      ['types.ts', '571 lines — all persistence types'],
+      ['storage.ts', 'ThoughtboxStorage interface'],
+      ['filesystem-storage.ts', 'FileSystem implementation'],
+      ['index.ts', 'InMemoryStorage + exports'],
+      ['migration.ts', 'schema migration utilities'],
+      ['export.ts', 'P1 BUG: ESM/CJS mismatch — export broken'],
+    ],
+    deps: ['better-sqlite3', 'node:fs', 'node:path', 'node:crypto'],
+    notes: 'P1 Bug: src/persistence/export.ts uses import() that fails in CJS compilation context. All other persistence operations (read, write, list, branch, critique) are unaffected. Fix: align module format or use require() fallback.',
+  },
+  'knowledge': {
+    title: 'src/knowledge/',
+    status: 'gold',
+    statusLabel: 'GOLD',
+    desc: 'Entity/Relation/Observation knowledge graph for cross-session memory retention. Pattern storage (Markdown with YAML frontmatter) and scratchpad notes. Distinct from ephemeral thought sessions — knowledge persists across all sessions.',
+    files: [
+      ['types.ts', 'Entity, Relation, Observation, Pattern types'],
+      ['storage.ts', 'KnowledgeStorage interface'],
+      ['handler.ts', 'KnowledgeHandler operation dispatch'],
+      ['operations.ts', 'all knowledge operations'],
+      ['index.ts', 'FileSystemKnowledgeStorage + exports'],
+    ],
+    deps: ['node:fs', 'node:path'],
+    notes: 'Knowledge graph entities have relationships (typed edges) and observations (facts). Patterns are Markdown files with derivedFromSessions links back to the reasoning sessions that generated them.',
+  },
+  'mental-models': {
+    title: 'src/mental-models/',
+    status: 'gold',
+    statusLabel: 'GOLD',
+    desc: '15 reasoning frameworks exposed as MCP resources. Each framework is a self-contained TypeScript module with a structured guide. Accessible via mental_models operation in the gateway.',
+    files: [
+      ['contents/inversion.ts', 'Inversion / pre-mortem thinking'],
+      ['contents/five-whys.ts', 'Root cause analysis'],
+      ['contents/fermi-estimation.ts', 'Order-of-magnitude estimation'],
+      ['contents/rubber-duck.ts', 'Rubber duck debugging'],
+      ['contents/steelmanning.ts', 'Steel-manning arguments'],
+      ['contents/decomposition.ts', 'Problem decomposition'],
+      ['contents/adversarial-thinking.ts', 'Adversarial analysis'],
+      ['contents/assumption-surfacing.ts', 'Assumption identification'],
+      ['contents/abstraction-laddering.ts', 'Abstraction levels'],
+      ['contents/constraint-relaxation.ts', 'Constraint relaxation'],
+      ['contents/impact-effort-grid.ts', 'Prioritization matrix'],
+      ['contents/opportunity-cost.ts', 'Opportunity cost analysis'],
+      ['contents/pre-mortem.ts', 'Pre-mortem planning'],
+      ['contents/time-horizon-shifting.ts', 'Time horizon analysis'],
+      ['contents/trade-off-matrix.ts', 'Trade-off evaluation'],
+    ],
+    deps: [],
+    notes: 'Pure content modules — no external dependencies. Each exports a typed framework object with title, description, and step-by-step guidance.',
+  },
+  'notebook': {
+    title: 'src/notebook/',
+    status: 'stable',
+    statusLabel: 'STABLE',
+    desc: 'Literate programming notebook with executable cells. Enables mixing thought chains with runnable code. State management tracks cell execution order. Pre-built templates for common reasoning notebook patterns.',
+    files: [
+      ['types.ts', 'Notebook, Cell, ExecutionResult types'],
+      ['state.ts', 'notebook state management'],
+      ['execution.ts', 'cell execution engine'],
+      ['encoding.ts', 'notebook serialization'],
+      ['operations.ts', 'operation catalog'],
+      ['index.ts', 'NotebookHandler + exports'],
+      ['templates.generated.ts', 'pre-built notebook templates'],
+    ],
+    deps: [],
+    notes: 'STABLE status: functional but limited test coverage compared to Hub. No known bugs. Accessible via notebook operation in gateway at Stage 2.',
+  },
+  'resources': {
+    title: 'src/resources/',
+    status: 'recoverable',
+    statusLabel: 'RECOVERABLE',
+    desc: 'Static content resources exposed as MCP resources. loops-content.ts was accidentally deleted and restored from HEAD (git history). All other files are intact. Content is embedded TypeScript constants, no file I/O.',
+    files: [
+      ['loops-content.ts', 'RECOVERED — OODA/PDCA loops catalog'],
+      ['thoughtbox-cipher-content.ts', 'Cipher notation guide'],
+      ['patterns-cookbook-content.ts', 'Reasoning patterns reference'],
+      ['server-architecture-content.ts', 'Server architecture guide'],
+      ['session-analysis-guide-content.ts', 'Session analysis guide'],
+      ['behavioral-tests-content.ts', 'Behavioral test suite reference'],
+      ['evolution-check-content.ts', 'Evolution check guide'],
+      ['subagent-summarize-content.ts', 'Sub-agent summarization guide'],
+      ['notebook-export-pattern.ts', 'Notebook export patterns'],
+      ['thought-query-handler.ts', 'ThoughtQueryHandler for reading thoughts'],
+    ],
+    deps: [],
+    notes: 'RECOVERABLE: loops-content.ts restored from HEAD. The restore is in git status as Modified but functional. Recommend verifying content completeness against original file from before deletion.',
+  },
+  'multi-agent': {
+    title: 'src/multi-agent/',
+    status: 'needs-work',
+    statusLabel: 'NEEDS WORK',
+    desc: 'Cipher extension for multi-agent notation, claim parsing, conflict detection, Merkle chain content hashing, and thought diffing. 10 test files exist but integration with main thought flow is limited. The contentHash field exists on ThoughtData but is not yet fully connected.',
+    files: [
+      ['cipher-extension.ts', 'extended cipher notation for multi-agent'],
+      ['claim-parser.ts', 'parse agent claims from thought content'],
+      ['conflict-detection.ts', 'detect conflicting claims between agents'],
+      ['content-hash.ts', 'SHA-256 Merkle chain implementation'],
+      ['thought-diff.ts', 'diff thoughts between branches'],
+      ['index.ts', 'exports'],
+    ],
+    deps: ['node:crypto'],
+    notes: 'NEEDS WORK: getExtendedCipher() is imported by gateway-handler.ts (multi-agent cipher IS available), but claim-parser, conflict-detection, and thought-diff are not integrated into the main processing path. Integration work needed to fully activate attribution and conflict detection.',
+  },
+  'dgm-specs': {
+    title: 'dgm-specs/',
+    status: 'partial',
+    statusLabel: 'PARTIAL',
+    desc: 'Darwin Growth Machine specification and benchmark harness. The harness CLI and benchmark runner work. Most hypothesis and target directories contain only README placeholders. implementation-status.json tracks what is built vs planned.',
+    files: [
+      ['harness/cli.ts', 'CLI entry point — functional'],
+      ['harness/benchmark-runner.ts', 'benchmark execution — functional'],
+      ['harness/baseline.ts', 'baseline establishment'],
+      ['harness/types.ts', 'harness types'],
+      ['benchmarks/registry.yaml', 'benchmark definitions'],
+      ['config.yaml', 'DGM configuration'],
+      ['hypotheses/active/', 'EMPTY — no active hypotheses'],
+      ['hypotheses/tested/', 'EMPTY — no tested hypotheses'],
+      ['targets/', 'README only — no targets defined'],
+      ['history/runs/', 'run history (empty)'],
+      ['validation/baseline.json', 'baseline validation data'],
+    ],
+    deps: [],
+    notes: 'PARTIAL: The harness infrastructure is real and works. The actual self-improvement content (hypotheses, targets, measurements) is placeholder. Connecting dgm-specs to the evaluation pipeline and observatory would enable the intended DGM loop.',
+  },
+  'self-improvement': {
+    title: 'self-improvement/',
+    status: 'aspirational',
+    statusLabel: 'ASPIRATIONAL',
+    desc: 'Planning documents for an autonomous self-improvement loop. Contains design specs for improvement cycles that Observatory + Evaluation would support. No running code. Represents the intended end-state for the DGM system.',
+    files: [],
+    deps: [],
+    notes: 'ASPIRATIONAL: Design docs only. The improvement loop would require: Observatory monitoring → Evaluation scoring → DGM hypothesis generation → Code modification → Behavioral contract verification → Deployment. Observatory and Evaluation are built; DGM harness is partial; modification + verification loop is not built.',
+  },
+  'archive': {
+    title: '.archive/',
+    status: 'archive',
+    statusLabel: 'ARCHIVE',
+    desc: 'Moved from .claude/ directory during the gitignore cleanup (commit b1d639b). Contains previous generation agents, hooks, skills, team prompts, and commands from earlier development cycles. Not in active use.',
+    files: [],
+    deps: [],
+    notes: 'ARCHIVE: Safe to ignore for active development. Preserved for archaeology. The git status shows ~50 files deleted from .claude/ as this cleanup was applied.',
+  },
+  'demo': {
+    title: 'demo/multi-agent/',
+    status: 'stale',
+    statusLabel: 'STALE',
+    desc: 'Docker Compose demo for multi-agent setup. Has a port inconsistency: docker-compose.yml references port 3100 but the actual Observatory server listens on 1731. Will fail to connect until fixed.',
+    files: [
+      ['docker-compose.yml', 'PORT MISMATCH: references 3100, needs 1731'],
+      ['env.example', 'environment variables template'],
+    ],
+    deps: [],
+    notes: 'STALE: Update docker-compose.yml to use port 1731 for Observatory. Also verify the main server port matches current server.json configuration.',
+  },
+  'agentops': {
+    title: 'agentops/',
+    status: 'stable',
+    statusLabel: 'STABLE',
+    desc: 'AgentOps runner for daily dev briefs and implementation proposals. Fetches signals from configured sources, synthesizes with LLM, and outputs structured briefs. Has 7 test files covering extraction, synthesis, and XML parsing.',
+    files: [
+      ['runner/daily-dev-brief.ts', 'daily brief pipeline'],
+      ['runner/cli.ts', 'CLI entry point'],
+      ['runner/implement.ts', 'implementation proposal generation'],
+      ['signals/signal-store.ts', 'signal persistence'],
+      ['config/dev_sources.yaml', 'signal source configuration'],
+    ],
+    deps: ['anthropic', 'node:fs'],
+    notes: 'STABLE: separate sub-system from the main MCP server. Runs independently. Implementation summaries are stored in agentops/PHASE*.md files.',
+  },
+};
+
+function showModuleDetail(key) {
+  const data = moduleDetails[key];
+  if (!data) return;
+
+  const statusColors = {
+    gold: 'var(--gold)', stable: 'var(--stable)', recoverable: 'var(--recoverable)',
+    'needs-work': 'var(--needs-work)', archive: 'var(--archive)',
+    aspirational: 'var(--aspirational)', partial: 'var(--partial)', stale: 'var(--stale)'
+  };
+  const badgeClasses = {
+    gold: 'badge-gold', stable: 'badge-stable', recoverable: 'badge-recoverable',
+    'needs-work': 'badge-needs-work', archive: 'badge-archive',
+    aspirational: 'badge-aspirational', partial: 'badge-partial', stale: 'badge-stale'
+  };
+
+  const filesHtml = data.files.length > 0
+    ? `<div class="detail-file-list">${data.files.map(([name, desc]) =>
+        `<div class="detail-file"><span>${name}</span><span class="detail-file-lines">${desc}</span></div>`
+      ).join('')}</div>`
+    : '<div style="color:var(--text-dim);font-size:12px">No specific files to list.</div>';
+
+  const depsHtml = data.deps.length > 0
+    ? `<div class="dep-chips">${data.deps.map(d => `<span class="dep-chip">${d}</span>`).join('')}</div>`
+    : '<span style="color:var(--text-dim);font-size:12px">No internal dependencies (leaf module)</span>';
+
+  document.getElementById('detail-content').innerHTML = `
+    <div class="detail-title">${data.title}</div>
+    <div class="detail-status-line">
+      <span class="sidebar-badge ${badgeClasses[data.status]}">${data.statusLabel}</span>
+    </div>
+    <div class="detail-section">
+      <div class="detail-section-title">Description</div>
+      <div class="detail-content">${data.desc}</div>
+    </div>
+    ${data.files.length > 0 ? `
+    <div class="detail-section">
+      <div class="detail-section-title">Files</div>
+      ${filesHtml}
+    </div>` : ''}
+    <div class="detail-section">
+      <div class="detail-section-title">Imports From</div>
+      ${depsHtml}
+    </div>
+    ${data.notes ? `
+    <div class="detail-section">
+      <div class="detail-section-title">Notes</div>
+      <div class="detail-content">${data.notes}</div>
+    </div>` : ''}
+  `;
+
+  document.getElementById('detail-overlay').classList.add('open');
+}
+
+function closeDetail(event) {
+  if (!event || event.target === document.getElementById('detail-overlay') || event.target.classList.contains('detail-close')) {
+    document.getElementById('detail-overlay').classList.remove('open');
+  }
+}
+
+// Keyboard close
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') closeDetail({ target: document.getElementById('detail-overlay') });
+});
+
+// Sidebar items navigation
+document.querySelectorAll('.sidebar-item').forEach(item => {
+  item.addEventListener('click', function() {
+    document.querySelectorAll('.sidebar-item').forEach(i => i.classList.remove('active'));
+    this.classList.add('active');
+  });
+});
+</script>
+</body>
+</html>
