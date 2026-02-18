@@ -83,6 +83,11 @@ docs: Update README with loops documentation
 
 ## Meta_Skill Patterns for Deep Reasoning
 
+> **Implementation Status**: §1 Git persistence is implemented (`src/persistence/`); SQLite analytics are not.
+> §2 Progressive Disclosure is implemented (`src/tool-registry.ts` `DisclosureStage`).
+> **§3 Thompson Sampling and §4 DCG are planned architecture — neither exists in `src/` yet.**
+> The only hash implementation is `src/multi-agent/content-hash.ts` (Merkle chain for attribution only).
+
 Thoughtbox provides structured reasoning with branching exploration. These patterns optimize how reasoning traces are captured, analyzed, and reused.
 
 ### 1. Dual Persistence Architecture
@@ -294,6 +299,17 @@ verify_chain:
 3. Implement Progressive Disclosure when context limits hit
 4. Enable Thompson Sampling after 20+ sessions per problem type
 5. Add DCG when security/reproducibility becomes critical
+
+## Development Notes
+
+### Build & Test
+- `npm run build:local` — local build (skips Docker steps); use this, not `npm run build`
+- `npx vitest run` — full test suite; 339 tests pass; `agentops/tests/phase1.2.test.ts` always shows "No test suite found" (pre-existing empty file, not a regression)
+- `src/resources/loops-content.ts` — auto-generated from `.claude/commands/loops/` (gitignored); **never edit manually**; build preserves existing catalog when source dir is absent
+
+### ThoughtHandler Session Lifecycle
+- `processThought({ nextThoughtNeeded: false })` auto-closes the session and sets `currentSessionId = null`
+- **Capture `getCurrentSessionId()` BEFORE the closing thought** — calling it after returns null
 
 ## Improvement Loop Learnings
 
