@@ -1,0 +1,32 @@
+{
+  "runAt": "2026-02-22T03:15:17.764Z",
+  "duration": "319.4s",
+  "configuration": {
+    "budget": 10,
+    "maxIterations": 5,
+    "target": ".",
+    "output": "improvement-results.json",
+    "updateClaudeMd": false,
+    "dryRun": false,
+    "verbose": true
+  },
+  "iterations": [
+    {
+      "id": "iteration-1-1771729798382",
+      "startedAt": "2026-02-22T03:09:58.382Z",
+      "phase": "discovery",
+      "discoveries": [],
+      "plans": [],
+      "experiments": [],
+      "evaluations": [],
+      "outcome": "terminated",
+      "costSoFar": 1.0079049
+    }
+  ],
+  "summary": {
+    "totalIterations": 1,
+    "successful": 0,
+    "failed": 0,
+    "terminated": 1
+  }
+}
