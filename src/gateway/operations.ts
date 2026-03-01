@@ -73,6 +73,11 @@ export const GATEWAY_OPERATIONS: OperationDefinition[] = [
           type: "boolean",
           description: "If true, include self-critique guidance",
         },
+        thoughtType: {
+          type: "string",
+          enum: ["decision_frame", "action_report", "belief_snapshot", "assumption_update"],
+          description: "Operations mode: classify this thought for auditability filtering. Use decision_frame before external actions, action_report after, belief_snapshot for state checkpoints, assumption_update when assumptions change.",
+        },
       },
       required: ["thought", "nextThoughtNeeded"],
     },

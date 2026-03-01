@@ -36,6 +36,8 @@ export interface ThoughtData {
   critique?: boolean;
   // SIL-101: Verbose response mode - when false (default), return minimal response
   verbose?: boolean;
+  // Operations mode: structured thought type for auditability filtering
+  thoughtType?: 'decision_frame' | 'action_report' | 'belief_snapshot' | 'assumption_update';
   // Multi-agent attribution (optional)
   agentId?: string;
   agentName?: string;
@@ -369,6 +371,8 @@ export class ThoughtHandler {
       critique: data.critique as boolean | undefined,
       // SIL-101: Verbose mode (default false)
       verbose: data.verbose as boolean | undefined,
+      // Operations mode: structured thought type
+      thoughtType: data.thoughtType as ThoughtData['thoughtType'],
       // Multi-agent attribution
       agentId: data.agentId as string | undefined,
       agentName: data.agentName as string | undefined,
@@ -540,6 +544,8 @@ export class ThoughtHandler {
           needsMoreThoughts: validatedInput.needsMoreThoughts,
           includeGuide: validatedInput.includeGuide,
           timestamp: new Date().toISOString(),
+          // Operations mode: structured thought type
+          thoughtType: validatedInput.thoughtType,
           // Multi-agent attribution (optional)
           agentId: validatedInput.agentId,
           agentName: validatedInput.agentName,

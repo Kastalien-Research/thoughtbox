@@ -103,6 +103,9 @@ export interface ThoughtData {
   includeGuide?: boolean;
   timestamp: string; // ISO 8601 - always present after persistence
 
+  /** Operations mode: structured thought type for programmatic filtering */
+  thoughtType?: 'decision_frame' | 'action_report' | 'belief_snapshot' | 'assumption_update';
+
   /**
    * Multi-agent attribution (optional)
    * Present when thought is created by an identified agent

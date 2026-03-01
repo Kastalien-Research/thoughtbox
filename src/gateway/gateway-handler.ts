@@ -593,6 +593,8 @@ Call \`thoughtbox_gateway\` with operation 'thought' to begin structured reasoni
       critique: args.critique as boolean | undefined,
       // SIL-101: Pass verbose flag for minimal/full response mode
       verbose: args.verbose as boolean | undefined,
+      // Operations mode: structured thought type for auditability
+      thoughtType: args.thoughtType as 'decision_frame' | 'action_report' | 'belief_snapshot' | 'assumption_update' | undefined,
       // Multi-agent attribution: use per-session identity with fallback to instance defaults
       agentId: (args.agentId as string | undefined) ?? this.getAgentId(mcpSessionId),
       agentName: (args.agentName as string | undefined) ?? this.getAgentName(mcpSessionId),
@@ -712,6 +714,7 @@ Call \`thoughtbox_gateway\` with operation 'thought' to begin structured reasoni
         branchId: t.branchId,
         branchFromThought: t.branchFromThought,
         timestamp: t.timestamp,
+        thoughtType: t.thoughtType,
       }));
 
       // Include available branches so agents know branches exist
