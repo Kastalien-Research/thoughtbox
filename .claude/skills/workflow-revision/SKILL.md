@@ -71,7 +71,7 @@ Spec updates go in the same commit as the code fix.
 After all fixes are applied:
 
 1. Increment `stages.revision.iterations` in the state file
-2. Dispatch `/workflows:review` on the fixed code
+2. Dispatch `/workflows-review` on the fixed code
 3. Evaluate the review results:
 
 **If review passes** (all claims verified, no blocking findings):

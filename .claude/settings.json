@@ -113,7 +113,8 @@
           {
             "type": "command",
             "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/specsuite_stop.sh",
-            "timeout": 5000
+            "timeout": 5000,
+            "continueOnError": true 
           },
           {
             "type": "command",
