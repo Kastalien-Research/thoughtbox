@@ -315,6 +315,51 @@ export interface SessionManifest {
 }
 
 // =============================================================================
+// Audit Manifest Types (AUDIT-002/003)
+// =============================================================================
+
+/**
+ * AUDIT-003: Session audit manifest — auto-generated at session close
+ * Also used as the shape for audit_summary analysis (AUDIT-002)
+ */
+export interface AuditManifest {
+  sessionId: string;
+  generatedAt: string;
+  thoughtCounts: {
+    total: number;
+    reasoning: number;
+    decision_frame: number;
+    action_report: number;
+    belief_snapshot: number;
+    assumption_update: number;
+    context_snapshot: number;
+  };
+  decisions: {
+    total: number;
+    byConfidence: { high: number; medium: number; low: number };
+  };
+  actions: {
+    total: number;
+    successful: number;
+    failed: number;
+    reversible: number;
+    irreversible: number;
+    partiallyReversible: number;
+  };
+  gaps: Array<{
+    type: 'decision_without_action' | 'critique_override';
+    thoughtNumber: number;
+    description: string;
+  }>;
+  assumptionFlips: number;
+  critiques: {
+    generated: number;
+    addressed: number;
+    overridden: number;
+  };
+}
+
+// =============================================================================
 // Knowledge Zone Types (The Garden)
 // =============================================================================
 

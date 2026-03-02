@@ -193,6 +193,16 @@ export const GATEWAY_OPERATIONS: OperationDefinition[] = [
           type: "string",
           description: "Get all thoughts from a named branch (standalone query mode — not combinable with thoughtNumber, last, or range)",
         },
+        thoughtType: {
+          type: "string",
+          enum: ["reasoning", "decision_frame", "action_report", "belief_snapshot", "assumption_update", "context_snapshot"],
+          description: "Filter thoughts by type. Returns only thoughts matching this type.",
+        },
+        confidence: {
+          type: "string",
+          enum: ["high", "medium", "low"],
+          description: "Filter by confidence level. Only applies to decision_frame thoughts. Implicitly sets thoughtType to decision_frame.",
+        },
       },
     },
     example: {
@@ -232,7 +242,7 @@ export const GATEWAY_OPERATIONS: OperationDefinition[] = [
     name: "deep_analysis",
     title: "Deep Analysis",
     description:
-      "Analyze a reasoning session for patterns, cognitive load, and decision points. Available analysis types: patterns, cognitive_load, decision_points, full.",
+      "Analyze a reasoning session for patterns, cognitive load, decision points, and audit summaries. Available analysis types: patterns, cognitive_load, decision_points, full, audit_summary.",
     category: "analysis",
     inputSchema: {
       type: "object",
@@ -243,7 +253,7 @@ export const GATEWAY_OPERATIONS: OperationDefinition[] = [
         },
         analysisType: {
           type: "string",
-          enum: ["patterns", "cognitive_load", "decision_points", "full"],
+          enum: ["patterns", "cognitive_load", "decision_points", "full", "audit_summary"],
           description: "Type of analysis to perform",
         },
         options: {

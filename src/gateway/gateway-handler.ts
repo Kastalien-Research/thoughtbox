@@ -711,7 +711,36 @@ Call \`thoughtbox_gateway\` with operation 'thought' to begin structured reasoni
         queryDescription = 'last 5 thoughts (default)';
       }
 
-      // Format response
+      // AUDIT-002: Apply thoughtType and confidence filters
+      const filterThoughtType = args?.thoughtType as string | undefined;
+      const filterConfidence = args?.confidence as string | undefined;
+
+      if (filterConfidence && filterThoughtType && filterThoughtType !== 'decision_frame') {
+        return {
+          content: [{
+            type: 'text',
+            text: JSON.stringify({
+              error: 'confidence filter only applies to decision_frame thoughts',
+              suggestion: 'Remove thoughtType or set it to "decision_frame"',
+            }, null, 2),
+          }],
+          isError: true,
+        };
+      }
+
+      const totalUnfiltered = thoughts.length;
+
+      if (filterThoughtType) {
+        thoughts = thoughts.filter(t => t.thoughtType === filterThoughtType);
+      }
+
+      if (filterConfidence) {
+        thoughts = thoughts.filter(t =>
+          t.thoughtType === 'decision_frame' && t.confidence === filterConfidence
+        );
+      }
+
+      // Format response with structured fields
       const formattedThoughts = thoughts.map(t => ({
         thoughtNumber: t.thoughtNumber,
         thought: t.thought,
@@ -722,6 +751,12 @@ Call \`thoughtbox_gateway\` with operation 'thought' to begin structured reasoni
         branchFromThought: t.branchFromThought,
         timestamp: t.timestamp,
         thoughtType: t.thoughtType,
+        confidence: t.confidence,
+        options: t.options,
+        actionResult: t.actionResult,
+        beliefs: t.beliefs,
+        assumptionChange: t.assumptionChange,
+        contextData: t.contextData,
       }));
 
       // Include available branches so agents know branches exist
@@ -733,6 +768,14 @@ Call \`thoughtbox_gateway\` with operation 'thought' to begin structured reasoni
         count: formattedThoughts.length,
         thoughts: formattedThoughts,
       };
+
+      if (filterThoughtType || filterConfidence) {
+        response.filter = {
+          ...(filterThoughtType && { thoughtType: filterThoughtType }),
+          ...(filterConfidence && { confidence: filterConfidence }),
+        };
+        response.totalUnfiltered = totalUnfiltered;
+      }
 
       if (availableBranches.length > 0) {
         response.availableBranches = availableBranches;
@@ -916,7 +959,7 @@ Call \`thoughtbox_gateway\` with operation 'thought' to begin structured reasoni
           text: JSON.stringify({
             error: 'Deep analysis requires sessionId and analysisType',
             required: ['sessionId', 'analysisType'],
-            analysisTypes: ['patterns', 'cognitive_load', 'decision_points', 'full'],
+            analysisTypes: ['patterns', 'cognitive_load', 'decision_points', 'full', 'audit_summary'],
           }, null, 2),
         }],
         isError: true,
@@ -924,7 +967,7 @@ Call \`thoughtbox_gateway\` with operation 'thought' to begin structured reasoni
     }
 
     const sessionId = args.sessionId as string;
-    const analysisType = args.analysisType as 'patterns' | 'cognitive_load' | 'decision_points' | 'full';
+    const analysisType = args.analysisType as 'patterns' | 'cognitive_load' | 'decision_points' | 'full' | 'audit_summary';
     const options = args.options as { includeTimeline?: boolean; compareWith?: string[] } | undefined;
 
     try {
@@ -989,6 +1032,23 @@ Call \`thoughtbox_gateway\` with operation 'thought' to begin structured reasoni
           createdAt: session.createdAt,
           updatedAt: session.updatedAt,
           durationEstimate: thoughts.length ? `~${thoughts.length * 2} minutes` : 'unknown',
+        };
+      }
+
+      // AUDIT-002: audit_summary analysis type
+      if (analysisType === 'audit_summary') {
+        const { generateAuditData } = await import('../audit/index.js');
+        const auditData = generateAuditData(sessionId, thoughts);
+
+        return {
+          content: [{
+            type: 'text',
+            text: JSON.stringify({
+              ...auditData,
+              analysisType: 'audit_summary',
+              timestamp: new Date().toISOString(),
+            }, null, 2),
+          }],
         };
       }
 
