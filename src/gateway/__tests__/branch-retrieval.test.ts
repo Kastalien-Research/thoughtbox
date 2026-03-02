@@ -253,5 +253,71 @@ describe('Branch Thought Retrieval', () => {
       expect(data.thoughts[0].branchId).toBe('explore-alt');
       expect(data.thoughts[0].thoughtNumber).toBe(6);
     });
+
+    it('range query includes branch thoughts', async () => {
+      // Range [4, 8] should return main thoughts 4-5 + branch thoughts 6-8
+      const result = await gateway.handle({
+        operation: 'read_thoughts',
+        args: { sessionId, range: [4, 8] },
+      });
+
+      expect(result.isError).toBeFalsy();
+      const data = JSON.parse(result.content[0].type === 'text' ? (result.content[0] as any).text : '{}');
+
+      expect(data.count).toBe(5); // thoughts 4, 5 (main) + 6, 7, 8 (branch)
+      const numbers = data.thoughts.map((t: any) => t.thoughtNumber);
+      expect(numbers).toContain(4);
+      expect(numbers).toContain(5);
+      expect(numbers).toContain(6);
+      expect(numbers).toContain(7);
+      expect(numbers).toContain(8);
+    });
+
+    it('range query works for branch-only range', async () => {
+      // Range [9, 10] should return deep-dive branch thoughts only
+      const result = await gateway.handle({
+        operation: 'read_thoughts',
+        args: { sessionId, range: [9, 10] },
+      });
+
+      expect(result.isError).toBeFalsy();
+      const data = JSON.parse(result.content[0].type === 'text' ? (result.content[0] as any).text : '{}');
+
+      expect(data.count).toBe(2);
+      expect(data.thoughts[0].branchId).toBe('deep-dive');
+      expect(data.thoughts[1].branchId).toBe('deep-dive');
+    });
+
+    it('range query works for main-chain-only range', async () => {
+      // Range [1, 3] should return main thoughts only
+      const result = await gateway.handle({
+        operation: 'read_thoughts',
+        args: { sessionId, range: [1, 3] },
+      });
+
+      expect(result.isError).toBeFalsy();
+      const data = JSON.parse(result.content[0].type === 'text' ? (result.content[0] as any).text : '{}');
+
+      expect(data.count).toBe(3);
+      const numbers = data.thoughts.map((t: any) => t.thoughtNumber);
+      expect(numbers).toEqual([1, 2, 3]);
+    });
+
+    it('last N includes branch thoughts in count', async () => {
+      // last 3 should return the 3 most recent thoughts by number (8, 9, 10)
+      const result = await gateway.handle({
+        operation: 'read_thoughts',
+        args: { sessionId, last: 3 },
+      });
+
+      expect(result.isError).toBeFalsy();
+      const data = JSON.parse(result.content[0].type === 'text' ? (result.content[0] as any).text : '{}');
+
+      expect(data.count).toBe(3);
+      const numbers = data.thoughts.map((t: any) => t.thoughtNumber);
+      expect(numbers).toContain(8);
+      expect(numbers).toContain(9);
+      expect(numbers).toContain(10);
+    });
   });
 });

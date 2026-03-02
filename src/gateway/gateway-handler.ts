@@ -682,22 +682,22 @@ Call \`thoughtbox_gateway\` with operation 'thought' to begin structured reasoni
         thoughts = await this.storage.getBranch(sessionId, branchId);
         queryDescription = `all thoughts from branch '${branchId}'`;
       }
-      // Query mode: last N thoughts
+      // Query mode: last N thoughts (main chain + branches)
       else if (last !== undefined) {
-        const allThoughts = await this.storage.getThoughts(sessionId);
+        const allThoughts = await this.storage.getAllThoughts(sessionId);
         thoughts = allThoughts.slice(-last);
         queryDescription = `last ${last} thoughts`;
       }
-      // Query mode: range of thoughts
+      // Query mode: range of thoughts (main chain + branches)
       else if (range !== undefined && Array.isArray(range) && range.length === 2) {
         const [start, end] = range;
-        const allThoughts = await this.storage.getThoughts(sessionId);
+        const allThoughts = await this.storage.getAllThoughts(sessionId);
         thoughts = allThoughts.filter(t => t.thoughtNumber >= start && t.thoughtNumber <= end);
         queryDescription = `thoughts ${start} to ${end}`;
       }
-      // No query parameters - return recent context
+      // No query parameters - return recent context (main chain + branches)
       else {
-        const allThoughts = await this.storage.getThoughts(sessionId);
+        const allThoughts = await this.storage.getAllThoughts(sessionId);
         thoughts = allThoughts.slice(-5);  // Default: last 5
         queryDescription = 'last 5 thoughts (default)';
       }
@@ -1057,10 +1057,10 @@ Operations:
 - thought (structured reasoning)
 - read_thoughts (retrieve previous thoughts mid-session for re-reading)
 - get_structure (get reasoning graph topology without content)
-- notebook (literate programming)
-- session (session management)
-- mental_models (reasoning frameworks)
-- deep_analysis (session pattern analysis)
+- notebook (literate programming — read thoughtbox://notebook/operations for args)
+- session (session management — args: { operation: 'list'|'get'|'delete'|'analyze'|'export', ... })
+- mental_models (reasoning frameworks — read thoughtbox://mental-models for operations and models)
+- deep_analysis (session pattern analysis — args: { sessionId?, analysisType: 'patterns'|'cognitive_load'|'full' })
 - knowledge (knowledge graph memory - Phase 1)
 
 read_thoughts usage (Stage 2 required):
