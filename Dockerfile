@@ -1,13 +1,15 @@
 # Build stage
 FROM node:22-slim AS builder
 
+RUN corepack enable
+
 WORKDIR /app
 
 # Copy package files
-COPY package*.json ./
+COPY package.json pnpm-lock.yaml ./
 
 # Install all dependencies (including dev for build)
-RUN npm ci
+RUN pnpm install --frozen-lockfile
 
 # Copy source files
 COPY . .
@@ -16,21 +18,23 @@ COPY . .
 RUN chmod +x scripts/check-cycles.sh
 
 # Build TypeScript and generate assets
-RUN npm run build:local
+RUN pnpm run build:local
 
 # Production stage
 FROM node:22-slim
 
+RUN corepack enable
+
 WORKDIR /app
 
 # Copy package files
-COPY package*.json ./
+COPY package.json pnpm-lock.yaml ./
 
-# Install production dependencies only (--ignore-scripts skips husky prepare)
-RUN npm ci --omit=dev --ignore-scripts
+# Install production dependencies only
+RUN pnpm install --frozen-lockfile --prod
 
-# Copy entire better-sqlite3 package from builder (where npm ci compiled native bindings).
-# package-lock.json ensures both stages resolve to identical versions, so this is safe.
+# Copy entire better-sqlite3 package from builder (where pnpm install compiled native bindings).
+# pnpm-lock.yaml ensures both stages resolve to identical versions, so this is safe.
 # Copying the full package (not just build/) ensures complete consistency of package structure.
 COPY --from=builder /app/node_modules/better-sqlite3 ./node_modules/better-sqlite3
 
@@ -57,4 +61,3 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
 
 # Start the HTTP server
 CMD ["node", "dist/index.js"]
-

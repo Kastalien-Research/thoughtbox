@@ -208,7 +208,7 @@ Co-Authored-By: Claude Sonnet 4.5 (1M context) <noreply@anthropic.com>`;
 
     if (!options.dryRun && options.mode === 'REAL') {
       try {
-        const testOutput = execSync('npm test 2>&1', {
+        const testOutput = execSync('pnpm test 2>&1', {
           cwd: process.cwd(),
           encoding: 'utf-8',
           timeout: 60000,
