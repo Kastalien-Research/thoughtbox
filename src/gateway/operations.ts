@@ -75,11 +75,84 @@ export const GATEWAY_OPERATIONS: OperationDefinition[] = [
         },
         thoughtType: {
           type: "string",
-          enum: ["decision_frame", "action_report", "belief_snapshot", "assumption_update"],
-          description: "Operations mode: classify this thought for auditability filtering. Use decision_frame before external actions, action_report after, belief_snapshot for state checkpoints, assumption_update when assumptions change.",
+          enum: ["reasoning", "decision_frame", "action_report", "belief_snapshot", "assumption_update", "context_snapshot"],
+          description: "Required. Use 'reasoning' for general-purpose thoughts. Use 'decision_frame' before choosing between options (requires confidence + options). Use 'action_report' after external actions (requires actionResult). Use 'belief_snapshot' for state checkpoints (requires beliefs). Use 'assumption_update' when assumptions change (requires assumptionChange). Use 'context_snapshot' to record operating context (requires contextData).",
+        },
+        confidence: {
+          type: "string",
+          enum: ["high", "medium", "low"],
+          description: "Confidence level (required for decision_frame)",
+        },
+        options: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              label: { type: "string" },
+              selected: { type: "boolean" },
+              reason: { type: "string" },
+            },
+            required: ["label", "selected"],
+          },
+          description: "Options considered (required for decision_frame, exactly one must be selected)",
+        },
+        actionResult: {
+          type: "object",
+          properties: {
+            success: { type: "boolean" },
+            reversible: { type: "string", enum: ["yes", "no", "partial"] },
+            tool: { type: "string" },
+            target: { type: "string" },
+            sideEffects: { type: "array", items: { type: "string" } },
+          },
+          required: ["success", "reversible", "tool", "target"],
+          description: "Action outcome (required for action_report)",
+        },
+        beliefs: {
+          type: "object",
+          properties: {
+            entities: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  name: { type: "string" },
+                  state: { type: "string" },
+                },
+                required: ["name", "state"],
+              },
+            },
+            constraints: { type: "array", items: { type: "string" } },
+            risks: { type: "array", items: { type: "string" } },
+          },
+          required: ["entities"],
+          description: "Current beliefs (required for belief_snapshot)",
+        },
+        assumptionChange: {
+          type: "object",
+          properties: {
+            text: { type: "string" },
+            oldStatus: { type: "string" },
+            newStatus: { type: "string", enum: ["believed", "uncertain", "refuted"] },
+            trigger: { type: "string" },
+            downstream: { type: "array", items: { type: "number" } },
+          },
+          required: ["text", "oldStatus", "newStatus"],
+          description: "Assumption change (required for assumption_update)",
+        },
+        contextData: {
+          type: "object",
+          properties: {
+            toolsAvailable: { type: "array", items: { type: "string" } },
+            systemPromptHash: { type: "string" },
+            modelId: { type: "string" },
+            constraints: { type: "array", items: { type: "string" } },
+            dataSourcesAccessed: { type: "array", items: { type: "string" } },
+          },
+          description: "Operating context (required for context_snapshot)",
         },
       },
-      required: ["thought", "nextThoughtNeeded"],
+      required: ["thought", "nextThoughtNeeded", "thoughtType"],
     },
     example: {
       thought: "The architecture uses a gateway pattern to route operations...",

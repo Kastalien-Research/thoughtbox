@@ -104,7 +104,20 @@ export interface ThoughtData {
   timestamp: string; // ISO 8601 - always present after persistence
 
   /** Operations mode: structured thought type for programmatic filtering */
-  thoughtType?: 'decision_frame' | 'action_report' | 'belief_snapshot' | 'assumption_update';
+  thoughtType: 'reasoning' | 'decision_frame' | 'action_report' | 'belief_snapshot' | 'assumption_update' | 'context_snapshot';
+
+  /** Confidence level for decision_frame thoughts */
+  confidence?: 'high' | 'medium' | 'low';
+  /** Options considered for decision_frame thoughts */
+  options?: Array<{ label: string; selected: boolean; reason?: string }>;
+  /** Action outcome for action_report thoughts */
+  actionResult?: { success: boolean; reversible: 'yes' | 'no' | 'partial'; tool: string; target: string; sideEffects?: string[] };
+  /** Current beliefs for belief_snapshot thoughts */
+  beliefs?: { entities: Array<{ name: string; state: string }>; constraints?: string[]; risks?: string[] };
+  /** Assumption change for assumption_update thoughts */
+  assumptionChange?: { text: string; oldStatus: string; newStatus: 'believed' | 'uncertain' | 'refuted'; trigger?: string; downstream?: number[] };
+  /** Operating context for context_snapshot thoughts */
+  contextData?: { toolsAvailable?: string[]; systemPromptHash?: string; modelId?: string; constraints?: string[]; dataSourcesAccessed?: string[] };
 
   /**
    * Multi-agent attribution (optional)

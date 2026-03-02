@@ -594,7 +594,14 @@ Call \`thoughtbox_gateway\` with operation 'thought' to begin structured reasoni
       // SIL-101: Pass verbose flag for minimal/full response mode
       verbose: args.verbose as boolean | undefined,
       // Operations mode: structured thought type for auditability
-      thoughtType: args.thoughtType as 'decision_frame' | 'action_report' | 'belief_snapshot' | 'assumption_update' | undefined,
+      thoughtType: args.thoughtType as 'reasoning' | 'decision_frame' | 'action_report' | 'belief_snapshot' | 'assumption_update' | 'context_snapshot' | undefined,
+      // AUDIT-001: Structured metadata fields
+      confidence: args.confidence as 'high' | 'medium' | 'low' | undefined,
+      options: args.options as Array<{ label: string; selected: boolean; reason?: string }> | undefined,
+      actionResult: args.actionResult as any,
+      beliefs: args.beliefs as any,
+      assumptionChange: args.assumptionChange as any,
+      contextData: args.contextData as any,
       // Multi-agent attribution: use per-session identity with fallback to instance defaults
       agentId: (args.agentId as string | undefined) ?? this.getAgentId(mcpSessionId),
       agentName: (args.agentName as string | undefined) ?? this.getAgentName(mcpSessionId),

@@ -52,6 +52,7 @@ async function setupSessionWithBranches(
       thoughtNumber: i,
       totalThoughts: 10,
       nextThoughtNeeded: true,
+      thoughtType: 'reasoning',
       sessionTitle: 'Branch Test Session',
       sessionTags: ['test'],
     });
@@ -63,6 +64,7 @@ async function setupSessionWithBranches(
     thoughtNumber: 6,
     totalThoughts: 10,
     nextThoughtNeeded: true,
+    thoughtType: 'reasoning',
     branchFromThought: 3,
     branchId: 'explore-alt',
   });
@@ -71,6 +73,7 @@ async function setupSessionWithBranches(
     thoughtNumber: 7,
     totalThoughts: 10,
     nextThoughtNeeded: true,
+    thoughtType: 'reasoning',
     branchFromThought: 3,
     branchId: 'explore-alt',
   });
@@ -79,6 +82,7 @@ async function setupSessionWithBranches(
     thoughtNumber: 8,
     totalThoughts: 10,
     nextThoughtNeeded: true,
+    thoughtType: 'reasoning',
     branchFromThought: 3,
     branchId: 'explore-alt',
   });
@@ -89,6 +93,7 @@ async function setupSessionWithBranches(
     thoughtNumber: 9,
     totalThoughts: 10,
     nextThoughtNeeded: true,
+    thoughtType: 'reasoning',
     branchFromThought: 5,
     branchId: 'deep-dive',
   });
@@ -96,7 +101,8 @@ async function setupSessionWithBranches(
     thought: 'Branch deep-dive thought 10',
     thoughtNumber: 10,
     totalThoughts: 10,
-    nextThoughtNeeded: false,
+    nextThoughtNeeded: true,
+    thoughtType: 'reasoning',
     branchFromThought: 5,
     branchId: 'deep-dive',
   });

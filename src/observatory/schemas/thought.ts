@@ -42,6 +42,22 @@ export const ThoughtSchema = z.object({
 
   /** Which thought number this branch originates from */
   branchFromThought: z.number().int().optional(),
+
+  // AUDIT-001: Structured thought type (optional in observatory for historical data)
+  /** Structured thought type */
+  thoughtType: z.enum(['reasoning', 'decision_frame', 'action_report', 'belief_snapshot', 'assumption_update', 'context_snapshot']).optional(),
+  /** Confidence level for decision_frame */
+  confidence: z.enum(['high', 'medium', 'low']).optional(),
+  /** Options for decision_frame */
+  options: z.array(z.object({ label: z.string(), selected: z.boolean(), reason: z.string().optional() })).optional(),
+  /** Action result for action_report */
+  actionResult: z.object({ success: z.boolean(), reversible: z.enum(['yes', 'no', 'partial']), tool: z.string(), target: z.string(), sideEffects: z.array(z.string()).optional() }).optional(),
+  /** Beliefs for belief_snapshot */
+  beliefs: z.object({ entities: z.array(z.object({ name: z.string(), state: z.string() })), constraints: z.array(z.string()).optional(), risks: z.array(z.string()).optional() }).optional(),
+  /** Assumption change for assumption_update */
+  assumptionChange: z.object({ text: z.string(), oldStatus: z.string(), newStatus: z.enum(['believed', 'uncertain', 'refuted']), trigger: z.string().optional(), downstream: z.array(z.number()).optional() }).optional(),
+  /** Context data for context_snapshot */
+  contextData: z.object({ toolsAvailable: z.array(z.string()).optional(), systemPromptHash: z.string().optional(), modelId: z.string().optional(), constraints: z.array(z.string()).optional(), dataSourcesAccessed: z.array(z.string()).optional() }).optional(),
 });
 
 export type Thought = z.infer<typeof ThoughtSchema>;
