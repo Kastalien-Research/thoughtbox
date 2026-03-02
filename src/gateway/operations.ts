@@ -242,7 +242,7 @@ export const GATEWAY_OPERATIONS: OperationDefinition[] = [
     name: "deep_analysis",
     title: "Deep Analysis",
     description:
-      "Analyze a reasoning session for patterns, cognitive load, decision points, and audit summaries. Available analysis types: patterns, cognitive_load, decision_points, full, audit_summary.",
+      "Analyze a reasoning session for patterns, cognitive load, decision points, audit summaries, and audit manifests. Available analysis types: patterns, cognitive_load, decision_points, full, audit_summary, audit_manifest.",
     category: "analysis",
     inputSchema: {
       type: "object",
@@ -253,7 +253,7 @@ export const GATEWAY_OPERATIONS: OperationDefinition[] = [
         },
         analysisType: {
           type: "string",
-          enum: ["patterns", "cognitive_load", "decision_points", "full", "audit_summary"],
+          enum: ["patterns", "cognitive_load", "decision_points", "full", "audit_summary", "audit_manifest"],
           description: "Type of analysis to perform",
         },
         options: {

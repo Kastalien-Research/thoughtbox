@@ -868,12 +868,24 @@ export class ThoughtHandler {
 
       // End session when reasoning is complete
       if (!validatedInput.nextThoughtNeeded && this.currentSessionId) {
+        // AUDIT-003: Generate audit manifest at session close
+        let auditManifest: import('./persistence/types.js').AuditManifest | undefined;
+        try {
+          const { generateAuditData, toAuditManifest } = await import('./audit/index.js');
+          const allThoughts = await this.storage.getThoughts(this.currentSessionId);
+          const auditData = generateAuditData(this.currentSessionId, allThoughts);
+          auditManifest = toAuditManifest(auditData);
+        } catch (err) {
+          console.warn('[AUDIT-003] Manifest generation failed:', (err as Error).message);
+        }
+
         // Observatory: Emit session ended event
         if (thoughtEmitter.hasListeners()) {
           try {
             thoughtEmitter.emitSessionEnded({
               sessionId: this.currentSessionId,
               finalThoughtCount: this.thoughtHistory.length,
+              auditManifest,
             });
           } catch (e) {
             console.warn('[Observatory] Session end emit failed:', e instanceof Error ? e.message : e);
@@ -886,6 +898,7 @@ export class ThoughtHandler {
             sessionId: this.currentSessionId,
             finalThoughtCount: this.thoughtHistory.length,
             branchCount: Object.keys(this.branches).length,
+            auditManifest,
           });
         }
 
@@ -912,6 +925,7 @@ export class ThoughtHandler {
                     closedSessionId: closingSessionId,
                     exportPath,
                     ...(critiqueResult && { critique: critiqueResult }),
+                    ...(auditManifest && { auditManifest }),
                   },
                   null,
                   2

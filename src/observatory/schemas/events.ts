@@ -83,11 +83,58 @@ export const SessionStartedPayloadSchema = z.object({
 export type SessionStartedPayload = z.infer<typeof SessionStartedPayloadSchema>;
 
 /**
+ * AUDIT-003: Audit manifest schema for session-close payloads
+ */
+export const AuditManifestSchema = z.object({
+  sessionId: z.string(),
+  generatedAt: z.string(),
+  thoughtCounts: z.object({
+    total: z.number(),
+    reasoning: z.number(),
+    decision_frame: z.number(),
+    action_report: z.number(),
+    belief_snapshot: z.number(),
+    assumption_update: z.number(),
+    context_snapshot: z.number(),
+  }),
+  decisions: z.object({
+    total: z.number(),
+    byConfidence: z.object({
+      high: z.number(),
+      medium: z.number(),
+      low: z.number(),
+    }),
+  }),
+  actions: z.object({
+    total: z.number(),
+    successful: z.number(),
+    failed: z.number(),
+    reversible: z.number(),
+    irreversible: z.number(),
+    partiallyReversible: z.number(),
+  }),
+  gaps: z.array(z.object({
+    type: z.enum(['decision_without_action', 'critique_override']),
+    thoughtNumber: z.number(),
+    description: z.string(),
+  })),
+  assumptionFlips: z.number(),
+  critiques: z.object({
+    generated: z.number(),
+    addressed: z.number(),
+    overridden: z.number(),
+  }),
+});
+
+export type AuditManifest = z.infer<typeof AuditManifestSchema>;
+
+/**
  * Session ended event
  */
 export const SessionEndedPayloadSchema = z.object({
   sessionId: z.string(),
   finalThoughtCount: z.number().int(),
+  auditManifest: AuditManifestSchema.optional(),
 });
 
 export type SessionEndedPayload = z.infer<typeof SessionEndedPayloadSchema>;

@@ -959,7 +959,7 @@ Call \`thoughtbox_gateway\` with operation 'thought' to begin structured reasoni
           text: JSON.stringify({
             error: 'Deep analysis requires sessionId and analysisType',
             required: ['sessionId', 'analysisType'],
-            analysisTypes: ['patterns', 'cognitive_load', 'decision_points', 'full', 'audit_summary'],
+            analysisTypes: ['patterns', 'cognitive_load', 'decision_points', 'full', 'audit_summary', 'audit_manifest'],
           }, null, 2),
         }],
         isError: true,
@@ -967,7 +967,7 @@ Call \`thoughtbox_gateway\` with operation 'thought' to begin structured reasoni
     }
 
     const sessionId = args.sessionId as string;
-    const analysisType = args.analysisType as 'patterns' | 'cognitive_load' | 'decision_points' | 'full' | 'audit_summary';
+    const analysisType = args.analysisType as 'patterns' | 'cognitive_load' | 'decision_points' | 'full' | 'audit_summary' | 'audit_manifest';
     const options = args.options as { includeTimeline?: boolean; compareWith?: string[] } | undefined;
 
     try {
@@ -1032,6 +1032,25 @@ Call \`thoughtbox_gateway\` with operation 'thought' to begin structured reasoni
           createdAt: session.createdAt,
           updatedAt: session.updatedAt,
           durationEstimate: thoughts.length ? `~${thoughts.length * 2} minutes` : 'unknown',
+        };
+      }
+
+      // AUDIT-003: audit_manifest analysis type
+      if (analysisType === 'audit_manifest') {
+        const { generateAuditData, toAuditManifest } = await import('../audit/index.js');
+        const auditData = generateAuditData(sessionId, thoughts);
+        const manifest = toAuditManifest(auditData);
+
+        return {
+          content: [{
+            type: 'text',
+            text: JSON.stringify({
+              sessionId,
+              analysisType: 'audit_manifest',
+              timestamp: new Date().toISOString(),
+              manifest,
+            }, null, 2),
+          }],
         };
       }
 

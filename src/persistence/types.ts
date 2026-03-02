@@ -260,6 +260,9 @@ export interface SessionExport {
   /** Revision analysis (SPEC-002) */
   revisionAnalysis?: any;
 
+  /** AUDIT-003: Session audit manifest (auto-generated at session close) */
+  auditManifest?: AuditManifest;
+
   /** ISO 8601 timestamp of export */
   exportedAt: string;
 }

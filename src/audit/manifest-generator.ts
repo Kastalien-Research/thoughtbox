@@ -261,3 +261,22 @@ export function generateAuditData(
     critiques: critiqueResult.critiques,
   };
 }
+
+/**
+ * AUDIT-003: Transform internal AuditData to stored AuditManifest shape.
+ * Flattens assumptions.flips to top-level assumptionFlips field.
+ */
+export function toAuditManifest(
+  data: AuditData
+): import('../persistence/types.js').AuditManifest {
+  return {
+    sessionId: data.sessionId,
+    generatedAt: data.generatedAt,
+    thoughtCounts: data.thoughtCounts,
+    decisions: data.decisions,
+    actions: data.actions,
+    gaps: data.gaps,
+    assumptionFlips: data.assumptions.flips,
+    critiques: data.critiques,
+  };
+}
