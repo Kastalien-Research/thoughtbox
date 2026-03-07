@@ -274,7 +274,7 @@ To fix this:
   2. Set the environment variable:
      export ANTHROPIC_API_KEY="your-api-key-here"
   3. Or prefix the command:
-     ANTHROPIC_API_KEY="your-key" npm test
+     ANTHROPIC_API_KEY="your-key" pnpm test
 `);
     process.exit(1);
   }

@@ -703,7 +703,7 @@ Instead of exposing 10 separate MCP tools (\`notebook_create\`, \`notebook_list\
 
 **Execution**
 - \`run_cell\`: Execute code cell
-- \`install_deps\`: Install npm dependencies
+- \`install_deps\`: Install pnpm dependencies
 
 ### Operation Catalog Resource
 

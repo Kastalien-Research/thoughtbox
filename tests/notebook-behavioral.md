@@ -145,7 +145,7 @@ The gateway extracts `args.operation` for routing and `args.args` for the notebo
 
 ## NB-007: Dependency Installation Flow
 
-**Goal:** Verify npm dependencies can be installed.
+**Goal:** Verify pnpm dependencies can be installed.
 
 **Steps:**
 1. Create notebook
