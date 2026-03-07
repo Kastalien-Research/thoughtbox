@@ -81,7 +81,7 @@
     "fast-xml-parser": "^4.5.3",
     "gray-matter": "^4.0.3",
     "langsmith": "^0.5.2",
-    "openai": "^4.104.0",
+    "openai": "^6.27.0",
     "rss-parser": "^3.13.0",
     "ws": "^8.18.3",
     "yaml": "^2.8.2",
