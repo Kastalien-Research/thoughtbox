@@ -55,7 +55,7 @@ jobs:
       - name: Update changelog
         if: steps.extract.outputs.commit_count > 0
         run: |
-          npx tsx scripts/changelog-update.ts pr-commits.txt
+          pnpm exec tsx scripts/changelog-update.ts pr-commits.txt
 
       - name: Check if changelog changed
         id: check
