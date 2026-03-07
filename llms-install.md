@@ -6,7 +6,16 @@
 
 ## Installation Method
 
-This server runs via npx (no global installation required).
+This server runs from a local source checkout.
+
+Clone and build the repository first:
+
+```bash
+git clone https://github.com/Kastalien-Research/thoughtbox.git
+cd thoughtbox
+pnpm install
+pnpm build
+```
 
 ## Configuration by Client
 
@@ -18,8 +27,8 @@ Add to `cline_mcp_settings.json` (access via MCP Servers icon → Configure → 
 {
   "mcpServers": {
     "thoughtbox": {
-      "command": "npx",
-      "args": ["-y", "@kastalien-research/thoughtbox"]
+      "command": "node",
+      "args": ["/absolute/path/to/thoughtbox/dist/index.js"]
     }
   }
 }
@@ -35,8 +44,8 @@ Add to `claude_desktop_config.json`:
 {
   "mcpServers": {
     "thoughtbox": {
-      "command": "npx",
-      "args": ["-y", "@kastalien-research/thoughtbox"]
+      "command": "node",
+      "args": ["/absolute/path/to/thoughtbox/dist/index.js"]
     }
   }
 }
@@ -50,8 +59,8 @@ Add to `.vscode/mcp.json` in your workspace:
 {
   "servers": {
     "thoughtbox": {
-      "command": "npx",
-      "args": ["-y", "@kastalien-research/thoughtbox"]
+      "command": "node",
+      "args": ["/absolute/path/to/thoughtbox/dist/index.js"]
     }
   }
 }
@@ -68,5 +77,5 @@ After configuration, restart the MCP client. The following tools should be avail
 ## Troubleshooting
 
 - If server fails to start, verify Node.js 22+ is installed: `node --version`
-- The `-y` flag is required for non-interactive npx execution
+- Verify the `dist/index.js` path points to your local Thoughtbox checkout
 - Restart the MCP client after configuration changes

@@ -90,8 +90,11 @@ Later, you can:
 ## Get Started
 
 ```bash
-# Install
-npm install -g @kastalien-research/thoughtbox
+# Clone & build
+git clone https://github.com/Kastalien-Research/thoughtbox.git
+cd thoughtbox
+pnpm install
+pnpm build
 
 # Run with stdio (for Claude Code, Cursor, etc.)
 thoughtbox
