@@ -6187,14 +6187,14 @@ acceptance_criteria:
     priority: must
     validation:
       type: automated
-      test: { command: "npm test", expect_exit: 0 }
+      test: { command: "pnpm test", expect_exit: 0 }
   
   - id: CODE-002
     description: "Type check passes"
     priority: must
     validation:
       type: automated
-      test: { command: "npm run typecheck", expect_exit: 0 }
+      test: { command: "pnpm typecheck", expect_exit: 0 }
 \`\`\`
 
 ## Example Usage

@@ -310,7 +310,7 @@ export class NotebookStateManager {
 
     try {
       if (cell.type === "package.json") {
-        // Run npm install
+        // Run pnpm install
         result = await installDependencies({ cwd: notebookDir });
       } else {
         // Execute code cell

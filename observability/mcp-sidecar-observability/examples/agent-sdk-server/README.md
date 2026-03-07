@@ -83,9 +83,9 @@ Recent conversation history with the agent (last 50 messages)
 
 ```bash
 cd examples/agent-sdk-server
-npm install
+pnpm install
 export ANTHROPIC_API_KEY=your-api-key
-npm start
+pnpm start
 ```
 
 ### With Observability Sidecar
@@ -93,14 +93,14 @@ npm start
 ```bash
 # Terminal 1: Start Agent SDK MCP Server
 cd examples/agent-sdk-server
-PORT=3000 npm start
+PORT=3000 pnpm start
 
 # Terminal 2: Start observability sidecar
 cd ../..
 export MCP_UPSTREAM_URL=http://localhost:3000
 export MCP_UPSTREAM_NAME=agent-sdk
 export PORT=4000
-npm start
+pnpm start
 
 # Now connect MCP clients to http://localhost:4000 (with observability!)
 ```

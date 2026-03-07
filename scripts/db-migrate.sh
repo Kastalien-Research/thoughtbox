@@ -19,7 +19,7 @@
 #   1. Edit src/persistence/db/schema.ts with your changes
 #   2. Run: ./scripts/db-migrate.sh generate
 #   3. Review the generated SQL in drizzle/
-#   4. Build: npm run build
+#   4. Build: pnpm build
 #   5. Migrations apply automatically on server startup
 #
 # FILES:
@@ -115,7 +115,7 @@ generate_migration() {
     
     print_info "Next steps:"
     echo "  1. Review the generated SQL in drizzle/"
-    echo "  2. Run: npm run build"
+    echo "  2. Run: pnpm build"
     echo "  3. Migrations will apply on server startup"
     echo ""
 }

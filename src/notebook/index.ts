@@ -550,7 +550,7 @@ Available operations:
 - add_cell: Add cell (title/markdown/code)
 - update_cell: Update cell content
 - run_cell: Execute code cell
-- install_deps: Install npm dependencies
+- install_deps: Install pnpm dependencies
 - list_cells: List all cells in notebook
 - get_cell: Get cell details
 - export: Export notebook to .src.md

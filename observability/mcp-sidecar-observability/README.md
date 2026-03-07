@@ -59,7 +59,7 @@ docker compose up --build
 # - Grafana:    http://localhost:3000 (admin/admin)
 
 # Send test traffic
-npm run loadtest
+pnpm loadtest
 ```
 
 The default `docker-compose.yml` wraps the `@modelcontextprotocol/server-weather` as an example.
@@ -68,7 +68,7 @@ The default `docker-compose.yml` wraps the `@modelcontextprotocol/server-weather
 
 ```bash
 # Install dependencies
-npm install
+pnpm install
 
 # Configure upstream server
 export MCP_UPSTREAM_URL=http://your-mcp-server:3000
@@ -80,7 +80,7 @@ export OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
 export OTEL_SERVICE_NAME=mcp-sidecar
 
 # Start sidecar
-npm start
+pnpm start
 
 # Clients connect to http://localhost:4000 (sidecar)
 # Sidecar forwards to http://your-mcp-server:3000 (upstream)
@@ -234,7 +234,7 @@ containers:
 ### Integration Test
 
 ```bash
-npm test
+pnpm test
 ```
 
 Runs `test/integration.test.ts`:
@@ -246,10 +246,10 @@ Runs `test/integration.test.ts`:
 ### Load Test
 
 ```bash
-npm run loadtest
+pnpm loadtest
 
 # Options:
-URL=http://localhost:4000 CONCURRENCY=50 TOTAL=1000 npm run loadtest
+URL=http://localhost:4000 CONCURRENCY=50 TOTAL=1000 pnpm loadtest
 ```
 
 Sends realistic MCP traffic:
@@ -261,12 +261,12 @@ Sends realistic MCP traffic:
 
 ## 📚 Examples
 
-### Wrap Weather Server
+### Wrap Existing MCP Server
 
 ```bash
 export MCP_UPSTREAM_URL=http://localhost:3001
 export MCP_UPSTREAM_NAME=weather
-npm start
+pnpm start
 # (assumes weather server running on :3001)
 ```
 
@@ -275,7 +275,7 @@ npm start
 ```bash
 export MCP_UPSTREAM_URL=http://postgres-mcp:4000
 export MCP_UPSTREAM_NAME=postgres
-npm start
+pnpm start
 ```
 
 ### Wrap Agent SDK Server (Interesting Pattern!)
@@ -285,13 +285,13 @@ See `examples/agent-sdk-server/` for exposing Claude Agent SDK as an MCP server,
 ```bash
 # Terminal 1: Agent SDK MCP Server
 cd examples/agent-sdk-server
-npm install && PORT=3000 npm start
+pnpm install && PORT=3000 pnpm start
 
 # Terminal 2: Observability Sidecar
 cd ../..
 export MCP_UPSTREAM_URL=http://localhost:3000
 export MCP_UPSTREAM_NAME=agent-sdk
-npm start
+pnpm start
 ```
 
 Now you have **Claude Agent SDK with full MCP observability**!
@@ -300,16 +300,16 @@ Now you have **Claude Agent SDK with full MCP observability**!
 
 ```bash
 # Install
-npm install
+pnpm install
 
 # Dev mode (auto-reload)
-npm run dev
+pnpm dev
 
 # Build
-npm run build
+pnpm build
 
 # Start production
-npm start
+pnpm start
 ```
 
 ## 📦 Technology Stack
