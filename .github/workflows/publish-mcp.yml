@@ -1,4 +1,4 @@
-name: Publish to NPM and MCP Registry
+name: Publish to MCP Registry
 
 on:
   push:
@@ -24,7 +24,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "22"
-          registry-url: "https://registry.npmjs.org"
           cache: "pnpm"
 
       - name: Install dependencies
@@ -66,11 +65,6 @@ jobs:
           fi
           echo "✓ Versions synchronized: $PKG_VERSION"
 
-      - name: Publish to NPM
-        run: pnpm publish --access public --no-git-checks
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-
       - name: Install MCP Publisher
         run: |
           curl -L "https://github.com/modelcontextprotocol/registry/releases/download/v1.3.10/mcp-publisher_linux_amd64.tar.gz" | tar xz mcp-publisher
@@ -92,7 +86,7 @@ jobs:
               repo: context.repo.repo,
               tag_name: `v${version}`,
               name: `Release v${version}`,
-              body: `## Published to MCP Registry\n\nVersion ${version} has been published to:\n- NPM: https://www.npmjs.com/package/@kastalien-research/thoughtbox\n- MCP Registry: https://registry.modelcontextprotocol.io\n\nInstall with:\n\`\`\`bash\npnpm add -g @kastalien-research/thoughtbox\n\`\`\``,
+              body: `## Published to MCP Registry\n\nVersion ${version} has been published to:\n- MCP Registry: https://registry.modelcontextprotocol.io\n\nUse the source checkout and Docker-based setup documented in this repository to run Thoughtbox locally.`,
               draft: false,
               prerelease: false
             });
