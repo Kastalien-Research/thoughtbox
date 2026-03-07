@@ -54,7 +54,6 @@ The following assumption failures are documented in MEMORY.md and `.claude/rules
 
 **Package Dependencies** (from `package.json`):
 - `@modelcontextprotocol/sdk` pinned at `1.25.3` -- MCP SDK API surface assumed stable
-- `@smithery/sdk` at `^1.7.5` -- Smithery platform availability assumed
 - `express` at `^5.1.0` -- Express 5 is a major version with breaking changes from v4
 - `@anthropic-ai/claude-agent-sdk` at `^0.1.76` -- Agent SDK is pre-1.0, API surface unstable
 - `better-sqlite3` at `^11.0.0` -- Native module, requires platform-specific compilation

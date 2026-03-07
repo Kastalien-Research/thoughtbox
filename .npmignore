@@ -28,8 +28,6 @@ srcbook/
 # =============================================================================
 # Development/Build Artifacts
 # =============================================================================
-.smithery/
-smithery.yaml
 .dockerignore
 Dockerfile
 docker-compose.yml
@@ -40,7 +38,6 @@ docker-compose.yml
 docs/
 specs/
 local-docs/
-smithery-docs/
 mcp-specs/
 ai_docs/
 CLAUDE.md

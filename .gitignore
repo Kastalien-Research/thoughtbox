@@ -7,7 +7,6 @@ node_modules/
 
 # Build output
 dist/
-.smithery/
 
 # Environment variables
 .env
@@ -76,7 +75,6 @@ srcbook/
 
 # Local documentation (source files for bundled content)
 local-docs/
-smithery-docs/
 mcp-specs/
 sdk/
 
