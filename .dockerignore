@@ -122,9 +122,9 @@ drizzle.config.ts
 # Note: tsconfig.json IS needed for build stage
 
 # =============================================================================
-# Lock files (use package-lock.json, not pnpm)
+# Lock files (exclude npm lockfile; pnpm-lock.yaml is needed for Docker build)
 # =============================================================================
-pnpm-lock.yaml
+package-lock.json
 
 # =============================================================================
 # Logs
