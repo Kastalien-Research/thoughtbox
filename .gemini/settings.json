@@ -1,0 +1,45 @@
+{
+    "hooks": {
+        "BeforeTool": [
+            {
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": "\"$GEMINI_PROJECT_DIR\"/.gemini/hooks/pre_tool_use.sh",
+                        "timeout": 5000
+                    }
+                ]
+            }
+        ],
+        "AfterTool": [
+            {
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": "\"$GEMINI_PROJECT_DIR\"/.gemini/hooks/post_tool_use_dispatcher.sh",
+                        "timeout": 10000,
+                        "continueOnError": true
+                    },
+                    {
+                        "type": "command",
+                        "command": "\"$GEMINI_PROJECT_DIR\"/.gemini/hooks/track_file_access.sh",
+                        "timeout": 3000,
+                        "continueOnError": true
+                    }
+                ]
+            }
+        ],
+        "Notification": [
+            {
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": "\"$GEMINI_PROJECT_DIR\"/.gemini/hooks/notification.sh",
+                        "timeout": 3000,
+                        "continueOnError": true
+                    }
+                ]
+            }
+        ]
+    }
+}

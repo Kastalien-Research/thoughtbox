@@ -1,9 +1,10 @@
 # Build stage
 FROM node:22-slim AS builder
 
-RUN corepack enable
-
 WORKDIR /app
+
+# Enable pnpm via Corepack (matches packageManager field in package.json)
+RUN corepack enable && corepack prepare pnpm@9.15.4 --activate
 
 # Copy package files
 COPY package.json pnpm-lock.yaml ./
@@ -18,20 +19,21 @@ COPY . .
 RUN chmod +x scripts/check-cycles.sh
 
 # Build TypeScript and generate assets
-RUN pnpm run build:local
+RUN pnpm build:local
 
 # Production stage
 FROM node:22-slim
 
-RUN corepack enable
-
 WORKDIR /app
+
+# Enable pnpm via Corepack
+RUN corepack enable && corepack prepare pnpm@9.15.4 --activate
 
 # Copy package files
 COPY package.json pnpm-lock.yaml ./
 
-# Install production dependencies only
-RUN pnpm install --frozen-lockfile --prod
+# Install production dependencies only (--ignore-scripts skips husky prepare)
+RUN pnpm install --prod --frozen-lockfile --ignore-scripts
 
 # Copy entire better-sqlite3 package from builder (where pnpm install compiled native bindings).
 # pnpm-lock.yaml ensures both stages resolve to identical versions, so this is safe.

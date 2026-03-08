@@ -15,10 +15,10 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Install pnpm
+      - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: 9
+          version: 9.15.4
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -30,7 +30,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Check for cyclic dependencies
-        run: pnpm run check:cycles
+        run: pnpm check:cycles
 
       - name: Build package
-        run: pnpm run build
+        run: pnpm build
