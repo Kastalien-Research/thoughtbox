@@ -37,7 +37,7 @@ export interface ThoughtData {
   // SIL-101: Verbose response mode - when false (default), return minimal response
   verbose?: boolean;
   // Operations mode: structured thought type for auditability filtering
-  thoughtType?: 'reasoning' | 'decision_frame' | 'action_report' | 'belief_snapshot' | 'assumption_update' | 'context_snapshot';
+  thoughtType?: 'reasoning' | 'decision_frame' | 'action_report' | 'belief_snapshot' | 'assumption_update' | 'context_snapshot' | 'progress';
   // AUDIT-001: Structured metadata fields (discriminated by thoughtType)
   confidence?: 'high' | 'medium' | 'low';
   options?: Array<{ label: string; selected: boolean; reason?: string }>;
@@ -45,6 +45,7 @@ export interface ThoughtData {
   beliefs?: { entities: Array<{ name: string; state: string }>; constraints?: string[]; risks?: string[] };
   assumptionChange?: { text: string; oldStatus: string; newStatus: 'believed' | 'uncertain' | 'refuted'; trigger?: string; downstream?: number[] };
   contextData?: { toolsAvailable?: string[]; systemPromptHash?: string; modelId?: string; constraints?: string[]; dataSourcesAccessed?: string[] };
+  progressData?: { task: string; status: 'pending' | 'in_progress' | 'done' | 'blocked'; note?: string };
   // Multi-agent attribution (optional)
   agentId?: string;
   agentName?: string;
@@ -177,6 +178,7 @@ export class ThoughtHandler {
         beliefs: t.beliefs,
         assumptionChange: t.assumptionChange,
         contextData: t.contextData,
+        progressData: t.progressData,
       }));
 
       // Update lastAccessedAt
@@ -291,6 +293,7 @@ export class ThoughtHandler {
       beliefs: t.beliefs,
       assumptionChange: t.assumptionChange,
       contextData: t.contextData,
+      progressData: t.progressData,
     }));
 
     // 4. Calculate current thought number (max in main chain)
@@ -413,6 +416,7 @@ export class ThoughtHandler {
       beliefs: data.beliefs as ThoughtData['beliefs'],
       assumptionChange: data.assumptionChange as ThoughtData['assumptionChange'],
       contextData: data.contextData as ThoughtData['contextData'],
+      progressData: data.progressData as ThoughtData['progressData'],
       // Multi-agent attribution
       agentId: data.agentId as string | undefined,
       agentName: data.agentName as string | undefined,
@@ -445,11 +449,14 @@ export class ThoughtHandler {
       case 'context_snapshot':
         this.validateContextSnapshot(data);
         break;
+      case 'progress':
+        this.validateProgress(data);
+        break;
       default:
         throw new Error(
           `Unknown thoughtType: '${thoughtType as string}'. ` +
           "Valid types: reasoning, decision_frame, action_report, " +
-          "belief_snapshot, assumption_update, context_snapshot."
+          "belief_snapshot, assumption_update, context_snapshot, progress."
         );
     }
   }
@@ -529,6 +536,25 @@ export class ThoughtHandler {
     const cd = data.contextData as unknown;
     if (cd === undefined || cd === null || typeof cd !== 'object') {
       throw new Error("context_snapshot requires contextData object.");
+    }
+  }
+
+  private validateProgress(data: Record<string, unknown>): void {
+    const pd = data.progressData as Record<string, unknown> | undefined;
+    if (!pd || typeof pd !== 'object') {
+      throw new Error("progress requires progressData object.");
+    }
+    if (!pd.task || typeof pd.task !== 'string') {
+      throw new Error(
+        "progress progressData requires task (non-empty string)."
+      );
+    }
+    const validStatuses = ['pending', 'in_progress', 'done', 'blocked'];
+    if (!validStatuses.includes(pd.status as string)) {
+      throw new Error(
+        "progress progressData requires status " +
+        "('pending' | 'in_progress' | 'done' | 'blocked')."
+      );
     }
   }
 
@@ -706,6 +732,7 @@ export class ThoughtHandler {
           beliefs: validatedInput.beliefs,
           assumptionChange: validatedInput.assumptionChange,
           contextData: validatedInput.contextData,
+          progressData: validatedInput.progressData,
           // Multi-agent attribution (optional)
           agentId: validatedInput.agentId,
           agentName: validatedInput.agentName,

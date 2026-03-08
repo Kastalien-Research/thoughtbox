@@ -22,6 +22,7 @@ export interface AuditData {
     belief_snapshot: number;
     assumption_update: number;
     context_snapshot: number;
+    progress: number;
   };
 
   decisions: {
@@ -66,6 +67,7 @@ const THOUGHT_TYPES: ThoughtType[] = [
   'belief_snapshot',
   'assumption_update',
   'context_snapshot',
+  'progress',
 ];
 
 function countByType(
@@ -86,6 +88,7 @@ function countByType(
     belief_snapshot: counts['belief_snapshot'],
     assumption_update: counts['assumption_update'],
     context_snapshot: counts['context_snapshot'],
+    progress: counts['progress'],
   };
 }
 
