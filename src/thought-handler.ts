@@ -785,6 +785,13 @@ export class ThoughtHandler {
             revisesThought: validatedInput.revisesThought,
             branchId: validatedInput.branchId,
             branchFromThought: validatedInput.branchFromThought,
+            thoughtType: validatedInput.thoughtType,
+            confidence: validatedInput.confidence,
+            options: validatedInput.options,
+            actionResult: validatedInput.actionResult,
+            beliefs: validatedInput.beliefs,
+            assumptionChange: validatedInput.assumptionChange,
+            contextData: validatedInput.contextData,
           };
 
           const parentId = validatedInput.thoughtNumber > 1

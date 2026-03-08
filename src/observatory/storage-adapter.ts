@@ -45,6 +45,14 @@ export function toObservatoryThought(sessionId: string, td: ThoughtData): Though
     revisesThought: td.revisesThought,
     branchId: td.branchId,
     branchFromThought: td.branchFromThought,
+    thoughtType: td.thoughtType,
+    confidence: td.confidence,
+    options: td.options,
+    actionResult: td.actionResult,
+    beliefs: td.beliefs,
+    assumptionChange: td.assumptionChange,
+    contextData: td.contextData,
+    progressData: td.progressData,
   };
 }
 
