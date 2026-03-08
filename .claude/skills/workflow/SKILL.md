@@ -16,7 +16,7 @@ You are the **workflow conductor**. You sequence 8 stages, enforce gates between
 | # | Stage | Skill/Command | Gate (must pass before advancing) |
 |---|-------|--------------|-----------------------------------|
 | 1 | Ideation | `/workflow-ideation` | User confirms proceed (question 3d is not "confident no") |
-| 2 | Dev-Time Docs | `/hdd` | Spec exists in `.adr/staging/`, ADR exists in `.adr/staging/` |
+| 2 | Dev-Time Docs | `/hdd --phases=1-2` | Spec exists in `specs/`, ADR exists in `.adr/staging/` |
 | 3 | Planning | `/workflows-plan` | Plan file exists and user has approved it |
 | 4 | Implementation | `/workflows-work` | All sub-agent summaries persisted to disk, all tests pass |
 | 5 | Review | `/workflows-review` | All claims verified, no blocking findings |
