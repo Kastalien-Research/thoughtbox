@@ -103,6 +103,28 @@ export interface ThoughtData {
   includeGuide?: boolean;
   timestamp: string; // ISO 8601 - always present after persistence
 
+  /** Operations mode: structured thought type for programmatic filtering */
+  thoughtType: 'reasoning' | 'decision_frame' | 'action_report' | 'belief_snapshot' | 'assumption_update' | 'context_snapshot' | 'progress';
+
+  /** Confidence level for decision_frame thoughts */
+  confidence?: 'high' | 'medium' | 'low';
+  /** Options considered for decision_frame thoughts */
+  options?: Array<{ label: string; selected: boolean; reason?: string }>;
+  /** Action outcome for action_report thoughts */
+  actionResult?: { success: boolean; reversible: 'yes' | 'no' | 'partial'; tool: string; target: string; sideEffects?: string[] };
+  /** Current beliefs for belief_snapshot thoughts */
+  beliefs?: { entities: Array<{ name: string; state: string }>; constraints?: string[]; risks?: string[] };
+  /** Assumption change for assumption_update thoughts */
+  assumptionChange?: { text: string; oldStatus: string; newStatus: 'believed' | 'uncertain' | 'refuted'; trigger?: string; downstream?: number[] };
+  /** Operating context for context_snapshot thoughts */
+  contextData?: { toolsAvailable?: string[]; systemPromptHash?: string; modelId?: string; constraints?: string[]; dataSourcesAccessed?: string[] };
+  /** Progress update for progress thoughts */
+  progressData?: {
+    task: string;
+    status: 'pending' | 'in_progress' | 'done' | 'blocked';
+    note?: string;
+  };
+
   /**
    * Multi-agent attribution (optional)
    * Present when thought is created by an identified agent
@@ -244,6 +266,9 @@ export interface SessionExport {
   /** Revision analysis (SPEC-002) */
   revisionAnalysis?: any;
 
+  /** AUDIT-003: Session audit manifest (auto-generated at session close) */
+  auditManifest?: AuditManifest;
+
   /** ISO 8601 timestamp of export */
   exportedAt: string;
 }
@@ -295,6 +320,52 @@ export interface SessionManifest {
     tags: string[];
     createdAt: string; // ISO 8601
     updatedAt: string; // ISO 8601
+  };
+}
+
+// =============================================================================
+// Audit Manifest Types (AUDIT-002/003)
+// =============================================================================
+
+/**
+ * AUDIT-003: Session audit manifest — auto-generated at session close
+ * Also used as the shape for audit_summary analysis (AUDIT-002)
+ */
+export interface AuditManifest {
+  sessionId: string;
+  generatedAt: string;
+  thoughtCounts: {
+    total: number;
+    reasoning: number;
+    decision_frame: number;
+    action_report: number;
+    belief_snapshot: number;
+    assumption_update: number;
+    context_snapshot: number;
+    progress: number;
+  };
+  decisions: {
+    total: number;
+    byConfidence: { high: number; medium: number; low: number };
+  };
+  actions: {
+    total: number;
+    successful: number;
+    failed: number;
+    reversible: number;
+    irreversible: number;
+    partiallyReversible: number;
+  };
+  gaps: Array<{
+    type: 'decision_without_action' | 'critique_override';
+    thoughtNumber: number;
+    description: string;
+  }>;
+  assumptionFlips: number;
+  critiques: {
+    generated: number;
+    addressed: number;
+    overridden: number;
   };
 }
 

@@ -593,6 +593,17 @@ Call \`thoughtbox_gateway\` with operation 'thought' to begin structured reasoni
       critique: args.critique as boolean | undefined,
       // SIL-101: Pass verbose flag for minimal/full response mode
       verbose: args.verbose as boolean | undefined,
+      // Operations mode: structured thought type for auditability
+      thoughtType: args.thoughtType as 'reasoning' | 'decision_frame' | 'action_report' | 'belief_snapshot' | 'assumption_update' | 'context_snapshot' | 'progress' | undefined,
+      // AUDIT-001: Structured metadata fields
+      confidence: args.confidence as 'high' | 'medium' | 'low' | undefined,
+      options: args.options as Array<{ label: string; selected: boolean; reason?: string }> | undefined,
+      actionResult: args.actionResult as any,
+      beliefs: args.beliefs as any,
+      assumptionChange: args.assumptionChange as any,
+      contextData: args.contextData as any,
+      // AUDIT-004: Progress thought data passthrough
+      progressData: args.progressData as { task: string; status: 'pending' | 'in_progress' | 'done' | 'blocked'; note?: string } | undefined,
       // Multi-agent attribution: use per-session identity with fallback to instance defaults
       agentId: (args.agentId as string | undefined) ?? this.getAgentId(mcpSessionId),
       agentName: (args.agentName as string | undefined) ?? this.getAgentName(mcpSessionId),
@@ -698,11 +709,46 @@ Call \`thoughtbox_gateway\` with operation 'thought' to begin structured reasoni
       // No query parameters - return recent context
       else {
         const allThoughts = await this.storage.getThoughts(sessionId);
-        thoughts = allThoughts.slice(-5);  // Default: last 5
-        queryDescription = 'last 5 thoughts (default)';
+        const hasFilters = args?.thoughtType || args?.confidence;
+        if (hasFilters) {
+          thoughts = allThoughts;
+          queryDescription = 'all thoughts (filter-driven)';
+        } else {
+          thoughts = allThoughts.slice(-5);  // Default: last 5
+          queryDescription = 'last 5 thoughts (default)';
+        }
       }
 
-      // Format response
+      // AUDIT-002: Apply thoughtType and confidence filters
+      const filterThoughtType = args?.thoughtType as string | undefined;
+      const filterConfidence = args?.confidence as string | undefined;
+
+      if (filterConfidence && filterThoughtType && filterThoughtType !== 'decision_frame') {
+        return {
+          content: [{
+            type: 'text',
+            text: JSON.stringify({
+              error: 'confidence filter only applies to decision_frame thoughts',
+              suggestion: 'Remove thoughtType or set it to "decision_frame"',
+            }, null, 2),
+          }],
+          isError: true,
+        };
+      }
+
+      const totalUnfiltered = thoughts.length;
+
+      if (filterThoughtType) {
+        thoughts = thoughts.filter(t => t.thoughtType === filterThoughtType);
+      }
+
+      if (filterConfidence) {
+        thoughts = thoughts.filter(t =>
+          t.thoughtType === 'decision_frame' && t.confidence === filterConfidence
+        );
+      }
+
+      // Format response with structured fields
       const formattedThoughts = thoughts.map(t => ({
         thoughtNumber: t.thoughtNumber,
         thought: t.thought,
@@ -712,6 +758,13 @@ Call \`thoughtbox_gateway\` with operation 'thought' to begin structured reasoni
         branchId: t.branchId,
         branchFromThought: t.branchFromThought,
         timestamp: t.timestamp,
+        thoughtType: t.thoughtType,
+        confidence: t.confidence,
+        options: t.options,
+        actionResult: t.actionResult,
+        beliefs: t.beliefs,
+        assumptionChange: t.assumptionChange,
+        contextData: t.contextData,
       }));
 
       // Include available branches so agents know branches exist
@@ -723,6 +776,14 @@ Call \`thoughtbox_gateway\` with operation 'thought' to begin structured reasoni
         count: formattedThoughts.length,
         thoughts: formattedThoughts,
       };
+
+      if (filterThoughtType || filterConfidence) {
+        response.filter = {
+          ...(filterThoughtType && { thoughtType: filterThoughtType }),
+          ...(filterConfidence && { confidence: filterConfidence }),
+        };
+        response.totalUnfiltered = totalUnfiltered;
+      }
 
       if (availableBranches.length > 0) {
         response.availableBranches = availableBranches;
@@ -906,7 +967,7 @@ Call \`thoughtbox_gateway\` with operation 'thought' to begin structured reasoni
           text: JSON.stringify({
             error: 'Deep analysis requires sessionId and analysisType',
             required: ['sessionId', 'analysisType'],
-            analysisTypes: ['patterns', 'cognitive_load', 'decision_points', 'full'],
+            analysisTypes: ['patterns', 'cognitive_load', 'decision_points', 'full', 'audit_summary', 'audit_manifest'],
           }, null, 2),
         }],
         isError: true,
@@ -914,7 +975,7 @@ Call \`thoughtbox_gateway\` with operation 'thought' to begin structured reasoni
     }
 
     const sessionId = args.sessionId as string;
-    const analysisType = args.analysisType as 'patterns' | 'cognitive_load' | 'decision_points' | 'full';
+    const analysisType = args.analysisType as 'patterns' | 'cognitive_load' | 'decision_points' | 'full' | 'audit_summary' | 'audit_manifest';
     const options = args.options as { includeTimeline?: boolean; compareWith?: string[] } | undefined;
 
     try {
@@ -979,6 +1040,42 @@ Call \`thoughtbox_gateway\` with operation 'thought' to begin structured reasoni
           createdAt: session.createdAt,
           updatedAt: session.updatedAt,
           durationEstimate: thoughts.length ? `~${thoughts.length * 2} minutes` : 'unknown',
+        };
+      }
+
+      // AUDIT-003: audit_manifest analysis type
+      if (analysisType === 'audit_manifest') {
+        const { generateAuditData, toAuditManifest } = await import('../audit/index.js');
+        const auditData = generateAuditData(sessionId, thoughts);
+        const manifest = toAuditManifest(auditData);
+
+        return {
+          content: [{
+            type: 'text',
+            text: JSON.stringify({
+              sessionId,
+              analysisType: 'audit_manifest',
+              timestamp: new Date().toISOString(),
+              manifest,
+            }, null, 2),
+          }],
+        };
+      }
+
+      // AUDIT-002: audit_summary analysis type
+      if (analysisType === 'audit_summary') {
+        const { generateAuditData } = await import('../audit/index.js');
+        const auditData = generateAuditData(sessionId, thoughts);
+
+        return {
+          content: [{
+            type: 'text',
+            text: JSON.stringify({
+              ...auditData,
+              analysisType: 'audit_summary',
+              timestamp: new Date().toISOString(),
+            }, null, 2),
+          }],
         };
       }
 

@@ -3,5 +3,5 @@
   "jsonl_export": "issues.jsonl",
   "backend": "dolt",
   "dolt_mode": "server",
-  "dolt_database": "beads_thoughtbox"
+  "dolt_database": "beads_tb"
 }

@@ -129,6 +129,8 @@ export type ThoughtEmitterEvents = {
   "session:ended": {
     sessionId: string;
     finalThoughtCount: number;
+    /** AUDIT-003: Optional audit manifest generated at session close */
+    auditManifest?: import('../persistence/types.js').AuditManifest;
   };
   /**
    * Agent lifecycle events for multi-agent collaboration visualization

@@ -73,8 +73,86 @@ export const GATEWAY_OPERATIONS: OperationDefinition[] = [
           type: "boolean",
           description: "If true, include self-critique guidance",
         },
+        thoughtType: {
+          type: "string",
+          enum: ["reasoning", "decision_frame", "action_report", "belief_snapshot", "assumption_update", "context_snapshot", "progress"],
+          description: "Required. Use 'reasoning' for general-purpose thoughts. Use 'decision_frame' before choosing between options (requires confidence + options). Use 'action_report' after external actions (requires actionResult). Use 'belief_snapshot' for state checkpoints (requires beliefs). Use 'assumption_update' when assumptions change (requires assumptionChange). Use 'context_snapshot' to record operating context (requires contextData). Use 'progress' for lightweight task status updates (requires progressData).",
+        },
+        confidence: {
+          type: "string",
+          enum: ["high", "medium", "low"],
+          description: "Confidence level (required for decision_frame)",
+        },
+        options: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              label: { type: "string" },
+              selected: { type: "boolean" },
+              reason: { type: "string" },
+            },
+            required: ["label", "selected"],
+          },
+          description: "Options considered (required for decision_frame, exactly one must be selected)",
+        },
+        actionResult: {
+          type: "object",
+          properties: {
+            success: { type: "boolean" },
+            reversible: { type: "string", enum: ["yes", "no", "partial"] },
+            tool: { type: "string" },
+            target: { type: "string" },
+            sideEffects: { type: "array", items: { type: "string" } },
+          },
+          required: ["success", "reversible", "tool", "target"],
+          description: "Action outcome (required for action_report)",
+        },
+        beliefs: {
+          type: "object",
+          properties: {
+            entities: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  name: { type: "string" },
+                  state: { type: "string" },
+                },
+                required: ["name", "state"],
+              },
+            },
+            constraints: { type: "array", items: { type: "string" } },
+            risks: { type: "array", items: { type: "string" } },
+          },
+          required: ["entities"],
+          description: "Current beliefs (required for belief_snapshot)",
+        },
+        assumptionChange: {
+          type: "object",
+          properties: {
+            text: { type: "string" },
+            oldStatus: { type: "string" },
+            newStatus: { type: "string", enum: ["believed", "uncertain", "refuted"] },
+            trigger: { type: "string" },
+            downstream: { type: "array", items: { type: "number" } },
+          },
+          required: ["text", "oldStatus", "newStatus"],
+          description: "Assumption change (required for assumption_update)",
+        },
+        contextData: {
+          type: "object",
+          properties: {
+            toolsAvailable: { type: "array", items: { type: "string" } },
+            systemPromptHash: { type: "string" },
+            modelId: { type: "string" },
+            constraints: { type: "array", items: { type: "string" } },
+            dataSourcesAccessed: { type: "array", items: { type: "string" } },
+          },
+          description: "Operating context (required for context_snapshot)",
+        },
       },
-      required: ["thought", "nextThoughtNeeded"],
+      required: ["thought", "nextThoughtNeeded", "thoughtType"],
     },
     example: {
       thought: "The architecture uses a gateway pattern to route operations...",
@@ -115,6 +193,16 @@ export const GATEWAY_OPERATIONS: OperationDefinition[] = [
           type: "string",
           description: "Get all thoughts from a named branch (standalone query mode — not combinable with thoughtNumber, last, or range)",
         },
+        thoughtType: {
+          type: "string",
+          enum: ["reasoning", "decision_frame", "action_report", "belief_snapshot", "assumption_update", "context_snapshot", "progress"],
+          description: "Filter thoughts by type. Returns only thoughts matching this type.",
+        },
+        confidence: {
+          type: "string",
+          enum: ["high", "medium", "low"],
+          description: "Filter by confidence level. Only applies to decision_frame thoughts. Implicitly sets thoughtType to decision_frame.",
+        },
       },
     },
     example: {
@@ -154,7 +242,7 @@ export const GATEWAY_OPERATIONS: OperationDefinition[] = [
     name: "deep_analysis",
     title: "Deep Analysis",
     description:
-      "Analyze a reasoning session for patterns, cognitive load, and decision points. Available analysis types: patterns, cognitive_load, decision_points, full.",
+      "Analyze a reasoning session for patterns, cognitive load, decision points, audit summaries, and audit manifests. Available analysis types: patterns, cognitive_load, decision_points, full, audit_summary, audit_manifest.",
     category: "analysis",
     inputSchema: {
       type: "object",
@@ -165,7 +253,7 @@ export const GATEWAY_OPERATIONS: OperationDefinition[] = [
         },
         analysisType: {
           type: "string",
-          enum: ["patterns", "cognitive_load", "decision_points", "full"],
+          enum: ["patterns", "cognitive_load", "decision_points", "full", "audit_summary", "audit_manifest"],
           description: "Type of analysis to perform",
         },
         options: {

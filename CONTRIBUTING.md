@@ -22,13 +22,13 @@ git clone https://github.com/Kastalien-Research/thoughtbox.git
 cd thoughtbox
 
 # Install dependencies
-npm install
+pnpm install
 
 # Build the project
-npm run build
+pnpm run build
 
 # Development with hot reload
-npm run dev
+pnpm run dev
 ```
 
 ## Commit Conventions
@@ -110,13 +110,13 @@ We use the Claude Agent SDK for behavioral testing. These tests spawn fresh agen
 
 ```bash
 # Run all behavioral tests
-npm test
+pnpm test
 
 # Test a specific tool
-npm run test:tool -- thick_read
+pnpm run test:tool -- thick_read
 
 # Quick test (skip rebuild)
-npm run test:quick -- thoughtbox
+pnpm run test:quick -- thoughtbox
 ```
 
 ### Test Structure
@@ -150,7 +150,7 @@ const TOOL_TESTS: Record<string, string> = {
 
 2. **Make focused commits**: Each commit should be atomic and self-explanatory
 
-3. **Run tests**: Ensure `npm test` passes before pushing
+3. **Run tests**: Ensure `pnpm test` passes before pushing
 
 4. **Create PR with context**: Include:
    - Summary of changes

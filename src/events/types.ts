@@ -72,6 +72,8 @@ export interface SessionCompletedEvent extends BaseEvent {
     sessionId: string;
     finalThoughtCount: number;
     branchCount: number;
+    /** AUDIT-003: Optional audit manifest generated at session close */
+    auditManifest?: import('../persistence/types.js').AuditManifest;
   };
 }
 
