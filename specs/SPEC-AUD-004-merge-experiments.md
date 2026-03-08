@@ -50,6 +50,14 @@ The `validateStructuredFields` switch statement gains a `case 'progress'` arm di
 
 Both `loadSession` and `restoreFromSession` map `progressData` from storage into the in-memory `ThoughtData` interface. The `ThoughtData` interface in `thought-handler.ts` includes `progressData` as an optional field.
 
+### 1.5 Gateway passthrough
+
+`src/gateway/gateway-handler.ts` must forward `progressData` from MCP args to `ThoughtHandler.processThought()`. The `thoughtType` union cast must include `'progress'`. Without this, the handler-level integration works but the MCP API silently drops `progressData`.
+
+### 1.6 MCP tool schema
+
+`src/gateway/operations.ts` declares the `thoughtType` enum in two tool schemas (`thought` at line 78, `read_thoughts` at line 198). Both must include `'progress'`. Without this, strict MCP clients may reject `thoughtType: 'progress'` at the schema validation layer before the call reaches the handler.
+
 ## 2. Bug Fix: `read_thoughts` filter precedence
 
 ### 2.1 Current behavior (buggy)
@@ -133,3 +141,9 @@ The two experiment branches are disjoint (no shared files). Merge order does not
 | AC-6 | No `last: 100` workaround remains in `demo/test-runbook-session.ts` | `grep -c 'last: 100' demo/test-runbook-session.ts` returns 0 |
 | AC-7 | `read_thoughts` with no params and no filters still returns last 5 (default behavior preserved) | Existing read_thoughts tests pass |
 | AC-8 | Zero merge conflicts from sequential merge of both experiments | `git merge` exits 0 for both branches |
+| AC-9 | `progress` thought accepted via live MCP gateway (not just handler) | `thoughtbox_gateway { operation: "thought", args: { thoughtType: "progress", progressData: {...} } }` succeeds |
+| AC-10 | Gateway `thoughtType` union includes `'progress'` | Grep `gateway-handler.ts` for `'progress'` in type cast |
+
+## 5. Testing Rule
+
+**Gateway boundary test requirement**: Any new field that flows through `gateway-handler.ts` to `ThoughtHandler.processThought()` must have at least one test that exercises the full gateway path — not just the handler directly. The gateway does explicit arg destructuring; new fields are silently dropped unless forwarded. Handler-level tests alone create false coverage.

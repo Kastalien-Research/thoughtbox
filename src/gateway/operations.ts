@@ -75,8 +75,8 @@ export const GATEWAY_OPERATIONS: OperationDefinition[] = [
         },
         thoughtType: {
           type: "string",
-          enum: ["reasoning", "decision_frame", "action_report", "belief_snapshot", "assumption_update", "context_snapshot"],
-          description: "Required. Use 'reasoning' for general-purpose thoughts. Use 'decision_frame' before choosing between options (requires confidence + options). Use 'action_report' after external actions (requires actionResult). Use 'belief_snapshot' for state checkpoints (requires beliefs). Use 'assumption_update' when assumptions change (requires assumptionChange). Use 'context_snapshot' to record operating context (requires contextData).",
+          enum: ["reasoning", "decision_frame", "action_report", "belief_snapshot", "assumption_update", "context_snapshot", "progress"],
+          description: "Required. Use 'reasoning' for general-purpose thoughts. Use 'decision_frame' before choosing between options (requires confidence + options). Use 'action_report' after external actions (requires actionResult). Use 'belief_snapshot' for state checkpoints (requires beliefs). Use 'assumption_update' when assumptions change (requires assumptionChange). Use 'context_snapshot' to record operating context (requires contextData). Use 'progress' for lightweight task status updates (requires progressData).",
         },
         confidence: {
           type: "string",
@@ -195,7 +195,7 @@ export const GATEWAY_OPERATIONS: OperationDefinition[] = [
         },
         thoughtType: {
           type: "string",
-          enum: ["reasoning", "decision_frame", "action_report", "belief_snapshot", "assumption_update", "context_snapshot"],
+          enum: ["reasoning", "decision_frame", "action_report", "belief_snapshot", "assumption_update", "context_snapshot", "progress"],
           description: "Filter thoughts by type. Returns only thoughts matching this type.",
         },
         confidence: {

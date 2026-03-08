@@ -1,6 +1,6 @@
 # ADR-009: Merge Auditability Experiments and Fix read_thoughts Filter Bug
 
-**Status**: Proposed
+**Status**: Accepted (with amendments)
 **Date**: 2026-03-08
 **Branch**: feat/auditability-mvp
 
@@ -29,7 +29,18 @@ Merge both experiments sequentially into `feat/auditability-mvp`, fix the filter
 3. **Fix read_thoughts filter precedence** -- modify the `else` (default) branch in gateway-handler.ts to check for `thoughtType`/`confidence` filter presence before slicing to last 5.
 4. **Remove workaround** -- strip `last: 100` from the runbook test, proving the fix works.
 
-This order ensures type definitions exist before the integration test that depends on them, and the bug fix is applied after the test that exposes it is in place.
+The branches are disjoint (no shared files), so merge order does not affect correctness. Convention: type/validation changes before test additions.
+
+### Amendments (discovered during validation)
+
+Live MCP testing revealed two additional gaps not covered by the experiment tests:
+
+5. **Gateway passthrough** -- `gateway-handler.ts` was not forwarding `progressData` to `ThoughtHandler.processThought()`, and the `thoughtType` type cast was missing `'progress'`. The experiment test bypassed the gateway and called the handler directly, masking this gap.
+6. **MCP tool schema** -- `operations.ts` declared the `thoughtType` enum without `'progress'` in both the `thought` and `read_thoughts` tool schemas. Strict MCP clients would reject `progress` at the schema validation layer.
+
+**Root cause**: The experiment tested handler internals without exercising the gateway boundary. This produced false coverage — all handler tests passed while the live API silently dropped `progressData`.
+
+**Testing rule added**: Any new field flowing through `gateway-handler.ts` must have at least one test exercising the full gateway path. See SPEC-AUD-004 Section 5.
 
 ## Consequences
 
@@ -55,19 +66,19 @@ This order ensures type definitions exist before the integration test that depen
 
 **Prediction**: After merging exp/progress-thought-type, `pnpm build` succeeds and all 6 progress-thought-type tests pass on the staging branch.
 **Validation**: `pnpm build && pnpm test -- --grep "Progress ThoughtType"`
-**Outcome**: PENDING
+**Outcome**: VALIDATED (with amendments). Handler-level integration clean. Gateway passthrough and MCP schema required two additional fixes discovered during live validation. 384/384 unit tests pass. Live MCP test: progress thought accepted via gateway, counted in audit manifest.
 
 ### Hypothesis 2: `read_thoughts` filter bug is a precedence issue
 
 **Prediction**: Calling `read_thoughts { thoughtType: 'decision_frame' }` (no `last` parameter) on a 10-thought session containing 2 decision_frame thoughts returns count=2. Before the fix, it returns count<=2 depending on whether decision_frame thoughts fall in the last 5.
 **Validation**: After fixing the `else` block in gateway-handler.ts, remove `last: 100` from all three `readThoughts` calls in `demo/test-runbook-session.ts` and run `pnpm test -- --grep "Thoughts-as-Runbook"`. All tests pass.
-**Outcome**: PENDING
+**Outcome**: VALIDATED. Unit tests pass without workaround. Live MCP test: `read_thoughts { thoughtType: 'decision_frame' }` returned count=2, totalUnfiltered=7 on 7-thought session. Default last-5 behavior preserved when no filters present.
 
 ### Hypothesis 3: Both experiments merge without conflicts
 
 **Prediction**: Sequential merge of exp/progress-thought-type then exp/runbook-via-thoughts produces zero conflicted files. The combined test suite passes.
 **Validation**: `git merge exp/progress-thought-type` exits 0, `git merge exp/runbook-via-thoughts` exits 0, `pnpm test` passes.
-**Outcome**: PENDING
+**Outcome**: VALIDATED. Both merges exited 0 with zero conflicts. Zero conflict markers in src/ or demo/. 384/384 tests pass after both merges.
 
 ## Spec
 

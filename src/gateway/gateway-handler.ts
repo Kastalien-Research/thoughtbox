@@ -594,7 +594,7 @@ Call \`thoughtbox_gateway\` with operation 'thought' to begin structured reasoni
       // SIL-101: Pass verbose flag for minimal/full response mode
       verbose: args.verbose as boolean | undefined,
       // Operations mode: structured thought type for auditability
-      thoughtType: args.thoughtType as 'reasoning' | 'decision_frame' | 'action_report' | 'belief_snapshot' | 'assumption_update' | 'context_snapshot' | undefined,
+      thoughtType: args.thoughtType as 'reasoning' | 'decision_frame' | 'action_report' | 'belief_snapshot' | 'assumption_update' | 'context_snapshot' | 'progress' | undefined,
       // AUDIT-001: Structured metadata fields
       confidence: args.confidence as 'high' | 'medium' | 'low' | undefined,
       options: args.options as Array<{ label: string; selected: boolean; reason?: string }> | undefined,
@@ -602,6 +602,8 @@ Call \`thoughtbox_gateway\` with operation 'thought' to begin structured reasoni
       beliefs: args.beliefs as any,
       assumptionChange: args.assumptionChange as any,
       contextData: args.contextData as any,
+      // AUDIT-004: Progress thought data passthrough
+      progressData: args.progressData as { task: string; status: 'pending' | 'in_progress' | 'done' | 'blocked'; note?: string } | undefined,
       // Multi-agent attribution: use per-session identity with fallback to instance defaults
       agentId: (args.agentId as string | undefined) ?? this.getAgentId(mcpSessionId),
       agentName: (args.agentName as string | undefined) ?? this.getAgentName(mcpSessionId),
@@ -707,8 +709,14 @@ Call \`thoughtbox_gateway\` with operation 'thought' to begin structured reasoni
       // No query parameters - return recent context
       else {
         const allThoughts = await this.storage.getThoughts(sessionId);
-        thoughts = allThoughts.slice(-5);  // Default: last 5
-        queryDescription = 'last 5 thoughts (default)';
+        const hasFilters = args?.thoughtType || args?.confidence;
+        if (hasFilters) {
+          thoughts = allThoughts;
+          queryDescription = 'all thoughts (filter-driven)';
+        } else {
+          thoughts = allThoughts.slice(-5);  // Default: last 5
+          queryDescription = 'last 5 thoughts (default)';
+        }
       }
 
       // AUDIT-002: Apply thoughtType and confidence filters

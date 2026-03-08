@@ -234,12 +234,9 @@ describe('Thoughts-as-Runbook: 10-thought session', () => {
     // After session close, we need to pass sessionId explicitly
     // But the gateway read_thoughts uses the active session or a provided one
     // Since session closed, we must provide sessionId
-    // Use last: 100 to fetch all thoughts before filtering.
-    // Without it, the gateway defaults to last 5 and filters within that window.
     const readResult = await readThoughts({
       sessionId,
       thoughtType: 'decision_frame',
-      last: 100,
     });
     const data = parseResult(readResult);
 
@@ -254,7 +251,6 @@ describe('Thoughts-as-Runbook: 10-thought session', () => {
     const readResult = await readThoughts({
       sessionId,
       thoughtType: 'action_report',
-      last: 100,
     });
     const data = parseResult(readResult);
 
@@ -269,7 +265,6 @@ describe('Thoughts-as-Runbook: 10-thought session', () => {
     const readResult = await readThoughts({
       sessionId,
       thoughtType: 'reasoning',
-      last: 100,
     });
     const data = parseResult(readResult);
 
