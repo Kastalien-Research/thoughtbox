@@ -39,6 +39,98 @@ import type {
 } from './types.js';
 
 // =============================================================================
+// Input Validation
+// =============================================================================
+
+/**
+ * Validates and sanitizes a user-controlled identifier (sessionId, branchId, etc.)
+ * to prevent path traversal attacks.
+ */
+function validateAndSanitizeId(id: string, paramName: string): string {
+  if (!id || typeof id !== 'string') {
+    throw new Error(`${paramName} must be a non-empty string`);
+  }
+
+  // Check for path traversal sequences first (reject immediately)
+  if (id.includes('../') || id.includes('..\\') || id.includes('/') || id.includes('\\')) {
+    throw new Error(`${paramName} contains path traversal sequences or path separators`);
+  }
+
+  // Check for valid UUID format or safe alphanumeric pattern only
+  const validIdPattern = /^[a-zA-Z0-9-_]+$/;
+  if (!validIdPattern.test(id)) {
+    throw new Error(`${paramName} contains invalid characters`);
+  }
+
+  // Limit length to reasonable bounds
+  if (id.length > 128) {
+    throw new Error(`${paramName} is too long (max 128 characters)`);
+  }
+
+  return id;
+}
+
+/**
+ * Validates and sanitizes a partition path to prevent path traversal attacks.
+ */
+function validateAndSanitizePartitionPath(partitionPath: string): string {
+  if (!partitionPath || typeof partitionPath !== 'string') {
+    return '';
+  }
+
+  // Check for path traversal sequences first (reject immediately)
+  if (partitionPath.includes('../') || partitionPath.includes('..\\') || partitionPath.includes('\\')) {
+    throw new Error(`partitionPath contains path traversal sequences`);
+  }
+
+  // Only allow safe date-like patterns and forward slashes
+  const validPartitionPattern = /^[a-zA-Z0-9-_/W]+$/;
+  if (!validPartitionPattern.test(partitionPath)) {
+    throw new Error(`partitionPath contains invalid characters`);
+  }
+
+  // Remove leading/trailing slashes and ensure no double slashes
+  const normalized = partitionPath.replace(/^\/+|\/+$/g, '').replace(/\/+/g, '/');
+
+  // Limit depth and length
+  const pathSegments = normalized.split('/');
+  if (pathSegments.length > 3 || normalized.length > 64) {
+    throw new Error(`partitionPath is too deep or too long`);
+  }
+
+  // Validate each segment
+  for (const segment of pathSegments) {
+    if (segment.length === 0 || segment === '.' || segment === '..') {
+      throw new Error(`partitionPath contains invalid segment: ${segment}`);
+    }
+  }
+
+  return normalized;
+}
+
+/**
+ * Validates a thought filename to ensure it's safe and follows expected format.
+ */
+function validateThoughtFileName(filename: string): string {
+  if (!filename || typeof filename !== 'string') {
+    throw new Error('filename must be a non-empty string');
+  }
+
+  // Check for path traversal sequences first (reject immediately)
+  if (filename.includes('../') || filename.includes('..\\') || filename.includes('/') || filename.includes('\\')) {
+    throw new Error(`filename contains path traversal sequences or path separators`);
+  }
+
+  // Only allow safe filename patterns (numbers and .json extension)
+  const validFilePattern = /^\d{3}\.json$/;
+  if (!validFilePattern.test(filename)) {
+    throw new Error(`filename has invalid format: ${filename}`);
+  }
+
+  return filename;
+}
+
+// =============================================================================
 // Types
 // =============================================================================
 
@@ -117,10 +209,13 @@ export class FileSystemStorage implements ThoughtboxStorage {
   }
 
   private getSessionDir(sessionId: string, partitionPath?: string): string {
+    const sanitizedSessionId = validateAndSanitizeId(sessionId, 'sessionId');
+
     if (partitionPath) {
-      return path.join(this.getSessionsDir(), partitionPath, sessionId);
+      const sanitizedPartitionPath = validateAndSanitizePartitionPath(partitionPath);
+      return path.join(this.getSessionsDir(), sanitizedPartitionPath, sanitizedSessionId);
     }
-    return path.join(this.getSessionsDir(), sessionId);
+    return path.join(this.getSessionsDir(), sanitizedSessionId);
   }
 
   private getManifestPath(sessionDir: string): string {
@@ -130,7 +225,8 @@ export class FileSystemStorage implements ThoughtboxStorage {
   private getThoughtPath(sessionDir: string, thoughtNumber: number, branchId?: string): string {
     const filename = `${String(thoughtNumber).padStart(3, '0')}.json`;
     if (branchId) {
-      return path.join(sessionDir, 'branches', branchId, filename);
+      const sanitizedBranchId = validateAndSanitizeId(branchId, 'branchId');
+      return path.join(sessionDir, 'branches', sanitizedBranchId, filename);
     }
     return path.join(sessionDir, filename);
   }
@@ -304,7 +400,8 @@ export class FileSystemStorage implements ThoughtboxStorage {
 
       // Load main chain thoughts
       for (const thoughtFile of manifest.thoughtFiles) {
-        const thoughtPath = path.join(sessionDir, thoughtFile);
+        const validatedThoughtFile = validateThoughtFileName(thoughtFile);
+        const thoughtPath = path.join(sessionDir, validatedThoughtFile);
         try {
           const nodeData = await fs.readFile(thoughtPath, 'utf-8');
           const node: ThoughtNode = JSON.parse(nodeData);
@@ -316,8 +413,10 @@ export class FileSystemStorage implements ThoughtboxStorage {
 
       // Load branch thoughts
       for (const [branchId, branchFiles] of Object.entries(manifest.branchFiles)) {
+        const sanitizedBranchId = validateAndSanitizeId(branchId, 'branchId');
         for (const thoughtFile of branchFiles) {
-          const thoughtPath = path.join(sessionDir, 'branches', branchId, thoughtFile);
+          const validatedThoughtFile = validateThoughtFileName(thoughtFile);
+          const thoughtPath = path.join(sessionDir, 'branches', sanitizedBranchId, validatedThoughtFile);
           try {
             const nodeData = await fs.readFile(thoughtPath, 'utf-8');
             const node: ThoughtNode = JSON.parse(nodeData);
@@ -579,7 +678,8 @@ export class FileSystemStorage implements ThoughtboxStorage {
 
     // Create branch directory if needed
     const sessionDir = this.getSessionDir(sessionId, session.partitionPath);
-    const branchDir = path.join(sessionDir, 'branches', branchId);
+    const sanitizedBranchId = validateAndSanitizeId(branchId, 'branchId');
+    const branchDir = path.join(sessionDir, 'branches', sanitizedBranchId);
     await fs.mkdir(branchDir, { recursive: true });
 
     // Write thought file to disk (atomic)
@@ -643,6 +743,7 @@ export class FileSystemStorage implements ThoughtboxStorage {
     const session = this.sessions.get(sessionId);
     if (!session) return;
 
+    const sanitizedBranchId = validateAndSanitizeId(branchId, 'branchId');
     const sessionDir = this.getSessionDir(sessionId, session.partitionPath);
     const manifestPath = this.getManifestPath(sessionDir);
 
@@ -650,14 +751,14 @@ export class FileSystemStorage implements ThoughtboxStorage {
       const manifestData = await fs.readFile(manifestPath, 'utf-8');
       const manifest: SessionManifest = JSON.parse(manifestData);
 
-      if (!manifest.branchFiles[branchId]) {
-        manifest.branchFiles[branchId] = [];
+      if (!manifest.branchFiles[sanitizedBranchId]) {
+        manifest.branchFiles[sanitizedBranchId] = [];
       }
 
       const filename = `${String(thoughtNumber).padStart(3, '0')}.json`;
-      if (!manifest.branchFiles[branchId].includes(filename)) {
-        manifest.branchFiles[branchId].push(filename);
-        manifest.branchFiles[branchId].sort();
+      if (!manifest.branchFiles[sanitizedBranchId].includes(filename)) {
+        manifest.branchFiles[sanitizedBranchId].push(filename);
+        manifest.branchFiles[sanitizedBranchId].sort();
       }
       manifest.metadata.updatedAt = new Date().toISOString();
 
@@ -803,7 +904,8 @@ export class FileSystemStorage implements ThoughtboxStorage {
 
     // Check thought files
     for (const thoughtFile of manifest.thoughtFiles) {
-      const thoughtPath = path.join(sessionDir, thoughtFile);
+      const validatedThoughtFile = validateThoughtFileName(thoughtFile);
+      const thoughtPath = path.join(sessionDir, validatedThoughtFile);
       try {
         await fs.access(thoughtPath);
       } catch {
@@ -814,8 +916,10 @@ export class FileSystemStorage implements ThoughtboxStorage {
 
     // Check branch files
     for (const [branchId, branchFiles] of Object.entries(manifest.branchFiles)) {
+      const sanitizedBranchId = validateAndSanitizeId(branchId, 'branchId');
       for (const thoughtFile of branchFiles) {
-        const thoughtPath = path.join(sessionDir, 'branches', branchId, thoughtFile);
+        const validatedThoughtFile = validateThoughtFileName(thoughtFile);
+        const thoughtPath = path.join(sessionDir, 'branches', sanitizedBranchId, validatedThoughtFile);
         try {
           await fs.access(thoughtPath);
         } catch {
