@@ -7,7 +7,7 @@ The conductor skill dispatches to stage-specific skills at each step. Run `/work
 
 ### Key Rules (always apply)
 
-1. **Specs go in `specs/`** (not `.specs/`). ADRs use the HDD lifecycle: `.adr/staging/` → `.adr/accepted/` or `.adr/rejected/`.
+1. **Specs go in `.specs/`** (not `specs/`). ADRs use the HDD lifecycle: `.adr/staging/` → `.adr/accepted/` or `.adr/rejected/`.
 2. **Code and spec updates in the same commit.** If you change code that a spec describes, update the spec in the same commit.
 3. **Atomic commits.** One sub-agent = one bead = one unit of work = one commit, made after review validates the work.
 4. **Sub-agent summaries use the structured format** defined in the `/workflow` conductor skill (Claims, Hypothesis Alignment, Tests, Known Gaps, Risks).

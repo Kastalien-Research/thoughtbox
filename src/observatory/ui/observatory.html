@@ -876,6 +876,403 @@
 
     /* hidden utility */
     .hidden { display: none !important; }
+
+    /* ================================================================
+       ThoughtCard — structured thought type rendering
+       ================================================================ */
+    .ThoughtCard {
+      border: 1px solid var(--color-border-default);
+      border-radius: 6px;
+      overflow: hidden;
+      margin-bottom: 16px;
+    }
+
+    .ThoughtCard-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 16px;
+      background: var(--color-canvas-subtle);
+      border-bottom: 1px solid var(--color-border-default);
+    }
+
+    .ThoughtCard-body {
+      padding: 16px;
+    }
+
+    .ThoughtCard-text {
+      background: var(--color-canvas-inset);
+      border: 1px solid var(--color-border-default);
+      border-radius: 6px;
+      padding: 16px;
+      font-family: var(--font-mono);
+      font-size: 13px;
+      color: var(--color-fg-default);
+      line-height: 1.6;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    /* Type badge — small pill in card header */
+    .TypeBadge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 8px;
+      font-size: 11px;
+      font-weight: 600;
+      line-height: 18px;
+      border-radius: 16px;
+      white-space: nowrap;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+
+    .TypeBadge--reasoning {
+      background: rgba(139, 148, 158, 0.15);
+      color: var(--color-fg-muted);
+    }
+
+    .TypeBadge--decision_frame {
+      background: rgba(163, 113, 247, 0.15);
+      color: var(--color-done-fg);
+    }
+
+    .TypeBadge--action_report {
+      background: rgba(88, 166, 255, 0.15);
+      color: var(--color-accent-fg);
+    }
+
+    .TypeBadge--belief_snapshot {
+      background: rgba(219, 97, 162, 0.15);
+      color: var(--color-sponsors-fg);
+    }
+
+    .TypeBadge--assumption_update {
+      background: rgba(210, 153, 34, 0.15);
+      color: var(--color-attention-fg);
+    }
+
+    .TypeBadge--context_snapshot {
+      background: rgba(139, 148, 158, 0.15);
+      color: var(--color-fg-muted);
+    }
+
+    .TypeBadge--progress {
+      background: rgba(88, 166, 255, 0.15);
+      color: var(--color-accent-fg);
+    }
+
+    /* Confidence badge for decision_frame */
+    .ConfidenceBadge {
+      display: inline-flex;
+      align-items: center;
+      padding: 2px 8px;
+      font-size: 11px;
+      font-weight: 600;
+      line-height: 18px;
+      border-radius: 16px;
+    }
+
+    .ConfidenceBadge--high {
+      background: rgba(63, 185, 80, 0.15);
+      color: var(--color-success-fg);
+    }
+
+    .ConfidenceBadge--medium {
+      background: rgba(210, 153, 34, 0.15);
+      color: var(--color-attention-fg);
+    }
+
+    .ConfidenceBadge--low {
+      background: rgba(248, 81, 73, 0.15);
+      color: var(--color-danger-fg);
+    }
+
+    /* Status badge for progress thoughts */
+    .StatusBadge {
+      display: inline-flex;
+      align-items: center;
+      padding: 2px 8px;
+      font-size: 11px;
+      font-weight: 600;
+      line-height: 18px;
+      border-radius: 16px;
+    }
+
+    .StatusBadge--pending {
+      background: rgba(139, 148, 158, 0.15);
+      color: var(--color-fg-muted);
+    }
+
+    .StatusBadge--in_progress {
+      background: rgba(88, 166, 255, 0.15);
+      color: var(--color-accent-fg);
+    }
+
+    .StatusBadge--done {
+      background: rgba(63, 185, 80, 0.15);
+      color: var(--color-success-fg);
+    }
+
+    .StatusBadge--blocked {
+      background: rgba(248, 81, 73, 0.15);
+      color: var(--color-danger-fg);
+    }
+
+    /* Result badge for action_report */
+    .ResultBadge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 8px;
+      font-size: 11px;
+      font-weight: 600;
+      line-height: 18px;
+      border-radius: 16px;
+    }
+
+    .ResultBadge--success {
+      background: rgba(63, 185, 80, 0.15);
+      color: var(--color-success-fg);
+    }
+
+    .ResultBadge--failure {
+      background: rgba(248, 81, 73, 0.15);
+      color: var(--color-danger-fg);
+    }
+
+    /* Reversibility badge */
+    .ReversibilityBadge {
+      display: inline-flex;
+      align-items: center;
+      padding: 2px 8px;
+      font-size: 11px;
+      font-weight: 500;
+      line-height: 18px;
+      border-radius: 16px;
+      background: rgba(139, 148, 158, 0.1);
+      color: var(--color-fg-subtle);
+      border: 1px solid var(--color-border-muted);
+    }
+
+    /* Options list for decision_frame */
+    .OptionsList {
+      list-style: none;
+      margin-top: 12px;
+    }
+
+    .OptionsList-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-size: 13px;
+      color: var(--color-fg-default);
+      margin-bottom: 4px;
+    }
+
+    .OptionsList-item:last-child { margin-bottom: 0; }
+
+    .OptionsList-item--selected {
+      background: rgba(63, 185, 80, 0.08);
+      border: 1px solid rgba(63, 185, 80, 0.2);
+    }
+
+    .OptionsList-item--unselected {
+      background: transparent;
+      border: 1px solid var(--color-border-muted);
+    }
+
+    .OptionsList-indicator {
+      flex-shrink: 0;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      margin-top: 2px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .OptionsList-indicator--selected {
+      background: var(--color-success-fg);
+      color: var(--color-canvas-default);
+      font-size: 10px;
+    }
+
+    .OptionsList-indicator--unselected {
+      border: 2px solid var(--color-border-default);
+    }
+
+    .OptionsList-label {
+      flex: 1;
+    }
+
+    .OptionsList-reason {
+      font-size: 12px;
+      color: var(--color-fg-subtle);
+      margin-top: 2px;
+    }
+
+    /* Metadata row for action_report */
+    .MetaRow {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .MetaRow-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px 10px;
+      font-size: 12px;
+      background: var(--color-canvas-subtle);
+      border: 1px solid var(--color-border-muted);
+      border-radius: 6px;
+      color: var(--color-fg-muted);
+    }
+
+    .MetaRow-item-label {
+      color: var(--color-fg-subtle);
+    }
+
+    .MetaRow-item-value {
+      color: var(--color-fg-default);
+      font-family: var(--font-mono);
+      font-size: 11px;
+    }
+
+    /* Entity list for belief_snapshot */
+    .EntityList {
+      list-style: none;
+      margin-top: 12px;
+    }
+
+    .EntityList-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 12px;
+      border-bottom: 1px solid var(--color-border-muted);
+      font-size: 13px;
+    }
+
+    .EntityList-item:last-child { border-bottom: none; }
+
+    .EntityList-name {
+      font-weight: 600;
+      color: var(--color-fg-default);
+      min-width: 120px;
+    }
+
+    .EntityList-state {
+      color: var(--color-fg-muted);
+      font-family: var(--font-mono);
+      font-size: 12px;
+    }
+
+    /* Assumption transition for assumption_update */
+    .AssumptionTransition {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 12px;
+      padding: 10px 12px;
+      background: var(--color-canvas-subtle);
+      border: 1px solid var(--color-border-muted);
+      border-radius: 6px;
+      font-size: 13px;
+    }
+
+    .AssumptionTransition-arrow {
+      color: var(--color-fg-subtle);
+      font-size: 16px;
+    }
+
+    .AssumptionStatus--believed {
+      color: var(--color-success-fg);
+      font-weight: 600;
+    }
+
+    .AssumptionStatus--uncertain {
+      color: var(--color-attention-fg);
+      font-weight: 600;
+    }
+
+    .AssumptionStatus--refuted {
+      color: var(--color-danger-fg);
+      font-weight: 600;
+    }
+
+    /* Context key-value for context_snapshot */
+    .ContextGrid {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 4px 12px;
+      margin-top: 12px;
+      font-size: 13px;
+    }
+
+    .ContextGrid-key {
+      color: var(--color-fg-subtle);
+      font-weight: 500;
+      white-space: nowrap;
+    }
+
+    .ContextGrid-value {
+      color: var(--color-fg-default);
+      font-family: var(--font-mono);
+      font-size: 12px;
+      word-break: break-all;
+    }
+
+    /* Timestamp gap separator */
+    .TimestampGap {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 4px 16px;
+      color: var(--color-fg-subtle);
+      font-size: 11px;
+    }
+
+    .TimestampGap-line {
+      flex: 1;
+      height: 1px;
+      background: var(--color-border-muted);
+    }
+
+    .TimestampGap-label {
+      white-space: nowrap;
+      font-family: var(--font-mono);
+      letter-spacing: 0.02em;
+    }
+
+    /* Small inline type indicator in session list */
+    .TypeIndicator {
+      display: inline-flex;
+      align-items: center;
+      padding: 1px 6px;
+      font-size: 10px;
+      font-weight: 600;
+      line-height: 16px;
+      border-radius: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      flex-shrink: 0;
+    }
+
+    .TypeIndicator--reasoning { background: rgba(139, 148, 158, 0.12); color: var(--color-fg-subtle); }
+    .TypeIndicator--decision_frame { background: rgba(163, 113, 247, 0.12); color: var(--color-done-fg); }
+    .TypeIndicator--action_report { background: rgba(88, 166, 255, 0.12); color: var(--color-accent-fg); }
+    .TypeIndicator--belief_snapshot { background: rgba(219, 97, 162, 0.12); color: var(--color-sponsors-fg); }
+    .TypeIndicator--assumption_update { background: rgba(210, 153, 34, 0.12); color: var(--color-attention-fg); }
+    .TypeIndicator--context_snapshot { background: rgba(139, 148, 158, 0.12); color: var(--color-fg-subtle); }
+    .TypeIndicator--progress { background: rgba(88, 166, 255, 0.12); color: var(--color-accent-fg); }
   </style>
 </head>
 <body>
@@ -1392,7 +1789,7 @@
         svgDots += `<circle cx="${x}" cy="${y}" r="4" fill="${color}"/>`;
       });
 
-      const commitRows = allThoughts.map(t => {
+      const commitRows = allThoughts.map((t, idx) => {
         const msg = escapeHtml((t.thought || '').split('\n')[0].slice(0, 120) || `Thought #${t.thoughtNumber}`);
         const hash = shortHash(t.id);
         const time = relativeTime(t.timestamp);
@@ -1400,10 +1797,27 @@
         const branchTag = branchLabel
           ? `<span class="BranchName">${escapeHtml(branchLabel.label)}</span>`
           : '';
+        const typeIndicator = t.thoughtType && t.thoughtType !== 'reasoning'
+          ? `<span class="TypeIndicator TypeIndicator--${t.thoughtType}">${formatThoughtType(t.thoughtType)}</span>`
+          : '';
 
-        return `<li class="CommitRow CommitRow--clickable" data-thought-id="${escapeHtml(t.id)}">
+        let gapHtml = '';
+        if (idx > 0) {
+          const prev = allThoughts[idx - 1];
+          const prevMs = new Date(prev.timestamp).getTime();
+          const currMs = new Date(t.timestamp).getTime();
+          const gapMin = (currMs - prevMs) / 60000;
+          if (gapMin > 5 && !isNaN(gapMin)) {
+            const label = gapMin >= 60
+              ? `${Math.floor(gapMin / 60)}h ${Math.round(gapMin % 60)}m gap`
+              : `${Math.round(gapMin)}m gap`;
+            gapHtml = `<li class="TimestampGap"><span class="TimestampGap-line"></span><span class="TimestampGap-label">${label}</span><span class="TimestampGap-line"></span></li>`;
+          }
+        }
+
+        return `${gapHtml}<li class="CommitRow CommitRow--clickable" data-thought-id="${escapeHtml(t.id)}">
           <div class="CommitRow-content">
-            <span class="CommitRow-message">${branchTag} ${msg}</span>
+            <span class="CommitRow-message">${branchTag} ${typeIndicator} ${msg}</span>
             <span class="CommitRow-meta">
               <span class="CommitRow-hash">${hash}</span>
               <span class="CommitRow-time">${time}</span>
@@ -1441,8 +1855,188 @@
     }
 
     // ================================================================
-    // Commit Detail
+    // Commit Detail — thoughtType-aware structured cards
     // ================================================================
+    function formatThoughtType(type) {
+      const labels = {
+        reasoning: 'Reasoning',
+        decision_frame: 'Decision',
+        action_report: 'Action',
+        belief_snapshot: 'Beliefs',
+        assumption_update: 'Assumption',
+        context_snapshot: 'Context',
+        progress: 'Progress',
+      };
+      return labels[type] || type;
+    }
+
+    function renderStructuredCard(thought) {
+      const type = thought.thoughtType;
+      if (!type) return '';
+
+      switch (type) {
+        case 'decision_frame':
+          return renderDecisionCard(thought);
+        case 'action_report':
+          return renderActionCard(thought);
+        case 'progress':
+          return renderProgressCard(thought);
+        case 'belief_snapshot':
+          return renderBeliefCard(thought);
+        case 'assumption_update':
+          return renderAssumptionCard(thought);
+        case 'context_snapshot':
+          return renderContextCard(thought);
+        default:
+          return '';
+      }
+    }
+
+    function renderDecisionCard(thought) {
+      const conf = thought.confidence;
+      const confBadge = conf
+        ? `<span class="ConfidenceBadge ConfidenceBadge--${conf}">${conf} confidence</span>`
+        : '';
+      const options = thought.options || [];
+      const optionsList = options.length > 0
+        ? `<ul class="OptionsList">${options.map(o => {
+            const cls = o.selected ? 'OptionsList-item--selected' : 'OptionsList-item--unselected';
+            const indicator = o.selected
+              ? '<span class="OptionsList-indicator OptionsList-indicator--selected">&#10003;</span>'
+              : '<span class="OptionsList-indicator OptionsList-indicator--unselected"></span>';
+            const reason = o.reason ? `<div class="OptionsList-reason">${escapeHtml(o.reason)}</div>` : '';
+            return `<li class="OptionsList-item ${cls}">${indicator}<div class="OptionsList-label">${escapeHtml(o.label)}${reason}</div></li>`;
+          }).join('')}</ul>`
+        : '';
+      return `<div class="ThoughtCard">
+        <div class="ThoughtCard-header">
+          <span class="TypeBadge TypeBadge--decision_frame">Decision</span>
+          ${confBadge}
+        </div>
+        <div class="ThoughtCard-body">${optionsList}</div>
+      </div>`;
+    }
+
+    function renderActionCard(thought) {
+      const ar = thought.actionResult;
+      if (!ar) return '';
+      const resultBadge = ar.success
+        ? '<span class="ResultBadge ResultBadge--success">&#10003; Success</span>'
+        : '<span class="ResultBadge ResultBadge--failure">&#10007; Failed</span>';
+      const reverseBadge = `<span class="ReversibilityBadge">${ar.reversible === 'yes' ? 'Reversible' : ar.reversible === 'no' ? 'Irreversible' : 'Partially reversible'}</span>`;
+      const metaItems = [
+        ar.tool ? `<span class="MetaRow-item"><span class="MetaRow-item-label">tool</span><span class="MetaRow-item-value">${escapeHtml(ar.tool)}</span></span>` : '',
+        ar.target ? `<span class="MetaRow-item"><span class="MetaRow-item-label">target</span><span class="MetaRow-item-value">${escapeHtml(ar.target)}</span></span>` : '',
+      ].filter(Boolean).join('');
+      const sideEffects = (ar.sideEffects || []).length > 0
+        ? `<div style="margin-top:8px;font-size:12px;color:var(--color-fg-subtle)">Side effects: ${ar.sideEffects.map(s => escapeHtml(s)).join(', ')}</div>`
+        : '';
+      return `<div class="ThoughtCard">
+        <div class="ThoughtCard-header">
+          <span class="TypeBadge TypeBadge--action_report">Action</span>
+          ${resultBadge}
+          ${reverseBadge}
+        </div>
+        <div class="ThoughtCard-body">
+          <div class="MetaRow">${metaItems}</div>
+          ${sideEffects}
+        </div>
+      </div>`;
+    }
+
+    function renderProgressCard(thought) {
+      const pd = thought.progressData;
+      if (!pd) return '';
+      const statusLabel = { pending: 'Pending', in_progress: 'In Progress', done: 'Done', blocked: 'Blocked' };
+      const note = pd.note ? `<div style="margin-top:8px;font-size:13px;color:var(--color-fg-muted)">${escapeHtml(pd.note)}</div>` : '';
+      return `<div class="ThoughtCard">
+        <div class="ThoughtCard-header">
+          <span class="TypeBadge TypeBadge--progress">Progress</span>
+          <span class="StatusBadge StatusBadge--${pd.status}">${statusLabel[pd.status] || pd.status}</span>
+        </div>
+        <div class="ThoughtCard-body">
+          <div style="font-size:14px;color:var(--color-fg-default)">${escapeHtml(pd.task)}</div>
+          ${note}
+        </div>
+      </div>`;
+    }
+
+    function renderBeliefCard(thought) {
+      const b = thought.beliefs;
+      if (!b) return '';
+      const entities = (b.entities || []).map(e =>
+        `<div class="EntityList-item"><span class="EntityList-name">${escapeHtml(e.name)}</span><span class="EntityList-state">${escapeHtml(e.state)}</span></div>`
+      ).join('');
+      const constraints = (b.constraints || []).length > 0
+        ? `<div style="margin-top:8px;font-size:12px;color:var(--color-fg-subtle)">Constraints: ${b.constraints.map(c => escapeHtml(c)).join(', ')}</div>`
+        : '';
+      const risks = (b.risks || []).length > 0
+        ? `<div style="margin-top:4px;font-size:12px;color:var(--color-danger-fg)">Risks: ${b.risks.map(r => escapeHtml(r)).join(', ')}</div>`
+        : '';
+      return `<div class="ThoughtCard">
+        <div class="ThoughtCard-header">
+          <span class="TypeBadge TypeBadge--belief_snapshot">Beliefs</span>
+        </div>
+        <div class="ThoughtCard-body">
+          <div class="EntityList">${entities}</div>
+          ${constraints}
+          ${risks}
+        </div>
+      </div>`;
+    }
+
+    function renderAssumptionCard(thought) {
+      const ac = thought.assumptionChange;
+      if (!ac) return '';
+      const statusClass = `AssumptionStatus--${ac.newStatus}`;
+      const oldStatusClass = ac.oldStatus === 'believed' ? 'AssumptionStatus--believed'
+        : ac.oldStatus === 'uncertain' ? 'AssumptionStatus--uncertain'
+        : ac.oldStatus === 'refuted' ? 'AssumptionStatus--refuted'
+        : '';
+      const trigger = ac.trigger ? `<div style="margin-top:8px;font-size:12px;color:var(--color-fg-subtle)">Trigger: ${escapeHtml(ac.trigger)}</div>` : '';
+      const downstream = (ac.downstream || []).length > 0
+        ? `<div style="margin-top:4px;font-size:12px;color:var(--color-fg-subtle)">Affects thoughts: ${ac.downstream.join(', ')}</div>`
+        : '';
+      return `<div class="ThoughtCard">
+        <div class="ThoughtCard-header">
+          <span class="TypeBadge TypeBadge--assumption_update">Assumption</span>
+        </div>
+        <div class="ThoughtCard-body">
+          <div style="font-size:13px;color:var(--color-fg-default);margin-bottom:8px">${escapeHtml(ac.text)}</div>
+          <div class="AssumptionTransition">
+            <span class="${oldStatusClass}">${escapeHtml(ac.oldStatus)}</span>
+            <span class="AssumptionTransition-arrow">&rarr;</span>
+            <span class="${statusClass}">${escapeHtml(ac.newStatus)}</span>
+          </div>
+          ${trigger}
+          ${downstream}
+        </div>
+      </div>`;
+    }
+
+    function renderContextCard(thought) {
+      const cd = thought.contextData;
+      if (!cd) return '';
+      const fields = [];
+      if (cd.modelId) fields.push(['Model', cd.modelId]);
+      if (cd.systemPromptHash) fields.push(['Prompt hash', cd.systemPromptHash]);
+      if (cd.toolsAvailable && cd.toolsAvailable.length > 0) fields.push(['Tools', cd.toolsAvailable.join(', ')]);
+      if (cd.constraints && cd.constraints.length > 0) fields.push(['Constraints', cd.constraints.join(', ')]);
+      if (cd.dataSourcesAccessed && cd.dataSourcesAccessed.length > 0) fields.push(['Data sources', cd.dataSourcesAccessed.join(', ')]);
+      if (fields.length === 0) return '';
+      const grid = fields.map(([k, v]) =>
+        `<span class="ContextGrid-key">${escapeHtml(k)}</span><span class="ContextGrid-value">${escapeHtml(v)}</span>`
+      ).join('');
+      return `<div class="ThoughtCard">
+        <div class="ThoughtCard-header">
+          <span class="TypeBadge TypeBadge--context_snapshot">Context</span>
+        </div>
+        <div class="ThoughtCard-body">
+          <div class="ContextGrid">${grid}</div>
+        </div>
+      </div>`;
+    }
+
     function renderCommitDetail(thoughtId) {
       const thought = state.thoughts.get(thoughtId);
       if (!thought) return `<div class="Main-container"><div class="EmptyState"><div class="EmptyState-heading">Thought not found</div></div></div>`;
@@ -1454,15 +2048,20 @@
         nextThoughtNeeded: thought.nextThoughtNeeded,
         branchId: thought.branchId || null,
         branchFromThought: thought.branchFromThought || null,
+        thoughtType: thought.thoughtType || null,
       };
 
       const branchLabel = thought.branchId ? state.branchRegistry.get(thought.branchId) : null;
+      const typeBadge = thought.thoughtType
+        ? `<span class="TypeBadge TypeBadge--${thought.thoughtType}">${formatThoughtType(thought.thoughtType)}</span>`
+        : '';
+      const structuredCard = renderStructuredCard(thought);
 
       return `<div class="Main-container">
         <button class="BackButton" data-action="back-to-sessions">&larr; Back to sessions</button>
         <div class="CommitDetail">
           <div class="CommitDetail-header">
-            <div class="CommitDetail-title">Thought #${thought.thoughtNumber} ${branchLabel ? `<span class="BranchName">${escapeHtml(branchLabel.label)}</span>` : ''}</div>
+            <div class="CommitDetail-title">Thought #${thought.thoughtNumber} ${branchLabel ? `<span class="BranchName">${escapeHtml(branchLabel.label)}</span>` : ''} ${typeBadge}</div>
             <div class="CommitDetail-metaRow">
               <span class="CommitRow-hash">${shortHash(thought.id)}</span>
               <span>${relativeTime(thought.timestamp)}</span>
@@ -1470,6 +2069,7 @@
             </div>
           </div>
           <div class="CommitDetail-body">
+            ${structuredCard}
             <div class="CommitDetail-codeBlock">${escapeHtml(content)}</div>
             <details style="margin-top:16px;">
               <summary style="cursor:pointer;color:var(--color-fg-muted);font-size:13px;">MCP metadata</summary>
