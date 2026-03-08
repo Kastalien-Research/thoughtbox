@@ -104,7 +104,7 @@ export interface ThoughtData {
   timestamp: string; // ISO 8601 - always present after persistence
 
   /** Operations mode: structured thought type for programmatic filtering */
-  thoughtType: 'reasoning' | 'decision_frame' | 'action_report' | 'belief_snapshot' | 'assumption_update' | 'context_snapshot';
+  thoughtType: 'reasoning' | 'decision_frame' | 'action_report' | 'belief_snapshot' | 'assumption_update' | 'context_snapshot' | 'progress';
 
   /** Confidence level for decision_frame thoughts */
   confidence?: 'high' | 'medium' | 'low';
@@ -118,6 +118,12 @@ export interface ThoughtData {
   assumptionChange?: { text: string; oldStatus: string; newStatus: 'believed' | 'uncertain' | 'refuted'; trigger?: string; downstream?: number[] };
   /** Operating context for context_snapshot thoughts */
   contextData?: { toolsAvailable?: string[]; systemPromptHash?: string; modelId?: string; constraints?: string[]; dataSourcesAccessed?: string[] };
+  /** Progress update for progress thoughts */
+  progressData?: {
+    task: string;
+    status: 'pending' | 'in_progress' | 'done' | 'blocked';
+    note?: string;
+  };
 
   /**
    * Multi-agent attribution (optional)
@@ -336,6 +342,7 @@ export interface AuditManifest {
     belief_snapshot: number;
     assumption_update: number;
     context_snapshot: number;
+    progress: number;
   };
   decisions: {
     total: number;
