@@ -333,7 +333,7 @@ Workflows for Claude to execute when verifying the notebook toolhost functions c
 
 ## Test 7: Dependency Installation Flow
 
-**Goal:** Verify npm dependencies can be installed.
+**Goal:** Verify pnpm dependencies can be installed.
 
 **Steps:**
 1. Create notebook

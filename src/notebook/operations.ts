@@ -181,7 +181,7 @@ Both approaches create an identical in-memory notebook.`,
   {
     name: "install_deps",
     title: "Install Dependencies",
-    description: "Install npm dependencies defined in the notebook's package.json",
+    description: "Install pnpm dependencies defined in the notebook's package.json",
     category: "execution",
     inputSchema: {
       type: "object",

@@ -2,6 +2,7 @@
   "name": "mcp-sidecar-observability",
   "version": "0.2.0",
   "private": true,
+  "packageManager": "pnpm@9.15.4",
   "type": "module",
   "description": "Generic MCP observability sidecar - HTTP+SSE proxy with OpenTelemetry instrumentation",
   "main": "dist/server.js",

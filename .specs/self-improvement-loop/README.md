@@ -243,7 +243,7 @@ Week 5+: First autonomous run ────────────────�
 
 If Distbook (execution environment) proves too far from ready:
 
-**Fallback**: Run benchmarks directly via `npm test` in Thoughtbox repo
+**Fallback**: Run benchmarks directly via `pnpm test` in Thoughtbox repo
 - Less elegant but zero additional infrastructure
 - SIL-000 Task 5 will assess and recommend
 

@@ -23,14 +23,19 @@ jobs:
           fetch-depth: 0  # Full history needed for git log
           ref: main  # Checkout main branch
 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.4
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '22'
-          cache: 'npm'
+          cache: 'pnpm'
 
       - name: Install dependencies
-        run: npm ci
+        run: pnpm install --frozen-lockfile
 
       - name: Extract commits from PR
         id: extract
@@ -50,7 +55,7 @@ jobs:
       - name: Update changelog
         if: steps.extract.outputs.commit_count > 0
         run: |
-          npx tsx scripts/changelog-update.ts pr-commits.txt
+          pnpm exec tsx scripts/changelog-update.ts pr-commits.txt
 
       - name: Check if changelog changed
         id: check

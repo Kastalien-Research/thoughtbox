@@ -52,12 +52,12 @@ export async function executeTypeScript(
 }
 
 /**
- * Install npm dependencies in a directory
+ * Install pnpm dependencies in a directory
  */
 export async function installDependencies(
   options: ExecutionOptions
 ): Promise<ExecutionResult> {
-  return executeCommand("npm", ["install"], options);
+  return executeCommand("pnpm", ["install"], options);
 }
 
 /**

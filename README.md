@@ -188,19 +188,19 @@ Thought 6: [SYNTHESIS] "Use PostgreSQL for transactions, MongoDB for analytics"
 For local development (requires Node.js 22+):
 
 ```bash
-npm install
-npm run build
-npm run dev      # Development with hot reload
+pnpm install
+pnpm build
+pnpm dev      # Development with hot reload
 ```
 
 ### Testing
 
 ```bash
 npx vitest run          # Unit tests
-npm test                # Agentic tests — full suite (build + run)
-npm run test:tool       # Agentic tests — tool-level only
-npm run test:quick      # Agentic tests — quick (no build)
-npm run test:behavioral # Behavioral contract tests
+pnpm test               # Agentic tests — full suite (build + run)
+pnpm test:tool          # Agentic tests — tool-level only
+pnpm test:quick         # Agentic tests — quick (no build)
+pnpm test:behavioral    # Behavioral contract tests
 ```
 
 ### Docker Compose

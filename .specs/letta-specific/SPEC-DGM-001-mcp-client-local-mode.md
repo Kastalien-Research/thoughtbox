@@ -382,7 +382,7 @@ export class LettaResourceProvider implements ResourceProvider {
 ### End-to-End Tests
 ```bash
 # Start Thoughtbox locally
-cd thoughtbox && npm run dev
+cd thoughtbox && pnpm dev
 
 # Run Letta Code with local MCP
 cd letta-code-thoughtbox
