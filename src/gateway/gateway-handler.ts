@@ -208,6 +208,8 @@ export class GatewayHandler {
   private sessionsPrimed = new Set<string>();
   /** Per-session disclosure stage (fix thoughtbox-twu: sub-agents bypass progressive disclosure) */
   private sessionStages = new Map<string, DisclosureStage>();
+  /** Track APIs/libraries that have been explored in notebooks (prevents repeated nudges) */
+  private exploredTargets = new Set<string>();
 
   constructor(config: GatewayHandlerConfig) {
     this.toolRegistry = config.toolRegistry;
@@ -608,6 +610,28 @@ Call \`thoughtbox_gateway\` with operation 'thought' to begin structured reasoni
       agentId: (args.agentId as string | undefined) ?? this.getAgentId(mcpSessionId),
       agentName: (args.agentName as string | undefined) ?? this.getAgentName(mcpSessionId),
     });
+
+    // EXPLORATION NUDGE: Detect implementation thoughts about untested APIs
+    // When a thought mentions implementing/integrating/calling an API but no
+    // notebook evidence exists, append a non-blocking nudge suggesting /tinker.
+    if (!result.isError) {
+      const nudge = this.checkExplorationEvidence(thought, args.thoughtType as string | undefined);
+      if (nudge) {
+        result.content.push({
+          type: 'text',
+          text: nudge,
+        } as ContentBlock);
+      }
+
+      // Auto-mark explored: when a belief_snapshot thought mentions an API target,
+      // suppress future nudges for that target in this session
+      if (args.thoughtType === 'belief_snapshot') {
+        const target = this.extractApiTarget(thought);
+        if (target) {
+          this.markExplored(target);
+        }
+      }
+    }
 
     // SPEC-HUB-002: Append profile priming resource for profiled agents
     // Fix thoughtbox-308: Only prime once per MCP session to avoid token waste
@@ -1131,6 +1155,103 @@ Call \`thoughtbox_gateway\` with operation 'thought' to begin structured reasoni
     }
 
     return this.knowledgeHandler.processOperation(args as any);
+  }
+
+  // ===========================================================================
+  // Exploration Evidence Check (Tinker Nudge System)
+  // ===========================================================================
+
+  /**
+   * Patterns that suggest an agent is about to implement against an external API.
+   * Matched against thought content to detect "coding blind" situations.
+   */
+  private static readonly IMPLEMENTATION_SIGNALS = [
+    /\bimplement(?:ing)?\b.*\b(?:api|endpoint|integration|sdk|client)\b/i,
+    /\bcall(?:ing)?\b.*\b(?:api|endpoint|service)\b/i,
+    /\bintegrat(?:e|ing)\b.*\b(?:with|into)\b/i,
+    /\bfetch(?:ing)?\b.*\bfrom\b/i,
+    /\buse\b.*\b(?:library|package|sdk|module)\b.*\bto\b/i,
+  ];
+
+  /**
+   * Patterns that indicate a thought already involves exploration/tinkering.
+   * If matched, no nudge is needed — the agent is already exploring.
+   */
+  private static readonly EXPLORATION_SIGNALS = [
+    /\btinker\b/i,
+    /\bexplor(?:e|ing|ation)\b/i,
+    /\bnotebook\b/i,
+    /\bvalidat(?:e|ing|ed)\b.*\b(?:assumption|shape|response)\b/i,
+    /\bbelief_snapshot\b/i,
+  ];
+
+  /**
+   * Check whether a thought suggests implementation against untested APIs
+   * and return a nudge message if exploration evidence is missing.
+   *
+   * Returns null if:
+   * - The thought doesn't mention API implementation
+   * - The thought is already about exploration
+   * - The target has been marked as explored
+   * - The thought type is belief_snapshot (already validated)
+   */
+  private checkExplorationEvidence(
+    thought: string,
+    thoughtType?: string,
+  ): string | null {
+    // Don't nudge belief_snapshot or assumption_update — these ARE evidence
+    if (thoughtType === 'belief_snapshot' || thoughtType === 'assumption_update') {
+      return null;
+    }
+
+    // Don't nudge if the thought itself is about exploration
+    if (GatewayHandler.EXPLORATION_SIGNALS.some(re => re.test(thought))) {
+      return null;
+    }
+
+    // Check if the thought signals API implementation
+    const isImplementation = GatewayHandler.IMPLEMENTATION_SIGNALS.some(re => re.test(thought));
+    if (!isImplementation) {
+      return null;
+    }
+
+    // Check if the target has already been explored in this session
+    // (Simple heuristic: extract likely API name from thought)
+    const target = this.extractApiTarget(thought);
+    if (target && this.exploredTargets.has(target.toLowerCase())) {
+      return null;
+    }
+
+    return `\n---\n**Exploration nudge**: This thought mentions implementing against an external API/library, but no notebook evidence was found validating the assumed behavior. Consider running \`/tinker ${target || '[target]'}\` to validate your mental model in a notebook before writing production code. This catches shape mismatches, auth surprises, and undocumented edge cases early.`;
+  }
+
+  /**
+   * Extract a likely API/library target name from thought text.
+   * Simple heuristic — looks for quoted strings, backticked code, or
+   * capitalized proper nouns near API keywords.
+   */
+  private extractApiTarget(thought: string): string | null {
+    // Try backticked code first
+    const backtickMatch = thought.match(/`([^`]+(?:api|sdk|client|service)[^`]*)`/i);
+    if (backtickMatch) return backtickMatch[1];
+
+    // Try quoted strings
+    const quoteMatch = thought.match(/"([^"]+(?:api|sdk|client|service)[^"]*)"/i);
+    if (quoteMatch) return quoteMatch[1];
+
+    // Try capitalized names near API keywords
+    const nameMatch = thought.match(/\b([A-Z][a-zA-Z]+(?:\s+[A-Z][a-zA-Z]+)?)\s+(?:api|sdk|client|service|endpoint)/i);
+    if (nameMatch) return nameMatch[1];
+
+    return null;
+  }
+
+  /**
+   * Mark an API/library target as explored (prevents future nudges).
+   * Called when a belief_snapshot thought is recorded with notebook evidence.
+   */
+  markExplored(target: string): void {
+    this.exploredTargets.add(target.toLowerCase());
   }
 }
 

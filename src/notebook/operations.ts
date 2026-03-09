@@ -34,8 +34,8 @@ export const NOTEBOOK_OPERATIONS: OperationDefinition[] = [
         },
         template: {
           type: "string",
-          enum: ["sequential-feynman"],
-          description: "Optional: Load a pre-structured template. 'sequential-feynman' provides guided structure for deep learning workflows with Feynman Technique.",
+          enum: ["sequential-feynman", "api-exploration"],
+          description: "Optional: Load a pre-structured template. 'sequential-feynman' provides guided structure for deep learning workflows with Feynman Technique. 'api-exploration' provides structured API tinkering: validate shapes, test edge cases, and build evidence before implementing.",
         },
       },
       required: ["title", "language"],

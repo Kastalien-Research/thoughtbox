@@ -18,6 +18,7 @@ You are the **workflow conductor**. You sequence 8 stages, enforce gates between
 | 1 | Ideation | `/workflow-ideation` | User confirms proceed (question 3d is not "confident no") |
 | 2 | Dev-Time Docs | `/hdd --phases=1-2` | Spec exists in `specs/`, ADR exists in `.adr/staging/` |
 | 3 | Planning | `/workflows-plan` | Plan file exists and user has approved it |
+| 3.5 | Tinker | `/tinker` (conditional) | Notebook evidence exists for each untested API/library in the plan, OR plan has no external dependencies |
 | 4 | Implementation | `/workflows-work` | All sub-agent summaries persisted to disk, all tests pass |
 | 5 | Review | `/workflows-review` | All claims verified, no blocking findings |
 | 6 | Revision | `/workflow-revision` | Review passes OR max iterations reached + user accepts |
@@ -59,6 +60,7 @@ Write to `.workflow/state.json`:
     "ideation": { "status": "pending", "completedAt": null, "notes": "" },
     "dev-docs": { "status": "pending", "artifacts": { "spec": null, "adr": null } },
     "planning": { "status": "pending", "artifacts": { "plan": null } },
+    "tinker": { "status": "pending", "artifacts": { "explored": [], "notebooks": [] }, "skipped": false },
     "implementation": { "status": "pending", "artifacts": { "summaries": [], "issues": [] } },
     "review": { "status": "pending", "artifacts": { "findings": [] } },
     "revision": { "status": "pending", "iterations": 0, "maxIterations": 3 },
@@ -89,6 +91,15 @@ If a gate condition is not met after the stage skill returns:
 - Do NOT silently advance past a failed gate
 
 ### Stage Transitions with Special Logic
+
+**Stage 3 → 3.5 → 4 (Planning → Tinker → Implementation)**: After planning completes, scan the plan for references to external APIs, SDKs, or unfamiliar libraries. For each one:
+
+1. Check if a `.tinker/[target]-exploration.src.md` file exists, OR if the current Thoughtbox session contains a `belief_snapshot` thought mentioning the target
+2. If evidence exists: skip tinker for that target
+3. If evidence is missing: dispatch `/tinker [target]` for each untested dependency
+4. Tinker gate passes when ALL external dependencies have notebook evidence, OR the plan has no external dependencies (pure refactoring, internal code, etc.)
+
+This stage is **conditional** — it's skipped entirely if the plan involves no external APIs. The state file tracks it as `"tinker"` stage with artifacts listing explored targets.
 
 **Stage 4 → 5 (Implementation → Review)**: Before dispatching review, run the between-stage check:
 ```bash
