@@ -92,6 +92,7 @@ import { getOperationsCatalog as getSessionOperationsCatalog, getOperation as ge
 import { getOperationsCatalog as getKnowledgeOperationsCatalog, getOperation as getKnowOp } from "./knowledge/operations.js";
 import { getOperationsCatalog as getHubOperationsCatalog, getOperation as getHubOp } from "./hub/operations.js";
 import { getOperation as getNbOp } from "./notebook/operations.js";
+import { RepoHandler, repoToolInputSchema } from "./repo/index.js";
 
 // Configuration schema
 // Note: Using .default() means the field is always present after parsing.
@@ -621,6 +622,39 @@ Read thoughtbox://hub/operations for full schemas.`;
       }
     );
   }
+
+  // =============================================================================
+  // Repo Tool (Remote Code Context)
+  // =============================================================================
+  // Exposes Ephemeral Shallow Clones for code context to remote subagents.
+
+  const REPO_TOOL_DESCRIPTION = `Read-only code context access. Clones a repository into memory and allows exploring it.
+  
+Operations:
+- clone: Clone a git repository into memory (args: { url, branch? }). Returns a repoId.
+- read_file: Read a specific file (args: { repoId, path }).
+- list_directory: List contents of a directory (args: { repoId, path? }).
+- grep_search: Run a regex grep across the codebase (args: { repoId, pattern, path?, ignoreCase? }).`;
+
+  const repoHandler = new RepoHandler();
+
+  server.registerTool(
+    "thoughtbox_repo",
+    {
+      description: REPO_TOOL_DESCRIPTION,
+      inputSchema: repoToolInputSchema,
+    },
+    async (toolArgs: { operation: string; args?: Record<string, unknown> }) => {
+      const result = await repoHandler.handle(toolArgs);
+      return {
+        content: result.content.map((block) => ({
+          type: "text" as const,
+          text: block.text,
+        })),
+        isError: result.isError,
+      };
+    }
+  );
 
   // Register prompts using McpServer's registerPrompt API
   server.registerPrompt(
