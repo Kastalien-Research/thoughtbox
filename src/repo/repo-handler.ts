@@ -1,5 +1,5 @@
 import * as fs from 'node:fs';
-import { execSync } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 import {
     cloneRepository,
     getRepository,
@@ -55,7 +55,7 @@ export class RepoHandler {
                     repoId: repo.id,
                     message: `Repository cloned into memory successfully. Use this repoId for subsequent file operations.`,
                     branch: repo.branch,
-                    url: repo.url.replace(/:[^:@]+@github/g, ':***@github'), // Scrub token in response
+                    url: repo.url.replace(/:\/\/[^@]+@/, '://***@'), // Scrub token in response
                 }, null, 2)
             }]
         };
@@ -102,16 +102,18 @@ export class RepoHandler {
         // We use standard find/ls to list up to a certain depth for visibility 
         // instead of a simple fs.readdir to see the project shape better.
         try {
-            const output = execSync(`find . -maxdepth 2 -not -path '*/.git/*' | sort`, {
+            const output = execFileSync('find', ['.', '-maxdepth', '2', '-not', '-path', '*/.git/*'], {
                 cwd: targetPath,
                 encoding: 'utf-8',
                 timeout: 5000
             });
 
+            const sortedOutput = output.split('\n').filter(Boolean).sort().join('\n');
+
             return {
                 content: [{
                     type: 'text' as const,
-                    text: `Directory Listing for ${data.path}:\n${output}`
+                    text: `Directory Listing for ${data.path}:\n${sortedOutput}`
                 }]
             };
         } catch (e: any) {
@@ -138,14 +140,17 @@ export class RepoHandler {
 
         try {
             // Use egrep (grep -E) format.
-            const flags = `-rnE ${data.ignoreCase ? '-i' : ''}`;
-            const excludeFlag = `--exclude-dir=.git`; // skip the massive .git folder
+            const args = ['-rnE'];
+            if (data.ignoreCase) {
+                args.push('-i');
+            }
+            args.push('--exclude-dir=.git');
+            args.push(data.pattern);
+            args.push('.');
 
-            const cmd = `grep ${flags} ${excludeFlag} "${data.pattern}" .`;
+            console.error(`[RepoHandler] Executing: grep ${args.join(' ')} in ${searchRoot}`);
 
-            console.error(`[RepoHandler] Executing: ${cmd} in ${searchRoot}`);
-
-            const output = execSync(cmd, {
+            const output = execFileSync('grep', args, {
                 cwd: searchRoot,
                 encoding: 'utf-8',
                 // Allow failure to just return empty string instead of throw 

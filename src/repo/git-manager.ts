@@ -1,4 +1,4 @@
-import { execSync } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
@@ -43,6 +43,14 @@ function generateRepoId(url: string, branch: string): string {
 export async function cloneRepository(url: string, branch?: string): Promise<ClonedRepo> {
     ensureBaseDir();
 
+    // Prevent SSRF: Only allow HTTP/HTTPS, reject file://
+    if (!url.startsWith('http://') && !url.startsWith('https://')) {
+        throw new Error(`Invalid URL scheme. Only http:// and https:// are supported.`);
+    }
+
+    // Scrub URL for safe logging (remove username/password/PAT)
+    const scrubbedUrl = url.replace(/:\/\/[^@]+@/, '://***@');
+
     // Clean up if we are holding too many repos in memory
     enforceCapacityLimit(5);
 
@@ -63,15 +71,17 @@ export async function cloneRepository(url: string, branch?: string): Promise<Clo
         fs.rmSync(repoPath, { recursive: true, force: true });
     }
 
-    console.error(`[GitManager] Cloning ${url} (branch: ${safeBranch}) into ${repoPath}`);
+    console.error(`[GitManager] Cloning ${scrubbedUrl} (branch: ${safeBranch}) into ${repoPath}`);
 
     try {
-        const branchFlag = branch ? `--branch ${branch} ` : '';
-        // Use --single-branch and --depth 1 to make it extremely fast
-        const cmd = `git clone --depth 1 --single-branch ${branchFlag}"${url}" "${repoPath}"`;
+        const args = ['clone', '--depth', '1', '--single-branch'];
+        if (branch) {
+            args.push('--branch', branch);
+        }
+        args.push(url, repoPath);
 
-        // We execute sync to block the tool response until the code is ready
-        execSync(cmd, {
+        // We execute sync using execFileSync to avoid shell injection
+        execFileSync('git', args, {
             stdio: 'pipe', // Pipe so we don't spam stdout unless error
             timeout: 60000 // 60s max for shallow clone
         });
@@ -93,10 +103,10 @@ export async function cloneRepository(url: string, branch?: string): Promise<Clo
             fs.rmSync(repoPath, { recursive: true, force: true });
         }
 
-        // Attempt to scrub tokens from error output
-        const safeError = (error.message || '').replace(/:[^:@]+@github.com/, ':***@github.com');
-        console.error(`[GitManager] Failed to clone ${url}: ${safeError}`);
-        throw new Error(`Git clone failed: ${safeError}`);
+        // Attempt to scrub tokens from error output using a general regex
+        const safeError = (error.message || '').replace(/:\/\/[^@]+@/, '://***@');
+        console.error(`[GitManager] Failed to clone ${scrubbedUrl}: ${safeError}`);
+        throw new Error(`Git clone failed for ${scrubbedUrl}`);
     }
 }
 
@@ -115,11 +125,9 @@ function enforceCapacityLimit(maxRepos: number) {
     if (activeRepos.size >= maxRepos) {
         // Find the oldest
         let oldestId: string | null = null;
-        let oldestDate = new Date();
 
         for (const [id, repo] of activeRepos.entries()) {
-            if (repo.createdAt < oldestDate) {
-                oldestDate = repo.createdAt;
+            if (!oldestId || repo.createdAt < activeRepos.get(oldestId)!.createdAt) {
                 oldestId = id;
             }
         }

@@ -81,20 +81,22 @@ async function runTest() {
         console.log(grepResult.content[0].text.substring(0, 200) + '...');
 
         console.log(`\n--- Test 5: Path Traversal Protection ---`);
-        try {
-            await client.callTool({
-                name: 'thoughtbox_repo',
-                arguments: {
-                    operation: 'read_file',
-                    args: { repoId, path: '../../.env' }
-                }
-            });
-            console.error('❌ FAILED: Path traversal succeeded (it should not have).');
-        } catch (e: any) {
-            console.log('✅ SUCCESS: Path traversal blocked as expected.');
+    const pathTraversalResult = await client.callTool({
+        name: 'thoughtbox_repo',
+        arguments: {
+            operation: 'read_file',
+            args: { repoId, path: '../../.env' }
         }
+    });
 
-    } catch (error) {
+    if (pathTraversalResult.isError) {
+        console.log('✅ SUCCESS: Path traversal blocked as expected.');
+        console.log('Error output was:', pathTraversalResult.content[0].text);
+    } else {
+        console.error('❌ FAILED: Path traversal succeeded (it should not have).');
+    }
+
+  } catch (error) {
         console.error('❌ Test failed:', error);
     } finally {
         process.exit(0);
