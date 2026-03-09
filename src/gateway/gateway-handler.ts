@@ -208,6 +208,8 @@ export class GatewayHandler {
   private sessionsPrimed = new Set<string>();
   /** Per-session disclosure stage (fix thoughtbox-twu: sub-agents bypass progressive disclosure) */
   private sessionStages = new Map<string, DisclosureStage>();
+  /** Track which operations have had their schema embedded per session (ADR-011) */
+  private sessionSchemasSeen = new Map<string, Set<string>>();
 
   constructor(config: GatewayHandlerConfig) {
     this.toolRegistry = config.toolRegistry;
@@ -249,6 +251,7 @@ export class GatewayHandler {
     this.sessionAgentNames.delete(mcpSessionId);
     this.sessionsPrimed.delete(mcpSessionId);
     this.sessionStages.delete(mcpSessionId);
+    this.sessionSchemasSeen.delete(mcpSessionId);
   }
 
   /**
@@ -381,31 +384,38 @@ export class GatewayHandler {
         };
     }
 
-    // Embed per-operation resource block for agent discoverability
+    // Embed per-operation resource block on first call only (ADR-011)
     if (!result.isError) {
-      // Gateway-handled operations (thought, read_thoughts, get_structure, cipher, deep_analysis)
-      const gatewayOpDef = getGatewayOperation(operation);
-      if (gatewayOpDef) {
-        result.content.push({
-          type: 'resource',
-          resource: {
-            uri: `thoughtbox://gateway/operations/${operation}`,
-            mimeType: 'application/json',
-            text: JSON.stringify(gatewayOpDef, null, 2),
-          },
-        } as ContentBlock);
+      const sessionKey = mcpSessionId ?? '__default__';
+      if (!this.sessionSchemasSeen.has(sessionKey)) {
+        this.sessionSchemasSeen.set(sessionKey, new Set());
       }
-      // Init operations routed through gateway
-      const initOpDef = getInitOperation(operation);
-      if (initOpDef) {
-        result.content.push({
-          type: 'resource',
-          resource: {
-            uri: `thoughtbox://init/operations/${operation}`,
-            mimeType: 'application/json',
-            text: JSON.stringify(initOpDef, null, 2),
-          },
-        } as ContentBlock);
+      const seen = this.sessionSchemasSeen.get(sessionKey)!;
+
+      if (!seen.has(operation)) {
+        seen.add(operation);
+        const gatewayOpDef = getGatewayOperation(operation);
+        if (gatewayOpDef) {
+          result.content.push({
+            type: 'resource',
+            resource: {
+              uri: `thoughtbox://gateway/operations/${operation}`,
+              mimeType: 'application/json',
+              text: JSON.stringify(gatewayOpDef, null, 2),
+            },
+          } as ContentBlock);
+        }
+        const initOpDef = getInitOperation(operation);
+        if (initOpDef) {
+          result.content.push({
+            type: 'resource',
+            resource: {
+              uri: `thoughtbox://init/operations/${operation}`,
+              mimeType: 'application/json',
+              text: JSON.stringify(initOpDef, null, 2),
+            },
+          } as ContentBlock);
+        }
       }
     }
 
