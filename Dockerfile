@@ -35,6 +35,9 @@ COPY package.json pnpm-lock.yaml ./
 # Install production dependencies only (--ignore-scripts skips husky prepare)
 RUN pnpm install --prod --frozen-lockfile --ignore-scripts
 
+# Install git and grep for Code Context operations
+RUN apt-get update && apt-get install -y git grep && rm -rf /var/lib/apt/lists/*
+
 # Copy entire better-sqlite3 package from builder (where pnpm install compiled native bindings).
 # pnpm-lock.yaml ensures both stages resolve to identical versions, so this is safe.
 # Copying the full package (not just build/) ensures complete consistency of package structure.
