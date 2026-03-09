@@ -5,13 +5,15 @@
  * cipher, deep_analysis) with their schemas, descriptions, and examples.
  */
 
+import type { JsonSchemaType, OperationExample } from '../types/json-schema.js';
+
 export interface OperationDefinition {
   name: string;
   title: string;
   description: string;
   category: string;
-  inputSchema: any;
-  example?: any;
+  inputSchema: JsonSchemaType;
+  example?: OperationExample;
 }
 
 export const GATEWAY_OPERATIONS: OperationDefinition[] = [

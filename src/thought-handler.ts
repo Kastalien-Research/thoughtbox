@@ -51,6 +51,39 @@ export interface ThoughtData {
   agentName?: string;
 }
 
+/**
+ * Types for response content items returned by thought processing
+ * Matches the ContentBlock types used in gateway handler
+ */
+export interface TextContent {
+  type: "text";
+  text: string;
+}
+
+export interface ResourceContent {
+  type: "resource";
+  resource: {
+    uri: string;
+    mimeType: string;
+    text: string;
+    title?: string;
+    annotations?: {
+      audience: string[];
+      priority: number;
+    };
+  };
+}
+
+export interface ResourceLinkContent {
+  type: "resource_link";
+  uri: string;
+  name: string;
+  description: string;
+  mimeType: string;
+}
+
+export type ThoughtResponseContent = TextContent | ResourceContent;
+
 export class ThoughtHandler {
   private thoughtHistory: ThoughtData[] = [];
   private branches: Record<string, ThoughtData[]> = {};
@@ -74,6 +107,8 @@ export class ThoughtHandler {
   // Processing queue to serialize concurrent thought operations
   // Prevents race conditions when multiple thoughts arrive simultaneously
   private processingQueue: Promise<void> = Promise.resolve();
+  private queueResetCounter: number = 0;
+  private readonly QUEUE_RESET_INTERVAL: number = 100;
 
   constructor(
     disableThoughtLogging: boolean = false,
@@ -200,7 +235,7 @@ export class ThoughtHandler {
    */
   private async autoExportSession(sessionId: string): Promise<string> {
     // Get linked export data from storage
-    const exportData = await (this.storage as any).toLinkedExport(sessionId);
+    const exportData = await (this.storage as ThoughtboxStorage & { toLinkedExport(sessionId: string): Promise<unknown> }).toLinkedExport(sessionId);
 
     // Export to filesystem
     const exporter = new SessionExporter();
@@ -222,7 +257,7 @@ export class ThoughtHandler {
     }
 
     // Get linked export data
-    const exportData = await (this.storage as any).toLinkedExport(sessionId);
+    const exportData = await (this.storage as ThoughtboxStorage & { toLinkedExport(sessionId: string): Promise<unknown> }).toLinkedExport(sessionId);
 
     // Export to filesystem
     const exporter = new SessionExporter();
@@ -595,27 +630,46 @@ export class ThoughtHandler {
   }
 
   public async processThought(input: unknown): Promise<{
-    content: Array<any>;
+    content: Array<ThoughtResponseContent>;
     isError?: boolean;
   }> {
-    // Serialize all thought processing through a promise queue
+    // Serialize all thought processing through a promise queue using async/await
     // This prevents race conditions when concurrent requests arrive
-    const currentQueue = this.processingQueue;
 
-    // Create promise for THIS operation (doesn't retry on failure)
-    const operation = currentQueue
-      .catch(() => undefined) // Recover from previous failure
-      .then(() => this._processThoughtImpl(input)); // Process THIS input
+    // Increment counter and reset queue periodically to prevent memory pressure
+    this.queueResetCounter++;
+    if (this.queueResetCounter >= this.QUEUE_RESET_INTERVAL) {
+      this.queueResetCounter = 0;
+      // Wait for current queue to complete, then reset
+      try {
+        await this.processingQueue;
+      } catch {
+        // Ignore errors from previous operations
+      }
+      this.processingQueue = Promise.resolve();
+    }
 
-    // Update queue for next operation (ensure queue continues even if this fails)
-    this.processingQueue = operation.then(() => undefined).catch(() => undefined);
+    // Chain this operation to the current queue
+    const operation = this.processingQueue.then(async () => {
+      try {
+        return await this._processThoughtImpl(input);
+      } catch (error) {
+        // Don't let individual operation failures break the queue
+        throw error;
+      }
+    });
+
+    // Update queue for next operation
+    this.processingQueue = operation.then(() => {}, () => {
+      // Ensure queue continues even if this operation fails
+    });
 
     // Return result of THIS operation
     return operation;
   }
 
   private async _processThoughtImpl(input: unknown): Promise<{
-    content: Array<any>;
+    content: Array<ThoughtResponseContent>;
     isError?: boolean;
   }> {
     try {
@@ -1026,7 +1080,7 @@ export class ThoughtHandler {
 
       // SIL-101: Verbose response mode - full response with all fields
       // Build response content array
-      const content: Array<any> = [
+      const content: Array<ThoughtResponseContent> = [
         {
           type: "text",
           text: JSON.stringify(
@@ -1070,15 +1124,21 @@ export class ThoughtHandler {
         });
       }
 
-      // Include parallel verification guide as resource_link when creating a new branch
+      // Include parallel verification guide as resource when creating a new branch
       // Agent can fetch if they want guidance on hypothesis exploration workflow
       if (isNewBranch) {
         content.push({
-          type: "resource_link",
-          uri: "thoughtbox://guidance/parallel-verification",
-          name: "Parallel Verification Guide",
-          description: "Workflow for exploring multiple hypotheses through branching",
-          mimeType: "text/markdown",
+          type: "resource",
+          resource: {
+            uri: "thoughtbox://guidance/parallel-verification",
+            mimeType: "text/markdown",
+            text: "# Parallel Verification Guide\n\nWorkflow for exploring multiple hypotheses through branching",
+            title: "Parallel Verification Guide",
+            annotations: {
+              audience: ["assistant"],
+              priority: 0.7,
+            },
+          },
         });
       }
 

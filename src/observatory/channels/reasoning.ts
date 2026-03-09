@@ -40,14 +40,40 @@ class InMemorySessionStore implements SessionStore {
   private thoughts: Map<string, Thought[]> = new Map();
   private branches: Map<string, Record<string, Branch>> = new Map();
   private updateQueue: Promise<void> = Promise.resolve();
+  private queueResetCounter: number = 0;
+  private readonly QUEUE_RESET_INTERVAL: number = 50;
   private readonly MAX_SESSIONS = 1000; // Prevent unbounded growth
 
   /**
    * Queue an update operation to prevent race conditions
+   * Uses async/await pattern with periodic queue reset to prevent memory pressure
    */
   private queueUpdate<T>(operation: () => T | Promise<T>): Promise<T> {
-    const queued = this.updateQueue.then(() => operation());
-    this.updateQueue = queued.then(() => {}, () => {}); // Continue queue even on error
+    // Increment counter and reset queue periodically to prevent memory pressure
+    this.queueResetCounter++;
+    if (this.queueResetCounter >= this.QUEUE_RESET_INTERVAL) {
+      this.queueResetCounter = 0;
+      // Wait for current queue to complete, then reset
+      this.updateQueue.then(() => {}, () => {}).finally(() => {
+        this.updateQueue = Promise.resolve();
+      });
+    }
+
+    // Chain this operation to the current queue using async/await pattern
+    const queued = this.updateQueue.then(async () => {
+      try {
+        return await operation();
+      } catch (error) {
+        // Don't let individual operation failures break the queue
+        throw error;
+      }
+    });
+
+    // Update queue for next operation
+    this.updateQueue = queued.then(() => {}, () => {
+      // Ensure queue continues even if this operation fails
+    });
+
     return queued;
   }
 

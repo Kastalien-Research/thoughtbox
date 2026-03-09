@@ -5,14 +5,16 @@
  * Includes hub vocabulary for agent onboarding.
  */
 
+import type { JsonSchemaType, OperationExample } from '../types/json-schema.js';
+
 export interface OperationDefinition {
   name: string;
   title: string;
   description: string;
   category: string;
   stage: number;
-  inputSchema: any;
-  example?: any;
+  inputSchema: JsonSchemaType;
+  example?: OperationExample;
 }
 
 // =============================================================================
