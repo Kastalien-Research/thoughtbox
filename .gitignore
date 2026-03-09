@@ -96,6 +96,9 @@ adat.md
 # Workflow conductor runtime state (ephemeral, per-workflow)
 .workflow/
 
+# HDD session state (ephemeral, per-session)
+.hdd/
+
 # Ephemeral runtime state (not design artifacts)
 .code-review/
 .docs-research/

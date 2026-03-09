@@ -238,7 +238,7 @@ export class TieredEvaluator {
         // Default implementation runs behavioral tests
         try {
           const { execSync } = await import("child_process");
-          execSync("npm run test:behavioral -- --reporter=json 2>/dev/null", {
+          execSync("pnpm run test:behavioral -- --reporter=json 2>/dev/null", {
             encoding: "utf-8",
             timeout: 5 * 60 * 1000, // 5 minutes
             stdio: "pipe",
@@ -270,7 +270,7 @@ export class TieredEvaluator {
       execute: async (_modification: CodeModification): Promise<TierResult> => {
         try {
           const { execSync } = await import("child_process");
-          const output = execSync("npm test -- --reporter=json 2>/dev/null", {
+          const output = execSync("pnpm test -- --reporter=json 2>/dev/null", {
             encoding: "utf-8",
             timeout: 30 * 60 * 1000, // 30 minutes
             stdio: "pipe",

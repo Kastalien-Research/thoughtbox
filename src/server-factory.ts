@@ -92,6 +92,7 @@ import { getOperationsCatalog as getSessionOperationsCatalog, getOperation as ge
 import { getOperationsCatalog as getKnowledgeOperationsCatalog, getOperation as getKnowOp } from "./knowledge/operations.js";
 import { getOperationsCatalog as getHubOperationsCatalog, getOperation as getHubOp } from "./hub/operations.js";
 import { getOperation as getNbOp } from "./notebook/operations.js";
+import { handleOperationsTool, operationsToolInputSchema } from "./operations-tool/index.js";
 
 // Configuration schema
 // Note: Using .default() means the field is always present after parsing.
@@ -426,6 +427,34 @@ Call \`thoughtbox_hub\` { "operation": "register", "args": { "name": "Your Agent
     gatewayTool,
     DisclosureStage.STAGE_0_ENTRY,
     { [DisclosureStage.STAGE_0_ENTRY]: GATEWAY_DESCRIPTION }
+  );
+
+  // =============================================================================
+  // Operations Catalog Tool (Always-On, No Session Required) — ADR-011
+  // =============================================================================
+
+  const OPERATIONS_TOOL_DESCRIPTION =
+    'Discover available Thoughtbox operations and their schemas. Always available -- no session required.';
+
+  const operationsTool = server.registerTool(
+    "thoughtbox_operations",
+    {
+      description: OPERATIONS_TOOL_DESCRIPTION,
+      inputSchema: operationsToolInputSchema,
+    },
+    async (toolArgs) => {
+      const result = handleOperationsTool(toolArgs);
+      return {
+        content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }],
+      };
+    }
+  );
+
+  toolRegistry.register(
+    "thoughtbox_operations",
+    operationsTool,
+    DisclosureStage.STAGE_0_ENTRY,
+    { [DisclosureStage.STAGE_0_ENTRY]: OPERATIONS_TOOL_DESCRIPTION }
   );
 
   // =============================================================================

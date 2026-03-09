@@ -7,7 +7,7 @@ The conductor skill dispatches to stage-specific skills at each step. Run `/work
 
 ### Key Rules (always apply)
 
-1. **Specs go in `specs/`** (not `.specs/`). ADRs use the HDD lifecycle: `.adr/staging/` → `.adr/accepted/` or `.adr/rejected/`.
+1. **Specs go in `.specs/`** (not `specs/`). ADRs use the HDD lifecycle: `.adr/staging/` → `.adr/accepted/` or `.adr/rejected/`.
 2. **Code and spec updates in the same commit.** If you change code that a spec describes, update the spec in the same commit.
 3. **Atomic commits.** One sub-agent = one bead = one unit of work = one commit, made after review validates the work.
 4. **Sub-agent summaries use the structured format** defined in the `/workflow` conductor skill (Claims, Hypothesis Alignment, Tests, Known Gaps, Risks).
@@ -60,7 +60,7 @@ Committing unrelated work to an existing branch pollutes PRs, makes reverts dang
 
 **MANDATORY WORKFLOW:**
 
-1. **File issues for remaining work** - Create issues for anything that needs follow-up
+1. **File issues for ALL remaining work** - Every follow-up, deferred decision, or "next session" item MUST become a bead before the session ends. If an ADR references future work (e.g., "deferred to ADR-010"), create the bead now — the ADR process starts next session, but the tracking starts this one. Prose in handoff JSON is not a substitute for a bead.
 2. **Run quality gates** (if code changed) - Tests, linters, builds
 3. **Update issue status** - Close finished work, update in-progress items
 4. **PUSH TO REMOTE** - This is MANDATORY:

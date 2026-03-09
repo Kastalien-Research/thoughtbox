@@ -8,7 +8,7 @@
 /**
  * Valid modes for interleaved thinking guides
  */
-export type InterleavedMode = "research" | "analysis" | "development";
+export type InterleavedMode = "research" | "analysis" | "development" | "operations";
 
 /**
  * Abstract capability categories used in mode configurations
@@ -17,7 +17,8 @@ export type CapabilityKind =
   | "thoughtbox_workspace"
   | "retrieval_search"
   | "code_repo"
-  | "sandbox_execute";
+  | "sandbox_execute"
+  | "external_actions";
 
 /**
  * Configuration for each mode
@@ -97,6 +98,28 @@ export const MODE_CONFIG: Record<InterleavedMode, ModeConfig> = {
       "Gate your work if you cannot execute or test code - don't proceed blind",
       "Prioritize incremental validation - test early and often"
     ]
+  },
+
+  operations: {
+    mode: "operations",
+    title: "Operations Mode",
+    description: "For agents that take real-world actions (emails, API calls, data mutations) where auditability of decisions and consequences is critical",
+    requiredCapabilities: ["thoughtbox_workspace", "external_actions"],
+    optionalCapabilities: ["retrieval_search"],
+    phases: [
+      "Tooling Inventory - Identify all tools that produce external side effects",
+      "Constraint Assessment - Identify irreversible actions and escalation boundaries",
+      "Strategy in Thoughtbox - Plan the operation using structured decision frames",
+      "Auditable Execution Loop - Alternate between decision, action, and report cycles",
+      "Session Summary - Produce final status with action manifest and assumption state"
+    ],
+    notes: [
+      "Every decision that leads to an external action MUST be recorded as a decision frame thought BEFORE the action is taken",
+      "Every external action MUST be followed by an action report thought linking the result back to the decision",
+      "Assumptions about external state must be declared explicitly and tracked for changes",
+      "Belief snapshots are required before any irreversible action",
+      "If an assumption flips, immediately record which prior decisions depended on it"
+    ]
   }
 };
 
@@ -104,7 +127,7 @@ export const MODE_CONFIG: Record<InterleavedMode, ModeConfig> = {
  * Validates if a mode string is a valid InterleavedMode
  */
 export function isValidMode(mode: string): mode is InterleavedMode {
-  return mode === "research" || mode === "analysis" || mode === "development";
+  return mode === "research" || mode === "analysis" || mode === "development" || mode === "operations";
 }
 
 /**
@@ -141,18 +164,7 @@ ${config.phases.map((phase, idx) => `### Phase ${idx + 1}: ${phase.split(' - ')[
 ${phase.split(' - ')[1]}
 `).join('\n')}
 
-## Execution Pattern
-
-\`\`\`
-WHILE task not complete:
-  1. Use thoughtbox for structured reasoning step
-  2. Identify next action based on current understanding
-  3. Execute action using appropriate tool
-  4. Observe results
-  5. Return to thoughtbox to integrate findings
-  6. Reassess approach and next steps
-END WHILE
-\`\`\`
+${mode === "operations" ? getOperationsExecutionPattern() : getGenericExecutionPattern()}
 
 ## Mode-Specific Guidance
 
@@ -205,6 +217,8 @@ function getModeUsageGuidance(mode: InterleavedMode): string {
       return "you need to deeply examine patterns, relationships, or implications in existing information";
     case "development":
       return "you need to design, implement, and validate code or system changes";
+    case "operations":
+      return "you need to take real-world actions (API calls, emails, data changes) where every decision and action must be auditable";
   }
 }
 
@@ -221,5 +235,78 @@ function getCapabilityDescription(capability: CapabilityKind): string {
       return "Access to read and write code in a repository";
     case "sandbox_execute":
       return "Ability to execute and test code safely";
+    case "external_actions":
+      return "Ability to perform actions with real-world consequences (API calls, emails, data mutations)";
   }
+}
+
+/**
+ * Generic execution pattern for research, analysis, and development modes
+ */
+function getGenericExecutionPattern(): string {
+  return `## Execution Pattern
+
+\`\`\`
+WHILE task not complete:
+  1. Use thoughtbox for structured reasoning step
+  2. Identify next action based on current understanding
+  3. Execute action using appropriate tool
+  4. Observe results
+  5. Return to thoughtbox to integrate findings
+  6. Reassess approach and next steps
+END WHILE
+\`\`\``;
+}
+
+/**
+ * Operations-specific execution pattern with auditable decision→action→report loop
+ */
+function getOperationsExecutionPattern(): string {
+  return `## Execution Pattern — Auditable Operations Loop
+
+The operations execution loop has a strict structure. Every external action is bookended by a decision thought (before) and a report thought (after). Set the \`thoughtType\` field on each thought to enable programmatic filtering.
+
+\`\`\`
+WHILE task not complete:
+  1. DECISION FRAME (thoughtbox call, thoughtType: "decision_frame")
+     Record a thought with the following structure in the thought content:
+     - DECISION: What decision is being made (one sentence)
+     - OPTIONS: What options were considered (bulleted list)
+     - SELECTED: Which option was chosen
+     - SELECTION_RULE: Why this option over others (the reasoning)
+     - EVIDENCE: What observations or data informed this decision
+     - CONFIDENCE: How confident (high / medium / low) and why
+     - ASSUMPTIONS: What assumptions this decision depends on
+     - NEXT_EXPECTED: What you expect to observe after acting
+
+  2. EXECUTE ACTION (external tool call)
+     Perform the external action using the appropriate tool.
+
+  3. ACTION REPORT (thoughtbox call, thoughtType: "action_report")
+     Record a thought with the following structure in the thought content:
+     - ACTION: What was done (tool name, target, key parameters)
+     - RESULT: What happened (success/failure, response summary)
+     - EXPECTED_VS_ACTUAL: Did the result match NEXT_EXPECTED from the decision frame?
+     - SIDE_EFFECTS: Any observable consequences (data changed, message sent, state modified)
+     - REVERSIBLE: Can this action be undone? (yes/no/partial)
+     - ASSUMPTION_UPDATE: Did any assumptions change? If so, which ones and what depends on them?
+
+  4. BELIEF CHECK (if needed, thoughtType: "belief_snapshot")
+     If assumptions changed or results were unexpected, record a belief snapshot:
+     - ENTITIES: Key objects and their current known state
+     - CONSTRAINTS: What rules or limits are active
+     - OPEN_QUESTIONS: What is unknown or uncertain
+     - RISKS: What could go wrong from here
+     - NEXT_EXPECTED: What you expect to observe next
+
+  5. ASSUMPTION UPDATE (if needed, thoughtType: "assumption_update")
+     If any assumption flipped status, record:
+     - ASSUMPTION: What was believed
+     - NEW_STATUS: believed / uncertain / refuted
+     - TRIGGER: What observation caused the change
+     - DOWNSTREAM: Which prior decisions depended on this assumption
+
+  6. Return to step 1
+END WHILE
+\`\`\``;
 }

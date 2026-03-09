@@ -1,0 +1,47 @@
+prompt = """
+# HDD State Contract
+
+Canonical state structure for the modular HDD workflow.
+
+## State Path
+
+- `.hdd/state.json`
+
+## Required Fields
+
+```json
+{
+  "workflow": "hdd",
+  "version": "2.0",
+  "adr_number": "",
+  "title": "",
+  "phase": "research|stage|implement|validate|decide|complete",
+  "current_task": "",
+  "status": "idle|in_progress|blocked|complete|failed",
+  "artifacts": [],
+  "errors": [],
+  "handoff": {
+    "module_path": "",
+    "task_goal": "",
+    "paths_to_inspect": [],
+    "acceptance_checks": []
+  },
+  "open_risks": [],
+  "updated_at": ""
+}
+```
+
+## Phase Transition Rules
+
+1. `research -> stage` requires approved hypotheses.
+2. `stage -> implement` requires approved staging ADR path.
+3. `implement -> validate` requires implementation + tests recorded.
+4. `validate -> decide` requires hypothesis outcomes.
+5. `decide -> complete` requires accepted/rejected migration artifact.
+
+## Resume Rules
+
+1. Load state and verify phase prerequisites.
+2. Re-run current phase module if output artifacts are missing.
+3. Preserve prior artifacts and append new events.
+"""

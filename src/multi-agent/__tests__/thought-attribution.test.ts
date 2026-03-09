@@ -28,6 +28,7 @@ describe('thought-attribution', () => {
       totalThoughts: 1,
       nextThoughtNeeded: false,
       timestamp: new Date().toISOString(),
+      thoughtType: 'reasoning',
       agentId: 'agent-001',
       agentName: 'Claude Code',
     };
@@ -49,6 +50,7 @@ describe('thought-attribution', () => {
       totalThoughts: 1,
       nextThoughtNeeded: false,
       timestamp: new Date().toISOString(),
+      thoughtType: 'reasoning',
     };
 
     await storage.saveThought(session.id, thought);
@@ -63,6 +65,7 @@ describe('thought-attribution', () => {
     const result = await handler.processThought({
       thought: 'Attributed thought via processThought',
       nextThoughtNeeded: false,
+      thoughtType: 'reasoning',
       agentId: 'agent-abc',
       agentName: 'Test Agent',
     });
@@ -80,6 +83,7 @@ describe('thought-attribution', () => {
     const result = await handler.processThought({
       thought: 'Unattributed thought',
       nextThoughtNeeded: true,
+      thoughtType: 'reasoning',
     });
 
     expect(result.isError).toBeUndefined();
@@ -93,6 +97,7 @@ describe('thought-attribution', () => {
     const result = await handler.processThought({
       thought: 'Gateway-attributed thought',
       nextThoughtNeeded: true,
+      thoughtType: 'reasoning',
       agentId: 'gateway-agent',
       agentName: 'Gateway Test',
     });
@@ -110,6 +115,7 @@ describe('thought-attribution', () => {
     const result = await handler.processThought({
       thought: 'No agent configured',
       nextThoughtNeeded: true,
+      thoughtType: 'reasoning',
     });
 
     expect(result.isError).toBeUndefined();
@@ -123,6 +129,7 @@ describe('thought-attribution', () => {
     await handler.processThought({
       thought: 'First thought from Agent A',
       nextThoughtNeeded: true,
+      thoughtType: 'reasoning',
       agentId: 'agent-a',
       agentName: 'Agent A',
     });
@@ -131,12 +138,14 @@ describe('thought-attribution', () => {
     await handler.processThought({
       thought: 'Second thought, no agent',
       nextThoughtNeeded: true,
+      thoughtType: 'reasoning',
     });
 
     // Third thought: different agent
     await handler.processThought({
       thought: 'Third thought from Agent B',
       nextThoughtNeeded: true,
+      thoughtType: 'reasoning',
       agentId: 'agent-b',
       agentName: 'Agent B',
     });
@@ -149,7 +158,7 @@ describe('thought-attribution', () => {
     expect(thoughts[2].agentId).toBe('agent-b');
   });
 
-  it('T-MA-ATT-8: agentId from env var flows through server-factory → gateway → thought-handler', async () => {
+  it('T-MA-ATT-8: agentId from env var flows through server-factory -> gateway -> thought-handler', async () => {
     // This test validates the data flow conceptually
     // The actual env var resolution happens in server-factory which is too heavy for unit test
     // Instead, we verify that ThoughtHandler accepts and persists agentId
@@ -157,6 +166,7 @@ describe('thought-attribution', () => {
     const result = await handler.processThought({
       thought: 'Thought with env-based agent ID',
       nextThoughtNeeded: true,
+      thoughtType: 'reasoning',
       agentId: 'env-resolved-uuid',
       agentName: 'ENV Agent',
     });
@@ -172,6 +182,7 @@ describe('thought-attribution', () => {
     await handler.processThought({
       thought: 'Initial shared context',
       nextThoughtNeeded: true,
+      thoughtType: 'reasoning',
       agentId: 'agent-claude',
       agentName: 'Claude',
     });
@@ -181,6 +192,7 @@ describe('thought-attribution', () => {
     await handler.processThought({
       thought: 'Starting work on problem-001',
       nextThoughtNeeded: true,
+      thoughtType: 'reasoning',
       branchFromThought: 1,
       branchId,
       agentId: 'agent-claude',
@@ -199,12 +211,14 @@ describe('thought-attribution', () => {
     await handler.processThought({
       thought: 'Shared context',
       nextThoughtNeeded: true,
+      thoughtType: 'reasoning',
     });
 
     // Agent A branch
     await handler.processThought({
       thought: 'Agent A reasoning',
       nextThoughtNeeded: true,
+      thoughtType: 'reasoning',
       branchFromThought: 1,
       branchId: 'agent-a/task-1',
       agentId: 'agent-a',
@@ -214,6 +228,7 @@ describe('thought-attribution', () => {
     await handler.processThought({
       thought: 'Agent B reasoning',
       nextThoughtNeeded: true,
+      thoughtType: 'reasoning',
       branchFromThought: 1,
       branchId: 'agent-b/task-1',
       agentId: 'agent-b',

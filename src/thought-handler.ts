@@ -36,6 +36,16 @@ export interface ThoughtData {
   critique?: boolean;
   // SIL-101: Verbose response mode - when false (default), return minimal response
   verbose?: boolean;
+  // Operations mode: structured thought type for auditability filtering
+  thoughtType?: 'reasoning' | 'decision_frame' | 'action_report' | 'belief_snapshot' | 'assumption_update' | 'context_snapshot' | 'progress';
+  // AUDIT-001: Structured metadata fields (discriminated by thoughtType)
+  confidence?: 'high' | 'medium' | 'low';
+  options?: Array<{ label: string; selected: boolean; reason?: string }>;
+  actionResult?: { success: boolean; reversible: 'yes' | 'no' | 'partial'; tool: string; target: string; sideEffects?: string[] };
+  beliefs?: { entities: Array<{ name: string; state: string }>; constraints?: string[]; risks?: string[] };
+  assumptionChange?: { text: string; oldStatus: string; newStatus: 'believed' | 'uncertain' | 'refuted'; trigger?: string; downstream?: number[] };
+  contextData?: { toolsAvailable?: string[]; systemPromptHash?: string; modelId?: string; constraints?: string[]; dataSourcesAccessed?: string[] };
+  progressData?: { task: string; status: 'pending' | 'in_progress' | 'done' | 'blocked'; note?: string };
   // Multi-agent attribution (optional)
   agentId?: string;
   agentName?: string;
@@ -196,6 +206,14 @@ export class ThoughtHandler {
         branchId: t.branchId,
         needsMoreThoughts: t.needsMoreThoughts,
         includeGuide: t.includeGuide,
+        thoughtType: t.thoughtType,
+        confidence: t.confidence,
+        options: t.options,
+        actionResult: t.actionResult,
+        beliefs: t.beliefs,
+        assumptionChange: t.assumptionChange,
+        contextData: t.contextData,
+        progressData: t.progressData,
       }));
 
       // Update lastAccessedAt
@@ -303,6 +321,14 @@ export class ThoughtHandler {
       branchFromThought: t.branchFromThought,
       isRevision: t.isRevision,
       revisesThought: t.revisesThought,
+      thoughtType: t.thoughtType,
+      confidence: t.confidence,
+      options: t.options,
+      actionResult: t.actionResult,
+      beliefs: t.beliefs,
+      assumptionChange: t.assumptionChange,
+      contextData: t.contextData,
+      progressData: t.progressData,
     }));
 
     // 4. Calculate current thought number (max in main chain)
@@ -386,6 +412,18 @@ export class ThoughtHandler {
       totalThoughts = thoughtNumber;
     }
 
+    // AUDIT-001: thoughtType is required
+    const thoughtType = data.thoughtType as ThoughtData['thoughtType'];
+    if (!thoughtType) {
+      throw new Error(
+        "thoughtType is required. Use 'reasoning' for general-purpose thoughts, " +
+        "or a specific type for auditable decisions/actions."
+      );
+    }
+
+    // AUDIT-001: Discriminated union validation
+    this.validateStructuredFields(thoughtType, data);
+
     return {
       thought: data.thought,
       thoughtNumber,
@@ -404,10 +442,155 @@ export class ThoughtHandler {
       critique: data.critique as boolean | undefined,
       // SIL-101: Verbose mode (default false)
       verbose: data.verbose as boolean | undefined,
+      // Operations mode: structured thought type
+      thoughtType,
+      // AUDIT-001: Structured metadata fields
+      confidence: data.confidence as ThoughtData['confidence'],
+      options: data.options as ThoughtData['options'],
+      actionResult: data.actionResult as ThoughtData['actionResult'],
+      beliefs: data.beliefs as ThoughtData['beliefs'],
+      assumptionChange: data.assumptionChange as ThoughtData['assumptionChange'],
+      contextData: data.contextData as ThoughtData['contextData'],
+      progressData: data.progressData as ThoughtData['progressData'],
       // Multi-agent attribution
       agentId: data.agentId as string | undefined,
       agentName: data.agentName as string | undefined,
     };
+  }
+
+  /**
+   * AUDIT-001: Validate structured fields based on thoughtType.
+   * Each thoughtType requires specific metadata fields.
+   */
+  private validateStructuredFields(
+    thoughtType: NonNullable<ThoughtData['thoughtType']>,
+    data: Record<string, unknown>
+  ): void {
+    switch (thoughtType) {
+      case 'reasoning':
+        break;
+      case 'decision_frame':
+        this.validateDecisionFrame(data);
+        break;
+      case 'action_report':
+        this.validateActionReport(data);
+        break;
+      case 'belief_snapshot':
+        this.validateBeliefSnapshot(data);
+        break;
+      case 'assumption_update':
+        this.validateAssumptionUpdate(data);
+        break;
+      case 'context_snapshot':
+        this.validateContextSnapshot(data);
+        break;
+      case 'progress':
+        this.validateProgress(data);
+        break;
+      default:
+        throw new Error(
+          `Unknown thoughtType: '${thoughtType as string}'. ` +
+          "Valid types: reasoning, decision_frame, action_report, " +
+          "belief_snapshot, assumption_update, context_snapshot, progress."
+        );
+    }
+  }
+
+  private validateDecisionFrame(data: Record<string, unknown>): void {
+    const confidence = data.confidence as string | undefined;
+    const validConfidence = ['high', 'medium', 'low'];
+    if (!confidence || !validConfidence.includes(confidence)) {
+      throw new Error(
+        "decision_frame requires confidence ('high' | 'medium' | 'low')."
+      );
+    }
+    const options = data.options as Array<Record<string, unknown>> | undefined;
+    if (!options || !Array.isArray(options) || options.length === 0) {
+      throw new Error(
+        "decision_frame requires options (non-empty array)."
+      );
+    }
+    const selectedCount = options.filter(o => o.selected === true).length;
+    if (selectedCount !== 1) {
+      throw new Error(
+        "decision_frame options must have exactly one with selected: true."
+      );
+    }
+  }
+
+  private validateActionReport(data: Record<string, unknown>): void {
+    const ar = data.actionResult as Record<string, unknown> | undefined;
+    if (!ar || typeof ar !== 'object') {
+      throw new Error("action_report requires actionResult object.");
+    }
+    if (typeof ar.success !== 'boolean') {
+      throw new Error("action_report actionResult requires success (boolean).");
+    }
+    const validReversible = ['yes', 'no', 'partial'];
+    if (!validReversible.includes(ar.reversible as string)) {
+      throw new Error(
+        "action_report actionResult requires reversible ('yes' | 'no' | 'partial')."
+      );
+    }
+    if (!ar.tool || typeof ar.tool !== 'string') {
+      throw new Error("action_report actionResult requires tool (non-empty string).");
+    }
+    if (!ar.target || typeof ar.target !== 'string') {
+      throw new Error("action_report actionResult requires target (non-empty string).");
+    }
+  }
+
+  private validateBeliefSnapshot(data: Record<string, unknown>): void {
+    const beliefs = data.beliefs as Record<string, unknown> | undefined;
+    if (!beliefs || typeof beliefs !== 'object') {
+      throw new Error("belief_snapshot requires beliefs object.");
+    }
+    const entities = (beliefs as any).entities as unknown[] | undefined;
+    if (!entities || !Array.isArray(entities) || entities.length === 0) {
+      throw new Error(
+        "belief_snapshot requires beliefs.entities (non-empty array)."
+      );
+    }
+  }
+
+  private validateAssumptionUpdate(data: Record<string, unknown>): void {
+    const ac = data.assumptionChange as Record<string, unknown> | undefined;
+    if (!ac || typeof ac !== 'object') {
+      throw new Error("assumption_update requires assumptionChange object.");
+    }
+    const validStatuses = ['believed', 'uncertain', 'refuted'];
+    if (!validStatuses.includes(ac.newStatus as string)) {
+      throw new Error(
+        "assumption_update requires assumptionChange.newStatus " +
+        "('believed' | 'uncertain' | 'refuted')."
+      );
+    }
+  }
+
+  private validateContextSnapshot(data: Record<string, unknown>): void {
+    const cd = data.contextData as unknown;
+    if (cd === undefined || cd === null || typeof cd !== 'object') {
+      throw new Error("context_snapshot requires contextData object.");
+    }
+  }
+
+  private validateProgress(data: Record<string, unknown>): void {
+    const pd = data.progressData as Record<string, unknown> | undefined;
+    if (!pd || typeof pd !== 'object') {
+      throw new Error("progress requires progressData object.");
+    }
+    if (!pd.task || typeof pd.task !== 'string') {
+      throw new Error(
+        "progress progressData requires task (non-empty string)."
+      );
+    }
+    const validStatuses = ['pending', 'in_progress', 'done', 'blocked'];
+    if (!validStatuses.includes(pd.status as string)) {
+      throw new Error(
+        "progress progressData requires status " +
+        "('pending' | 'in_progress' | 'done' | 'blocked')."
+      );
+    }
   }
 
   private formatThought(thoughtData: ThoughtData): string {
@@ -594,6 +777,16 @@ export class ThoughtHandler {
           needsMoreThoughts: validatedInput.needsMoreThoughts,
           includeGuide: validatedInput.includeGuide,
           timestamp: new Date().toISOString(),
+          // Operations mode: structured thought type (validated as required in validateThoughtData)
+          thoughtType: validatedInput.thoughtType!,
+          // AUDIT-001: Structured metadata fields
+          confidence: validatedInput.confidence,
+          options: validatedInput.options,
+          actionResult: validatedInput.actionResult,
+          beliefs: validatedInput.beliefs,
+          assumptionChange: validatedInput.assumptionChange,
+          contextData: validatedInput.contextData,
+          progressData: validatedInput.progressData,
           // Multi-agent attribution (optional)
           agentId: validatedInput.agentId,
           agentName: validatedInput.agentName,
@@ -646,6 +839,13 @@ export class ThoughtHandler {
             revisesThought: validatedInput.revisesThought,
             branchId: validatedInput.branchId,
             branchFromThought: validatedInput.branchFromThought,
+            thoughtType: validatedInput.thoughtType,
+            confidence: validatedInput.confidence,
+            options: validatedInput.options,
+            actionResult: validatedInput.actionResult,
+            beliefs: validatedInput.beliefs,
+            assumptionChange: validatedInput.assumptionChange,
+            contextData: validatedInput.contextData,
           };
 
           const parentId = validatedInput.thoughtNumber > 1
@@ -756,12 +956,24 @@ export class ThoughtHandler {
 
       // End session when reasoning is complete
       if (!validatedInput.nextThoughtNeeded && this.currentSessionId) {
+        // AUDIT-003: Generate audit manifest at session close
+        let auditManifest: import('./persistence/types.js').AuditManifest | undefined;
+        try {
+          const { generateAuditData, toAuditManifest } = await import('./audit/index.js');
+          const allThoughts = await this.storage.getThoughts(this.currentSessionId);
+          const auditData = generateAuditData(this.currentSessionId, allThoughts);
+          auditManifest = toAuditManifest(auditData);
+        } catch (err) {
+          console.warn('[AUDIT-003] Manifest generation failed:', (err as Error).message);
+        }
+
         // Observatory: Emit session ended event
         if (thoughtEmitter.hasListeners()) {
           try {
             thoughtEmitter.emitSessionEnded({
               sessionId: this.currentSessionId,
               finalThoughtCount: this.thoughtHistory.length,
+              auditManifest,
             });
           } catch (e) {
             console.warn('[Observatory] Session end emit failed:', e instanceof Error ? e.message : e);
@@ -774,6 +986,7 @@ export class ThoughtHandler {
             sessionId: this.currentSessionId,
             finalThoughtCount: this.thoughtHistory.length,
             branchCount: Object.keys(this.branches).length,
+            auditManifest,
           });
         }
 
@@ -800,6 +1013,7 @@ export class ThoughtHandler {
                     closedSessionId: closingSessionId,
                     exportPath,
                     ...(critiqueResult && { critique: critiqueResult }),
+                    ...(auditManifest && { auditManifest }),
                   },
                   null,
                   2

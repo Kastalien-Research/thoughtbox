@@ -124,6 +124,7 @@ export function createProposalsManager(
         totalThoughts: mergeThoughtNumber,
         nextThoughtNeeded: true,
         timestamp: new Date().toISOString(),
+        thoughtType: 'action_report',
       };
 
       // Add agent attribution

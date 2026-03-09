@@ -13,6 +13,7 @@ export function createThought(overrides: Partial<ThoughtData> & { thought: strin
     totalThoughts: overrides.thoughtNumber,
     nextThoughtNeeded: true,
     timestamp: new Date().toISOString(),
+    thoughtType: 'reasoning' as const,
     ...overrides,
   };
 }
