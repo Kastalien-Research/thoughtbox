@@ -36,7 +36,7 @@ export interface OperationDefinition {
   title: string;
   description: string;
   category: string;
-  inputs: {
+  inputSchema: {
     type: string;
     properties: Record<string, any>;
     required?: string[];

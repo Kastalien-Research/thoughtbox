@@ -17,7 +17,7 @@ import type {
 } from './types.js';
 import { getOperation as getKnowledgeOperation } from './operations.js';
 
-export type KnowledgeAction =
+export type KnowledgeOperation =
   | 'create_entity'
   | 'get_entity'
   | 'list_entities'
@@ -27,7 +27,7 @@ export type KnowledgeAction =
   | 'stats';
 
 export interface KnowledgeOperationArgs {
-  action: KnowledgeAction;
+  operation: KnowledgeOperation;
   [key: string]: any;
 }
 
@@ -47,7 +47,7 @@ export class KnowledgeHandler {
   }> {
     try {
       let result: { content: Array<any>; isError?: boolean };
-      switch (args.action) {
+      switch (args.operation) {
         case 'create_entity':
           result = await this.handleCreateEntity(args);
           break;
@@ -70,16 +70,16 @@ export class KnowledgeHandler {
           result = await this.handleStats(args);
           break;
         default:
-          throw new Error(`Unknown knowledge action: ${(args as any).action}`);
+          throw new Error(`Unknown knowledge operation: ${(args as any).operation}`);
       }
 
       // Embed per-operation resource block for agent discoverability
-      const opDef = getKnowledgeOperation(args.action);
+      const opDef = getKnowledgeOperation(args.operation);
       if (opDef) {
         result.content.push({
           type: 'resource',
           resource: {
-            uri: `thoughtbox://knowledge/operations/${args.action}`,
+            uri: `thoughtbox://knowledge/operations/${args.operation}`,
             mimeType: 'application/json',
             text: JSON.stringify(opDef, null, 2),
           },
@@ -93,7 +93,7 @@ export class KnowledgeHandler {
           type: 'text',
           text: JSON.stringify({
             error: error instanceof Error ? error.message : String(error),
-            action: args.action,
+            operation: args.operation,
           }, null, 2),
         }],
         isError: true,

@@ -24,7 +24,7 @@ export const SESSION_TOOL: Tool = {
     properties: {
       operation: {
         type: "string",
-        enum: ["list", "get", "search", "resume", "export", "analyze", "extract_learnings", "discovery"],
+        enum: ["session_list", "session_get", "session_search", "session_resume", "session_export", "session_analyze", "session_extract_learnings", "session_discovery"],
         description: "The session operation to execute",
       },
       args: {
@@ -42,7 +42,7 @@ export const SESSION_TOOL: Tool = {
 
 export const SESSION_OPERATIONS: OperationDefinition[] = [
   {
-    name: "list",
+    name: "session_list",
     title: "List Sessions",
     description: "List previous reasoning sessions for the current user. Returns session metadata including title, tags, thought count, and timestamps.",
     category: "session-retrieval",
@@ -70,7 +70,7 @@ export const SESSION_OPERATIONS: OperationDefinition[] = [
     },
   },
   {
-    name: "get",
+    name: "session_get",
     title: "Get Session",
     description: "Retrieve full details of a specific reasoning session, including all thoughts, branches, and metadata.",
     category: "session-retrieval",
@@ -89,7 +89,7 @@ export const SESSION_OPERATIONS: OperationDefinition[] = [
     },
   },
   {
-    name: "search",
+    name: "session_search",
     title: "Search Sessions",
     description: "Search for reasoning sessions by title or tags using a keyword query.",
     category: "session-retrieval",
@@ -113,7 +113,7 @@ export const SESSION_OPERATIONS: OperationDefinition[] = [
     },
   },
   {
-    name: "resume",
+    name: "session_resume",
     title: "Resume Session",
     description: "Load a previous session into the active ThoughtHandler, allowing continuation of reasoning from where it left off. After resuming, subsequent thoughtbox calls will append to this session.",
     category: "session-management",
@@ -132,7 +132,7 @@ export const SESSION_OPERATIONS: OperationDefinition[] = [
     },
   },
   {
-    name: "export",
+    name: "session_export",
     title: "Export Session",
     description: "Export a session to markdown format, optionally using cipher notation for compression. Useful for injecting session context into hooks or sharing reasoning chains.",
     category: "session-management",
@@ -162,7 +162,7 @@ export const SESSION_OPERATIONS: OperationDefinition[] = [
     },
   },
   {
-    name: "analyze",
+    name: "session_analyze",
     title: "Analyze Session",
     description: "Analyze the structure and quality metrics of a reasoning session. Returns objective metrics (linearity, revision rate, branch depth, convergence) - qualitative analysis is done client-side using the session-analysis-guide resource.",
     category: "session-analysis",
@@ -181,7 +181,7 @@ export const SESSION_OPERATIONS: OperationDefinition[] = [
     },
   },
   {
-    name: "extract_learnings",
+    name: "session_extract_learnings",
     title: "Extract Learnings",
     description: "Extract patterns, anti-patterns, and fitness signals from a reasoning session for the DGM evolution system. Patterns and anti-patterns require client-identified key moments; signals are generated automatically.",
     category: "session-analysis",
@@ -223,7 +223,7 @@ export const SESSION_OPERATIONS: OperationDefinition[] = [
     },
   },
   {
-    name: "discovery",
+    name: "session_discovery",
     title: "Manage Discovered Tools",
     description: "Manage operation-based tool discovery (SPEC-009). List discovered tools, hide tools you no longer need, or re-show hidden tools.",
     category: "tool-management",

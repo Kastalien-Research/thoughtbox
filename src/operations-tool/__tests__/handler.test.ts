@@ -69,14 +69,14 @@ describe('thoughtbox_operations — get', () => {
   });
 
   it('module filter narrows search', () => {
-    const result = handleGet('list', 'session') as any;
-    expect(result.name).toBe('list');
+    const result = handleGet('session_list', 'session') as any;
+    expect(result.name).toBe('session_list');
     expect(result.module).toBe('session');
   });
 
-  it('returns mental-models operation with inputs mapped to inputSchema', () => {
-    const result = handleGet('get_model') as any;
-    expect(result.name).toBe('get_model');
+  it('returns mental-models operation with inputSchema', () => {
+    const result = handleGet('models_get') as any;
+    expect(result.name).toBe('models_get');
     expect(result.module).toBe('mental-models');
     expect(result.inputSchema).toBeDefined();
   });

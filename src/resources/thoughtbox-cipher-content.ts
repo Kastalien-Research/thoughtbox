@@ -275,7 +275,7 @@ Beyond symbols, use telegraphic prose:
 
 ## Usage Protocol
 
-1. **Invoke cipher** — Call \`thoughtbox_cipher\` tool at start of long reasoning chains
+1. **Invoke cipher** — Call \`thoughtbox_gateway { operation: "cipher" }\` at start of long reasoning chains
 2. **Maintain consistency** — Once invoked, use notation throughout session
 3. **Reference by ID** — Never restate prior content; use \`[SN]\` references
 4. **Minimize response echo** — Thoughtbox returns only IDs; don't duplicate content
