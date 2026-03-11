@@ -235,12 +235,12 @@ export function getModelsByTag(tag: string): MentalModelDefinition[] {
  */
 export const MENTAL_MODELS_OPERATIONS: OperationDefinition[] = [
   {
-    name: "get_model",
+    name: "models_get",
     title: "Get Mental Model",
     description:
       "Retrieve the full prompt content for a specific mental model",
     category: "retrieval",
-    inputs: {
+    inputSchema: {
       type: "object",
       properties: {
         model: {
@@ -255,12 +255,12 @@ export const MENTAL_MODELS_OPERATIONS: OperationDefinition[] = [
     },
   },
   {
-    name: "list_models",
+    name: "models_list",
     title: "List Mental Models",
     description:
       "List all available mental models, optionally filtered by tag",
     category: "discovery",
-    inputs: {
+    inputSchema: {
       type: "object",
       properties: {
         tag: {
@@ -274,23 +274,23 @@ export const MENTAL_MODELS_OPERATIONS: OperationDefinition[] = [
     },
   },
   {
-    name: "list_tags",
+    name: "models_list_tags",
     title: "List Tags",
     description: "List all available tags with their descriptions",
     category: "discovery",
-    inputs: {
+    inputSchema: {
       type: "object",
       properties: {},
     },
     example: {},
   },
   {
-    name: "get_capability_graph",
+    name: "models_capability_graph",
     title: "Get Capability Graph",
     description:
       "Get a structured representation of all Thoughtbox capabilities (tools, operations, mental models) for initializing a knowledge graph. Use with memory_create_entities and memory_create_relations to make the server's capabilities salient.",
     category: "discovery",
-    inputs: {
+    inputSchema: {
       type: "object",
       properties: {},
     },
@@ -317,14 +317,14 @@ export function generateToolDescription(): string {
 Mental models are process scaffolds that tell you HOW to think about a problem, not WHAT to think. They're infrastructure for your reasoning.
 
 Operations:
-- get_model: Retrieve a specific mental model prompt
-- list_models: List available models (optionally filtered by tag)
-- list_tags: List all available tags with descriptions
-- get_capability_graph: Get structured data for knowledge graph initialization
+- models_get: Retrieve a specific mental model prompt
+- models_list: List available models (optionally filtered by tag)
+- models_list_tags: List all available tags with descriptions
+- models_capability_graph: Get structured data for knowledge graph initialization
 
 Available tags: ${tags.join(", ")}
 
-Use list_models with a tag filter to discover relevant models for your task. For example, use tag "debugging" when stuck on an issue, or "decision-making" when choosing between options.`;
+Use models_list with a tag filter to discover relevant models for your task. For example, use tag "debugging" when stuck on an issue, or "decision-making" when choosing between options.`;
 }
 
 /**

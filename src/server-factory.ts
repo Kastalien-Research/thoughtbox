@@ -1850,7 +1850,7 @@ mcp__thoughtbox__thoughtbox({
           }],
         };
       }
-      const result = await knowledgeHandler.processOperation({ action: 'stats' });
+      const result = await knowledgeHandler.processOperation({ operation: 'stats' });
       return {
         contents: [{
           uri: uri.toString(),

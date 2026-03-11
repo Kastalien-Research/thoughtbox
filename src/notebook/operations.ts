@@ -16,7 +16,7 @@ export interface OperationDefinition {
 
 export const NOTEBOOK_OPERATIONS: OperationDefinition[] = [
   {
-    name: "create",
+    name: "notebook_create",
     title: "Create Notebook",
     description: "Create a new headless notebook for literate programming with JavaScript or TypeScript support. Optionally use a pre-structured template for guided workflows.",
     category: "notebook-management",
@@ -46,7 +46,7 @@ export const NOTEBOOK_OPERATIONS: OperationDefinition[] = [
     },
   },
   {
-    name: "list",
+    name: "notebook_list",
     title: "List Notebooks",
     description: "List all active notebooks with their metadata",
     category: "notebook-management",
@@ -57,7 +57,7 @@ export const NOTEBOOK_OPERATIONS: OperationDefinition[] = [
     example: {},
   },
   {
-    name: "load",
+    name: "notebook_load",
     title: "Load Notebook",
     description: `Load a notebook from .src.md format.
 
@@ -87,7 +87,7 @@ Both approaches create an identical in-memory notebook.`,
     },
   },
   {
-    name: "add_cell",
+    name: "notebook_add_cell",
     title: "Add Cell",
     description: "Add a cell to a notebook (title, markdown, or executable code)",
     category: "cell-operations",
@@ -126,7 +126,7 @@ Both approaches create an identical in-memory notebook.`,
     },
   },
   {
-    name: "update_cell",
+    name: "notebook_update_cell",
     title: "Update Cell",
     description: "Update the content of an existing cell",
     category: "cell-operations",
@@ -155,7 +155,7 @@ Both approaches create an identical in-memory notebook.`,
     },
   },
   {
-    name: "run_cell",
+    name: "notebook_run_cell",
     title: "Run Cell",
     description: "Execute a code cell and capture output (stdout, stderr, exit code)",
     category: "execution",
@@ -179,7 +179,7 @@ Both approaches create an identical in-memory notebook.`,
     },
   },
   {
-    name: "install_deps",
+    name: "notebook_install_deps",
     title: "Install Dependencies",
     description: "Install pnpm dependencies defined in the notebook's package.json",
     category: "execution",
@@ -198,7 +198,7 @@ Both approaches create an identical in-memory notebook.`,
     },
   },
   {
-    name: "list_cells",
+    name: "notebook_list_cells",
     title: "List Cells",
     description: "List all cells in a notebook with their metadata",
     category: "cell-operations",
@@ -217,7 +217,7 @@ Both approaches create an identical in-memory notebook.`,
     },
   },
   {
-    name: "get_cell",
+    name: "notebook_get_cell",
     title: "Get Cell",
     description: "Get complete details of a specific cell including content and execution results",
     category: "cell-operations",
@@ -241,7 +241,7 @@ Both approaches create an identical in-memory notebook.`,
     },
   },
   {
-    name: "export",
+    name: "notebook_export",
     title: "Export Notebook",
     description: `Export a notebook to .src.md format.
 

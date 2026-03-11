@@ -2,8 +2,8 @@
  * @fileoverview Gateway Tool Handler
  *
  * Single always-enabled routing tool that bypasses client tool list refresh issues.
- * Routes to existing handlers (init, cipher, thoughtbox, notebook, session) and
- * enforces progressive disclosure stages internally.
+ * All operations use flat { operation, args } shape (ADR-012).
+ * Enforces progressive disclosure stages internally.
  *
  * @see specs/gateway-tool.md
  * @module src/gateway/gateway-handler
@@ -23,6 +23,9 @@ import type { KnowledgeHandler } from '../knowledge/index.js';
 import { getProfilePriming } from '../hub/profile-primer.js';
 import { getOperation as getGatewayOperation } from './operations.js';
 import { getOperation as getInitOperation } from '../init/operations.js';
+import { getOperation as getNotebookOperation } from '../notebook/operations.js';
+import { getOperation as getSessionOperation } from '../sessions/operations.js';
+import { getOperation as getKnowledgeOperation } from '../knowledge/operations.js';
 
 // =============================================================================
 // Schema
@@ -43,22 +46,45 @@ export const gatewayToolInputSchema = z.object({
     'bind_root',
     // Cipher operation (Stage 1 → Stage 2)
     'cipher',
-    // Thought operation (Stage 2)
+    // Gateway-native operations (Stage 2)
     'thought',
-    // Read thoughts operation (Stage 2) - retrieve previous thoughts mid-session
     'read_thoughts',
-    // Get structure operation (Stage 2) - get reasoning graph topology without content
     'get_structure',
-    // Notebook operation (Stage 2)
-    'notebook',
-    // Session operation (Stage 1)
-    'session',
-    // Mental models operation (Stage 2)
-    'mental_models',
     // Deep analysis operation (Stage 1)
     'deep_analysis',
-    // Knowledge operation (Stage 2) - knowledge graph memory
-    'knowledge',
+    // Session operations (Stage 1) — flattened from nested "session" proxy
+    'session_list',
+    'session_get',
+    'session_search',
+    'session_resume',
+    'session_export',
+    'session_analyze',
+    'session_extract_learnings',
+    'session_discovery',
+    // Notebook operations (Stage 2) — flattened from nested "notebook" proxy
+    'notebook_create',
+    'notebook_list',
+    'notebook_load',
+    'notebook_add_cell',
+    'notebook_update_cell',
+    'notebook_run_cell',
+    'notebook_install_deps',
+    'notebook_list_cells',
+    'notebook_get_cell',
+    'notebook_export',
+    // Mental models operations (Stage 2) — flattened from nested "mental_models" proxy
+    'models_get',
+    'models_list',
+    'models_list_tags',
+    'models_capability_graph',
+    // Knowledge operations (Stage 2) — flattened from nested "knowledge" proxy
+    'knowledge_create_entity',
+    'knowledge_get_entity',
+    'knowledge_list_entities',
+    'knowledge_add_observation',
+    'knowledge_create_relation',
+    'knowledge_query_graph',
+    'knowledge_stats',
   ]),
   args: z.record(z.string(), z.unknown()).optional().describe('Arguments passed to the underlying handler'),
 });
@@ -83,15 +109,40 @@ const OPERATION_REQUIRED_STAGE: Record<GatewayToolInput['operation'], Disclosure
   bind_root: DisclosureStage.STAGE_0_ENTRY,
   // Stage 1 operations
   cipher: DisclosureStage.STAGE_1_INIT_COMPLETE,
-  session: DisclosureStage.STAGE_1_INIT_COMPLETE,
   deep_analysis: DisclosureStage.STAGE_1_INIT_COMPLETE,
+  session_list: DisclosureStage.STAGE_1_INIT_COMPLETE,
+  session_get: DisclosureStage.STAGE_1_INIT_COMPLETE,
+  session_search: DisclosureStage.STAGE_1_INIT_COMPLETE,
+  session_resume: DisclosureStage.STAGE_1_INIT_COMPLETE,
+  session_export: DisclosureStage.STAGE_1_INIT_COMPLETE,
+  session_analyze: DisclosureStage.STAGE_1_INIT_COMPLETE,
+  session_extract_learnings: DisclosureStage.STAGE_1_INIT_COMPLETE,
+  session_discovery: DisclosureStage.STAGE_1_INIT_COMPLETE,
   // Stage 2 operations
   thought: DisclosureStage.STAGE_2_CIPHER_LOADED,
   read_thoughts: DisclosureStage.STAGE_2_CIPHER_LOADED,
   get_structure: DisclosureStage.STAGE_2_CIPHER_LOADED,
-  notebook: DisclosureStage.STAGE_2_CIPHER_LOADED,
-  mental_models: DisclosureStage.STAGE_2_CIPHER_LOADED,
-  knowledge: DisclosureStage.STAGE_2_CIPHER_LOADED,
+  notebook_create: DisclosureStage.STAGE_2_CIPHER_LOADED,
+  notebook_list: DisclosureStage.STAGE_2_CIPHER_LOADED,
+  notebook_load: DisclosureStage.STAGE_2_CIPHER_LOADED,
+  notebook_add_cell: DisclosureStage.STAGE_2_CIPHER_LOADED,
+  notebook_update_cell: DisclosureStage.STAGE_2_CIPHER_LOADED,
+  notebook_run_cell: DisclosureStage.STAGE_2_CIPHER_LOADED,
+  notebook_install_deps: DisclosureStage.STAGE_2_CIPHER_LOADED,
+  notebook_list_cells: DisclosureStage.STAGE_2_CIPHER_LOADED,
+  notebook_get_cell: DisclosureStage.STAGE_2_CIPHER_LOADED,
+  notebook_export: DisclosureStage.STAGE_2_CIPHER_LOADED,
+  models_get: DisclosureStage.STAGE_2_CIPHER_LOADED,
+  models_list: DisclosureStage.STAGE_2_CIPHER_LOADED,
+  models_list_tags: DisclosureStage.STAGE_2_CIPHER_LOADED,
+  models_capability_graph: DisclosureStage.STAGE_2_CIPHER_LOADED,
+  knowledge_create_entity: DisclosureStage.STAGE_2_CIPHER_LOADED,
+  knowledge_get_entity: DisclosureStage.STAGE_2_CIPHER_LOADED,
+  knowledge_list_entities: DisclosureStage.STAGE_2_CIPHER_LOADED,
+  knowledge_add_observation: DisclosureStage.STAGE_2_CIPHER_LOADED,
+  knowledge_create_relation: DisclosureStage.STAGE_2_CIPHER_LOADED,
+  knowledge_query_graph: DisclosureStage.STAGE_2_CIPHER_LOADED,
+  knowledge_stats: DisclosureStage.STAGE_2_CIPHER_LOADED,
 };
 
 /**
@@ -106,14 +157,43 @@ const OPERATION_ADVANCES_TO: Record<GatewayToolInput['operation'], DisclosureSta
   list_roots: null,
   bind_root: null,
   cipher: DisclosureStage.STAGE_2_CIPHER_LOADED,
-  session: null,
   thought: null,
   read_thoughts: null,
   get_structure: null,
-  notebook: null,
-  mental_models: null,
   deep_analysis: null,
-  knowledge: null,
+  // Session operations — none advance stage
+  session_list: null,
+  session_get: null,
+  session_search: null,
+  session_resume: null,
+  session_export: null,
+  session_analyze: null,
+  session_extract_learnings: null,
+  session_discovery: null,
+  // Notebook operations — none advance stage
+  notebook_create: null,
+  notebook_list: null,
+  notebook_load: null,
+  notebook_add_cell: null,
+  notebook_update_cell: null,
+  notebook_run_cell: null,
+  notebook_install_deps: null,
+  notebook_list_cells: null,
+  notebook_get_cell: null,
+  notebook_export: null,
+  // Mental models operations — none advance stage
+  models_get: null,
+  models_list: null,
+  models_list_tags: null,
+  models_capability_graph: null,
+  // Knowledge operations — none advance stage
+  knowledge_create_entity: null,
+  knowledge_get_entity: null,
+  knowledge_list_entities: null,
+  knowledge_add_observation: null,
+  knowledge_create_relation: null,
+  knowledge_query_graph: null,
+  knowledge_stats: null,
 };
 
 /**
@@ -342,29 +422,14 @@ export class GatewayHandler {
         result = await this.handleThought(args, mcpSessionId);
         break;
 
-      // Read thoughts operation - retrieve previous thoughts mid-session
+      // Read thoughts operation
       case 'read_thoughts':
         result = await this.handleReadThoughts(args);
         break;
 
-      // Get structure operation - reasoning graph topology
+      // Get structure operation
       case 'get_structure':
         result = await this.handleGetStructure(args);
-        break;
-
-      // Notebook operation
-      case 'notebook':
-        result = await this.handleNotebook(args);
-        break;
-
-      // Session operation
-      case 'session':
-        result = await this.handleSession(args);
-        break;
-
-      // Mental models operation
-      case 'mental_models':
-        result = await this.handleMentalModels(args);
         break;
 
       // Deep analysis operation
@@ -372,9 +437,63 @@ export class GatewayHandler {
         result = await this.handleDeepAnalysis(args);
         break;
 
-      // Knowledge operation
-      case 'knowledge':
-        result = await this.handleKnowledge(args);
+      // Session operations — flattened, strip prefix and delegate
+      case 'session_list':
+      case 'session_get':
+      case 'session_search':
+      case 'session_resume':
+      case 'session_export':
+      case 'session_analyze':
+      case 'session_extract_learnings':
+      case 'session_discovery':
+        result = await this.sessionHandler.processTool(
+          operation.slice('session_'.length),
+          args || {},
+        );
+        break;
+
+      // Notebook operations — flattened, strip prefix and delegate
+      case 'notebook_create':
+      case 'notebook_list':
+      case 'notebook_load':
+      case 'notebook_add_cell':
+      case 'notebook_update_cell':
+      case 'notebook_run_cell':
+      case 'notebook_install_deps':
+      case 'notebook_list_cells':
+      case 'notebook_get_cell':
+      case 'notebook_export':
+        result = await this.notebookHandler.processTool(
+          operation.slice('notebook_'.length),
+          args || {},
+        );
+        break;
+
+      // Mental models operations — flattened, strip prefix and delegate
+      case 'models_get':
+      case 'models_list':
+      case 'models_list_tags':
+      case 'models_capability_graph': {
+        const modelsResult = await this.mentalModelsHandler.processTool(
+          operation.slice('models_'.length),
+          args || {},
+        );
+        const content: Array<{ type: 'text'; text: string }> = modelsResult.content
+          .filter((c): c is { type: string; text: string } => c.type === 'text' && typeof c.text === 'string')
+          .map((c) => ({ type: 'text' as const, text: c.text }));
+        result = { content, isError: modelsResult.isError };
+        break;
+      }
+
+      // Knowledge operations — flattened, strip prefix and delegate
+      case 'knowledge_create_entity':
+      case 'knowledge_get_entity':
+      case 'knowledge_list_entities':
+      case 'knowledge_add_observation':
+      case 'knowledge_create_relation':
+      case 'knowledge_query_graph':
+      case 'knowledge_stats':
+        result = await this.handleKnowledge(operation, args);
         break;
 
       default:
@@ -394,25 +513,22 @@ export class GatewayHandler {
 
       if (!seen.has(operation)) {
         seen.add(operation);
-        const gatewayOpDef = getGatewayOperation(operation);
-        if (gatewayOpDef) {
+
+        // Look up operation definition from the appropriate module catalog
+        const opDef =
+          getGatewayOperation(operation) ??
+          getInitOperation(operation) ??
+          getNotebookOperation(operation) ??
+          getSessionOperation(operation) ??
+          getKnowledgeOperation(operation);
+
+        if (opDef) {
           result.content.push({
             type: 'resource',
             resource: {
-              uri: `thoughtbox://gateway/operations/${operation}`,
+              uri: `thoughtbox://operations/${operation}`,
               mimeType: 'application/json',
-              text: JSON.stringify(gatewayOpDef, null, 2),
-            },
-          } as ContentBlock);
-        }
-        const initOpDef = getInitOperation(operation);
-        if (initOpDef) {
-          result.content.push({
-            type: 'resource',
-            resource: {
-              uri: `thoughtbox://init/operations/${operation}`,
-              mimeType: 'application/json',
-              text: JSON.stringify(initOpDef, null, 2),
+              text: JSON.stringify(opDef, null, 2),
             },
           } as ContentBlock);
         }
@@ -481,7 +597,11 @@ export class GatewayHandler {
         break;
       case DisclosureStage.STAGE_1_INIT_COMPLETE:
         suggestion = "Call gateway with operation 'cipher' first.";
-        availableOps = ['cipher', 'deep_analysis'];
+        availableOps = [
+          'cipher', 'deep_analysis',
+          'session_list', 'session_get', 'session_search', 'session_resume',
+          'session_export', 'session_analyze', 'session_extract_learnings', 'session_discovery',
+        ];
         catalogUri = 'thoughtbox://gateway/operations';
         break;
       default:
@@ -922,53 +1042,6 @@ Call \`thoughtbox_gateway\` with operation 'thought' to begin structured reasoni
     }
   }
 
-  private async handleNotebook(args?: Record<string, unknown>): Promise<ToolResponse> {
-    if (!args || !args.operation) {
-      return {
-        content: [{ type: 'text', text: 'Notebook operation requires args with operation field' }],
-        isError: true,
-      };
-    }
-
-    const operation = args.operation as string;
-    const operationArgs = args.args as Record<string, unknown> | undefined;
-
-    return this.notebookHandler.processTool(operation, operationArgs || {});
-  }
-
-  private async handleSession(args?: Record<string, unknown>): Promise<ToolResponse> {
-    if (!args || !args.operation) {
-      return {
-        content: [{ type: 'text', text: 'Session operation requires args with operation field' }],
-        isError: true,
-      };
-    }
-
-    const operation = args.operation as string;
-    const operationArgs = args.args as Record<string, unknown> | undefined;
-
-    return this.sessionHandler.processTool(operation, operationArgs || {});
-  }
-
-  private async handleMentalModels(args?: Record<string, unknown>): Promise<ToolResponse> {
-    if (!args || !args.operation) {
-      return {
-        content: [{ type: 'text', text: 'Mental models operation requires args with operation field' }],
-        isError: true,
-      };
-    }
-
-    const operation = args.operation as string;
-    const operationArgs = args.args as Record<string, unknown> | undefined;
-
-    const result = await this.mentalModelsHandler.processTool(operation, operationArgs || {});
-    // Transform content to have proper literal types
-    const content: Array<{ type: 'text'; text: string }> = result.content
-      .filter((c): c is { type: string; text: string } => c.type === 'text' && typeof c.text === 'string')
-      .map((c) => ({ type: 'text' as const, text: c.text }));
-    return { content, isError: result.isError };
-  }
-
   private async handleDeepAnalysis(args?: Record<string, unknown>): Promise<ToolResponse> {
     if (!args || !args.sessionId || !args.analysisType) {
       return {
@@ -1104,9 +1177,12 @@ Call \`thoughtbox_gateway\` with operation 'thought' to begin structured reasoni
   }
 
   /**
-   * Handle knowledge operation
+   * Handle knowledge operation (ADR-012: accepts flattened operation name)
    */
-  private async handleKnowledge(args?: Record<string, unknown>): Promise<ToolResponse> {
+  private async handleKnowledge(
+    flatOperation: string,
+    args?: Record<string, unknown>,
+  ): Promise<ToolResponse> {
     if (!this.knowledgeHandler) {
       return {
         content: [{
@@ -1119,28 +1195,11 @@ Call \`thoughtbox_gateway\` with operation 'thought' to begin structured reasoni
       };
     }
 
-    if (!args || !args.action) {
-      return {
-        content: [{
-          type: 'text',
-          text: JSON.stringify({
-            error: 'Knowledge operation requires args with action field',
-            available_actions: [
-              'create_entity',
-              'get_entity',
-              'list_entities',
-              'add_observation',
-              'create_relation',
-              'query_graph',
-              'stats',
-            ],
-          }, null, 2),
-        }],
-        isError: true,
-      };
-    }
-
-    return this.knowledgeHandler.processOperation(args as any);
+    const knowledgeOp = flatOperation.slice('knowledge_'.length);
+    return this.knowledgeHandler.processOperation({
+      operation: knowledgeOp as any,
+      ...args,
+    });
   }
 }
 
@@ -1155,40 +1214,32 @@ export const GATEWAY_TOOL = {
   name: 'thoughtbox_gateway',
   description: `Always-available routing tool for Thoughtbox operations.
 
-Use this tool when other tools appear unavailable due to tool list not refreshing.
-Routes to: init, cipher, thoughtbox, notebook, session, mental_models, knowledge handlers.
+All operations use the same flat shape: { operation: "<name>", args: { ... } }
 
-Operations:
-- get_state, list_sessions, navigate, load_context, start_new, list_roots, bind_root (init)
-- cipher (loads notation system)
-- thought (structured reasoning)
-- read_thoughts (retrieve previous thoughts mid-session for re-reading)
-- get_structure (get reasoning graph topology without content)
-- notebook (literate programming)
-- session (session management)
-- mental_models (reasoning frameworks)
-- deep_analysis (session pattern analysis)
-- knowledge (knowledge graph memory - Phase 1)
+Stage 0 (always available):
+  get_state, list_sessions, navigate, load_context, start_new, list_roots, bind_root
 
-read_thoughts usage (Stage 2 required):
-- { args: { thoughtNumber: N } } - get a single thought by number
-- { args: { last: N } } - get the last N thoughts
-- { args: { range: [start, end] } } - get thoughts in a range (inclusive)
-- { args: { branchId: 'name' } } - get all thoughts from a specific branch
-- { args: { sessionId: 'id' } } - optional, defaults to active session
-- No args returns last 5 thoughts as default context
+Stage 1 (after init):
+  cipher, deep_analysis,
+  session_list, session_get, session_search, session_resume,
+  session_export, session_analyze, session_extract_learnings, session_discovery
 
-get_structure usage (Stage 2 required):
-- { args: { sessionId: 'id' } } - optional, defaults to active session
-- Response includes: mainChain (head/tail/length), branches (id/forks/range), revisions
-- Use to understand "shape" of reasoning before drilling into specific thoughts
+Stage 2 (after cipher):
+  thought, read_thoughts, get_structure,
+  notebook_create, notebook_list, notebook_load, notebook_add_cell,
+  notebook_update_cell, notebook_run_cell, notebook_install_deps,
+  notebook_list_cells, notebook_get_cell, notebook_export,
+  models_get, models_list, models_list_tags, models_capability_graph,
+  knowledge_create_entity, knowledge_get_entity, knowledge_list_entities,
+  knowledge_add_observation, knowledge_create_relation,
+  knowledge_query_graph, knowledge_stats
 
-knowledge usage (Stage 2 required):
-- { args: { action: 'create_entity', name, type, label, properties } } - create entity
-- { args: { action: 'add_observation', entity_id, content } } - add fact to entity
-- { args: { action: 'create_relation', from_id, to_id, relation_type } } - link entities
-- { args: { action: 'query_graph', start_entity_id, relation_types, max_depth } } - traverse graph
-- { args: { action: 'stats' } } - get entity/relation counts
+Examples:
+  { operation: "thought", args: { thought: "...", nextThoughtNeeded: true, thoughtType: "reasoning" } }
+  { operation: "notebook_create", args: { title: "...", language: "typescript" } }
+  { operation: "session_list", args: { limit: 5 } }
+  { operation: "knowledge_create_entity", args: { name: "...", type: "Insight", label: "..." } }
+  { operation: "models_get", args: { model: "five-whys" } }
 
 Stage enforcement is handled internally - you'll get clear errors if calling operations too early.`,
   annotations: {

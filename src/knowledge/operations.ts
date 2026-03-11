@@ -16,7 +16,7 @@ export interface OperationDefinition {
 
 export const KNOWLEDGE_OPERATIONS: OperationDefinition[] = [
   {
-    name: "create_entity",
+    name: "knowledge_create_entity",
     title: "Create Entity",
     description:
       "Create a new entity in the knowledge graph. Entities represent insights, concepts, workflows, decisions, or agents.",
@@ -61,7 +61,7 @@ export const KNOWLEDGE_OPERATIONS: OperationDefinition[] = [
     },
   },
   {
-    name: "get_entity",
+    name: "knowledge_get_entity",
     title: "Get Entity",
     description: "Retrieve full details of a specific entity by ID, including all properties and metadata.",
     category: "entity-management",
@@ -80,7 +80,7 @@ export const KNOWLEDGE_OPERATIONS: OperationDefinition[] = [
     },
   },
   {
-    name: "list_entities",
+    name: "knowledge_list_entities",
     title: "List Entities",
     description: "List entities with optional filtering by type, visibility, name pattern, or date range.",
     category: "entity-management",
@@ -128,7 +128,7 @@ export const KNOWLEDGE_OPERATIONS: OperationDefinition[] = [
     },
   },
   {
-    name: "add_observation",
+    name: "knowledge_add_observation",
     title: "Add Observation",
     description:
       "Add an observation to an existing entity. Observations are timestamped notes that track how an entity evolves over time.",
@@ -161,7 +161,7 @@ export const KNOWLEDGE_OPERATIONS: OperationDefinition[] = [
     },
   },
   {
-    name: "create_relation",
+    name: "knowledge_create_relation",
     title: "Create Relation",
     description:
       "Create a directed relation between two entities. Relations form the edges of the knowledge graph.",
@@ -210,7 +210,7 @@ export const KNOWLEDGE_OPERATIONS: OperationDefinition[] = [
     },
   },
   {
-    name: "query_graph",
+    name: "knowledge_query_graph",
     title: "Query Graph",
     description:
       "Traverse the knowledge graph starting from an entity. Follows relations up to a specified depth, with optional filtering by relation type.",
@@ -258,7 +258,7 @@ export const KNOWLEDGE_OPERATIONS: OperationDefinition[] = [
     },
   },
   {
-    name: "stats",
+    name: "knowledge_stats",
     title: "Graph Statistics",
     description: "Get aggregate statistics for the knowledge graph: entity counts by type, relation counts, and general health metrics.",
     category: "graph-structure",
