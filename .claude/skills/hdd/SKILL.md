@@ -35,10 +35,10 @@ Parse `$ARGUMENTS` for:
 ## Phases
 
 ```
-Research --> Stage Docs --> Implement --> Validate --> Decide
-   |    checkpoint    |   checkpoint   |          |  checkpoint  |  checkpoint
-   v                  v                v          v              v
-hypotheses     spec + ADR       code + tests  evidence    accept/reject
+Research --> Stage Docs --> Implement --> Validate --> Decide --[PR review]--> Amend
+   |    checkpoint    |   checkpoint   |          |  checkpoint  |  checkpoint       |
+   v                  v                v          v              v                   v
+hypotheses     spec + ADR       code + tests  evidence    accept/reject    fix + ADR amendment
 ```
 
 Each phase has a user checkpoint. You do NOT skip checkpoints.
@@ -466,6 +466,84 @@ If some hypotheses validated and others didn't:
    c. **Continue validation**: If inconclusive results can be resolved with more testing
 3. The user decides which path. Do NOT decide for them.
 
+## Post-Decision Review (Phase 5.5)
+
+**Trigger**: PR review (human or automated) surfaces issues after the ADR is accepted
+and committed. This phase is not part of the normal flow — it activates only when
+external review finds something Phase 4 validation missed.
+
+### Scope Check
+
+Classify each finding before acting:
+
+| Finding Type | Action | Example |
+|-------------|--------|---------|
+| **Hypothesis gap** — a behavior the hypotheses should have tested but didn't | Amend ADR + fix code | "prefix-strip produces wrong internal names" |
+| **Spec gap** — the spec didn't cover a mapping or edge case | Amend ADR + update spec + fix code | "spec lists 41 operations but mapping table has 4" |
+| **Unrelated issue** — not caused by this ADR's changes | Create a separate bead; do NOT amend this ADR | "pre-existing bug in session handler" |
+
+If the finding is **unrelated**, stop here. Create a bead and move on. The rest of
+this phase applies only to in-scope findings.
+
+### Process
+
+1. **Identify the validation gap**: What hypothesis or test *would* have caught this?
+   Name it concretely — "H7: Each `models_*` gateway operation resolves to the correct
+   internal handler name" — not "tests should be more thorough."
+
+2. **Fix the code**: Apply the minimum change. This is a bug fix, not a redesign.
+
+3. **Amend the ADR**: Add a `### Post-Review Amendments` section at the end of the
+   accepted ADR (before Links, if present):
+
+   ```markdown
+   ### Post-Review Amendments
+
+   #### Amendment 1: <title> (<date>)
+   **Found by**: <reviewer name or tool>
+   **Finding**: <one-sentence description of what was wrong>
+   **Gap**: <which hypothesis should have existed or was under-specified>
+   **Fix**: <what changed — file:line or commit hash>
+   **Pattern**: <reusable lesson for future HDD sessions>
+   ```
+
+4. **Update the spec** if the finding reveals a spec gap (e.g., a mapping table that
+   wasn't documented). The spec should reflect reality after the fix.
+
+5. **Commit**: Code fix + ADR amendment + spec update in one atomic commit:
+   ```
+   fix(<scope>): <description>
+
+   ADR-NNN post-review amendment — <gap summary>.
+   ```
+
+6. **No new beads epic**. If the original epic is closed, reopen it with a note, or
+   create a single `fix` bead linked to the epic via `discovered-from`. Either way,
+   close it when the fix commit lands.
+
+### Learning Capture
+
+The `Pattern` field in the amendment is the payoff. It feeds into Phase 1 research
+for future HDD sessions — when the research agent reads accepted ADRs, post-review
+amendments tell it what validation approaches failed and why.
+
+Common patterns to watch for:
+- **String manipulation mappings**: When operation names are derived by prefix-strip or
+  string transform, test each mapping individually, not just the boundary.
+- **Handler delegation chains**: When the gateway delegates to a handler that has its
+  own switch statement, verify the value that reaches the inner switch, not just that
+  the gateway dispatched.
+- **Type-system blind spots**: When an internal API accepts `string` instead of a
+  union type, the compiler can't catch wrong values. Test at runtime.
+
+### When NOT to Use Phase 5.5
+
+- The PR hasn't been reviewed yet — finish Phase 5 first.
+- The finding requires a different architectural approach — that's a new HDD session,
+  not an amendment.
+- The finding is about code style, naming, or formatting — just fix it, no ADR
+  amendment needed.
+
 ## Dashboard
 
 Render after every phase transition:
@@ -483,6 +561,7 @@ Phase                     Status          Artifact
 3. Implementation         [status]        files: N, tests: N
 4. Validation             [status]        validated: N, invalidated: N
 5. Decision               [status]        accepted | rejected | pending
+5.5 Post-Review           [status]        amendments: N (if triggered)
 
 Open risks: <count>
 Reconciliation: <count> flags, <count> pending dispositions
