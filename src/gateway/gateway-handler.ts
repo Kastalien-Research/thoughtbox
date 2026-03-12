@@ -469,13 +469,19 @@ export class GatewayHandler {
         );
         break;
 
-      // Mental models operations — flattened, strip prefix and delegate
+      // Mental models operations — flattened, map to internal names
       case 'models_get':
       case 'models_list':
       case 'models_list_tags':
       case 'models_capability_graph': {
+        const MODELS_OP_MAP: Record<string, string> = {
+          models_get: 'get_model',
+          models_list: 'list_models',
+          models_list_tags: 'list_tags',
+          models_capability_graph: 'get_capability_graph',
+        };
         const modelsResult = await this.mentalModelsHandler.processTool(
-          operation.slice('models_'.length),
+          MODELS_OP_MAP[operation],
           args || {},
         );
         const content: Array<{ type: 'text'; text: string }> = modelsResult.content
