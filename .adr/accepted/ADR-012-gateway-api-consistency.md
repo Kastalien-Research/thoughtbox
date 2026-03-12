@@ -166,6 +166,15 @@ The passthrough rule (test at gateway boundary, not handler internals) applies t
 
 The 3-layer verification pattern (handler, type cast, schema declaration) is unaffected. This change modifies dispatch routing, not data field passthrough.
 
+## Post-Review Amendments
+
+#### Amendment 1: Mental models prefix-strip produces wrong operation names (2026-03-12)
+**Found by**: Greptile (automated PR review on PR #159)
+**Finding**: `operation.slice('models_'.length)` converts `models_get` → `"get"`, but `MentalModelsHandler.processTool` expects `"get_model"`. Three of four mental models operations silently fell into the handler's `default` branch.
+**Gap**: H5 tested that flattened operations reach their handlers, but not that the *value* arriving at the inner switch was correct. A missing hypothesis: "H7: Each `models_*` gateway operation resolves to the correct internal handler name after prefix stripping."
+**Fix**: Replaced prefix-strip with explicit mapping table `MODELS_OP_MAP` in `gateway-handler.ts:475-480` (commit d724ca8).
+**Pattern**: When operation names are derived by string manipulation (prefix-strip, substring), and the internal handler uses different names than the external API, test each mapping individually. The compiler can't catch this when the handler accepts `string`.
+
 ## Spec
 
 [SPEC: Gateway API Consistency](../../specs/gateway-api-consistency.md)
