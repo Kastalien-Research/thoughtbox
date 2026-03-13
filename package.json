@@ -82,6 +82,7 @@
     "express": "^5.1.0",
     "fast-xml-parser": "^4.5.3",
     "gray-matter": "^4.0.3",
+    "jose": "^6.2.1",
     "jsonwebtoken": "^9.0.3",
     "langsmith": "^0.5.2",
     "openai": "^4.104.0",

@@ -31,6 +31,12 @@ import {
 import { createFileSystemHubStorage } from "./hub/hub-storage-fs.js";
 import type { HubStorage } from "./hub/hub-types.js";
 import { initEvaluation, initMonitoring } from "./evaluation/index.js";
+import {
+  createJwks,
+  validateToken,
+  extractBearerToken,
+  type AuthContext,
+} from "./middleware/auth.js";
 
 /**
  * Get the storage backend based on environment configuration.
@@ -167,11 +173,44 @@ async function startHttpServer() {
 
   const sessions = new Map<string, SessionEntry>();
 
+  // Auth middleware: validate Bearer token in Supabase mode
+  const storageType = (process.env.THOUGHTBOX_STORAGE || "fs").toLowerCase();
+  const requireAuth = storageType === "supabase";
+  const supabaseUrl = process.env.SUPABASE_URL;
+  const jwks = requireAuth && supabaseUrl ? createJwks(supabaseUrl) : null;
+
   app.all("/mcp", async (req: Request, res: Response) => {
     const mcpSessionId = req.headers["mcp-session-id"] as string | undefined;
 
     // Debug: log all incoming requests
     console.error(`[MCP] ${req.method} request, session: ${mcpSessionId || 'new'}`);
+
+    // Conditional auth: enforce in Supabase mode, skip in FS mode
+    let authContext: AuthContext | null = null;
+    if (requireAuth && jwks && supabaseUrl) {
+      const rawToken = extractBearerToken(
+        req.headers.authorization as string | undefined,
+      );
+      if (!rawToken) {
+        res.status(401).json({
+          jsonrpc: "2.0",
+          error: { code: -32001, message: "Missing Authorization header" },
+          id: null,
+        });
+        return;
+      }
+      try {
+        authContext = await validateToken(rawToken, jwks, supabaseUrl);
+      } catch (err) {
+        console.error("[Auth] Token validation failed:", err);
+        res.status(401).json({
+          jsonrpc: "2.0",
+          error: { code: -32001, message: "Invalid or expired token" },
+          id: null,
+        });
+        return;
+      }
+    }
 
     try {
       if (mcpSessionId && sessions.has(mcpSessionId)) {

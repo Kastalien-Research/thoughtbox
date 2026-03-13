@@ -27,12 +27,15 @@ export interface SupabaseStorageConfig {
   supabaseUrl: string;
   supabaseKey: string;
   jwtSecret: string;
+  /** When provided, use this OAuth token instead of minting a custom JWT. */
+  userToken?: string;
 }
 
 export class SupabaseStorage implements ThoughtboxStorage {
   private supabaseUrl: string;
   private supabaseKey: string;
   private jwtSecret: string;
+  private userToken: string | undefined;
   private client: SupabaseClient | null = null;
   private project: string | null = null;
   private config: Config | null = null;
@@ -44,6 +47,7 @@ export class SupabaseStorage implements ThoughtboxStorage {
     this.supabaseUrl = config.supabaseUrl;
     this.supabaseKey = config.supabaseKey;
     this.jwtSecret = config.jwtSecret;
+    this.userToken = config.userToken;
   }
 
   // ===========================================================================
@@ -69,6 +73,20 @@ export class SupabaseStorage implements ThoughtboxStorage {
   }
 
   private refreshClient(): void {
+    if (this.userToken) {
+      // OAuth mode: use the user's token directly (no custom JWT minting)
+      this.client = createClient(this.supabaseUrl, this.supabaseKey, {
+        auth: { persistSession: false, autoRefreshToken: false },
+        global: {
+          headers: { Authorization: `Bearer ${this.userToken}` },
+        },
+      });
+      this.tokenExpiresAt =
+        Math.floor(Date.now() / 1000) + SupabaseStorage.TOKEN_TTL;
+      return;
+    }
+
+    // FS/local mode: mint a custom JWT with project claim
     const now = Math.floor(Date.now() / 1000);
     const exp = now + SupabaseStorage.TOKEN_TTL;
 
