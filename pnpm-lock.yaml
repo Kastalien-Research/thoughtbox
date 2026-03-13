@@ -40,10 +40,10 @@ importers:
         version: 9.0.3
       langsmith:
         specifier: ^0.5.2
-        version: 0.5.8(openai@4.104.0(ws@8.19.0)(zod@3.25.76))
+        version: 0.5.8(openai@6.27.0(ws@8.19.0)(zod@3.25.76))
       openai:
-        specifier: ^4.104.0
-        version: 4.104.0(ws@8.19.0)(zod@3.25.76)
+        specifier: ^6.27.0
+        version: 6.27.0(ws@8.19.0)(zod@3.25.76)
       rss-parser:
         specifier: ^3.13.0
         version: 3.13.0
@@ -1615,12 +1615,12 @@ packages:
     resolution: {integrity: sha512-kbpaSSGJTWdAY5KPVeMOKXSrPtr8C8C7wodJbcsd51jRnmD+GZu8Y0VoU6Dm5Z4vWr0Ig/1NKuWRKf7j5aaYSg==}
     engines: {node: '>=6'}
 
-  openai@4.104.0:
-    resolution: {integrity: sha512-p99EFNsA/yX6UhVO93f5kJsDRLAg+CTA2RBqdHK4RtK8u5IJw32Hyb2dTGKbnnFmnuoBv5r7Z2CURI9sGZpSuA==}
+  openai@6.27.0:
+    resolution: {integrity: sha512-osTKySlrdYrLYTt0zjhY8yp0JUBmWDCN+Q+QxsV4xMQnnoVFpylgKGgxwN8sSdTNw0G4y+WUXs4eCMWpyDNWZQ==}
     hasBin: true
     peerDependencies:
       ws: ^8.18.0
-      zod: ^3.23.8
+      zod: ^3.25 || ^4.0
     peerDependenciesMeta:
       ws:
         optional: true
@@ -3494,7 +3494,7 @@ snapshots:
 
   kind-of@6.0.3: {}
 
-  langsmith@0.5.8(openai@4.104.0(ws@8.19.0)(zod@3.25.76)):
+  langsmith@0.5.8(openai@6.27.0(ws@8.19.0)(zod@3.25.76)):
     dependencies:
       '@types/uuid': 10.0.0
       chalk: 5.6.2
@@ -3503,7 +3503,7 @@ snapshots:
       semver: 7.7.4
       uuid: 10.0.0
     optionalDependencies:
-      openai: 4.104.0(ws@8.19.0)(zod@3.25.76)
+      openai: 6.27.0(ws@8.19.0)(zod@3.25.76)
 
   lodash.includes@4.3.0: {}
 
@@ -3636,20 +3636,10 @@ snapshots:
     dependencies:
       mimic-fn: 2.1.0
 
-  openai@4.104.0(ws@8.19.0)(zod@3.25.76):
-    dependencies:
-      '@types/node': 18.19.130
-      '@types/node-fetch': 2.6.13
-      abort-controller: 3.0.0
-      agentkeepalive: 4.6.0
-      form-data-encoder: 1.7.2
-      formdata-node: 4.4.1
-      node-fetch: 2.7.0
+  openai@6.27.0(ws@8.19.0)(zod@3.25.76):
     optionalDependencies:
       ws: 8.19.0
       zod: 3.25.76
-    transitivePeerDependencies:
-      - encoding
 
   ora@5.4.1:
     dependencies:
