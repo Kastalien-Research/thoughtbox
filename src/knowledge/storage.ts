@@ -38,19 +38,53 @@ import type {
 export interface KnowledgeStorageOptions {
   /** Base directory for all data. Default: ~/.thoughtbox */
   basePath?: string;
-  /** Project scope - isolates all storage to this project. Default: '_default' */
-  project?: string;
 }
 
 export class FileSystemKnowledgeStorage implements KnowledgeStorage {
   private basePath: string;
-  private project: string;
+  private project: string | null = null;
   private db: Database.Database | null = null;
   private initialized = false;
 
   constructor(options: KnowledgeStorageOptions = {}) {
     this.basePath = options.basePath || path.join(os.homedir(), '.thoughtbox');
-    this.project = options.project || '_default';
+  }
+
+  // ===========================================================================
+  // Project Scoping
+  // ===========================================================================
+
+  async setProject(project: string): Promise<void> {
+    if (this.project === project) return;
+    if (this.project !== null) {
+      throw new Error(
+        `Knowledge storage already scoped to project "${this.project}", cannot change to "${project}"`
+      );
+    }
+    this.project = project;
+
+    // Perform all initialization that was previously in initialize()
+    const memoryDir = this.getMemoryDir();
+    if (!fs.existsSync(memoryDir)) {
+      fs.mkdirSync(memoryDir, { recursive: true });
+    }
+
+    const jsonlPath = this.getJsonlPath();
+    if (!fs.existsSync(jsonlPath)) {
+      fs.writeFileSync(jsonlPath, '', 'utf8');
+    }
+
+    this.db = new Database(this.getDbPath());
+    this.db.pragma('foreign_keys = ON');
+    this.createSchema();
+    await this.rebuildIndexFromJsonl();
+    this.initialized = true;
+  }
+
+  private ensureScoped(): void {
+    if (this.project === null) {
+      throw new Error('Project scope not established. Call bind_root or start_new first.');
+    }
   }
 
   // ===========================================================================
@@ -58,7 +92,8 @@ export class FileSystemKnowledgeStorage implements KnowledgeStorage {
   // ===========================================================================
 
   private getProjectDir(): string {
-    return path.join(this.basePath, 'projects', this.project);
+    this.ensureScoped();
+    return path.join(this.basePath, 'projects', this.project!);
   }
 
   private getMemoryDir(): string {
@@ -74,37 +109,12 @@ export class FileSystemKnowledgeStorage implements KnowledgeStorage {
   }
 
   // ===========================================================================
-  // Initialization
+  // Initialization (no-op — all init happens in setProject)
   // ===========================================================================
 
   async initialize(): Promise<void> {
-    if (this.initialized) return;
-
-    // Create directories
-    const memoryDir = this.getMemoryDir();
-    if (!fs.existsSync(memoryDir)) {
-      fs.mkdirSync(memoryDir, { recursive: true });
-    }
-
-    // Create JSONL if doesn't exist
-    const jsonlPath = this.getJsonlPath();
-    if (!fs.existsSync(jsonlPath)) {
-      fs.writeFileSync(jsonlPath, '', 'utf8');
-    }
-
-    // Open SQLite database
-    this.db = new Database(this.getDbPath());
-
-    // Enable foreign keys
-    this.db.pragma('foreign_keys = ON');
-
-    // Create schema
-    this.createSchema();
-
-    // Rebuild index from JSONL
-    await this.rebuildIndexFromJsonl();
-
-    this.initialized = true;
+    // No-op. All initialization happens in setProject().
+    // Kept for interface compatibility.
   }
 
   private createSchema(): void {

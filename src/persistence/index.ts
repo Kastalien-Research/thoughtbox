@@ -30,7 +30,7 @@ export type {
 
 // Storage implementations
 export { InMemoryStorage, LinkedThoughtStore } from './storage.js';
-export { FileSystemStorage } from './filesystem-storage.js';
+export { FileSystemStorage, StorageNotScopedError } from './filesystem-storage.js';
 
 // Session exporter
 export { SessionExporter } from './export.js';

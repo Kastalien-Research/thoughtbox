@@ -3,10 +3,7 @@
 /**
  * Thoughtbox MCP Server - Entry Point
  *
- *
- * Mode selection:
- * - `THOUGHTBOX_TRANSPORT=http`  -> Streamable HTTP server (default)
- * - `THOUGHTBOX_TRANSPORT=stdio` -> MCP over stdio
+ * Defaults to Streamable HTTP. Set THOUGHTBOX_TRANSPORT=stdio for stdio mode.
  */
 
 import crypto from "node:crypto";
@@ -39,7 +36,9 @@ import { initEvaluation, initMonitoring } from "./evaluation/index.js";
  * THOUGHTBOX_STORAGE=fs      -> FileSystemStorage (persistent, default)
  *
  * THOUGHTBOX_DATA_DIR -> Custom data directory (default: ~/.thoughtbox)
- * THOUGHTBOX_PROJECT  -> Project scope for isolation (default: _default)
+ *
+ * Project scope is set at runtime by the progressive disclosure flow
+ * (bind_root / start_new), not at startup.
  */
 interface StorageBundle {
   storage: ThoughtboxStorage;
@@ -57,8 +56,6 @@ async function createStorage(): Promise<StorageBundle> {
 
   if (storageType === "memory") {
     console.error("[Storage] Using in-memory storage (volatile)");
-    // Even in memory mode, hub uses filesystem storage at baseDir
-    // Hub state persists across sessions for multi-agent coordination
     return {
       storage: new InMemoryStorage(),
       hubStorage: createFileSystemHubStorage(baseDir),
@@ -66,17 +63,14 @@ async function createStorage(): Promise<StorageBundle> {
     };
   }
 
-  // FileSystemStorage is the default for local-first
-  const project = process.env.THOUGHTBOX_PROJECT || "_default";
-
-  console.error(`[Storage] Using filesystem storage at ${baseDir}/projects/${project}/`);
+  console.error(`[Storage] Using filesystem storage at ${baseDir}`);
 
   const storage = new FileSystemStorage({
     basePath: baseDir,
     partitionGranularity: "monthly",
-    project,
   });
 
+  // Base init: config, legacy migration. Project scoping happens later via setProject().
   await storage.initialize();
 
   // Auto-migrate existing exports if any

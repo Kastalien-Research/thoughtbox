@@ -14,8 +14,6 @@ services:
       NODE_ENV: production
       PORT: 1731
       THOUGHTBOX_DATA_DIR: /data/thoughtbox
-      THOUGHTBOX_PROJECT: _default
-      THOUGHTBOX_TRANSPORT: http
       THOUGHTBOX_OBSERVATORY_ENABLED: "true"
       THOUGHTBOX_OBSERVATORY_PORT: 1729
       THOUGHTBOX_OBSERVATORY_CORS: "*"
@@ -23,7 +21,7 @@ services:
       PROMETHEUS_URL: http://prometheus:9090
       GRAFANA_URL: http://grafana:3000
     volumes:
-      - thoughtbox-data:/data/thoughtbox
+      - ./.thoughtbox:/data/thoughtbox
     networks:
       - mcp-network
     restart: unless-stopped

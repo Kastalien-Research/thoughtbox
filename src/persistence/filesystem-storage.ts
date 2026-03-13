@@ -47,8 +47,13 @@ export interface FileSystemStorageOptions {
   basePath?: string;
   /** Time partition granularity. Default: 'monthly' */
   partitionGranularity?: TimePartitionGranularity;
-  /** Project scope - isolates all storage to this project. Default: '_default' */
-  project?: string;
+}
+
+export class StorageNotScopedError extends Error {
+  constructor() {
+    super('Project scope not established. Call bind_root or start_new first.');
+    this.name = 'StorageNotScopedError';
+  }
 }
 
 // =============================================================================
@@ -58,7 +63,7 @@ export interface FileSystemStorageOptions {
 export class FileSystemStorage implements ThoughtboxStorage {
   private basePath: string;
   private partitionGranularity: TimePartitionGranularity;
-  private project: string;
+  private project: string | null = null;
   private config: Config | null = null;
   private sessions: Map<string, Session> = new Map();
   private linkedStore: LinkedThoughtStore = new LinkedThoughtStore();
@@ -67,7 +72,36 @@ export class FileSystemStorage implements ThoughtboxStorage {
   constructor(options: FileSystemStorageOptions = {}) {
     this.basePath = options.basePath || path.join(os.homedir(), '.thoughtbox');
     this.partitionGranularity = options.partitionGranularity || 'monthly';
-    this.project = options.project || '_default';
+  }
+
+  // ===========================================================================
+  // Project Scoping
+  // ===========================================================================
+
+  async setProject(project: string): Promise<void> {
+    if (this.project === project) return;
+    if (this.project !== null) {
+      throw new Error(
+        `Storage already scoped to project "${this.project}", cannot change to "${project}"`
+      );
+    }
+    this.project = project;
+
+    // Create project directory structure
+    await fs.mkdir(this.getProjectDir(), { recursive: true });
+    await fs.mkdir(this.getSessionsDir(), { recursive: true });
+
+    // Load existing sessions for this project
+    await this.loadAllSessions();
+  }
+
+  getProject(): string {
+    if (this.project === null) throw new StorageNotScopedError();
+    return this.project;
+  }
+
+  private ensureScoped(): void {
+    if (this.project === null) throw new StorageNotScopedError();
   }
 
   // ===========================================================================
@@ -79,16 +113,12 @@ export class FileSystemStorage implements ThoughtboxStorage {
   }
 
   private getProjectDir(): string {
+    if (this.project === null) throw new StorageNotScopedError();
     return path.join(this.basePath, 'projects', this.project);
   }
 
   private getSessionsDir(): string {
     return path.join(this.getProjectDir(), 'sessions');
-  }
-
-  /** Get the current project scope */
-  getProject(): string {
-    return this.project;
   }
 
   private generatePartitionPath(): string {
@@ -159,9 +189,7 @@ export class FileSystemStorage implements ThoughtboxStorage {
     // Migrate legacy sessions to projects/_default/ if needed
     await this.migrateLegacySessions();
 
-    // Create project directory structure
-    await fs.mkdir(this.getProjectDir(), { recursive: true });
-    await fs.mkdir(this.getSessionsDir(), { recursive: true });
+    // Project-specific dirs and session loading happen in setProject()
 
     // Load or create config
     try {
@@ -187,8 +215,7 @@ export class FileSystemStorage implements ThoughtboxStorage {
       }
     }
 
-    // Load existing sessions (only from current project)
-    await this.loadAllSessions();
+    // Session loading happens in setProject()
 
     this.initialized = true;
   }
@@ -366,6 +393,7 @@ export class FileSystemStorage implements ThoughtboxStorage {
   // ===========================================================================
 
   async createSession(params: CreateSessionParams): Promise<Session> {
+    this.ensureScoped();
     const id = randomUUID();
     const now = new Date();
     const partitionPath = this.generatePartitionPath();

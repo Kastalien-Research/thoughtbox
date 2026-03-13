@@ -249,19 +249,12 @@ Call \`thoughtbox_hub\` { "operation": "register", "args": { "name": "Your Agent
     discoveryRegistry,
   });
 
-  // Initialize knowledge storage (Phase 1: Optional feature)
+  // Create knowledge storage (project scoping happens later via setProject)
   let knowledgeHandler: KnowledgeHandler | undefined;
-  try {
-    const knowledgeStorage = new FileSystemKnowledgeStorage({
-      project: process.env.THOUGHTBOX_PROJECT || '_default',
-    });
-    await knowledgeStorage.initialize();
-    knowledgeHandler = new KnowledgeHandler(knowledgeStorage);
-    logger.info('Knowledge storage initialized');
-  } catch (error) {
-    // Knowledge storage is optional - log warning but continue
-    logger.warn(`Knowledge storage initialization failed (optional feature): ${error instanceof Error ? error.message : error}`);
-  }
+  const knowledgeStorage = new FileSystemKnowledgeStorage({
+    basePath: args.dataDir,
+  });
+  knowledgeHandler = new KnowledgeHandler(knowledgeStorage);
 
   // Log server creation when sessionId is available
   if (sessionId) {
@@ -314,6 +307,7 @@ Call \`thoughtbox_hub\` { "operation": "register", "args": { "name": "Your Agent
       // server.server is the underlying Server class which has listRoots() method
       initToolHandler = new InitToolHandler({
         storage,  // Required: source of truth for sessions
+        knowledgeStorage,  // For project scoping via setProject()
         index,    // Optional: cached hierarchy for navigation UI
         stateManager: initStateManager,
         toolRegistry,
