@@ -251,10 +251,17 @@ Call \`thoughtbox_hub\` { "operation": "register", "args": { "name": "Your Agent
 
   // Create knowledge storage (project scoping happens later via setProject)
   let knowledgeHandler: KnowledgeHandler | undefined;
-  const knowledgeStorage = new FileSystemKnowledgeStorage({
-    basePath: args.dataDir,
-  });
-  knowledgeHandler = new KnowledgeHandler(knowledgeStorage);
+  let knowledgeStorage: FileSystemKnowledgeStorage | undefined;
+  try {
+    knowledgeStorage = new FileSystemKnowledgeStorage({
+      basePath: args.dataDir,
+    });
+    knowledgeHandler = new KnowledgeHandler(knowledgeStorage);
+  } catch (knowledgeError) {
+    logger.warn(
+      `Knowledge storage unavailable, continuing without it: ${knowledgeError instanceof Error ? knowledgeError.message : String(knowledgeError)}`
+    );
+  }
 
   // Log server creation when sessionId is available
   if (sessionId) {

@@ -13,6 +13,7 @@ services:
     environment:
       NODE_ENV: production
       PORT: 1731
+      THOUGHTBOX_TRANSPORT: http
       THOUGHTBOX_DATA_DIR: /data/thoughtbox
       THOUGHTBOX_OBSERVATORY_ENABLED: "true"
       THOUGHTBOX_OBSERVATORY_PORT: 1729

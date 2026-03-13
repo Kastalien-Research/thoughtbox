@@ -750,8 +750,6 @@ export class InitToolHandler {
         uri: targetRoot.uri,
         name: rootName,
       };
-      this.stateManager.setBoundRoot(sessionId, boundRoot);
-
       // Scope storage layers to this project
       const projectName = rootName;
       try {
@@ -768,6 +766,9 @@ export class InitToolHandler {
           isError: true,
         };
       }
+
+      // Only update state after storage scoping succeeds
+      this.stateManager.setBoundRoot(sessionId, boundRoot);
 
       return {
         content: [{
