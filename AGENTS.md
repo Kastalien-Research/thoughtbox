@@ -179,7 +179,7 @@ When these sources disagree, use this order:
 1. `AGENTS.md`
 2. `.claude/skills/` and `.claude/commands/`
 3. `.gemini/skills/` and `.gemini/commands/`
-4. `.claude/knowledge/`, `.claude/agents/`, `.claude/team-prompts/`, and hook docs as supporting context
+4. `.claude/rules/`, `.claude/agents/`, `.claude/team-prompts/`, and hook docs as supporting context
 
 Notes:
 - Prefer `.claude/` over `.gemini/`. The inventories are nearly mirrored, but `.claude/` is the primary source in this repo.
@@ -229,7 +229,7 @@ Hook intent by event:
 - `PostToolUse` / `AfterTool`: treat file access and tool side effects as auditable. Keep track of files touched, note meaningful state changes, and prefer leaving a clear trail in commit messages, beads, specs, and handoff artifacts.
 - `PermissionRequest`: preserve the repo's git safety policy when escalating. Default to caution on branch-destructive operations and anything that bypasses normal review flow.
 - `UserPromptSubmit`: if a prompt implies assumptions, risks, or session context worth preserving, record them in the right project artifact instead of keeping them implicit.
-- `SessionStart`: check whether `.claude/session-handoff.json`, `.claude/knowledge/`, or relevant state files should shape the current task.
+- `SessionStart`: check whether `.claude/session-handoff.json`, `.claude/rules/`, or relevant state files should shape the current task.
 - `SessionEnd` / `Stop`: before considering work complete, capture handoff context, update specs/ADRs/issues, and follow the repo's landing-the-plane steps.
 - `PreCompact`: before large context shifts, preserve the minimal durable context needed for safe continuation.
 - `Notification`: assume important async events should be surfaced clearly in commentary rather than silently ignored.
@@ -248,7 +248,7 @@ Concrete guardrails:
 Use these only when relevant to the task; do not bulk-load them by default:
 
 - Session continuity: `.claude/session-handoff.json`
-- Project knowledge: `.claude/knowledge/*.md`
+- Project rules: `.claude/rules/*.md` (path-scoped, loaded automatically when matching files are read)
 - Local state: `.claude/state/*`
 
 The intent is to inherit the project's accumulated operating context without pretending the Claude/Gemini runtime integrations are literally active in Codex.

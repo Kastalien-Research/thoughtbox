@@ -1,3 +1,10 @@
+---
+paths:
+  - ".claude/agents/**"
+  - ".claude/skills/**"
+  - "scripts/agents/**"
+---
+
 # Agent Scaffolding
 
 How agents work in this project — invocation patterns, critical rules, and known pitfalls.
@@ -17,7 +24,7 @@ How agents work in this project — invocation patterns, critical rules, and kno
 ### Hub Agents (.claude/agents/)
 | Agent | Role |
 |-------|------|
-| hub-coordinator | Creates workspaces, manages lifecycle |
+| hub-manager | Creates workspaces, manages lifecycle |
 | hub-architect | Analyzes structure, creates proposals |
 | hub-debugger | Root cause analysis, reviews proposals |
 
