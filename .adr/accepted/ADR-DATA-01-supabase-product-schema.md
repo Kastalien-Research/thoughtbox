@@ -1,6 +1,6 @@
 # ADR-DATA-01: Supabase Product Schema for Deployed Storage Backend
 
-**Status**: Proposed
+**Status**: Accepted
 **Date**: 2026-03-13
 **Deciders**: Thoughtbox development team
 **Initiative**: `.specs/deployment/v1-initiative.md` (WS-01)
