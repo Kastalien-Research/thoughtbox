@@ -36,6 +36,9 @@ export class SupabaseStorage implements ThoughtboxStorage {
   private client: SupabaseClient | null = null;
   private project: string | null = null;
   private config: Config | null = null;
+  private tokenExpiresAt = 0;
+  private static TOKEN_TTL = 3600;
+  private static TOKEN_REFRESH_MARGIN = 300;
 
   constructor(config: SupabaseStorageConfig) {
     this.supabaseUrl = config.supabaseUrl;
@@ -55,13 +58,26 @@ export class SupabaseStorage implements ThoughtboxStorage {
       );
     }
     this.project = project;
+    this.refreshClient();
+  }
+
+  getProject(): string {
+    if (this.project === null) {
+      throw new Error('Project scope not established. Call bind_root or start_new first.');
+    }
+    return this.project;
+  }
+
+  private refreshClient(): void {
+    const now = Math.floor(Date.now() / 1000);
+    const exp = now + SupabaseStorage.TOKEN_TTL;
 
     const token = jwt.sign(
       {
         role: 'authenticated',
-        project,
+        project: this.project,
         iss: 'supabase-demo',
-        exp: Math.floor(Date.now() / 1000) + 3600,
+        exp,
       },
       this.jwtSecret,
     );
@@ -72,20 +88,19 @@ export class SupabaseStorage implements ThoughtboxStorage {
         headers: { Authorization: `Bearer ${token}` },
       },
     });
-  }
 
-  getProject(): string {
-    if (this.project === null) {
-      throw new Error('Project scope not established. Call bind_root or start_new first.');
-    }
-    return this.project;
+    this.tokenExpiresAt = exp;
   }
 
   private ensureClient(): SupabaseClient {
-    if (!this.client) {
+    if (!this.project) {
       throw new Error('Project scope not established. Call bind_root or start_new first.');
     }
-    return this.client;
+    const now = Math.floor(Date.now() / 1000);
+    if (!this.client || now >= this.tokenExpiresAt - SupabaseStorage.TOKEN_REFRESH_MARGIN) {
+      this.refreshClient();
+    }
+    return this.client!;
   }
 
   // ===========================================================================
@@ -288,8 +303,12 @@ export class SupabaseStorage implements ThoughtboxStorage {
     }
 
     if (filter?.search) {
+      const escaped = filter.search
+        .replace(/\\/g, '\\\\')
+        .replace(/,/g, '\\,')
+        .replace(/\./g, '\\.');
       query = query.or(
-        `title.ilike.%${filter.search}%,description.ilike.%${filter.search}%`
+        `title.ilike.%${escaped}%,description.ilike.%${escaped}%`
       );
     }
 
