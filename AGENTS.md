@@ -166,3 +166,89 @@ bd automatically syncs with git:
 For more details, see README.md and docs/QUICKSTART.md.
 
 <!-- END BEADS INTEGRATION -->
+
+
+## Local Agent Asset Bridge (`.claude/` and `.gemini/`)
+
+These directories contain project-local agent instructions. Codex cannot natively install Claude/Gemini hooks or slash commands from them, so treat them as **manual operating instructions** for this repo.
+
+### Resolution Order
+
+When these sources disagree, use this order:
+
+1. `AGENTS.md`
+2. `.claude/skills/` and `.claude/commands/`
+3. `.gemini/skills/` and `.gemini/commands/`
+4. `.claude/knowledge/`, `.claude/agents/`, `.claude/team-prompts/`, and hook docs as supporting context
+
+Notes:
+- Prefer `.claude/` over `.gemini/`. The inventories are nearly mirrored, but `.claude/` is the primary source in this repo.
+- Treat older references to `specs/` or legacy ADR paths inside local skill docs as historical if they conflict with the rules above. The current canonical locations remain `.specs/` and `.adr/`.
+
+### Local Skills to Honor Manually
+
+If the user invokes one of these names, or the task clearly matches one, open the matching local file and follow it directly:
+
+- Workflow lifecycle: `workflow`, `workflow-ideation`, `workflow-brainstorming`, `workflows-plan`, `workflows-work`, `workflows-review`, `workflow-revision`, `workflows-compound`, `workflow-reflection`
+- HDD and implementation: `hdd`, `implement`
+- Research and knowledge: `research-task`, `knowledge`, `synthesize`, `distill`, `capture-learning`, `session-review`, `assumptions`, `eval`, `taste`, `diagram`
+- Coordination and autonomy: `team`, `hub-collab`, `deploy-team-hub`, `experiment`, `ulc-loop`, `loop-status`, `status`, `escalate`, `claude-prompt`
+
+Primary path pattern:
+- `.claude/skills/<skill-name>/SKILL.md`
+
+Fallback path pattern:
+- `.gemini/skills/<skill-name>/SKILL.md`
+
+### Local Commands to Treat as Project Procedures
+
+The following command docs are not executable slash commands in Codex, but they define repo-specific procedures and should be read before doing matching work:
+
+- HDD command set: `.claude/commands/hdd/*.md`
+- Development TDD profiles: `.claude/commands/development/*.md`
+- Gemini mirrors of the same procedures: `.gemini/commands/**/*.toml`
+
+If a user references `/hdd`, HDD phases, or the development TDD profiles, read the corresponding local command or skill doc first and then execute the procedure manually.
+
+### Local Agent and Team Prompt Reuse
+
+When spawning agents or structuring multi-agent work, reuse these local prompt libraries before inventing new role prompts:
+
+- Role prompts: `.claude/team-prompts/_thoughtbox-process.md`, `.claude/team-prompts/architect.md`, `.claude/team-prompts/debugger.md`, `.claude/team-prompts/researcher.md`, `.claude/team-prompts/reviewer.md`
+- Specialized agents: `.claude/agents/*.md`
+
+These files define the repo's preferred agent roles for architecture, debugging, verification, research taste, regression hunting, hook health, and coordination.
+
+### Hook-Derived Guardrails to Follow Manually
+
+Codex cannot auto-register `.claude/settings.json`, `.gemini/settings.json`, or their shell hooks here. Still, emulate the intent of the configured hook stack during normal work.
+
+Hook intent by event:
+
+- `PreToolUse` / `BeforeTool`: apply command safety checks before running risky shell commands. Block direct pushes to protected branches, force pushes, branch deletion, dangerous `rm -rf`, and unrequested writes to `.env`-style files.
+- `PostToolUse` / `AfterTool`: treat file access and tool side effects as auditable. Keep track of files touched, note meaningful state changes, and prefer leaving a clear trail in commit messages, beads, specs, and handoff artifacts.
+- `PermissionRequest`: preserve the repo's git safety policy when escalating. Default to caution on branch-destructive operations and anything that bypasses normal review flow.
+- `UserPromptSubmit`: if a prompt implies assumptions, risks, or session context worth preserving, record them in the right project artifact instead of keeping them implicit.
+- `SessionStart`: check whether `.claude/session-handoff.json`, `.claude/knowledge/`, or relevant state files should shape the current task.
+- `SessionEnd` / `Stop`: before considering work complete, capture handoff context, update specs/ADRs/issues, and follow the repo's landing-the-plane steps.
+- `PreCompact`: before large context shifts, preserve the minimal durable context needed for safe continuation.
+- `Notification`: assume important async events should be surfaced clearly in commentary rather than silently ignored.
+- `SubagentStop`: when using agents, persist their outputs in durable artifacts immediately if the surrounding workflow expects that.
+
+Concrete guardrails:
+
+- Do not push directly to protected branches: `main`, `master`, `develop`, `production`
+- Do not force-push or delete branches unless the user explicitly requests it
+- Avoid modifying `.env` or other secret-bearing files unless the task explicitly requires it
+- Preserve the repo's commit-message conventions when committing
+- Treat session handoff, file-access tracking, assumption tracking, and stop-time summaries as real workflow requirements even when the hooks are not running automatically
+
+### Knowledge and State Files Worth Consulting Selectively
+
+Use these only when relevant to the task; do not bulk-load them by default:
+
+- Session continuity: `.claude/session-handoff.json`
+- Project knowledge: `.claude/knowledge/*.md`
+- Local state: `.claude/state/*`
+
+The intent is to inherit the project's accumulated operating context without pretending the Claude/Gemini runtime integrations are literally active in Codex.
