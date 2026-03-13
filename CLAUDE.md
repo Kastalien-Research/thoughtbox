@@ -109,6 +109,7 @@ Spawn prompt templates for teammates are in `.claude/team-prompts/`.
 - **Billing**: Stripe
 - **Session routing**: Cloud Memorystore for Redis (live transport state only)
 - **NO Cloud Storage FUSE** — all persistence goes through Supabase, containers are stateless
+- **DUAL BACKEND**: FileSystemStorage (local/self-hosted) + SupabaseStorage (deployed). Both implement same interfaces. Neither replaces the other.
 - Initiative spec: `.specs/deployment/v1-initiative.md`
 
 ## Sub-Agent Dispatch Rules

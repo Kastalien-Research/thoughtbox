@@ -95,4 +95,4 @@ Concretely:
 - `src/init/tool-handler.ts` -- `handleBindRoot()` and `handleStartNew()` determine project name
 - `src/init/state-manager.ts` -- `StateManager` stores project per session
 - `docker-compose.yml` -- `THOUGHTBOX_PROJECT: _default` (to be removed)
-- `.adr/staging/ADR-GCP-01-cloud-run-service-config.md` -- Supabase backend will implement the same `setProject()` interface
+- `.adr/accepted/ADR-GCP-01-cloud-run-service-config.md` -- Supabase backend will implement the same `setProject()` interface
