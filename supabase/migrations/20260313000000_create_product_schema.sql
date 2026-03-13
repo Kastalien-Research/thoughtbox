@@ -96,35 +96,44 @@ CREATE INDEX idx_thoughts_type ON thoughts(thought_type);
 CREATE INDEX idx_thoughts_revision ON thoughts(session_id, revises_thought)
   WHERE revises_thought IS NOT NULL;
 
--- Trigger to maintain denormalized counts on sessions
+-- Trigger to maintain denormalized counts on sessions.
+-- Uses atomic increment/decrement for concurrency safety under parallel inserts.
 CREATE OR REPLACE FUNCTION update_session_counts()
 RETURNS TRIGGER AS $$
 BEGIN
   IF TG_OP = 'INSERT' THEN
-    UPDATE sessions
-    SET
-      thought_count = (
-        SELECT count(*) FROM thoughts
-        WHERE session_id = NEW.session_id AND branch_id IS NULL
-      ),
-      branch_count = (
-        SELECT count(DISTINCT branch_id) FROM thoughts
-        WHERE session_id = NEW.session_id AND branch_id IS NOT NULL
-      )
-    WHERE id = NEW.session_id;
+    IF NEW.branch_id IS NULL THEN
+      UPDATE sessions SET thought_count = thought_count + 1
+      WHERE id = NEW.session_id;
+    ELSE
+      -- Increment branch_count only if this is the first thought for this branch
+      IF NOT EXISTS (
+        SELECT 1 FROM thoughts
+        WHERE session_id = NEW.session_id
+          AND branch_id = NEW.branch_id
+          AND id != NEW.id
+      ) THEN
+        UPDATE sessions SET branch_count = branch_count + 1
+        WHERE id = NEW.session_id;
+      END IF;
+    END IF;
     RETURN NEW;
   ELSIF TG_OP = 'DELETE' THEN
-    UPDATE sessions
-    SET
-      thought_count = (
-        SELECT count(*) FROM thoughts
-        WHERE session_id = OLD.session_id AND branch_id IS NULL
-      ),
-      branch_count = (
-        SELECT count(DISTINCT branch_id) FROM thoughts
-        WHERE session_id = OLD.session_id AND branch_id IS NOT NULL
-      )
-    WHERE id = OLD.session_id;
+    IF OLD.branch_id IS NULL THEN
+      UPDATE sessions SET thought_count = thought_count - 1
+      WHERE id = OLD.session_id;
+    ELSE
+      -- Decrement branch_count only if this was the last thought for this branch
+      IF NOT EXISTS (
+        SELECT 1 FROM thoughts
+        WHERE session_id = OLD.session_id
+          AND branch_id = OLD.branch_id
+          AND id != OLD.id
+      ) THEN
+        UPDATE sessions SET branch_count = branch_count - 1
+        WHERE id = OLD.session_id;
+      END IF;
+    END IF;
     RETURN OLD;
   END IF;
   RETURN NULL;
@@ -237,19 +246,19 @@ ALTER TABLE relations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE observations ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY project_isolation ON sessions
-  FOR ALL USING (project = current_setting('app.current_project', true));
+  FOR ALL USING (project = (auth.jwt() ->> 'project'));
 
 CREATE POLICY project_isolation ON thoughts
-  FOR ALL USING (project = current_setting('app.current_project', true));
+  FOR ALL USING (project = (auth.jwt() ->> 'project'));
 
 CREATE POLICY project_isolation ON entities
-  FOR ALL USING (project = current_setting('app.current_project', true));
+  FOR ALL USING (project = (auth.jwt() ->> 'project'));
 
 CREATE POLICY project_isolation ON relations
-  FOR ALL USING (project = current_setting('app.current_project', true));
+  FOR ALL USING (project = (auth.jwt() ->> 'project'));
 
 CREATE POLICY project_isolation ON observations
-  FOR ALL USING (project = current_setting('app.current_project', true));
+  FOR ALL USING (project = (auth.jwt() ->> 'project'));
 
 -- Service role bypass (allows admin operations)
 CREATE POLICY service_role_bypass ON sessions

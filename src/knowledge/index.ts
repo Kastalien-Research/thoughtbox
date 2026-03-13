@@ -9,3 +9,5 @@
 export * from './types.js';
 export * from './storage.js';
 export * from './handler.js';
+export { SupabaseKnowledgeStorage } from './supabase-storage.js';
+export type { SupabaseKnowledgeStorageConfig } from './supabase-storage.js';

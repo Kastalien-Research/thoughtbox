@@ -17,9 +17,12 @@ import { createMcpServer } from "./server-factory.js";
 import {
   FileSystemStorage,
   InMemoryStorage,
+  SupabaseStorage,
   migrateExports,
   type ThoughtboxStorage,
 } from "./persistence/index.js";
+import { SupabaseKnowledgeStorage } from "./knowledge/index.js";
+import type { KnowledgeStorage } from "./knowledge/types.js";
 import {
   createObservatoryServer,
   loadObservatoryConfig,
@@ -44,6 +47,7 @@ interface StorageBundle {
   storage: ThoughtboxStorage;
   hubStorage: HubStorage;
   dataDir: string;
+  knowledgeStorage?: KnowledgeStorage;
 }
 
 async function createStorage(): Promise<StorageBundle> {
@@ -53,6 +57,37 @@ async function createStorage(): Promise<StorageBundle> {
   const baseDir =
     process.env.THOUGHTBOX_DATA_DIR ||
     path.join(os.homedir(), ".thoughtbox");
+
+  if (storageType === "supabase") {
+    const supabaseUrl = process.env.SUPABASE_URL;
+    const supabaseKey = process.env.SUPABASE_ANON_KEY;
+    const jwtSecret = process.env.SUPABASE_JWT_SECRET;
+
+    if (!supabaseUrl || !supabaseKey || !jwtSecret) {
+      throw new Error(
+        "THOUGHTBOX_STORAGE=supabase requires SUPABASE_URL, SUPABASE_ANON_KEY, and SUPABASE_JWT_SECRET"
+      );
+    }
+
+    console.error("[Storage] Using Supabase storage");
+
+    const storage = new SupabaseStorage({ supabaseUrl, supabaseKey, jwtSecret });
+    await storage.initialize();
+
+    const knowledgeStorage = new SupabaseKnowledgeStorage({
+      supabaseUrl,
+      supabaseKey,
+      jwtSecret,
+    });
+    await knowledgeStorage.initialize();
+
+    return {
+      storage,
+      hubStorage: createFileSystemHubStorage(baseDir),
+      dataDir: baseDir,
+      knowledgeStorage,
+    };
+  }
 
   if (storageType === "memory") {
     console.error("[Storage] Using in-memory storage (volatile)");
@@ -118,7 +153,7 @@ async function maybeStartObservatory(hubStorage?: HubStorage, persistentStorage?
 
 async function startHttpServer() {
   // Initialize shared storage (all MCP sessions share the same persistence layer)
-  const { storage, hubStorage, dataDir } = await createStorage();
+  const { storage, hubStorage, dataDir, knowledgeStorage } = await createStorage();
 
   const observatoryServer = await maybeStartObservatory(hubStorage, storage);
 
@@ -157,6 +192,7 @@ async function startHttpServer() {
         storage, // Shared storage instance
         hubStorage,
         dataDir,
+        knowledgeStorage,
         config: {
           disableThoughtLogging:
             (process.env.DISABLE_THOUGHT_LOGGING || "").toLowerCase() === "true",
@@ -238,7 +274,7 @@ async function startHttpServer() {
 
 async function runStdioServer() {
   // Initialize storage for stdio mode
-  const { storage, hubStorage, dataDir } = await createStorage();
+  const { storage, hubStorage, dataDir, knowledgeStorage } = await createStorage();
 
   const disableThoughtLogging =
     (process.env.DISABLE_THOUGHT_LOGGING || "").toLowerCase() === "true";
@@ -247,6 +283,7 @@ async function runStdioServer() {
     storage,
     hubStorage,
     dataDir,
+    knowledgeStorage,
     config: {
       disableThoughtLogging,
     },
