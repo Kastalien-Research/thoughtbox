@@ -102,6 +102,21 @@ Spawn prompt templates for teammates are in `.claude/team-prompts/`.
 - Every intermediate step
 - Information that's already in the codebase
 
+## Decided Architecture (v1 deployment) — NON-NEGOTIABLE
+
+- **Execution plane**: Google Cloud Run
+- **Control plane / persistence**: Supabase — Postgres, Auth, Storage
+- **Billing**: Stripe
+- **Session routing**: Cloud Memorystore for Redis (live transport state only)
+- **NO Cloud Storage FUSE** — all persistence goes through Supabase, containers are stateless
+- Initiative spec: `.specs/deployment/v1-initiative.md`
+
+## Sub-Agent Dispatch Rules
+
+1. **Hard constraints first**: When dispatching sub-agents, put decided constraints from the initiative spec at the TOP of the prompt as non-negotiable. Current codebase state goes SECOND, labeled as "what needs to change."
+2. **Review output against spec**: Before presenting sub-agent output to the user, check it against the initiative spec. If it introduces infrastructure or approaches not in the spec, catch it before it reaches the user.
+3. **No invented constraints**: Never treat "minimize code changes" as a goal unless the user explicitly says so. Deployment initiatives exist because code needs to change.
+
 ## Improvement Loop Learnings
 
 > Auto-generated learnings from autonomous improvement cycles
@@ -109,5 +124,9 @@ Spawn prompt templates for teammates are in `.claude/team-prompts/`.
 ### What Works
 
 ### What Doesn't Work
+
+- Sub-agents optimizing for "no code changes" when the initiative exists to make code changes
+- Presenting sub-agent output without verifying it against the initiative spec
+- Writing sub-agent prompts before checking existing infrastructure. The prompt IS the plan — if you assume a workflow (e.g., local `docker build` + `docker push`) without checking what's already in place (e.g., Cloud Build triggers), the sub-agent executes the wrong plan correctly. Always audit existing infrastructure before writing implementation prompts.
 
 ### Current Capability Gaps

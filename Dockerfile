@@ -49,13 +49,8 @@ ENV NODE_ENV=production
 # Mount a host volume here for persistence: -v ~/.thoughtbox:/data/thoughtbox
 ENV THOUGHTBOX_DATA_DIR=/data/thoughtbox
 
-# Project isolation - set to scope sessions to a specific project
-# Sessions are stored at: /data/thoughtbox/projects/{project}/sessions/
-# Default: _default
-# Example: THOUGHTBOX_PROJECT=my-project
-ENV THOUGHTBOX_PROJECT=_default
-
-VOLUME ["/data/thoughtbox"]
+# No VOLUME instruction — Cloud Run containers are stateless.
+# For local Docker use, mount a host volume: -v ~/.thoughtbox:/data/thoughtbox
 
 # Health check endpoint (use PORT env var, default 1731)
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \

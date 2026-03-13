@@ -1,3 +1,8 @@
+---
+paths:
+  - "src/hub/**"
+---
+
 # Hub Development Workflow
 
 Patterns, standards, and lessons for working on the Thoughtbox Hub.
@@ -6,12 +11,12 @@ Patterns, standards, and lessons for working on the Thoughtbox Hub.
 
 ALL architectural changes must follow:
 1. **Research** — form hypotheses, gather evidence
-2. **Staging ADR** — write decision record in `staging/docs/adr/`
+2. **Staging ADR** — write decision record in `.adr/staging/`
 3. **Implementation** — build it
 4. **Validation** — test against hypotheses
 5. **Decision** — accept/reject/modify
 
-- ADRs are source of truth, located in `staging/docs/adr/`
+- ADRs are source of truth, located in `.adr/staging/`
 - Specs in `.specs/` are design docs, NOT implementation authorization
 - A DRAFT spec does NOT authorize implementation
 

@@ -1,8 +1,13 @@
+---
+paths:
+  - "src/**"
+---
+
 # MCP Gotchas
 
 Verified parameter names and known bugs for MCP tool APIs.
 
-## Knowledge Graph API (VERIFIED 2026-02-10)
+## Knowledge Graph API (re-verified 2026-03-13)
 
 | Operation | Correct Params | NOT These |
 |-----------|---------------|-----------|
@@ -23,6 +28,6 @@ Verified parameter names and known bugs for MCP tool APIs.
 
 ## Gateway Known Issues (2026-02-07)
 
-- `z.unknown()` still in gateway args schema (gateway-handler.ts:61) — agents can't see per-operation arg shapes
+- `z.unknown()` still in gateway args schema (gateway-handler.ts:89) — agents can't see per-operation arg shapes
 - 3 inconsistent doc styles in gateway description: full inline, resource pointers, brief inline
 - No docs resources for session or deep_analysis ops
