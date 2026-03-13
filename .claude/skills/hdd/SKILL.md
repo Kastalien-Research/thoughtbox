@@ -95,7 +95,7 @@ all 5 phases as a self-contained lifecycle.
      },
      "status": "in_progress",
      "artifacts": [],
-     "hypotheses": [],
+     "hypotheses": [],  // After Phase 1: [{ "id": "H1", "claim": "...", "prediction": "...", "validation": "...", "outcome": null }]
      "staging_adr_path": null,
      "spec_path": null,
      "open_risks": [],
@@ -189,6 +189,21 @@ Agent tool call:
 Wait for approval before advancing.
 
 **Gate**: At least one SOFT hypothesis with evidence-backed context. User approved.
+
+**Artifact persistence (MANDATORY before advancing)**:
+
+After user approval, the orchestrator MUST:
+
+1. Write approved hypotheses to `.hdd/state.json`:
+   ```bash
+   # Update state.json — hypotheses array, reconciliation_flags, phase
+   # Each hypothesis object: { "id": "H1", "claim": "...", "prediction": "...", "validation": "..." }
+   ```
+2. Read `.hdd/state.json` back and verify `hypotheses.length > 0`
+3. If verification fails, do NOT advance — fix the write and re-verify
+
+Phase 2 MUST refuse to start if `.hdd/state.json` has an empty hypotheses array.
+Conversation memory is not an artifact. If it's not on disk, it didn't happen.
 
 ### Reconciliation Dispositions
 
@@ -286,6 +301,17 @@ before implementation.
 
 **Gate**: Spec exists in `specs/`. Staging ADR exists in `.adr/staging/`. All sections
 complete. Each hypothesis is SOFT. User approved both documents.
+
+**Artifact persistence (MANDATORY before advancing)**:
+
+After user approval, the orchestrator MUST:
+
+1. Verify the spec file exists on disk: read `spec_path` from state, then read the file
+2. Verify the staging ADR file exists on disk: read `staging_adr_path` from state, then read the file
+3. Verify `.hdd/state.json` has non-null `staging_adr_path` and `spec_path`
+4. If any verification fails, do NOT advance — write the missing files and re-verify
+
+Phase 3 MUST refuse to start if either file is missing from disk.
 
 **If `--phases=1-2`**: Stop here. Return the spec path, ADR path, and hypotheses to the
 calling workflow. Update state to `phase: "stage-complete"`.
@@ -584,7 +610,7 @@ Reject hypotheses that are vague ("performance is good"), implementation-focused
 ## Operational Rules
 
 1. **Orchestrator delegates**: You dispatch sub-agents for each phase. You do NOT read every implementation file or write production code yourself.
-2. **Persist state after every phase**: Update `.hdd/state.json` and beads after each phase completes. Crashes should be recoverable.
+2. **Persist state after every phase**: Update `.hdd/state.json` and beads after each phase completes. Crashes should be recoverable. **Write-then-verify**: after writing state, read it back and confirm the expected data is present. Conversation memory is not an artifact — if it's not on disk, it didn't happen.
 3. **One ADR per session**: Each HDD session produces exactly one ADR (accepted or rejected), plus one spec.
 4. **Atomic commits**: Code changes + ADR + spec in one commit, made after validation — not during implementation.
 5. **Document failures**: Rejected ADRs are as valuable as accepted ones. They prevent repeated mistakes. Rejected specs are removed (they describe unbuilt things).
@@ -601,6 +627,7 @@ Reject hypotheses that are vague ("performance is good"), implementation-focused
 - Do NOT "fix" invalidated code — reject the ADR, learn from it, form new hypotheses
 - Do NOT treat HDD as overhead — it IS the development process for architectural decisions
 - Do NOT create a spec without an ADR or an ADR without a spec — they are a pair
+- Do NOT treat conversation acknowledgment as artifact persistence — if hypotheses, paths, or outcomes aren't written to `.hdd/state.json` and verified by reading the file back, they will be lost when the session ends
 
 ## When to Use HDD
 
