@@ -465,10 +465,10 @@ export class SupabaseStorage implements ThoughtboxStorage {
     const branchIds = await this.getBranchIds(sessionId);
 
     if (format === 'json') {
-      const branchData: Record<string, ThoughtData[]> = {};
-      for (const branchId of branchIds) {
-        branchData[branchId] = await this.getBranch(sessionId, branchId);
-      }
+      const branchEntries = await Promise.all(
+        branchIds.map(async (branchId) => [branchId, await this.getBranch(sessionId, branchId)] as const)
+      );
+      const branchData = Object.fromEntries(branchEntries);
       return JSON.stringify({ session, thoughts, branches: branchData }, null, 2);
     }
 
@@ -506,8 +506,11 @@ export class SupabaseStorage implements ThoughtboxStorage {
       lines.push('## Branches');
       lines.push('');
 
-      for (const branchId of branchIds) {
-        const branchThoughts = await this.getBranch(sessionId, branchId);
+      const branchEntries = await Promise.all(
+        branchIds.map(async (branchId) => [branchId, await this.getBranch(sessionId, branchId)] as const)
+      );
+
+      for (const [branchId, branchThoughts] of branchEntries) {
         lines.push(`### Branch: ${branchId}`);
         lines.push('');
         for (const thought of branchThoughts) {
