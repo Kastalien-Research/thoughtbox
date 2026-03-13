@@ -16,6 +16,7 @@ import type {
 import { StateManager, ConnectionStage, type BoundRoot, type SessionState } from './state-manager.js';
 import { ToolRegistry } from '../tool-registry.js';
 import type { ThoughtboxStorage, Session, ThoughtData } from '../persistence/types.js';
+import type { KnowledgeStorage } from '../knowledge/types.js';
 
 // =============================================================================
 // Tool Schema
@@ -144,6 +145,8 @@ Each response includes an embedded resource with navigation state.`,
 export interface InitToolHandlerConfig {
   /** Storage for direct session access (required - source of truth) */
   storage: ThoughtboxStorage;
+  /** Knowledge storage for project scoping */
+  knowledgeStorage?: KnowledgeStorage;
   /** Session index for navigation (optional - used for cached lookups) */
   index?: SessionIndex;
   /** State manager for session state */
@@ -164,6 +167,7 @@ export interface InitToolHandlerConfig {
  */
 export class InitToolHandler {
   private storage: ThoughtboxStorage;
+  private knowledgeStorage: KnowledgeStorage | null;
   private index: SessionIndex | null;
   private stateManager: StateManager;
   private toolRegistry: ToolRegistry | null;
@@ -172,6 +176,7 @@ export class InitToolHandler {
 
   constructor(config: InitToolHandlerConfig) {
     this.storage = config.storage;
+    this.knowledgeStorage = config.knowledgeStorage || null;
     this.index = config.index || null;
     this.stateManager = config.stateManager || new StateManager();
     this.toolRegistry = config.toolRegistry || null;
@@ -550,6 +555,22 @@ export class InitToolHandler {
       project: effectiveProject,
     };
 
+    // Scope storage layers to this project
+    try {
+      await this.storage.setProject(effectiveProject);
+      if (this.knowledgeStorage) {
+        await this.knowledgeStorage.setProject(effectiveProject);
+      }
+    } catch (scopeError) {
+      return {
+        content: [{
+          type: 'text',
+          text: `Failed to scope storage to project "${effectiveProject}": ${scopeError instanceof Error ? scopeError.message : String(scopeError)}`,
+        }],
+        isError: true,
+      };
+    }
+
     // Update state to fully loaded with new work context
     this.stateManager.updateSessionState(sessionId, {
       stage: ConnectionStage.STAGE_3_FULLY_LOADED,
@@ -724,11 +745,29 @@ export class InitToolHandler {
       }
 
       // Bind the root
+      const rootName = targetRoot.name || this.extractNameFromUri(targetRoot.uri);
       const boundRoot: BoundRoot = {
         uri: targetRoot.uri,
-        name: targetRoot.name || this.extractNameFromUri(targetRoot.uri),
+        name: rootName,
       };
       this.stateManager.setBoundRoot(sessionId, boundRoot);
+
+      // Scope storage layers to this project
+      const projectName = rootName;
+      try {
+        await this.storage.setProject(projectName);
+        if (this.knowledgeStorage) {
+          await this.knowledgeStorage.setProject(projectName);
+        }
+      } catch (scopeError) {
+        return {
+          content: [{
+            type: 'text',
+            text: `Failed to scope storage to project "${projectName}": ${scopeError instanceof Error ? scopeError.message : String(scopeError)}`,
+          }],
+          isError: true,
+        };
+      }
 
       return {
         content: [{

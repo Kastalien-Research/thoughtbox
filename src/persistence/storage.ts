@@ -539,6 +539,7 @@ export class LinkedThoughtStore {
 export class InMemoryStorage implements ThoughtboxStorage {
   private config: Config | null = null;
   private sessions: Map<string, Session> = new Map();
+  private project: string | null = null;
 
   /**
    * LinkedThoughtStore is now the SOLE source of truth for thought data.
@@ -561,6 +562,23 @@ export class InMemoryStorage implements ThoughtboxStorage {
         createdAt: new Date(),
       };
     }
+  }
+
+  async setProject(project: string): Promise<void> {
+    if (this.project === project) return;
+    if (this.project !== null) {
+      throw new Error(
+        `Storage already scoped to project "${this.project}", cannot change to "${project}"`
+      );
+    }
+    this.project = project;
+  }
+
+  getProject(): string {
+    if (this.project === null) {
+      throw new Error('Project scope not established. Call bind_root or start_new first.');
+    }
+    return this.project;
   }
 
   // ===========================================================================

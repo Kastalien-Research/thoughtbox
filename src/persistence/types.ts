@@ -516,6 +516,21 @@ export interface ThoughtboxStorage {
    */
   initialize(): Promise<void>;
 
+  /**
+   * Set the project scope. Called by the progressive disclosure flow
+   * (bind_root / start_new) after determining the project name.
+   * Implementations perform backend-specific initialization:
+   * filesystem creates directories, Supabase sets tenant/schema.
+   * No-op if already set to the same project.
+   * Throws if already set to a different project.
+   */
+  setProject(project: string): Promise<void>;
+
+  /**
+   * Get the current project scope. Throws if not yet scoped.
+   */
+  getProject(): string;
+
   // ---------------------------------------------------------------------------
   // Config Operations
   // ---------------------------------------------------------------------------
