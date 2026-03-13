@@ -140,6 +140,8 @@ export interface CreateMcpServerArgs {
   hubStorage?: HubStorage;
   /** Data directory for task store (filesystem persistence) */
   dataDir?: string;
+  /** Optional pre-created knowledge storage (used by Supabase mode) */
+  knowledgeStorage?: import('./knowledge/types.js').KnowledgeStorage;
 }
 
 const defaultLogger: Logger = {
@@ -250,17 +252,25 @@ Call \`thoughtbox_hub\` { "operation": "register", "args": { "name": "Your Agent
   });
 
   // Create knowledge storage (project scoping happens later via setProject)
+  // If a pre-created knowledge storage was provided (Supabase mode), use it.
+  // Otherwise fall back to FileSystemKnowledgeStorage.
   let knowledgeHandler: KnowledgeHandler | undefined;
-  let knowledgeStorage: FileSystemKnowledgeStorage | undefined;
-  try {
-    knowledgeStorage = new FileSystemKnowledgeStorage({
-      basePath: args.dataDir,
-    });
+  let knowledgeStorage: import('./knowledge/types.js').KnowledgeStorage | undefined;
+  if (args.knowledgeStorage) {
+    knowledgeStorage = args.knowledgeStorage;
     knowledgeHandler = new KnowledgeHandler(knowledgeStorage);
-  } catch (knowledgeError) {
-    logger.warn(
-      `Knowledge storage unavailable, continuing without it: ${knowledgeError instanceof Error ? knowledgeError.message : String(knowledgeError)}`
-    );
+  } else {
+    try {
+      const fsKnowledge = new FileSystemKnowledgeStorage({
+        basePath: args.dataDir,
+      });
+      knowledgeStorage = fsKnowledge;
+      knowledgeHandler = new KnowledgeHandler(knowledgeStorage);
+    } catch (knowledgeError) {
+      logger.warn(
+        `Knowledge storage unavailable, continuing without it: ${knowledgeError instanceof Error ? knowledgeError.message : String(knowledgeError)}`
+      );
+    }
   }
 
   // Log server creation when sessionId is available

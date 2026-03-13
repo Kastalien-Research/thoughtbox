@@ -31,6 +31,8 @@ export type {
 // Storage implementations
 export { InMemoryStorage, LinkedThoughtStore } from './storage.js';
 export { FileSystemStorage, StorageNotScopedError } from './filesystem-storage.js';
+export { SupabaseStorage } from './supabase-storage.js';
+export type { SupabaseStorageConfig } from './supabase-storage.js';
 
 // Session exporter
 export { SessionExporter } from './export.js';
