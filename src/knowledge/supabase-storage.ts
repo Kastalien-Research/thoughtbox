@@ -37,6 +37,9 @@ export class SupabaseKnowledgeStorage implements KnowledgeStorage {
   private jwtSecret: string;
   private client: SupabaseClient | null = null;
   private project: string | null = null;
+  private tokenExpiresAt = 0;
+  private static TOKEN_TTL = 3600;
+  private static TOKEN_REFRESH_MARGIN = 300;
 
   constructor(config: SupabaseKnowledgeStorageConfig) {
     this.supabaseUrl = config.supabaseUrl;
@@ -56,13 +59,19 @@ export class SupabaseKnowledgeStorage implements KnowledgeStorage {
       );
     }
     this.project = project;
+    this.refreshClient();
+  }
+
+  private refreshClient(): void {
+    const now = Math.floor(Date.now() / 1000);
+    const exp = now + SupabaseKnowledgeStorage.TOKEN_TTL;
 
     const token = jwt.sign(
       {
         role: 'authenticated',
-        project,
+        project: this.project,
         iss: 'supabase-demo',
-        exp: Math.floor(Date.now() / 1000) + 3600,
+        exp,
       },
       this.jwtSecret,
     );
@@ -73,13 +82,19 @@ export class SupabaseKnowledgeStorage implements KnowledgeStorage {
         headers: { Authorization: `Bearer ${token}` },
       },
     });
+
+    this.tokenExpiresAt = exp;
   }
 
   private ensureClient(): SupabaseClient {
-    if (!this.client) {
+    if (!this.project) {
       throw new Error('Project scope not established. Call bind_root or start_new first.');
     }
-    return this.client;
+    const now = Math.floor(Date.now() / 1000);
+    if (!this.client || now >= this.tokenExpiresAt - SupabaseKnowledgeStorage.TOKEN_REFRESH_MARGIN) {
+      this.refreshClient();
+    }
+    return this.client!;
   }
 
   // ===========================================================================
@@ -230,13 +245,11 @@ export class SupabaseKnowledgeStorage implements KnowledgeStorage {
 
     query = query.order('importance_score', { ascending: false });
 
-    if (filter?.limit) {
-      query = query.limit(filter.limit);
-    }
-
     if (filter?.offset) {
       const limit = filter?.limit || 100;
       query = query.range(filter.offset, filter.offset + limit - 1);
+    } else if (filter?.limit) {
+      query = query.limit(filter.limit);
     }
 
     const { data, error } = await query;
