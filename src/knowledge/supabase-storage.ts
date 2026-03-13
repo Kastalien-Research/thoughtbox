@@ -7,7 +7,7 @@
  */
 
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
-import * as jwt from 'jsonwebtoken';
+import jwt from 'jsonwebtoken';
 import { randomUUID } from 'node:crypto';
 import type {
   KnowledgeStorage,
@@ -54,6 +54,12 @@ export class SupabaseKnowledgeStorage implements KnowledgeStorage {
   // ===========================================================================
   // Project Scoping
   // ===========================================================================
+
+  setUserToken(token: string): void {
+    this.userToken = token;
+    this.client = null;
+    this.tokenExpiresAt = 0;
+  }
 
   async setProject(project: string): Promise<void> {
     if (this.project === project) return;

@@ -186,21 +186,30 @@ async function startHttpServer() {
     console.error(`[MCP] ${req.method} request, session: ${mcpSessionId || 'new'}`);
 
     // Conditional auth: enforce in Supabase mode, skip in FS mode
+    // Token sources: Authorization header (preferred) or ?token= query param (workaround for
+    // MCP clients that don't forward custom headers — Claude Code issues #14976, #28293, #29562)
     let authContext: AuthContext | null = null;
     if (requireAuth && jwks && supabaseUrl) {
       const rawToken = extractBearerToken(
         req.headers.authorization as string | undefined,
-      );
+      ) || (req.query.token as string | undefined) || null;
       if (!rawToken) {
         res.status(401).json({
           jsonrpc: "2.0",
-          error: { code: -32001, message: "Missing Authorization header" },
+          error: { code: -32001, message: "Missing Authorization header or ?token= query param" },
           id: null,
         });
         return;
       }
       try {
         authContext = await validateToken(rawToken, jwks, supabaseUrl);
+        // Pass validated token to storage so it uses user's identity for RLS
+        if (storage instanceof SupabaseStorage) {
+          storage.setUserToken(rawToken);
+        }
+        if (knowledgeStorage instanceof SupabaseKnowledgeStorage) {
+          knowledgeStorage.setUserToken(rawToken);
+        }
       } catch (err) {
         console.error("[Auth] Token validation failed:", err);
         res.status(401).json({

@@ -7,7 +7,7 @@
  */
 
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
-import * as jwt from 'jsonwebtoken';
+import jwt from 'jsonwebtoken';
 import { randomUUID } from 'node:crypto';
 import type {
   ThoughtboxStorage,
@@ -53,6 +53,13 @@ export class SupabaseStorage implements ThoughtboxStorage {
   // ===========================================================================
   // Project Scoping
   // ===========================================================================
+
+  setUserToken(token: string): void {
+    this.userToken = token;
+    // Force client refresh on next operation so the new token is used
+    this.client = null;
+    this.tokenExpiresAt = 0;
+  }
 
   async setProject(project: string): Promise<void> {
     if (this.project === project) return;
@@ -286,10 +293,14 @@ export class SupabaseStorage implements ThoughtboxStorage {
   async updateSession(id: string, attrs: Partial<Session>): Promise<Session> {
     const client = this.ensureClient();
 
-    const updateData: Record<string, unknown> = {};
+    const updateData: Record<string, unknown> = {
+      updated_at: new Date().toISOString(),
+    };
     if (attrs.title !== undefined) updateData.title = attrs.title;
     if (attrs.description !== undefined) updateData.description = attrs.description;
     if (attrs.tags !== undefined) updateData.tags = attrs.tags;
+    if (attrs.thoughtCount !== undefined) updateData.thought_count = attrs.thoughtCount;
+    if (attrs.branchCount !== undefined) updateData.branch_count = attrs.branchCount;
 
     const { data, error } = await client
       .from('sessions')
