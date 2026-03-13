@@ -90,7 +90,7 @@ Layer 5: Online Monitoring (regression detection, cost budgets, alerts)
 - `SessionRun` — maps Thoughtbox sessions to LangSmith runs
 - `CollectionTask` / `DeploymentTask` — ALMA-style dataset types
 - `EvaluatorResult` — evaluator output contract
-- `ExperimentConfig` / `ExperimentResult` — experiment runner types
+- `RunExperimentOptions` / `ExperimentRunResult` — experiment runner types
 - `MemoryDesignArchiveEntry` — DGM quality-diversity archive bridge
 - `MonitoringAlert` — Layer 5 alert types
 
