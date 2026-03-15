@@ -140,6 +140,8 @@ async function createStorage(): Promise<StorageBundle> {
 interface SessionEntry {
   transport: StreamableHTTPServerTransport;
   server: Awaited<ReturnType<typeof createMcpServer>>;
+  storage?: ThoughtboxStorage;
+  knowledgeStorage?: KnowledgeStorage;
 }
 
 async function maybeStartObservatory(hubStorage?: HubStorage, persistentStorage?: ThoughtboxStorage): Promise<ObservatoryServer | null> {
@@ -177,6 +179,8 @@ async function startHttpServer() {
   const storageType = (process.env.THOUGHTBOX_STORAGE || "fs").toLowerCase();
   const requireAuth = storageType === "supabase";
   const supabaseUrl = process.env.SUPABASE_URL;
+  const supabaseKey = process.env.SUPABASE_ANON_KEY;
+  const jwtSecret = process.env.SUPABASE_JWT_SECRET;
   const jwks = requireAuth && supabaseUrl ? createJwks(supabaseUrl) : null;
 
   app.all("/mcp", async (req: Request, res: Response) => {
@@ -189,8 +193,9 @@ async function startHttpServer() {
     // Token sources: Authorization header (preferred) or ?token= query param (workaround for
     // MCP clients that don't forward custom headers — Claude Code issues #14976, #28293, #29562)
     let authContext: AuthContext | null = null;
+    let rawToken: string | null = null;
     if (requireAuth && jwks && supabaseUrl) {
-      const rawToken = extractBearerToken(
+      rawToken = extractBearerToken(
         req.headers.authorization as string | undefined,
       ) || (req.query.token as string | undefined) || null;
       if (!rawToken) {
@@ -203,13 +208,6 @@ async function startHttpServer() {
       }
       try {
         authContext = await validateToken(rawToken, jwks, supabaseUrl);
-        // Pass validated token to storage so it uses user's identity for RLS
-        if (storage instanceof SupabaseStorage) {
-          storage.setUserToken(rawToken);
-        }
-        if (knowledgeStorage instanceof SupabaseKnowledgeStorage) {
-          knowledgeStorage.setUserToken(rawToken);
-        }
       } catch (err) {
         console.error("[Auth] Token validation failed:", err);
         res.status(401).json({
@@ -235,12 +233,34 @@ async function startHttpServer() {
 
       const sessionId = mcpSessionId || crypto.randomUUID();
 
+      // In Supabase mode, each session gets its own storage instances
+      // bound to the user's token for RLS isolation. In FS/memory mode,
+      // shared storage is fine (no multi-tenancy).
+      let sessionStorage: ThoughtboxStorage = storage;
+      let sessionKnowledgeStorage: KnowledgeStorage | undefined = knowledgeStorage;
+      if (requireAuth && rawToken && supabaseUrl && supabaseKey && jwtSecret) {
+        const perSessionStorage = new SupabaseStorage({
+          supabaseUrl,
+          supabaseKey,
+          jwtSecret,
+          userToken: rawToken,
+        });
+        const perSessionKnowledge = new SupabaseKnowledgeStorage({
+          supabaseUrl,
+          supabaseKey,
+          jwtSecret,
+          userToken: rawToken,
+        });
+        sessionStorage = perSessionStorage;
+        sessionKnowledgeStorage = perSessionKnowledge;
+      }
+
       const server = await createMcpServer({
         sessionId,
-        storage, // Shared storage instance
+        storage: sessionStorage,
         hubStorage,
         dataDir,
-        knowledgeStorage,
+        knowledgeStorage: sessionKnowledgeStorage,
         config: {
           disableThoughtLogging:
             (process.env.DISABLE_THOUGHT_LOGGING || "").toLowerCase() === "true",
@@ -252,7 +272,12 @@ async function startHttpServer() {
         enableJsonResponse: true,
       });
 
-      sessions.set(sessionId, { transport, server });
+      sessions.set(sessionId, {
+        transport,
+        server,
+        storage: requireAuth ? sessionStorage : undefined,
+        knowledgeStorage: requireAuth ? sessionKnowledgeStorage : undefined,
+      });
 
       transport.onclose = () => {
         sessions.delete(transport.sessionId || sessionId);
