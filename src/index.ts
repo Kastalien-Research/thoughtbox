@@ -195,9 +195,17 @@ async function startHttpServer() {
     let authContext: AuthContext | null = null;
     let rawToken: string | null = null;
     if (requireAuth && jwks && supabaseUrl) {
-      rawToken = extractBearerToken(
+      const headerToken = extractBearerToken(
         req.headers.authorization as string | undefined,
-      ) || (req.query.token as string | undefined) || null;
+      );
+      const queryToken = req.query.token as string | undefined;
+      rawToken = headerToken || queryToken || null;
+      if (!headerToken && queryToken) {
+        console.warn(
+          "[Auth] Token received via ?token= query param. " +
+          "Prefer Authorization header — query params may be logged by proxies.",
+        );
+      }
       if (!rawToken) {
         res.status(401).json({
           jsonrpc: "2.0",
