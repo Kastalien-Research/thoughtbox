@@ -12,8 +12,8 @@ When AI agents reason through problems, that thinking typically vanishes after e
 
 **Key principles:**
 
-- **Local-First**: All data stored on your machine (`~/.thoughtbox/`)
-- **Privacy-Preserving**: Nothing sent to external servers
+- **Local-First by Default**: All data stored on your machine (`~/.thoughtbox/`), no external services required
+- **Optional Cloud Deployment**: Can be deployed with Supabase for multi-tenant, authenticated access
 - **Persistent**: Thought chains survive across conversations
 - **Auditable**: Full history with branches, revisions, and critiques
 
@@ -96,11 +96,11 @@ cd thoughtbox
 pnpm install
 pnpm build
 
-# Run with stdio (for Claude Code, Cursor, etc.)
+# Run as HTTP server (default)
 thoughtbox
 
-# Or run as HTTP server
-THOUGHTBOX_TRANSPORT=http thoughtbox
+# Or run with stdio (for Claude Code, Cursor, etc.)
+THOUGHTBOX_TRANSPORT=stdio thoughtbox
 ```
 
 Then connect via MCP and start reasoning.
