@@ -58,10 +58,10 @@ Every governance artifact is small enough for one person to read in a single sit
 **What:** macOS Seatbelt / Linux Landlock profile restricting filesystem writes for agent processes.
 **Prevents:** `mv`, `rm`, `chmod` on governance files via Bash. Lockfile deletion. Hook tampering. CI workflow modification.
 **Circumventable:** No — kernel enforcement, syscall returns EPERM.
-**Root causes addressed:** [RC-1](#rc-1-the-bait-and-switch), [RC-3](#rc-3-the-decorative-test-suite) (prevents disabling test infrastructure)
+**Root causes addressed:** [RC-1](root-causes.md#rc-1-the-bait-and-switch), [RC-3](root-causes.md#rc-3-the-decorative-test-suite) (prevents disabling test infrastructure)
 **Implementation:** Declarative profile (~30 lines) specifying:
-- ALLOW write: `src/`, `tests/`, `docs/`, `.specs/`, `.adr/`
-- DENY write: `.git/hooks/`, `.beads/hooks/`, `.github/workflows/`, `*.lock`, `.claude/settings.json`
+- ALLOW write: `src/`, `tests/`, `docs/`
+- DENY write: `.git/hooks/`, `.beads/hooks/`, `.github/workflows/`, `*.lock`, `.claude/settings.json`, `.specs/`, `.adr/` (spec/ADR writes require per-session allowlisting)
 - DENY execute: patterns matching `--no-verify`, force-push, branch deletion on protected branches
 **Tools:** `cco`, `nono`, `Agent Safehouse`
 
@@ -69,7 +69,7 @@ Every governance artifact is small enough for one person to read in a single sit
 **What:** Branch protection rules, required status checks, GitHub Rulesets, OpenSSF Allstar.
 **Prevents:** Merging without passing CI. Disabling branch protection. Force pushes. Direct pushes to main.
 **Circumventable:** No — server-side enforcement. Requires admin credentials to modify.
-**Root causes addressed:** [RC-3](#rc-3-the-decorative-test-suite), [RC-5](#rc-5-the-review-merge-gap)
+**Root causes addressed:** [RC-3](root-causes.md#rc-3-the-decorative-test-suite), [RC-5](root-causes.md#rc-5-the-review-merge-gap)
 **Implementation:**
 - Required status checks: `Test Suite`, `Docker Build`, `Governance Validator`, review bot findings
 - GitHub Rulesets: branch naming conventions, commit message format
@@ -80,7 +80,7 @@ Every governance artifact is small enough for one person to read in a single sit
 **What:** CI jobs that validate code, containers, and governance coherence.
 **Prevents:** Broken Docker builds reaching main. Tests not running. Governance check names drifting from workflow job names.
 **Circumventable:** Only by modifying workflow YAML (visible in PR diff, blocked by Layer 1 sandbox).
-**Root causes addressed:** [RC-3](#rc-3-the-decorative-test-suite), [RC-4](#rc-4-the-local-only-validation)
+**Root causes addressed:** [RC-3](root-causes.md#rc-3-the-decorative-test-suite), [RC-4](root-causes.md#rc-4-the-local-only-validation)
 **Implementation:**
 - `test-suite.yml`: Run vitest (required check)
 - `docker-build.yml`: Run `docker build` on every PR (required check)
@@ -91,7 +91,7 @@ Every governance artifact is small enough for one person to read in a single sit
 **What:** OPA/Conftest policies evaluating PR metadata against declared scope.
 **Prevents:** Kitchen-sink PRs. Scope creep. PRs exceeding size thresholds.
 **Circumventable:** Only by modifying policy files (visible in PR diff, blocked by Layer 1 sandbox).
-**Root causes addressed:** [RC-2](#rc-2-the-kitchen-sink)
+**Root causes addressed:** [RC-2](root-causes.md#rc-2-the-kitchen-sink)
 **Implementation:**
 - PR file-footprint check: directories touched vs branch name/linked issue scope
 - PR size gate: >100 changed files requires maintainer override

@@ -1,6 +1,6 @@
 # Root Cause Failure Modes Reference
 
-Each root cause is a named, documented failure mode with specific examples from the thoughtbox git history (808 commits, 106 branches, 166 PRs, Oct 2025 - Mar 2026). Use these IDs to connect governance components to the specific failures they prevent.
+Each root cause is a named, documented failure mode with specific examples from the thoughtbox git history (435 commits, ~108 branches, 157 PRs, Oct 2025 - Mar 2026). Use these IDs to connect governance components to the specific failures they prevent.
 
 ---
 
@@ -183,14 +183,14 @@ Each root cause is a named, documented failure mode with specific examples from 
 
 ## Quantitative Baseline
 
-From the forensic analysis of thoughtbox (808 commits, Oct 2025 - Mar 2026):
+From the forensic analysis of thoughtbox (435 commits, Oct 2025 - Mar 2026):
 
 | Metric | Value |
 |--------|-------|
-| Total feat commits | 170 |
-| Total fix commits | 174 |
-| Fix-to-feature ratio | 1.02:1 |
-| Fix commits traceable to named root causes | ~87 of 174 (50%) |
+| Total feat commits | ~103 |
+| Total fix commits | ~90 |
+| Fix-to-feature ratio | 0.87:1 |
+| Fix commits traceable to named root causes | ~45 of ~90 (50%) |
 | Rework preventable by mechanical gates | ~85% of traced rework |
 | Median PR merge time | 18 minutes |
 | PRs merged same-day | 98% |

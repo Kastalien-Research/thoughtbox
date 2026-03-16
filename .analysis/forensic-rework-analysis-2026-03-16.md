@@ -1,14 +1,14 @@
 # Forensic Rework Analysis: Why Everything Gets Built More Than Once
 
 **Date:** 2026-03-16
-**Scope:** Full git history (808 commits, 106 branches, 166 PRs, Oct 2025 – Mar 2026)
+**Scope:** Full git history (435 commits, ~108 branches, 157 PRs, Oct 2025 – Mar 2026)
 **Method:** 4 parallel analysis agents (saga archaeology, fix-chain analysis, spec-gap analysis, branch/PR survey) → 1 synthesis agent, with human corrections on root causes
 
 ---
 
 ## Executive Summary
 
-This codebase has produced 174 fix commits against 170 feat commits — a 1.02:1 fix-to-feature ratio. That means for every feature shipped, a full fix commit followed. The causes are not random. They cluster into 6 distinct, named failure modes, 5 of which were preventable from information available at decision time. An estimated 65-70% of all rework was avoidable.
+This codebase has produced ~90 fix commits against ~103 feat commits — a 0.87:1 fix-to-feature ratio. That means for roughly every feature shipped, a fix commit followed. The causes are not random. They cluster into 6 distinct, named failure modes, 5 of which were preventable from information available at decision time. An estimated 65-70% of all rework was avoidable.
 
 The project's biggest problem is not a lack of information. It's a lack of enforcement. The specs exist. The ADRs exist. MEMORY.md documents known failure modes. Automated reviewers flag real bugs. None of these are treated as blocking constraints. They are all advisory, and advisory controls in an agent-driven workflow are equivalent to no controls at all.
 
@@ -122,7 +122,7 @@ This is not a trust failure by the human. The human verified. The verification s
 | 5 | RC-4: Local-Only | 5 incidents | ~8 | Days per incident | Medium: blocks deployments |
 | 6 | RC-5: Review-Merge Gap | 3+ documented PRs | ~5 | Hours each | Low: fixes are quick once identified |
 
-**Total documented rework: ~87 commits out of 174 fix commits are traceable to these 6 modes.**
+**Total documented rework: ~45 commits out of ~90 fix commits are traceable to these 6 modes.**
 
 ---
 
