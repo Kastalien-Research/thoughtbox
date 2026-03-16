@@ -82,7 +82,7 @@ None of the existing tools address required status check names falling out of sy
 ### macOS Seatbelt (Kernel-Level)
 - **What:** Deny-everything-by-default at the kernel level. Agent process and all child processes run inside sandbox. File access restricted to allowlist.
 - **Prevents `mv`/`rm` via Bash:** Yes — kernel enforcement, syscall returns EPERM.
-- **Prevents `--no-verify`:** Yes — kernel enforcement.
+- **Prevents `--no-verify`:** No — Seatbelt operates on filesystem syscalls, not command-line arguments. Requires a complementary git binary wrapper (e.g., `block-no-verify`, nono's git wrapping).
 - **Prevents hook rename/deletion:** Yes, if hook paths are outside allowlist.
 - **Tools:**
   - **Agent Safehouse** — macOS-native, HN-trending (518 points March 2026)
@@ -120,8 +120,8 @@ None of the existing tools address required status check names falling out of sy
 
 | Approach | Prevents `mv`/`rm` via Bash | Prevents `--no-verify` | Prevents hook deletion | Production-ready |
 |---|---|---|---|---|
-| macOS Seatbelt (cco, Safehouse, nono) | Yes (kernel) | Yes | Yes (with profile) | Yes |
-| Linux Landlock/seccomp (nono, Cursor) | Yes (kernel) | Yes | Yes (with profile) | Yes |
+| macOS Seatbelt (cco, Safehouse, nono) | Yes (kernel) | No (requires git wrapper) | Yes (with profile) | Yes |
+| Linux Landlock/seccomp (nono, Cursor) | Yes (kernel) | No (requires git wrapper) | Yes (with profile) | Yes |
 | MicroVM/gVisor | Yes (complete isolation) | Yes | Yes | Yes (cloud only) |
 | Claude Code hooks | No | String matching only | No | Yes |
 | block-no-verify | No | Yes | No | Yes |

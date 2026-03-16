@@ -62,8 +62,8 @@ Every governance artifact is small enough for one person to read in a single sit
 **Implementation:** Declarative profile (~30 lines) specifying:
 - ALLOW write: `src/`, `tests/`, `docs/`
 - DENY write: `.git/hooks/`, `.beads/hooks/`, `.github/workflows/`, `*.lock`, `.claude/settings.json`, `.specs/`, `.adr/` (spec/ADR writes require per-session allowlisting)
-- DENY execute: patterns matching `--no-verify`, force-push, branch deletion on protected branches
-**Tools:** `cco`, `nono`, `Agent Safehouse`
+- **Complementary control (not Seatbelt):** Git binary wrapper (e.g., `block-no-verify`, nono's git wrapping) strips `--no-verify` and blocks force-push / branch deletion on protected branches. Seatbelt cannot inspect command-line arguments — it operates at the syscall level on filesystem operations only. The combination of Seatbelt (hooks can't be deleted) + git wrapper (`--no-verify` is stripped) closes the hook bypass vector.
+**Tools:** `cco`, `nono`, `Agent Safehouse`, `block-no-verify`
 
 ### Layer 2: GitHub Server-Side Gates (high durability)
 **What:** Branch protection rules, required status checks, GitHub Rulesets, OpenSSF Allstar.
