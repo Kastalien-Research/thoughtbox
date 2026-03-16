@@ -176,7 +176,7 @@ async function startHttpServer() {
     console.error(`[MCP] ${req.method} request, session: ${mcpSessionId || 'new'}`);
 
     // API key auth: prefer Authorization header over query param
-    if (apiKey) {
+    if (apiKey !== undefined) {
       const authHeader = req.headers.authorization as string | undefined;
       const headerKey = authHeader?.startsWith("Bearer ")
         ? authHeader.slice(7)
