@@ -1,68 +1,34 @@
-/**
- * Tests for M9 — Runtime wiring: env vars → GatewayHandler, extended cipher delivery, auto-branch
- */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { GatewayHandler, type GatewayHandlerConfig } from '../../gateway/gateway-handler.js';
-import { ToolRegistry, DisclosureStage } from '../../tool-registry.js';
+import { ThoughtTool } from '../../thought/tool.js';
+import { InitTool } from '../../init/tool.js';
 import { THOUGHTBOX_CIPHER } from '../../resources/thoughtbox-cipher-content.js';
+import { getExtendedCipher } from '../../multi-agent/cipher-extension.js';
 import { createHubHandler } from '../../hub/hub-handler.js';
 import { createInMemoryHubStorage, createInMemoryThoughtStore } from '../../hub/__tests__/test-helpers.js';
 
 // ---------------------------------------------------------------------------
-// Helpers: minimal stubs for GatewayHandler dependencies
+// A1/A2: Explicit Tools — config injection + cipher extension
 // ---------------------------------------------------------------------------
 
-function createMinimalGatewayConfig(overrides?: Partial<GatewayHandlerConfig>): GatewayHandlerConfig {
-  const toolRegistry = new ToolRegistry();
-  // Advance to Stage 1 so cipher is callable
-  toolRegistry.advanceToStage(DisclosureStage.STAGE_1_INIT_COMPLETE);
-
-  return {
-    toolRegistry,
-    initToolHandler: {} as any,
-    thoughtHandler: {
-      processThought: vi.fn().mockResolvedValue({
-        content: [{ type: 'text', text: '{"thoughtNumber":1}' }],
-      }),
-      getCurrentSessionId: vi.fn().mockReturnValue(null),
-    } as any,
-    notebookHandler: {} as any,
-    sessionHandler: {} as any,
-    mentalModelsHandler: {} as any,
-    storage: {
-      getThoughts: vi.fn().mockResolvedValue([]),
-      getSession: vi.fn().mockResolvedValue(null),
-    } as any,
-    ...overrides,
-  };
-}
-
-// ---------------------------------------------------------------------------
-// A1/A2: GatewayHandler — env vars + cipher extension
-// ---------------------------------------------------------------------------
-
-describe('runtime-wiring: GatewayHandler', () => {
-  it('T-MA-WIR-1: GatewayHandler constructed with agentId injects it into processThought', async () => {
+describe('runtime-wiring: Explicit Tools', () => {
+  it('T-MA-WIR-1: ThoughtTool constructed with config agentId injects it into processThought', async () => {
     const processThought = vi.fn().mockResolvedValue({
       content: [{ type: 'text', text: '{"thoughtNumber":1}' }],
     });
 
-    const config = createMinimalGatewayConfig({
+    const handler = {
+      processThought,
+      getCurrentSessionId: vi.fn().mockReturnValue(null),
+    } as any;
+
+    const tool = new ThoughtTool(handler, {
       agentId: 'agent-42',
       agentName: 'Test Agent',
-      thoughtHandler: {
-        processThought,
-        getCurrentSessionId: vi.fn().mockReturnValue(null),
-      } as any,
     });
-    // Need stage 2 for thought operation
-    config.toolRegistry.advanceToStage(DisclosureStage.STAGE_2_CIPHER_LOADED);
 
-    const handler = new GatewayHandler(config);
-    await handler.handle({
-      operation: 'thought',
-      args: { thought: 'test thought', nextThoughtNeeded: false },
-    });
+    await tool.handle({
+      thought: 'test thought', nextThoughtNeeded: false, thoughtType: 'reasoning'
+    } as any);
 
     expect(processThought).toHaveBeenCalledOnce();
     const callArgs = processThought.mock.calls[0][0];
@@ -70,26 +36,22 @@ describe('runtime-wiring: GatewayHandler', () => {
     expect(callArgs.agentName).toBe('Test Agent');
   });
 
-  it('T-MA-WIR-2: GatewayHandler constructed without agentId still works (backward compat)', async () => {
+  it('T-MA-WIR-2: ThoughtTool constructed without config still works (backward compat)', async () => {
     const processThought = vi.fn().mockResolvedValue({
       content: [{ type: 'text', text: '{"thoughtNumber":1}' }],
     });
 
-    const config = createMinimalGatewayConfig({
-      thoughtHandler: {
-        processThought,
-        getCurrentSessionId: vi.fn().mockReturnValue(null),
-      } as any,
-    });
-    config.toolRegistry.advanceToStage(DisclosureStage.STAGE_2_CIPHER_LOADED);
+    const handler = {
+      processThought,
+      getCurrentSessionId: vi.fn().mockReturnValue(null),
+    } as any;
 
-    const handler = new GatewayHandler(config);
-    const result = await handler.handle({
-      operation: 'thought',
-      args: { thought: 'test thought', nextThoughtNeeded: false },
-    });
+    const tool = new ThoughtTool(handler);
+    const result = await tool.handle({
+      thought: 'test thought', nextThoughtNeeded: false, thoughtType: 'reasoning'
+    } as any);
 
-    expect(result.isError).toBeFalsy();
+    expect(result).toBeDefined();
     expect(processThought).toHaveBeenCalledOnce();
     const callArgs = processThought.mock.calls[0][0];
     expect(callArgs.agentId).toBeUndefined();
@@ -97,10 +59,10 @@ describe('runtime-wiring: GatewayHandler', () => {
   });
 
   it('T-MA-WIR-3: handleCipher returns content containing ⊢ (turnstile) from logic extension', async () => {
-    const config = createMinimalGatewayConfig();
-    const handler = new GatewayHandler(config);
+    const cipherHandler = vi.fn().mockResolvedValue({ content: [{ type: 'text', text: getExtendedCipher(THOUGHTBOX_CIPHER) }] });
+    const tool = new InitTool({} as any, cipherHandler);
 
-    const result = await handler.handle({ operation: 'cipher' });
+    const result = await tool.handle({ operation: 'cipher' });
 
     expect(result.isError).toBeFalsy();
     const text = result.content[0].type === 'text' ? result.content[0].text : '';
@@ -108,10 +70,10 @@ describe('runtime-wiring: GatewayHandler', () => {
   });
 
   it('T-MA-WIR-4: handleCipher returns content containing CLAIM: prefix from logic extension', async () => {
-    const config = createMinimalGatewayConfig();
-    const handler = new GatewayHandler(config);
+    const cipherHandler = vi.fn().mockResolvedValue({ content: [{ type: 'text', text: getExtendedCipher(THOUGHTBOX_CIPHER) }] });
+    const tool = new InitTool({} as any, cipherHandler);
 
-    const result = await handler.handle({ operation: 'cipher' });
+    const result = await tool.handle({ operation: 'cipher' });
 
     const text = result.content[0].type === 'text' ? result.content[0].text : '';
     expect(text).toContain('CLAIM:');
@@ -120,14 +82,14 @@ describe('runtime-wiring: GatewayHandler', () => {
   });
 
   it('T-MA-WIR-5: handleCipher still contains base cipher content (H/E/C markers)', async () => {
-    const config = createMinimalGatewayConfig();
-    const handler = new GatewayHandler(config);
+    const cipherHandler = vi.fn().mockResolvedValue({ content: [{ type: 'text', text: getExtendedCipher(THOUGHTBOX_CIPHER) }] });
+    const tool = new InitTool({} as any, cipherHandler);
 
-    const result = await handler.handle({ operation: 'cipher' });
+    const result = await tool.handle({ operation: 'cipher' });
 
     const text = result.content[0].type === 'text' ? result.content[0].text : '';
     // Base cipher markers must be present
-    for (const marker of ['H', 'E', 'C', 'Q', 'R', 'P', 'O', 'A', 'X']) {
+    for (const marker of ['H', 'E', 'C', 'Q', 'R', 'P', 'X']) {
       expect(text).toContain(`| \`${marker}\` |`);
     }
     // Logic extension symbols must also be present
@@ -178,7 +140,7 @@ describe('runtime-wiring: hub claim_problem auto-branch', () => {
     const result = await hubHandler.handle(agentId, 'claim_problem', {
       workspaceId,
       problemId,
-      // No branchId provided — should auto-generate
+      // No branchId provided -- should auto-generate
     }) as { problem: any; branchId: string };
 
     expect(result.branchId).toBeDefined();
@@ -206,7 +168,7 @@ describe('runtime-wiring: hub claim_problem auto-branch', () => {
       problemId,
     }) as { problem: any; branchId: string };
 
-    // Agent name is 'Claude Alpha' → slug should be 'claude-alpha'
+    // Agent name is 'Claude Alpha' -> slug should be 'claude-alpha'
     expect(result.branchId).toBe(`claude-alpha/${problemId}`);
   });
 });

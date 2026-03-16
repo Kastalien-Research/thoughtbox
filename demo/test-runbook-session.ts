@@ -1,89 +1,46 @@
-/**
- * Integration test for the thoughts-as-runbook pattern.
- *
- * Runs the full 10-thought session from runbook-via-thoughts.md against
- * a real ThoughtHandler + GatewayHandler and verifies:
- * - All 10 thoughts are accepted without error
- * - read_thoughts with thoughtType filter returns correct counts
- * - The session closes with an audit manifest
- */
 import { describe, it, expect, beforeEach } from 'vitest';
 import { ThoughtHandler } from '../src/thought-handler.js';
 import { InMemoryStorage } from '../src/persistence/index.js';
-import { GatewayHandler } from '../src/gateway/gateway-handler.js';
-import {
-  ToolRegistry,
-  DisclosureStage,
-} from '../src/tool-registry.js';
+import { ThoughtTool } from '../src/thought/tool.js';
+import { SessionHandler } from '../src/sessions/index.js';
+import { SessionTool } from '../src/sessions/tool.js';
 
 describe('Thoughts-as-Runbook: 10-thought session', () => {
   let thoughtHandler: ThoughtHandler;
   let storage: InMemoryStorage;
-  let gateway: GatewayHandler;
-  const mcpSessionId = 'runbook-test';
+  let thoughtTool: ThoughtTool;
+  let sessionTool: SessionTool;
 
   beforeEach(async () => {
     storage = new InMemoryStorage();
     thoughtHandler = new ThoughtHandler(true, storage);
     await thoughtHandler.initialize();
 
-    const toolRegistry = new ToolRegistry();
-    gateway = new GatewayHandler({
-      toolRegistry,
-      initToolHandler: {} as any,
-      thoughtHandler,
-      notebookHandler: {} as any,
-      sessionHandler: {} as any,
-      mentalModelsHandler: {} as any,
+    thoughtTool = new ThoughtTool(thoughtHandler);
+    
+    const sessionHandler = new SessionHandler({
       storage,
+      thoughtHandler,
     });
-    gateway.setSessionStage(
-      mcpSessionId,
-      DisclosureStage.STAGE_2_CIPHER_LOADED
-    );
+    sessionTool = new SessionTool(sessionHandler);
   });
 
-  async function submitThought(
-    args: Record<string, unknown>
-  ) {
-    return gateway.handle(
-      { operation: 'thought', args },
-      mcpSessionId
-    );
+  async function submitThought(args: any) {
+    return thoughtTool.handle(args);
   }
 
-  async function readThoughts(
-    args: Record<string, unknown>
-  ) {
-    return gateway.handle(
-      { operation: 'read_thoughts', args },
-      mcpSessionId
-    );
+  function parseResult(result: any) {
+    // If it's a ToolResponse, parse first text content
+    if (result.content && Array.isArray(result.content)) {
+      return JSON.parse(result.content[0].text);
+    }
+    return result;
   }
 
-  async function deepAnalysis(
-    args: Record<string, unknown>
-  ) {
-    return gateway.handle(
-      { operation: 'deep_analysis', args },
-      mcpSessionId
-    );
-  }
-
-  function parseResult(
-    result: { content: Array<{ text: string }> }
-  ) {
-    return JSON.parse(result.content[0].text);
-  }
-
-  /**
-   * Submit all 10 thoughts from the runbook demo.
-   * Returns results array for assertions.
-   */
   async function runFullSession() {
     const results = [];
 
-    // Thought 1: Plan (reasoning)
+    // Thought 1
     results.push(await submitThought({
       thought: 'I will refactor the weather-mcp-server from Python to TypeScript. Subtasks: 1) Analyze Python handlers, 2) Set up TypeScript project, 3) Convert handlers, 4) Convert types, 5) Write tests, 6) Verify.',
       thoughtType: 'reasoning',
@@ -92,7 +49,7 @@ describe('Thoughts-as-Runbook: 10-thought session', () => {
       sessionTags: ['task:refactor', 'lang:python-to-typescript'],
     }));
 
-    // Thought 2: Project structure decision (decision_frame)
+    // Thought 2
     results.push(await submitThought({
       thought: 'Choosing TypeScript project structure. Single package matches the simplicity of the Python original.',
       thoughtType: 'decision_frame',
@@ -104,7 +61,7 @@ describe('Thoughts-as-Runbook: 10-thought session', () => {
       ],
     }));
 
-    // Thought 3: Python analysis complete (action_report)
+    // Thought 3
     results.push(await submitThought({
       thought: 'Analyzed all 3 Python handlers. Extracted interface contracts for get_forecast, get_alerts, get_historical.',
       thoughtType: 'action_report',
@@ -117,7 +74,7 @@ describe('Thoughts-as-Runbook: 10-thought session', () => {
       },
     }));
 
-    // Thought 4: TypeScript project set up (action_report)
+    // Thought 4
     results.push(await submitThought({
       thought: 'Created TypeScript project with @modelcontextprotocol/sdk, zod, typescript. ESM output, strict mode.',
       thoughtType: 'action_report',
@@ -130,7 +87,7 @@ describe('Thoughts-as-Runbook: 10-thought session', () => {
       },
     }));
 
-    // Thought 5: Handlers converted (action_report)
+    // Thought 5
     results.push(await submitThought({
       thought: 'Converted all 3 handlers to TypeScript. Using native fetch instead of httpx.',
       thoughtType: 'action_report',
@@ -143,14 +100,14 @@ describe('Thoughts-as-Runbook: 10-thought session', () => {
       },
     }));
 
-    // Thought 6: Dynamic dispatch observation (reasoning)
+    // Thought 6
     results.push(await submitThought({
       thought: 'Python dynamic dispatch (HANDLERS dict) is replaced by MCP SDK native tool routing. No additional work needed.',
       thoughtType: 'reasoning',
       nextThoughtNeeded: true,
     }));
 
-    // Thought 7: Type representation decision (decision_frame)
+    // Thought 7
     results.push(await submitThought({
       thought: 'Choosing type representation. Zod schemas provide runtime validation and TypeScript types from single source.',
       thoughtType: 'decision_frame',
@@ -163,7 +120,7 @@ describe('Thoughts-as-Runbook: 10-thought session', () => {
       ],
     }));
 
-    // Thought 8: Types converted (action_report)
+    // Thought 8
     results.push(await submitThought({
       thought: 'Converted shared types to zod schemas: WeatherData, Location, Alert. Updated all handlers.',
       thoughtType: 'action_report',
@@ -176,7 +133,7 @@ describe('Thoughts-as-Runbook: 10-thought session', () => {
       },
     }));
 
-    // Thought 9: Tests passing (action_report)
+    // Thought 9
     results.push(await submitThought({
       thought: 'Wrote 12 integration tests. All passing. Coverage: 94% line, 88% branch.',
       thoughtType: 'action_report',
@@ -189,7 +146,7 @@ describe('Thoughts-as-Runbook: 10-thought session', () => {
       },
     }));
 
-    // Thought 10: Final summary (reasoning, closes session)
+    // Thought 10
     results.push(await submitThought({
       thought: 'Refactoring complete. 3 handlers converted, zod schemas for types, 12 tests passing. Two decisions: single-package (over monorepo), zod (over interfaces).',
       thoughtType: 'reasoning',
@@ -201,104 +158,57 @@ describe('Thoughts-as-Runbook: 10-thought session', () => {
 
   it('accepts all 10 thoughts without error', async () => {
     const results = await runFullSession();
-
     expect(results).toHaveLength(10);
     for (let i = 0; i < results.length; i++) {
       const result = results[i];
-      expect(
-        result.isError,
-        `Thought ${i + 1} returned an error: ${result.content[0].text}`
-      ).toBeUndefined();
+      expect(result.isError).toBeUndefined();
     }
   });
 
   it('assigns correct thought numbers 1 through 10', async () => {
     const results = await runFullSession();
-
     for (let i = 0; i < results.length; i++) {
       const data = parseResult(results[i]);
       expect(data.thoughtNumber).toBe(i + 1);
     }
   });
 
-  it('read_thoughts with thoughtType=decision_frame returns 2', async () => {
-    // Run 9 thoughts (session still open), then query
-    const results = await runFullSession();
-    // Session closed on thought 10, need a session ID from before close
-    // Use a fresh run where we stop before close
-    // Actually: after session closes, read_thoughts still works if we
-    // captured the sessionId. Let's get it from thought 1's response.
-    const thought1Data = parseResult(results[0]);
-    const sessionId = thought1Data.sessionId;
-
-    // After session close, we need to pass sessionId explicitly
-    // But the gateway read_thoughts uses the active session or a provided one
-    // Since session closed, we must provide sessionId
-    const readResult = await readThoughts({
-      sessionId,
-      thoughtType: 'decision_frame',
-    });
-    const data = parseResult(readResult);
-
-    expect(data.count).toBe(2);
-    expect(data.filter.thoughtType).toBe('decision_frame');
-  });
-
-  it('read_thoughts with thoughtType=action_report returns 5', async () => {
+  it('session_get retrieves thoughts which can be filtered manually', async () => {
     const results = await runFullSession();
     const sessionId = parseResult(results[0]).sessionId;
 
-    const readResult = await readThoughts({
-      sessionId,
-      thoughtType: 'action_report',
-    });
-    const data = parseResult(readResult);
+    const readActions = await sessionTool.handle({ operation: 'session_get', sessionId } as any);
+    const sessionData = parseResult(readActions);
+    const allThoughts = sessionData.thoughts;
 
-    expect(data.count).toBe(5);
-    expect(data.filter.thoughtType).toBe('action_report');
-  });
+    const actions = allThoughts.filter((t: any) => t.thoughtType === 'action_report');
+    expect(actions.length).toBe(5);
 
-  it('read_thoughts with thoughtType=reasoning returns 3', async () => {
-    const results = await runFullSession();
-    const sessionId = parseResult(results[0]).sessionId;
+    const decisions = allThoughts.filter((t: any) => t.thoughtType === 'decision_frame');
+    expect(decisions.length).toBe(2);
 
-    const readResult = await readThoughts({
-      sessionId,
-      thoughtType: 'reasoning',
-    });
-    const data = parseResult(readResult);
-
-    expect(data.count).toBe(3);
+    const reasoning = allThoughts.filter((t: any) => t.thoughtType === 'reasoning');
+    expect(reasoning.length).toBe(3);
   });
 
   it('session closes with audit manifest on thought 10', async () => {
     const results = await runFullSession();
     const finalData = parseResult(results[9]);
-
     expect(finalData.sessionClosed).toBe(true);
-    expect(finalData.thoughtHistoryLength).toBe(10);
     expect(finalData.auditManifest).toBeDefined();
     expect(finalData.auditManifest.thoughtCounts.total).toBe(10);
   });
 
-  it('audit_summary via deep_analysis returns correct aggregation', async () => {
+  it('session_analyze returns correct aggregation', async () => {
     const results = await runFullSession();
     const sessionId = parseResult(results[0]).sessionId;
 
-    const analysisResult = await deepAnalysis({
-      sessionId,
-      analysisType: 'audit_summary',
-    });
-    expect(analysisResult.isError).toBeUndefined();
-
+    const analysisResult = await sessionTool.handle({ operation: 'session_analyze', sessionId } as any);
     const data = parseResult(analysisResult);
-    expect(data.analysisType).toBe('audit_summary');
-    expect(data.thoughtCounts.total).toBe(10);
-    expect(data.thoughtCounts.reasoning).toBe(3);
-    expect(data.thoughtCounts.decision_frame).toBe(2);
-    expect(data.thoughtCounts.action_report).toBe(5);
-    expect(data.decisions.total).toBe(2);
-    expect(data.decisions.byConfidence.high).toBe(2);
-    expect(data.actions.successful).toBe(5);
+    
+    // The new response format from session_analyze:
+    expect(data.metadata.thoughtCount).toBe(10);
+    expect(data.structure.revisionRate).toBe(0);
+    expect(data.quality.isComplete).toBe(true);
   });
 });

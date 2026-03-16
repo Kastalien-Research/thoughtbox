@@ -16,7 +16,7 @@ A single Next.js 15 application that serves two distinct surfaces:
 | **Auth flows** | `/sign-in`, `/sign-up`, `/forgot-password`, `/reset-password` | Supabase-backed identity |
 | **Platform** | `/health`, `/api/auth/callback` | Infrastructure endpoints |
 
-The app is deployed to **Google Cloud Run** via Docker using Next.js `output: 'standalone'`. Auth is handled by **Supabase** (`@supabase/ssr`). Redis is provisioned for ISR cache in multi-instance deployments but is not yet actively used by application code.
+The app is deployed to **Vercel**. Auth is handled by **Supabase** (`@supabase/ssr`).
 
 ---
 
@@ -32,7 +32,7 @@ The app is deployed to **Google Cloud Run** via Docker using Next.js `output: 's
 | Auth | Supabase (`@supabase/ssr`) | `^0.9.0` |
 | Supabase JS client | `@supabase/supabase-js` | `^2.99.1` |
 | Testing | Vitest | `^4.1.0` (installed, no tests written yet) |
-| Deployment | Cloud Run (`output: 'standalone'`) | — |
+| Deployment | Vercel | — |
 
 ---
 
@@ -42,12 +42,10 @@ The app is deployed to **Google Cloud Run** via Docker using Next.js `output: 's
 thoughtbox-webpage-2026/
 ├── .env.example                  # Required env vars template
 ├── .gitignore
-├── .dockerignore
 ├── .specs/
 │   ├── codebase-spec.md              # This document
-│   └── deployment/               # Deployment specs (Cloud Run, Supabase schema, v1 initiative, Vercel)
-├── Dockerfile                    # Cloud Run production image
-├── next.config.ts                # standalone output, poweredByHeader off
+│   └── deployment/               # Deployment specs (Supabase schema, v1 initiative)
+├── next.config.ts                # poweredByHeader off
 ├── tailwind.config.ts            # brand colour palette, font variables
 ├── tsconfig.json
 ├── postcss.config.mjs
@@ -62,7 +60,7 @@ thoughtbox-webpage-2026/
     │   ├── not-found.tsx         # 404 page
     │   ├── actions.ts            # Global server action: signOut
     │   ├── health/
-    │   │   └── route.ts          # GET /health — Cloud Run liveness check
+    │   │   └── route.ts          # GET /health — liveness check
     │   ├── api/
     │   │   └── auth/
     │   │       └── callback/
@@ -298,7 +296,7 @@ All components live under `src/components/nav/`. No component library (shadcn, R
 
 | Handler | Method | Path | Purpose |
 |---|---|---|---|
-| `health/route.ts` | `GET` | `/health` | Cloud Run liveness — returns `{ status: "ok", timestamp }` |
+| `health/route.ts` | `GET` | `/health` | Liveness check — returns `{ status: "ok", timestamp }` |
 | `api/auth/callback/route.ts` | `GET` | `/api/auth/callback` | PKCE/OAuth code exchange, redirects to `next` param |
 
 ---
@@ -346,26 +344,19 @@ Defined in `.env.example`; committed values excluded.
 | `NEXT_PUBLIC_SUPABASE_URL` | Yes | Supabase project URL |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Yes | Public anon key for browser + SSR |
 | `SUPABASE_SERVICE_ROLE_KEY` | Yes (server) | For privileged operations (not yet used in app code) |
-| `REDIS_URL` | Yes (prod) | Next.js ISR cache handler in Cloud Run multi-instance setup |
-| `NEXT_PUBLIC_SITE_URL` | Recommended | Used to construct auth redirect URLs; falls back to `VERCEL_URL` → `localhost:3000`. **Not in `.env.example`** — add manually. |
-| `NODE_ENV` | Auto | `development` locally; Cloud Run injects `production` |
-| `PORT` | Cloud Run injects | Cloud Run sets to `8080`; override locally if needed |
+| `NEXT_PUBLIC_SITE_URL` | Recommended | Used to construct auth redirect URLs; falls back to `VERCEL_URL` → `localhost:3000`. |
+| `NODE_ENV` | Auto | `development` locally; Vercel injects `production` |
 
 ---
 
 ## 11. Build & Deployment
 
+Deployed to **Vercel**. Standard Next.js deployment — no Docker, no `output: 'standalone'`.
+
 ### Next.js Config (`next.config.ts`)
 
-- `output: 'standalone'` — minimal Docker image.
 - `poweredByHeader: false` — suppresses `X-Powered-By`.
 - `images.remotePatterns: []` — no external image domains yet.
-
-### Dockerfile
-
-- Multi-stage: `deps` → `builder` → `runner`.
-- Production image runs `node server.js` on port `8080` (standalone output is copied to `/app`; `package.json` `start` script uses the equivalent `node .next/standalone/server.js` for local use).
-- `npm run start` (in `package.json`) also runs the standalone server.
 
 ### Scripts
 
@@ -373,114 +364,77 @@ Defined in `.env.example`; committed values excluded.
 |---|---|
 | `dev` | `next dev` |
 | `build` | `next build` |
-| `start` | `node .next/standalone/server.js` |
+| `start` | `next start` |
 | `lint` | `next lint` |
 
 ---
 
 ## 12. Integration Status — Web App + MCP Server + Supabase
 
-> Updated 2026-03-16. Revised after AUTH-01 review and decision to skip
-> workspace model for initial demo. See `.specs/deployment/auth-01-review.md`.
+> Updated 2026-03-16. Revised after AUTH-02 (API key auth) replaced AUTH-01 (OAuth).
 
 ### 12.1 Design decision: no workspaces for now
 
-The v1 conditions doc describes workspaces as the tenancy/billing boundary. The
-`chatgpt-data-model.md` raw material specced out workspace tables, memberships,
-and roles. AUTH-01 implemented those tables prematurely — nothing populates them,
-nothing reads them, and the RLS rewrite that depended on them broke 33 tests.
-
-**Decision**: Workspaces are deferred. The immediate goal is per-user isolation:
-each user signs in, gets a token, connects to the MCP server, and their data is
-scoped by `project` (the existing MCP scoping mechanism). The web app's
-`/w/[workspaceSlug]` route stays as-is but is cosmetic — it does not resolve to
-a real workspace row in the database. Workspace tables remain as inert scaffolding.
-
-This is sufficient for the demo target: Vatsal and Kindred can sign up, get a
-connection token, and use Thoughtbox via their MCP client.
+Workspaces are deferred. The web app's `/w/[workspaceSlug]` route is cosmetic —
+it does not resolve to a real workspace row. Workspace tables (`profiles`,
+`workspaces`, `workspace_memberships`, `projects`) exist in Supabase but are inert.
+No product table RLS policies reference them.
 
 ### 12.2 Three systems, current state
 
 | System | What works | What's broken or missing |
 |---|---|---|
-| **Next.js web app** | Marketing pages complete. Auth flows (sign-in/up/reset) wired to Supabase and functional. Workspace UI shells rendered with hardcoded/empty data. | No connection to MCP server data. No token generation page. Sign-in hardcoded to redirect to `/w/demo/dashboard`. |
-| **Thoughtbox MCP server** | Deployed on Cloud Run (`thoughtbox-mcp`). Validates OAuth tokens via JWKS (ES256). Per-session Supabase storage isolation. Captures sessions/thoughts to Supabase. FS mode works locally without auth. | RLS on product tables broken (see below). `SUPABASE_JWT_SECRET` on Cloud Run is the JWKS key ID, not the HS256 signing secret (latent bug, not hit in practice because per-session storage always provides `userToken`). |
-| **Supabase** (`akjccuoncxlvrrtkvtno`) | Auth active (email/password, PKCE callback). Product tables exist (sessions, thoughts, entities, relations, observations). Workspace/membership tables exist (empty, inert). | `project_isolation` RLS policies were replaced by membership-based policies that require workspace rows. Since nothing populates workspaces/memberships, authenticated users can't read/write product data. OAuth 2.1 Server enablement not confirmed (AUTH-01 H1 was INCONCLUSIVE). |
+| **Next.js web app** (Vercel) | Marketing pages complete. Auth flows (sign-in/up/reset) wired to Supabase and functional. Workspace UI shells rendered with hardcoded/empty data. | No connection to MCP server data. No connect page. Sign-in hardcoded to redirect to `/w/demo/dashboard`. Not yet deployed to Vercel. |
+| **Thoughtbox MCP server** (Cloud Run) | Live with static API key auth (ADR-AUTH-02). Shared SupabaseStorage for sessions/thoughts/knowledge. 8/15 behavioral tests pass. FS mode works locally without auth. | Shared storage race condition (mutable `this.project`). Hub/exports ephemeral on Cloud Run. `SUPABASE_JWT_SECRET` on Cloud Run is wrong value (JWKS key ID, not HS256 secret). |
+| **Supabase** (`akjccuoncxlvrrtkvtno`) | Auth active (email/password). Product tables exist with `project_isolation` RLS (restored). Workspace/membership tables exist (empty, inert). | Nothing populates workspace tables. |
 
 ### 12.3 RLS status
 
-**Problem**: AUTH-01 migration `20260313100000` dropped `project_isolation` policies
-(which checked a `project` claim in the JWT) and replaced them with `user_project_access`
-policies (which check `workspace_memberships` via `auth.uid()`). Since nothing creates
-workspace/membership rows, all data access fails for authenticated users.
+**Resolved.** Migration `20260316000000` reverted product table RLS from
+membership-based (`user_project_access`) back to `project_isolation`. Applied to
+both local and hosted Supabase. All 5 product tables enforce
+`project = (auth.jwt() ->> 'project')`. The MCP server's
+`SupabaseStorage.refreshClient()` mints custom JWTs with this claim.
 
-**Fix needed**: Revert product table RLS to `project_isolation`. The MCP server's
-`SupabaseStorage.refreshClient()` already mints custom JWTs with a `project` claim
-for its Supabase client. OAuth validates the user at the HTTP layer; the storage
-layer talks to Supabase with a project-scoped JWT. Two separate concerns.
+### 12.4 Auth status
 
-This is a migration in the `thoughtbox-staging` repo. Does not affect the web app.
+**AUTH-01 (OAuth/JWKS) superseded by AUTH-02 (static API key).**
 
-### 12.4 Demo-critical path
+The MCP server uses a single static API key (`THOUGHTBOX_API_KEY` env var on
+Cloud Run). Clients provide it via `Authorization: Bearer <key>` header (preferred)
+or `?key=<key>` query param. No per-user tokens, no token expiry, no OAuth flow.
 
-Goal: Vatsal and Kindred can sign up on the web app, get an MCP connection config,
-and use Thoughtbox from their MCP client (e.g., Claude Code).
+ADRs: `.adr/superseded/ADR-AUTH-01-supabase-auth-config.md`,
+`.adr/accepted/ADR-AUTH-02-api-key-auth.md`
 
-```
-Step 1 — Fix RLS (thoughtbox-staging)
-│   Write migration restoring project_isolation on product tables.
-│   Keeps workspace/membership tables untouched (inert).
-│   Unblocks MCP server writing data to Supabase.
-│   Unblocks 33 integration tests.
-│
-Step 2 — Verify hosted services (both repos)
-│   Confirm MCP server on Cloud Run accepts requests with valid token.
-│   Confirm web app sign-in/sign-up works against hosted Supabase.
-│   Confirm Supabase product tables are accessible with project_isolation restored.
-│
-Step 3 — Build connect page (thoughtbox-webpage-2026)
-│   New page: `/connect` (or `/w/demo/connect`)
-│   Shows the signed-in user's current Supabase access token.
-│   Displays a copy-paste MCP config snippet:
-│     {
-│       "thoughtbox": {
-│         "type": "http",
-│         "url": "https://thoughtbox-mcp-....run.app/mcp?token=<TOKEN>"
-│       }
-│     }
-│   Token comes from the user's active Supabase session (already managed
-│   by @supabase/ssr middleware — session refresh handles expiry).
-│   User refreshes the page if token expires → gets a fresh one.
-│
-Step 4 — Deploy (both repos)
-    Push MCP server with RLS fix to Cloud Run.
-    Push web app with connect page to Cloud Run.
-    Vatsal and Kindred sign up, visit /connect, copy config, use Thoughtbox.
+### 12.5 Connect page (needs redesign)
+
+The original connect page design showed a Supabase access token for `?token=` auth.
+That's gone. With API key auth, the connect page should show:
+
+```json
+{
+  "thoughtbox": {
+    "type": "http",
+    "url": "https://thoughtbox-mcp-272720136470.us-central1.run.app/mcp?key=<API_KEY>"
+  }
+}
 ```
 
-No dependency on workspaces, API keys, billing, usage, or trace explorer.
-No changes to MCP server auth — it already accepts `?token=` with Supabase tokens.
+How the user gets the API key is a product decision. Options:
+- Show the shared key to authenticated users (simple, current state)
+- Per-user API key issuance via `api_keys` table (future, needs ADR)
 
-### 12.5 Future work (not demo-critical)
-
-These items remain from the original v1 conditions doc. They are ordered by
-dependency but none are needed for the immediate demo.
+### 12.6 Future work
 
 | Item | What it is | Depends on |
 |---|---|---|
-| Workspace data model (ADR-DATA-02) | Decide what a workspace actually is and when to introduce it | Product decision |
-| Workspace auto-provisioning | Create workspace + membership on sign-up | Data model decision |
-| Workspace resolution in web app | Replace hardcoded `/w/demo` with real lookup | Auto-provisioning |
-| Wire dashboard to Supabase data | Dashboard, projects, runs pages query real data | Workspace resolution |
-| API key model (ADR-AUTH-02) | api_keys table, hashed storage, issuance UI | Data model decision |
-| API key auth on MCP server | MCP server accepts API keys as auth alternative | API key model |
+| Deploy web app to Vercel | Get marketing + auth pages live | Vercel project setup |
+| Connect page | Show API key + MCP config snippet | Auth decision (shared vs per-user keys) |
+| Wire dashboard to Supabase | Dashboard, projects, runs pages query real data | Connect page |
 | Run detail / trace explorer | Open a session, see thoughts in timeline | Dashboard wiring |
+| Workspace data model (ADR-DATA-02) | Decide what a workspace actually is | Product decision |
+| Per-user API keys | `api_keys` table, hashed storage, issuance UI | Data model decision |
 | Stripe billing (ADR-BILL-01) | Payment flow, subscription sync, plan enforcement | Workspace model |
-| Usage metering | Track and display per-user/workspace usage | API key auth |
-| RLS migration to membership model | Rewrite product table RLS to use workspace membership | Workspace model + populated data |
-| Team member invitations | Invite users to workspaces | Workspace model |
-| Account/workspace settings | Enable disabled form fields | Workspace resolution |
-| Account/workspace deletion | Danger zone actions | Workspace resolution |
-| Docs content pages | Core concepts, API reference, guides (stubs) | No dependency |
-| Deep health checks | Supabase/Redis connectivity in `/health` | No dependency |
-| Redis ISR cache handler | Multi-instance cache coherence | No dependency |
+| Usage metering | Track and display usage | Per-user API keys |
+| Docs content pages | Core concepts, API reference, guides | No dependency |

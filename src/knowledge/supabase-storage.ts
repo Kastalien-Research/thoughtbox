@@ -29,17 +29,16 @@ export interface SupabaseKnowledgeStorageConfig {
   supabaseUrl: string;
   supabaseKey: string;
   jwtSecret: string;
-  /** When provided, use this OAuth token instead of minting a custom JWT. */
-  userToken?: string;
+  /** The workspace ID this knowledge storage instance is strictly scoped to. */
+  workspaceId: string;
 }
 
 export class SupabaseKnowledgeStorage implements KnowledgeStorage {
   private supabaseUrl: string;
   private supabaseKey: string;
   private jwtSecret: string;
-  private userToken: string | undefined;
+  private workspaceId: string;
   private client: SupabaseClient | null = null;
-  private project: string | null = null;
   private tokenExpiresAt = 0;
   private static TOKEN_TTL = 3600;
   private static TOKEN_REFRESH_MARGIN = 300;
@@ -48,43 +47,18 @@ export class SupabaseKnowledgeStorage implements KnowledgeStorage {
     this.supabaseUrl = config.supabaseUrl;
     this.supabaseKey = config.supabaseKey;
     this.jwtSecret = config.jwtSecret;
-    this.userToken = config.userToken;
+    this.workspaceId = config.workspaceId;
   }
 
   // ===========================================================================
-  // Project Scoping
+  // Workspace Scoping
   // ===========================================================================
-
-  setUserToken(token: string): void {
-    this.userToken = token;
-    this.client = null;
-    this.tokenExpiresAt = 0;
-  }
 
   async setProject(project: string): Promise<void> {
-    if (this.project === project) return;
-    if (this.project !== null) {
-      throw new Error(
-        `Knowledge storage already scoped to project "${this.project}", cannot change to "${project}"`
-      );
-    }
-    this.project = project;
-    this.refreshClient();
+    // Project scoping is deprecated in favor of strict workspaceId scoping at instantiation.
   }
 
   private refreshClient(): void {
-    if (this.userToken) {
-      // OAuth mode: use the user's token directly (no custom JWT minting)
-      this.client = createClient(this.supabaseUrl, this.supabaseKey, {
-        auth: { persistSession: false, autoRefreshToken: false },
-        global: {
-          headers: { Authorization: `Bearer ${this.userToken}` },
-        },
-      });
-      this.tokenExpiresAt =
-        Math.floor(Date.now() / 1000) + SupabaseKnowledgeStorage.TOKEN_TTL;
-      return;
-    }
 
     // FS/local mode: mint a custom JWT with project claim
     const now = Math.floor(Date.now() / 1000);
@@ -93,7 +67,7 @@ export class SupabaseKnowledgeStorage implements KnowledgeStorage {
     const token = jwt.sign(
       {
         role: 'authenticated',
-        project: this.project,
+        workspace_id: this.workspaceId,
         iss: 'supabase-demo',
         exp,
       },
@@ -111,8 +85,8 @@ export class SupabaseKnowledgeStorage implements KnowledgeStorage {
   }
 
   private ensureClient(): SupabaseClient {
-    if (!this.project) {
-      throw new Error('Project scope not established. Call bind_root or start_new first.');
+    if (!this.workspaceId) {
+      throw new Error('Workspace scope not established.');
     }
     const now = Math.floor(Date.now() / 1000);
     if (!this.client || now >= this.tokenExpiresAt - SupabaseKnowledgeStorage.TOKEN_REFRESH_MARGIN) {
@@ -194,7 +168,7 @@ export class SupabaseKnowledgeStorage implements KnowledgeStorage {
 
     const row = {
       id,
-      project: this.project,
+      workspace_id: this.workspaceId,
       name: params.name,
       type: params.type,
       label: params.label,
@@ -301,7 +275,7 @@ export class SupabaseKnowledgeStorage implements KnowledgeStorage {
 
     const row = {
       id,
-      project: this.project,
+      workspace_id: this.workspaceId,
       from_id: params.from_id,
       to_id: params.to_id,
       type: params.type,
@@ -366,7 +340,7 @@ export class SupabaseKnowledgeStorage implements KnowledgeStorage {
 
     const row = {
       id,
-      project: this.project,
+      workspace_id: this.workspaceId,
       entity_id: params.entity_id,
       content: params.content,
       source_session: params.source_session || null,
