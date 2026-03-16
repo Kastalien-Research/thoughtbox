@@ -31,12 +31,6 @@ import {
 import { createFileSystemHubStorage } from "./hub/hub-storage-fs.js";
 import type { HubStorage } from "./hub/hub-types.js";
 import { initEvaluation, initMonitoring } from "./evaluation/index.js";
-import {
-  createJwks,
-  validateToken,
-  extractBearerToken,
-  type AuthContext,
-} from "./middleware/auth.js";
 
 /**
  * Get the storage backend based on environment configuration.
@@ -140,8 +134,6 @@ async function createStorage(): Promise<StorageBundle> {
 interface SessionEntry {
   transport: StreamableHTTPServerTransport;
   server: Awaited<ReturnType<typeof createMcpServer>>;
-  storage?: ThoughtboxStorage;
-  knowledgeStorage?: KnowledgeStorage;
 }
 
 async function maybeStartObservatory(hubStorage?: HubStorage, persistentStorage?: ThoughtboxStorage): Promise<ObservatoryServer | null> {
@@ -175,52 +167,29 @@ async function startHttpServer() {
 
   const sessions = new Map<string, SessionEntry>();
 
-  // Auth middleware: validate Bearer token in Supabase mode
-  const storageType = (process.env.THOUGHTBOX_STORAGE || "fs").toLowerCase();
-  const requireAuth = storageType === "supabase";
+  // Auth: static API key check. Set THOUGHTBOX_API_KEY to require it.
+  const apiKey = process.env.THOUGHTBOX_API_KEY;
   const supabaseUrl = process.env.SUPABASE_URL;
   const supabaseKey = process.env.SUPABASE_ANON_KEY;
   const jwtSecret = process.env.SUPABASE_JWT_SECRET;
-  const jwks = requireAuth && supabaseUrl ? createJwks(supabaseUrl) : null;
 
   app.all("/mcp", async (req: Request, res: Response) => {
     const mcpSessionId = req.headers["mcp-session-id"] as string | undefined;
 
-    // Debug: log all incoming requests
     console.error(`[MCP] ${req.method} request, session: ${mcpSessionId || 'new'}`);
 
-    // Conditional auth: enforce in Supabase mode, skip in FS mode
-    // Token sources: Authorization header (preferred) or ?token= query param (workaround for
-    // MCP clients that don't forward custom headers — Claude Code issues #14976, #28293, #29562)
-    let authContext: AuthContext | null = null;
-    let rawToken: string | null = null;
-    if (requireAuth && jwks && supabaseUrl) {
-      const headerToken = extractBearerToken(
-        req.headers.authorization as string | undefined,
-      );
-      const queryToken = req.query.token as string | undefined;
-      rawToken = headerToken || queryToken || null;
-      if (!headerToken && queryToken) {
-        console.warn(
-          "[Auth] Token received via ?token= query param. " +
-          "Prefer Authorization header — query params may be logged by proxies.",
-        );
-      }
-      if (!rawToken) {
+    // API key auth: check ?key= query param or Authorization: Bearer <key>
+    if (apiKey) {
+      const queryKey = req.query.key as string | undefined;
+      const authHeader = req.headers.authorization as string | undefined;
+      const headerKey = authHeader?.startsWith("Bearer ")
+        ? authHeader.slice(7)
+        : undefined;
+      const providedKey = queryKey || headerKey || null;
+      if (providedKey !== apiKey) {
         res.status(401).json({
           jsonrpc: "2.0",
-          error: { code: -32001, message: "Missing Authorization header or ?token= query param" },
-          id: null,
-        });
-        return;
-      }
-      try {
-        authContext = await validateToken(rawToken, jwks, supabaseUrl);
-      } catch (err) {
-        console.error("[Auth] Token validation failed:", err);
-        res.status(401).json({
-          jsonrpc: "2.0",
-          error: { code: -32001, message: "Invalid or expired token" },
+          error: { code: -32001, message: "Invalid or missing API key" },
           id: null,
         });
         return;
@@ -241,34 +210,12 @@ async function startHttpServer() {
 
       const sessionId = mcpSessionId || crypto.randomUUID();
 
-      // In Supabase mode, each session gets its own storage instances
-      // bound to the user's token for RLS isolation. In FS/memory mode,
-      // shared storage is fine (no multi-tenancy).
-      let sessionStorage: ThoughtboxStorage = storage;
-      let sessionKnowledgeStorage: KnowledgeStorage | undefined = knowledgeStorage;
-      if (requireAuth && rawToken && supabaseUrl && supabaseKey && jwtSecret) {
-        const perSessionStorage = new SupabaseStorage({
-          supabaseUrl,
-          supabaseKey,
-          jwtSecret,
-          userToken: rawToken,
-        });
-        const perSessionKnowledge = new SupabaseKnowledgeStorage({
-          supabaseUrl,
-          supabaseKey,
-          jwtSecret,
-          userToken: rawToken,
-        });
-        sessionStorage = perSessionStorage;
-        sessionKnowledgeStorage = perSessionKnowledge;
-      }
-
       const server = await createMcpServer({
         sessionId,
-        storage: sessionStorage,
+        storage,
         hubStorage,
         dataDir,
-        knowledgeStorage: sessionKnowledgeStorage,
+        knowledgeStorage,
         config: {
           disableThoughtLogging:
             (process.env.DISABLE_THOUGHT_LOGGING || "").toLowerCase() === "true",
@@ -283,8 +230,6 @@ async function startHttpServer() {
       sessions.set(sessionId, {
         transport,
         server,
-        storage: requireAuth ? sessionStorage : undefined,
-        knowledgeStorage: requireAuth ? sessionKnowledgeStorage : undefined,
       });
 
       transport.onclose = () => {
