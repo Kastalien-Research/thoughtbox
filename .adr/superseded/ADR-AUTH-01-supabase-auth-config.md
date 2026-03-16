@@ -1,6 +1,6 @@
 # ADR-AUTH-01: Supabase Auth Configuration and Session Strategy
 
-**Status**: Accepted
+**Status**: Superseded by ADR-AUTH-02
 **Date**: 2026-03-13
 **Deciders**: Thoughtbox development team
 **Initiative**: `.specs/deployment/v1-initiative.md` (WS-03)
