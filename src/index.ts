@@ -169,9 +169,6 @@ async function startHttpServer() {
 
   // Auth: static API key check. Set THOUGHTBOX_API_KEY to require it.
   const apiKey = process.env.THOUGHTBOX_API_KEY;
-  const supabaseUrl = process.env.SUPABASE_URL;
-  const supabaseKey = process.env.SUPABASE_ANON_KEY;
-  const jwtSecret = process.env.SUPABASE_JWT_SECRET;
 
   app.all("/mcp", async (req: Request, res: Response) => {
     const mcpSessionId = req.headers["mcp-session-id"] as string | undefined;
