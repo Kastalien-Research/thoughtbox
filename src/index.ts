@@ -175,14 +175,14 @@ async function startHttpServer() {
 
     console.error(`[MCP] ${req.method} request, session: ${mcpSessionId || 'new'}`);
 
-    // API key auth: check ?key= query param or Authorization: Bearer <key>
+    // API key auth: prefer Authorization header over query param
     if (apiKey) {
-      const queryKey = req.query.key as string | undefined;
       const authHeader = req.headers.authorization as string | undefined;
       const headerKey = authHeader?.startsWith("Bearer ")
         ? authHeader.slice(7)
         : undefined;
-      const providedKey = queryKey || headerKey || null;
+      const queryKey = req.query.key as string | undefined;
+      const providedKey = headerKey || queryKey || null;
       if (providedKey !== apiKey) {
         res.status(401).json({
           jsonrpc: "2.0",
