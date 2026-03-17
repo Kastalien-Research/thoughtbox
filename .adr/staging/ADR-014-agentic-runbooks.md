@@ -1,7 +1,7 @@
-# ADR-014: Agentic Runbooks — Notebook Evolution with MCP Tasks and Persistent Execution
+# ADR-014: Agentic Runbooks — Notebook Evolution with Effect-TS Execution Kernel
 
 **Status**: Proposed
-**Date**: 2026-03-16
+**Date**: 2026-03-17
 **Deciders**: Thoughtbox development team
 **Spec**: `.specs/agentic-runbooks.md`
 
@@ -32,72 +32,57 @@ The goal is to evolve notebooks into **agentic runbooks**: sandboxed design/test
 4. **No reuse** — a notebook that solved a problem cannot be parameterized and reused for similar problems.
 5. **No codebase context injection** — the LLM has full Thoughtbox MCP tool access to read the codebase, but there is no lightweight representation of the relevant code slice that can be injected into the notebook for focused generation.
 
-### Constraints
+### The Execution Challenge
 
-- **Dual-backend rule** (non-negotiable): `FileSystemStorage` stays for local/self-hosted. `SupabaseStorage` for deployed. Both implement same interfaces. This applies to notebook persistence too.
-- **Cloud Run timeout**: 300s request timeout (ADR-GCP-01). Notebooks that exceed this need async execution.
-- **MCP Tasks spec**: Experimental in Nov 2025 MCP spec. State machine: `working` -> `input_required` -> `completed`/`failed`/`cancelled`. Tool-level negotiation via `execution.taskSupport`.
-- **Stateless containers**: Cloud Run containers are ephemeral. In-memory notebook state does not survive instance restarts or scale-to-zero.
-- **Canonical repo safety**: Notebooks never write to the canonical repository. The manifest is the review surface.
-
-### ADR-GCP-01 Reconciliation
-
-ADR-GCP-01 specifies a 300s Cloud Run request timeout. This was configured for MCP request/response patterns, not long-running notebook execution. The MCP Tasks model introduced here bypasses the request timeout for notebooks: the initial `notebook_execute` call returns a task ID within the request timeout, and the actual execution runs as a background process. This is an amendment to ADR-GCP-01's timeout assumptions, not a contradiction — the 300s timeout still applies to all synchronous MCP operations.
+Notebook execution involves temporary directories, subprocesses, cancellation, partial failure, cleanup, and leaked resources if anything goes wrong. Achieving durable, concurrent, and reliable notebook execution across ephemeral Cloud Run containers requires robust coordination, backpressure, retries, and observability. Building this orchestration ad-hoc is complex and error-prone.
 
 ## Decision
 
-Evolve the notebook subsystem into agentic runbooks with five foundational architectural decisions:
+Evolve the notebook subsystem into agentic runbooks by cleanly separating the **domain semantics** from the **execution kernel**, utilizing **Effect-TS** as the operating system for execution.
 
-### 1. Notebook lifecycle: author -> finalize -> graduate
+### 1. Separation of Concerns
+- **Domain (Thoughtbox)**: Notebook grammar (`.src.md`), manifest format, code-interaction graph schema, and lifecycle semantics (`authoring` -> `finalized`).
+- **Execution Kernel (Effect)**: Schema validation, retries, cancellation, resource cleanup, concurrency limits, service wiring, observability, and durable run orchestration.
 
-Notebooks gain a `phase` field tracking their lifecycle. `authoring` is the current behavior (add cells, execute, iterate). `finalized` means the notebook has produced a validated manifest and is immutable. `graduated` (future, ADR-017) means the notebook is registered as an MCP server.
+### 2. @effect/workflow for Durable Run Orchestration
+A notebook run is modeled as a workflow instance with a stable identity and explicitly managed state, rather than using ad-hoc async plumbing. 
+- `@effect/workflow` provides durable deferred signals (`DurableDeferred`), allowing notebooks to pause execution when human or LLM input is required (`input_required`), and resume later.
+- It provides named workflows, activities, retries, compensation handlers, and durable sleep, perfectly mapping to per-cell progress, timeouts, and completion/failure.
+- *Caution*: `@effect/workflow` is currently in alpha status. We will hide the workflow engine behind a Thoughtbox-owned interface (`TaskStore`/`NotebookStore`) so the rest of the codebase does not depend on it directly.
 
-Phase transitions are explicit operations (`notebook_finalize`), not implicit. The `authoring` -> `finalized` transition requires all code cells to have `status: "completed"` — the notebook must have been fully executed before it can produce a manifest.
+### 3. Effect Layers for Service Boundaries
+We will use Effect Layers to declare dependencies.
+- Interfaces for `NotebookStore`, `TaskStore`, `ManifestCompiler`, `GraphProvider`, and `SandboxExecutor`.
+- Implementations (e.g., `FileSystemStorage` vs `SupabaseStorage`) are swapped dynamically via static, dynamic, and scoped Layers with automatic dependency wiring, preserving the dual-backend constraint without smearing choice logic.
 
-### 2. Manifest as output protocol
+### 4. Effect Schema for Protocol Boundaries
+The `RunbookManifest`, `CodeInteractionGraph`, notebook lifecycle states, tool payloads, and task updates become validated runtime protocols.
+- We will replace loose TypeScript interfaces with Effect Schema declarations.
+- This guarantees runtime validation, error assertion, and the ability to generate JSON Schema directly for the MCP tool payloads.
 
-A finalized notebook produces a `RunbookManifest`: an ordered list of declarative entries (file creates, modifications, deletions with exact content) and constrained generation tasks (function signature + types + tests, where the LLM generates only the body). The manifest is the review surface — it describes what the codebase should look like, without touching it.
+### 5. Scopes for Sandbox Resource Management
+Subprocesses (cell execution/package installation), temporary directories, and network connections are tied to **Effect Scopes** using the `acquireRelease` pattern.
+- If a notebook is cancelled or a container is interrupted, Effect's fiber interruption model ensures finalizers automatically run, preventing resource leaks.
 
-Declarative entries cover structural code (types, schemas, routes, wiring, config). Constrained generation tasks cover business logic where declarative generation is insufficient. The notebook validates constrained tasks by running test cases against a reference implementation before including them in the manifest.
-
-The manifest format is defined in the spec. The manifest application engine (how manifests are applied to the codebase) is deferred to ADR-015.
-
-### 3. Code interaction graph as input protocol
-
-Instead of injecting the full repository into a notebook, inject a lightweight `CodeInteractionGraph`: entry points, dependency nodes, edges (imports/calls/implements/extends), and referenced type definitions. This gives the LLM enough context to generate type-correct code without the noise of the full codebase.
-
-The graph schema is defined in the spec. The graph derivation tooling (how to extract the graph from the codebase using TS compiler API or similar) is deferred to ADR-016.
-
-### 4. MCP Tasks for async execution
-
-Long-running notebook execution uses the MCP Tasks state machine. `notebook_execute` with `async: true` creates a Task in `working` state and returns the task ID. Cell executions report progress. Decision points (where human/LLM input is needed) transition to `input_required`. Completion generates the manifest and transitions to `completed`.
-
-This resolves the Cloud Run 300s timeout constraint: the initial request returns within the timeout, and the Task runs independently.
-
-### 5. Supabase for persistence, filesystem for local
-
-Notebook persistence follows the dual-backend pattern established by ADR-DATA-01. A new `notebooks` table in Supabase stores notebook content (cells as JSONB), phase, interaction graph, manifest, and task state. Locally, notebooks can be exported to `.src.md` files and re-imported. The `notebook_persist` operation explicitly pushes a notebook to Supabase; the `notebook_clone` operation creates a new notebook from a persisted one.
-
-This is not automatic sync — persistence is an explicit action. In-memory notebooks remain the primary working state during authoring.
+### 6. Primitives for Coordination and Backpressure
+Execution load on the Cloud Run instances will be managed using Effect primitives:
+- **Queues** for typed in-memory pending notebook work with built-in back-pressure.
+- **Semaphores** to enforce concurrency limits on expensive sections like execution, dependency installation, or manifest validation.
+- **Schedules** for typed, composable retry policies on transient operational failures (e.g., graph extractor flakes, repo read errors).
 
 ## Consequences
 
 ### Positive
-
-- Notebooks become a structured code generation pipeline with a reviewable output (manifests).
-- Long-running notebook execution is possible on Cloud Run via MCP Tasks.
-- Solved notebooks persist and become templates for similar problems.
-- The code interaction graph provides focused context, reducing LLM hallucination on type signatures and interfaces.
-- The canonical codebase is never written to directly by notebooks.
-- All five decisions are independently implementable — partial delivery is useful.
+- **Robust Resource Management**: Scopes guarantee rigorous cleanup of stray subprocesses and temp directories.
+- **Reliability and Observability**: Retry policies, queuing, backpressure, metrics, and tracing become first-class constructs natively supported by the execution framework.
+- **Clear Separation**: Thoughtbox focuses on product definitions (DSL, manifest), delegating execution heavy-lifting (retries, timeouts, pause/resume) to Effect.
+- **Durable Execution**: Realizes the ability to pause complex multistep operations and pick them back up across Cloud Run instance boundaries via `@effect/workflow`.
+- **Type-safe DI**: Clean dependency injection through Layers simplifies the dual-backend (file vs Supabase) constraints.
 
 ### Negative / Tradeoffs
-
-- Notebook complexity increases. The current ~500 lines across 7 files will grow to handle lifecycle, manifests, tasks, persistence, and graph injection.
-- MCP Tasks spec is experimental. SDK support may be incomplete. The implementation may need to polyfill task state management.
-- The manifest format is novel — there is no prior art for "declarative code manifest with semantic holes." The format will evolve as we learn what works.
-- Two persistence backends for notebooks (filesystem + Supabase), matching the dual-backend pattern but adding maintenance surface.
-- Code interaction graph quality depends on static analysis tooling that does not yet exist in the project (deferred to ADR-016).
+- **Learning Curve**: Effect-TS introduces a paradigm shift (fibers, layers, generators) that increases cognitive overhead for contributors.
+- **Alpha Status Dependency**: `@effect/workflow` is officially alpha and subject to API changes. We mitigate this by abstracting it, but the integration risk remains.
+- **Rewrite Overhead**: Significant refactoring is required to move `src/notebook/` from raw Promises and `child_process` to Effect-native constructs.
 
 ### Follow-on ADRs Required
 
@@ -109,77 +94,43 @@ This is not automatic sync — persistence is an explicit action. In-memory note
 | ADR-018 | Notebook template system | ADR-014 (persistence, clone) |
 
 ### ADR Amendments
-
-- **ADR-GCP-01**: Amend to note that the 300s request timeout does not apply to MCP Task-based async operations. The timeout governs the initial request/response; background task execution is unbounded (subject to Cloud Run instance lifetime and billing).
+- **ADR-GCP-01**: Amend to note that the 300s request timeout does not apply to background operations mapped to Effect Workflows.
 
 ## Hypotheses
 
-### Hypothesis 1: Code interaction graph injection enables type-correct generation
-
-A lightweight code interaction graph for a feature's relevant slice can be derived and injected into a notebook, sufficient for generating correct type definitions and interface declarations without full repo access.
-
-**Prediction**: Notebook with injected interaction graph produces type-correct declarations that compile against the real codebase types.
-
-**Validation**: Derive interaction graph for an existing feature (e.g., the gateway operation pattern: handler + type cast + schema declaration). Inject into notebook. Generate types in notebook cells. Run `tsc --noEmit` against real codebase with generated types.
-
+### Hypothesis 1: Effect Execution Kernel Prevents Resource Leaks
+Effect's scoped acquisition and interruption models guarantee that notebook executions interrupted prematurely (e.g., Cloud Run scale-down, timeout, manual cancellation) clean up temporary directories and subprocesses.
+**Prediction**: Zero orphaned `node` processes or leaking temp folders after cancelling a long-running compile cell.
+**Validation**: Spawn 10 concurrent heavy notebooks, forcefully interrupt the fibers, and inspect OS processes/local filesystem for leaks.
 **Outcome**: PENDING
 
-### Hypothesis 2: Notebook produces valid declarative manifest
-
-A notebook can produce a structured declarative manifest that, when applied to the codebase, generates correct structural code (types, routes, schema, wiring). Same input, same output.
-
-**Prediction**: Manifest applied to codebase produces code that passes type checking and matches expected structure.
-
-**Validation**: Design manifest format. Generate manifest from notebook for a known feature (e.g., adding a new gateway operation). Apply manifest entries to codebase. Verify with `tsc --noEmit` and existing tests.
-
+### Hypothesis 2: @effect/workflow enables durable pause and resume
+Durable deferred signals allow a notebook workflow to wait for an LLM input indefinitely without consuming active compute, perfectly matching the MCP Tasks `input_required` state.
+**Prediction**: A notebook can execute a cell, pause for input, survive a container restart, and resume exactly where it left off once the signal is provided.
+**Validation**: Run a notebook workflow to a pause point, kill the Node process, restart the server, send the resume signal, and verify it completes successfully.
 **Outcome**: PENDING
 
-### Hypothesis 3: Constrained generation outperforms unconstrained
+### Hypothesis 3: Schema generation is 1:1 with MCP tools
+Effect Schema can act as the single source of truth for runtime validation and MCP tool payload schemas.
+**Prediction**: We can derive valid JSON Schema directly from the Effect Schemas defining the RunbookManifest and CodeInteractionGraph to serve as the JSON RPC payload definition.
+**Validation**: Replace manual JSON Schema generation in `thoughtbox_notebook` tool definition and verify payload parsing still accepts valid inputs and rejects invalid ones.
+**Outcome**: PENDING
 
+### Hypothesis 4: Constrained generation outperforms unconstrained
 Where declarative generation fails, the notebook reduces the LLM task to constrained code generation: exact signature, types, and test cases provided, LLM generates only the body. Notebook validates before including in output.
-
-**Prediction**: LLM given constrained task (signature + types + tests) produces correct implementation that passes provided tests, with higher reliability than unconstrained generation.
-
-**Validation**: Compare success rate of constrained vs unconstrained generation for 5 representative function implementations. Measure: compilation success, test pass rate, manual review score.
-
+**Prediction**: LLM given constrained task produces correct implementation that passes provided tests with higher reliability than unconstrained generation.
+**Validation**: Compare success rate of constrained vs unconstrained generation for 5 function implementations.
 **Outcome**: PENDING
 
-### Hypothesis 4: Persisted notebooks serve as reusable templates
-
-Completed notebooks persisted in Supabase serve as reusable templates. A notebook that added a gateway operation becomes the template for the next gateway operation.
-
+### Hypothesis 5: Persisted notebooks serve as reusable templates
+Completed notebooks persisted in Supabase or FS serve as reusable templates.
 **Prediction**: Template notebook parameterized with new operation name and types produces a valid manifest for the new operation.
-
-**Validation**: Create notebook for one gateway operation. Persist. Clone with new parameters (operation name, types). Verify output manifest is structurally valid and type-checks.
-
-**Outcome**: PENDING
-
-### Hypothesis 5: Cloud Run handles concurrent notebook execution at marginal cost
-
-Cloud Run can spin up N notebooks concurrently at marginal cost. Multiple approaches explored in parallel with results compared.
-
-**Prediction**: 50 concurrent notebooks cost under $1 in compute for a 10-minute exploration session.
-
-**Validation**: Deploy and measure: spin up 50 notebooks on Cloud Run, each running a 3-cell exploration, measure Cloud Run billing and memory usage.
-
-**Outcome**: PENDING
-
-### Hypothesis 6: MCP Tasks state machine maps to notebook execution
-
-Long-running notebook execution maps to MCP Tasks state machine, with `input_required` for decision points where LLM or human needs to choose.
-
-**Prediction**: Notebook execution as a Task correctly transitions through `working` -> `input_required` -> `working` -> `completed`, with progress reported per-cell.
-
-**Validation**: Implement task-augmented `notebook_execute`. Run 5-cell notebook with one decision point. Verify state transitions match MCP Tasks spec. Measure: correct state at each transition, progress updates received by client.
-
+**Validation**: Clone persisted notebook with new parameters. Verify output manifest is structurally valid and type-checks.
 **Outcome**: PENDING
 
 ## Links
-
 - Spec: `.specs/agentic-runbooks.md`
-- Current notebook code: `src/notebook/` (types.ts, state.ts, execution.ts, tool.ts, operations.ts, encoding.ts, index.ts)
-- ADR-GCP-01: `.adr/accepted/ADR-GCP-01-cloud-run-service-config.md` (300s timeout, Cloud Run config)
-- ADR-DATA-01: `.adr/staging/ADR-DATA-01-supabase-product-schema.md` (Supabase schema pattern, RLS, dual-backend)
-- ADR-013: `.adr/accepted/ADR-013-knowledge-storage-project-scoping.md` (setProject() interface)
+- Effect-TS docs: https://effect.website
+- ADR-GCP-01: `.adr/accepted/ADR-GCP-01-cloud-run-service-config.md`
+- ADR-DATA-01: `.adr/staging/ADR-DATA-01-supabase-product-schema.md`
 - MCP Tasks spec: MCP specification (Nov 2025), `execution.taskSupport` negotiation
-- Persistence interfaces: `src/persistence/types.ts` (ThoughtboxStorage), `src/knowledge/types.ts` (KnowledgeStorage)

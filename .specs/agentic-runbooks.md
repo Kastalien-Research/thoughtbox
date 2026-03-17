@@ -6,16 +6,16 @@
 
 ## Overview
 
-Evolve the notebook subsystem (`src/notebook/`) from ephemeral scratchpads into agentic runbooks: sandboxed design/test environments that produce declarative manifests describing codebase changes, support long-running execution via MCP Tasks, persist in Supabase, and graduate into reusable templates and MCP tool surfaces.
+Evolve the notebook subsystem (`src/notebook/`) from ephemeral scratchpads into agentic runbooks: sandboxed design/test environments that produce declarative manifests describing codebase changes, support long-running execution via Effect-TS and `@effect/workflow`, persist in Supabase, and graduate into reusable templates and MCP tool surfaces. The execution kernel employs Effect for scopes, layers, schema validation, and durable coordination.
 
 ## Scope
 
 ### In scope (ADR-014)
 
 - Notebook lifecycle: author, finalize, graduate
-- Manifest as output protocol (structural format, not full application engine)
+- Manifest as output protocol (structural format based on Effect Schema, not full application engine)
 - Code interaction graph as input protocol (schema, not derivation tooling)
-- MCP Tasks integration for async notebook execution
+- Effect-TS Integration (`@effect/workflow`) for async durable notebook execution mapped to MCP Tasks
 - Supabase persistence schema for notebooks
 - New tool operations on `thoughtbox_notebook`
 
@@ -51,7 +51,7 @@ interface RunbookMetadata {
   interactionGraph: CodeInteractionGraph | null;
 
   /**
-   * MCP Task ID when executing asynchronously.
+   * MCP Task ID / Effect Workflow ID when executing asynchronously.
    * Null when not executing.
    */
   taskId: string | null;
@@ -259,25 +259,26 @@ interface ManifestValidation {
 }
 ```
 
-### MCP Tasks State Mapping
+### MCP Tasks State Mapping via Effect Workflows
 
-Notebook execution maps to the MCP Tasks state machine. Each cell execution is a progress step. Decision points (where the LLM or human must choose a path) map to `input_required`.
+Notebook execution maps to the MCP Tasks state machine, powered under the hood by an Effect-TS Workflow execution. Each cell execution is a progress step within the workflow. Decision points (where the LLM or human must choose a path) utilize `DurableDeferred` to pause the workflow and map to `input_required`.
 
 ```
 notebook_execute called
   |
   v
-Task created (state: working)
+Effect Workflow created / Task mapped (state: working)
   |
   v
 For each cell:
   - Report progress (cell N of M)
-  - Execute cell
+  - Execute cell within an Effect Scope
   - If cell is a decision point:
       Transition to input_required
-      Wait for input (decision)
+      Await DurableDeferred signal
       Transition back to working
   - If cell fails:
+      Run finalizers (interrupt Scope)
       Transition to failed
       Return error
   |
@@ -394,9 +395,9 @@ Execute all cells in sequence as an MCP Task. Returns a task ID for polling.
 // Async return: { taskId: string, state: "working" }
 ```
 
-When `async: true`, the execution runs as an MCP Task. The client polls via `tasks/get` to check progress. Each cell execution reports progress. Decision points pause the task and set `state: "input_required"`.
+When `async: true`, the execution runs as an Effect Workflow mapped to an MCP Task. The client polls via `tasks/get` to check progress. Each cell execution reports progress. Decision points pause the task, using a `DurableDeferred` wait, and set `state: "input_required"`.
 
-**Cloud Run timeout handling**: Synchronous execution is bounded by the 300s Cloud Run request timeout (ADR-GCP-01). For notebooks that may exceed this, `async: true` is required. The Task runs on a background worker that is not request-bound.
+**Cloud Run timeout handling**: Synchronous execution is bounded by the 300s Cloud Run request timeout (ADR-GCP-01). For notebooks that may exceed this, `async: true` is required. The Workflow runs on a background worker that is not request-bound, safely coordinated by Effect.
 
 #### `notebook_inject_graph`
 
@@ -521,11 +522,12 @@ Retrieve the manifest from a finalized notebook.
 - [ ] `NotebookStateManager` handles concurrent access without data corruption
 - [ ] 50 concurrent notebooks do not exceed Cloud Run memory limits (1 GiB)
 
-### H6: MCP Tasks integration
+### H6: MCP Tasks & Effect Workflow integration
 
-- [ ] `notebook_execute` with `async: true` returns a task ID
-- [ ] Task transitions through `working` -> `completed` for simple notebooks
-- [ ] Task transitions through `working` -> `input_required` -> `working` -> `completed` for notebooks with decision points
+- [ ] `notebook_execute` with `async: true` returns a task ID representing an Effect Workflow ID
+- [ ] Workflow transitions through `working` -> `completed` for simple notebooks
+- [ ] Workflow transitions through `working` -> `input_required` -> `working` -> `completed` for notebooks with decision points, using `DurableDeferred`
+- [ ] Effect Scopes correctly clean up child temp dirs and subprocesses on task cancellation
 - [ ] Progress reported per-cell during execution
 
 ## Non-Goals
