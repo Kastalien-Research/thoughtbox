@@ -1,4 +1,4 @@
-# 06. System Prompt Refinement
+# 08. System Prompt Refinement
 
 **Status**: Draft
 
