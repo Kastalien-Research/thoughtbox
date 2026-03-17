@@ -167,11 +167,31 @@ async function startHttpServer() {
 
   const sessions = new Map<string, SessionEntry>();
 
+  // Auth: static API key check. Set THOUGHTBOX_API_KEY to require it.
+  const apiKey = process.env.THOUGHTBOX_API_KEY;
+
   app.all("/mcp", async (req: Request, res: Response) => {
     const mcpSessionId = req.headers["mcp-session-id"] as string | undefined;
 
-    // Debug: log all incoming requests
     console.error(`[MCP] ${req.method} request, session: ${mcpSessionId || 'new'}`);
+
+    // API key auth: prefer Authorization header over query param
+    if (apiKey !== undefined) {
+      const authHeader = req.headers.authorization as string | undefined;
+      const headerKey = authHeader?.startsWith("Bearer ")
+        ? authHeader.slice(7)
+        : undefined;
+      const queryKey = req.query.key as string | undefined;
+      const providedKey = headerKey || queryKey || null;
+      if (providedKey !== apiKey) {
+        res.status(401).json({
+          jsonrpc: "2.0",
+          error: { code: -32001, message: "Invalid or missing API key" },
+          id: null,
+        });
+        return;
+      }
+    }
 
     try {
       if (mcpSessionId && sessions.has(mcpSessionId)) {
@@ -189,7 +209,7 @@ async function startHttpServer() {
 
       const server = await createMcpServer({
         sessionId,
-        storage, // Shared storage instance
+        storage,
         hubStorage,
         dataDir,
         knowledgeStorage,
@@ -204,7 +224,10 @@ async function startHttpServer() {
         enableJsonResponse: true,
       });
 
-      sessions.set(sessionId, { transport, server });
+      sessions.set(sessionId, {
+        transport,
+        server,
+      });
 
       transport.onclose = () => {
         sessions.delete(transport.sessionId || sessionId);

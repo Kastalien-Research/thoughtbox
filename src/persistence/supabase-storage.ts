@@ -7,7 +7,7 @@
  */
 
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
-import * as jwt from 'jsonwebtoken';
+import jwt from 'jsonwebtoken';
 import { randomUUID } from 'node:crypto';
 import type {
   ThoughtboxStorage,
@@ -27,12 +27,15 @@ export interface SupabaseStorageConfig {
   supabaseUrl: string;
   supabaseKey: string;
   jwtSecret: string;
+  /** When provided, use this OAuth token instead of minting a custom JWT. */
+  userToken?: string;
 }
 
 export class SupabaseStorage implements ThoughtboxStorage {
   private supabaseUrl: string;
   private supabaseKey: string;
   private jwtSecret: string;
+  private userToken: string | undefined;
   private client: SupabaseClient | null = null;
   private project: string | null = null;
   private config: Config | null = null;
@@ -44,11 +47,19 @@ export class SupabaseStorage implements ThoughtboxStorage {
     this.supabaseUrl = config.supabaseUrl;
     this.supabaseKey = config.supabaseKey;
     this.jwtSecret = config.jwtSecret;
+    this.userToken = config.userToken;
   }
 
   // ===========================================================================
   // Project Scoping
   // ===========================================================================
+
+  setUserToken(token: string): void {
+    this.userToken = token;
+    // Force client refresh on next operation so the new token is used
+    this.client = null;
+    this.tokenExpiresAt = 0;
+  }
 
   async setProject(project: string): Promise<void> {
     if (this.project === project) return;
@@ -69,6 +80,20 @@ export class SupabaseStorage implements ThoughtboxStorage {
   }
 
   private refreshClient(): void {
+    if (this.userToken) {
+      // OAuth mode: use the user's token directly (no custom JWT minting)
+      this.client = createClient(this.supabaseUrl, this.supabaseKey, {
+        auth: { persistSession: false, autoRefreshToken: false },
+        global: {
+          headers: { Authorization: `Bearer ${this.userToken}` },
+        },
+      });
+      this.tokenExpiresAt =
+        Math.floor(Date.now() / 1000) + SupabaseStorage.TOKEN_TTL;
+      return;
+    }
+
+    // FS/local mode: mint a custom JWT with project claim
     const now = Math.floor(Date.now() / 1000);
     const exp = now + SupabaseStorage.TOKEN_TTL;
 
@@ -268,10 +293,14 @@ export class SupabaseStorage implements ThoughtboxStorage {
   async updateSession(id: string, attrs: Partial<Session>): Promise<Session> {
     const client = this.ensureClient();
 
-    const updateData: Record<string, unknown> = {};
+    const updateData: Record<string, unknown> = {
+      updated_at: new Date().toISOString(),
+    };
     if (attrs.title !== undefined) updateData.title = attrs.title;
     if (attrs.description !== undefined) updateData.description = attrs.description;
     if (attrs.tags !== undefined) updateData.tags = attrs.tags;
+    if (attrs.thoughtCount !== undefined) updateData.thought_count = attrs.thoughtCount;
+    if (attrs.branchCount !== undefined) updateData.branch_count = attrs.branchCount;
 
     const { data, error } = await client
       .from('sessions')
@@ -465,10 +494,10 @@ export class SupabaseStorage implements ThoughtboxStorage {
     const branchIds = await this.getBranchIds(sessionId);
 
     if (format === 'json') {
-      const branchData: Record<string, ThoughtData[]> = {};
-      for (const branchId of branchIds) {
-        branchData[branchId] = await this.getBranch(sessionId, branchId);
-      }
+      const branchEntries = await Promise.all(
+        branchIds.map(async (branchId) => [branchId, await this.getBranch(sessionId, branchId)] as const)
+      );
+      const branchData = Object.fromEntries(branchEntries);
       return JSON.stringify({ session, thoughts, branches: branchData }, null, 2);
     }
 
@@ -506,8 +535,11 @@ export class SupabaseStorage implements ThoughtboxStorage {
       lines.push('## Branches');
       lines.push('');
 
-      for (const branchId of branchIds) {
-        const branchThoughts = await this.getBranch(sessionId, branchId);
+      const branchEntries = await Promise.all(
+        branchIds.map(async (branchId) => [branchId, await this.getBranch(sessionId, branchId)] as const)
+      );
+
+      for (const [branchId, branchThoughts] of branchEntries) {
         lines.push(`### Branch: ${branchId}`);
         lines.push('');
         for (const thought of branchThoughts) {

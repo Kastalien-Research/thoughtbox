@@ -7,7 +7,7 @@
  */
 
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
-import * as jwt from 'jsonwebtoken';
+import jwt from 'jsonwebtoken';
 import { randomUUID } from 'node:crypto';
 import type {
   KnowledgeStorage,
@@ -29,12 +29,15 @@ export interface SupabaseKnowledgeStorageConfig {
   supabaseUrl: string;
   supabaseKey: string;
   jwtSecret: string;
+  /** When provided, use this OAuth token instead of minting a custom JWT. */
+  userToken?: string;
 }
 
 export class SupabaseKnowledgeStorage implements KnowledgeStorage {
   private supabaseUrl: string;
   private supabaseKey: string;
   private jwtSecret: string;
+  private userToken: string | undefined;
   private client: SupabaseClient | null = null;
   private project: string | null = null;
   private tokenExpiresAt = 0;
@@ -45,11 +48,18 @@ export class SupabaseKnowledgeStorage implements KnowledgeStorage {
     this.supabaseUrl = config.supabaseUrl;
     this.supabaseKey = config.supabaseKey;
     this.jwtSecret = config.jwtSecret;
+    this.userToken = config.userToken;
   }
 
   // ===========================================================================
   // Project Scoping
   // ===========================================================================
+
+  setUserToken(token: string): void {
+    this.userToken = token;
+    this.client = null;
+    this.tokenExpiresAt = 0;
+  }
 
   async setProject(project: string): Promise<void> {
     if (this.project === project) return;
@@ -63,6 +73,20 @@ export class SupabaseKnowledgeStorage implements KnowledgeStorage {
   }
 
   private refreshClient(): void {
+    if (this.userToken) {
+      // OAuth mode: use the user's token directly (no custom JWT minting)
+      this.client = createClient(this.supabaseUrl, this.supabaseKey, {
+        auth: { persistSession: false, autoRefreshToken: false },
+        global: {
+          headers: { Authorization: `Bearer ${this.userToken}` },
+        },
+      });
+      this.tokenExpiresAt =
+        Math.floor(Date.now() / 1000) + SupabaseKnowledgeStorage.TOKEN_TTL;
+      return;
+    }
+
+    // FS/local mode: mint a custom JWT with project claim
     const now = Math.floor(Date.now() / 1000);
     const exp = now + SupabaseKnowledgeStorage.TOKEN_TTL;
 
