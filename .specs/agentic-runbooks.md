@@ -308,6 +308,7 @@ Notebooks persisted in Supabase follow the dual-backend pattern. `FileSystemStor
 ```sql
 CREATE TABLE notebooks (
   id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  -- Tenant isolation (parent: workspaces table in Supabase migration)
   workspace_id UUID NOT NULL REFERENCES workspaces(id),
   project     TEXT NOT NULL,
 
@@ -389,15 +390,15 @@ Execute all cells in sequence as an MCP Task. Returns a task ID for polling.
 {
   operation: "notebook_execute",
   notebookId: string,
-  async: boolean,  // true = return task ID, false = execute synchronously
+  mode: "sync" | "async",  // "async" = return task ID, "sync" = execute inline
 }
 // Sync return: { execution: ExecutionResult[], manifest?: RunbookManifest }
 // Async return: { taskId: string, state: "working" }
 ```
 
-When `async: true`, the execution runs as an Effect Workflow mapped to an MCP Task. The client polls via `tasks/get` to check progress. Each cell execution reports progress. Decision points pause the task, using a `DurableDeferred` wait, and set `state: "input_required"`.
+When `mode: "async"`, the execution runs as an Effect Workflow mapped to an MCP Task. The client polls via `tasks/get` to check progress. Each cell execution reports progress. Decision points pause the task, using a `DurableDeferred` wait, and set `state: "input_required"`.
 
-**Cloud Run timeout handling**: Synchronous execution is bounded by the 300s Cloud Run request timeout (ADR-GCP-01). For notebooks that may exceed this, `async: true` is required. The Workflow runs on a background worker that is not request-bound, safely coordinated by Effect.
+**Cloud Run timeout handling**: Synchronous execution is bounded by the 300s Cloud Run request timeout (ADR-GCP-01). For notebooks that may exceed this, `mode: "async"` is required. The Workflow runs on a background worker that is not request-bound, safely coordinated by Effect.
 
 #### `notebook_inject_graph`
 
@@ -437,6 +438,13 @@ Clone a persisted notebook as a new notebook, optionally with parameter substitu
 }
 // Returns: { notebook: { id, title, phase: "authoring", sourceTemplateId } }
 ```
+
+**Substitution Mechanism**:
+- **Key Format**: Placeholders in cell content must use named template syntax: `{{placeholderName}}`.
+- **Match Scope**: Replacement is **global** (all occurrences in all cells).
+- **Case Sensitivity**: Keys are **case-sensitive**.
+- **Execution**: Substitutions are applied once at clone time. Chained substitutions (where a value contains another key) are not supported.
+- **Escaping**: Literal `{{` can be included by escaping as `\\{\\{`.
 
 #### `notebook_get_manifest`
 
@@ -521,6 +529,9 @@ Retrieve the manifest from a finalized notebook.
 - [ ] Multiple notebooks can execute concurrently on the same Cloud Run instance
 - [ ] `NotebookStateManager` handles concurrent access without data corruption
 - [ ] 50 concurrent notebooks do not exceed Cloud Run memory limits (1 GiB)
+    - **Methodology**: Measured via `process.memoryUsage()` sampling during a 10-minute load test.
+    - **Baseline**: Expected per-notebook overhead of ≤ 15 MiB (excluding Node.js base) for standard cell-execution workflows.
+    - **Concurrency**: Defined as 50 active `working` fibers managed by the Effect runtime.
 
 ### H6: MCP Tasks & Effect Workflow integration
 

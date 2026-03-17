@@ -1,7 +1,7 @@
 # ADR-014: Agentic Runbooks — Notebook Evolution with Effect-TS Execution Kernel
 
 **Status**: Proposed
-**Date**: 2026-03-17
+**Date**: 2026-03-16
 **Deciders**: Thoughtbox development team
 **Spec**: `.specs/agentic-runbooks.md`
 
@@ -49,6 +49,28 @@ A notebook run is modeled as a workflow instance with a stable identity and expl
 - `@effect/workflow` provides durable deferred signals (`DurableDeferred`), allowing notebooks to pause execution when human or LLM input is required (`input_required`), and resume later.
 - It provides named workflows, activities, retries, compensation handlers, and durable sleep, perfectly mapping to per-cell progress, timeouts, and completion/failure.
 - *Caution*: `@effect/workflow` is currently in alpha status. We will hide the workflow engine behind a Thoughtbox-owned interface (`TaskStore`/`NotebookStore`) so the rest of the codebase does not depend on it directly.
+
+#### Required Abstraction Interfaces
+
+To mitigate the risk of `@effect/workflow` alpha status, the following interfaces are established:
+
+```typescript
+/** Manages durable asynchronous execution of notebooks */
+interface TaskStore {
+  startWorkflow(notebookId: string, input: unknown): Promise<string>;
+  sendSignal(workflowId: string, signal: "resume" | "cancel", data?: unknown): Promise<void>;
+  getWorkflowState(workflowId: string): Promise<TaskState>;
+  listActiveTasks(project: string): Promise<string[]>;
+}
+
+/** Handles persistence and retrieval of notebook documents */
+interface NotebookStore {
+  save(notebook: Notebook): Promise<void>;
+  load(id: string): Promise<Notebook | null>;
+  clone(sourceId: string, targetId: string, substitutions?: Record<string, string>): Promise<void>;
+  delete(id: string): Promise<void>;
+}
+```
 
 ### 3. Effect Layers for Service Boundaries
 We will use Effect Layers to declare dependencies.

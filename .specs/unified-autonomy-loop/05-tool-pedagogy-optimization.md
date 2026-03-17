@@ -1,6 +1,6 @@
 # Tool Pedagogy Optimization
 
-**Phase 5 of the Unified Autonomous Loop (Asynchronous/Scheduled)**
+**Phase 7 of the Unified Autonomous Loop (Asynchronous/Scheduled)**
 
 ## Purpose
 Traditional search algorithms (like Hill Climbing or Quality Diversity) are typically used to optimize an agent's internal prompt or reasoning architecture. Thoughtbox extends this concept to optimize the **API surface and behavior of the tools the agent uses**. 
