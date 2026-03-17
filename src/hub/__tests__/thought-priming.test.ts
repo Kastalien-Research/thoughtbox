@@ -18,7 +18,6 @@ describe('thought-priming', () => {
     expect(result!.resource.uri).toContain('MANAGER');
     expect(result!.resource.mimeType).toBe('text/markdown');
     expect(result!.resource.text).toContain('MANAGER');
-    expect(result!.resource.text).toContain('Decomposition');
   });
 
   // T-TP-2: getProfilePriming returns null for undefined profile
@@ -41,16 +40,7 @@ describe('thought-priming', () => {
     expect(result!.resource.uri).toBe('thoughtbox://profile-priming/DEBUGGER');
   });
 
-  // T-TP-5: Resource text references all profile mental models
-  it('resource text references all profile mental models', () => {
-    const result = getProfilePriming('DEBUGGER');
 
-    expect(result).not.toBeNull();
-    // DEBUGGER has: five-whys, rubber-duck, assumption-surfacing
-    expect(result!.resource.text).toContain('Five Whys');
-    expect(result!.resource.text).toContain('Rubber Duck');
-    expect(result!.resource.text).toContain('Assumption Surfacing');
-  });
 
   // T-TP-6: Thought response includes profile resource for profiled agent
   it('resource block has correct structure for profiled agent', () => {

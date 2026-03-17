@@ -138,3 +138,4 @@ kastalien-srcbook/
 ai_docs/claude-platform-docs/
 dgm-specs/history/runs/*.json
 thoughtbox-web-two/
+.worktrees/

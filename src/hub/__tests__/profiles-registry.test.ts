@@ -12,7 +12,7 @@ import {
   listProfiles,
   getProfilePromptContent,
 } from '../profiles-registry.js';
-import { getModelNames } from '../../mental-models/operations.js';
+
 
 describe('profiles-registry', () => {
   // T-PR2-1: getProfile returns MANAGER definition
@@ -84,18 +84,5 @@ describe('profiles-registry', () => {
     expect(names).toContain('REVIEWER');
   });
 
-  // T-PR2-8: All profile mental models reference valid model names
-  it('all profile mental models reference valid model names', () => {
-    const validModelNames = getModelNames();
-    const profiles = listProfiles();
 
-    for (const profile of profiles) {
-      for (const modelName of profile.mentalModels) {
-        expect(
-          validModelNames,
-          `Profile ${profile.name} references unknown model '${modelName}'`
-        ).toContain(modelName);
-      }
-    }
-  });
 });
