@@ -21,6 +21,7 @@ The unified pipeline is divided into the following specifications, describing th
 3. **[`03-workflow-composition.md`](./03-workflow-composition.md)**: Mapping tasks to a 5D MAP-Elites behavioral space and dynamically composing execution workflows using Thoughtbox branching.
 4. **[`04-execution-evaluation.md`](./04-execution-evaluation.md)**: Proctored execution via Distbook + Docker, Tiered evaluation strategies, anti-gaming contamination detection, and evolutionary compounding.
 5. **[`05-tool-pedagogy-optimization.md`](./05-tool-pedagogy-optimization.md)**: Asynchronous, scheduled evolution of the MCP tool API surface (schemas, output formatting) based on LangSmith trace analysis of organic CLI usage.
+6. **[`06-system-prompt-refinement.md`](./06-system-prompt-refinement.md)**: Synthesis of session learnings into durable context updates (e.g. `.claude/rules/*.md` and `AGENTS.md`) to evolve the overarching system prompt.
 
 ## Key Consolidations
 
