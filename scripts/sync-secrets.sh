@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
+set -euo pipefail
 
 # 1. Configuration
 # Change these if your GCP secret name is different
-SECRET_NAME="thoughtbox-api-key-local"
-ENV_VAR_NAME="THOUGHTBOX_API_KEY_LOCAL"
+SECRET_NAME="thoughtbox-api-key"
+ENV_VAR_NAME="THOUGHTBOX_API_KEY"
 ENV_FILE=".env"
 
 echo "Checking gcloud authentication..."

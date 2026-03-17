@@ -25,10 +25,10 @@ spec:
           env:
             - name: NODE_ENV
               value: production
-            - name: THOUGHTBOX_API_KEY_LOCAL
+            - name: THOUGHTBOX_API_KEY
               valueFrom:
                 secretKeyRef:
-                  name: thoughtbox-api-key-local
+                  name: thoughtbox-api-key
                   key: latest
             - name: ANTHROPIC_API_KEY
               valueFrom:

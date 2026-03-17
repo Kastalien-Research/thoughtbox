@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+set -euo pipefail
 
 # Configuration: Secrets to push
 SECRETS_TO_PUSH=(
@@ -6,14 +7,14 @@ SECRETS_TO_PUSH=(
   "SUPABASE_URL"
   "SUPABASE_ANON_KEY"
   "SUPABASE_JWT_SECRET"
-  "THOUGHTBOX_API_KEY_LOCAL"
+  "THOUGHTBOX_API_KEY"
 )
 
-# 1. Generate THOUGHTBOX_API_KEY_LOCAL if it doesn't exist
-if ! grep -q "^THOUGHTBOX_API_KEY_LOCAL=" .env; then
-    echo "Generating new THOUGHTBOX_API_KEY_LOCAL..."
+# 1. Generate THOUGHTBOX_API_KEY if it doesn't exist
+if ! grep -q "^THOUGHTBOX_API_KEY=" .env; then
+    echo "Generating new THOUGHTBOX_API_KEY..."
     NEW_KEY=$(openssl rand -hex 32)
-    echo "THOUGHTBOX_API_KEY_LOCAL=$NEW_KEY" >> .env
+    echo "THOUGHTBOX_API_KEY=$NEW_KEY" >> .env
     echo "Added new key to .env."
 fi
 
