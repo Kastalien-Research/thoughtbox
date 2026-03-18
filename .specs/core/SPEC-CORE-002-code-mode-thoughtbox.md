@@ -1,7 +1,7 @@
 > **Status**: Draft
 > **Created**: 2026-03-13
-> **Branch**: `feat/code-mode-mvp`
-> **Depends on**: `.specs/agentic-runbooks.md`
+> **Branch**: `feat/code-mode-mvp` (Drafted in `feature/rlm-sampling`)
+> **Depends on**: [agentic-runbooks.md](https://github.com/Kastalien-Research/thoughtbox/blob/main/.specs/agentic-runbooks.md)
 
 # SPEC-CORE-002: Code Mode Thoughtbox
 
@@ -35,6 +35,11 @@ The model interacts with Thoughtbox by writing simple JavaScript/TypeScript snip
     *   `tb.plan(...)`
     *   `tb.question(...)`
     *   `tb.evidence(...)`
+    *   `tb.observation(...)`
+    *   `tb.decision(...)`
+    *   `tb.revision(...)`
+
+    *Note: The remaining IR kinds (`tool_call`, `tool_result`, `hub_event`, `checkpoint`) are implicitly emitted by the host execution environment, not directly authored by the LLM.*
 
 #### Security & Isolation Constraints
 Because Phase 5 requires executing LLM-generated JS/TS server-side, the isolate boundary must be strictly constrained:
@@ -80,14 +85,14 @@ type CanonicalIRAttrs =
   | { kind: "observation"; context?: string }
   | { kind: "decision"; alternativesConsidered?: string[] }
   | { kind: "revision"; replacesId: string }
-  | { kind: "tool_call"; toolName: string; args: any }
+  | { kind: "tool_call"; toolName: string; args: Record<string, unknown> }
   | { kind: "tool_result"; callId: string; status: "ok" | "error" }
   | { kind: "hub_event"; eventType: string }
   | { kind: "checkpoint"; stateHash: string };
 
-interface CanonicalIR {
+interface CanonicalIR<A extends CanonicalIRAttrs = CanonicalIRAttrs> {
   id: string;              // e.g., "th:17"
-  kind: string;            // e.g., "claim"
+  kind: A["kind"];         // Constrained to match attrs.kind
   ts: string;              // ISO-8601 timestamp
   session: string;
   branch: string;
@@ -109,7 +114,7 @@ interface CanonicalIR {
     model?: string;
   };
 
-  attrs: CanonicalIRAttrs; // Type-specific schema-enforced fields
+  attrs: A;                // Type-specific schema-enforced fields
 }
 ```
 
@@ -133,7 +138,7 @@ When serialized for wire transport (especially back to the model context), the C
       "r": ["th:12"],
       "x": "API latency rose because of query regression",
       "a": {
-        "relations": [{ "k": "sup", "to": "th:12" }]
+        "relations": [{ "t": "sup", "to": "th:12" }]
       }
     }
   ]
@@ -141,7 +146,7 @@ When serialized for wire transport (especially back to the model context), the C
 ```
 
 **Key TBX-C1 Rules:**
-*   **Dictionary Expansion:** Must be deterministic; decoders must rehydrate canonical strings.
+*   **Dictionary Expansion:** Must be deterministic; decoders must rehydrate canonical strings. The `"t"` key inside `a.relations` explicitly uses the `d.rel` dictionary, while the record-level `"k"` key uses the `d.k` dictionary.
 *   **Columnar Results:** Large lists (like session logs) must use `cols` and `rows` arrays.
 *   **Error Structuring:** Standardized error payloads inside `a.status = "error"`.
 *   **Fallback:** Must support plain JSON fallback mode if compression is disabled.
