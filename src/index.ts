@@ -31,6 +31,7 @@ import {
 import { createFileSystemHubStorage } from "./hub/hub-storage-fs.js";
 import type { HubStorage } from "./hub/hub-types.js";
 import { initEvaluation, initMonitoring } from "./evaluation/index.js";
+import { resolveApiKeyToWorkspace } from "./auth/api-key.js";
 
 /**
  * Get the storage backend based on environment configuration.
@@ -43,11 +44,15 @@ import { initEvaluation, initMonitoring } from "./evaluation/index.js";
  * Project scope is set at runtime by the progressive disclosure flow
  * (bind_root / start_new), not at startup.
  */
+interface StorageFactory {
+  getStorage: (workspaceId?: string) => ThoughtboxStorage;
+  getKnowledgeStorage: (workspaceId?: string) => KnowledgeStorage | undefined;
+}
+
 interface StorageBundle {
-  storage: ThoughtboxStorage;
+  factory: StorageFactory;
   hubStorage: HubStorage;
   dataDir: string;
-  knowledgeStorage?: KnowledgeStorage;
 }
 
 async function createStorage(): Promise<StorageBundle> {
@@ -69,30 +74,36 @@ async function createStorage(): Promise<StorageBundle> {
       );
     }
 
-    console.error("[Storage] Using Supabase storage");
+    console.error("[Storage] Using Supabase per-session storage factory");
 
-    const storage = new SupabaseStorage({ supabaseUrl, supabaseKey, jwtSecret });
-    await storage.initialize();
-
-    const knowledgeStorage = new SupabaseKnowledgeStorage({
-      supabaseUrl,
-      supabaseKey,
-      jwtSecret,
-    });
-    await knowledgeStorage.initialize();
+    // For Supabase, we return a factory that spins up scoped instances synchronously
+    const factory: StorageFactory = {
+      getStorage: (workspaceId?: string) => {
+        if (!workspaceId) throw new Error('workspaceId is required for Supabase storage');
+        return new SupabaseStorage({ supabaseUrl, supabaseKey, jwtSecret, workspaceId });
+      },
+      getKnowledgeStorage: (workspaceId?: string) => {
+        if (!workspaceId) throw new Error('workspaceId is required for Supabase knowledge storage');
+        return new SupabaseKnowledgeStorage({ supabaseUrl, supabaseKey, jwtSecret, workspaceId });
+      }
+    };
 
     return {
-      storage,
+      factory,
       hubStorage: createFileSystemHubStorage(baseDir),
       dataDir: baseDir,
-      knowledgeStorage,
     };
   }
 
   if (storageType === "memory") {
     console.error("[Storage] Using in-memory storage (volatile)");
+    const memoryStorage = new InMemoryStorage();
+    const factory: StorageFactory = {
+      getStorage: () => memoryStorage,
+      getKnowledgeStorage: () => undefined,
+    };
     return {
-      storage: new InMemoryStorage(),
+      factory,
       hubStorage: createFileSystemHubStorage(baseDir),
       dataDir: baseDir,
     };
@@ -100,13 +111,12 @@ async function createStorage(): Promise<StorageBundle> {
 
   console.error(`[Storage] Using filesystem storage at ${baseDir}`);
 
-  const storage = new FileSystemStorage({
+  // Base init for FileSystem: config, legacy migration. Done once globally.
+  const fsStorage = new FileSystemStorage({
     basePath: baseDir,
     partitionGranularity: "monthly",
   });
-
-  // Base init: config, legacy migration. Project scoping happens later via setProject().
-  await storage.initialize();
+  await fsStorage.initialize();
 
   // Auto-migrate existing exports if any
   try {
@@ -124,8 +134,13 @@ async function createStorage(): Promise<StorageBundle> {
     console.error("[Storage] Migration check failed (non-fatal):", err);
   }
 
+  const factory: StorageFactory = {
+    getStorage: () => fsStorage,
+    getKnowledgeStorage: () => undefined,
+  };
+
   return {
-    storage,
+    factory,
     hubStorage: createFileSystemHubStorage(baseDir),
     dataDir: baseDir,
   };
@@ -152,10 +167,17 @@ async function maybeStartObservatory(hubStorage?: HubStorage, persistentStorage?
 }
 
 async function startHttpServer() {
-  // Initialize shared storage (all MCP sessions share the same persistence layer)
-  const { storage, hubStorage, dataDir, knowledgeStorage } = await createStorage();
+  const { factory, hubStorage, dataDir } = await createStorage();
 
-  const observatoryServer = await maybeStartObservatory(hubStorage, storage);
+  // Provide observatory with a generic un-scoped storage if possible, otherwise it limits functionality
+  let observatoryBaseStorage: ThoughtboxStorage | undefined;
+  try {
+    observatoryBaseStorage = factory.getStorage();
+  } catch (e) {
+    // Fails for Supabase without workspaceId, which is fine since Observatory skips persistent reading in MVP
+  }
+
+  const observatoryServer = await maybeStartObservatory(hubStorage, observatoryBaseStorage);
 
   // Initialize LangSmith evaluation tracing (no-op if LANGSMITH_API_KEY not set)
   const traceListener = initEvaluation();
@@ -170,8 +192,40 @@ async function startHttpServer() {
   app.all("/mcp", async (req: Request, res: Response) => {
     const mcpSessionId = req.headers["mcp-session-id"] as string | undefined;
 
-    // Debug: log all incoming requests
     console.error(`[MCP] ${req.method} request, session: ${mcpSessionId || 'new'}`);
+
+    // Dynamic API Key / Workspace resolution
+    let workspaceId: string | undefined = undefined;
+    const authHeader = req.headers.authorization as string | undefined;
+    const headerKey = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : undefined;
+    const queryKey = req.query.key as string | undefined;
+    const providedKey = headerKey || queryKey;
+
+    if (providedKey) {
+      if (providedKey === process.env.THOUGHTBOX_API_KEY_LOCAL) {
+        // Bypass for local development if the master key is used
+        workspaceId = 'local-dev-workspace';
+      } else {
+        try {
+          workspaceId = await resolveApiKeyToWorkspace(providedKey);
+        } catch (err) {
+          res.status(401).json({
+            jsonrpc: "2.0",
+            error: { code: -32001, message: "Invalid or inactive API key" },
+            id: null,
+          });
+          return;
+        }
+      }
+    } else if (process.env.THOUGHTBOX_STORAGE === 'supabase') {
+       // Require key for hosted environment
+       res.status(401).json({
+        jsonrpc: "2.0",
+        error: { code: -32001, message: "Missing API key" },
+        id: null,
+      });
+      return;
+    }
 
     try {
       if (mcpSessionId && sessions.has(mcpSessionId)) {
@@ -187,9 +241,13 @@ async function startHttpServer() {
 
       const sessionId = mcpSessionId || crypto.randomUUID();
 
+      // Instantiate strictly-scoped storage using the resolved workspaceId
+      const storage = factory.getStorage(workspaceId);
+      const knowledgeStorage = factory.getKnowledgeStorage(workspaceId);
+
       const server = await createMcpServer({
         sessionId,
-        storage, // Shared storage instance
+        storage,
         hubStorage,
         dataDir,
         knowledgeStorage,
@@ -204,7 +262,10 @@ async function startHttpServer() {
         enableJsonResponse: true,
       });
 
-      sessions.set(sessionId, { transport, server });
+      sessions.set(sessionId, {
+        transport,
+        server,
+      });
 
       transport.onclose = () => {
         sessions.delete(transport.sessionId || sessionId);
@@ -274,7 +335,12 @@ async function startHttpServer() {
 
 async function runStdioServer() {
   // Initialize storage for stdio mode
-  const { storage, hubStorage, dataDir, knowledgeStorage } = await createStorage();
+  const { factory, hubStorage, dataDir } = await createStorage();
+  
+  // For stdio mode with Supabase, a workspace ID must be provided via the environment
+  const workspaceId = process.env.THOUGHTBOX_WORKSPACE_ID;
+  const storage = factory.getStorage(workspaceId);
+  const knowledgeStorage = factory.getKnowledgeStorage(workspaceId);
 
   const disableThoughtLogging =
     (process.env.DISABLE_THOUGHT_LOGGING || "").toLowerCase() === "true";

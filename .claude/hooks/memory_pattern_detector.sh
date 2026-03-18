@@ -60,12 +60,12 @@ if [[ -f "$STATE_DIR/file_access.log" ]]; then
         | sort -rn \
         | head -5
     )
-
+    
     if [[ -n "$repeated_files" ]]; then
         while IFS= read -r line; do
             count=$(echo "$line" | awk '{print $1}')
             file="$(echo "$line" | sed -E 's/^[[:space:]]*[0-9]+[[:space:]]+//')"
-
+            
             if [[ "$count" -gt 3 ]]; then
                 echo "[$timestamp] ⚠️  Coverage Gap: $file accessed ${count}x" >> "$LOG_FILE"
 
@@ -102,15 +102,15 @@ if [[ -f "$STATE_DIR/errors.log" ]]; then
         | sort -rn \
         | head -3
     )
-
+    
     if [[ -n "$repeated_errors" ]]; then
         while IFS= read -r line; do
             count=$(echo "$line" | awk '{print $1}')
             error="$(echo "$line" | sed -E 's/^[[:space:]]*[0-9]+[[:space:]]+//')"
-
+            
             if [[ "$count" -gt 2 ]]; then
                 echo "[$timestamp] 🔁 Repeated Issue: \"$error\" seen ${count}x" >> "$LOG_FILE"
-
+                
                 # Add to state
                 state=$(echo "$state" | jq \
                     --arg error "$error" \
@@ -144,11 +144,11 @@ if [[ "$discovery_time" != "null" ]]; then
         --arg time "$discovery_time" \
         --arg timestamp "$timestamp" \
         '.discovery_times += [{seconds: ($time | tonumber), timestamp: $timestamp}]')
-
+    
     # Calculate running average
     avg_discovery=$(echo "$state" | jq '[.discovery_times[] | .seconds] | add / length')
     echo "[$timestamp] Discovery time: ${discovery_time}s (avg: ${avg_discovery}s)" >> "$LOG_FILE"
-
+    
     # Alert if discovery is slow
     if [[ "$discovery_time" =~ ^[0-9]+$ ]] && (( discovery_time > 120 )); then
         echo "[$timestamp] ⚠️  Slow discovery (>2min): Consider adding memory for this area" >> "$LOG_FILE"

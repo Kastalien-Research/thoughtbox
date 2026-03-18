@@ -21,7 +21,7 @@ if [[ "$tool_name" == "Bash" || "$tool_name" == "Shell" ]]; then
         ""
       end
     ' 2>/dev/null || echo "")
-
+    
     # Check if this is a Git command
     if echo "$command" | grep -qiE "^\s*git\s+"; then
         # Ensure log directory and JSON file exist

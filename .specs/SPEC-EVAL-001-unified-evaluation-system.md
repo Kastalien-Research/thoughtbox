@@ -177,11 +177,15 @@ interface EvaluatorResult {
 **Purpose**: Run agents against datasets with different configurations and compare.
 
 ```typescript
-interface ExperimentConfig {
+interface RunExperimentOptions {
   datasetName: string;
+  evaluators?: EvaluatorName[];
+  target: (input: Record<string, any>) => Promise<Record<string, any>>;
+  experimentPrefix?: string;
+  description?: string;
+  metadata?: Record<string, unknown>;
   memoryDesignId?: string;
-  evaluators: string[];
-  metadata: Record<string, unknown>;
+  maxConcurrency?: number;
 }
 ```
 

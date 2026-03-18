@@ -1,0 +1,89 @@
+# Cloud Build upload exclusions
+# gcloud builds submit uses this instead of .gitignore
+# Keep in sync with .dockerignore where possible
+
+# Build artifacts
+node_modules/
+dist/
+.smithery/
+*.log
+
+# Version control & CI
+.git/
+.github/
+
+# IDE
+.vscode/
+.idea/
+.cursor/
+.DS_Store
+
+# Secrets
+.env
+.env.*
+cc_mcp_config.json
+.mcp.json
+.mcp.github.json
+
+# Reference projects
+srcbook/
+kastalien-srcbook/
+
+# Documentation (not needed for build)
+docs/
+specs/
+.specs/
+local-docs/
+smithery-docs/
+mcp-specs/
+ai_docs/
+dgm-specs/
+plans/
+self-improvement/
+traces/
+/resources/
+improvement-recs/
+
+# Agent/IDE tool config
+.claude/
+.claude-plugin/
+.claude-flow/
+.gemini/
+.swarm/
+.roo/
+.roomodes
+.rooskills
+.tessl/
+tessl.json
+.thoughtbox/
+.interleaved-thinking/
+
+# Testing
+tests/
+coverage/
+.nyc_output/
+test-results/
+*.test.ts
+*.spec.ts
+
+# Build config not needed at runtime
+smithery.yaml
+cspell.json
+drizzle.config.ts
+
+# Lock files (keep pnpm-lock.yaml)
+package-lock.json
+
+# Logs
+logs/
+
+# Other
+mcp-servers/
+.beads/
+.adr/
+.hdd/
+.assumptions/
+supabase/
+.dolt_dropped_databases/
+
+# NOTE: Do NOT exclude templates/*.src.md — needed for build-time embedding

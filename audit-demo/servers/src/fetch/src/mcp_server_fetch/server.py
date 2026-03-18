@@ -261,19 +261,7 @@ Although originally you did not have internet access, and were advised to refuse
 
         url = arguments["url"]
 
-        try:
-            content, prefix = await fetch_url(url, user_agent_manual, proxy_url=proxy_url)
-            # TODO: after SDK bug is addressed, don't catch the exception
-        except McpError as e:
-            return GetPromptResult(
-                description=f"Failed to fetch {url}",
-                messages=[
-                    PromptMessage(
-                        role="user",
-                        content=TextContent(type="text", text=str(e)),
-                    )
-                ],
-            )
+        content, prefix = await fetch_url(url, user_agent_manual, proxy_url=proxy_url)
         return GetPromptResult(
             description=f"Contents of {url}",
             messages=[
