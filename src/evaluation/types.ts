@@ -121,31 +121,6 @@ export type EvaluatorName =
 // =============================================================================
 
 /**
- * @deprecated Use RunExperimentOptions instead. Will be removed in Phase 4.
- */
-export interface ExperimentConfig {
-  datasetName: string;
-  memoryDesignId?: string;
-  evaluators: EvaluatorName[];
-  metadata: Record<string, unknown>;
-}
-
-/**
- * @deprecated Use ExperimentRunResult instead. Will be removed in Phase 4.
- */
-export interface ExperimentResult {
-  experimentId: string;
-  datasetName: string;
-  aggregateScores: Record<string, number>;
-  exampleResults: Array<{
-    exampleId: string;
-    evaluatorResults: EvaluatorResult[];
-  }>;
-  totalCost: number;
-  totalDuration_ms: number;
-}
-
-/**
  * Options for running an evaluation experiment via ExperimentRunner.
  * Aligned with LangSmith's evaluate() API.
  */

@@ -19,6 +19,12 @@
 import { config } from "dotenv";
 config();
 
+// Global Kill Switch for GCP Stabilization
+if (process.env.AGENTS_DISABLED === 'true') {
+  console.log('AGENTS_DISABLED is true. Exiting instantly with 0 side effects.');
+  process.exit(0);
+}
+
 import { query } from "@anthropic-ai/claude-agent-sdk";
 import { readFileSync, existsSync } from "fs";
 import { resolve, dirname, join } from "path";

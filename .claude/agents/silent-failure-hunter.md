@@ -57,7 +57,6 @@ For this project, the critical pipelines are:
 | `fitness_tracker.sh` | `.dgm/fitness.json` | `/dgm-evolve` | Pattern evolution uses wrong fitness |
 | `eval_collector.sh` | `.eval/metrics/session-*.json` | `regression-sentinel` | Regression detection uses wrong baselines |
 | `assumption-tracker.sh` | `.assumptions/registry.jsonl` | `assumption-auditor` | Stale assumptions not flagged |
-| `session_end_memory.sh` | `.claude/state/memory-calibration.log` | `eval_collector.sh` | Memory usefulness always returns default |
 | `controller-prime.sh` | `controller/state/controller-state.json` | `session_start.sh` | Session gets no priming context |
 | Agent SDK scripts | `agentops/runs/` | `cost-governor` | Cost tracking misses runs |
 

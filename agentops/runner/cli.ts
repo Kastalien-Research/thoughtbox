@@ -11,6 +11,24 @@ import { GitHubClient } from './lib/github.js';
 // Load environment variables from .env file
 dotenv.config();
 
+// Global Kill Switch for GCP Stabilization
+if (process.env.AGENTS_DISABLED === 'true') {
+  console.log('AGENTS_DISABLED is true. Exiting instantly with 0 side effects.');
+  process.exit(0);
+}
+
+// Invariant Enforcement: No Silent Fallback for Environment
+const isDryRun = process.argv.includes('--dry-run');
+if (!isDryRun) {
+  const requiredEnvVars = ['GITHUB_TOKEN', 'GITHUB_REPOSITORY'];
+  const missingEnv = requiredEnvVars.filter(env => !process.env[env]);
+  if (missingEnv.length > 0) {
+    console.error(`ERROR: Missing required environment variables: ${missingEnv.join(', ')}`);
+    console.error('No silent fallbacks permitted. Exiting.');
+    process.exit(1);
+  }
+}
+
 async function main() {
   const args = process.argv.slice(2);
   const command = args[0];
