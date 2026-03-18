@@ -278,8 +278,7 @@ describe('SupabaseKnowledgeStorage (KnowledgeStorage)', () => {
   // Project scoping and no-ops
   // ===========================================================================
 
-
-
+  describe('Project scoping and no-ops', () => {
     it('rebuildIndexFromJsonl is a no-op', async ({ skip }) => {
       if (!available) skip();
       // Should not throw

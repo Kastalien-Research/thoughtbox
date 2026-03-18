@@ -73,5 +73,4 @@ describe('H6: createStorage() wiring', () => {
     expect(typeof iface.getStats).toBe('function');
     expect(typeof iface.rebuildIndexFromJsonl).toBe('function');
   });
-
-
+});
