@@ -20,4 +20,4 @@ resource "github_branch_protection" "main" {
     strict   = true
     contexts = ["ci", "workflow-guard"]
   }
-
+}
