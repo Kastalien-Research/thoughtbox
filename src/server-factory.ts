@@ -85,6 +85,10 @@ import { getOperationsCatalog as getKnowledgeOperationsCatalog, getOperation as 
 import { getOperationsCatalog as getHubOperationsCatalog, getOperation as getHubOp } from "./hub/operations.js";
 import { getOperation as getNbOp } from "./notebook/operations.js";
 import { handleOperationsTool, operationsToolInputSchema } from "./operations-tool/index.js";
+import { ULYSSES_PROTOCOL_CONTENT } from "./resources/ulysses-protocol-content.js";
+import { UlyssesHandler } from "./ulysses/index.js";
+import { ulyssesToolInputSchema } from "./ulysses/operations.js";
+
 
 // Configuration schema
 // Note: Using .default() means the field is always present after parsing.
@@ -505,6 +509,19 @@ Call \`thoughtbox_hub\` { "operation": "register", "args": { "name": "Your Agent
       return {
         content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }],
       };
+    }
+  );
+
+  const ulyssesHandler = new UlyssesHandler();
+  server.registerTool(
+    "ulysses_protocol",
+    {
+      description: "Dispatcher tool for the Ulysses Surprise-Gated Debugging Protocol.",
+      inputSchema: ulyssesToolInputSchema as any,
+    },
+    async (toolArgs: any) => {
+      // Use sessionId from args or fallback to the top-level server sessionId
+      return await ulyssesHandler.handle(toolArgs as any, sessionId || "default-session");
     }
   );
 
@@ -1473,6 +1490,17 @@ mcp__thoughtbox__thoughtbox({
   );
 
 
+  server.registerResource(
+    "thoughtbox://ulysses",
+    new ResourceTemplate("thoughtbox://ulysses", { list: undefined }),
+    {
+      description: "Surprise-Gated Debugging Protocol Specification",
+      mimeType: "text/markdown",
+    },
+    async (request) => {
+      return { contents: [{ uri: "thoughtbox://ulysses", mimeType: "text/markdown", text: ULYSSES_PROTOCOL_CONTENT }] };
+    }
+  );
 
   // Init flow resources using path segments
   const str = (val: string | string[] | undefined): string | undefined =>
@@ -1921,6 +1949,12 @@ mcp__thoughtbox__thoughtbox({
         name: "Parallel Verification Guide",
         description:
           "Workflow for parallel hypothesis exploration using Thoughtbox branching",
+        mimeType: "text/markdown",
+      },
+      {
+        uri: "thoughtbox://ulysses",
+        name: "Ulysses Protocol Specification",
+        description: "Surprise-Gated Debugging Protocol",
         mimeType: "text/markdown",
       },
       // Unified prompt/resource pattern - prompts are also readable as resources
