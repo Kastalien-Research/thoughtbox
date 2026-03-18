@@ -1,7 +1,7 @@
 # Thoughtbox Data Models
 
 > **Part of:** [Architecture Documentation](./ARCHITECTURE.md)
-> **Last Updated:** 2026-03-15
+> **Last Updated:** 2026-01-20
 
 Complete data model specifications for the Thoughtbox server. All schemas use YAML/OpenAPI-style notation.
 
@@ -21,8 +21,6 @@ Complete data model specifications for the Thoughtbox server. All schemas use YA
 - [Notebook Types](#notebook-types) - Notebook, Cell variants
 - [Mental Models Types](#mental-models-types) - MentalModelDefinition, response types
 - [Observatory Types](#observatory-types) - Event payloads, WebSocket schemas
-- [Supabase Schema](#supabase-schema) - Product tables, workspace/auth tables, RLS model
-- [Knowledge Graph Types](#knowledge-graph-types) - Entity, Relation, Observation
 - [Error Types](#error-types) - Error codes and payloads
 
 ---
@@ -1233,24 +1231,26 @@ Types for SIL-104 event streaming (JSONL output).
 
 ### ThoughtboxEvent
 
-Defined in `src/events/types.ts`. All events share a base shape and use a `payload` field (not `data`).
-
 ```yaml
-# BaseEvent - shared by all event types
-BaseEvent:
+# ThoughtboxEvent - JSONL event format for external consumers
+ThoughtboxEvent:
   type: object
   required:
     - type
     - timestamp
+    - data
   properties:
     type:
       type: string
       enum:
-        - session_created
         - thought_added
+        - thought_revised
         - branch_created
-        - session_completed
-        - export_requested
+        - session_started
+        - session_loaded
+        - session_exported
+        - cipher_loaded
+        - stage_changed
       description: Event type identifier
 
     timestamp:
@@ -1258,17 +1258,42 @@ BaseEvent:
       format: date-time
       description: ISO 8601 timestamp
 
-    mcpSessionId:
+    sessionId:
       type: string
+      format: uuid
       nullable: true
-      description: MCP session ID (included when configured)
+      description: Associated session (if applicable)
+
+    data:
+      type: object
+      description: Event-specific payload
 ```
 
 ### Event Payloads by Type
 
 ```yaml
-# session_created payload
-SessionCreatedPayload:
+# thought_added data payload
+ThoughtAddedEventData:
+  type: object
+  required:
+    - thoughtNumber
+    - thought
+    - nextThoughtNeeded
+  properties:
+    thoughtNumber:
+      type: integer
+    thought:
+      type: string
+      maxLength: 100
+      description: Truncated thought content
+    nextThoughtNeeded:
+      type: boolean
+    branchId:
+      type: string
+      nullable: true
+
+# session_started data payload
+SessionStartedEventData:
   type: object
   required:
     - sessionId
@@ -1276,6 +1301,7 @@ SessionCreatedPayload:
   properties:
     sessionId:
       type: string
+      format: uuid
     title:
       type: string
     tags:
@@ -1283,70 +1309,25 @@ SessionCreatedPayload:
       items:
         type: string
 
-# thought_added payload
-ThoughtAddedPayload:
+# stage_changed data payload
+StageChangedEventData:
   type: object
   required:
-    - sessionId
-    - thoughtNumber
-    - wasAutoAssigned
-    - thoughtPreview
+    - previousStage
+    - newStage
+    - trigger
   properties:
-    sessionId:
-      type: string
-    thoughtNumber:
+    previousStage:
       type: integer
-    wasAutoAssigned:
-      type: boolean
-      description: "SIL-102: true if server assigned the number"
-    thoughtPreview:
-      type: string
-      description: "First 100 chars of thought content"
-
-# branch_created payload
-BranchCreatedPayload:
-  type: object
-  required:
-    - sessionId
-    - branchId
-    - fromThoughtNumber
-  properties:
-    sessionId:
-      type: string
-    branchId:
-      type: string
-    fromThoughtNumber:
+      minimum: 0
+      maximum: 3
+    newStage:
       type: integer
-
-# session_completed payload
-SessionCompletedPayload:
-  type: object
-  required:
-    - sessionId
-    - finalThoughtCount
-    - branchCount
-  properties:
-    sessionId:
+      minimum: 0
+      maximum: 3
+    trigger:
       type: string
-    finalThoughtCount:
-      type: integer
-    branchCount:
-      type: integer
-
-# export_requested payload
-ExportRequestedPayload:
-  type: object
-  required:
-    - sessionId
-    - exportPath
-    - nodeCount
-  properties:
-    sessionId:
-      type: string
-    exportPath:
-      type: string
-    nodeCount:
-      type: integer
+      description: Operation that caused the stage change
 ```
 
 ---
@@ -1882,184 +1863,6 @@ SessionEndedPayload:
       type: string
     finalThoughtCount:
       type: integer
-```
-
----
-
-## Supabase Schema
-
-When `THOUGHTBOX_STORAGE=supabase`, all data is persisted in Supabase Postgres. Schema is managed by two migrations in `supabase/migrations/`.
-
-### Product Tables (`20260313000000_create_product_schema.sql`)
-
-| Table | Description | Key Columns |
-|-------|-------------|-------------|
-| `sessions` | Reasoning session containers | `id` (UUID PK), `project` (TEXT), `title`, `description`, `tags` (TEXT[]), `thought_count`, `branch_count`, `created_at`, `updated_at`, `last_accessed_at` |
-| `thoughts` | Individual reasoning steps | `id` (UUID PK), `session_id` (FK → sessions), `project`, `thought_number`, `thought`, `thought_type`, `is_revision`, `branch_id`, `confidence`, `agent_id`, `critique` (JSONB) |
-| `entities` | Knowledge graph nodes | `id` (UUID PK), `project`, `name`, `type` (Insight/Concept/Workflow/Decision/Agent), `label`, `properties` (JSONB), `visibility`, `importance_score`, UNIQUE(`project`, `name`, `type`) |
-| `relations` | Knowledge graph edges | `id` (UUID PK), `project`, `from_id` (FK → entities), `to_id` (FK → entities), `type` (RELATES_TO/BUILDS_ON/CONTRADICTS/etc.) |
-| `observations` | Atomic facts on entities | `id` (UUID PK), `project`, `entity_id` (FK → entities), `content`, `source_session` (FK → sessions), `content_tsv` (TSVECTOR, FTS) |
-
-All product tables have RLS enabled. The initial migration uses project-claim-based policies (`auth.jwt() ->> 'project'`), which the auth migration replaces with membership-based policies.
-
-### Workspace/Auth Tables (`20260313100000_auth_workspace_tables.sql`)
-
-| Table | Description | Key Columns |
-|-------|-------------|-------------|
-| `profiles` | User profile data | `user_id` (UUID PK, FK → auth.users), `display_name`, `default_workspace_id` |
-| `workspaces` | Collaboration containers | `id` (UUID PK), `name`, `slug` (UNIQUE), `status` (active/suspended/archived), `owner_user_id` (FK → auth.users) |
-| `workspace_memberships` | User-workspace associations | `workspace_id` + `user_id` (composite PK), `role` (owner/admin/member), `invited_by_user_id` |
-| `projects` | Project scope within workspace | `id` (UUID PK), `workspace_id` (FK → workspaces), `name`, `slug`, `status`, UNIQUE(`workspace_id`, `slug`) |
-
-### RLS Policy Model
-
-The auth migration replaces the initial project-claim policies on all 5 product tables with membership-based access:
-
-```sql
--- Helper function used by all product table policies
-CREATE FUNCTION user_can_access_project(project_name TEXT) RETURNS BOOLEAN
--- Checks: projects.name = project_name
---     AND workspace_memberships.user_id = auth.uid()
---     AND workspace_memberships.workspace_id = projects.workspace_id
-
--- Applied to sessions, thoughts, entities, relations, observations:
-CREATE POLICY user_project_access ON <table>
-  FOR ALL USING (user_can_access_project(project))
-  WITH CHECK (user_can_access_project(project));
-```
-
-Workspace-level policies: users see workspaces they belong to. Profile policies: users see only their own profile. Membership policies: users see their own memberships plus admins/owners see all memberships in their workspaces.
-
----
-
-## Knowledge Graph Types
-
-Defined in `src/knowledge/types.ts`. The knowledge graph stores cross-session knowledge as entities, relations, and observations.
-
-### Entity
-
-```yaml
-Entity:
-  type: object
-  properties:
-    id:
-      type: string
-      format: uuid
-    name:
-      type: string
-      description: "Unique within type (e.g., 'orchestrator-worker-pattern')"
-    type:
-      type: string
-      enum: [Insight, Concept, Workflow, Decision, Agent]
-    label:
-      type: string
-      description: "Human-readable title"
-    properties:
-      type: object
-      description: "Type-specific properties"
-    visibility:
-      type: string
-      enum: [public, agent-private, user-private, team-private]
-      default: public
-    importance_score:
-      type: number
-      default: 0.5
-    access_count:
-      type: integer
-    created_at:
-      type: string
-      format: date-time
-    updated_at:
-      type: string
-      format: date-time
-    created_by:
-      type: string
-      description: "Agent ID"
-    valid_from:
-      type: string
-      format: date-time
-    valid_to:
-      type: string
-      format: date-time
-      nullable: true
-      description: "null = currently valid"
-    superseded_by:
-      type: string
-      description: "Entity ID that replaces this"
-```
-
-### Relation
-
-```yaml
-Relation:
-  type: object
-  properties:
-    id:
-      type: string
-      format: uuid
-    from_id:
-      type: string
-      format: uuid
-      description: "Source entity"
-    to_id:
-      type: string
-      format: uuid
-      description: "Target entity"
-    type:
-      type: string
-      enum:
-        - RELATES_TO
-        - BUILDS_ON
-        - CONTRADICTS
-        - EXTRACTED_FROM
-        - APPLIED_IN
-        - LEARNED_BY
-        - DEPENDS_ON
-        - SUPERSEDES
-        - MERGED_FROM
-    properties:
-      type: object
-    created_at:
-      type: string
-      format: date-time
-    created_by:
-      type: string
-```
-
-### Observation
-
-```yaml
-Observation:
-  type: object
-  properties:
-    id:
-      type: string
-      format: uuid
-    entity_id:
-      type: string
-      format: uuid
-    content:
-      type: string
-      description: "Atomic fact"
-    source_session:
-      type: string
-      description: "Session that contributed this"
-    added_by:
-      type: string
-      description: "Agent ID"
-    added_at:
-      type: string
-      format: date-time
-    valid_from:
-      type: string
-      format: date-time
-    valid_to:
-      type: string
-      format: date-time
-      nullable: true
-    superseded_by:
-      type: string
-      description: "Observation ID"
 ```
 
 ---

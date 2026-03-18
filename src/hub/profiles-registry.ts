@@ -6,7 +6,7 @@
  */
 
 import type { ProfileName, ProfileDefinition } from './profiles-types.js';
-
+import { getModel } from '../mental-models/operations.js';
 
 // =============================================================================
 // Profile Definitions (authoritative)
@@ -87,9 +87,21 @@ export function listProfiles(): ProfileDefinition[] {
  */
 export function getProfilePromptContent(name: string): {
   prompt: string;
+  modelNames: string[];
 } | null {
   const profile = getProfile(name);
   if (!profile) return null;
+
+  const modelContents: string[] = [];
+  const modelNames: string[] = [];
+
+  for (const modelName of profile.mentalModels) {
+    const model = getModel(modelName);
+    if (model) {
+      modelNames.push(model.name);
+      modelContents.push(`## ${model.title}\n\n${model.content}`);
+    }
+  }
 
   const prompt = `# Agent Profile: ${profile.name}
 
@@ -98,7 +110,7 @@ export function getProfilePromptContent(name: string): {
 
 ## Assigned Mental Models
 
-${profile.mentalModels.join(', ')}`;
+${modelContents.join('\n\n---\n\n')}`;
 
-  return { prompt };
+  return { prompt, modelNames };
 }

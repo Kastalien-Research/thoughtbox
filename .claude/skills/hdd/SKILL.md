@@ -318,67 +318,63 @@ calling workflow. Update state to `phase: "stage-complete"`.
 
 ## Phase 3: Implementation
 
-**Goal**: Build the minimum code needed to test hypotheses using a tournament-style parallel implementation.
+**Goal**: Build the minimum code needed to test hypotheses.
 
 ### Delegation
 
-Instead of dispatching a single agent, you will use the tournament workflow to explore multiple implementation strategies simultaneously safely.
+Dispatch one or more sub-agents depending on implementation scope. For each sub-agent:
 
-Dispatch the `workflow-tournament` skill:
-
-```bash
-/workflow-tournament 5
-```
-
-Alternatively, if orchestrating directly, dispatch 5 sub-agents to 5 sterile Git worktrees (e.g., `.worktrees/agent-1` through `.worktrees/agent-5`).
-
-For each sub-agent:
 ```
 Agent tool call:
   prompt: |
-    You are an HDD Tournament Implementation agent.
+    You are an HDD Implementation agent.
 
     ## Scope
     ADR: <paste staging ADR path and content>
     Spec: <paste spec path and content>
 
     ## Task
-    Implement the ENTIRE feature described in the spec and ADR within your isolated Git worktree.
+    Implement the minimum changes required to exercise the hypotheses in the ADR.
 
     Rules:
     1. Read the spec for WHAT to build. Read the ADR for WHY.
-    2. Write tests tied to each hypothesis — tests validate the PREDICTION.
-    3. Run build and type checks after implementation in your worktree.
+    2. Write tests tied to each hypothesis — tests validate the PREDICTION,
+       not just that code exists.
+    3. Run build and type checks after implementation.
     4. Track any deviation from spec with justification.
-    5. Commit your work to your specific agent branch (e.g., `feat/X-agent-N`). Do NOT merge to the main feature branch.
+    5. Do NOT commit. Changes stay uncommitted until after validation.
 
     ## Return format
     ```
     IMPLEMENTATION SUMMARY
     ======================
-    Agent ID: <Your Agent Number>
-    Files modified/created: [list]
+    Files modified: [list with paths]
+    Files created: [list with paths]
+    Tests written: N
     Tests passing: N/N
-    Build/Type check: pass | fail
-
-    APPROACH ELEGANCE
-    - <Brief explanation of why your implementation approach is the best>
+    Build: pass | fail
+    Type check: pass | fail
 
     HYPOTHESIS COVERAGE
     H1: covered by test <test name>
+    H2: covered by test <test name>
     ...
+
+    DEVIATIONS FROM SPEC
+    - <deviation>: <justification>
+    (or: None.)
+
+    TEST TARGETS
+    Command: <exact test command>
+    Files: <test file paths>
     ```
 ```
 
-After receiving all summaries, evaluate the implementations based on correctness, elegance, and test results.
-**Present a summary and recommendation to the user.**
-You **MUST WAIT FOR USER APPROVAL** before selecting a winner and merging their worktree into the primary branch.
+After receiving summaries, update `.hdd/state.json` with artifacts and test targets.
 
-Update `.hdd/state.json` with the selected artifacts and test targets.
+**No user checkpoint** — advance directly to validation.
 
-**User checkpoint**: Explicit user approval is required to select the winning implementation.
-
-**Gate**: Winning implementation merged. Build passes. Type checks pass.
+**Gate**: Implementation and hypothesis-linked tests exist. Build passes. Type checks pass.
 
 ## Phase 4: Validation
 

@@ -1,7 +1,7 @@
 # Thoughtbox Tool Interfaces
 
 > **Part of:** [Architecture Documentation](./ARCHITECTURE.md)
-> **Last Updated:** 2026-03-15
+> **Last Updated:** 2026-01-20
 
 Complete tool interface specifications including the gateway router, individual tools, and storage interface.
 
@@ -16,10 +16,8 @@ Complete tool interface specifications including the gateway router, individual 
 - [Get Structure Tool](#get-structure-tool)
 - [Session Tool](#session-tool)
 - [Deep Analysis Tool](#deep-analysis-tool)
-- [Knowledge Graph Tool](#knowledge-graph-tool)
 - [Notebook Tool](#notebook-tool)
 - [Mental Models Tool](#mental-models-tool)
-- [Additional MCP Tools](#additional-mcp-tools)
 - [Storage Interface](#storage-interface)
 
 ---
@@ -258,36 +256,6 @@ gateway_routes:
       - get_model
       - list_models
       - list_tags
-
-  # Knowledge graph operations (Stage 2, flattened with knowledge_ prefix)
-  knowledge_create_entity:
-    handler: knowledge
-    minimum_stage: 2
-    advances_to: null
-  knowledge_get_entity:
-    handler: knowledge
-    minimum_stage: 2
-    advances_to: null
-  knowledge_list_entities:
-    handler: knowledge
-    minimum_stage: 2
-    advances_to: null
-  knowledge_add_observation:
-    handler: knowledge
-    minimum_stage: 2
-    advances_to: null
-  knowledge_create_relation:
-    handler: knowledge
-    minimum_stage: 2
-    advances_to: null
-  knowledge_query_graph:
-    handler: knowledge
-    minimum_stage: 2
-    advances_to: null
-  knowledge_stats:
-    handler: knowledge
-    minimum_stage: 2
-    advances_to: null
 ```
 
 ---
@@ -321,13 +289,6 @@ tool:
           - get_structure
           - notebook
           - mental_models
-          - knowledge_create_entity
-          - knowledge_get_entity
-          - knowledge_list_entities
-          - knowledge_add_observation
-          - knowledge_create_relation
-          - knowledge_query_graph
-          - knowledge_stats
 
       # Operation-specific parameters
       # (varies by operation, see gateway routes above)
@@ -618,122 +579,6 @@ tool:
 
 ---
 
-## Knowledge Graph Tool
-
-Knowledge graph operations are accessed through `thoughtbox_gateway` with `knowledge_` prefixed operation names (Stage 2). Parameters are passed in the `args` field.
-
-```yaml
-operations:
-  knowledge_create_entity:
-    description: "Create a new knowledge entity"
-    parameters:
-      name:
-        type: string
-        required: true
-      type:
-        type: string
-        required: true
-        enum: [Insight, Concept, Workflow, Decision, Agent]
-      label:
-        type: string
-        required: true
-      properties:
-        type: object
-        required: false
-      created_by:
-        type: string
-        required: false
-      visibility:
-        type: string
-        enum: [public, agent-private, user-private, team-private]
-        default: public
-
-  knowledge_get_entity:
-    description: "Get entity by ID"
-    parameters:
-      entity_id:
-        type: string
-        required: true
-
-  knowledge_list_entities:
-    description: "List entities with optional filtering"
-    parameters:
-      types:
-        type: array
-        items: string
-        required: false
-      visibility:
-        type: array
-        items: string
-        required: false
-      name_pattern:
-        type: string
-        required: false
-        description: "SQL LIKE pattern"
-      limit:
-        type: integer
-        required: false
-      offset:
-        type: integer
-        required: false
-
-  knowledge_add_observation:
-    description: "Add atomic fact to an entity"
-    parameters:
-      entity_id:
-        type: string
-        required: true
-      content:
-        type: string
-        required: true
-      source_session:
-        type: string
-        required: false
-      added_by:
-        type: string
-        required: false
-
-  knowledge_create_relation:
-    description: "Create directed edge between entities"
-    parameters:
-      from_id:
-        type: string
-        required: true
-      to_id:
-        type: string
-        required: true
-      relation_type:
-        type: string
-        required: true
-        enum: [RELATES_TO, BUILDS_ON, CONTRADICTS, EXTRACTED_FROM, APPLIED_IN, LEARNED_BY, DEPENDS_ON, SUPERSEDES, MERGED_FROM]
-      properties:
-        type: object
-        required: false
-
-  knowledge_query_graph:
-    description: "Traverse graph from starting entity (follows OUTGOING relations only)"
-    parameters:
-      start_entity_id:
-        type: string
-        required: true
-      relation_types:
-        type: array
-        items: string
-        required: false
-      max_depth:
-        type: integer
-        default: 3
-        required: false
-
-  knowledge_stats:
-    description: "Get knowledge graph statistics"
-    parameters: {}
-```
-
-**Implementation:** `src/knowledge/handler.ts`
-
----
-
 ## Notebook Tool
 
 ```yaml
@@ -872,92 +717,6 @@ tool:
 
 ---
 
-## Additional MCP Tools
-
-Beyond `thoughtbox_gateway`, the server exposes three additional MCP tools that operate independently of the progressive disclosure system.
-
-### thoughtbox_operations
-
-```yaml
-tool:
-  name: thoughtbox_operations
-  description: "Discover available Thoughtbox operations and their schemas. Always available -- no session required."
-  inputSchema:
-    type: object
-    properties:
-      operation:
-        type: string
-        description: "Operation name to get schema for, or omit for catalog"
-```
-
-### thoughtbox_hub
-
-Multi-agent collaboration hub. Registered as a task-capable tool (supports async execution). See [ARCHITECTURE.md](./ARCHITECTURE.md#multi-agent-hub) for the full vocabulary and operation list.
-
-```yaml
-tool:
-  name: thoughtbox_hub
-  description: "Multi-agent collaboration hub for coordinated reasoning"
-  inputSchema:
-    type: object
-    required:
-      - operation
-    properties:
-      operation:
-        type: string
-        enum:
-          - register
-          - whoami
-          - create_workspace
-          - join_workspace
-          - list_workspaces
-          - workspace_status
-          - create_problem
-          - claim_problem
-          - update_problem
-          - list_problems
-          - add_dependency
-          - remove_dependency
-          - ready_problems
-          - blocked_problems
-          - create_sub_problem
-          - create_proposal
-          - review_proposal
-          - merge_proposal
-          - list_proposals
-          - mark_consensus
-          - endorse_consensus
-          - list_consensus
-          - post_message
-          - read_channel
-          - get_profile_prompt
-      args:
-        type: object
-        description: "Operation-specific arguments"
-```
-
-**Note:** `quick_join` is available at the hub handler level but not exposed in the server-factory tool registration enum.
-
-### observability_gateway
-
-```yaml
-tool:
-  name: observability_gateway
-  description: "Query system observability data. No session required."
-  inputSchema:
-    type: object
-    required:
-      - operation
-    properties:
-      operation:
-        type: string
-        enum: [health, metrics, metrics_range, sessions, session_info, alerts, dashboard_url]
-      args:
-        type: object
-```
-
----
-
 ## Storage Interface
 
 ### ThoughtboxStorage
@@ -1041,12 +800,6 @@ graph TB
         FS_Manifest[manifest.json]
         FS_Thoughts[001.json, 002.json, ...]
         FS_Branches[{branchId}/]
-    end
-
-    subgraph "SupabaseStorage"
-        SB_Sessions[sessions table]
-        SB_Thoughts[thoughts table]
-        SB_RLS[RLS via user_can_access_project]
     end
 
     subgraph "LinkedThoughtStore"

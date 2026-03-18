@@ -43,11 +43,9 @@ describe('SupabaseStorage (ThoughtboxStorage)', () => {
   beforeEach(async () => {
     if (!available) return;
     await truncateAllTables();
-    storage = new SupabaseStorage({
-      ...getTestSupabaseConfig(),
-      workspaceId: 'test-project',
-    });
+    storage = new SupabaseStorage(getTestSupabaseConfig());
     await storage.initialize();
+    await storage.setProject('test-project');
   });
 
   // ===========================================================================
@@ -389,5 +387,16 @@ describe('SupabaseStorage (ThoughtboxStorage)', () => {
     });
   });
 
+  describe('Project scoping', () => {
+    it('throws when setting different project', async ({ skip }) => {
+      if (!available) skip();
+      await expect(storage.setProject('different-project')).rejects.toThrow(/already scoped/);
+    });
 
+    it('no-ops when setting same project', async ({ skip }) => {
+      if (!available) skip();
+      await storage.setProject('test-project');
+      expect(storage.getProject()).toBe('test-project');
+    });
+  });
 });

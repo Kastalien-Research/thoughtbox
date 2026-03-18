@@ -151,8 +151,6 @@ Day-0 implementation for proposal: ${proposal.title}
 - Mode: REAL
 - Run ID: ${runId}
 - Upstream issue: #${options.issueNumber}
-- Actor: ${ghContext.actor}
-- Base SHA: ${ghContext.sha}
 
 Co-Authored-By: Claude Sonnet 4.5 (1M context) <noreply@anthropic.com>`;
 

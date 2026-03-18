@@ -38,28 +38,17 @@ Thoughtbox is an MCP server that provides cognitive enhancement tools for AI age
 │  │                                                       │   │
 │  │  Gateway ── Init ── Thought ── Session ── Notebook   │   │
 │  │     │                                                 │   │
-│  │     ├── Mental Models ── Sampling ── Observability   │   │
-│  │     │                                                 │   │
-│  │     ├── Knowledge Graph (entities, relations)        │   │
-│  │     │                                                 │   │
-│  │     └── Hub (multi-agent collaboration)              │   │
-│  └──────────────────────────────────────────────────────┘   │
-│                       │                                      │
-│                       ▼                                      │
-│  ┌──────────────────────────────────────────────────────┐   │
-│  │              AUTH MIDDLEWARE (Supabase mode only)    │   │
-│  │              JWT validation via JWKS (RS256)         │   │
+│  │     └── Mental Models ── Sampling ── Observability   │   │
 │  └──────────────────────────────────────────────────────┘   │
 │                       │                                      │
 │                       ▼                                      │
 │  ┌──────────────────────────────────────────────────────┐   │
 │  │              PERSISTENCE LAYER                        │   │
 │  │                                                       │   │
-│  │    ┌─────────────┐  ┌──────────────┐  ┌───────────┐  │   │
-│  │    │ Filesystem  │  │   Supabase   │  │ In-Memory │  │   │
-│  │    │   Storage   │  │   Storage    │  │  Storage  │  │   │
-│  │    │  (default)  │  │  (deployed)  │  │ (testing) │  │   │
-│  │    └─────────────┘  └──────────────┘  └───────────┘  │   │
+│  │    ┌─────────────┐        ┌─────────────────────┐    │   │
+│  │    │ Filesystem  │        │     In-Memory       │    │   │
+│  │    │   Storage   │        │      Storage        │    │   │
+│  │    └─────────────┘        └─────────────────────┘    │   │
 │  └──────────────────────────────────────────────────────┘   │
 │                                                              │
 └─────────────────────────────────────────────────────────────┘
@@ -90,14 +79,10 @@ src/
 ├── sessions/                # Session management
 │   └── handlers.ts
 │
-├── middleware/               # Auth middleware
-│   └── auth.ts              # JWT validation (Supabase mode)
-│
 ├── persistence/             # Storage abstraction
 │   ├── types.ts
 │   ├── storage.ts           # In-memory
-│   ├── filesystem-storage.ts
-│   └── supabase-storage.ts  # Supabase-backed persistence
+│   └── filesystem-storage.ts
 │
 ├── notebook/                # Literate programming
 │   ├── index.ts
@@ -125,26 +110,6 @@ src/
 ├── observatory/             # Real-time visualization
 │   └── ws-server.ts
 │
-├── knowledge/               # Knowledge graph memory system
-│   ├── types.ts             # Entity, Relation, Observation types
-│   ├── handler.ts           # Operation routing
-│   ├── storage.ts           # JSONL + SQLite storage
-│   ├── supabase-storage.ts  # Supabase-backed knowledge storage
-│   └── operations.ts        # Operations catalog
-│
-├── hub/                     # Multi-agent collaboration
-│   ├── hub-handler.ts       # Hub operation routing
-│   ├── hub-types.ts         # Workspace, Problem, Proposal types
-│   ├── workspace.ts         # Workspace management
-│   ├── problems.ts          # Problem tracking with dependencies
-│   ├── consensus.ts         # Decision markers
-│   ├── channels.ts          # Per-problem message streams
-│   ├── agent-identity.ts    # Agent registration
-│   └── profiles-registry.ts # Role specializations
-│
-├── operations-tool/         # Operations catalog tool (ADR-011)
-│   └── handler.ts           # Schema discovery for agents
-│
 ├── prompts/                 # MCP prompts
 └── resources/               # MCP resources
 ```
@@ -156,27 +121,23 @@ src/
 ### Server Startup (`index.ts`)
 
 ```typescript
-// 1. Determine transport (default: HTTP)
+// 1. Determine transport
 const transport = process.env.THOUGHTBOX_TRANSPORT || 'http';
 
-// 2. Determine storage backend
-const storageType = process.env.THOUGHTBOX_STORAGE || 'fs';
-//    'fs'       -> FileSystemStorage (local, persistent)
-//    'supabase' -> SupabaseStorage (deployed, multi-tenant)
-//    'memory'   -> InMemoryStorage (testing, volatile)
+// 2. Determine storage
+const storage = process.env.THOUGHTBOX_STORAGE || 'fs';
 
-// 3. Create storage bundle (storage + hubStorage + knowledgeStorage)
-const { storage, hubStorage, dataDir, knowledgeStorage } = await createStorage();
-
-// 4. Create per-session MCP server via factory
-const server = await createMcpServer({
-  storage, hubStorage, dataDir, knowledgeStorage, config
+// 3. Create server via factory
+const { server, toolRegistry } = await createServer({
+  storage: storage === 'memory' ? new InMemoryStorage() : new FileSystemStorage(),
+  project: process.env.THOUGHTBOX_PROJECT || '_default'
 });
 
-// 5. Connect transport
+// 4. Connect transport
 if (transport === 'http') {
-  // Streamable HTTP with per-session server instances
-  // Auth middleware enforced in Supabase mode (JWT via JWKS)
+  const httpServer = express();
+  httpServer.use('/mcp', createMcpHandler(server));
+  httpServer.listen(PORT);
 } else {
   const stdio = new StdioServerTransport();
   await server.connect(stdio);
@@ -188,26 +149,36 @@ if (transport === 'http') {
 The factory assembles all components:
 
 ```typescript
-export async function createMcpServer(args: ServerArgs) {
-  // 1. Create MCP server with registries
-  const server = new McpServer({ name: 'thoughtbox', version: '1.2.2' });
+export async function createServer(options: ServerOptions) {
+  // 1. Create MCP server
+  const server = new McpServer({
+    name: 'thoughtbox',
+    version: '1.0.0'
+  });
+
+  // 2. Create registries
   const toolRegistry = new ToolRegistry();
+  const discoveryRegistry = new DiscoveryRegistry();
 
-  // 2. Create handlers (gateway, init, thought, session, notebook, etc.)
-  const gatewayHandler = new GatewayHandler(/* all sub-handlers */);
-  const observabilityHandler = new ObservabilityGatewayHandler({ storage });
+  // 3. Create handlers
+  const thoughtHandler = new ThoughtHandler(storage);
+  const notebookHandler = new NotebookHandler();
+  const mentalModelsHandler = new MentalModelsHandler();
+  const sessionHandler = new SessionHandler(storage);
+  const samplingHandler = new SamplingHandler(server);
+  const initHandler = new InitHandler(storage, toolRegistry);
+  const gatewayHandler = new GatewayHandler(/* all handlers */);
+  const observabilityHandler = new ObservabilityGatewayHandler();
 
-  // 3. Register tools (4 MCP tools total)
-  //    - thoughtbox_gateway:    Core reasoning operations (progressive disclosure)
-  //    - thoughtbox_operations: Schema discovery, always available (ADR-011)
-  //    - observability_gateway: System monitoring, always available
-  //    - thoughtbox_hub:        Multi-agent collaboration (if hubStorage provided)
+  // 4. Register tools
+  server.tool('thoughtbox_gateway', gatewayHandler.schema, gatewayHandler.handle);
+  server.tool('observability_gateway', observabilityHandler.schema, observabilityHandler.handle);
 
-  // 4. Register prompts and resources
+  // 5. Register prompts and resources
   registerPrompts(server);
-  registerResources(server);
+  registerResources(server, mentalModelsHandler);
 
-  return server;
+  return { server, toolRegistry };
 }
 ```
 
@@ -420,27 +391,6 @@ class FileSystemStorage implements ThoughtboxStorage {
   }
 }
 ```
-
-### Supabase Implementation
-
-Stores sessions and thoughts in Supabase Postgres tables with Row Level Security (RLS). Used for deployed/multi-tenant environments. The schema is managed by migrations, not by the application.
-
-```typescript
-class SupabaseStorage implements ThoughtboxStorage {
-  // Uses project-scoped JWTs for RLS enforcement
-  // In OAuth mode, uses the user's token directly
-  // In local mode, mints a custom JWT with project claim
-
-  setUserToken(token: string): void {
-    // Called by auth middleware after token validation
-    // Forces Supabase client to use authenticated user's identity
-  }
-}
-```
-
-### Dual-Backend Architecture
-
-FileSystemStorage and SupabaseStorage both implement the same `ThoughtboxStorage` interface. The backend is selected at startup based on the `THOUGHTBOX_STORAGE` environment variable. Both coexist in the codebase — FileSystemStorage for local/self-hosted use, SupabaseStorage for deployed environments. The same pattern applies to the knowledge graph, where `KnowledgeStorage` has both a JSONL+SQLite implementation and a `SupabaseKnowledgeStorage` implementation.
 
 ---
 
@@ -753,38 +703,6 @@ export class ObservatoryServer {
   }
 }
 ```
-
----
-
-## Knowledge Graph
-
-The knowledge graph provides persistent memory across sessions. Entities (Insight, Concept, Workflow, Decision, Agent) are connected by directed relations (BUILDS_ON, CONTRADICTS, DEPENDS_ON, etc.) and annotated with timestamped observations.
-
-Knowledge operations are exposed through the `thoughtbox_gateway` at Stage 2, prefixed with `knowledge_`:
-
-| Operation | Purpose |
-|-----------|---------|
-| `knowledge_create_entity` | Create an entity (Insight, Concept, Workflow, Decision, Agent) |
-| `knowledge_get_entity` | Retrieve entity by ID |
-| `knowledge_list_entities` | List/filter entities |
-| `knowledge_add_observation` | Attach a timestamped fact to an entity |
-| `knowledge_create_relation` | Create a directed edge between entities |
-| `knowledge_query_graph` | Traverse the graph from a starting entity |
-| `knowledge_stats` | Aggregate statistics |
-
-Storage uses the same dual-backend pattern: JSONL + SQLite locally, Supabase Postgres when deployed.
-
----
-
-## Auth Middleware
-
-Authentication is enforced only in Supabase storage mode. In filesystem mode, there is no auth — the server trusts the local environment.
-
-In Supabase mode:
-1. The server creates a JWKS key set fetcher pointing at the Supabase project's well-known JWKS endpoint
-2. Every request to `/mcp` must include a Bearer token (via `Authorization` header or `?token=` query parameter)
-3. The token is validated against the JWKS (RS256), checking issuer and audience
-4. The validated user's token is passed to `SupabaseStorage.setUserToken()` so all database queries run under that user's identity, enforcing Postgres RLS policies
 
 ---
 

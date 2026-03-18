@@ -28,11 +28,9 @@ describe('SupabaseKnowledgeStorage (KnowledgeStorage)', () => {
   beforeEach(async () => {
     if (!available) return;
     await truncateAllTables();
-    storage = new SupabaseKnowledgeStorage({
-      ...getTestSupabaseConfig(),
-      workspaceId: 'test-knowledge',
-    });
+    storage = new SupabaseKnowledgeStorage(getTestSupabaseConfig());
     await storage.initialize();
+    await storage.setProject('test-knowledge');
   });
 
   // ===========================================================================
@@ -278,7 +276,12 @@ describe('SupabaseKnowledgeStorage (KnowledgeStorage)', () => {
   // Project scoping and no-ops
   // ===========================================================================
 
-  describe('Project scoping and no-ops', () => {
+  describe('Project scoping', () => {
+    it('throws when changing project', async ({ skip }) => {
+      if (!available) skip();
+      await expect(storage.setProject('other')).rejects.toThrow(/already scoped/);
+    });
+
     it('rebuildIndexFromJsonl is a no-op', async ({ skip }) => {
       if (!available) skip();
       // Should not throw

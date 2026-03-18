@@ -17,11 +17,14 @@ describe('thoughtbox_operations — list', () => {
     const result = handleList() as any;
     const moduleNames = result.modules.map((m: any) => m.module);
 
+    expect(moduleNames).toContain('gateway');
     expect(moduleNames).toContain('init');
     expect(moduleNames).toContain('session');
     expect(moduleNames).toContain('notebook');
     expect(moduleNames).toContain('hub');
-    expect(result.modules.length).toBe(5);
+    expect(moduleNames).toContain('knowledge');
+    expect(moduleNames).toContain('mental-models');
+    expect(result.modules.length).toBe(7);
   });
 
   it('totalOperations is the sum across all modules', () => {
@@ -34,9 +37,9 @@ describe('thoughtbox_operations — list', () => {
   });
 
   it('module filter narrows to one module', () => {
-    const result = handleList('init') as any;
+    const result = handleList('gateway') as any;
     expect(result.modules.length).toBe(1);
-    expect(result.modules[0].module).toBe('init');
+    expect(result.modules[0].module).toBe('gateway');
   });
 
   it('list entries do not include inputSchema', () => {
@@ -52,9 +55,9 @@ describe('thoughtbox_operations — list', () => {
 
 describe('thoughtbox_operations — get', () => {
   it('returns full schema for a known operation', () => {
-    const result = handleGet('get_state') as any;
-    expect(result.name).toBe('get_state');
-    expect(result.module).toBe('init');
+    const result = handleGet('thought') as any;
+    expect(result.name).toBe('thought');
+    expect(result.module).toBe('gateway');
     expect(result.inputSchema).toBeDefined();
     expect(result.inputSchema.properties).toBeDefined();
   });
@@ -71,7 +74,12 @@ describe('thoughtbox_operations — get', () => {
     expect(result.module).toBe('session');
   });
 
-
+  it('returns mental-models operation with inputSchema', () => {
+    const result = handleGet('models_get') as any;
+    expect(result.name).toBe('models_get');
+    expect(result.module).toBe('mental-models');
+    expect(result.inputSchema).toBeDefined();
+  });
 });
 
 describe('thoughtbox_operations — search', () => {
@@ -107,9 +115,9 @@ describe('thoughtbox_operations — dispatch', () => {
   it('dispatches get operation', () => {
     const result = handleOperationsTool({
       operation: 'get',
-      args: { name: 'get_state' },
+      args: { name: 'thought' },
     }) as any;
-    expect(result.name).toBe('get_state');
+    expect(result.name).toBe('thought');
   });
 
   it('returns error when get is called without name', () => {

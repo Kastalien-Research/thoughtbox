@@ -81,9 +81,8 @@ CLAUDE.md
 AGENTS.md
 llms-install.md
 
-# Test notebooks (development artifacts — keep templates/ for build-time embedding)
+# Test notebooks (development artifacts)
 *.src.md
-!templates/*.src.md
 
 # Patch files
 *.patch

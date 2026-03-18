@@ -28,6 +28,7 @@ describe('profiles-integration', () => {
     const result = await handler.handle(reg.agentId, 'get_profile_prompt', { profile: 'MANAGER' }) as any;
 
     expect(result.prompt).toContain('MANAGER');
+    expect(result.modelNames).toContain('decomposition');
   });
 
   // T-PI-2: register-with-profile round-trips through whoami via hub handler
@@ -43,6 +44,9 @@ describe('profiles-integration', () => {
 
     expect(whoami.name).toBe('ProfiledAgent');
     expect(whoami.profile).toBe('DEBUGGER');
+    expect(whoami.mentalModels).toContain('five-whys');
+    expect(whoami.mentalModels).toContain('rubber-duck');
+    expect(whoami.mentalModels).toContain('assumption-surfacing');
   });
 
   // T-PI-3: Manager pattern end-to-end (register → create workspace → create problem → claim → sub-problem)
@@ -145,6 +149,7 @@ describe('profiles-integration', () => {
     for (const profile of ['MANAGER', 'ARCHITECT', 'DEBUGGER', 'SECURITY']) {
       const result = await handler.handle(reg.agentId, 'get_profile_prompt', { profile }) as any;
       expect(result.prompt).toContain(profile);
+      expect(result.modelNames.length).toBeGreaterThan(0);
     }
   });
 

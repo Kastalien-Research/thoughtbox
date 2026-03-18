@@ -7,7 +7,7 @@
  */
 
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
-import jwt from 'jsonwebtoken';
+import * as jwt from 'jsonwebtoken';
 import { randomUUID } from 'node:crypto';
 import type {
   KnowledgeStorage,
@@ -29,16 +29,14 @@ export interface SupabaseKnowledgeStorageConfig {
   supabaseUrl: string;
   supabaseKey: string;
   jwtSecret: string;
-  /** The workspace ID this knowledge storage instance is strictly scoped to. */
-  workspaceId: string;
 }
 
 export class SupabaseKnowledgeStorage implements KnowledgeStorage {
   private supabaseUrl: string;
   private supabaseKey: string;
   private jwtSecret: string;
-  private workspaceId: string;
   private client: SupabaseClient | null = null;
+  private project: string | null = null;
   private tokenExpiresAt = 0;
   private static TOKEN_TTL = 3600;
   private static TOKEN_REFRESH_MARGIN = 300;
@@ -47,27 +45,31 @@ export class SupabaseKnowledgeStorage implements KnowledgeStorage {
     this.supabaseUrl = config.supabaseUrl;
     this.supabaseKey = config.supabaseKey;
     this.jwtSecret = config.jwtSecret;
-    this.workspaceId = config.workspaceId;
   }
 
   // ===========================================================================
-  // Workspace Scoping
+  // Project Scoping
   // ===========================================================================
 
   async setProject(project: string): Promise<void> {
-    // Project scoping is deprecated in favor of strict workspaceId scoping at instantiation.
+    if (this.project === project) return;
+    if (this.project !== null) {
+      throw new Error(
+        `Knowledge storage already scoped to project "${this.project}", cannot change to "${project}"`
+      );
+    }
+    this.project = project;
+    this.refreshClient();
   }
 
   private refreshClient(): void {
-
-    // FS/local mode: mint a custom JWT with project claim
     const now = Math.floor(Date.now() / 1000);
     const exp = now + SupabaseKnowledgeStorage.TOKEN_TTL;
 
     const token = jwt.sign(
       {
         role: 'authenticated',
-        workspace_id: this.workspaceId,
+        project: this.project,
         iss: 'supabase-demo',
         exp,
       },
@@ -85,8 +87,8 @@ export class SupabaseKnowledgeStorage implements KnowledgeStorage {
   }
 
   private ensureClient(): SupabaseClient {
-    if (!this.workspaceId) {
-      throw new Error('Workspace scope not established.');
+    if (!this.project) {
+      throw new Error('Project scope not established. Call bind_root or start_new first.');
     }
     const now = Math.floor(Date.now() / 1000);
     if (!this.client || now >= this.tokenExpiresAt - SupabaseKnowledgeStorage.TOKEN_REFRESH_MARGIN) {
@@ -168,7 +170,7 @@ export class SupabaseKnowledgeStorage implements KnowledgeStorage {
 
     const row = {
       id,
-      workspace_id: this.workspaceId,
+      project: this.project,
       name: params.name,
       type: params.type,
       label: params.label,
@@ -275,7 +277,7 @@ export class SupabaseKnowledgeStorage implements KnowledgeStorage {
 
     const row = {
       id,
-      workspace_id: this.workspaceId,
+      project: this.project,
       from_id: params.from_id,
       to_id: params.to_id,
       type: params.type,
@@ -340,7 +342,7 @@ export class SupabaseKnowledgeStorage implements KnowledgeStorage {
 
     const row = {
       id,
-      workspace_id: this.workspaceId,
+      project: this.project,
       entity_id: params.entity_id,
       content: params.content,
       source_session: params.source_session || null,

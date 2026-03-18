@@ -21,6 +21,7 @@ describe('Extended Profiles', () => {
       const content = getProfilePromptContent('RESEARCHER');
       expect(content).not.toBeNull();
       expect(content!.prompt).toContain('RESEARCHER');
+      expect(content!.modelNames.length).toBeGreaterThan(0);
     });
   });
 
@@ -39,6 +40,7 @@ describe('Extended Profiles', () => {
       const content = getProfilePromptContent('REVIEWER');
       expect(content).not.toBeNull();
       expect(content!.prompt).toContain('REVIEWER');
+      expect(content!.modelNames.length).toBeGreaterThan(0);
     });
   });
 

@@ -20,7 +20,6 @@ describe('H6: createStorage() wiring', () => {
       supabaseUrl: 'http://localhost:54321',
       supabaseKey: 'test-key',
       jwtSecret: 'test-secret',
-      workspaceId: 'test-workspace',
     });
 
     // Verify all required methods exist
@@ -53,7 +52,6 @@ describe('H6: createStorage() wiring', () => {
       supabaseUrl: 'http://localhost:54321',
       supabaseKey: 'test-key',
       jwtSecret: 'test-secret',
-      workspaceId: 'test-workspace',
     });
 
     const iface: KnowledgeStorage = storage;
@@ -72,5 +70,30 @@ describe('H6: createStorage() wiring', () => {
     expect(typeof iface.traverseGraph).toBe('function');
     expect(typeof iface.getStats).toBe('function');
     expect(typeof iface.rebuildIndexFromJsonl).toBe('function');
+  });
+
+  it('SupabaseStorage throws StorageNotScopedError before setProject', () => {
+    const storage = new SupabaseStorage({
+      supabaseUrl: 'http://localhost:54321',
+      supabaseKey: 'test-key',
+      jwtSecret: 'test-secret',
+    });
+
+    expect(() => storage.getProject()).toThrow(/scope not established/i);
+  });
+
+  it('SupabaseKnowledgeStorage throws before setProject', async () => {
+    const storage = new SupabaseKnowledgeStorage({
+      supabaseUrl: 'http://localhost:54321',
+      supabaseKey: 'test-key',
+      jwtSecret: 'test-secret',
+    });
+
+    // ensureClient throws when no project set
+    await expect(storage.createEntity({
+      name: 'test',
+      type: 'Concept',
+      label: 'Test',
+    })).rejects.toThrow(/scope not established/i);
   });
 });

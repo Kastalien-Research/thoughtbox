@@ -14,9 +14,6 @@ importers:
       '@supabase/supabase-js':
         specifier: ^2.99.1
         version: 2.99.1
-      bcryptjs:
-        specifier: ^3.0.3
-        version: 3.0.3
       better-sqlite3:
         specifier: ^11.0.0
         version: 11.10.0
@@ -38,9 +35,6 @@ importers:
       gray-matter:
         specifier: ^4.0.3
         version: 4.0.3
-      jose:
-        specifier: 6.2.1
-        version: 6.2.1
       jsonwebtoken:
         specifier: ^9.0.3
         version: 9.0.3
@@ -75,9 +69,6 @@ importers:
       '@octokit/rest':
         specifier: ^20.1.2
         version: 20.1.2
-      '@types/bcryptjs':
-        specifier: ^3.0.0
-        version: 3.0.0
       '@types/better-sqlite3':
         specifier: ^7.6.13
         version: 7.6.13
@@ -631,10 +622,6 @@ packages:
     resolution: {integrity: sha512-w071DSzP94YfN6XiWhOxnLpYT3uqtxJBDYdh6Jdjzt+Ce6DNspJsPQgpC7rbts/B8tEkq0LHoYuIF/O5Jh5rPg==}
     engines: {node: '>=18'}
 
-  '@types/bcryptjs@3.0.0':
-    resolution: {integrity: sha512-WRZOuCuaz8UcZZE4R5HXTco2goQSI2XxjGY3hbM/xDvwmqFWd4ivooImsMx65OKM6CtNKbnZ5YL+YwAwK7c1dg==}
-    deprecated: This is a stub types definition. bcryptjs provides its own type definitions, so you do not need this installed.
-
   '@types/better-sqlite3@7.6.13':
     resolution: {integrity: sha512-NMv9ASNARoKksWtsq/SHakpYAYnhBrQgGD8zkLYk/jaK8jUGn08CfEdTRgYhMypUQAfzSP8W6gNLe0q19/t4VA==}
 
@@ -837,10 +824,6 @@ packages:
 
   base64-js@1.5.1:
     resolution: {integrity: sha512-AKpaYlHn8t4SVbOHCy+b5+KKgvR4vrsD8vbvrbiQJps7fKDTkjkDry6ji0rUJjC0kzbNePLwzxq8iypo41qeWA==}
-
-  bcryptjs@3.0.3:
-    resolution: {integrity: sha512-GlF5wPWnSa/X5LKM1o0wz0suXIINz1iHRLvTS+sLyi7XPbe5ycmYI3DlZqVGZZtDgl4DmasFg7gOB3JYbphV5g==}
-    hasBin: true
 
   before-after-hook@2.2.3:
     resolution: {integrity: sha512-NzUnlZexiaH/46WDhANlyR2bXRopNg4F/zuSA3OpZnllCUgRaOF2znDioDWrmbNVsuZk6l9pMquQB38cfBZwkQ==}
@@ -1424,8 +1407,8 @@ packages:
   isexe@2.0.0:
     resolution: {integrity: sha512-RHxMLp9lnKHGHRng9QFhRCMbYAcVpn69smSGcq3f36xjgVVWThj4qqLbTLlq7Ssj8B+fIQ1EuCEGI2lKsyQeIw==}
 
-  jose@6.2.1:
-    resolution: {integrity: sha512-jUaKr1yrbfaImV7R2TN/b3IcZzsw38/chqMpo2XJ7i2F8AfM/lA4G1goC3JVEwg0H7UldTmSt3P68nt31W7/mw==}
+  jose@6.2.0:
+    resolution: {integrity: sha512-xsfE1TcSCbUdo6U07tR0mvhg0flGxU8tPLbF03mirl2ukGQENhUg4ubGYQnhVH0b5stLlPM+WOqDkEl1R1y5sQ==}
 
   js-yaml@3.14.2:
     resolution: {integrity: sha512-PMSmkqxr106Xa156c2M265Z+FTrPl+oxd/rgOQy2tijQeK5TxQ43psO1ZCwhVOSdnn+RzkzlRz/eY4BgJBYVpg==}
@@ -2397,7 +2380,7 @@ snapshots:
       eventsource-parser: 3.0.6
       express: 5.2.1
       express-rate-limit: 7.5.1(express@5.2.1)
-      jose: 6.2.1
+      jose: 6.2.0
       json-schema-typed: 8.0.2
       pkce-challenge: 5.0.1
       raw-body: 3.0.2
@@ -2599,10 +2582,6 @@ snapshots:
     dependencies:
       '@ts-graphviz/ast': 2.0.7
       '@ts-graphviz/common': 2.1.5
-
-  '@types/bcryptjs@3.0.0':
-    dependencies:
-      bcryptjs: 3.0.3
 
   '@types/better-sqlite3@7.6.13':
     dependencies:
@@ -2847,8 +2826,6 @@ snapshots:
   balanced-match@4.0.4: {}
 
   base64-js@1.5.1: {}
-
-  bcryptjs@3.0.3: {}
 
   before-after-hook@2.2.3: {}
 
@@ -3478,7 +3455,7 @@ snapshots:
 
   isexe@2.0.0: {}
 
-  jose@6.2.1: {}
+  jose@6.2.0: {}
 
   js-yaml@3.14.2:
     dependencies:

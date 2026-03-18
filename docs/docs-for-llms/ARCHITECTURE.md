@@ -1,7 +1,7 @@
 # Thoughtbox Server Architecture
 
-> **Version:** 1.2.2
-> **Last Updated:** 2026-03-15
+> **Version:** 1.3.0
+> **Last Updated:** 2026-01-21
 > **Purpose:** Source of truth for Thoughtbox server architecture and data design
 
 ---
@@ -29,9 +29,6 @@ Thoughtbox is an MCP (Model Context Protocol) server providing infrastructure fo
 - **Formal Protocol**: Cipher notation for deterministic server-side parsing
 - **Real-Time Visualization**: Observatory WebSocket server for live reasoning graphs
 - **Autonomous Critique**: MCP sampling API integration for LLM-based critique loops
-- **Knowledge Graph**: Entity-relation-observation memory system for cross-session knowledge
-- **Multi-Agent Hub**: Workspace-based collaboration with problems, proposals, consensus, and channels
-- **Auth & Multi-Tenancy**: Supabase OAuth 2.1 with workspace/membership-based RLS (deployed mode)
 
 ```mermaid
 graph TB
@@ -45,10 +42,6 @@ graph TB
         HTTP[Streamable HTTP]
     end
 
-    subgraph "Auth Layer"
-        AuthMW[Auth Middleware]
-    end
-
     subgraph "Thoughtbox Server"
         Gateway[Gateway Handler]
         Registry[Tool Registry]
@@ -59,11 +52,6 @@ graph TB
             Session[Session Handler]
             Notebook[Notebook Handler]
             MentalModels[Mental Models Handler]
-            Knowledge[Knowledge Handler]
-        end
-
-        subgraph "Collaboration"
-            Hub[Hub Tool Handler]
         end
 
         subgraph "Support Systems"
@@ -77,7 +65,6 @@ graph TB
     subgraph "Persistence Layer"
         InMemory[In-Memory Storage]
         FileSystem[FileSystem Storage]
-        Supabase[Supabase Storage]
         LinkedStore[Linked Thought Store]
     end
 
@@ -89,23 +76,19 @@ graph TB
     Agent --> Client
     Client --> STDIO
     Client --> HTTP
-    HTTP --> AuthMW
-    AuthMW --> Gateway
     STDIO --> Gateway
+    HTTP --> Gateway
     Gateway --> Registry
     Registry --> Thought
     Registry --> Init
     Registry --> Session
     Registry --> Notebook
     Registry --> MentalModels
-    Registry --> Knowledge
-    Registry --> Hub
     Thought --> Sampling
     Thought --> Emitter
     Thought --> LinkedStore
     LinkedStore --> InMemory
     LinkedStore --> FileSystem
-    LinkedStore --> Supabase
     Emitter --> WSServer
     WSServer --> UI
 ```
@@ -163,13 +146,10 @@ graph LR
         sessions[sessions/]
         notebook[notebook/]
         mental[mental-models/]
-        knowledge[knowledge/]
-        hub[hub/]
     end
 
     subgraph "Infrastructure"
         persistence[persistence/]
-        auth[middleware/auth.ts]
         sampling[sampling/]
         observatory[observatory/]
         discovery[discovery-registry.ts]
@@ -178,17 +158,14 @@ graph LR
     end
 
     index --> factory
-    index --> auth
     factory --> gateway
     factory --> registry
     factory --> discovery
-    factory --> hub
     gateway --> thought
     gateway --> init
     gateway --> sessions
     gateway --> notebook
     gateway --> mental
-    gateway --> knowledge
     thought --> persistence
     thought --> sampling
     thought --> observatory
@@ -196,7 +173,6 @@ graph LR
     init --> persistence
     sessions --> persistence
     sessions --> references
-    knowledge --> persistence
 ```
 
 ---
@@ -237,7 +213,7 @@ stateDiagram-v2
 |-------|------|-----------------|---------|
 | **0** | Entry | `thoughtbox_gateway` | Connection start |
 | **1** | Init Complete | + `session`, `deep_analysis` operations | `start_new` or `load_context` |
-| **2** | Cipher Loaded | + `thought`, `read_thoughts`, `get_structure`, `notebook`, `mental_models`, `knowledge_*` | `cipher` operation |
+| **2** | Cipher Loaded | + `thought`, `read_thoughts`, `get_structure`, `notebook`, `mental_models` | `cipher` operation |
 | **3** | Domain Active | + domain-filtered mental models | Domain selected |
 
 **Implementation:** `src/tool-registry.ts`
@@ -324,7 +300,7 @@ sequenceDiagram
 - Next thought number calculated automatically
 - Seamless continuation from last thought
 
-**Implementation:** `src/thought-handler.ts:restoreFromSession()`
+**Implementation:** `src/sessions/handlers.ts:restoreFromSession()`
 
 ---
 
@@ -362,12 +338,14 @@ graph LR
     FILE --> Pipeline
 ```
 
-**Event Types** (defined in `src/events/types.ts`):
-- `session_created` - New session created
+**Event Types:**
 - `thought_added` - New thought recorded
+- `thought_revised` - Thought revision created
 - `branch_created` - New branch started
-- `session_completed` - Session completed (final thought with `nextThoughtNeeded: false`)
-- `export_requested` - Session exported
+- `session_started` - New session created
+- `session_loaded` - Existing session loaded
+- `cipher_loaded` - Protocol notation loaded
+- `stage_changed` - Progressive disclosure stage advanced
 
 **Configuration:** See [CONFIGURATION.md](./CONFIGURATION.md#event-streaming)
 
@@ -437,71 +415,11 @@ sequenceDiagram
 
 ---
 
-## Knowledge Graph (Cross-Session Memory)
-
-The knowledge graph provides persistent entity-relation-observation storage for cross-session learning. Operations are routed through `thoughtbox_gateway` with `knowledge_` prefixed operations (Stage 2).
-
-| Component | Description |
-|-----------|-------------|
-| Entity | Named knowledge node with type (`Insight`, `Concept`, `Workflow`, `Decision`, `Agent`) |
-| Relation | Directed edge between entities (`RELATES_TO`, `BUILDS_ON`, `CONTRADICTS`, etc.) |
-| Observation | Atomic fact attached to an entity, with source session linkage |
-
-**Operations:** `knowledge_create_entity`, `knowledge_get_entity`, `knowledge_list_entities`, `knowledge_add_observation`, `knowledge_create_relation`, `knowledge_query_graph`, `knowledge_stats`
-
-**Storage backends:**
-- `src/knowledge/storage.ts` - FileSystem + SQLite (local mode)
-- `src/knowledge/supabase-storage.ts` - Supabase Postgres (deployed mode)
-
-**Handler:** `src/knowledge/handler.ts`
-
----
-
-## Multi-Agent Hub
-
-The hub system (`thoughtbox_hub` tool) enables multi-agent collaboration through workspaces. It is a separate MCP tool (not routed through `thoughtbox_gateway`).
-
-| Concept | Description |
-|---------|-------------|
-| Workspace | Shared collaboration space containing problems, proposals, consensus markers, and channels |
-| Problem | Unit of work with status tracking (`open` → `in-progress` → `resolved` → `closed`) and dependencies |
-| Proposal | Proposed solution referencing a thought branch, reviewed and merged by other agents |
-| Consensus | Decision marker with thought reference, endorsed by team members |
-| Channel | Message stream scoped to a problem for discussion |
-| Profile | Role specialization (`MANAGER`, `ARCHITECT`, `DEBUGGER`, `SECURITY`, `RESEARCHER`, `REVIEWER`) |
-
-**Operations include:** `register`, `whoami`, `quick_join`, `create_workspace`, `join_workspace`, `list_workspaces`, `workspace_status`, `create_problem`, `claim_problem`, `update_problem`, `list_problems`, `create_proposal`, `review_proposal`, `merge_proposal`, `list_proposals`, `mark_consensus`, `endorse_consensus`, `list_consensus`, `post_message`, `read_channel`, `get_profile_prompt`
-
-**Implementation:** `src/hub/`
-
----
-
-## Auth Middleware (Supabase OAuth 2.1)
-
-In Supabase storage mode (`THOUGHTBOX_STORAGE=supabase`), the HTTP transport enforces JWT-based authentication. In FS mode, auth is skipped entirely.
-
-| Component | Description |
-|-----------|-------------|
-| `src/middleware/auth.ts` | JWT validation via JWKS (RS256), Bearer token extraction |
-| `src/index.ts` | Conditional auth enforcement based on storage type |
-
-**Flow:** Client sends Bearer token in `Authorization` header (or `?token=` query param as workaround). Server validates against Supabase JWKS endpoint, extracts `AuthContext` (userId, clientId, role, email), and passes the raw token to storage backends for RLS enforcement.
-
-**Multi-tenancy model:** Workspace memberships control access. Product tables (`sessions`, `thoughts`, `entities`, `relations`, `observations`) use RLS policies that call `user_can_access_project(project)`, which checks workspace membership via `auth.uid()`.
-
-**Schema:** `supabase/migrations/20260313100000_auth_workspace_tables.sql`
-
----
-
 ## Key Architectural Patterns
 
 ### Gateway-Only Architecture
 
-All reasoning operations route through a single `thoughtbox_gateway` tool. This bypasses client tool list refresh limitations common in streaming HTTP. The hub and observability tools are separate MCP tools.
-
-### Dual Storage Backend
-
-FileSystemStorage (local/self-hosted) and SupabaseStorage (deployed) coexist. Both implement the same `ThoughtboxStorage` interface. Backend is selected at startup based on `THOUGHTBOX_STORAGE` env var. Neither replaces the other.
+All operations route through a single `thoughtbox_gateway` tool. This bypasses client tool list refresh limitations common in streaming HTTP.
 
 ### Linked Thought Store
 
@@ -530,18 +448,6 @@ FileSystemStorage uses temp files + atomic rename to prevent corruption.
 | `ThoughtData` | Individual reasoning step | [DATA-MODELS.md](./DATA-MODELS.md#thoughtdata-schema) |
 | `Session` | Container for thought chains | [DATA-MODELS.md](./DATA-MODELS.md#session-schema) |
 | `ThoughtNode` | Graph node for linked store | [DATA-MODELS.md](./DATA-MODELS.md#thoughtnode-schema-linked-store) |
-| `Entity` | Knowledge graph node | [DATA-MODELS.md](./DATA-MODELS.md#supabase-schema) |
-| `Relation` | Knowledge graph edge | [DATA-MODELS.md](./DATA-MODELS.md#supabase-schema) |
-| `Observation` | Atomic fact on an entity | [DATA-MODELS.md](./DATA-MODELS.md#supabase-schema) |
-
-### MCP Tools
-
-| Tool Name | Description |
-|-----------|-------------|
-| `thoughtbox_gateway` | Always-on router for reasoning operations (Stage 0+) |
-| `thoughtbox_operations` | Discover available operations and schemas (always available) |
-| `thoughtbox_hub` | Multi-agent collaboration hub (always available) |
-| `observability_gateway` | System observability queries (always available) |
 
 ### Gateway Operations
 
@@ -554,7 +460,6 @@ FileSystemStorage uses temp files + atomic rename to prevent corruption.
 | `read_thoughts` | 2 | Query thoughts from session | [TOOL-INTERFACES.md](./TOOL-INTERFACES.md#read-thoughts-tool) |
 | `get_structure` | 2 | Get reasoning graph topology | [TOOL-INTERFACES.md](./TOOL-INTERFACES.md#get-structure-tool) |
 | `deep_analysis` | 1 | Advanced session pattern analysis | [TOOL-INTERFACES.md](./TOOL-INTERFACES.md#deep-analysis-tool) |
-| `knowledge_*` | 2 | Knowledge graph operations | [TOOL-INTERFACES.md](./TOOL-INTERFACES.md#knowledge-graph-tool) |
 
 ### Configuration
 
@@ -563,7 +468,7 @@ FileSystemStorage uses temp files + atomic rename to prevent corruption.
 | `THOUGHTBOX_TRANSPORT` | `http` | [CONFIGURATION.md](./CONFIGURATION.md#environment-variables) |
 | `THOUGHTBOX_STORAGE` | `fs` | [CONFIGURATION.md](./CONFIGURATION.md#environment-variables) |
 | `PORT` | `1731` | [CONFIGURATION.md](./CONFIGURATION.md#environment-variables) |
-| `SUPABASE_URL` | (none) | [CONFIGURATION.md](./CONFIGURATION.md#environment-variables) |
+| `THOUGHTBOX_EVENT_OUTPUT` | `none` | [CONFIGURATION.md](./CONFIGURATION.md#event-streaming) |
 
 ---
 

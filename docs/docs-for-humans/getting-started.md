@@ -24,34 +24,25 @@ pnpm build
 
 ---
 
-## Deployment Modes
-
-Thoughtbox runs in two modes:
-
-- **Local** (default) — Filesystem storage, no auth. Data in `~/.thoughtbox/`. This guide covers local mode.
-- **Deployed** — Supabase Postgres storage with JWT auth. See [Configuration](./configuration.md) for Supabase setup.
-
----
-
 ## Running the Server
 
 Thoughtbox supports two transport modes:
 
-### HTTP Mode (Default)
-
-Runs as a persistent HTTP server. Best for multi-client or standalone use:
-
-```bash
-thoughtbox
-# Server runs on http://localhost:1731
-```
-
-### Stdio Mode
+### Stdio Mode (Default)
 
 Best for MCP clients like Claude Code or Cursor that manage the server lifecycle:
 
 ```bash
-THOUGHTBOX_TRANSPORT=stdio thoughtbox
+thoughtbox
+```
+
+### HTTP Mode
+
+Best for persistent servers or when multiple clients connect:
+
+```bash
+THOUGHTBOX_TRANSPORT=http thoughtbox
+# Server runs on http://localhost:1731
 ```
 
 ---

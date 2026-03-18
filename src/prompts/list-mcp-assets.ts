@@ -7,7 +7,11 @@
 
 import { NOTEBOOK_OPERATIONS } from "../notebook/operations.js";
 import { AVAILABLE_TEMPLATES } from "../notebook/templates.generated.js";
-
+import {
+  MENTAL_MODELS,
+  TAG_DEFINITIONS,
+  MENTAL_MODELS_OPERATIONS,
+} from "../mental-models/operations.js";
 
 // Inline the interleaved thinking description to avoid circular import
 const INTERLEAVED_THINKING_DESCRIPTION =
@@ -81,7 +85,29 @@ ${NOTEBOOK_OPERATIONS.map(op => `| \`${op.name}\` | ${op.category} | ${op.descri
 
 **Templates:** ${AVAILABLE_TEMPLATES.map(t => `\`${t}\``).join(", ")}
 
+### 3. \`mental_models\` — Structured Reasoning
 
+Access ${MENTAL_MODELS.length} mental models for structured reasoning.
+
+**Operations (${MENTAL_MODELS_OPERATIONS.length}):**
+
+| Operation | Category | Description |
+|-----------|----------|-------------|
+${MENTAL_MODELS_OPERATIONS.map(op => `| \`${op.name}\` | ${op.category} | ${op.description.split("\n")[0]} |`).join("\n")}
+
+**Tags (${TAG_DEFINITIONS.length}):**
+
+| Tag | Description |
+|-----|-------------|
+${TAG_DEFINITIONS.map(t => `| \`${t.name}\` | ${t.description} |`).join("\n")}
+
+**Mental Models (${MENTAL_MODELS.length}):**
+
+| Name | Title | Tags |
+|------|-------|------|
+${MENTAL_MODELS.map(m => `| \`${m.name}\` | ${m.title} | ${m.tags.join(", ")} |`).join("\n")}
+
+---
 
 ## Prompts
 
@@ -102,15 +128,19 @@ ${NOTEBOOK_OPERATIONS.map(op => `| \`${op.name}\` | ${op.category} | ${op.descri
 | \`thoughtbox://notebook/operations\` | Notebook operations catalog (JSON) |
 | \`thoughtbox://patterns-cookbook\` | Thoughtbox reasoning patterns guide |
 | \`thoughtbox://architecture\` | Server architecture and implementation guide |
+| \`thoughtbox://mental-models/operations\` | Mental models catalog (JSON) |
+| \`thoughtbox://mental-models\` | Mental models root directory |
 
+### Tag-based Resources
 
-
+${TAG_DEFINITIONS.map(t => `- \`thoughtbox://mental-models/${t.name}\``).join("\n")}
 
 ### Resource Templates
 
 | URI Template | Description |
 |--------------|-------------|
-
+| \`thoughtbox://mental-models/{tag}/{model}\` | Browse mental models by tag |
+| \`thoughtbox://mental-models/{tag}\` | List models under a specific tag |
 | \`thoughtbox://interleaved/{mode}\` | IRCoT reasoning guides (research, analysis, development) |
 
 ---
@@ -167,7 +197,30 @@ notebook({
 })
 \`\`\`
 
+### Mental Models
 
+\`\`\`javascript
+// List models by tag
+mental_models({
+  operation: "list_models",
+  args: { tag: "debugging" }
+})
+
+// Get specific model
+mental_models({
+  operation: "get_model",
+  args: { model: "five-whys" }
+})
+\`\`\`
+
+---
+
+## Integration Patterns
+
+### Models → Reasoning
+1. Use \`mental_models\` to retrieve a reasoning framework
+2. Apply that framework using \`thoughtbox\`
+3. Iterate and refine your approach
 
 ### Notebooks for Exploration
 1. Use \`notebook\` for executable documentation
@@ -178,8 +231,11 @@ notebook({
 
 ## Summary Statistics
 
-- **Tools:** 2 (thoughtbox, notebook)
+- **Tools:** 3 (thoughtbox, notebook, mental_models)
 - **Notebook Operations:** ${NOTEBOOK_OPERATIONS.length}
+- **Mental Models Operations:** ${MENTAL_MODELS_OPERATIONS.length}
+- **Mental Models:** ${MENTAL_MODELS.length}
+- **Tags:** ${TAG_DEFINITIONS.length}
 - **Prompts:** 2
 - **Static Resources:** 6+
 - **Resource Templates:** 3

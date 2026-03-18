@@ -66,33 +66,13 @@ Add to `.vscode/mcp.json` in your workspace:
 }
 ```
 
-## Deployed Mode (Optional)
-
-For cloud deployment with Supabase-backed storage and authentication, set these environment variables in your MCP client config:
-
-```json
-{
-  "mcpServers": {
-    "thoughtbox": {
-      "url": "https://your-deployed-thoughtbox.example.com/mcp",
-      "headers": {
-        "Authorization": "Bearer <your-supabase-jwt>"
-      }
-    }
-  }
-}
-```
-
-In deployed mode, all requests require a valid Supabase JWT token. The token can be provided via `Authorization: Bearer <token>` header or `?token=<token>` query parameter.
-
 ## Verification
 
 After configuration, restart the MCP client. The following tools should be available:
 
-- `thoughtbox_gateway` - Core reasoning with branching, revision, knowledge graph, and session management
-- `thoughtbox_operations` - Discover available operations and their schemas
-- `observability_gateway` - System monitoring and health checks
-- `thoughtbox_hub` - Multi-agent collaboration (workspaces, problems, proposals)
+- `thoughtbox` - Step-by-step reasoning with branching and revision
+- `notebook` - Literate programming with JS/TS execution
+- `mental_models` - 15 structured reasoning frameworks
 
 ## Troubleshooting
 

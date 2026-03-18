@@ -354,49 +354,6 @@ The critique prompt examines:
 
 ---
 
-## Knowledge Graph
-
-Thoughtbox includes a persistent knowledge graph for accumulating learning across sessions. The graph stores:
-
-- **Entities** — Insight, Concept, Workflow, Decision, or Agent nodes with properties
-- **Relations** — Directed edges between entities (BUILDS_ON, CONTRADICTS, DEPENDS_ON, etc.)
-- **Observations** — Timestamped atomic facts attached to entities
-
-Knowledge operations are available at Stage 2 through the gateway, prefixed with `knowledge_` (e.g., `knowledge_create_entity`, `knowledge_query_graph`). The graph persists independently of sessions, providing cross-session memory.
-
----
-
-## Workspaces (Multi-Agent Hub)
-
-When multiple agents collaborate, they work within a **workspace** — a shared space containing problems, proposals, consensus markers, and communication channels.
-
-### Key Concepts
-
-| Concept | Description |
-|---------|-------------|
-| **Workspace** | Shared collaboration space. Agents must join before participating |
-| **Problem** | Unit of work with status tracking and dependency management |
-| **Proposal** | Proposed solution referencing a thought branch, reviewed by other agents |
-| **Consensus** | Decision marker with thought reference, endorsed by team members |
-| **Channel** | Message stream scoped to a problem for coordination |
-
-Workspace operations are accessed through the `thoughtbox_hub` tool. Agents register, join a workspace, then collaborate on problems.
-
----
-
-## Dual-Backend Storage
-
-Thoughtbox runs in two deployment modes that share the same codebase:
-
-| Mode | Storage | Auth | Use Case |
-|------|---------|------|----------|
-| **Local** | Filesystem (`~/.thoughtbox/`) | None | Self-hosted, single-user |
-| **Deployed** | Supabase Postgres | JWT via JWKS | Cloud, multi-tenant |
-
-Set `THOUGHTBOX_STORAGE=fs` (default) for local mode or `THOUGHTBOX_STORAGE=supabase` for deployed mode. Both implement the same `ThoughtboxStorage` interface, so all features work identically in either mode. The knowledge graph has its own parallel backends (JSONL+SQLite locally, Supabase Postgres when deployed).
-
----
-
 ## Next Steps
 
 - [**Tools Reference**](./tools-reference.md) — Complete API for all operations

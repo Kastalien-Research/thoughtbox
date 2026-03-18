@@ -24,6 +24,7 @@ Examine all hook execution logs for anomalies:
 
 - `.claude/state/fitness-tracker.log` — DGM pattern tracking
 - `.claude/state/eval-collector.log` — Session metrics
+- `.claude/state/memory-calibration.log` — Memory usefulness
 - Any other `*.log` files in `.claude/state/`
 
 Look for:

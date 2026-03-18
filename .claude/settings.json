@@ -35,6 +35,18 @@
         ]
       }
     ],
+    "PermissionRequest": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/git-validator.sh",
+            "timeout": 3000,
+            "continueOnError": true
+          }
+        ]
+      }
+    ],
     "UserPromptSubmit": [
       {
         "hooks": [
@@ -59,6 +71,18 @@
         ]
       }
     ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/session_end_memory.sh",
+            "timeout": 8000,
+            "continueOnError": true
+          }
+        ]
+      }
+    ],
     "PreCompact": [
       {
         "hooks": [
@@ -66,6 +90,18 @@
             "type": "command",
             "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/pre_compact.sh --backup",
             "timeout": 8000,
+            "continueOnError": true
+          }
+        ]
+      }
+    ],
+    "Notification": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/notification.sh",
+            "timeout": 3000,
             "continueOnError": true
           }
         ]

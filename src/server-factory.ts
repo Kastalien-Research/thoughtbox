@@ -10,7 +10,12 @@ import { InMemoryTaskStore, InMemoryTaskMessageQueue } from "@modelcontextprotoc
 import { PATTERNS_COOKBOOK } from "./resources/patterns-cookbook-content.js";
 import { SERVER_ARCHITECTURE_GUIDE } from "./resources/server-architecture-content.js";
 import { NotebookHandler } from "./notebook/index.js";
-
+import {
+  MentalModelsHandler,
+  getMentalModelsResources,
+  getMentalModelsResourceContent,
+  getMentalModelsResourceTemplates,
+} from "./mental-models/index.js";
 import {
   LIST_MCP_ASSETS_PROMPT,
   getListMcpAssetsContent,
@@ -57,12 +62,14 @@ import { SamplingHandler } from "./sampling/index.js";
 import { ThoughtQueryHandler } from "./resources/thought-query-handler.js";
 import { ToolRegistry, DisclosureStage } from "./tool-registry.js";
 import { DiscoveryRegistry } from "./discovery-registry.js";
-
-import { INIT_TOOL, InitTool } from "./init/tool.js";
-import { KNOWLEDGE_TOOL, KnowledgeTool } from "./knowledge/tool.js";
-import { SESSION_TOOL, SessionTool } from "./sessions/tool.js";
-import { THOUGHT_TOOL, ThoughtTool } from "./thought/tool.js";
-import { NOTEBOOK_TOOL, NotebookTool } from "./notebook/tool.js";
+import {
+  GATEWAY_DESCRIPTION,
+} from "./tool-descriptions.js";
+import {
+  GatewayHandler,
+  gatewayToolInputSchema,
+  GATEWAY_TOOL,
+} from "./gateway/index.js";
 import {
   ObservabilityGatewayHandler,
   ObservabilityInputSchema,
@@ -79,6 +86,7 @@ import {
   type LoopMetadata,
 } from "./resources/loops-content.js";
 import { ClaudeFolderIntegration } from "./claude-folder-integration.js";
+import { getOperationsCatalog as getGatewayOperationsCatalog, getOperation as getGwOp } from "./gateway/operations.js";
 import { getOperationsCatalog as getInitOperationsCatalog, getOperation as getInitOp } from "./init/operations.js";
 import { getOperationsCatalog as getSessionOperationsCatalog, getOperation as getSessOp } from "./sessions/operations.js";
 import { getOperationsCatalog as getKnowledgeOperationsCatalog, getOperation as getKnowOp } from "./knowledge/operations.js";
@@ -236,7 +244,7 @@ Call \`thoughtbox_hub\` { "operation": "register", "args": { "name": "Your Agent
   thoughtHandler.setEventEmitter(eventEmitter);
 
   const notebookHandler = new NotebookHandler();
-
+  const mentalModelsHandler = new MentalModelsHandler();
   const sessionHandler = new SessionHandler({
     storage,
     thoughtHandler,
@@ -337,162 +345,107 @@ Call \`thoughtbox_hub\` { "operation": "register", "args": { "name": "Your Agent
       // Continue without init flow
     });
 
+  // Sync mental models to filesystem for inspection (fire-and-forget)
+  // URI: thoughtbox://mental-models/{tag}/{model} → ~/.thoughtbox/mental-models/{tag}/{model}.md
+  mentalModelsHandler.syncToFilesystem().catch((err) => {
+    logger.error("Failed to sync mental models to filesystem:", err);
+  });
 
-
-    // =============================================================================
-  // Progressive Disclosure Explicit Tools Registration
+  // =============================================================================
+  // Gateway-Only Tool Registration
+  // =============================================================================
+  // All individual tools have been removed. The gateway is the sole entry point
+  // and routes to existing handlers with internal stage enforcement.
   // =============================================================================
 
-  // Create explicit tool instances
-  const initTool = new InitTool(
-    initToolHandler!, 
-    async () => {
-      // Cipher operation implementation
-      toolRegistry.advanceToStage(DisclosureStage.STAGE_2_CIPHER_LOADED);
-      server.sendToolListChanged();
-      return { content: [{ type: 'text', text: getExtendedCipher(THOUGHTBOX_CIPHER) }] };
-    }
-  );
-  
-  const knowledgeTool = new KnowledgeTool(knowledgeHandler!);
-  const sessionTool = new SessionTool(sessionHandler);
-  const thoughtTool = new ThoughtTool(thoughtHandler);
-  const notebookTool = new NotebookTool(notebookHandler);
+  // =============================================================================
+  // Gateway Tool (Always-On Router)
+  // =============================================================================
+  // Gateway tool bypasses client tool list refresh issues by routing internally.
+  // It's always enabled at Stage 0 and enforces stages internally.
 
-  // Helper macro to register explicit tools with standardized error handling
-  const registerExplicitTool = <T>(
-    toolDef: { name: string, description: string, inputSchema: any, annotations?: any },
-    toolInstance: { handle: (args: T) => Promise<any> },
-    stage: DisclosureStage
-  ) => {
-    const inputShape = toolDef.inputSchema.shape 
-      ? toolDef.inputSchema 
-      : toolDef.inputSchema;
+  // Gateway handler will be created once initToolHandler is ready
+  let gatewayHandler: GatewayHandler | null = null;
 
-    const registered = server.registerTool(
-      toolDef.name,
-      {
-        description: toolDef.description,
-        inputSchema: inputShape as any,
-        annotations: toolDef.annotations,
-      },
-      async (args: any) => {
-        try {
-          const result = await toolInstance.handle(args as any);
-          if (result && Array.isArray(result.content)) {
-            return result;
-          }
-          return {
-            content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }]
-          };
-        } catch (err: any) {
-          return {
-            content: [{ type: "text" as const, text: JSON.stringify({ error: err.message }, null, 2) }],
-            isError: true
-          };
-        }
-      }
-    );
-    
-    let descriptionDict: Partial<Record<DisclosureStage, string>> = {};
-    descriptionDict[stage] = toolDef.description;
-    
-    toolRegistry.register(
-      toolDef.name,
-      registered,
-      stage,
-      descriptionDict
-    );
-  };
-
-  // Register all 5 explicit tools into the Progressive Disclosure toolRegistry
-  
-  // init is explicitly registered here instead of using registerExplicitTool
-  // This is because we need to implement the stage progression and SIL-103 
-  // Session Continuity logic previously housed in the Gateway Wrapper.
-  const initDef = INIT_TOOL;
-  const initShape = initDef.inputSchema as any;
-  
-  const registeredInit = server.registerTool(
-    initDef.name,
+  const gatewayTool = server.registerTool(
+    "thoughtbox_gateway",
     {
-      description: initDef.description,
-      inputSchema: initShape as any,
-      annotations: initDef.annotations,
+      description: GATEWAY_DESCRIPTION,
+      inputSchema: gatewayToolInputSchema,
+      annotations: GATEWAY_TOOL.annotations,
     },
-    async (args: any) => {
-      try {
-        const result = await initTool.handle(args as any);
-        const standardizedResult = (result && Array.isArray(result.content)) 
-          ? result 
-          : { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
-        
-        if (!standardizedResult.isError) {
-          const op = args.operation;
-          
-          // 1. Stage Advancement
-          // When context is loaded or new work started, we advance to stage 1.
-          if (op === 'load_context' || op === 'start_new') {
-            toolRegistry.advanceToStage(DisclosureStage.STAGE_1_INIT_COMPLETE);
-            
-            // Domain progression Logic could be here if args.domain is present
-            if (op === 'start_new' && args.domain) {
-              toolRegistry.setActiveDomain(args.domain);
-            }
-            
-            server.sendToolListChanged();
-          }
-
-          // 2. SIL-103: Session Continuity - restore ThoughtHandler state on load_context
-          if (op === 'load_context' && args.sessionId) {
-            try {
-              const restoration = await thoughtHandler.restoreFromSession(args.sessionId);
-              const restorationInfo = `\n\n**Session State Restored (SIL-103)**:\n- Thoughts: ${restoration.thoughtCount}\n- Current #: ${restoration.currentThoughtNumber}\n- Branches: ${restoration.branchCount}\n- Next thought will be #${restoration.currentThoughtNumber + 1}`;
-
-              // Find the text content block and append restoration info
-              for (const block of standardizedResult.content) {
-                if (block.type === 'text') {
-                  block.text += restorationInfo;
-                  break;
-                }
-              }
-            } catch (err: any) {
-              console.warn(`[SIL-103] Session restoration failed: ${err.message}`);
-            }
-          }
+    async (toolArgs, extra) => {
+      if (!gatewayHandler) {
+        // Gateway handler not ready - initToolHandler still initializing
+        // Create it now if initToolHandler is available
+        if (initToolHandler) {
+          gatewayHandler = new GatewayHandler({
+            toolRegistry,
+            initToolHandler,
+            thoughtHandler,
+            notebookHandler,
+            sessionHandler,
+            mentalModelsHandler,
+            knowledgeHandler,
+            storage,
+            sendToolListChanged: () => server.sendToolListChanged(),
+            agentId: process.env.THOUGHTBOX_AGENT_ID,
+            agentName: process.env.THOUGHTBOX_AGENT_NAME,
+            getAgentProfile: args.hubStorage ? async (agentId: string) => {
+              const agent = await args.hubStorage!.getAgent(agentId);
+              return agent?.profile;
+            } : undefined,
+          });
+        } else {
+          return {
+            content: [{
+              type: "text" as const,
+              text: JSON.stringify({
+                error: "Gateway tool not ready. Init handler is still initializing.",
+                suggestion: "Try again in a moment.",
+              }, null, 2),
+            }],
+            isError: true,
+          };
         }
-        
-        return standardizedResult;
-      } catch (err: any) {
-        return {
-          content: [{ type: "text" as const, text: JSON.stringify({ error: err.message }, null, 2) }],
-          isError: true
-        };
       }
+
+      const result = await gatewayHandler.handle(toolArgs, extra.sessionId);
+
+      // Transform content to match McpServer expected types
+      const content = result.content.map((block) => {
+        if (block.type === "text") {
+          return { type: "text" as const, text: block.text };
+        } else if (block.type === "resource") {
+          return {
+            type: "resource" as const,
+            resource: {
+              uri: block.resource.uri,
+              mimeType: block.resource.mimeType,
+              text: block.resource.text,
+            },
+          };
+        }
+        return block;
+      });
+      return { content, isError: result.isError };
     }
   );
 
+  // Register gateway at Stage 0 - always enabled
   toolRegistry.register(
-    initDef.name,
-    registeredInit,
+    "thoughtbox_gateway",
+    gatewayTool,
     DisclosureStage.STAGE_0_ENTRY,
-    { [DisclosureStage.STAGE_0_ENTRY]: initDef.description }
+    { [DisclosureStage.STAGE_0_ENTRY]: GATEWAY_DESCRIPTION }
   );
-  
-  // knowledge becomes available after init complete (stage 1)
-  registerExplicitTool(KNOWLEDGE_TOOL, knowledgeTool, DisclosureStage.STAGE_1_INIT_COMPLETE);
-  
-  // session becomes available after init complete (stage 1)
-  registerExplicitTool(SESSION_TOOL, sessionTool, DisclosureStage.STAGE_1_INIT_COMPLETE);
 
-  // thought becomes available when cipher loaded (stage 2)
-  registerExplicitTool(THOUGHT_TOOL, thoughtTool, DisclosureStage.STAGE_2_CIPHER_LOADED);
+  // =============================================================================
+  // Operations Catalog Tool (Always-On, No Session Required) — ADR-011
+  // =============================================================================
 
-  // notebook becomes available when cipher loaded (stage 2)
-  registerExplicitTool(NOTEBOOK_TOOL, notebookTool, DisclosureStage.STAGE_2_CIPHER_LOADED);
-
-  // Operations Catalog Tool (Always-On, No Session Required)
-  const OPERATIONS_TOOL_DESCRIPTION = 'Discover available Thoughtbox operations and their schemas. Always available -- no session required.';
+  const OPERATIONS_TOOL_DESCRIPTION =
+    'Discover available Thoughtbox operations and their schemas. Always available -- no session required.';
 
   const operationsTool = server.registerTool(
     "thoughtbox_operations",
@@ -515,7 +468,7 @@ Call \`thoughtbox_hub\` { "operation": "register", "args": { "name": "Your Agent
     { [DisclosureStage.STAGE_0_ENTRY]: OPERATIONS_TOOL_DESCRIPTION }
   );
 
-// =============================================================================
+  // =============================================================================
   // Observability Gateway Tool (Always-On, No Session Required)
   // =============================================================================
   // Separate tool for querying observability data (metrics, health, sessions, alerts).
@@ -1329,7 +1282,23 @@ mcp__thoughtbox__thoughtbox({
     })
   );
 
-
+  server.registerResource(
+    "mental-models-operations",
+    "thoughtbox://mental-models/operations",
+    {
+      description: "Complete catalog of mental models, tags, and operations",
+      mimeType: "application/json",
+    },
+    async (uri) => ({
+      contents: [
+        {
+          uri: uri.toString(),
+          mimeType: "application/json",
+          text: mentalModelsHandler.getOperationsCatalog(),
+        },
+      ],
+    })
+  );
 
   server.registerResource(
     "session-operations",
@@ -1349,7 +1318,23 @@ mcp__thoughtbox__thoughtbox({
     })
   );
 
-
+  server.registerResource(
+    "gateway-operations",
+    "thoughtbox://gateway/operations",
+    {
+      description: "Complete catalog of gateway operations (thought, read_thoughts, get_structure, cipher, deep_analysis) with schemas and examples",
+      mimeType: "application/json",
+    },
+    async (uri) => ({
+      contents: [
+        {
+          uri: uri.toString(),
+          mimeType: "application/json",
+          text: getGatewayOperationsCatalog(),
+        },
+      ],
+    })
+  );
 
   server.registerResource(
     "init-operations",
@@ -1405,7 +1390,17 @@ mcp__thoughtbox__thoughtbox({
     })
   );
 
-
+  // Per-operation resource templates (Fix #4: make emitted per-op URIs resolvable)
+  server.registerResource(
+    "gateway-operation",
+    new ResourceTemplate("thoughtbox://gateway/operations/{op}", { list: undefined }),
+    { description: "Individual gateway operation schema and examples", mimeType: "application/json" },
+    async (uri, { op }) => {
+      const opDef = getGwOp(op as string);
+      if (!opDef) throw new Error(`Unknown gateway operation: ${op}`);
+      return { contents: [{ uri: uri.href, mimeType: "application/json", text: JSON.stringify(opDef, null, 2) }] };
+    }
+  );
 
   server.registerResource(
     "init-operation",
@@ -1472,7 +1467,46 @@ mcp__thoughtbox__thoughtbox({
     })
   );
 
+  // Mental models root directory (static resource)
+  server.registerResource(
+    "mental-models-root",
+    "thoughtbox://mental-models",
+    {
+      description: "Mental models root directory",
+      mimeType: "application/json",
+    },
+    async (uri) => {
+      const content = getMentalModelsResourceContent(uri.toString());
+      if (!content) throw new Error(`Unknown resource: ${uri}`);
+      return { contents: [content] };
+    }
+  );
 
+  // Mental models tag directory (template with single path segment)
+  server.registerResource(
+    "mental-models-tag",
+    new ResourceTemplate("thoughtbox://mental-models/{tag}", { list: undefined }),
+    { description: "Mental models by tag", mimeType: "application/json" },
+    async (uri) => {
+      const content = getMentalModelsResourceContent(uri.toString());
+      if (!content) throw new Error(`Unknown resource: ${uri}`);
+      return { contents: [content] };
+    }
+  );
+
+  // Mental model content (template with tag/model path)
+  server.registerResource(
+    "mental-model-by-tag",
+    new ResourceTemplate("thoughtbox://mental-models/{tag}/{model}", {
+      list: undefined,
+    }),
+    { description: "Mental model content by tag path", mimeType: "text/markdown" },
+    async (uri) => {
+      const content = getMentalModelsResourceContent(uri.toString());
+      if (!content) throw new Error(`Unknown resource: ${uri}`);
+      return { contents: [content] };
+    }
+  );
 
   // Init flow resources using path segments
   const str = (val: string | string[] | undefined): string | undefined =>
@@ -1491,7 +1525,7 @@ mcp__thoughtbox__thoughtbox({
       return {
         uri: "thoughtbox://init",
         mimeType: "text/markdown",
-        text: `# Thoughtbox Init\n\nSession index not available. You can start using tools directly.\n\n## Available Tools\n\n- \`thoughtbox\` — Step-by-step reasoning\n- \`thoughtbox_cipher\` — Token-efficient notation system\n- \`session\` — Manage/retrieve/analyze reasoning sessions\n- \`notebook\` — Literate programming notebooks`,
+        text: `# Thoughtbox Init\n\nSession index not available. You can start using tools directly.\n\n## Available Tools\n\n- \`thoughtbox\` — Step-by-step reasoning\n- \`thoughtbox_cipher\` — Token-efficient notation system\n- \`session\` — Manage/retrieve/analyze reasoning sessions\n- \`notebook\` — Literate programming notebooks\n- \`mental_models\` — Structured reasoning frameworks`,
       };
     }
     return initHandler.handle(params);
@@ -1958,14 +1992,24 @@ mcp__thoughtbox__thoughtbox({
         description: "Entity and relation counts for the knowledge graph",
         mimeType: "application/json",
       },
-
+      {
+        uri: BEHAVIORAL_TESTS.mentalModels.uri,
+        name: "Behavioral Tests: Mental Models",
+        description: BEHAVIORAL_TESTS.mentalModels.description,
+        mimeType: "text/markdown",
+      },
       {
         uri: BEHAVIORAL_TESTS.memory.uri,
         name: "Behavioral Tests: Memory",
         description: BEHAVIORAL_TESTS.memory.description,
         mimeType: "text/markdown",
       },
-
+      {
+        uri: "thoughtbox://mental-models/operations",
+        name: "Mental Models Operations Catalog",
+        description: "Complete catalog of mental models, tags, and operations",
+        mimeType: "application/json",
+      },
       {
         uri: "thoughtbox://loops/catalog",
         name: "OODA Loops Catalog",
@@ -1978,7 +2022,8 @@ mcp__thoughtbox__thoughtbox({
         description: "Trigger immediate aggregation of loop usage metrics and return updated statistics",
         mimeType: "application/json",
       },
-
+      // Dynamic mental models browsable hierarchy
+      ...getMentalModelsResources(),
     ],
   }));
 
@@ -2048,7 +2093,9 @@ mcp__thoughtbox__thoughtbox({
           description: "Individual notebook operation schema and examples",
           mimeType: "application/json",
         },
+        ...getInterleavedResourceTemplates().resourceTemplates,
         ...getSessionAnalysisResourceTemplates().resourceTemplates,
+        ...getMentalModelsResourceTemplates().resourceTemplates,
       ],
     })
   );

@@ -7,8 +7,10 @@ project_dir="${CLAUDE_PROJECT_DIR:-$(pwd)}"
 input_json=$(cat)
 
 hooks=(
+  "$project_dir/.claude/hooks/post_tool_use.sh"
   "$project_dir/.claude/hooks/specsuite_post_tool_use.sh"
   "$project_dir/.claude/hooks/track_file_access.sh"
+  "$project_dir/.claude/hooks/memory_pattern_detector.sh"
   "$project_dir/.claude/hooks/assumption-tracker.sh"
 )
 

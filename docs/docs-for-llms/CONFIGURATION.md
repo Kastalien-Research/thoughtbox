@@ -1,7 +1,7 @@
 # Thoughtbox Configuration Reference
 
 > **Part of:** [Architecture Documentation](./ARCHITECTURE.md)
-> **Last Updated:** 2026-03-15
+> **Last Updated:** 2026-01-21
 
 Complete configuration reference including environment variables, server configuration, and appendices.
 
@@ -31,29 +31,16 @@ environment_variables:
   # Storage
   THOUGHTBOX_STORAGE:
     default: "fs"
-    values: ["memory", "fs", "supabase"]
+    values: ["memory", "fs"]
     description: "Storage backend"
 
   THOUGHTBOX_DATA_DIR:
     default: "~/.thoughtbox"
-    description: "Persistent data directory (used by fs and memory modes)"
+    description: "Persistent data directory"
 
   THOUGHTBOX_PROJECT:
     default: "_default"
     description: "Project scope for isolation"
-
-  # Supabase (required when THOUGHTBOX_STORAGE=supabase)
-  SUPABASE_URL:
-    default: null
-    description: "Supabase project URL"
-
-  SUPABASE_ANON_KEY:
-    default: null
-    description: "Supabase anonymous/public API key"
-
-  SUPABASE_JWT_SECRET:
-    default: null
-    description: "Supabase JWT secret for token validation and RLS"
 
   # Server
   PORT:
@@ -79,25 +66,30 @@ environment_variables:
 
   THOUGHTBOX_OBSERVATORY_CORS:
     default: "*"
-    description: "CORS origins (comma-separated)"
+    description: "CORS origins"
 
-  THOUGHTBOX_OBSERVATORY_MAX_CONN:
+  THOUGHTBOX_OBSERVATORY_MAX_CONNECTIONS:
     default: 100
     description: "Maximum WebSocket connections"
 
   THOUGHTBOX_OBSERVATORY_HTTP_API:
-    default: true
-    description: "Enable HTTP API endpoints (set to 'false' to disable)"
+    default: false
+    description: "Enable HTTP API endpoints"
 
   # Event Streaming (SIL-104)
-  THOUGHTBOX_EVENTS_ENABLED:
-    default: "false"
-    description: "Enable JSONL event streaming (set to 'true' to enable)"
+  THOUGHTBOX_EVENT_OUTPUT:
+    default: "none"
+    values: ["none", "stderr", "stdout", "file"]
+    description: "JSONL event output destination"
 
-  THOUGHTBOX_EVENTS_DEST:
-    default: "stderr"
-    values: ["stderr", "stdout", "<file-path>"]
-    description: "Event output destination"
+  THOUGHTBOX_EVENT_FILE:
+    default: null
+    description: "File path when EVENT_OUTPUT=file"
+
+  THOUGHTBOX_EVENT_TYPES:
+    default: "*"
+    description: "Comma-separated event types or * for all"
+    example: "thought_added,session_started,stage_changed"
 ```
 
 ---
@@ -110,34 +102,37 @@ SIL-104 enables JSONL event streaming for external consumers like log aggregator
 
 ```yaml
 # Enable stderr streaming (good for log aggregation)
-THOUGHTBOX_EVENTS_ENABLED: "true"
-THOUGHTBOX_EVENTS_DEST: stderr
+THOUGHTBOX_EVENT_OUTPUT: stderr
 
 # Enable file streaming (good for batch processing)
-THOUGHTBOX_EVENTS_ENABLED: "true"
-THOUGHTBOX_EVENTS_DEST: /var/log/thoughtbox/events.jsonl
+THOUGHTBOX_EVENT_OUTPUT: file
+THOUGHTBOX_EVENT_FILE: /var/log/thoughtbox/events.jsonl
+
+# Filter to specific events
+THOUGHTBOX_EVENT_TYPES: thought_added,session_started
 ```
 
 ### Event Types
 
-Defined in `src/events/types.ts`. All event types are always emitted when streaming is enabled (no per-type filtering).
-
 | Event Type | Description | Trigger |
 |------------|-------------|---------|
-| `session_created` | New session created | `start_new` operation |
 | `thought_added` | New thought recorded | `thought` operation |
+| `thought_revised` | Thought revision created | `thought` with `isRevision: true` |
 | `branch_created` | New branch started | `thought` with `branchFromThought` |
-| `session_completed` | Session completed | Final thought with `nextThoughtNeeded: false` |
-| `export_requested` | Session exported | `session.export` operation |
+| `session_started` | New session created | `start_new` operation |
+| `session_loaded` | Existing session loaded | `load_context` operation |
+| `session_exported` | Session exported | `session.export` operation |
+| `cipher_loaded` | Protocol notation loaded | `cipher` operation |
+| `stage_changed` | Progressive disclosure advanced | Stage transition |
 
 ### JSONL Format
 
 Each line is a self-contained JSON object:
 
 ```jsonl
-{"type":"session_created","timestamp":"2026-03-15T10:00:00Z","payload":{"sessionId":"abc-123","title":"Debug API"}}
-{"type":"thought_added","timestamp":"2026-03-15T10:00:05Z","payload":{"sessionId":"abc-123","thoughtNumber":1,"wasAutoAssigned":true,"thoughtPreview":"Starting analysis..."}}
-{"type":"branch_created","timestamp":"2026-03-15T10:00:10Z","payload":{"sessionId":"abc-123","branchId":"alt-approach","fromThoughtNumber":3}}
+{"type":"session_started","timestamp":"2026-01-21T10:00:00Z","sessionId":"abc-123","data":{"title":"Debug API"}}
+{"type":"thought_added","timestamp":"2026-01-21T10:00:05Z","sessionId":"abc-123","data":{"thoughtNumber":1,"thought":"Starting analysis..."}}
+{"type":"stage_changed","timestamp":"2026-01-21T10:00:10Z","sessionId":"abc-123","data":{"previousStage":1,"newStage":2,"trigger":"cipher"}}
 ```
 
 ### Consuming Events
@@ -147,7 +142,7 @@ Each line is a self-contained JSON object:
 tail -f /var/log/thoughtbox/events.jsonl | jq -c 'select(.type == "thought_added")'
 
 # Parse with jq
-cat events.jsonl | jq -s 'group_by(.payload.sessionId) | map({session: .[0].payload.sessionId, thoughts: length})'
+cat events.jsonl | jq -s 'group_by(.sessionId) | map({session: .[0].sessionId, thoughts: length})'
 
 # Send to monitoring
 tail -f events.jsonl | nc monitoring.example.com 5140

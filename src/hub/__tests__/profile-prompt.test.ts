@@ -31,6 +31,13 @@ describe('profile-prompt', () => {
 
     expect(result.prompt).toBeDefined();
     expect(result.prompt).toContain('MANAGER');
+    expect(result.prompt).toContain('Decomposition');
+    expect(result.prompt).toContain('Pre-mortem');
+    expect(result.prompt).toContain('Five Whys');
+    expect(result.modelNames).toBeDefined();
+    expect(result.modelNames).toContain('decomposition');
+    expect(result.modelNames).toContain('pre-mortem');
+    expect(result.modelNames).toContain('five-whys');
   });
 
   // T-PP-2: get_profile_prompt returns ARCHITECT prompt
@@ -41,6 +48,9 @@ describe('profile-prompt', () => {
     const result = await handler.handle(agentId, 'get_profile_prompt', { profile: 'ARCHITECT' }) as any;
 
     expect(result.prompt).toContain('ARCHITECT');
+    expect(result.modelNames).toContain('decomposition');
+    expect(result.modelNames).toContain('trade-off-matrix');
+    expect(result.modelNames).toContain('abstraction-laddering');
   });
 
   // T-PP-3: get_profile_prompt for unknown profile returns error with available profiles
@@ -53,7 +63,15 @@ describe('profile-prompt', () => {
     ).rejects.toThrow(/unknown profile/i);
   });
 
+  // T-PP-4: Response includes model names metadata
+  it('response includes model names metadata', async () => {
+    const { handler } = setup();
+    const agentId = await registerAgent(handler, 'TestAgent');
 
+    const result = await handler.handle(agentId, 'get_profile_prompt', { profile: 'SECURITY' }) as any;
+
+    expect(result.modelNames).toEqual(['adversarial-thinking', 'pre-mortem']);
+  });
 
   // T-PP-5: Missing profile arg returns helpful error
   it('missing profile arg returns helpful error', async () => {

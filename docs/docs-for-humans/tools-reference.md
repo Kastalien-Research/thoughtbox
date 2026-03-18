@@ -6,16 +6,14 @@ Complete API documentation for all Thoughtbox operations.
 
 ## Overview
 
-Thoughtbox exposes four MCP tools:
+Thoughtbox exposes two main gateway tools:
 
 | Tool | Purpose | Requires Init |
 |------|---------|---------------|
-| `thoughtbox_gateway` | Core reasoning, knowledge graph, sessions | Partially (some ops) |
-| `thoughtbox_operations` | Discover available operations and schemas | No |
+| `thoughtbox_gateway` | Core reasoning operations | Partially (some ops) |
 | `observability_gateway` | System monitoring | No |
-| `thoughtbox_hub` | Multi-agent collaboration | No (has own progressive disclosure) |
 
-All operations route through these tools using the `operation` parameter.
+All operations route through these gateways using the `operation` parameter.
 
 ---
 
@@ -827,139 +825,6 @@ Get all available model categories.
   ]
 }
 ```
-
----
-
-## Knowledge Graph Operations
-
-Persistent cross-session memory. **Requires Stage 2.** All operations are called through `thoughtbox_gateway` with a `knowledge_`-prefixed operation name.
-
-### knowledge_create_entity
-
-Create an entity in the knowledge graph.
-
-```json
-{
-  "operation": "knowledge_create_entity",
-  "args": {
-    "name": "gateway-routing-pattern",
-    "type": "Workflow",
-    "label": "Gateway Routing Pattern",
-    "properties": { "domain": "architecture" }
-  }
-}
-```
-
-**Entity types:** `Insight`, `Concept`, `Workflow`, `Decision`, `Agent`
-
----
-
-### knowledge_add_observation
-
-Add a timestamped observation to an entity.
-
-```json
-{
-  "operation": "knowledge_add_observation",
-  "args": {
-    "entity_id": "abc-123-def-456",
-    "content": "This pattern also works well with progressive disclosure stages"
-  }
-}
-```
-
----
-
-### knowledge_create_relation
-
-Create a directed relation between two entities.
-
-```json
-{
-  "operation": "knowledge_create_relation",
-  "args": {
-    "from_id": "entity-1",
-    "to_id": "entity-2",
-    "relation_type": "BUILDS_ON"
-  }
-}
-```
-
-**Relation types:** `RELATES_TO`, `BUILDS_ON`, `CONTRADICTS`, `EXTRACTED_FROM`, `APPLIED_IN`, `LEARNED_BY`, `DEPENDS_ON`, `SUPERSEDES`, `MERGED_FROM`
-
----
-
-### knowledge_query_graph
-
-Traverse the graph from a starting entity.
-
-```json
-{
-  "operation": "knowledge_query_graph",
-  "args": {
-    "start_entity_id": "abc-123-def-456",
-    "relation_types": ["BUILDS_ON", "DEPENDS_ON"],
-    "max_depth": 2
-  }
-}
-```
-
----
-
-### Other Knowledge Operations
-
-| Operation | Purpose |
-|-----------|---------|
-| `knowledge_get_entity` | Get entity by ID |
-| `knowledge_list_entities` | List/filter entities by type, name, date range |
-| `knowledge_stats` | Aggregate statistics for the knowledge graph |
-
----
-
-## thoughtbox_operations
-
-Discover available Thoughtbox operations and their schemas. **No initialization required.** Useful for agents that need to inspect what operations exist and what arguments they accept before calling them.
-
----
-
-## thoughtbox_hub
-
-Multi-agent collaboration tool. Has its own internal progressive disclosure: register first, then join a workspace.
-
-### Key Operations
-
-| Operation | Purpose |
-|-----------|---------|
-| `register` | Register as an agent (required first) |
-| `quick_join` | Register + join workspace in one call |
-| `whoami` | Get current agent identity |
-| `create_workspace` | Create a collaboration workspace |
-| `join_workspace` | Join an existing workspace |
-| `create_problem` | Define a problem to solve |
-| `claim_problem` | Claim a problem to work on |
-| `update_problem` | Update problem status |
-| `create_proposal` | Propose a solution |
-| `review_proposal` | Review a proposal |
-| `merge_proposal` | Merge an approved proposal |
-| `mark_consensus` | Record a team decision |
-| `post_message` | Post to a problem channel |
-| `read_channel` | Read channel messages |
-| `get_profile_prompt` | Get role-specific mental models |
-
-### Quick Join Example
-
-```json
-{
-  "operation": "quick_join",
-  "args": {
-    "name": "my-agent",
-    "workspaceId": "workspace-123",
-    "profile": "ARCHITECT"
-  }
-}
-```
-
-**Profiles:** `MANAGER`, `ARCHITECT`, `DEBUGGER`, `SECURITY`, `RESEARCHER`, `REVIEWER`
 
 ---
 
