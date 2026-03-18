@@ -21,6 +21,3 @@ resource "github_branch_protection" "main" {
     contexts = ["ci", "workflow-guard"]
   }
 
-  # Since enforce_admins = true, no one (not even repo admins or apps) 
-  # can push directly to main without meeting these requirements.
-}
