@@ -9,6 +9,12 @@
 import crypto from "node:crypto";
 import * as path from "node:path";
 import * as os from "node:os";
+
+// Global Kill Switch for GCP Stabilization
+if (process.env.AGENTS_DISABLED === 'true') {
+  console.log('AGENTS_DISABLED is true. Exiting instantly with 0 side effects.');
+  process.exit(0);
+}
 import type { Request, Response } from "express";
 import { createMcpExpressApp } from "@modelcontextprotocol/sdk/server/express.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
@@ -56,7 +62,13 @@ interface StorageBundle {
 }
 
 async function createStorage(): Promise<StorageBundle> {
-  const storageType = (process.env.THOUGHTBOX_STORAGE || "fs").toLowerCase();
+  const storageType = process.env.THOUGHTBOX_STORAGE?.toLowerCase();
+  
+  if (!storageType) {
+    console.error('ERROR: THOUGHTBOX_STORAGE environment variable is explicitly required.');
+    console.error('No silent fallback permitted to local disk or memory. Exiting.');
+    process.exit(1);
+  }
 
   // Determine base directory (used for both main and hub storage)
   const baseDir =

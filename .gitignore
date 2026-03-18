@@ -139,3 +139,6 @@ ai_docs/claude-platform-docs/
 dgm-specs/history/runs/*.json
 thoughtbox-web-two/
 .worktrees/
+.terraform/
+.terraform.lock.hcl
+autoresearch-agents/
