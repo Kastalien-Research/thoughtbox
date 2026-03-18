@@ -63,9 +63,9 @@ Neither replaces the other. Both implement the same interface.
 - SQLite query index: if retained as a local cache, rebuilt on startup from Postgres. Alternatively, replaced entirely by Postgres queries.
 - `node_modules`, application code, temp files.
 
-### New storage backend
+### Storage backend (implemented)
 
-New `SupabaseStorage` and `SupabaseKnowledgeStorage` implementations are needed for the deployed environment. The interfaces already exist (ADR-013). Schema and migration tooling are defined in ADR-DATA-01 (WS-02).
+`SupabaseStorage` and `SupabaseKnowledgeStorage` are implemented (ADR-DATA-01, PR #161). Both accept an optional `userToken` for OAuth-authenticated access (ADR-AUTH-01). The app connects via Supabase PostgREST API using the anon key + user token; RLS enforces data isolation at the database level.
 
 ---
 
@@ -114,11 +114,16 @@ Cloud Run does not expose stable instance IDs. Instead, use **session affinity**
 |----------|--------|-------------|
 | `PORT` | Cloud Run (automatic) | Container port; Cloud Run injects this |
 | `NODE_ENV` | Service config | `production` |
-| ~~`THOUGHTBOX_TRANSPORT`~~ | ~~Service config~~ | Removed — server defaults to HTTP (see ADR-013) |
-| `REDIS_URL` | Secret Manager | `redis://{memorystore-ip}:6379` |
-| `SUPABASE_URL` | Secret Manager | Supabase project URL |
-| `SUPABASE_SERVICE_ROLE_KEY` | Secret Manager | Service role key for server-side access |
-| `SUPABASE_DB_URL` | Secret Manager | Direct Postgres connection string |
+| `THOUGHTBOX_STORAGE` | Service config | `supabase` — selects Supabase backend (ADR-DATA-01) |
+| `SUPABASE_URL` | Secret Manager | Supabase project URL (`https://akjccuoncxlvrrtkvtno.supabase.co`) |
+| `SUPABASE_ANON_KEY` | Secret Manager | Supabase anon key — used with user tokens for RLS-enforced access |
+| `SUPABASE_JWT_SECRET` | Secret Manager | JWT secret — used for custom JWT minting in FS/local mode; present but unused when OAuth tokens are active |
+| `REDIS_URL` | Secret Manager | `redis://{memorystore-ip}:6379` (deferred to Redis implementation) |
+
+**Removed variables:**
+- ~~`THOUGHTBOX_TRANSPORT`~~: Server defaults to HTTP (ADR-013)
+- ~~`SUPABASE_SERVICE_ROLE_KEY`~~: Not used. App connects as unprivileged client with anon key + user OAuth token. RLS enforces access control at the database level (ADR-AUTH-01).
+- ~~`SUPABASE_DB_URL`~~: Not used. App connects via Supabase PostgREST API, not direct Postgres (ADR-DATA-01).
 
 Secret management strategy is deferred to ADR-GCP-02. This spec assumes secrets are available as environment variables at runtime.
 
@@ -167,8 +172,8 @@ gcloud run deploy thoughtbox-mcp \
   --port=8080 \
   --cpu-boost \
   --session-affinity \
-  --set-env-vars="NODE_ENV=production" \
-  --set-secrets="REDIS_URL=thoughtbox-redis-url:latest,SUPABASE_URL=thoughtbox-supabase-url:latest,SUPABASE_SERVICE_ROLE_KEY=thoughtbox-supabase-key:latest" \
+  --set-env-vars="NODE_ENV=production,THOUGHTBOX_STORAGE=supabase" \
+  --set-secrets="SUPABASE_URL=thoughtbox-supabase-url:latest,SUPABASE_ANON_KEY=thoughtbox-supabase-anon-key:latest,SUPABASE_JWT_SECRET=thoughtbox-supabase-jwt-secret:latest" \
   --service-account=thoughtbox-mcp@PROJECT.iam.gserviceaccount.com
 ```
 

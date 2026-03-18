@@ -1,4 +1,12 @@
 {
+    "mcpServers": {
+        "thoughtbox": {
+            "httpUrl": "https://thoughtbox-mcp-272720136470.us-central1.run.app",
+            "env": {
+                "API_KEY": "THOUGHTBOX_API_KEY"
+            }
+        }
+    },
     "hooks": {
         "BeforeTool": [
             {

@@ -1,0 +1,13 @@
+# ==============================================================
+# Example variables file (.tfvars)
+# Copy this to terraform.tfvars or secret.auto.tfvars
+# Do NOT commit files containing real secrets (API keys/App Secrets)
+# ==============================================================
+
+# project_id = "thoughtbox-prod"
+# region     = "us-central1"
+
+# agents_disabled = "false"
+
+# GitHub App Installation ID you created:
+github_app_installation_id = "117190009"

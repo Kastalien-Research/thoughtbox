@@ -7,7 +7,7 @@
  */
 
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
-import * as jwt from 'jsonwebtoken';
+import jwt from 'jsonwebtoken';
 import { randomUUID } from 'node:crypto';
 import type {
   ThoughtboxStorage,
@@ -27,14 +27,16 @@ export interface SupabaseStorageConfig {
   supabaseUrl: string;
   supabaseKey: string;
   jwtSecret: string;
+  /** The workspace ID this storage instance is strictly scoped to. */
+  workspaceId: string;
 }
 
 export class SupabaseStorage implements ThoughtboxStorage {
   private supabaseUrl: string;
   private supabaseKey: string;
   private jwtSecret: string;
+  private workspaceId: string;
   private client: SupabaseClient | null = null;
-  private project: string | null = null;
   private config: Config | null = null;
   private tokenExpiresAt = 0;
   private static TOKEN_TTL = 3600;
@@ -44,38 +46,31 @@ export class SupabaseStorage implements ThoughtboxStorage {
     this.supabaseUrl = config.supabaseUrl;
     this.supabaseKey = config.supabaseKey;
     this.jwtSecret = config.jwtSecret;
+    this.workspaceId = config.workspaceId;
   }
 
   // ===========================================================================
-  // Project Scoping
+  // Workspace Scoping
   // ===========================================================================
 
   async setProject(project: string): Promise<void> {
-    if (this.project === project) return;
-    if (this.project !== null) {
-      throw new Error(
-        `Storage already scoped to project "${this.project}", cannot change to "${project}"`
-      );
-    }
-    this.project = project;
-    this.refreshClient();
+    // Project scoping is deprecated in favor of strict workspaceId scoping at instantiation.
   }
 
   getProject(): string {
-    if (this.project === null) {
-      throw new Error('Project scope not established. Call bind_root or start_new first.');
-    }
-    return this.project;
+    return this.workspaceId;
   }
 
   private refreshClient(): void {
+
+    // FS/local mode: mint a custom JWT with project claim
     const now = Math.floor(Date.now() / 1000);
     const exp = now + SupabaseStorage.TOKEN_TTL;
 
     const token = jwt.sign(
       {
         role: 'authenticated',
-        project: this.project,
+        workspace_id: this.workspaceId,
         iss: 'supabase-demo',
         exp,
       },
@@ -93,8 +88,8 @@ export class SupabaseStorage implements ThoughtboxStorage {
   }
 
   private ensureClient(): SupabaseClient {
-    if (!this.project) {
-      throw new Error('Project scope not established. Call bind_root or start_new first.');
+    if (!this.workspaceId) {
+      throw new Error('Workspace scope not established.');
     }
     const now = Math.floor(Date.now() / 1000);
     if (!this.client || now >= this.tokenExpiresAt - SupabaseStorage.TOKEN_REFRESH_MARGIN) {
@@ -165,7 +160,7 @@ export class SupabaseStorage implements ThoughtboxStorage {
   private sessionToRow(params: CreateSessionParams) {
     return {
       id: randomUUID(),
-      project: this.project,
+      workspace_id: this.workspaceId,
       title: params.title,
       description: params.description || null,
       tags: params.tags || [],
@@ -208,7 +203,7 @@ export class SupabaseStorage implements ThoughtboxStorage {
   private thoughtToRow(sessionId: string, thought: ThoughtData) {
     return {
       session_id: sessionId,
-      project: this.project,
+      workspace_id: this.workspaceId,
       thought_number: thought.thoughtNumber,
       thought: thought.thought,
       total_thoughts: thought.totalThoughts,
@@ -258,6 +253,7 @@ export class SupabaseStorage implements ThoughtboxStorage {
       .from('sessions')
       .select()
       .eq('id', id)
+      .eq('workspace_id', this.workspaceId)
       .maybeSingle();
 
     if (error) throw new Error(`Failed to get session: ${error.message}`);
@@ -268,15 +264,20 @@ export class SupabaseStorage implements ThoughtboxStorage {
   async updateSession(id: string, attrs: Partial<Session>): Promise<Session> {
     const client = this.ensureClient();
 
-    const updateData: Record<string, unknown> = {};
+    const updateData: Record<string, unknown> = {
+      updated_at: new Date().toISOString(),
+    };
     if (attrs.title !== undefined) updateData.title = attrs.title;
     if (attrs.description !== undefined) updateData.description = attrs.description;
     if (attrs.tags !== undefined) updateData.tags = attrs.tags;
+    if (attrs.thoughtCount !== undefined) updateData.thought_count = attrs.thoughtCount;
+    if (attrs.branchCount !== undefined) updateData.branch_count = attrs.branchCount;
 
     const { data, error } = await client
       .from('sessions')
       .update(updateData)
       .eq('id', id)
+      .eq('workspace_id', this.workspaceId)
       .select()
       .single();
 
@@ -289,14 +290,15 @@ export class SupabaseStorage implements ThoughtboxStorage {
     const { error } = await client
       .from('sessions')
       .delete()
-      .eq('id', id);
+      .eq('id', id)
+      .eq('workspace_id', this.workspaceId);
 
     if (error) throw new Error(`Failed to delete session: ${error.message}`);
   }
 
   async listSessions(filter?: SessionFilter): Promise<Session[]> {
     const client = this.ensureClient();
-    let query = client.from('sessions').select();
+    let query = client.from('sessions').select().eq('workspace_id', this.workspaceId);
 
     if (filter?.tags && filter.tags.length > 0) {
       query = query.overlaps('tags', filter.tags);
@@ -357,6 +359,7 @@ export class SupabaseStorage implements ThoughtboxStorage {
       .from('thoughts')
       .select()
       .eq('session_id', sessionId)
+      .eq('workspace_id', this.workspaceId)
       .is('branch_id', null)
       .order('thought_number', { ascending: true });
 
@@ -370,6 +373,7 @@ export class SupabaseStorage implements ThoughtboxStorage {
       .from('thoughts')
       .select()
       .eq('session_id', sessionId)
+      .eq('workspace_id', this.workspaceId)
       .order('thought_number', { ascending: true });
 
     if (error) throw new Error(`Failed to get all thoughts: ${error.message}`);
@@ -382,6 +386,7 @@ export class SupabaseStorage implements ThoughtboxStorage {
       .from('thoughts')
       .select('branch_id')
       .eq('session_id', sessionId)
+      .eq('workspace_id', this.workspaceId)
       .not('branch_id', 'is', null);
 
     if (error) throw new Error(`Failed to get branch IDs: ${error.message}`);
@@ -398,6 +403,7 @@ export class SupabaseStorage implements ThoughtboxStorage {
       .from('thoughts')
       .select()
       .eq('session_id', sessionId)
+      .eq('workspace_id', this.workspaceId)
       .eq('thought_number', thoughtNumber)
       .is('branch_id', null)
       .maybeSingle();
@@ -430,6 +436,7 @@ export class SupabaseStorage implements ThoughtboxStorage {
       .from('thoughts')
       .select()
       .eq('session_id', sessionId)
+      .eq('workspace_id', this.workspaceId)
       .eq('branch_id', branchId)
       .order('thought_number', { ascending: true });
 
@@ -447,6 +454,7 @@ export class SupabaseStorage implements ThoughtboxStorage {
       .from('thoughts')
       .update({ critique })
       .eq('session_id', sessionId)
+      .eq('workspace_id', this.workspaceId)
       .eq('thought_number', thoughtNumber)
       .is('branch_id', null);
 
@@ -465,10 +473,10 @@ export class SupabaseStorage implements ThoughtboxStorage {
     const branchIds = await this.getBranchIds(sessionId);
 
     if (format === 'json') {
-      const branchData: Record<string, ThoughtData[]> = {};
-      for (const branchId of branchIds) {
-        branchData[branchId] = await this.getBranch(sessionId, branchId);
-      }
+      const branchEntries = await Promise.all(
+        branchIds.map(async (branchId) => [branchId, await this.getBranch(sessionId, branchId)] as const)
+      );
+      const branchData = Object.fromEntries(branchEntries);
       return JSON.stringify({ session, thoughts, branches: branchData }, null, 2);
     }
 
@@ -506,8 +514,11 @@ export class SupabaseStorage implements ThoughtboxStorage {
       lines.push('## Branches');
       lines.push('');
 
-      for (const branchId of branchIds) {
-        const branchThoughts = await this.getBranch(sessionId, branchId);
+      const branchEntries = await Promise.all(
+        branchIds.map(async (branchId) => [branchId, await this.getBranch(sessionId, branchId)] as const)
+      );
+
+      for (const [branchId, branchThoughts] of branchEntries) {
         lines.push(`### Branch: ${branchId}`);
         lines.push('');
         for (const thought of branchThoughts) {

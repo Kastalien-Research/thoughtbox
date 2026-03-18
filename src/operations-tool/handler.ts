@@ -1,9 +1,5 @@
 import { z } from 'zod';
 import {
-  GATEWAY_OPERATIONS,
-  getOperation as getGatewayOperation,
-} from '../gateway/operations.js';
-import {
   INIT_OPERATIONS,
   getOperation as getInitOperation,
 } from '../init/operations.js';
@@ -23,9 +19,7 @@ import {
   KNOWLEDGE_OPERATIONS,
   getOperation as getKnowledgeOperation,
 } from '../knowledge/operations.js';
-import {
-  MENTAL_MODELS_OPERATIONS,
-} from '../mental-models/operations.js';
+
 
 export const operationsToolInputSchema = z.object({
   operation: z.enum(['list', 'get', 'search']),
@@ -33,8 +27,8 @@ export const operationsToolInputSchema = z.object({
     name: z.string().optional(),
     query: z.string().optional(),
     module: z.enum([
-      'gateway', 'init', 'session', 'notebook',
-      'hub', 'knowledge', 'mental-models',
+      'init', 'session', 'notebook',
+      'hub', 'knowledge',
     ]).optional(),
   }).optional(),
 });
@@ -49,8 +43,8 @@ interface OperationSummary {
   module: string;
 }
 
-type ModuleName = 'gateway' | 'init' | 'session' | 'notebook'
-  | 'hub' | 'knowledge' | 'mental-models';
+type ModuleName = 'init' | 'session' | 'notebook'
+  | 'hub' | 'knowledge';
 
 interface ModuleCatalog {
   module: ModuleName;
@@ -59,11 +53,6 @@ interface ModuleCatalog {
 }
 
 const MODULE_CATALOGS: ModuleCatalog[] = [
-  {
-    module: 'gateway',
-    operations: GATEWAY_OPERATIONS,
-    getOperation: getGatewayOperation,
-  },
   {
     module: 'init',
     operations: INIT_OPERATIONS,
@@ -88,12 +77,6 @@ const MODULE_CATALOGS: ModuleCatalog[] = [
     module: 'knowledge',
     operations: KNOWLEDGE_OPERATIONS,
     getOperation: getKnowledgeOperation,
-  },
-  {
-    module: 'mental-models',
-    operations: MENTAL_MODELS_OPERATIONS,
-    getOperation: (name: string) =>
-      MENTAL_MODELS_OPERATIONS.find((op) => op.name === name),
   },
 ];
 

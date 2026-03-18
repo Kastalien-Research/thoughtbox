@@ -13,7 +13,7 @@ Configure Thoughtbox behavior through environment variables.
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `THOUGHTBOX_TRANSPORT` | Transport mode: `stdio` or `http` | `http` |
-| `THOUGHTBOX_STORAGE` | Storage backend: `fs` or `memory` | `fs` |
+| `THOUGHTBOX_STORAGE` | Storage backend: `fs`, `supabase`, or `memory` | `fs` |
 | `THOUGHTBOX_DATA_DIR` | Base directory for all data | `~/.thoughtbox` |
 | `THOUGHTBOX_PROJECT` | Default project name | `_default` |
 
@@ -23,6 +23,16 @@ Configure Thoughtbox behavior through environment variables.
 |----------|-------------|---------|
 | `PORT` | HTTP server port | `1731` |
 | `HOST` | HTTP server bind address | `0.0.0.0` |
+
+### Supabase Settings (required when `THOUGHTBOX_STORAGE=supabase`)
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `SUPABASE_URL` | Supabase project URL | (required) |
+| `SUPABASE_ANON_KEY` | Supabase anonymous/public key | (required) |
+| `SUPABASE_JWT_SECRET` | JWT secret for token validation | (required) |
+
+When `THOUGHTBOX_STORAGE=supabase`, auth is automatically enforced. Every request to `/mcp` must include a valid JWT token via `Authorization: Bearer <token>` header or `?token=<token>` query parameter.
 
 ### Observatory Settings
 
@@ -79,9 +89,11 @@ THOUGHTBOX_TRANSPORT=http PORT=1731 thoughtbox
 
 ## Storage Backends
 
+Thoughtbox supports three storage backends. The backend is selected at startup and applies for the lifetime of the server process.
+
 ### Filesystem Storage (Default)
 
-Persists all data to disk. Recommended for production.
+Persists all data to disk. Recommended for local/self-hosted use.
 
 ```bash
 THOUGHTBOX_STORAGE=fs thoughtbox
@@ -101,6 +113,24 @@ THOUGHTBOX_STORAGE=fs thoughtbox
                     ├── 001.json
                     └── ...
 ```
+
+### Supabase Storage (Deployed)
+
+Persists sessions and thoughts to Supabase Postgres. Used for multi-tenant cloud deployments. Auth is enforced automatically — all requests require a valid JWT.
+
+```bash
+THOUGHTBOX_STORAGE=supabase \
+SUPABASE_URL=https://your-project.supabase.co \
+SUPABASE_ANON_KEY=your-anon-key \
+SUPABASE_JWT_SECRET=your-jwt-secret \
+thoughtbox
+```
+
+**Characteristics:**
+- Data stored in Postgres with Row Level Security (RLS)
+- Schema managed by migrations (not by the application)
+- Knowledge graph also backed by Supabase when in this mode
+- Multi-tenancy via project-scoped JWT claims
 
 ### In-Memory Storage
 
@@ -370,15 +400,30 @@ PORT=1731 \
 thoughtbox
 ```
 
-### Production Setup
+### Production Setup (Local/Self-Hosted)
 
 ```bash
-# Persistent storage, specific data dir
+# Persistent filesystem storage, specific data dir
 THOUGHTBOX_STORAGE=fs \
 THOUGHTBOX_DATA_DIR=/var/lib/thoughtbox \
 THOUGHTBOX_TRANSPORT=http \
 THOUGHTBOX_PROJECT=production \
 PORT=1731 \
+HOST=0.0.0.0 \
+DISABLE_THOUGHT_LOGGING=true \
+thoughtbox
+```
+
+### Deployed Setup (Supabase)
+
+```bash
+# Supabase storage with auth, Cloud Run or similar
+THOUGHTBOX_STORAGE=supabase \
+SUPABASE_URL=https://your-project.supabase.co \
+SUPABASE_ANON_KEY=your-anon-key \
+SUPABASE_JWT_SECRET=your-jwt-secret \
+THOUGHTBOX_TRANSPORT=http \
+PORT=8080 \
 HOST=0.0.0.0 \
 DISABLE_THOUGHT_LOGGING=true \
 thoughtbox

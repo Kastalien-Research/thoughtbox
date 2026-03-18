@@ -25,6 +25,33 @@ spec:
           env:
             - name: NODE_ENV
               value: production
+            - name: THOUGHTBOX_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: thoughtbox-api-key
+                  key: latest
+            - name: ANTHROPIC_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: anthropic-api-key
+                  key: latest
+            - name: SUPABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: supabase-url
+                  key: latest
+            - name: SUPABASE_ANON_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: supabase-anon-key
+                  key: latest
+            - name: SUPABASE_JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: supabase-jwt-secret
+                  key: latest
+            - name: THOUGHTBOX_STORAGE
+              value: supabase
           resources:
             limits:
               cpu: "1"
