@@ -8,9 +8,6 @@ SECRETS_TO_PUSH=(
   "SUPABASE_ANON_KEY"
   "SUPABASE_JWT_SECRET"
   "THOUGHTBOX_API_KEY"
-  "GITHUB_APP_ID"
-  "GITHUB_APP_INSTALLATION_ID"
-  "GITHUB_APP_PRIVATE_KEY"
 )
 
 # 1. Generate THOUGHTBOX_API_KEY if it doesn't exist
@@ -34,7 +31,13 @@ push_secret() {
 
     echo "Pushing $key to GCP secret '$secret_name'..."
 
-    # Push new version directly (Terraform creates the secret root structure)
+    # Check if secret exists, create if not
+    if ! gcloud secrets describe "$secret_name" &>/dev/null; then
+        echo "Secret '$secret_name' does not exist. Creating..."
+        gcloud secrets create "$secret_name" --replication-policy="automatic"
+    fi
+
+    # Push new version
     echo -n "$value" | gcloud secrets versions add "$secret_name" --data-file=-
     echo "Successfully pushed $key."
 }

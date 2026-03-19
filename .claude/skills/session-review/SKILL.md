@@ -14,10 +14,10 @@ $ARGUMENTS
 
 ## Loop Building Blocks
 
-| Loop              | Purpose                                   | Reference                              |
-| ----------------- | ----------------------------------------- | -------------------------------------- |
+| Loop | Purpose | Reference |
+|------|---------|-----------|
 | Consistency Check | Validate session summary against evidence | @loops/refinement/consistency-check.md |
-| Documentation     | Generate structured session review        | @loops/authoring/documentation.md      |
+| Documentation | Generate structured session review | @loops/authoring/documentation.md |
 
 See @loops/README.md for the full loop library.
 
@@ -30,25 +30,23 @@ See @loops/README.md for the full loop library.
 3. Run `git diff --stat` to see scope of changes
 4. Run `bd list --status=in_progress` to see active work items
 5. Run `bd list --status=open` to see remaining work
-6. Read MEMORY.md for any updates made this session
+6. Check `.claude/state/memory-calibration.json` for pattern detection state
+7. Read MEMORY.md for any updates made this session
 
 ### Phase 2: Synthesize Session Context (Orient)
 
 From the gathered data, identify:
 
 1. **Key Decisions**: What architectural or design choices were made and why
-2. **Open Hypotheses**: What questions remain unanswered, what investigations
-   are pending
-3. **Partial Work**: What was started but not finished, with enough context to
-   resume
+2. **Open Hypotheses**: What questions remain unanswered, what investigations are pending
+3. **Partial Work**: What was started but not finished, with enough context to resume
 4. **Knowledge Discovered**: New patterns, gotchas, or insights worth preserving
 5. **Blocked Items**: What's blocked and on what
 6. **Next Steps**: What the next session should prioritize
 
 ### Phase 3: Write Session Handoff (Act)
 
-Write the session summary to `.claude/session-handoff.json` (single file,
-overwritten each time) using this schema:
+Write the session summary to `.claude/session-handoff.json` (single file, overwritten each time) using this schema:
 
 ```json
 {
