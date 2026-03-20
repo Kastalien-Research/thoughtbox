@@ -278,36 +278,31 @@ Call \`thoughtbox_hub\` { "operation": "register", "args": { "name": "Your Agent
     logger.info(`Creating server for MCP session: ${sessionId}`);
   }
 
-  // Initialize persistence layer (fire-and-forget)
-  // Handlers are resilient to uninitialized state
-  thoughtHandler
-    .initialize()
-    .then(() => {
-      logger.info("Persistence layer initialized");
+  // Initialize persistence layer — must complete before tools are registered
+  try {
+    await thoughtHandler.initialize();
+    logger.info("Persistence layer initialized");
 
-      // Pre-load a specific reasoning session if configured
-      if (config.reasoningSessionId) {
-        thoughtHandler
-          .loadSession(config.reasoningSessionId)
-          .then(() =>
-            logger.info(`Pre-loaded reasoning session: ${config.reasoningSessionId}`)
-          )
-          .catch((loadErr) =>
-            logger.warn(
-              `Failed to pre-load reasoning session ${config.reasoningSessionId}:`,
-              loadErr
-            )
-          );
+    if (config.reasoningSessionId) {
+      try {
+        await thoughtHandler.loadSession(config.reasoningSessionId);
+        logger.info(`Pre-loaded reasoning session: ${config.reasoningSessionId}`);
+      } catch (loadErr) {
+        logger.warn(
+          `Failed to pre-load reasoning session ${config.reasoningSessionId}:`,
+          loadErr
+        );
       }
-      // Session handler currently has no heavy init work, but keep symmetry for future
-      sessionHandler.init().catch((err) => {
-        logger.warn("Session handler init failed:", err);
-      });
-    })
-    .catch((err) => {
-      logger.error("Failed to initialize persistence layer:", err);
-      // Continue without persistence - in-memory mode
-    });
+    }
+
+    try {
+      await sessionHandler.init();
+    } catch (err) {
+      logger.warn("Session handler init failed:", err);
+    }
+  } catch (err) {
+    logger.error("Failed to initialize persistence layer:", err);
+  }
 
   // Initialize init flow (fire-and-forget)
   // handleInit() has fallback for when initHandler is null
@@ -321,35 +316,30 @@ Call \`thoughtbox_hub\` { "operation": "register", "args": { "name": "Your Agent
   // Assigned later in the synchronous protocol tools block.
   let protocolHandler: ProtocolHandler | null = null;
 
-  createInitFlow()
-    .then(({ handler, index, stats, errors }) => {
-      initHandler = handler;
-      // Create the tool-based init handler with the same index and tool registry for stage transitions
-      // Pass server.server for MCP roots support (SPEC-011 list_roots/bind_root operations)
-      // server.server is the underlying Server class which has listRoots() method
-      initToolHandler = new InitToolHandler({
-        storage,  // Required: source of truth for sessions
-        knowledgeStorage,  // For project scoping via setProject()
-        protocolHandler: protocolHandler ?? undefined,  // ADR-015: protocol project scoping
-        index,    // Optional: cached hierarchy for navigation UI
-        stateManager: initStateManager,
-        toolRegistry,
-        mcpSessionId: sessionId,
-        mcpServer: server.server,  // For listRoots access
-      });
-      logger.info(
-        `Init flow index built: ${stats.sessionsIndexed} sessions, ${stats.projectsFound} projects, ${stats.tasksFound} tasks (${stats.buildTimeMs}ms)`
-      );
-      if (errors.length > 0) {
-        logger.warn(
-          `Init flow index encountered ${errors.length} errors during build`
-        );
-      }
-    })
-    .catch((err) => {
-      logger.error("Failed to initialize init flow:", err);
-      // Continue without init flow
+  try {
+    const { handler, index, stats, errors } = await createInitFlow();
+    initHandler = handler;
+    initToolHandler = new InitToolHandler({
+      storage,
+      knowledgeStorage,
+      protocolHandler: protocolHandler ?? undefined,
+      index,
+      stateManager: initStateManager,
+      toolRegistry,
+      mcpSessionId: sessionId,
+      mcpServer: server.server,
     });
+    logger.info(
+      `Init flow index built: ${stats.sessionsIndexed} sessions, ${stats.projectsFound} projects, ${stats.tasksFound} tasks (${stats.buildTimeMs}ms)`
+    );
+    if (errors.length > 0) {
+      logger.warn(
+        `Init flow index encountered ${errors.length} errors during build`
+      );
+    }
+  } catch (err) {
+    logger.error("Failed to initialize init flow:", err);
+  }
 
 
 
