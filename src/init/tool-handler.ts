@@ -147,6 +147,8 @@ export interface InitToolHandlerConfig {
   storage: ThoughtboxStorage;
   /** Knowledge storage for project scoping */
   knowledgeStorage?: KnowledgeStorage;
+  /** Protocol handler for project scoping (ADR-015) */
+  protocolHandler?: { setProject(project: string): void };
   /** Session index for navigation (optional - used for cached lookups) */
   index?: SessionIndex;
   /** State manager for session state */
@@ -168,6 +170,7 @@ export interface InitToolHandlerConfig {
 export class InitToolHandler {
   private storage: ThoughtboxStorage;
   private knowledgeStorage: KnowledgeStorage | null;
+  private protocolHandler: { setProject(project: string): void } | null;
   private index: SessionIndex | null;
   private stateManager: StateManager;
   private toolRegistry: ToolRegistry | null;
@@ -177,6 +180,7 @@ export class InitToolHandler {
   constructor(config: InitToolHandlerConfig) {
     this.storage = config.storage;
     this.knowledgeStorage = config.knowledgeStorage || null;
+    this.protocolHandler = config.protocolHandler || null;
     this.index = config.index || null;
     this.stateManager = config.stateManager || new StateManager();
     this.toolRegistry = config.toolRegistry || null;
@@ -561,6 +565,9 @@ export class InitToolHandler {
       if (this.knowledgeStorage) {
         await this.knowledgeStorage.setProject(effectiveProject);
       }
+      if (this.protocolHandler) {
+        this.protocolHandler.setProject(effectiveProject);
+      }
     } catch (scopeError) {
       return {
         content: [{
@@ -756,6 +763,9 @@ export class InitToolHandler {
         await this.storage.setProject(projectName);
         if (this.knowledgeStorage) {
           await this.knowledgeStorage.setProject(projectName);
+        }
+        if (this.protocolHandler) {
+          this.protocolHandler.setProject(projectName);
         }
       } catch (scopeError) {
         return {

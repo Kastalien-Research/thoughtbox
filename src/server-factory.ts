@@ -64,6 +64,14 @@ import { SESSION_TOOL, SessionTool } from "./sessions/tool.js";
 import { THOUGHT_TOOL, ThoughtTool } from "./thought/tool.js";
 import { NOTEBOOK_TOOL, NotebookTool } from "./notebook/tool.js";
 import {
+  THESEUS_TOOL,
+  TheseusTool,
+  ULYSSES_TOOL,
+  UlyssesTool,
+  ProtocolHandler,
+} from "./protocol/index.js";
+import { createClient as createSupabaseClient } from "@supabase/supabase-js";
+import {
   ObservabilityGatewayHandler,
   ObservabilityInputSchema,
 } from "./observability/index.js";
@@ -308,6 +316,11 @@ Call \`thoughtbox_hub\` { "operation": "register", "args": { "name": "Your Agent
   let initToolHandler: InitToolHandler | null = null;
   const initStateManager = new StateManager();
 
+  // ADR-015: Protocol handler reference for project scoping.
+  // Declared here so createInitFlow's .then() callback can capture the reference.
+  // Assigned later in the synchronous protocol tools block.
+  let protocolHandler: ProtocolHandler | null = null;
+
   createInitFlow()
     .then(({ handler, index, stats, errors }) => {
       initHandler = handler;
@@ -317,6 +330,7 @@ Call \`thoughtbox_hub\` { "operation": "register", "args": { "name": "Your Agent
       initToolHandler = new InitToolHandler({
         storage,  // Required: source of truth for sessions
         knowledgeStorage,  // For project scoping via setProject()
+        protocolHandler: protocolHandler ?? undefined,  // ADR-015: protocol project scoping
         index,    // Optional: cached hierarchy for navigation UI
         stateManager: initStateManager,
         toolRegistry,
@@ -490,6 +504,31 @@ Call \`thoughtbox_hub\` { "operation": "register", "args": { "name": "Your Agent
 
   // notebook becomes available when cipher loaded (stage 2)
   registerExplicitTool(NOTEBOOK_TOOL, notebookTool, DisclosureStage.STAGE_2_CIPHER_LOADED);
+
+  // Protocol tools (Theseus + Ulysses) — ADR-015
+  // Require SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY; skip gracefully if missing
+  const protocolSupabaseUrl = process.env.SUPABASE_URL;
+  const protocolServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (protocolSupabaseUrl && protocolServiceKey) {
+    const protocolClient = createSupabaseClient(
+      protocolSupabaseUrl,
+      protocolServiceKey,
+    );
+    protocolHandler = new ProtocolHandler(protocolClient);
+
+    const theseusTool = new TheseusTool(protocolHandler);
+    const ulyssesTool = new UlyssesTool(protocolHandler);
+
+    registerExplicitTool(THESEUS_TOOL, theseusTool, DisclosureStage.STAGE_2_CIPHER_LOADED);
+    registerExplicitTool(ULYSSES_TOOL, ulyssesTool, DisclosureStage.STAGE_2_CIPHER_LOADED);
+
+    logger.info('Protocol tools (Theseus + Ulysses) registered');
+  } else {
+    logger.info(
+      'Protocol tools skipped: SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY not set',
+    );
+  }
 
   // Operations Catalog Tool (Always-On, No Session Required)
   const OPERATIONS_TOOL_DESCRIPTION = 'Discover available Thoughtbox operations and their schemas. Always available -- no session required.';
