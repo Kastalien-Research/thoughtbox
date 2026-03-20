@@ -114,8 +114,7 @@ export class TheseusTool {
         break;
       }
       case "status": {
-        const sid = this.activeSessionId ?? '';
-        result = await this.handler.theseusStatus(sid);
+        result = await this.handler.theseusStatus();
         if (result.session_id) {
           this.activeSessionId = result.session_id as string;
         }

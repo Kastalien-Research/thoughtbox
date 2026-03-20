@@ -373,9 +373,7 @@ export class ProtocolHandler {
     };
   }
 
-  async theseusStatus(
-    sessionId: string,
-  ): Promise<Record<string, unknown>> {
+  async theseusStatus(): Promise<Record<string, unknown>> {
     const session = await this.getActiveSession('theseus');
     if (!session) {
       return { active: false, protocol: 'theseus' };
@@ -728,9 +726,7 @@ export class ProtocolHandler {
     };
   }
 
-  async ulyssesStatus(
-    sessionId: string,
-  ): Promise<Record<string, unknown>> {
+  async ulyssesStatus(): Promise<Record<string, unknown>> {
     const session = await this.getActiveSession('ulysses');
     if (!session) {
       return { active: false, protocol: 'ulysses' };

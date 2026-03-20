@@ -111,8 +111,7 @@ export class UlyssesTool {
         break;
       }
       case "status": {
-        const sid = this.activeSessionId ?? '';
-        result = await this.handler.ulyssesStatus(sid);
+        result = await this.handler.ulyssesStatus();
         if (result.session_id) {
           this.activeSessionId = result.session_id as string;
         }

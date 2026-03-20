@@ -3,7 +3,7 @@
  *
  * Supabase-backed persistence for deployed Thoughtbox.
  * Implements the same ThoughtboxStorage interface as FileSystemStorage.
- * Uses RLS policies with project-scoped JWTs for multi-tenancy.
+ * Uses workspace-scoped isolation for multi-tenancy.
  */
 
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
@@ -64,7 +64,7 @@ export class SupabaseStorage implements ThoughtboxStorage {
 
   private refreshClient(): void {
 
-    // FS/local mode: mint a custom JWT with project claim
+    // Mint a custom JWT with workspace claim
     const now = Math.floor(Date.now() / 1000);
     const exp = now + SupabaseStorage.TOKEN_TTL;
 
