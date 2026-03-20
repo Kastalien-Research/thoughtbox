@@ -55,6 +55,8 @@ export class KnowledgeTool {
   constructor(private handler: KnowledgeHandler) {}
 
   async handle(input: KnowledgeToolInput) {
-    return this.handler.processOperation(input as any);
+    const { operation, ...args } = input;
+    const strippedOp = operation.replace("knowledge_", "");
+    return this.handler.processOperation({ operation: strippedOp, ...args } as any);
   }
 }
