@@ -253,9 +253,12 @@ export class ProtocolHandler {
 
     // Reset B counter on approved checkpoint
     if (audit.approved) {
+      const currentState = session.state_json as Record<string, unknown>;
       const { error: stateErr } = await this.client
         .from('protocol_sessions')
-        .update({ state_json: { B: 0, test_fail_count: 0 } })
+        .update({
+          state_json: { ...currentState, B: 0, test_fail_count: 0 },
+        })
         .eq('id', session.id);
 
       if (stateErr) {
@@ -309,7 +312,9 @@ export class ProtocolHandler {
     if (result.testsPassed) {
       const { error } = await this.client
         .from('protocol_sessions')
-        .update({ state_json: { B: 0, test_fail_count: 0 } })
+        .update({
+          state_json: { ...state, B: 0, test_fail_count: 0 },
+        })
         .eq('id', session.id);
 
       if (error) {
@@ -329,7 +334,9 @@ export class ProtocolHandler {
     if (newCount >= 2) {
       const { error } = await this.client
         .from('protocol_sessions')
-        .update({ state_json: { B: 0, test_fail_count: 0 } })
+        .update({
+          state_json: { ...state, B: 0, test_fail_count: 0 },
+        })
         .eq('id', session.id);
 
       if (error) {
@@ -348,7 +355,9 @@ export class ProtocolHandler {
 
     const { error } = await this.client
       .from('protocol_sessions')
-      .update({ state_json: { B: 1, test_fail_count: newCount } })
+      .update({
+        state_json: { ...state, B: 1, test_fail_count: newCount },
+      })
       .eq('id', session.id);
 
     if (error) {
@@ -452,6 +461,7 @@ export class ProtocolHandler {
 
     const initialState = {
       S: 0,
+      consecutive_surprises: 0,
       problem,
       constraints: constraints ?? [],
       surprise_register: [] as unknown[],
@@ -565,6 +575,7 @@ export class ProtocolHandler {
     }
     const state = session.state_json as {
       S: number;
+      consecutive_surprises: number;
       active_step: Record<string, unknown> | null;
       surprise_register: unknown[];
       checkpoints: string[];
@@ -598,6 +609,7 @@ export class ProtocolHandler {
 
     if (outcome.assessment === 'expected') {
       newState.S = 0;
+      newState.consecutive_surprises = 0;
       newState.checkpoints = [
         ...state.checkpoints,
         `checkpoint_${state.checkpoints.length}`,
@@ -617,12 +629,20 @@ export class ProtocolHandler {
 
       if (severity === 2) {
         newState.S = 2;
+        newState.consecutive_surprises = 0;
         resultMsg = 'Flagrant-2 surprise. S=2. REFLECT required.';
       } else {
-        newState.S = Math.min((state.S ?? 0) + 1, 2);
-        resultMsg = `Surprise (severity ${severity}). S=${newState.S}.`;
-        if (newState.S === 2) {
-          resultMsg += ' REFLECT required.';
+        const count = (state.consecutive_surprises ?? 0) + 1;
+        newState.consecutive_surprises = count;
+        if (count >= 2) {
+          newState.S = 2;
+          newState.consecutive_surprises = 0;
+          resultMsg =
+            `Surprise #${count} (severity ${severity}). S=2. REFLECT required.`;
+        } else {
+          newState.S = Math.max(state.S ?? 0, 1);
+          resultMsg =
+            `Surprise #${count} (severity ${severity}). S=${newState.S}.`;
         }
       }
     }
@@ -659,6 +679,13 @@ export class ProtocolHandler {
       hypotheses: unknown[];
     };
 
+    if ((state.S ?? 0) !== 2) {
+      throw new Error(
+        `REFLECT requires S=2 (current S=${state.S ?? 0}). ` +
+          'Only callable after two consecutive surprises.',
+      );
+    }
+
     const hypothesis = {
       statement: reflection.hypothesis,
       falsification: reflection.falsification,
@@ -668,6 +695,7 @@ export class ProtocolHandler {
     const newState = {
       ...state,
       S: 0,
+      consecutive_surprises: 0,
       hypotheses: [...(state.hypotheses ?? []), hypothesis],
     };
 
@@ -713,6 +741,7 @@ export class ProtocolHandler {
 
     const state = session.state_json as {
       S: number;
+      consecutive_surprises: number;
       problem: string;
       active_step: Record<string, unknown> | null;
       surprise_register: unknown[];
@@ -730,6 +759,7 @@ export class ProtocolHandler {
       protocol: 'ulysses',
       session_id: session.id,
       S: state.S ?? 0,
+      consecutive_surprises: state.consecutive_surprises ?? 0,
       problem: state.problem,
       active_step: state.active_step,
       surprise_register_count: state.surprise_register?.length ?? 0,
