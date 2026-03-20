@@ -7,6 +7,7 @@
  */
 
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import type { Database } from '../database.types.js';
 import jwt from 'jsonwebtoken';
 import { randomUUID } from 'node:crypto';
 import type {
@@ -36,7 +37,7 @@ export class SupabaseStorage implements ThoughtboxStorage {
   private supabaseKey: string;
   private jwtSecret: string;
   private workspaceId: string;
-  private client: SupabaseClient | null = null;
+  private client: SupabaseClient<Database> | null = null;
   private config: Config | null = null;
   private tokenExpiresAt = 0;
   private static TOKEN_TTL = 3600;
@@ -87,7 +88,7 @@ export class SupabaseStorage implements ThoughtboxStorage {
     this.tokenExpiresAt = exp;
   }
 
-  private ensureClient(): SupabaseClient {
+  private ensureClient(): SupabaseClient<Database> {
     if (!this.workspaceId) {
       throw new Error('Workspace scope not established.');
     }

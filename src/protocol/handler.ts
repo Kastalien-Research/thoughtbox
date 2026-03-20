@@ -4,6 +4,7 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
+import type { Database, Json } from '../database.types.js';
 import type {
   Protocol,
   ProtocolSession,
@@ -20,7 +21,7 @@ import type {
 export class ProtocolHandler {
   private workspaceId: string | null = null;
 
-  constructor(private client: SupabaseClient) {}
+  constructor(private client: SupabaseClient<Database>) {}
 
   /** ADR-013: project scoping */
   setProject(project: string): void {
@@ -105,13 +106,11 @@ export class ProtocolHandler {
 
     const supersededId = await this.supersedeExisting('theseus');
 
-    const insertPayload: Record<string, unknown> = {
-      protocol: 'theseus',
-      state_json: { B: 0, test_fail_count: 0, description: description ?? '' },
+    const insertPayload = {
+      protocol: 'theseus' as const,
+      state_json: { B: 0, test_fail_count: 0, description: description ?? '' } as Json,
+      ...(this.workspaceId ? { workspace_id: this.workspaceId } : {}),
     };
-    if (this.workspaceId) {
-      insertPayload.workspace_id = this.workspaceId;
-    }
 
     const { data: session, error: sessionErr } = await this.client
       .from('protocol_sessions')
@@ -459,24 +458,22 @@ export class ProtocolHandler {
   ): Promise<Record<string, unknown>> {
     const supersededId = await this.supersedeExisting('ulysses');
 
-    const initialState = {
+    const initialState: Json = {
       S: 0,
       consecutive_surprises: 0,
       problem,
       constraints: constraints ?? [],
-      surprise_register: [] as unknown[],
+      surprise_register: [] as Json[],
       checkpoints: ['initial'],
-      hypotheses: [] as unknown[],
-      active_step: null as unknown,
+      hypotheses: [] as Json[],
+      active_step: null,
     };
 
-    const insertPayload: Record<string, unknown> = {
-      protocol: 'ulysses',
+    const insertPayload = {
+      protocol: 'ulysses' as const,
       state_json: initialState,
+      ...(this.workspaceId ? { workspace_id: this.workspaceId } : {}),
     };
-    if (this.workspaceId) {
-      insertPayload.workspace_id = this.workspaceId;
-    }
 
     const { data: session, error } = await this.client
       .from('protocol_sessions')
@@ -576,8 +573,8 @@ export class ProtocolHandler {
     const state = session.state_json as {
       S: number;
       consecutive_surprises: number;
-      active_step: Record<string, unknown> | null;
-      surprise_register: unknown[];
+      active_step: Json | null;
+      surprise_register: Json[];
       checkpoints: string[];
     };
 
@@ -585,7 +582,7 @@ export class ProtocolHandler {
       throw new Error('No active step. Run plan first.');
     }
 
-    const outcomeEvent = {
+    const outcomeEvent: Json = {
       step: state.active_step,
       assessment: outcome.assessment,
       details: outcome.details ?? '',
@@ -649,7 +646,7 @@ export class ProtocolHandler {
 
     const { error: stateErr } = await this.client
       .from('protocol_sessions')
-      .update({ state_json: newState })
+      .update({ state_json: newState as Json })
       .eq('id', session.id);
 
     if (stateErr) {
@@ -676,7 +673,7 @@ export class ProtocolHandler {
     }
     const state = session.state_json as {
       S: number;
-      hypotheses: unknown[];
+      hypotheses: Json[];
     };
 
     if ((state.S ?? 0) !== 2) {
@@ -701,7 +698,7 @@ export class ProtocolHandler {
 
     const { error: stateErr } = await this.client
       .from('protocol_sessions')
-      .update({ state_json: newState })
+      .update({ state_json: newState as Json })
       .eq('id', session.id);
 
     if (stateErr) {
