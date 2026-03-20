@@ -1,52 +1,23 @@
 import { z } from "zod";
 import { ProtocolHandler } from "./handler.js";
 
-export const theseusToolInputSchema = z.discriminatedUnion("operation", [
-  z.object({
-    operation: z.literal("init"),
-    scope: z.array(z.string())
-      .describe("File paths or directory prefixes in scope for this refactor"),
-    description: z.string().optional()
-      .describe("Brief description of the refactoring goal"),
-  }),
-  z.object({
-    operation: z.literal("visa"),
-    filePath: z.string()
-      .describe("Path of the out-of-scope file requiring modification"),
-    justification: z.string()
-      .describe("Why this file must be modified (e.g., compiler dependency)"),
-    antiPatternAcknowledged: z.boolean().default(true)
-      .describe("Agent acknowledges this is scope creep and accepts the friction cost"),
-  }),
-  z.object({
-    operation: z.literal("checkpoint"),
-    diffHash: z.string()
-      .describe("Hash of the git diff being submitted for audit"),
-    commitMessage: z.string()
-      .describe("Proposed atomic commit message (must not contain compound actions)"),
-    approved: z.boolean()
-      .describe("Whether the Cassandra audit approved this checkpoint"),
-    feedback: z.string().optional()
-      .describe("Cassandra audit feedback (rejection reason or approval notes)"),
-  }),
-  z.object({
-    operation: z.literal("outcome"),
-    testsPassed: z.boolean()
-      .describe("Whether tests pass after the modification"),
-    details: z.string().optional()
-      .describe("Details about test results or compile status"),
-  }),
-  z.object({
-    operation: z.literal("status"),
-  }),
-  z.object({
-    operation: z.literal("complete"),
-    terminalState: z.enum(["complete", "audit_failure", "scope_exhaustion"])
-      .describe("How the protocol session ended"),
-    summary: z.string().optional()
-      .describe("Summary of the refactoring outcome"),
-  }),
-]);
+export const theseusToolInputSchema = z.object({
+  operation: z.enum(["init", "visa", "checkpoint", "outcome", "status", "complete"]),
+  scope: z.array(z.string()).optional().describe("File paths in scope for init"),
+  description: z.string().optional().describe("Refactoring goal for init"),
+  filePath: z.string().optional().describe("Out-of-scope file path for visa"),
+  justification: z.string().optional().describe("Justification for visa"),
+  antiPatternAcknowledged: z.boolean().optional().describe("Scope creep acknowledgment for visa"),
+  diffHash: z.string().optional().describe("Git diff hash for checkpoint"),
+  commitMessage: z.string().optional().describe("Commit message for checkpoint"),
+  approved: z.boolean().optional().describe("Cassandra audit result for checkpoint"),
+  feedback: z.string().optional().describe("Audit feedback for checkpoint"),
+  testsPassed: z.boolean().optional().describe("Test result for outcome"),
+  details: z.string().optional().describe("Details for outcome"),
+  terminalState: z.enum(["complete", "audit_failure", "scope_exhaustion"]).optional()
+    .describe("Terminal state for complete"),
+  summary: z.string().optional().describe("Summary for complete"),
+});
 
 export type TheseusToolInput = z.infer<typeof theseusToolInputSchema>;
 
@@ -80,7 +51,7 @@ export class TheseusTool {
     switch (input.operation) {
       case "init": {
         result = await this.handler.theseusInit(
-          input.scope,
+          input.scope!,
           input.description,
         );
         this.activeSessionId = result.session_id as string;
@@ -89,18 +60,18 @@ export class TheseusTool {
       case "visa": {
         const sid = this.requireSession();
         result = await this.handler.theseusVisa(sid, {
-          filePath: input.filePath,
-          justification: input.justification,
-          antiPatternAcknowledged: input.antiPatternAcknowledged,
+          filePath: input.filePath!,
+          justification: input.justification!,
+          antiPatternAcknowledged: input.antiPatternAcknowledged ?? true,
         });
         break;
       }
       case "checkpoint": {
         const sid = this.requireSession();
         result = await this.handler.theseusCheckpoint(sid, {
-          diffHash: input.diffHash,
-          commitMessage: input.commitMessage,
-          approved: input.approved,
+          diffHash: input.diffHash!,
+          commitMessage: input.commitMessage!,
+          approved: input.approved!,
           feedback: input.feedback,
         });
         break;
@@ -108,7 +79,7 @@ export class TheseusTool {
       case "outcome": {
         const sid = this.requireSession();
         result = await this.handler.theseusOutcome(sid, {
-          testsPassed: input.testsPassed,
+          testsPassed: input.testsPassed!,
           details: input.details,
         });
         break;
@@ -124,7 +95,7 @@ export class TheseusTool {
         const sid = this.requireSession();
         result = await this.handler.theseusComplete(
           sid,
-          input.terminalState,
+          input.terminalState!,
           input.summary,
         );
         this.activeSessionId = null;
@@ -139,9 +110,7 @@ export class TheseusTool {
 
   private requireSession(): string {
     if (!this.activeSessionId) {
-      throw new Error(
-        'No active Theseus session. Call init first.',
-      );
+      throw new Error("No active Theseus session. Call init first.");
     }
     return this.activeSessionId;
   }

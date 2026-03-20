@@ -41,10 +41,10 @@ describe('Theseus schema parsing (H4)', () => {
     expect(result.description).toBe('Refactor auth module');
   });
 
-  it('rejects init without scope', () => {
-    expect(() =>
-      theseusToolInputSchema.parse({ operation: 'init' }),
-    ).toThrow();
+  it('accepts init without scope (handler validates at runtime)', () => {
+    const result = theseusToolInputSchema.parse({ operation: 'init' });
+    expect(result.operation).toBe('init');
+    expect(result.scope).toBeUndefined();
   });
 
   it('parses visa with all fields', () => {
@@ -58,22 +58,21 @@ describe('Theseus schema parsing (H4)', () => {
     expect(result.filePath).toBe('src/other.ts');
   });
 
-  it('defaults antiPatternAcknowledged to true', () => {
+  it('antiPatternAcknowledged is optional (handler defaults at runtime)', () => {
     const result = theseusToolInputSchema.parse({
       operation: 'visa',
       filePath: 'src/other.ts',
       justification: 'Compiler dependency',
     });
-    expect(result.antiPatternAcknowledged).toBe(true);
+    expect(result.antiPatternAcknowledged).toBeUndefined();
   });
 
-  it('rejects visa without filePath', () => {
-    expect(() =>
-      theseusToolInputSchema.parse({
-        operation: 'visa',
-        justification: 'reason',
-      }),
-    ).toThrow();
+  it('accepts visa without filePath (handler validates at runtime)', () => {
+    const result = theseusToolInputSchema.parse({
+      operation: 'visa',
+      justification: 'reason',
+    });
+    expect(result.operation).toBe('visa');
   });
 
   it('parses checkpoint with required fields', () => {
@@ -99,14 +98,13 @@ describe('Theseus schema parsing (H4)', () => {
     expect(result.feedback).toBe('Diff too large');
   });
 
-  it('rejects checkpoint without approved', () => {
-    expect(() =>
-      theseusToolInputSchema.parse({
-        operation: 'checkpoint',
-        diffHash: 'abc',
-        commitMessage: 'msg',
-      }),
-    ).toThrow();
+  it('accepts checkpoint without approved (handler validates at runtime)', () => {
+    const result = theseusToolInputSchema.parse({
+      operation: 'checkpoint',
+      diffHash: 'abc',
+      commitMessage: 'msg',
+    });
+    expect(result.approved).toBeUndefined();
   });
 
   it('parses outcome with testsPassed', () => {
@@ -194,10 +192,10 @@ describe('Ulysses schema parsing (H4)', () => {
     ]);
   });
 
-  it('rejects init without problem', () => {
-    expect(() =>
-      ulyssesToolInputSchema.parse({ operation: 'init' }),
-    ).toThrow();
+  it('accepts init without problem (handler validates at runtime)', () => {
+    const result = ulyssesToolInputSchema.parse({ operation: 'init' });
+    expect(result.operation).toBe('init');
+    expect(result.problem).toBeUndefined();
   });
 
   it('parses plan with required fields', () => {
@@ -210,13 +208,13 @@ describe('Ulysses schema parsing (H4)', () => {
     expect(result.recovery).toBe('Revert to last known good config');
   });
 
-  it('defaults irreversible to false', () => {
+  it('irreversible is optional (handler defaults at runtime)', () => {
     const result = ulyssesToolInputSchema.parse({
       operation: 'plan',
       primary: 'action',
       recovery: 'recovery',
     });
-    expect(result.irreversible).toBe(false);
+    expect(result.irreversible).toBeUndefined();
   });
 
   it('parses plan with irreversible true', () => {
@@ -280,13 +278,12 @@ describe('Ulysses schema parsing (H4)', () => {
     );
   });
 
-  it('rejects reflect without falsification', () => {
-    expect(() =>
-      ulyssesToolInputSchema.parse({
-        operation: 'reflect',
-        hypothesis: 'test',
-      }),
-    ).toThrow();
+  it('accepts reflect without falsification (handler validates at runtime)', () => {
+    const result = ulyssesToolInputSchema.parse({
+      operation: 'reflect',
+      hypothesis: 'test',
+    });
+    expect(result.falsification).toBeUndefined();
   });
 
   it('parses status (no extra fields)', () => {

@@ -1,7 +1,6 @@
 import { z } from "zod";
 import { SessionHandler } from "./index.js";
 
-// Schemas for the key moments parameters in exact matching with previous behavior
 const KeyMomentSchema = z.object({
   thoughtNumber: z.number().describe("The thought number of this key moment"),
   type: z.enum(["decision", "pivot", "insight", "revision", "branch"]).describe("Type of key moment"),
@@ -9,49 +8,25 @@ const KeyMomentSchema = z.object({
   summary: z.string().optional().describe("Brief summary of why this moment is significant"),
 });
 
-export const sessionToolInputSchema = z.discriminatedUnion("operation", [
-  z.object({
-    operation: z.literal("session_list"),
-    limit: z.number().optional().describe("Maximum number of sessions to return (default: 10)"),
-    offset: z.number().optional().describe("Number of sessions to skip for pagination (default: 0)"),
-    tags: z.array(z.string()).optional().describe("Filter by tags (returns sessions matching ANY tag)"),
-  }),
-  z.object({
-    operation: z.literal("session_get"),
-    sessionId: z.string().describe("The ID of the session to retrieve"),
-  }),
-  z.object({
-    operation: z.literal("session_search"),
-    query: z.string().describe("The search query (matches title or tags)"),
-    limit: z.number().optional().describe("Maximum number of results to return (default: 10)"),
-  }),
-  z.object({
-    operation: z.literal("session_resume"),
-    sessionId: z.string().describe("The ID of the session to resume"),
-  }),
-  z.object({
-    operation: z.literal("session_export"),
-    sessionId: z.string().describe("The ID of the session to export"),
-    format: z.enum(["markdown", "cipher", "json"]).optional().describe("Export format: 'markdown' (readable), 'cipher' (compressed), 'json' (structured). Default: markdown"),
-    includeMetadata: z.boolean().optional().describe("Include session metadata (title, tags, timestamps) in export. Default: true"),
-    resolveAnchors: z.boolean().optional().describe("Resolve cross-session anchors if true. Default: true"),
-  }),
-  z.object({
-    operation: z.literal("session_analyze"),
-    sessionId: z.string().describe("The ID of the session to analyze"),
-  }),
-  z.object({
-    operation: z.literal("session_extract_learnings"),
-    sessionId: z.string().describe("The ID of the session to extract learnings from"),
-    keyMoments: z.array(KeyMomentSchema).optional().describe("Key moments identified by the client (required for pattern extraction)"),
-    targetTypes: z.array(z.enum(["pattern", "anti-pattern", "signal"])).optional().describe("Types of learnings to extract. 'signal' is generated automatically; 'pattern' and 'anti-pattern' require keyMoments."),
-  }),
-  z.object({
-    operation: z.literal("session_discovery"),
-    action: z.enum(["list", "hide", "show"]).describe("Action to perform: 'list' shows all discovered tools, 'hide' hides a tool, 'show' re-enables a hidden tool"),
-    toolName: z.string().optional().describe("Name of the tool to hide or show (required for hide/show actions)"),
-  })
-]);
+export const sessionToolInputSchema = z.object({
+  operation: z.enum([
+    "session_list", "session_get", "session_search", "session_resume",
+    "session_export", "session_analyze", "session_extract_learnings",
+    "session_discovery",
+  ]),
+  sessionId: z.string().optional().describe("Session ID for get/resume/export/analyze/extract_learnings"),
+  limit: z.number().optional().describe("Maximum results to return"),
+  offset: z.number().optional().describe("Pagination offset for list"),
+  tags: z.array(z.string()).optional().describe("Filter by tags for list"),
+  query: z.string().optional().describe("Search query for search"),
+  format: z.enum(["markdown", "cipher", "json"]).optional().describe("Export format"),
+  includeMetadata: z.boolean().optional().describe("Include metadata in export"),
+  resolveAnchors: z.boolean().optional().describe("Resolve cross-session anchors in export"),
+  keyMoments: z.array(KeyMomentSchema).optional().describe("Key moments for extract_learnings"),
+  targetTypes: z.array(z.enum(["pattern", "anti-pattern", "signal"])).optional().describe("Learning types to extract"),
+  action: z.enum(["list", "hide", "show"]).optional().describe("Action for session_discovery"),
+  toolName: z.string().optional().describe("Tool name for discovery hide/show"),
+});
 
 export type SessionToolInput = z.infer<typeof sessionToolInputSchema>;
 
@@ -72,7 +47,6 @@ export class SessionTool {
   async handle(input: SessionToolInput) {
     const { operation, ...args } = input;
     const strippedOp = operation.replace("session_", "");
-    
     return this.handler.processTool(strippedOp, args);
   }
 }

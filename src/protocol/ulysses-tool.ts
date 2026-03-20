@@ -1,50 +1,23 @@
 import { z } from "zod";
 import { ProtocolHandler } from "./handler.js";
 
-export const ulyssesToolInputSchema = z.discriminatedUnion("operation", [
-  z.object({
-    operation: z.literal("init"),
-    problem: z.string()
-      .describe("Description of the bug or problem being debugged"),
-    constraints: z.array(z.string()).optional()
-      .describe("Known constraints on the debugging environment"),
-  }),
-  z.object({
-    operation: z.literal("plan"),
-    primary: z.string()
-      .describe("Primary action step to execute"),
-    recovery: z.string()
-      .describe("Pre-committed recovery step if primary produces a surprise"),
-    irreversible: z.boolean().default(false)
-      .describe("Whether the primary step is irreversible (triggers rollback recording)"),
-  }),
-  z.object({
-    operation: z.literal("outcome"),
-    assessment: z.enum(["expected", "unexpected-favorable", "unexpected-unfavorable"])
-      .describe("How the outcome compared to the plan"),
-    severity: z.number().min(1).max(2).optional()
-      .describe("Surprise severity (1=minor, 2=major). Required for unexpected outcomes."),
-    details: z.string().optional()
-      .describe("What actually happened"),
-  }),
-  z.object({
-    operation: z.literal("reflect"),
-    hypothesis: z.string()
-      .describe("Falsifiable hypothesis formed from the surprise"),
-    falsification: z.string()
-      .describe("Concrete, observable criteria that would disprove this hypothesis"),
-  }),
-  z.object({
-    operation: z.literal("status"),
-  }),
-  z.object({
-    operation: z.literal("complete"),
-    terminalState: z.enum(["resolved", "insufficient_information", "environment_compromised"])
-      .describe("How the protocol session ended"),
-    summary: z.string().optional()
-      .describe("Summary of the debugging outcome"),
-  }),
-]);
+export const ulyssesToolInputSchema = z.object({
+  operation: z.enum(["init", "plan", "outcome", "reflect", "status", "complete"]),
+  problem: z.string().optional().describe("Problem description for init"),
+  constraints: z.array(z.string()).optional().describe("Known constraints for init"),
+  primary: z.string().optional().describe("Primary action step for plan"),
+  recovery: z.string().optional().describe("Pre-committed recovery step for plan"),
+  irreversible: z.boolean().optional().describe("Whether primary step is irreversible for plan"),
+  assessment: z.enum(["expected", "unexpected-favorable", "unexpected-unfavorable"]).optional()
+    .describe("Outcome assessment"),
+  severity: z.number().min(1).max(2).optional().describe("Surprise severity (1=minor, 2=major)"),
+  details: z.string().optional().describe("Details for outcome"),
+  hypothesis: z.string().optional().describe("Falsifiable hypothesis for reflect"),
+  falsification: z.string().optional().describe("Disproof criteria for reflect"),
+  terminalState: z.enum(["resolved", "insufficient_information", "environment_compromised"]).optional()
+    .describe("Terminal state for complete"),
+  summary: z.string().optional().describe("Summary for complete"),
+});
 
 export type UlyssesToolInput = z.infer<typeof ulyssesToolInputSchema>;
 
@@ -78,7 +51,7 @@ export class UlyssesTool {
     switch (input.operation) {
       case "init": {
         result = await this.handler.ulyssesInit(
-          input.problem,
+          input.problem!,
           input.constraints,
         );
         this.activeSessionId = result.session_id as string;
@@ -87,16 +60,16 @@ export class UlyssesTool {
       case "plan": {
         const sid = this.requireSession();
         result = await this.handler.ulyssesPlan(sid, {
-          primary: input.primary,
-          recovery: input.recovery,
-          irreversible: input.irreversible,
+          primary: input.primary!,
+          recovery: input.recovery!,
+          irreversible: input.irreversible ?? false,
         });
         break;
       }
       case "outcome": {
         const sid = this.requireSession();
         result = await this.handler.ulyssesOutcome(sid, {
-          assessment: input.assessment,
+          assessment: input.assessment!,
           severity: input.severity,
           details: input.details,
         });
@@ -105,8 +78,8 @@ export class UlyssesTool {
       case "reflect": {
         const sid = this.requireSession();
         result = await this.handler.ulyssesReflect(sid, {
-          hypothesis: input.hypothesis,
-          falsification: input.falsification,
+          hypothesis: input.hypothesis!,
+          falsification: input.falsification!,
         });
         break;
       }
@@ -121,7 +94,7 @@ export class UlyssesTool {
         const sid = this.requireSession();
         result = await this.handler.ulyssesComplete(
           sid,
-          input.terminalState,
+          input.terminalState!,
           input.summary,
         );
         this.activeSessionId = null;
@@ -136,9 +109,7 @@ export class UlyssesTool {
 
   private requireSession(): string {
     if (!this.activeSessionId) {
-      throw new Error(
-        'No active Ulysses session. Call init first.',
-      );
+      throw new Error('No active Ulysses session. Call init first.');
     }
     return this.activeSessionId;
   }

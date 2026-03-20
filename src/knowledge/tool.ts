@@ -4,67 +4,40 @@ import { KnowledgeHandler } from "./handler.js";
 const EntityTypeSchema = z.enum(["Insight", "Concept", "Workflow", "Decision", "Agent"]);
 const VisibilitySchema = z.enum(["public", "agent-private", "user-private", "team-private"]);
 const RelationTypeSchema = z.enum([
-  "RELATES_TO",
-  "BUILDS_ON",
-  "CONTRADICTS",
-  "EXTRACTED_FROM",
-  "APPLIED_IN",
-  "LEARNED_BY",
-  "DEPENDS_ON",
-  "SUPERSEDES",
-  "MERGED_FROM",
+  "RELATES_TO", "BUILDS_ON", "CONTRADICTS", "EXTRACTED_FROM",
+  "APPLIED_IN", "LEARNED_BY", "DEPENDS_ON", "SUPERSEDES", "MERGED_FROM",
 ]);
 
-export const knowledgeToolInputSchema = z.discriminatedUnion("operation", [
-  z.object({
-    operation: z.literal("knowledge_create_entity"),
-    name: z.string().describe("Unique name within type (kebab-case, e.g., 'orchestrator-worker-pattern')"),
-    type: EntityTypeSchema.describe("Entity type"),
-    label: z.string().describe("Human-readable title"),
-    properties: z.record(z.any()).optional().describe("Type-specific properties (free-form object)"),
-    created_by: z.string().optional().describe("Agent ID of the creator"),
-    visibility: VisibilitySchema.optional().describe("Access control level (default: public)"),
-  }),
-  z.object({
-    operation: z.literal("knowledge_get_entity"),
-    entity_id: z.string().describe("UUID of the entity to retrieve"),
-  }),
-  z.object({
-    operation: z.literal("knowledge_list_entities"),
-    types: z.array(EntityTypeSchema).optional().describe("Filter by entity types"),
-    visibility: VisibilitySchema.optional().describe("Filter by visibility level"),
-    name_pattern: z.string().optional().describe("Filter by name pattern (substring match)"),
-    created_after: z.string().optional().describe("ISO date string - only entities created after this date"),
-    created_before: z.string().optional().describe("ISO date string - only entities created before this date"),
-    limit: z.number().optional().describe("Maximum results (default: 50)"),
-    offset: z.number().optional().describe("Pagination offset (default: 0)"),
-  }),
-  z.object({
-    operation: z.literal("knowledge_add_observation"),
-    entity_id: z.string().describe("UUID of the entity to observe"),
-    content: z.string().describe("Observation content (markdown supported)"),
-    source_session: z.string().optional().describe("Session ID where observation was made"),
-    added_by: z.string().optional().describe("Agent ID adding the observation"),
-  }),
-  z.object({
-    operation: z.literal("knowledge_create_relation"),
-    from_id: z.string().describe("Source entity UUID"),
-    to_id: z.string().describe("Target entity UUID"),
-    relation_type: RelationTypeSchema.describe("Type of directed relation"),
-    properties: z.record(z.any()).optional().describe("Additional relation properties"),
-    created_by: z.string().optional().describe("Agent ID creating the relation"),
-  }),
-  z.object({
-    operation: z.literal("knowledge_query_graph"),
-    start_entity_id: z.string().describe("Entity UUID to start traversal from"),
-    relation_types: z.array(RelationTypeSchema).optional().describe("Filter traversal to these relation types"),
-    max_depth: z.number().optional().describe("Maximum traversal depth (default: 3)"),
-    filter: z.record(z.any()).optional().describe("Additional entity filters during traversal"),
-  }),
-  z.object({
-    operation: z.literal("knowledge_stats"),
-  }),
-]);
+export const knowledgeToolInputSchema = z.object({
+  operation: z.enum([
+    "knowledge_create_entity", "knowledge_get_entity", "knowledge_list_entities",
+    "knowledge_add_observation", "knowledge_create_relation",
+    "knowledge_query_graph", "knowledge_stats",
+  ]),
+  name: z.string().optional().describe("Entity name for create_entity"),
+  type: EntityTypeSchema.optional().describe("Entity type for create_entity"),
+  label: z.string().optional().describe("Human-readable title for create_entity"),
+  properties: z.record(z.any()).optional().describe("Properties for create_entity or create_relation"),
+  created_by: z.string().optional().describe("Agent ID of the creator"),
+  visibility: VisibilitySchema.optional().describe("Access control level"),
+  entity_id: z.string().optional().describe("Entity UUID for get_entity or add_observation"),
+  types: z.array(EntityTypeSchema).optional().describe("Filter by entity types for list_entities"),
+  name_pattern: z.string().optional().describe("Name pattern filter for list_entities"),
+  created_after: z.string().optional().describe("ISO date filter for list_entities"),
+  created_before: z.string().optional().describe("ISO date filter for list_entities"),
+  limit: z.number().optional().describe("Maximum results"),
+  offset: z.number().optional().describe("Pagination offset"),
+  content: z.string().optional().describe("Observation content for add_observation"),
+  source_session: z.string().optional().describe("Session ID for add_observation"),
+  added_by: z.string().optional().describe("Agent ID for add_observation"),
+  from_id: z.string().optional().describe("Source entity UUID for create_relation"),
+  to_id: z.string().optional().describe("Target entity UUID for create_relation"),
+  relation_type: RelationTypeSchema.optional().describe("Relation type for create_relation"),
+  start_entity_id: z.string().optional().describe("Start entity for query_graph"),
+  relation_types: z.array(RelationTypeSchema).optional().describe("Relation type filter for query_graph"),
+  max_depth: z.number().optional().describe("Max traversal depth for query_graph"),
+  filter: z.record(z.any()).optional().describe("Additional entity filters for query_graph"),
+});
 
 export type KnowledgeToolInput = z.infer<typeof knowledgeToolInputSchema>;
 
