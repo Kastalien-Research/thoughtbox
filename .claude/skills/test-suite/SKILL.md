@@ -101,6 +101,37 @@ Skipped:
 - 06-notebook Test 7: Dependency installation — no network in test env
 ```
 
+## Verification Discipline
+
+**A test is not PASS unless the response proves it.** Accepting a tool call that didn't error is not verification. Apply these rules:
+
+### Rule 1: Use `verbose: true` for thoughtbox_thought
+
+The thought tool returns minimal boilerplate (`thoughtNumber`, `sessionId`) by default. Set `verbose: true` on every thought submission that includes structured payloads (`options`, `actionResult`, `beliefs`, `assumptionChange`, `progressData`, `agentId`). The verbose response includes the structured metadata mapping — that's the proof.
+
+### Rule 2: Cross-check with retrieval operations
+
+After submitting data, verify it persisted by reading it back:
+
+| After this... | Verify with... |
+|---|---|
+| `thoughtbox_thought` submissions | `session_get` or `session_export format:"json"` — check thought metadata fields |
+| `knowledge_add_observation` | `knowledge_get_entity` — check observations array |
+| `notebook_add_cell` / `notebook_update_cell` | `notebook_get_cell` — check content matches |
+| Hub `create_problem` / `claim_problem` | `list_problems` — check status and assignment |
+
+### Rule 3: Count what you submitted
+
+When a session closes and returns an `auditManifest`, verify the counts match what you submitted. If you sent 9 `reasoning` thoughts and the manifest says 7, that's a data loss bug — not a pass.
+
+### Rule 4: Never rationalize failures
+
+If a response contains `"success": false`, that's a FAIL. Don't reinterpret it as "graceful handling" or "expected when no data exists." If the test expected the operation to succeed and it didn't, record the failure.
+
+### Rule 5: Verify the claim, not the shape
+
+"Response includes field X" is not the same as "field X contains the correct value." Check values against what you submitted, not just that a JSON key exists.
+
 ## Important Notes
 
 - Tests are **behavioral**, not unit tests. They call live MCP tools and verify responses.

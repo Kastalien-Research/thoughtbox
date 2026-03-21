@@ -45,7 +45,7 @@ describe('SupabaseStorage (ThoughtboxStorage)', () => {
     await truncateAllTables();
     storage = new SupabaseStorage({
       ...getTestSupabaseConfig(),
-      workspaceId: 'test-project',
+      workspaceId: '11111111-1111-1111-1111-111111111111',
     });
     await storage.initialize();
   });

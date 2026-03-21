@@ -226,37 +226,61 @@ export class FileSystemStorage implements ThoughtboxStorage {
    * Moves ~/.thoughtbox/sessions/ to ~/.thoughtbox/projects/_default/sessions/
    */
   private async migrateLegacySessions(): Promise<void> {
-    const legacySessionsDir = path.join(this.basePath, 'sessions');
     const defaultProjectDir = path.join(this.basePath, 'projects', '_default');
     const newDefaultSessionsDir = path.join(defaultProjectDir, 'sessions');
 
     try {
-      // Check if legacy sessions directory exists
-      await fs.access(legacySessionsDir);
+      await fs.mkdir(newDefaultSessionsDir, { recursive: true });
 
-      // Check if we've already migrated
+      // 1. Migrate flat legacy sessions folder if it exists
+      const legacySessionsDir = path.join(this.basePath, 'sessions');
       try {
-        await fs.access(newDefaultSessionsDir);
-        // Already migrated, nothing to do
-        return;
-      } catch {
-        // newDefaultSessionsDir doesn't exist, proceed with migration
+        await fs.access(legacySessionsDir);
+        // Move its contents into newDefaultSessionsDir instead of renaming, to avoid cross-device link issues or overwrites
+        const subEntries = await fs.readdir(legacySessionsDir, { withFileTypes: true });
+        for (const sub of subEntries) {
+          await fs.rename(path.join(legacySessionsDir, sub.name), path.join(newDefaultSessionsDir, sub.name));
+        }
+        await fs.rmdir(legacySessionsDir);
+        console.log('[Thoughtbox] Migrated legacy sessions/ directory to projects/_default/sessions/');
+      } catch (e: unknown) {
+        if ((e as NodeJS.ErrnoException).code !== 'ENOENT') {
+          console.error('[Thoughtbox] Warning: Failed to migrate legacy sessions directory:', e);
+        }
       }
 
-      // Create _default project directory
-      await fs.mkdir(defaultProjectDir, { recursive: true });
+      // 2. Migrate top-level date-partition directories (e.g., 2026-01, 2025-12)
+      try {
+        const entries = await fs.readdir(this.basePath, { withFileTypes: true });
+        for (const entry of entries) {
+          if (!entry.isDirectory()) continue;
+          
+          // Match standard date partition formats: YYYY-MM, YYYY-WXX, YYYY-MM-DD
+          if (/^\d{4}-/.test(entry.name)) {
+            const oldPath = path.join(this.basePath, entry.name);
+            const newPath = path.join(newDefaultSessionsDir, entry.name);
+            
+            try {
+              await fs.access(newPath);
+              // Target already exists; merge contents
+              const subEntries = await fs.readdir(oldPath, { withFileTypes: true });
+              for (const sub of subEntries) {
+                await fs.rename(path.join(oldPath, sub.name), path.join(newPath, sub.name));
+              }
+              await fs.rmdir(oldPath);
+            } catch {
+              // Target doesn't exist, rename the entire directory
+              await fs.rename(oldPath, newPath);
+            }
+            console.log(`[Thoughtbox] Migrated legacy partition ${entry.name} to projects/_default/sessions/`);
+          }
+        }
+      } catch (e: unknown) {
+         console.error('[Thoughtbox] Warning: Failed to scan for legacy partitions:', e);
+      }
 
-      // Move legacy sessions to _default project
-      await fs.rename(legacySessionsDir, newDefaultSessionsDir);
-
-      console.log('[Thoughtbox] Migrated legacy sessions to projects/_default/');
     } catch (error: unknown) {
-      if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
-        // Legacy sessions directory doesn't exist, nothing to migrate
-        return;
-      }
-      // Other errors should be logged but not block initialization
-      console.error('[Thoughtbox] Warning: Failed to migrate legacy sessions:', error);
+      console.error('[Thoughtbox] Warning: Failed to migrate legacy system:', error);
     }
   }
 
@@ -369,10 +393,12 @@ export class FileSystemStorage implements ThoughtboxStorage {
   // ===========================================================================
 
   async getConfig(): Promise<Config | null> {
+    await this.initialize();
     return this.config;
   }
 
   async updateConfig(attrs: Partial<Config>): Promise<Config> {
+    await this.initialize();
     if (!this.config) {
       this.config = {
         installId: attrs.installId || randomUUID(),

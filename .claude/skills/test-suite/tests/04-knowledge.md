@@ -54,9 +54,12 @@ Relation types: RELATES_TO, BUILDS_ON, CONTRADICTS, EXTRACTED_FROM, APPLIED_IN, 
 1. Create entity, capture `entity_id`
 2. Call `{ operation: "knowledge_add_observation", entity_id: "<id>", content: "This entity was tested" }`
 3. Verify response includes `observation_id`, `entity_id`, `added_at`
-4. Call `knowledge_get_entity` — verify observation in observations array
+4. Call `knowledge_get_entity` — check for `observations` field in response
+5. If `get_entity` does NOT include an `observations` array, that's a **FAIL** — the observation was written but is not retrievable through the entity endpoint
 
-**Expected:** Observation attached, retrievable via get_entity
+**Known issue (2026-03-21):** `get_entity` does not currently return observations. This is a server bug — the observation is created (add_observation succeeds) but not surfaced in entity retrieval.
+
+**Expected:** Observation attached, retrievable via get_entity. Currently fails at step 5.
 
 ---
 
@@ -129,14 +132,18 @@ Relation types: RELATES_TO, BUILDS_ON, CONTRADICTS, EXTRACTED_FROM, APPLIED_IN, 
 
 ## Test 10: UNIQUE Collision
 
-**Goal:** Verify duplicate name+type returns existing entity.
+**Goal:** Verify duplicate name+type handling.
 
 **Steps:**
 1. Create entity with name "collision-test", type "Concept"
 2. Create again with same name and type but different label
-3. Verify same `entity_id` returned both times
+3. Check which behavior occurs:
+   - **Expected (per mcp-gotchas.md):** Same `entity_id` returned both times (upsert/dedup)
+   - **Actual (2026-03-21):** UNIQUE constraint error thrown
 
-**Expected:** No error; existing entity returned for deduplication
+**Known issue (2026-03-21):** The server throws `UNIQUE constraint failed` instead of returning the existing entity. The mcp-gotchas.md documents the expected upsert behavior, but the server doesn't implement it. Either the gotcha is aspirational or the server has a regression. Verify which is authoritative and update accordingly.
+
+**Expected:** Either upsert returns existing entity, or error message suggests using `get_entity` + `add_observation` instead. A raw constraint error is a **FAIL** regardless.
 
 ---
 

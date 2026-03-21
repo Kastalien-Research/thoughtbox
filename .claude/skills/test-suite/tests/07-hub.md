@@ -121,12 +121,19 @@ All parameters are top-level (flat schema, not nested in args)
 
 **Goal:** Verify full proposal lifecycle.
 
+**Prerequisite:** `merge_proposal` records a merge thought in the workspace's `mainSessionId`. The workspace must have an active thought session for merge to succeed. If the workspace was created without `sessionId`, the auto-generated `mainSessionId` may not correspond to a persisted session — this causes "Session not found" errors on merge.
+
 **Steps:**
 1. Register agents A (coordinator) and B
-2. B creates a proposal: `{ operation: "create_proposal", workspaceId: "<id>", title: "Fix", description: "Details", sourceBranch: "fix-branch" }`
-3. A reviews: `{ operation: "review_proposal", ..., verdict: "approve", reasoning: "Looks good" }`
-4. A merges: `{ operation: "merge_proposal", ..., mergeMessage: "Merged fix" }`
-5. Verify proposal status is "merged"
+2. **Before creating the workspace**, start a thought session and note the sessionId
+3. Create workspace with `sessionId: "<id>"` to bind the session
+4. B creates a proposal: `{ operation: "create_proposal", workspaceId: "<id>", title: "Fix", description: "Details", sourceBranch: "fix-branch" }`
+5. A reviews: `{ operation: "review_proposal", ..., verdict: "approve", reasoning: "Looks good" }`
+6. A merges: `{ operation: "merge_proposal", ..., mergeMessage: "Merged fix" }`
+7. Verify proposal status is "merged"
+8. Call `list_proposals` with `proposalStatus: "merged"` to confirm
+
+**Known issue (2026-03-21):** If workspace is created without binding a pre-existing session, `merge_proposal` fails with "Session not found" because the auto-generated `mainSessionId` is not persisted. This is a server bug.
 
 **Expected:** Full proposal lifecycle — cannot self-review, requires approval to merge
 

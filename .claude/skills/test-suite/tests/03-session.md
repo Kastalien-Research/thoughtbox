@@ -28,9 +28,12 @@ Annotation: readOnlyHint (does not modify reasoning state, except session_resume
 **Steps:**
 1. Create a session with a few thoughts
 2. Call `thoughtbox_session { operation: "session_get", sessionId: "<id>" }`
-3. Verify response includes all thoughts, branches, metadata
+3. Verify response includes `session` object with metadata (title, tags, thoughtCount)
+4. Verify `thoughts` array length matches `session.thoughtCount`
+5. Verify `branches` object — if no branches were created, it should be `{}` (empty object, not an array with data)
+6. Do NOT claim branches exist unless the object contains named keys with thought arrays
 
-**Expected:** Complete session object with full thought chain
+**Expected:** Complete session object with full thought chain. Empty branches object if none were created.
 
 ---
 
@@ -131,12 +134,17 @@ Annotation: readOnlyHint (does not modify reasoning state, except session_resume
 
 **Goal:** Verify tool visibility controls.
 
+**Prerequisite:** Tool discovery is triggered by certain operations (e.g., session_analyze unlocking specialized tools). If `discoveredTools` is empty, the hide/show operations will return `success: false` — that's a real failure, not a graceful degradation.
+
 **Steps:**
 1. Call `thoughtbox_session { operation: "session_discovery", action: "list" }`
-2. Verify list of discoverable tools
-3. Call with `action: "hide", toolName: "thoughtbox_notebook"`
-4. Call `action: "list"` again — verify notebook is hidden
-5. Call with `action: "show", toolName: "thoughtbox_notebook"`
-6. Verify notebook is visible again
+2. If `discoveredTools` is empty, trigger discovery first (e.g., run `session_analyze`)
+3. Call `action: "list"` again — verify tools now appear
+4. Call with `action: "hide", toolName: "<discovered-tool-name>"`
+5. Verify response has `success: true`
+6. Call `action: "list"` again — verify the tool is hidden
+7. Call with `action: "show", toolName: "<discovered-tool-name>"`
+8. Verify response has `success: true` and tool is visible again
+9. If any `success: false` response occurs during hide/show, mark as **FAIL**
 
-**Expected:** Tools can be hidden/shown per session
+**Expected:** Tools can be hidden/shown per session. `success: false` is a failure, not graceful handling.

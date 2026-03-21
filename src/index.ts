@@ -172,6 +172,9 @@ async function startHttpServer() {
   let observatoryBaseStorage: ThoughtboxStorage | undefined;
   try {
     observatoryBaseStorage = factory.getStorage();
+    if (observatoryBaseStorage) {
+      await observatoryBaseStorage.initialize();
+    }
   } catch (e) {
     // Fails for Supabase without workspaceId, which is fine since Observatory skips persistent reading in MVP
   }

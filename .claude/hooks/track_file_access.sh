@@ -15,8 +15,8 @@ tool_name="$(echo "$input_json" | jq -r '.tool_name // "unknown"')"
 tool_input="$(echo "$input_json" | jq -c '.tool_input // {}')"
 hook_event="$(echo "$input_json" | jq -r '.hook_event_name // ""')"
 
-# State directory
-STATE_DIR=".claude/state"
+# State directory (use absolute path to avoid cwd drift)
+STATE_DIR="${CLAUDE_PROJECT_DIR:-.}/.claude/state"
 mkdir -p "$STATE_DIR"
 
 ACCESS_LOG="$STATE_DIR/file_access.log"
@@ -50,15 +50,21 @@ case "$tool_name" in
       echo "[$timestamp] $abs_path" >> "$ACCESS_LOG"
       # Keep log manageable (last 500 entries)
       if [[ $(wc -l < "$ACCESS_LOG") -gt 500 ]]; then
-        tail -500 "$ACCESS_LOG" > "$ACCESS_LOG.tmp"
-        mv "$ACCESS_LOG.tmp" "$ACCESS_LOG"
+        (
+          flock -x 200
+          tail -500 "$ACCESS_LOG" > "$ACCESS_LOG.tmp"
+          mv "$ACCESS_LOG.tmp" "$ACCESS_LOG"
+        ) 200>"$ACCESS_LOG.lock"
       fi
 
       # Structured JSONL event for downstream guards
       echo "{\"ts\":\"$timestamp\",\"tool\":\"$tool_name\",\"path\":\"$abs_path\"}" >> "$ACCESS_JSONL"
       if [[ $(wc -l < "$ACCESS_JSONL") -gt 1000 ]]; then
-        tail -1000 "$ACCESS_JSONL" > "$ACCESS_JSONL.tmp"
-        mv "$ACCESS_JSONL.tmp" "$ACCESS_JSONL"
+        (
+          flock -x 200
+          tail -1000 "$ACCESS_JSONL" > "$ACCESS_JSONL.tmp"
+          mv "$ACCESS_JSONL.tmp" "$ACCESS_JSONL"
+        ) 200>"$ACCESS_JSONL.lock"
       fi
     fi
     ;;
@@ -89,8 +95,11 @@ if [[ "$is_error" == "true" ]]; then
 
   # Keep log manageable
   if [[ $(wc -l < "$ERROR_LOG") -gt 200 ]]; then
-    tail -200 "$ERROR_LOG" > "$ERROR_LOG.tmp"
-    mv "$ERROR_LOG.tmp" "$ERROR_LOG"
+    (
+      flock -x 200
+      tail -200 "$ERROR_LOG" > "$ERROR_LOG.tmp"
+      mv "$ERROR_LOG.tmp" "$ERROR_LOG"
+    ) 200>"$ERROR_LOG.lock"
   fi
 fi
 

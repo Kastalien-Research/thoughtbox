@@ -23,6 +23,7 @@ interface ThoughtStore {
 }
 
 export interface HubToolHandlerOptions {
+  
   hubStorage: HubStorage;
   thoughtStore: ThoughtStore;
   envAgentId?: string;

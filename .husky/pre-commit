@@ -3,3 +3,6 @@
 
 # Check for cyclic dependencies before commit
 pnpm check:cycles
+
+# Lint check
+pnpm check:lint

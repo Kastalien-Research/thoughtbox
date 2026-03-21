@@ -89,7 +89,7 @@ export const HubToolInputSchema = z.object({
   thoughtRefs: z.array(z.number()).optional()
     .describe('Thought numbers supporting the review (review_proposal)'),
   mergeMessage: z.string().optional()
-    .describe('Merge thought content (merge_proposal)'),
+    .describe('Merge thought content (merge_proposal) — required for merge_proposal'),
   proposalStatus: ProposalStatusEnum.optional()
     .describe('Filter proposals by status (list_proposals)'),
 
