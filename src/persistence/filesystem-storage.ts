@@ -68,6 +68,7 @@ export class FileSystemStorage implements ThoughtboxStorage {
   private sessions: Map<string, Session> = new Map();
   private linkedStore: LinkedThoughtStore = new LinkedThoughtStore();
   private initialized = false;
+  private initPromise: Promise<void> | null = null;
 
   constructor(options: FileSystemStorageOptions = {}) {
     this.basePath = options.basePath || path.join(os.homedir(), '.thoughtbox');
@@ -183,7 +184,12 @@ export class FileSystemStorage implements ThoughtboxStorage {
 
   async initialize(): Promise<void> {
     if (this.initialized) return;
+    if (this.initPromise) return this.initPromise;
+    this.initPromise = this.doInitialize();
+    return this.initPromise;
+  }
 
+  private async doInitialize(): Promise<void> {
     // Create base directories
     await fs.mkdir(this.basePath, { recursive: true });
 
@@ -239,7 +245,13 @@ export class FileSystemStorage implements ThoughtboxStorage {
         // Move its contents into newDefaultSessionsDir instead of renaming, to avoid cross-device link issues or overwrites
         const subEntries = await fs.readdir(legacySessionsDir, { withFileTypes: true });
         for (const sub of subEntries) {
-          await fs.rename(path.join(legacySessionsDir, sub.name), path.join(newDefaultSessionsDir, sub.name));
+          const dest = path.join(newDefaultSessionsDir, sub.name);
+          try {
+            await fs.access(dest);
+            console.warn(`[Thoughtbox] Skipping ${sub.name}: already exists at destination`);
+          } catch {
+            await fs.rename(path.join(legacySessionsDir, sub.name), dest);
+          }
         }
         await fs.rmdir(legacySessionsDir);
         console.log('[Thoughtbox] Migrated legacy sessions/ directory to projects/_default/sessions/');
@@ -256,20 +268,26 @@ export class FileSystemStorage implements ThoughtboxStorage {
           if (!entry.isDirectory()) continue;
           
           // Match standard date partition formats: YYYY-MM, YYYY-WXX, YYYY-MM-DD
-          if (/^\d{4}-/.test(entry.name)) {
+          if (/^\d{4}-(0[1-9]|1[0-2])(-\d{2})?$|^\d{4}-W\d{2}$/.test(entry.name)) {
             const oldPath = path.join(this.basePath, entry.name);
             const newPath = path.join(newDefaultSessionsDir, entry.name);
             
+            let targetExists = false;
             try {
               await fs.access(newPath);
-              // Target already exists; merge contents
+              targetExists = true;
+            } catch {}
+
+            if (targetExists) {
               const subEntries = await fs.readdir(oldPath, { withFileTypes: true });
               for (const sub of subEntries) {
-                await fs.rename(path.join(oldPath, sub.name), path.join(newPath, sub.name));
+                await fs.rename(
+                  path.join(oldPath, sub.name),
+                  path.join(newPath, sub.name),
+                );
               }
               await fs.rmdir(oldPath);
-            } catch {
-              // Target doesn't exist, rename the entire directory
+            } else {
               await fs.rename(oldPath, newPath);
             }
             console.log(`[Thoughtbox] Migrated legacy partition ${entry.name} to projects/_default/sessions/`);

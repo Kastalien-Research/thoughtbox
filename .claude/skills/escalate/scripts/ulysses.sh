@@ -56,10 +56,14 @@ case "$1" in
         TYPE="$2"
         SEVERITY="1"
         DETAILS=""
-        # Simple arg parsing for optional flags in bash
-        for arg in "$@"; do
-            [[ $arg == "--severity" ]] && SEVERITY="${!((OPTIND++))}" # skip next next
-            [[ $arg == "--details" ]] && DETAILS="${!((OPTIND++))}"
+        # Parse optional flags after positional args
+        shift 2
+        while [[ $# -gt 0 ]]; do
+            case "$1" in
+                --severity) SEVERITY="$2"; shift 2 ;;
+                --details) DETAILS="$2"; shift 2 ;;
+                *) shift ;;
+            esac
         done
 
         # Record History item
@@ -70,7 +74,7 @@ case "$1" in
 
         if [ "$TYPE" == "expected" ]; then
             S=0
-            STATE=$(echo "$STATE" | jq --arg s "$S" '.S = ($s|human_readable_status) | .checkpoints += ["checkpoint_" + (.checkpoints|length|tostring)]')
+            STATE=$(echo "$STATE" | jq --arg s "$S" '.S = ($s|tonumber) | .checkpoints += ["checkpoint_" + (.checkpoints|length|tostring)]')
             echo "✅ Outcome: Expected. Resetting to S=0."
             
             # Git Checkpoint
@@ -89,7 +93,7 @@ case "$1" in
                 echo "🚨 Flagrant-2: Immediate REFLECT."
             else
                 S=$(echo "$STATE" | jq '.S')
-                NEW_S=$(($S + 1))
+                NEW_S=$((S + 1))
                 [ "$NEW_S" -gt 2 ] && NEW_S=2
                 STATE=$(echo "$STATE" | jq --arg ns "$NEW_S" '.S = ($ns|tonumber)')
                 echo "➡️  S=$NEW_S."

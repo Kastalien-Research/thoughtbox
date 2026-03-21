@@ -27,7 +27,7 @@ for hook in "${hooks[@]}"; do
     hook_base=$(basename "$hook")
     echo 137 > "$err_dir/$hook_base.exit"  # default: assume killed until proven otherwise
     (
-      echo "$input_json" | "$hook"
+      "$hook" <<< "$input_json"
       _rc=$?
       echo "$_rc" > "$err_dir/$hook_base.exit"
     ) &
