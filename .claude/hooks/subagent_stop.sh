@@ -38,7 +38,12 @@ echo "$log_data" | jq --argjson new "$input_json" '. += [$new]' > logs/subagent_
 
 # Handle --chat switch: convert .jsonl transcript to JSON array
 if [[ "$chat" == "true" && -n "$transcript_path" && -f "$transcript_path" ]]; then
-    jq -s '.' "$transcript_path" > logs/chat.json 2>/dev/null || true
+    if ! jq -s '.' "$transcript_path" > logs/chat.json 2>/dev/null; then
+        error_log="${CLAUDE_PROJECT_DIR:-.}/.claude/state/hook-errors.jsonl"
+        mkdir -p "$(dirname "$error_log")"
+        printf '{"ts":"%s","hook":"subagent_stop","error":"jq failed parsing transcript at %s"}\n' \
+            "$(date -u +%FT%TZ)" "$transcript_path" >> "$error_log"
+    fi
 fi
 
 # Note: TTS completion announcement removed
