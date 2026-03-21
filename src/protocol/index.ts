@@ -1,4 +1,5 @@
 export { ProtocolHandler } from './handler.js';
+export { InMemoryProtocolHandler } from './in-memory-handler.js';
 
 export {
   THESEUS_TOOL,

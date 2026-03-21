@@ -1,5 +1,6 @@
 import { z } from "zod";
-import { ProtocolHandler } from "./handler.js";
+import type { ProtocolHandler } from "./handler.js";
+import type { InMemoryProtocolHandler } from "./in-memory-handler.js";
 
 export const theseusToolInputSchema = z.object({
   operation: z.enum(["init", "visa", "checkpoint", "outcome", "status", "complete"]),
@@ -43,7 +44,7 @@ Operations:
 export class TheseusTool {
   private activeSessionId: string | null = null;
 
-  constructor(private handler: ProtocolHandler) {}
+  constructor(private handler: ProtocolHandler | InMemoryProtocolHandler) {}
 
   async handle(input: TheseusToolInput) {
     let result: Record<string, unknown>;

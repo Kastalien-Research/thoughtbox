@@ -10,7 +10,7 @@ allowed-tools: Bash, Read, Glob, Grep, Write, mcp__thoughtbox__thoughtbox_gatewa
 
 Structured framework for autonomous debugging that prevents hallucinated progress and model debt. Forces pre-committed recovery actions, rigorous surprise assessment, and falsifiable hypotheses.
 
-**Dual-state architecture**: Local state machine (`scripts/ulysses.py`) for fast transitions + Thoughtbox session for durable reasoning trace.
+**Dual-state architecture**: Local state machine (`scripts/ulysses.sh`) for fast transitions + Thoughtbox session for durable reasoning trace.
 
 ## Commands
 
@@ -20,7 +20,7 @@ Parse the first word of $ARGUMENTS to determine the command:
 
 1. Initialize local state:
    ```bash
-   python3 .claude/skills/ulysses-protocol/scripts/ulysses.py init
+   bash .claude/skills/ulysses-protocol/scripts/ulysses.sh init
    ```
 2. Start a Thoughtbox session for the debugging trace:
    ```
@@ -44,7 +44,7 @@ Parse remaining $ARGUMENTS for: `<primary step>` `<recovery step>` `[--irreversi
 
 1. Record locally:
    ```bash
-   python3 .claude/skills/ulysses-protocol/scripts/ulysses.py plan "<primary>" "<recovery>" [--irreversible]
+   bash .claude/skills/ulysses-protocol/scripts/ulysses.sh plan "<primary>" "<recovery>" [--irreversible]
    ```
 2. Record as a decision_frame thought in Thoughtbox:
    ```
@@ -67,7 +67,7 @@ Parse: `<expected|unexpected-favorable|unexpected-unfavorable>` `[--severity 1|2
 
 1. Record locally:
    ```bash
-   python3 .claude/skills/ulysses-protocol/scripts/ulysses.py outcome <assessment> [--severity N] [--details "..."]
+   bash .claude/skills/ulysses-protocol/scripts/ulysses.sh outcome <assessment> [--severity N] [--details "..."]
    ```
 2. Record as action_report in Thoughtbox:
    ```
@@ -95,7 +95,7 @@ Parse: `<hypothesis statement>` `<falsification criteria>`
 
 1. Record locally:
    ```bash
-   python3 .claude/skills/ulysses-protocol/scripts/ulysses.py reflect "<hypothesis>" "<falsification>"
+   bash .claude/skills/ulysses-protocol/scripts/ulysses.sh reflect "<hypothesis>" "<falsification>"
    ```
 2. Record as assumption_update in Thoughtbox:
    ```
@@ -118,7 +118,7 @@ Parse: `<hypothesis statement>` `<falsification criteria>`
 
 1. Read local state:
    ```bash
-   python3 .claude/skills/ulysses-protocol/scripts/ulysses.py status
+   bash .claude/skills/ulysses-protocol/scripts/ulysses.sh status
    ```
 2. Read Thoughtbox session structure:
    ```
@@ -191,5 +191,5 @@ thoughtbox_hub { operation: "quick_join", args: { name: "Debugger", workspaceId:
 ## Resource Reference
 
 - **Full specification**: `references/protocol-spec.md` — deep theoretical background (§1-11)
-- **State script**: `scripts/ulysses.py` — local state machine and register history
+- **State script**: `scripts/ulysses.sh` — local state machine and register history
 - **Thoughtbox session**: Durable reasoning trace with structured thought types
