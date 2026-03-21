@@ -700,12 +700,12 @@ a single MCP session while maintaining distinct identities.
 **Goal:** Verify two agents can register in the same MCP session and keep distinct identities.
 
 **Steps:**
-1. Call \`thoughtbox_hub\` with operation \`register\`, args: { name: "coordinator" }
+1. Call \`thoughtbox_hub\` with operation \`register\`, name: "coordinator"
 2. Note the returned agentId (call it coordId)
-3. Call \`register\` again with args: { name: "auditor" }
+3. Call \`register\` again with name: "auditor"
 4. Note the returned agentId (call it auditorId)
-5. Call \`whoami\` with args: { agentId: coordId }
-6. Call \`whoami\` with args: { agentId: auditorId }
+5. Call \`whoami\` with agentId: coordId
+6. Call \`whoami\` with agentId: auditorId
 
 **Expected:**
 - coordId !== auditorId
@@ -716,14 +716,14 @@ a single MCP session while maintaining distinct identities.
 
 ## Test 2: Per-Call Identity Override
 
-**Goal:** Verify agents identify themselves per-call via args.agentId.
+**Goal:** Verify agents identify themselves per-call via agentId.
 
 **Steps:**
 1. Register "alice" and "bob" in the same session
 2. Alice creates a workspace (default identity or explicit agentId)
-3. Bob joins via \`join_workspace\` with args: { agentId: bobId, workspaceId: ... }
-4. Bob creates a problem with args: { agentId: bobId, workspaceId: ..., title: ..., description: ... }
-5. Alice posts a message with args: { agentId: aliceId, workspaceId: ..., problemId: ..., content: ... }
+3. Bob joins via \`join_workspace\` with agentId: bobId, workspaceId: ...
+4. Bob creates a problem with agentId: bobId, workspaceId: ..., title: ..., description: ...
+5. Alice posts a message with agentId: aliceId, workspaceId: ..., problemId: ..., content: ...
 
 **Expected:** Each operation attributed to the correct agent
 
@@ -737,7 +737,7 @@ a single MCP session while maintaining distinct identities.
 1. Register "coordinator" and "auditor" in the same session
 2. Coordinator creates workspace and problem
 3. Auditor joins, claims problem, and creates a proposal
-4. Coordinator reviews the proposal with args: { agentId: coordId, ..., verdict: "approve" }
+4. Coordinator reviews the proposal with agentId: coordId, ..., verdict: "approve"
 5. Coordinator merges the proposal
 
 **Expected:**
@@ -754,7 +754,7 @@ a single MCP session while maintaining distinct identities.
 
 **Steps:**
 1. Register "alice" in a session
-2. Call \`whoami\` with args: { agentId: "fake-agent-id" }
+2. Call \`whoami\` with agentId: "fake-agent-id"
 
 **Expected:** Error: "Agent fake-agent-id not registered in this session. Call register first."
 
@@ -766,8 +766,8 @@ a single MCP session while maintaining distinct identities.
 
 **Steps:**
 1. Register "coordinator", create a workspace
-2. Call \`quick_join\` with args: { name: "debugger", workspaceId: ... }
-3. Call \`whoami\` with args: { agentId: debuggerAgentId }
+2. Call \`quick_join\` with name: "debugger", workspaceId: ...
+3. Call \`whoami\` with agentId: debuggerAgentId
 4. Debugger creates a problem using its own agentId
 
 **Expected:**
@@ -785,8 +785,8 @@ a single MCP session while maintaining distinct identities.
 1. Create handler with envAgentId and envAgentName set
 2. Verify env agent can call \`whoami\` without explicit register
 3. Register a second agent ("sub-agent") in the same session
-4. Sub-agent calls operations with args: { agentId: subAgentId }
-5. Env agent calls operations with args: { agentId: envAgentId }
+4. Sub-agent calls operations with agentId: subAgentId
+5. Env agent calls operations with agentId: envAgentId
 
 **Expected:** Both agents operate independently, neither overwrites the other
 `

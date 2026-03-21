@@ -185,7 +185,7 @@ Progressive disclosure is enforced internally - you'll get clear errors if calli
 
 For multi-agent collaboration, use the \`thoughtbox_hub\` tool with operations:
 register, create_workspace, join_workspace, create_problem, post_message, read_channel, etc.
-Call \`thoughtbox_hub\` { "operation": "register", "args": { "name": "Your Agent Name" } } to join.`;
+Call \`thoughtbox_hub\` { "operation": "register", "name": "Your Agent Name" } to join.`;
 
   // Create task infrastructure if hub storage is provided
   const taskStore = args.dataDir
@@ -2042,4 +2042,3 @@ mcp__thoughtbox__thoughtbox({
 }
 
 export default createMcpServer;
-

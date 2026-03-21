@@ -97,12 +97,12 @@ export function createHubHandler(
 
       // Stage 1+: agent must be registered
       if (!agentId) {
-        throw new Error("Register first. Call: thoughtbox_hub { operation: 'register', args: { name: '...' } }");
+        throw new Error("Register first. Call: thoughtbox_hub { operation: 'register', name: '...' }");
       }
 
       const agent = await identity.getAgent(agentId);
       if (!agent) {
-        throw new Error("Register first. Call: thoughtbox_hub { operation: 'register', args: { name: '...' } }");
+        throw new Error("Register first. Call: thoughtbox_hub { operation: 'register', name: '...' }");
       }
 
       // Stage 1: registered but may not need workspace
@@ -143,7 +143,7 @@ export function createHubHandler(
       if (requiredStage === 2) {
         const workspaceId = args.workspaceId as string;
         if (!workspaceId) {
-          throw new Error("Join a workspace first. Call: thoughtbox_hub { operation: 'join_workspace', args: { workspaceId: '...' } }");
+          throw new Error("Join a workspace first. Call: thoughtbox_hub { operation: 'join_workspace', workspaceId: '...' }");
         }
 
         // Check workspace membership — distinguish "no workspace at all" from "wrong workspace"
@@ -153,7 +153,7 @@ export function createHubHandler(
           const allWorkspaces = await storage.listWorkspaces();
           const inAny = allWorkspaces.some(ws => ws.agents.some(a => a.agentId === agentId));
           if (!inAny) {
-            throw new Error("Join a workspace first. Call: thoughtbox_hub { operation: 'join_workspace', args: { workspaceId: '...' } }");
+            throw new Error("Join a workspace first. Call: thoughtbox_hub { operation: 'join_workspace', workspaceId: '...' }");
           }
           throw new Error('Not a member of this workspace');
         }
