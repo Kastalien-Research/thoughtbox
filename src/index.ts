@@ -97,9 +97,8 @@ async function createStorage(): Promise<StorageBundle> {
 
   if (storageType === "memory") {
     console.error("[Storage] Using in-memory storage (volatile)");
-    const memoryStorage = new InMemoryStorage();
     const factory: StorageFactory = {
-      getStorage: () => memoryStorage,
+      getStorage: () => new InMemoryStorage(),
       getKnowledgeStorage: () => undefined,
     };
     return {
@@ -135,7 +134,10 @@ async function createStorage(): Promise<StorageBundle> {
   }
 
   const factory: StorageFactory = {
-    getStorage: () => fsStorage,
+    getStorage: () => new FileSystemStorage({
+      basePath: baseDir,
+      partitionGranularity: "monthly",
+    }),
     getKnowledgeStorage: () => undefined,
   };
 

@@ -79,6 +79,7 @@ export class FileSystemStorage implements ThoughtboxStorage {
   // ===========================================================================
 
   async setProject(project: string): Promise<void> {
+    await this.initialize();
     if (this.project === project) return;
     if (this.project !== null) {
       throw new Error(

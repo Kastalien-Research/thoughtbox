@@ -465,172 +465,330 @@ Workflows for Claude to execute when verifying the mental_models toolhost functi
   memory: {
     name: "test-memory",
     uri: "thoughtbox://tests/memory",
-    description: "Behavioral tests for the knowledge/memory toolhost (12 tests covering patterns, scratchpad, persistence)",
-    content: `# Knowledge Zone - Behavioral Tests
+    description: "Behavioral tests for the thoughtbox_knowledge tool (12 tests covering entities, observations, relations, graph traversal, stats)",
+    content: `# Knowledge Graph - Behavioral Tests
 
-Workflows for Claude to execute when verifying the knowledge toolhost functions correctly.
+Workflows for verifying the \`thoughtbox_knowledge\` tool functions correctly.
 
-The Knowledge Zone ("The Garden") has two areas:
-1. **Patterns** - Extracted heuristics from successful reasoning sessions (persistent)
-2. **Scratchpad** - Temporary collaborative working notes (ephemeral)
-
----
-
-## Pattern Tests
-
-### Test 1: Pattern Creation Flow
-
-**Goal:** Verify patterns can be created and retrieved.
-
-**Steps:**
-1. Call \`knowledge\` with operation \`create_pattern\`, args:
-   - title: "Test Pattern"
-   - description: "A test pattern for behavioral verification"
-   - content: "## Steps\\n\\n1. First step\\n2. Second step"
-   - tags: ["testing", "verification"]
-2. Verify response includes success: true, pattern id, pattern uri
-3. Call operation \`get_pattern\` with args: { id: "test-pattern" }
-4. Verify full pattern returned with content, tags, timestamps
-
-**Expected:** Pattern persisted as Markdown file, retrievable by ID
+**Tool:** \`thoughtbox_knowledge\`
+**Operations:** \`knowledge_create_entity\`, \`knowledge_get_entity\`, \`knowledge_list_entities\`, \`knowledge_add_observation\`, \`knowledge_create_relation\`, \`knowledge_query_graph\`, \`knowledge_stats\`
+**Entity types:** Insight, Concept, Workflow, Decision, Agent
+**Relation types:** RELATES_TO, BUILDS_ON, CONTRADICTS, EXTRACTED_FROM, APPLIED_IN, LEARNED_BY, DEPENDS_ON, SUPERSEDES, MERGED_FROM
 
 ---
 
-### Test 2: Pattern Update Flow
+## Test 1: Entity Creation
 
-**Goal:** Verify patterns can be modified.
+**Goal:** Verify entity creation with name, type, and label.
 
 **Steps:**
-1. Create a pattern with initial content
-2. Call operation \`update_pattern\` with new content and tags
-3. Verify success response
-4. Call \`get_pattern\` to verify changes persisted
-5. Verify \`updatedAt\` timestamp changed
+1. Call \`thoughtbox_knowledge\` with:
+   \`{ operation: "knowledge_create_entity", name: "test-entity-001", type: "Concept", label: "Test Entity" }\`
+2. Verify response includes:
+   - \`entity_id\` (UUID)
+   - \`name\` matches \`"test-entity-001"\`
+   - \`type\` matches \`"Concept"\`
+   - \`created_at\` (timestamp)
 
-**Expected:** Partial updates work, unchanged fields preserved
+**Expected:** Entity created with UUID, returned with correct fields
 
 ---
 
-### Test 3: Pattern Listing and Filtering Flow
+## Test 2: Entity Retrieval
 
-**Goal:** Verify pattern discovery and search.
+**Goal:** Verify entity retrieval by ID.
 
 **Steps:**
-1. Create multiple patterns with different tags
-2. Call operation \`list_patterns\` with no args
-3. Verify all patterns returned
-4. Call \`list_patterns\` with args: { tags: ["debugging"] }
-5. Verify only patterns with debugging tag returned
+1. Create an entity, capture the \`entity_id\`
+2. Call \`{ operation: "knowledge_get_entity", entity_id: "<id>" }\`
+3. Verify response includes all entity fields:
+   - \`id\`, \`name\`, \`type\`, \`label\`
+   - \`created_at\`, \`updated_at\`
+   - \`properties\` (may be empty object)
+   - \`visibility\` (default)
+   - \`observations\` array (may be empty)
 
-**Expected:** Filtering by tags and search works correctly
+**Expected:** Full entity object returned with all fields
 
 ---
 
-### Test 4: Pattern Tags Discovery Flow
+## Test 3: List Entities
 
-**Goal:** Verify tag aggregation across patterns.
+**Goal:** Verify listing and filtering entities.
 
 **Steps:**
-1. Create patterns with various tags
-2. Call operation \`list_tags\`
-3. Verify response contains all unique tags used across patterns
-4. Verify no duplicate tags in response
+1. Create 2+ entities with different types (Concept, Insight, Decision)
+2. Call \`{ operation: "knowledge_list_entities" }\`
+3. Verify \`count\` >= 2, \`entities\` array present
+4. Call \`{ operation: "knowledge_list_entities", types: ["Concept"] }\`
+5. Verify only Concept entities returned
+6. Call with \`name_pattern: "test-entity"\`
+7. Verify only matching entities returned
 
-**Expected:** Complete tag inventory for navigation
+**Expected:** Unfiltered returns all; each filter narrows results correctly
 
 ---
 
-### Test 5: Pattern Deletion Flow
+## Test 4: Add Observation
 
-**Goal:** Verify patterns can be removed.
+**Goal:** Verify adding an atomic fact to an entity.
 
 **Steps:**
-1. Create a test pattern
-2. Verify it appears in \`list_patterns\`
-3. Call operation \`delete_pattern\` with args: { id: "test-pattern" }
-4. Verify success response
-5. Call \`get_pattern\` - should return error "not found"
+1. Create an entity, capture \`entity_id\`
+2. Call \`{ operation: "knowledge_add_observation", entity_id: "<id>", content: "This entity was tested" }\`
+3. Verify response includes:
+   - \`observation_id\` (UUID)
+   - \`entity_id\` matches
+   - \`added_at\` (timestamp)
+4. Call \`knowledge_get_entity\` with the entity ID
+5. Verify the observation appears in the entity's observations array
 
-**Expected:** Pattern removed from filesystem and listings
+**Expected:** Observation attached to entity, retrievable via get_entity
 
 ---
 
-## Scratchpad Tests
+## Test 5: Create Relation
 
-### Test 6: Scratchpad Write/Read Flow
-
-**Goal:** Verify scratchpad notes can be created and read.
+**Goal:** Verify linking two entities with a typed relation.
 
 **Steps:**
-1. Call \`knowledge\` with operation \`write_scratchpad\`, args:
-   - topic: "API Design Ideas"
-   - content: "## Current thinking\\n\\n- REST vs GraphQL"
-2. Verify response includes note id
-3. Call operation \`read_scratchpad\` with args: { id: "api-design-ideas" }
-4. Verify full content returned
+1. Create entity A (type: Concept) and entity B (type: Insight)
+2. Call \`{ operation: "knowledge_create_relation", from_id: "<B-id>", to_id: "<A-id>", relation_type: "BUILDS_ON" }\`
+3. Verify response includes:
+   - \`relation_id\` (UUID)
+   - \`from_id\` matches entity B
+   - \`to_id\` matches entity A
+   - \`type\` matches \`"BUILDS_ON"\`
+   - \`created_at\` (timestamp)
 
-**Expected:** Scratchpad notes persist during session
+**Expected:** Relation created linking the two entities directionally
 
 ---
 
-### Test 7: Scratchpad Overwrite Flow
+## Test 6: Graph Traversal
 
-**Goal:** Verify scratchpad updates replace content.
+**Goal:** Verify graph traversal from a start entity.
 
 **Steps:**
-1. Create scratchpad note with initial content
-2. Call \`write_scratchpad\` with same topic, different content
-3. Call \`read_scratchpad\`
-4. Verify content is new content (not appended)
+1. Create entities A and B with a BUILDS_ON relation (A → B)
+2. Call \`{ operation: "knowledge_query_graph", start_entity_id: "<A-id>" }\`
+3. Verify response includes:
+   - \`entity_count\` >= 2
+   - \`relation_count\` >= 1
+   - \`entities\` array containing both A and B
+   - \`relations\` array containing the BUILDS_ON relation
 
-**Expected:** Write is idempotent - same topic overwrites
+**Expected:** Traversal discovers connected entities and relations
 
 ---
 
-### Test 8: Scratchpad Listing Flow
+## Test 7: Graph Traversal with max_depth
 
-**Goal:** Verify scratchpad discovery.
+**Goal:** Verify depth-limited traversal.
 
 **Steps:**
-1. Create multiple scratchpad notes
-2. Call operation \`list_scratchpad\`
-3. Verify all notes returned with id, title, uri, updatedAt
-4. Verify sorted by most recently updated
+1. Create entities A, B, C with relations A→B→C
+2. Call \`{ operation: "knowledge_query_graph", start_entity_id: "<A-id>", max_depth: 1 }\`
+3. Verify only A and B returned (not C)
+4. Call with \`max_depth: 2\`
+5. Verify A, B, and C all returned
 
-**Expected:** Complete scratchpad inventory
+**Expected:** max_depth limits how far traversal reaches
 
 ---
 
-## Error Handling Tests
+## Test 8: Graph Traversal with relation_types Filter
 
-### Test 9: Error Handling Flow
-
-**Goal:** Verify graceful error handling.
+**Goal:** Verify traversal follows only specified relation types.
 
 **Steps:**
-1. Call \`create_pattern\` without required \`title\` - should error
-2. Call \`get_pattern\` with nonexistent ID - should return "not found"
-3. Call \`update_pattern\` with nonexistent ID - should error
-4. Call unknown operation - should error with list of valid operations
+1. Create entities A, B, C
+2. Create relation A → B type BUILDS_ON
+3. Create relation A → C type CONTRADICTS
+4. Call \`{ operation: "knowledge_query_graph", start_entity_id: "<A-id>", relation_types: ["BUILDS_ON"] }\`
+5. Verify B is in results but C is NOT
+6. Call with \`relation_types: ["CONTRADICTS"]\`
+7. Verify C is in results but B is NOT
 
-**Expected:** Clear error messages, no data corruption
+**Expected:** Only specified relation types are traversed
 
 ---
 
-## Persistence Tests
+## Test 9: Stats
 
-### Test 10: Filesystem Persistence Flow
-
-**Goal:** Verify data survives server restart.
+**Goal:** Verify knowledge graph statistics.
 
 **Steps:**
-1. Create patterns and scratchpad notes
-2. Note the data
-3. Restart the server
-4. Call \`list_patterns\` and \`list_scratchpad\`
-5. Verify all previously created data still present
+1. Call \`{ operation: "knowledge_stats" }\`
+2. Verify response includes entity count and relation count
+3. Create a new entity
+4. Call \`knowledge_stats\` again
+5. Verify entity count increased by 1
 
-**Expected:** Markdown files in ~/.thoughtbox/knowledge/ persist across restarts
+**Expected:** Accurate counts reflecting current graph state
+
+---
+
+## Test 10: Error Handling
+
+**Goal:** Verify clear errors for invalid operations.
+
+**Steps:**
+1. Call \`knowledge_create_entity\` without required \`name\` field — should error
+2. Call \`knowledge_get_entity\` with nonexistent \`entity_id\` — should error "not found"
+3. Call \`knowledge_create_relation\` with nonexistent \`from_id\` — should error
+4. Call \`knowledge_add_observation\` with nonexistent \`entity_id\` — should error
+
+**Expected:** Each error is specific, actionable, and non-destructive
+
+---
+
+## Test 11: UNIQUE Collision on create_entity
+
+**Goal:** Verify duplicate entity name+type returns existing entity.
+
+**Steps:**
+1. Create entity with name "collision-test", type "Concept", label "First"
+2. Create entity with same name "collision-test", type "Concept", label "Second"
+3. Verify second call returns the SAME entity_id as the first
+4. Use \`knowledge_add_observation\` to add corroborating evidence to the existing entity
+
+**Expected:** No error on collision; existing entity returned for deduplication
+
+---
+
+## Test 12: Full Workflow End-to-End
+
+**Goal:** Verify complete knowledge graph lifecycle.
+
+**Steps:**
+1. **Create entities:**
+   - Entity A: \`{ operation: "knowledge_create_entity", name: "arch-patterns", type: "Concept", label: "Architecture Patterns" }\`
+   - Entity B: \`{ operation: "knowledge_create_entity", name: "microservices-insight", type: "Insight", label: "Microservices Trade-offs" }\`
+   - Entity C: \`{ operation: "knowledge_create_entity", name: "monolith-decision", type: "Decision", label: "Stay Monolith" }\`
+2. **Add observations:**
+   - On A: \`"Common patterns include microservices, monolith, serverless"\`
+   - On B: \`"Microservices add network complexity but improve team autonomy"\`
+3. **Create relations:**
+   - B → A: BUILDS_ON
+   - C → B: BUILDS_ON
+   - C → A: CONTRADICTS
+4. **Query graph:**
+   - From C, default depth: verify all 3 entities and 3 relations
+   - From C, relation_types: ["BUILDS_ON"]: verify only B found
+   - From C, max_depth: 1: verify only B found
+5. **Verify stats:** entity_count >= 3, relation_count >= 3
+6. **Verify consistency:**
+   - \`knowledge_get_entity\` for each verifies observations attached
+   - \`knowledge_list_entities\` with types: ["Decision"] returns only C
+
+**Expected:** Complete lifecycle — create, observe, link, traverse, query, stats all consistent
+`
+  },
+  hub: {
+    name: "test-hub",
+    uri: "thoughtbox://tests/hub",
+    description: "Behavioral tests for the Hub multi-agent collaboration tool (6 tests covering identity registry, shared sessions, proposal review, and cross-agent workflows)",
+    content: `# Hub Tool - Behavioral Tests
+
+Workflows for verifying Hub multi-agent collaboration, with focus on the
+connection-scoped identity registry that allows multiple agents to share
+a single MCP session while maintaining distinct identities.
+
+## Test 1: Multi-Agent Registration in Shared Session
+
+**Goal:** Verify two agents can register in the same MCP session and keep distinct identities.
+
+**Steps:**
+1. Call \`thoughtbox_hub\` with operation \`register\`, args: { name: "coordinator" }
+2. Note the returned agentId (call it coordId)
+3. Call \`register\` again with args: { name: "auditor" }
+4. Note the returned agentId (call it auditorId)
+5. Call \`whoami\` with args: { agentId: coordId }
+6. Call \`whoami\` with args: { agentId: auditorId }
+
+**Expected:**
+- coordId !== auditorId
+- Each whoami returns the correct agent's identity
+- First register becomes the session default
+
+---
+
+## Test 2: Per-Call Identity Override
+
+**Goal:** Verify agents identify themselves per-call via args.agentId.
+
+**Steps:**
+1. Register "alice" and "bob" in the same session
+2. Alice creates a workspace (default identity or explicit agentId)
+3. Bob joins via \`join_workspace\` with args: { agentId: bobId, workspaceId: ... }
+4. Bob creates a problem with args: { agentId: bobId, workspaceId: ..., title: ..., description: ... }
+5. Alice posts a message with args: { agentId: aliceId, workspaceId: ..., problemId: ..., content: ... }
+
+**Expected:** Each operation attributed to the correct agent
+
+---
+
+## Test 3: Cross-Agent Proposal Review (The Core Bug)
+
+**Goal:** Verify the exact scenario that was broken — proposal review across agents sharing a session.
+
+**Steps:**
+1. Register "coordinator" and "auditor" in the same session
+2. Coordinator creates workspace and problem
+3. Auditor joins, claims problem, and creates a proposal
+4. Coordinator reviews the proposal with args: { agentId: coordId, ..., verdict: "approve" }
+5. Coordinator merges the proposal
+
+**Expected:**
+- Review succeeds (no self-review error)
+- Merge succeeds (coordinator is recognized as coordinator, not auditor)
+- Problem status becomes "resolved"
+- Proposal status becomes "merged"
+
+---
+
+## Test 4: Unregistered Agent ID Rejection
+
+**Goal:** Verify the anti-spoofing guard rejects unknown agentIds.
+
+**Steps:**
+1. Register "alice" in a session
+2. Call \`whoami\` with args: { agentId: "fake-agent-id" }
+
+**Expected:** Error: "Agent fake-agent-id not registered in this session. Call register first."
+
+---
+
+## Test 5: quick_join Identity Registration
+
+**Goal:** Verify quick_join adds the agent to the session identity registry.
+
+**Steps:**
+1. Register "coordinator", create a workspace
+2. Call \`quick_join\` with args: { name: "debugger", workspaceId: ... }
+3. Call \`whoami\` with args: { agentId: debuggerAgentId }
+4. Debugger creates a problem using its own agentId
+
+**Expected:**
+- quick_join returns a distinct agentId
+- Debugger can use its agentId in subsequent calls
+- Operations are attributed to the debugger, not the coordinator
+
+---
+
+## Test 6: Env-Var Agent Coexistence
+
+**Goal:** Verify env-var-resolved agents coexist with dynamically registered agents.
+
+**Steps:**
+1. Create handler with envAgentId and envAgentName set
+2. Verify env agent can call \`whoami\` without explicit register
+3. Register a second agent ("sub-agent") in the same session
+4. Sub-agent calls operations with args: { agentId: subAgentId }
+5. Env agent calls operations with args: { agentId: envAgentId }
+
+**Expected:** Both agents operate independently, neither overwrites the other
 `
   }
 } as const;
