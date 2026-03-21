@@ -3,6 +3,7 @@ import { ListResourcesRequestSchema, ListResourceTemplatesRequestSchema, type Ca
 import { z } from "zod"; // hypothesis test 3
 import type { HubStorage } from "./hub/hub-types.js";
 import { createHubToolHandler, type HubToolHandler } from "./hub/hub-tool-handler.js";
+import { HubToolInputSchema } from "./hub/hub-tool-schema.js";
 import { thoughtEmitter } from "./observatory/emitter.js";
 import { createThoughtStoreAdapter } from "./hub/thought-store-adapter.js";
 import { FileSystemTaskStore } from "./hub/hub-task-store.js";
@@ -620,58 +621,12 @@ Operations:
 
     const HUB_TOOL_DESCRIPTION = `Multi-agent collaboration hub for coordinated reasoning.
 
-Operations:
-- register: Register as an agent (args: { name: string, profile?: "MANAGER"|"ARCHITECT"|"DEBUGGER"|"SECURITY"|"RESEARCHER"|"REVIEWER" })
-- whoami: Get current agent identity
-- create_workspace: Create a collaboration workspace (args: { name, description })
-- join_workspace: Join an existing workspace (args: { workspaceId })
-- list_workspaces: List all workspaces
-- workspace_status: Get workspace status (args: { workspaceId })
-- create_problem: Define a problem to solve (args: { workspaceId, title, description })
-- claim_problem: Claim a problem to work on (args: { workspaceId, problemId })
-- update_problem: Update problem status (args: { workspaceId, problemId, status, resolution? })
-- list_problems: List problems (args: { workspaceId })
-- add_dependency: Add dependency between problems (args: { workspaceId, problemId, dependsOnProblemId })
-- remove_dependency: Remove dependency (args: { workspaceId, problemId, dependsOnProblemId })
-- ready_problems: List problems ready to claim (args: { workspaceId })
-- blocked_problems: List problems blocked by dependencies (args: { workspaceId })
-- create_sub_problem: Create a sub-problem (args: { workspaceId, parentId, title, description })
-- create_proposal: Propose a solution (args: { workspaceId, title, description, sourceBranch, problemId? })
-- review_proposal: Review a proposal (args: { workspaceId, proposalId, verdict, reasoning })
-- merge_proposal: Merge an approved proposal (args: { workspaceId, proposalId })
-- list_proposals: List proposals (args: { workspaceId })
-- mark_consensus: Mark a consensus decision (args: { workspaceId, name, description, thoughtRef, branchId? })
-- endorse_consensus: Endorse a consensus marker (args: { workspaceId, markerId })
-- list_consensus: List consensus markers (args: { workspaceId })
-- post_message: Post to a problem channel (args: { workspaceId, problemId, content })
-- read_channel: Read problem channel messages (args: { workspaceId, problemId })
-- get_profile_prompt: Get profile prompt with mental models (args: { profile: "MANAGER"|"ARCHITECT"|"DEBUGGER"|"SECURITY"|"RESEARCHER"|"REVIEWER" })
+Four operation categories: identity (register, quick_join, whoami), workspace (create/join/list/status/digest), problems (create/claim/update/list with dependencies and sub-problems), and collaboration (proposals, consensus, channels).
 
-Vocabulary:
-- Workspace: Shared collaboration space containing problems, proposals, consensus markers, and channels
-- Problem: Unit of work with status tracking (open → in-progress → resolved → closed) and dependencies
-- Proposal: Proposed solution referencing a thought branch, reviewed and merged by other agents
-- Consensus: Decision marker with thought reference, endorsed by team members
-- Channel: Message stream scoped to a problem for discussion and coordination
-- Agent: Registered participant with unique ID, name, and optional profile
-- Profile: Role specialization (MANAGER, ARCHITECT, DEBUGGER, SECURITY, RESEARCHER, REVIEWER)
+Workflow: register → create/join workspace → create problems → claim/solve → propose/review/merge.
+All parameters are top-level (not nested in an args object). See parameter descriptions for which operations use each field.`;
 
-Progressive disclosure is enforced internally. Register first, then join a workspace.
-Read thoughtbox://hub/operations for full schemas.`;
-
-    const hubInputSchema = {
-      operation: z.enum([
-        'register', 'whoami',
-        'create_workspace', 'join_workspace', 'list_workspaces', 'workspace_status',
-        'create_problem', 'claim_problem', 'update_problem', 'list_problems',
-        'add_dependency', 'remove_dependency', 'ready_problems', 'blocked_problems', 'create_sub_problem',
-        'create_proposal', 'review_proposal', 'merge_proposal', 'list_proposals',
-        'mark_consensus', 'endorse_consensus', 'list_consensus',
-        'post_message', 'read_channel',
-        'get_profile_prompt',
-      ]),
-      args: z.record(z.string(), z.unknown()).optional(),
-    };
+    const hubInputSchema = HubToolInputSchema.shape;
 
     type HubSchema = typeof hubInputSchema;
     server.experimental.tasks.registerToolTask<HubSchema, undefined>(

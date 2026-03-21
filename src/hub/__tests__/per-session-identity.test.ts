@@ -28,7 +28,7 @@ describe('HubToolHandler — Per-Session Identity Isolation', () => {
   it('two sessions registering different names get distinct agentIds', async () => {
     // Session A registers as "Alpha"
     const regA = await handler.handle(
-      { operation: 'register', args: { name: 'Alpha' } },
+      { operation: 'register', name: 'Alpha' },
       'session-aaa',
     );
     const dataA = JSON.parse(regA.content[0].text);
@@ -37,7 +37,7 @@ describe('HubToolHandler — Per-Session Identity Isolation', () => {
 
     // Session B registers as "Beta"
     const regB = await handler.handle(
-      { operation: 'register', args: { name: 'Beta' } },
+      { operation: 'register', name: 'Beta' },
       'session-bbb',
     );
     const dataB = JSON.parse(regB.content[0].text);
@@ -51,11 +51,11 @@ describe('HubToolHandler — Per-Session Identity Isolation', () => {
   it('whoami returns session-specific identity after registration', async () => {
     // Register in two sessions
     await handler.handle(
-      { operation: 'register', args: { name: 'Alpha' } },
+      { operation: 'register', name: 'Alpha' },
       'session-aaa',
     );
     await handler.handle(
-      { operation: 'register', args: { name: 'Beta' } },
+      { operation: 'register', name: 'Beta' },
       'session-bbb',
     );
 
@@ -82,7 +82,7 @@ describe('HubToolHandler — Per-Session Identity Isolation', () => {
   it('session without registration returns register-required error', async () => {
     // Register only in session A
     await handler.handle(
-      { operation: 'register', args: { name: 'Alpha' } },
+      { operation: 'register', name: 'Alpha' },
       'session-aaa',
     );
 
@@ -99,7 +99,7 @@ describe('HubToolHandler — Per-Session Identity Isolation', () => {
   it('no session ID falls back to __default__ key', async () => {
     // Register without explicit session ID
     const reg = await handler.handle(
-      { operation: 'register', args: { name: 'Default' } },
+      { operation: 'register', name: 'Default' },
     );
     const data = JSON.parse(reg.content[0].text);
     expect(data.agentId).toBeDefined();
@@ -114,7 +114,7 @@ describe('HubToolHandler — Per-Session Identity Isolation', () => {
   it('session identity does not leak to default key', async () => {
     // Register as Alpha in session-aaa
     await handler.handle(
-      { operation: 'register', args: { name: 'Alpha' } },
+      { operation: 'register', name: 'Alpha' },
       'session-aaa',
     );
 
@@ -126,15 +126,15 @@ describe('HubToolHandler — Per-Session Identity Isolation', () => {
   it('three sessions collaborate with correct attribution', async () => {
     // Register three agents in three sessions
     const regAlpha = await handler.handle(
-      { operation: 'register', args: { name: 'Alpha' } },
+      { operation: 'register', name: 'Alpha' },
       'sess-1',
     );
     const regBeta = await handler.handle(
-      { operation: 'register', args: { name: 'Beta' } },
+      { operation: 'register', name: 'Beta' },
       'sess-2',
     );
     const regGamma = await handler.handle(
-      { operation: 'register', args: { name: 'Gamma' } },
+      { operation: 'register', name: 'Gamma' },
       'sess-3',
     );
 
@@ -144,45 +144,45 @@ describe('HubToolHandler — Per-Session Identity Isolation', () => {
 
     // Alpha creates workspace
     const wsResult = await handler.handle(
-      { operation: 'create_workspace', args: { name: 'M10-test', description: 'Testing per-session isolation' } },
+      { operation: 'create_workspace', name: 'M10-test', description: 'Testing per-session isolation' },
       'sess-1',
     );
     const wsId = JSON.parse(wsResult.content[0].text).workspaceId;
 
     // Beta and Gamma join
     await handler.handle(
-      { operation: 'join_workspace', args: { workspaceId: wsId } },
+      { operation: 'join_workspace', workspaceId: wsId },
       'sess-2',
     );
     await handler.handle(
-      { operation: 'join_workspace', args: { workspaceId: wsId } },
+      { operation: 'join_workspace', workspaceId: wsId },
       'sess-3',
     );
 
     // Alpha creates a problem
     const probResult = await handler.handle(
-      { operation: 'create_problem', args: { workspaceId: wsId, title: 'Test attribution', description: 'Verify each agent message is attributed correctly' } },
+      { operation: 'create_problem', workspaceId: wsId, title: 'Test attribution', description: 'Verify each agent message is attributed correctly' },
       'sess-1',
     );
     const probId = JSON.parse(probResult.content[0].text).problemId;
 
     // Each agent posts a message
     await handler.handle(
-      { operation: 'post_message', args: { workspaceId: wsId, problemId: probId, content: 'Message from Alpha' } },
+      { operation: 'post_message', workspaceId: wsId, problemId: probId, content: 'Message from Alpha' },
       'sess-1',
     );
     await handler.handle(
-      { operation: 'post_message', args: { workspaceId: wsId, problemId: probId, content: 'Message from Beta' } },
+      { operation: 'post_message', workspaceId: wsId, problemId: probId, content: 'Message from Beta' },
       'sess-2',
     );
     await handler.handle(
-      { operation: 'post_message', args: { workspaceId: wsId, problemId: probId, content: 'Message from Gamma' } },
+      { operation: 'post_message', workspaceId: wsId, problemId: probId, content: 'Message from Gamma' },
       'sess-3',
     );
 
     // Read channel from any session — all messages should be attributed correctly
     const channelResult = await handler.handle(
-      { operation: 'read_channel', args: { workspaceId: wsId, problemId: probId } },
+      { operation: 'read_channel', workspaceId: wsId, problemId: probId },
       'sess-1',
     );
     const channelData = JSON.parse(channelResult.content[0].text);
@@ -201,7 +201,7 @@ describe('HubToolHandler — Per-Session Identity Isolation', () => {
 
     // Verify workspace shows 3 members
     const wsStatus = await handler.handle(
-      { operation: 'workspace_status', args: { workspaceId: wsId } },
+      { operation: 'workspace_status', workspaceId: wsId },
       'sess-1',
     );
     const statusData = JSON.parse(wsStatus.content[0].text);

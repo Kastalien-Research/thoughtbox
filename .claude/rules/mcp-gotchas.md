@@ -26,8 +26,9 @@ Verified parameter names and known bugs for MCP tool APIs.
 - Correct pattern: put `ToolSearch` in agent `tools:` frontmatter, use at runtime to load MCP tools
 - Known Claude Code bugs: GH #10668, #10704, #21560. Not fixed as of Feb 2026.
 
-## Gateway Known Issues (2026-02-07)
+## Hub Tool Schema (updated 2026-03-21)
 
-- `z.unknown()` still in gateway args schema (gateway-handler.ts:89) — agents can't see per-operation arg shapes
-- 3 inconsistent doc styles in gateway description: full inline, resource pointers, brief inline
-- No docs resources for session or deep_analysis ops
+- `thoughtbox_hub` now uses flat Zod schema with typed per-operation fields (hub-tool-schema.ts)
+- All 28 operations have `operation: z.enum([...])` + described optional params at top level
+- `agentId` is a cross-cutting optional field — stripped before forwarding to hub-handler
+- operations.ts catalog fixed: `endorse_consensus` uses `consensusId` (not `markerId`), `mark_consensus.thoughtRef` is `number` (not `string`), `merge_proposal` includes `mergeMessage`

@@ -58,17 +58,20 @@ describe('Channel Resources', () => {
     });
 
     // Register + create workspace
-    await handler.handle({ operation: 'register', args: { name: 'alice' } });
+    await handler.handle({ operation: 'register', name: 'alice' });
     const wsResult = await handler.handle({
       operation: 'create_workspace',
-      args: { name: 'ws', description: 'test' },
+      name: 'ws',
+      description: 'test',
     });
     const ws = JSON.parse(wsResult.content[0].text);
 
     // Create problem — should trigger event
     await handler.handle({
       operation: 'create_problem',
-      args: { workspaceId: ws.workspaceId, title: 'Bug', description: 'Fix it' },
+      workspaceId: ws.workspaceId,
+      title: 'Bug',
+      description: 'Fix it',
     });
 
     const problemEvent = onEvent.mock.calls.find(
@@ -87,16 +90,19 @@ describe('Channel Resources', () => {
     });
 
     // Setup: register + workspace + problem
-    await handler.handle({ operation: 'register', args: { name: 'bob' } });
+    await handler.handle({ operation: 'register', name: 'bob' });
     const wsResult = await handler.handle({
       operation: 'create_workspace',
-      args: { name: 'ws', description: 'test' },
+      name: 'ws',
+      description: 'test',
     });
     const ws = JSON.parse(wsResult.content[0].text);
 
     const probResult = await handler.handle({
       operation: 'create_problem',
-      args: { workspaceId: ws.workspaceId, title: 'Issue', description: 'desc' },
+      workspaceId: ws.workspaceId,
+      title: 'Issue',
+      description: 'desc',
     });
     const prob = JSON.parse(probResult.content[0].text);
 
@@ -105,7 +111,9 @@ describe('Channel Resources', () => {
     // Post message — should trigger message_posted event
     await handler.handle({
       operation: 'post_message',
-      args: { workspaceId: ws.workspaceId, problemId: prob.problemId, content: 'Hi!' },
+      workspaceId: ws.workspaceId,
+      problemId: prob.problemId,
+      content: 'Hi!',
     });
 
     const msgEvent = onEvent.mock.calls.find(
@@ -120,33 +128,41 @@ describe('Channel Resources', () => {
     const handler = createHubToolHandler({ hubStorage, thoughtStore });
 
     // Setup full flow
-    await handler.handle({ operation: 'register', args: { name: 'carol' } });
+    await handler.handle({ operation: 'register', name: 'carol' });
     const wsResult = await handler.handle({
       operation: 'create_workspace',
-      args: { name: 'ws', description: 'test' },
+      name: 'ws',
+      description: 'test',
     });
     const ws = JSON.parse(wsResult.content[0].text);
 
     const probResult = await handler.handle({
       operation: 'create_problem',
-      args: { workspaceId: ws.workspaceId, title: 'Task', description: 'Do it' },
+      workspaceId: ws.workspaceId,
+      title: 'Task',
+      description: 'Do it',
     });
     const prob = JSON.parse(probResult.content[0].text);
 
     // Post messages
     await handler.handle({
       operation: 'post_message',
-      args: { workspaceId: ws.workspaceId, problemId: prob.problemId, content: 'Starting work' },
+      workspaceId: ws.workspaceId,
+      problemId: prob.problemId,
+      content: 'Starting work',
     });
     await handler.handle({
       operation: 'post_message',
-      args: { workspaceId: ws.workspaceId, problemId: prob.problemId, content: 'Done!' },
+      workspaceId: ws.workspaceId,
+      problemId: prob.problemId,
+      content: 'Done!',
     });
 
     // Read channel
     const readResult = await handler.handle({
       operation: 'read_channel',
-      args: { workspaceId: ws.workspaceId, problemId: prob.problemId },
+      workspaceId: ws.workspaceId,
+      problemId: prob.problemId,
     });
     const channel = JSON.parse(readResult.content[0].text);
     expect(channel.messages).toHaveLength(2);

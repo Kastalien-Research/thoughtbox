@@ -45,7 +45,7 @@ The server consists of several interconnected components with progressive disclo
 │  ┌──────────────────────────────────────────────────────────────┐ │
 │  │   MCP Protocol Layer (server-factory.ts)                     │ │
 │  │   - Request handlers    - Tool dispatch                      │ │
-│  │   - Resource management - Dual transport (stdio/HTTP)        │ │
+│  │   - Resource management - Streamable HTTP transport           │ │
 │  └──────────────────────────────────────────────────────────────┘ │
 │                              ↓                                     │
 │  ┌──────────────────────────────────────────────────────────────┐ │
@@ -70,7 +70,7 @@ The server consists of several interconnected components with progressive disclo
 2. **Toolhost Pattern**: Single \`notebook\` tool with operation dispatch vs 10 separate tools
 3. **Progressive Disclosure**: Tools unlock in 4 stages (init → cipher → reasoning → domain tools)
 4. **Resource Embedding**: Responses include contextual documentation as embedded resources
-5. **Dual Transport**: Supports both stdio (CLI) and HTTP transports
+5. **Streamable HTTP**: Single transport via Express with per-session server instances
 6. **Lazy Initialization**: Resources created on-demand, not at startup
 7. **Autonomous Critique**: Optional LLM sampling for thought analysis via MCP sampling API
 8. **Persistent Sessions**: File-based storage with atomic writes and project isolation
@@ -130,7 +130,6 @@ Use **gateway** when:
 Use **direct tools** when:
 - Client handles \`tools/list_changed\` correctly
 - You want cleaner tool discovery
-- Using stdio transport with Claude Code
 
 ###### gateway-usage.ts
 

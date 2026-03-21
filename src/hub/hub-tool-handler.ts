@@ -40,7 +40,7 @@ export interface HubToolResult {
 }
 
 export interface HubToolHandler {
-  handle(args: { operation: string; args?: Record<string, unknown> }, mcpSessionId?: string): Promise<HubToolResult>;
+  handle(input: { operation: string; [key: string]: unknown }, mcpSessionId?: string): Promise<HubToolResult>;
 }
 
 export function createHubToolHandler(options: HubToolHandlerOptions): HubToolHandler {
@@ -48,36 +48,80 @@ export function createHubToolHandler(options: HubToolHandlerOptions): HubToolHan
 
   const hubHandler = createHubHandler(hubStorage, thoughtStore, onEvent);
 
-  // Per-session identity map: each MCP session resolves its own agent identity.
-  // Key: mcpSessionId (or '__default__' when no session ID is provided).
-  // Value: string (resolved agentId), null (no env vars — register required),
-  //        or undefined (not yet resolved).
-  const sessionIdentities = new Map<string, string | null | undefined>();
+  // Connection-scoped identity registry.
+  // sessionDefaults: env-var-resolved or first-registered agentId per session.
+  // sessionRegistries: all agentIds registered within a session (for multi-agent).
+  const sessionDefaults = new Map<string, string | null>();
+  const sessionRegistries = new Map<string, Set<string>>();
+  let envResolved = false;
+
+  async function ensureEnvResolved(sessionKey: string): Promise<void> {
+    if (envResolved) return;
+    envResolved = true;
+    const resolved = await resolveAgentId(hubStorage, envAgentId, envAgentName);
+    if (resolved) {
+      sessionDefaults.set(sessionKey, resolved);
+      getOrCreateRegistry(sessionKey).add(resolved);
+    }
+  }
+
+  function getOrCreateRegistry(sessionKey: string): Set<string> {
+    let reg = sessionRegistries.get(sessionKey);
+    if (!reg) {
+      reg = new Set();
+      sessionRegistries.set(sessionKey, reg);
+    }
+    return reg;
+  }
+
+  function captureRegistration(
+    sessionKey: string, result: unknown
+  ): void {
+    if (result && typeof result === 'object' && 'agentId' in result) {
+      const newId = (result as { agentId: string }).agentId;
+      const registry = getOrCreateRegistry(sessionKey);
+      registry.add(newId);
+      // First registration becomes the session default
+      if (!sessionDefaults.has(sessionKey) || sessionDefaults.get(sessionKey) === null) {
+        sessionDefaults.set(sessionKey, newId);
+      }
+    }
+  }
 
   return {
-    async handle(toolArgs, mcpSessionId?) {
-      const { operation, args = {} } = toolArgs;
+    async handle(input, mcpSessionId?) {
+      const { operation, agentId: callerAgentId, ...args } = input;
       const sessionKey = mcpSessionId || '__default__';
 
-      // Resolve agent identity lazily on first call per session
-      if (!sessionIdentities.has(sessionKey)) {
-        sessionIdentities.set(sessionKey, undefined);
-      }
-      if (sessionIdentities.get(sessionKey) === undefined) {
-        const resolved = await resolveAgentId(hubStorage, envAgentId, envAgentName);
-        sessionIdentities.set(sessionKey, resolved);
-      }
+      await ensureEnvResolved(sessionKey);
 
-      const resolvedAgentId = sessionIdentities.get(sessionKey)!;
+      const registry = getOrCreateRegistry(sessionKey);
+      const defaultId = sessionDefaults.get(sessionKey) ?? null;
 
       try {
-        // For register, pass null agentId (register creates new identity)
-        const agentId = operation === 'register' ? null : resolvedAgentId;
-        const result = await hubHandler.handle(agentId, operation, args as Record<string, any>);
+        let agentId: string | null;
 
-        // If register was called, capture the agentId scoped to this session
-        if (operation === 'register' && result && typeof result === 'object' && 'agentId' in result) {
-          sessionIdentities.set(sessionKey, (result as { agentId: string }).agentId);
+        if (operation === 'register' || operation === 'quick_join') {
+          agentId = null;
+        } else if (callerAgentId && typeof callerAgentId === 'string') {
+          if (!registry.has(callerAgentId)) {
+            throw new Error(
+              `Agent ${callerAgentId} not registered in this session. ` +
+              "Call register first."
+            );
+          }
+          agentId = callerAgentId;
+        } else {
+          agentId = defaultId;
+        }
+
+        const result = await hubHandler.handle(
+          agentId, operation as string, args as Record<string, unknown>
+        );
+
+        // Capture registration results into the session registry
+        if (operation === 'register' || operation === 'quick_join') {
+          captureRegistration(sessionKey, result);
         }
 
         const content: HubContentBlock[] = [

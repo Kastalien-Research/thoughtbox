@@ -46,7 +46,6 @@
     "build:local": "pnpm embed && tsc && shx cp -r src/resources dist/ && shx cp -r templates dist/ && shx cp src/observatory/ui/*.html dist/observatory/ui/ && shx chmod +x dist/*.js",
     "start": "node dist/index.js",
     "start:stateful": "node dist/http-stateful.js",
-    "start:stdio": "node dist/index.js",
     "prepublishOnly": "pnpm build:local",
     "watch": "tsc --watch",
     "check:cycles": "./scripts/check-cycles.sh",
@@ -67,7 +66,9 @@
     "test:behavioral": "tsx scripts/agents/test-behavioral-contracts.ts",
     "test:behavioral:variance": "tsx scripts/agents/test-behavioral-contracts.ts --variance-only",
     "agentops:daily": "tsx agentops/runner/cli.ts daily-dev-brief",
-    "agentops:implement": "tsx agentops/runner/cli.ts implement"
+    "agentops:implement": "tsx agentops/runner/cli.ts implement",
+    "check:lint": "oxlint -c oxlint.json src/",
+    "check:types": "tsc --noEmit"
   },
   "engines": {
     "node": ">=22.0.0"
@@ -108,6 +109,7 @@
     "dotenv": "^17.2.3",
     "husky": "^9.1.6",
     "madge": "^8.0.0",
+    "oxlint": "^1.56.0",
     "shx": "^0.3.4",
     "tsx": "^4.20.6",
     "typescript": "^5.3.3",

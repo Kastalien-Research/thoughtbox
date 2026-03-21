@@ -27,7 +27,7 @@ describe('Hub Tool Wiring', () => {
     const handler = createHubToolHandler({ hubStorage, thoughtStore });
     const result = await handler.handle({
       operation: 'register',
-      args: { name: 'alice' },
+      name: 'alice',
     });
 
     expect(result.content).toBeDefined();
@@ -43,7 +43,8 @@ describe('Hub Tool Wiring', () => {
     const handler = createHubToolHandler({ hubStorage, thoughtStore });
     const result = await handler.handle({
       operation: 'create_workspace',
-      args: { name: 'ws', description: 'test' },
+      name: 'ws',
+      description: 'test',
     });
 
     // Should fail because no agent is registered (no env vars set)
@@ -56,11 +57,11 @@ describe('Hub Tool Wiring', () => {
     const handler = createHubToolHandler({ hubStorage, thoughtStore });
 
     // Register
-    const regResult = await handler.handle({ operation: 'register', args: { name: 'bob' } });
+    const regResult = await handler.handle({ operation: 'register', name: 'bob' });
     const regData = JSON.parse(regResult.content[0].text);
 
     // Whoami
-    const whoamiResult = await handler.handle({ operation: 'whoami', args: {} });
+    const whoamiResult = await handler.handle({ operation: 'whoami' });
     const whoamiData = JSON.parse(whoamiResult.content[0].text);
     expect(whoamiData.agentId).toBe(regData.agentId);
   });
@@ -74,7 +75,7 @@ describe('Hub Tool Wiring', () => {
     });
 
     // Should be able to call whoami without explicit register
-    const result = await handler.handle({ operation: 'whoami', args: {} });
+    const result = await handler.handle({ operation: 'whoami' });
     expect(result.isError).toBeFalsy();
     const data = JSON.parse(result.content[0].text);
     expect(data.agentId).toBe('env-agent-123');
@@ -84,7 +85,7 @@ describe('Hub Tool Wiring', () => {
     const handler = createHubToolHandler({ hubStorage, thoughtStore });
     const result = await handler.handle({
       operation: 'register',
-      args: { name: 'carol' },
+      name: 'carol',
     });
 
     expect(result.isError).toBeFalsy();
@@ -99,7 +100,9 @@ describe('Hub Tool Wiring', () => {
     // Try workspace op without register
     const result = await handler.handle({
       operation: 'create_problem',
-      args: { workspaceId: 'ws-1', title: 'Test', description: 'desc' },
+      workspaceId: 'ws-1',
+      title: 'Test',
+      description: 'desc',
     });
 
     expect(result.isError).toBe(true);
@@ -112,16 +115,19 @@ describe('Hub Tool Wiring', () => {
     const handler = createHubToolHandler({ hubStorage, thoughtStore, onEvent });
 
     // Register + create workspace + create problem
-    await handler.handle({ operation: 'register', args: { name: 'dave' } });
+    await handler.handle({ operation: 'register', name: 'dave' });
     const wsResult = await handler.handle({
       operation: 'create_workspace',
-      args: { name: 'ws', description: 'test' },
+      name: 'ws',
+      description: 'test',
     });
     const wsData = JSON.parse(wsResult.content[0].text);
 
     await handler.handle({
       operation: 'create_problem',
-      args: { workspaceId: wsData.workspaceId, title: 'P1', description: 'desc' },
+      workspaceId: wsData.workspaceId,
+      title: 'P1',
+      description: 'desc',
     });
 
     expect(onEvent).toHaveBeenCalledWith(
@@ -136,29 +142,205 @@ describe('Hub Tool Wiring', () => {
       envAgentName: 'Named Agent',
     });
 
-    const result = await handler.handle({ operation: 'whoami', args: {} });
+    const result = await handler.handle({ operation: 'whoami' });
     expect(result.isError).toBeFalsy();
     const data = JSON.parse(result.content[0].text);
     expect(data.name).toBe('Named Agent');
+  });
+
+  describe('Connection-scoped identity registry', () => {
+    it('T-HTW-11: two agents register in same session, each keeps own identity', async () => {
+      const handler = createHubToolHandler({ hubStorage, thoughtStore });
+      const sessionId = 'shared-session';
+
+      // Agent A registers
+      const regA = await handler.handle(
+        { operation: 'register', name: 'auditor' },
+        sessionId
+      );
+      const agentA = JSON.parse(regA.content[0].text);
+
+      // Agent B registers in the same session
+      const regB = await handler.handle(
+        { operation: 'register', name: 'coordinator' },
+        sessionId
+      );
+      const agentB = JSON.parse(regB.content[0].text);
+
+      expect(agentA.agentId).not.toBe(agentB.agentId);
+
+      // Agent A identifies itself via agentId
+      const whoamiA = await handler.handle(
+        { operation: 'whoami', agentId: agentA.agentId },
+        sessionId
+      );
+      expect(JSON.parse(whoamiA.content[0].text).agentId).toBe(agentA.agentId);
+
+      // Agent B identifies itself via agentId
+      const whoamiB = await handler.handle(
+        { operation: 'whoami', agentId: agentB.agentId },
+        sessionId
+      );
+      expect(JSON.parse(whoamiB.content[0].text).agentId).toBe(agentB.agentId);
+    });
+
+    it('T-HTW-12: unregistered agentId is rejected', async () => {
+      const handler = createHubToolHandler({ hubStorage, thoughtStore });
+      const sessionId = 'shared-session';
+
+      await handler.handle(
+        { operation: 'register', name: 'legit' },
+        sessionId
+      );
+
+      const result = await handler.handle(
+        { operation: 'whoami', agentId: 'spoofed-id' },
+        sessionId
+      );
+
+      expect(result.isError).toBe(true);
+      const data = JSON.parse(result.content[0].text);
+      expect(data.error).toContain('not registered in this session');
+    });
+
+    it('T-HTW-13: first register sets session default, omitting agentId uses it', async () => {
+      const handler = createHubToolHandler({ hubStorage, thoughtStore });
+      const sessionId = 'shared-session';
+
+      const regA = await handler.handle(
+        { operation: 'register', name: 'first-agent' },
+        sessionId
+      );
+      const agentA = JSON.parse(regA.content[0].text);
+
+      // Second register should NOT change the default
+      await handler.handle(
+        { operation: 'register', name: 'second-agent' },
+        sessionId
+      );
+
+      // Calling without agentId uses the first-registered default
+      const whoami = await handler.handle(
+        { operation: 'whoami' },
+        sessionId
+      );
+      expect(JSON.parse(whoami.content[0].text).agentId).toBe(agentA.agentId);
+    });
+
+    it('T-HTW-14: quick_join registers into identity registry', async () => {
+      const handler = createHubToolHandler({ hubStorage, thoughtStore });
+      const sessionId = 'shared-session';
+
+      // Coordinator registers and creates workspace
+      const regCoord = await handler.handle(
+        { operation: 'register', name: 'coordinator' },
+        sessionId
+      );
+      const coord = JSON.parse(regCoord.content[0].text);
+
+      const wsResult = await handler.handle(
+        { operation: 'create_workspace', name: 'ws', description: 'test' },
+        sessionId
+      );
+      const ws = JSON.parse(wsResult.content[0].text);
+
+      // Sub-agent quick_joins in the same session
+      const joinResult = await handler.handle(
+        {
+          operation: 'quick_join',
+          name: 'auditor',
+          workspaceId: ws.workspaceId,
+        },
+        sessionId
+      );
+      const joined = JSON.parse(joinResult.content[0].text);
+
+      expect(joined.agentId).not.toBe(coord.agentId);
+
+      // Sub-agent can use its own agentId for subsequent calls
+      const whoami = await handler.handle(
+        { operation: 'whoami', agentId: joined.agentId },
+        sessionId
+      );
+      expect(JSON.parse(whoami.content[0].text).agentId).toBe(joined.agentId);
+    });
+
+    it('T-HTW-15: agentId is stripped from args before forwarding to hub handler', async () => {
+      const handler = createHubToolHandler({ hubStorage, thoughtStore });
+      const sessionId = 'shared-session';
+
+      const regResult = await handler.handle(
+        { operation: 'register', name: 'agent' },
+        sessionId
+      );
+      const agent = JSON.parse(regResult.content[0].text);
+
+      const wsResult = await handler.handle(
+        {
+          operation: 'create_workspace',
+          agentId: agent.agentId,
+          name: 'ws',
+          description: 'test',
+        },
+        sessionId
+      );
+
+      // Should succeed — agentId stripped, not passed as unexpected arg
+      expect(wsResult.isError).toBeFalsy();
+      const ws = JSON.parse(wsResult.content[0].text);
+      expect(ws.workspaceId).toBeDefined();
+    });
+
+    it('T-HTW-16: env-resolved agent is in registry and usable by agentId', async () => {
+      const handler = createHubToolHandler({
+        hubStorage,
+        thoughtStore,
+        envAgentId: 'env-123',
+        envAgentName: 'env-bot',
+      });
+      const sessionId = 'shared-session';
+
+      // Sub-agent registers
+      const regResult = await handler.handle(
+        { operation: 'register', name: 'sub-agent' },
+        sessionId
+      );
+      const subAgent = JSON.parse(regResult.content[0].text);
+
+      // Sub-agent can use its own ID
+      const whoamiSub = await handler.handle(
+        { operation: 'whoami', agentId: subAgent.agentId },
+        sessionId
+      );
+      expect(JSON.parse(whoamiSub.content[0].text).agentId).toBe(subAgent.agentId);
+
+      // Env agent can also be addressed explicitly
+      const whoamiEnv = await handler.handle(
+        { operation: 'whoami', agentId: 'env-123' },
+        sessionId
+      );
+      expect(JSON.parse(whoamiEnv.content[0].text).agentId).toBe('env-123');
+    });
   });
 
   it('T-HTW-10: full flow through tool handler', async () => {
     const handler = createHubToolHandler({ hubStorage, thoughtStore });
 
     // Register
-    const regResult = await handler.handle({ operation: 'register', args: { name: 'eve' } });
+    const regResult = await handler.handle({ operation: 'register', name: 'eve' });
     const reg = JSON.parse(regResult.content[0].text);
 
     // Create workspace
     const wsResult = await handler.handle({
       operation: 'create_workspace',
-      args: { name: 'research', description: 'Research workspace' },
+      name: 'research',
+      description: 'Research workspace',
     });
     const ws = JSON.parse(wsResult.content[0].text);
     expect(ws.workspaceId).toBeDefined();
 
     // List workspaces
-    const listResult = await handler.handle({ operation: 'list_workspaces', args: {} });
+    const listResult = await handler.handle({ operation: 'list_workspaces' });
     const list = JSON.parse(listResult.content[0].text);
     expect(list.workspaces).toBeDefined();
     expect(list.workspaces.length).toBe(1);
@@ -166,7 +348,9 @@ describe('Hub Tool Wiring', () => {
     // Create problem
     const probResult = await handler.handle({
       operation: 'create_problem',
-      args: { workspaceId: ws.workspaceId, title: 'Bug fix', description: 'Fix a bug' },
+      workspaceId: ws.workspaceId,
+      title: 'Bug fix',
+      description: 'Fix a bug',
     });
     const prob = JSON.parse(probResult.content[0].text);
     expect(prob.problemId).toBeDefined();

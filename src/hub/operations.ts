@@ -269,6 +269,8 @@ const PROBLEM_OPERATIONS: OperationDefinition[] = [
       type: "object",
       properties: {
         workspaceId: { type: "string", description: "Workspace ID" },
+        status: { type: "string", enum: ["open", "in-progress", "resolved", "closed"], description: "Filter by problem status" },
+        assignedTo: { type: "string", description: "Filter by assigned agent ID" },
       },
       required: ["workspaceId"],
     },
@@ -416,6 +418,7 @@ const PROPOSAL_OPERATIONS: OperationDefinition[] = [
         proposalId: { type: "string", description: "Proposal ID to review" },
         verdict: { type: "string", enum: ["approve", "request-changes", "reject"], description: "Review verdict" },
         reasoning: { type: "string", description: "Explanation of the verdict" },
+        thoughtRefs: { type: "array", items: { type: "number" }, description: "Thought numbers supporting the review" },
       },
       required: ["workspaceId", "proposalId", "verdict", "reasoning"],
     },
@@ -437,12 +440,14 @@ const PROPOSAL_OPERATIONS: OperationDefinition[] = [
       properties: {
         workspaceId: { type: "string", description: "Workspace ID" },
         proposalId: { type: "string", description: "Proposal ID to merge" },
+        mergeMessage: { type: "string", description: "Content for the merge thought" },
       },
-      required: ["workspaceId", "proposalId"],
+      required: ["workspaceId", "proposalId", "mergeMessage"],
     },
     example: {
       workspaceId: "ws-abc123",
       proposalId: "prop-001",
+      mergeMessage: "Merged gateway improvements",
     },
   },
   {
@@ -455,6 +460,7 @@ const PROPOSAL_OPERATIONS: OperationDefinition[] = [
       type: "object",
       properties: {
         workspaceId: { type: "string", description: "Workspace ID" },
+        status: { type: "string", enum: ["open", "reviewing", "merged", "rejected"], description: "Filter by proposal status" },
       },
       required: ["workspaceId"],
     },
@@ -477,7 +483,7 @@ const CONSENSUS_OPERATIONS: OperationDefinition[] = [
         workspaceId: { type: "string", description: "Workspace ID" },
         name: { type: "string", description: "Consensus decision name" },
         description: { type: "string", description: "What was decided" },
-        thoughtRef: { type: "string", description: "Reference to the thought supporting this decision" },
+        thoughtRef: { type: "number", description: "Thought number supporting this decision" },
         branchId: { type: "string", description: "Optional branch containing supporting reasoning" },
       },
       required: ["workspaceId", "name", "description", "thoughtRef"],
@@ -486,7 +492,7 @@ const CONSENSUS_OPERATIONS: OperationDefinition[] = [
       workspaceId: "ws-abc123",
       name: "Use notebook pattern for operations",
       description: "Follow existing notebook/operations.ts as the template",
-      thoughtRef: "thought-5",
+      thoughtRef: 5,
     },
   },
   {
@@ -499,13 +505,13 @@ const CONSENSUS_OPERATIONS: OperationDefinition[] = [
       type: "object",
       properties: {
         workspaceId: { type: "string", description: "Workspace ID" },
-        markerId: { type: "string", description: "Consensus marker ID to endorse" },
+        consensusId: { type: "string", description: "Consensus marker ID to endorse" },
       },
-      required: ["workspaceId", "markerId"],
+      required: ["workspaceId", "consensusId"],
     },
     example: {
       workspaceId: "ws-abc123",
-      markerId: "cons-001",
+      consensusId: "cons-001",
     },
   },
   {
@@ -540,6 +546,15 @@ const CHANNEL_OPERATIONS: OperationDefinition[] = [
         workspaceId: { type: "string", description: "Workspace ID" },
         problemId: { type: "string", description: "Problem whose channel to post in" },
         content: { type: "string", description: "Message content" },
+        ref: {
+          type: "object",
+          description: "Thought reference for traceability",
+          properties: {
+            sessionId: { type: "string" },
+            thoughtNumber: { type: "number" },
+            branchId: { type: "string" },
+          },
+        },
       },
       required: ["workspaceId", "problemId", "content"],
     },
@@ -560,6 +575,7 @@ const CHANNEL_OPERATIONS: OperationDefinition[] = [
       properties: {
         workspaceId: { type: "string", description: "Workspace ID" },
         problemId: { type: "string", description: "Problem whose channel to read" },
+        since: { type: "string", description: "ISO 8601 timestamp — only return messages after this time" },
       },
       required: ["workspaceId", "problemId"],
     },
@@ -580,6 +596,15 @@ const CHANNEL_OPERATIONS: OperationDefinition[] = [
         workspaceId: { type: "string", description: "Workspace ID" },
         problemId: { type: "string", description: "Problem whose channel to post in" },
         content: { type: "string", description: "System message content" },
+        ref: {
+          type: "object",
+          description: "Thought reference for traceability",
+          properties: {
+            sessionId: { type: "string" },
+            thoughtNumber: { type: "number" },
+            branchId: { type: "string" },
+          },
+        },
       },
       required: ["workspaceId", "problemId", "content"],
     },

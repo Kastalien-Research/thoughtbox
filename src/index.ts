@@ -1,9 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * Thoughtbox MCP Server - Entry Point
- *
- * Defaults to Streamable HTTP. Set THOUGHTBOX_TRANSPORT=stdio for stdio mode.
+ * Thoughtbox MCP Server - Entry Point (Streamable HTTP)
  */
 
 import crypto from "node:crypto";
@@ -12,7 +10,6 @@ import * as os from "node:os";
 import type { Request, Response } from "express";
 import { createMcpExpressApp } from "@modelcontextprotocol/sdk/server/express.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
-import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { createMcpServer } from "./server-factory.js";
 import {
   FileSystemStorage,
@@ -335,62 +332,7 @@ async function startHttpServer() {
   process.on("SIGINT", () => void shutdown());
 }
 
-async function runStdioServer() {
-  // Initialize storage for stdio mode
-  const { factory, hubStorage, dataDir } = await createStorage();
-  
-  // For stdio mode with Supabase, a workspace ID must be provided via the environment
-  const workspaceId = process.env.THOUGHTBOX_WORKSPACE_ID;
-  const storage = factory.getStorage(workspaceId);
-  const knowledgeStorage = factory.getKnowledgeStorage(workspaceId);
-
-  const disableThoughtLogging =
-    (process.env.DISABLE_THOUGHT_LOGGING || "").toLowerCase() === "true";
-
-  const server = await createMcpServer({
-    storage,
-    hubStorage,
-    dataDir,
-    knowledgeStorage,
-    config: {
-      disableThoughtLogging,
-    },
-  });
-
-  const observatoryServer = await maybeStartObservatory(hubStorage, storage);
-
-  // Initialize LangSmith evaluation tracing (no-op if LANGSMITH_API_KEY not set)
-  const traceListener = initEvaluation();
-  initMonitoring(traceListener ?? undefined);
-
-  const transport = new StdioServerTransport();
-  await server.connect(transport);
-  console.error("Thoughtbox MCP Server running on stdio");
-
-  const shutdown = async () => {
-    if (observatoryServer?.isRunning()) {
-      await observatoryServer.stop();
-    }
-    process.exit(0);
-  };
-
-  process.on("SIGTERM", () => {
-    shutdown().catch(() => process.exit(0));
-  });
-  process.on("SIGINT", () => {
-    shutdown().catch(() => process.exit(0));
-  });
-}
-
-const transportMode = (process.env.THOUGHTBOX_TRANSPORT || "").toLowerCase();
-if (transportMode === "stdio") {
-  runStdioServer().catch((error) => {
-    console.error("Fatal error starting stdio server:", error);
-    process.exit(1);
-  });
-} else {
-  startHttpServer().catch((error) => {
-    console.error("Fatal error starting HTTP server:", error);
-    process.exit(1);
-  });
-}
+startHttpServer().catch((error) => {
+  console.error("Fatal error starting HTTP server:", error);
+  process.exit(1);
+});
