@@ -164,11 +164,12 @@ export class SupabaseKnowledgeStorage implements KnowledgeStorage {
       .single();
 
     if (error) {
-      // Handle UNIQUE(project, name, type) collision — return existing
+      // Handle UNIQUE(workspace_id, name, type) collision — return existing
       if (error.code === '23505') {
         const { data: existing, error: fetchError } = await client
           .from('entities')
           .select()
+          .eq('workspace_id', this.workspaceId)
           .eq('name', params.name)
           .eq('type', params.type)
           .single();
@@ -187,6 +188,7 @@ export class SupabaseKnowledgeStorage implements KnowledgeStorage {
       .from('entities')
       .select()
       .eq('id', id)
+      .eq('workspace_id', this.workspaceId)
       .maybeSingle();
 
     if (error) throw new Error(`Failed to get entity: ${error.message}`);
@@ -196,7 +198,7 @@ export class SupabaseKnowledgeStorage implements KnowledgeStorage {
 
   async listEntities(filter?: EntityFilter): Promise<Entity[]> {
     const client = this.ensureClient();
-    let query = client.from('entities').select();
+    let query = client.from('entities').select().eq('workspace_id', this.workspaceId);
 
     if (filter?.types && filter.types.length > 0) {
       query = query.in('type', filter.types);
@@ -237,7 +239,8 @@ export class SupabaseKnowledgeStorage implements KnowledgeStorage {
     const { error } = await client
       .from('entities')
       .delete()
-      .eq('id', id);
+      .eq('id', id)
+      .eq('workspace_id', this.workspaceId);
 
     if (error) throw new Error(`Failed to delete entity: ${error.message}`);
   }
@@ -272,7 +275,7 @@ export class SupabaseKnowledgeStorage implements KnowledgeStorage {
 
   async getRelationsFrom(entityId: string, types?: RelationType[]): Promise<Relation[]> {
     const client = this.ensureClient();
-    let query = client.from('relations').select().eq('from_id', entityId);
+    let query = client.from('relations').select().eq('from_id', entityId).eq('workspace_id', this.workspaceId);
 
     if (types && types.length > 0) {
       query = query.in('type', types);
@@ -285,7 +288,7 @@ export class SupabaseKnowledgeStorage implements KnowledgeStorage {
 
   async getRelationsTo(entityId: string, types?: RelationType[]): Promise<Relation[]> {
     const client = this.ensureClient();
-    let query = client.from('relations').select().eq('to_id', entityId);
+    let query = client.from('relations').select().eq('to_id', entityId).eq('workspace_id', this.workspaceId);
 
     if (types && types.length > 0) {
       query = query.in('type', types);
@@ -301,7 +304,8 @@ export class SupabaseKnowledgeStorage implements KnowledgeStorage {
     const { error } = await client
       .from('relations')
       .delete()
-      .eq('id', id);
+      .eq('id', id)
+      .eq('workspace_id', this.workspaceId);
 
     if (error) throw new Error(`Failed to delete relation: ${error.message}`);
   }
@@ -342,6 +346,7 @@ export class SupabaseKnowledgeStorage implements KnowledgeStorage {
       .from('observations')
       .select()
       .eq('entity_id', entityId)
+      .eq('workspace_id', this.workspaceId)
       .order('added_at', { ascending: false });
 
     if (error) throw new Error(`Failed to get observations: ${error.message}`);
@@ -377,6 +382,15 @@ export class SupabaseKnowledgeStorage implements KnowledgeStorage {
           queue.push({ id: rel.to_id, depth: depth + 1 });
         }
       }
+
+      const incoming = await this.getRelationsTo(id, params.relation_types);
+      for (const rel of incoming) {
+        relations.push(rel);
+        if (!visited.has(rel.from_id)) {
+          visited.add(rel.from_id);
+          queue.push({ id: rel.from_id, depth: depth + 1 });
+        }
+      }
     }
 
     return { entities, relations, depth: maxDepth };
@@ -388,7 +402,8 @@ export class SupabaseKnowledgeStorage implements KnowledgeStorage {
     // Entity counts by type
     const { data: entityRows, error: entityError } = await client
       .from('entities')
-      .select('type');
+      .select('type')
+      .eq('workspace_id', this.workspaceId);
 
     if (entityError) throw new Error(`Failed to get entity stats: ${entityError.message}`);
 
@@ -401,7 +416,8 @@ export class SupabaseKnowledgeStorage implements KnowledgeStorage {
     // Relation counts by type
     const { data: relationRows, error: relationError } = await client
       .from('relations')
-      .select('type');
+      .select('type')
+      .eq('workspace_id', this.workspaceId);
 
     if (relationError) throw new Error(`Failed to get relation stats: ${relationError.message}`);
 
@@ -414,7 +430,8 @@ export class SupabaseKnowledgeStorage implements KnowledgeStorage {
     // Observation count
     const { count: obsCount, error: obsError } = await client
       .from('observations')
-      .select('id', { count: 'exact', head: true });
+      .select('id', { count: 'exact', head: true })
+      .eq('workspace_id', this.workspaceId);
 
     if (obsError) throw new Error(`Failed to get observation count: ${obsError.message}`);
 

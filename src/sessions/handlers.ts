@@ -78,7 +78,7 @@ export class SessionHandlers {
       throw new Error(`Session ${args.sessionId} not found`);
     }
 
-    const thoughts = await this.storage.getThoughts(args.sessionId);
+    const thoughts = await this.storage.getAllThoughts(args.sessionId);
 
     // Group thoughts by branch
     const branches: Record<string, ThoughtData[]> = {};
