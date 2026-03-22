@@ -462,8 +462,7 @@ export class SessionHandlers {
     const thoughtDensity = durationMinutes > 0 ? thoughts.length / durationMinutes : 0;
 
     // Quality indicators
-    // Note: local ThoughtData doesn't have a 'critique' field, so we set this to 0
-    const critiqueRequests = 0;
+    const critiqueRequests = thoughts.filter((t) => t.critique).length;
     const lastThought = thoughts[thoughts.length - 1];
 
     // True convergence: main-chain thoughts exist AFTER branch thoughts

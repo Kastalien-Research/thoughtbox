@@ -41,6 +41,8 @@ export interface Config {
 /**
  * Session metadata stored in SQLite for quick listing/search
  */
+export type SessionStatus = 'active' | 'completed' | 'abandoned';
+
 export interface Session {
   id: string;
   title: string;
@@ -48,6 +50,7 @@ export interface Session {
   tags: string[];
   thoughtCount: number;
   branchCount: number;
+  status: SessionStatus;
   /**
    * Time partition path for this session (e.g., '2025-12' for monthly).
    * Used to locate the session directory on filesystem.
@@ -56,6 +59,7 @@ export interface Session {
   partitionPath?: string;
   createdAt: Date;
   updatedAt: Date;
+  completedAt?: Date;
   lastAccessedAt: Date;
 }
 

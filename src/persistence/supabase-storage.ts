@@ -14,6 +14,7 @@ import type {
   ThoughtboxStorage,
   Config,
   Session,
+  SessionStatus,
   CreateSessionParams,
   SessionFilter,
   ThoughtData,
@@ -22,6 +23,11 @@ import type {
   ThoughtNodeId,
   SessionExport,
 } from './types.js';
+
+type SessionRow = Database['public']['Tables']['sessions']['Row'];
+type SessionInsert = Database['public']['Tables']['sessions']['Insert'];
+type SessionUpdate = Database['public']['Tables']['sessions']['Update'];
+type ThoughtRow = Database['public']['Tables']['thoughts']['Row'];
 import { RevisionIndexBuilder } from '../revision/revision-index.js';
 
 export interface SupabaseStorageConfig {
@@ -144,21 +150,23 @@ export class SupabaseStorage implements ThoughtboxStorage {
   // Row Mapping
   // ===========================================================================
 
-  private rowToSession(row: Record<string, unknown>): Session {
+  private rowToSession(row: SessionRow): Session {
     return {
-      id: row.id as string,
-      title: row.title as string,
-      description: (row.description as string) || undefined,
-      tags: (row.tags as string[]) || [],
-      thoughtCount: (row.thought_count as number) || 0,
-      branchCount: (row.branch_count as number) || 0,
-      createdAt: new Date(row.created_at as string),
-      updatedAt: new Date(row.updated_at as string),
-      lastAccessedAt: new Date((row.last_accessed_at as string) || (row.updated_at as string)),
+      id: row.id,
+      title: row.title,
+      description: row.description || undefined,
+      tags: row.tags || [],
+      thoughtCount: row.thought_count,
+      branchCount: row.branch_count,
+      status: (row.status as SessionStatus) || 'active',
+      createdAt: new Date(row.created_at),
+      updatedAt: new Date(row.updated_at),
+      completedAt: row.completed_at ? new Date(row.completed_at) : undefined,
+      lastAccessedAt: new Date(row.last_accessed_at || row.updated_at),
     };
   }
 
-  private sessionToRow(params: CreateSessionParams) {
+  private sessionToRow(params: CreateSessionParams): SessionInsert {
     return {
       id: randomUUID(),
       workspace_id: this.workspaceId,
@@ -167,24 +175,25 @@ export class SupabaseStorage implements ThoughtboxStorage {
       tags: params.tags || [],
       thought_count: 0,
       branch_count: 0,
+      status: 'active',
     };
   }
 
-  private rowToThought(row: Record<string, unknown>): ThoughtData {
+  private rowToThought(row: ThoughtRow): ThoughtData {
     const thought: ThoughtData = {
-      thought: row.thought as string,
-      thoughtNumber: row.thought_number as number,
-      totalThoughts: (row.total_thoughts as number) || 0,
-      nextThoughtNeeded: (row.next_thought_needed as boolean) ?? true,
-      timestamp: (row.timestamp as string) || new Date().toISOString(),
+      thought: row.thought,
+      thoughtNumber: row.thought_number,
+      totalThoughts: row.total_thoughts,
+      nextThoughtNeeded: row.next_thought_needed,
+      timestamp: row.timestamp || new Date().toISOString(),
       thoughtType: (row.thought_type as ThoughtData['thoughtType']) || 'reasoning',
     };
 
     if (row.is_revision) thought.isRevision = true;
-    if (row.revises_thought != null) thought.revisesThought = row.revises_thought as number;
-    if (row.branch_from_thought != null) thought.branchFromThought = row.branch_from_thought as number;
-    if (row.branch_id) thought.branchId = row.branch_id as string;
-    if (row.needs_more_thoughts != null) thought.needsMoreThoughts = row.needs_more_thoughts as boolean;
+    if (row.revises_thought != null) thought.revisesThought = row.revises_thought;
+    if (row.branch_from_thought != null) thought.branchFromThought = row.branch_from_thought;
+    if (row.branch_id) thought.branchId = row.branch_id;
+    if (row.needs_more_thoughts != null) thought.needsMoreThoughts = row.needs_more_thoughts;
     if (row.confidence) thought.confidence = row.confidence as ThoughtData['confidence'];
     if (row.options) thought.options = row.options as ThoughtData['options'];
     if (row.action_result) thought.actionResult = row.action_result as ThoughtData['actionResult'];
@@ -192,10 +201,10 @@ export class SupabaseStorage implements ThoughtboxStorage {
     if (row.assumption_change) thought.assumptionChange = row.assumption_change as ThoughtData['assumptionChange'];
     if (row.context_data) thought.contextData = row.context_data as ThoughtData['contextData'];
     if (row.progress_data) thought.progressData = row.progress_data as ThoughtData['progressData'];
-    if (row.agent_id) thought.agentId = row.agent_id as string;
-    if (row.agent_name) thought.agentName = row.agent_name as string;
-    if (row.content_hash) thought.contentHash = row.content_hash as string;
-    if (row.parent_hash) thought.parentHash = row.parent_hash as string;
+    if (row.agent_id) thought.agentId = row.agent_id;
+    if (row.agent_name) thought.agentName = row.agent_name;
+    if (row.content_hash) thought.contentHash = row.content_hash;
+    if (row.parent_hash) thought.parentHash = row.parent_hash;
     if (row.critique) thought.critique = row.critique as ThoughtData['critique'];
 
     return thought;
@@ -265,7 +274,7 @@ export class SupabaseStorage implements ThoughtboxStorage {
   async updateSession(id: string, attrs: Partial<Session>): Promise<Session> {
     const client = this.ensureClient();
 
-    const updateData: Record<string, unknown> = {
+    const updateData: SessionUpdate = {
       updated_at: new Date().toISOString(),
     };
     if (attrs.title !== undefined) updateData.title = attrs.title;
@@ -273,6 +282,15 @@ export class SupabaseStorage implements ThoughtboxStorage {
     if (attrs.tags !== undefined) updateData.tags = attrs.tags;
     if (attrs.thoughtCount !== undefined) updateData.thought_count = attrs.thoughtCount;
     if (attrs.branchCount !== undefined) updateData.branch_count = attrs.branchCount;
+    if (attrs.status !== undefined) {
+      updateData.status = attrs.status;
+      if (attrs.status === 'completed') {
+        updateData.completed_at = new Date().toISOString();
+      }
+    }
+    if (attrs.lastAccessedAt !== undefined) {
+      updateData.last_accessed_at = attrs.lastAccessedAt.toISOString();
+    }
 
     const { data, error } = await client
       .from('sessions')
@@ -335,7 +353,7 @@ export class SupabaseStorage implements ThoughtboxStorage {
 
     const { data, error } = await query;
     if (error) throw new Error(`Failed to list sessions: ${error.message}`);
-    return (data || []).map((row: Record<string, unknown>) => this.rowToSession(row));
+    return (data || []).map((row) => this.rowToSession(row as SessionRow));
   }
 
   // ===========================================================================
@@ -365,7 +383,7 @@ export class SupabaseStorage implements ThoughtboxStorage {
       .order('thought_number', { ascending: true });
 
     if (error) throw new Error(`Failed to get thoughts: ${error.message}`);
-    return (data || []).map((row: Record<string, unknown>) => this.rowToThought(row));
+    return (data || []).map((row) => this.rowToThought(row as ThoughtRow));
   }
 
   async getAllThoughts(sessionId: string): Promise<ThoughtData[]> {
@@ -378,7 +396,7 @@ export class SupabaseStorage implements ThoughtboxStorage {
       .order('thought_number', { ascending: true });
 
     if (error) throw new Error(`Failed to get all thoughts: ${error.message}`);
-    return (data || []).map((row: Record<string, unknown>) => this.rowToThought(row));
+    return (data || []).map((row) => this.rowToThought(row as ThoughtRow));
   }
 
   async getBranchIds(sessionId: string): Promise<string[]> {
@@ -442,7 +460,7 @@ export class SupabaseStorage implements ThoughtboxStorage {
       .order('thought_number', { ascending: true });
 
     if (error) throw new Error(`Failed to get branch: ${error.message}`);
-    return (data || []).map((row: Record<string, unknown>) => this.rowToThought(row));
+    return (data || []).map((row) => this.rowToThought(row as ThoughtRow));
   }
 
   async updateThoughtCritique(

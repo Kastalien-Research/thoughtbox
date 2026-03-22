@@ -619,6 +619,7 @@ export class InMemoryStorage implements ThoughtboxStorage {
       tags: params.tags || [],
       thoughtCount: 0,
       branchCount: 0,
+      status: 'active',
       createdAt: now,
       updatedAt: now,
       lastAccessedAt: now,
