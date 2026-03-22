@@ -97,6 +97,49 @@ export function getTestSupabaseConfig() {
   };
 }
 
+export const TEST_WORKSPACE_ID = '11111111-1111-1111-1111-111111111111';
+const TEST_USER_ID = '00000000-0000-0000-0000-000000000001';
+
+/**
+ * Ensure a test workspace row exists in the workspaces table.
+ * Required for FK constraints on knowledge graph tables.
+ * Creates a test user in auth.users if needed (FK target for owner_user_id).
+ * Idempotent — safe to call in every beforeEach.
+ */
+export async function ensureTestWorkspace(
+  client?: SupabaseClient,
+): Promise<string> {
+  const c = client ?? createServiceClient();
+
+  // Ensure test user exists in auth.users (required by workspaces.owner_user_id FK)
+  await c.auth.admin.createUser({
+    email: 'test@test.local',
+    password: 'test-password-123',
+    email_confirm: true,
+    user_metadata: { id: TEST_USER_ID },
+  }).catch(() => {
+    // Ignore if user already exists
+  });
+
+  // Get the user to find the actual ID (admin.createUser may assign its own UUID)
+  const { data: users } = await c.auth.admin.listUsers();
+  const testUser = users?.users?.find(u => u.email === 'test@test.local');
+  const userId = testUser?.id || TEST_USER_ID;
+
+  const { error } = await c.from('workspaces').upsert({
+    id: TEST_WORKSPACE_ID,
+    name: 'Test Workspace',
+    slug: 'test-workspace',
+    owner_user_id: userId,
+    status: 'active',
+    plan_id: 'free',
+  }, { onConflict: 'id' });
+  if (error) {
+    throw new Error(`Failed to create test workspace: ${error.message}`);
+  }
+  return TEST_WORKSPACE_ID;
+}
+
 /**
  * Check if local Supabase is reachable. Use in test setup to skip
  * gracefully if Supabase isn't running.

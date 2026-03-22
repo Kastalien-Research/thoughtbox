@@ -15,6 +15,8 @@ import {
   getTestSupabaseConfig,
   truncateAllTables,
   createServiceClient,
+  ensureTestWorkspace,
+  TEST_WORKSPACE_ID,
 } from '../../__tests__/supabase-test-helpers.js';
 
 describe('SupabaseKnowledgeStorage (KnowledgeStorage)', () => {
@@ -28,9 +30,10 @@ describe('SupabaseKnowledgeStorage (KnowledgeStorage)', () => {
   beforeEach(async () => {
     if (!available) return;
     await truncateAllTables();
+    await ensureTestWorkspace();
     storage = new SupabaseKnowledgeStorage({
       ...getTestSupabaseConfig(),
-      workspaceId: 'test-knowledge',
+      workspaceId: TEST_WORKSPACE_ID,
     });
     await storage.initialize();
   });

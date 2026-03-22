@@ -25,6 +25,13 @@ import type {
   KnowledgeStats,
 } from './types.js';
 
+type EntityRow = Database['public']['Tables']['entities']['Row'];
+type EntityInsert = Database['public']['Tables']['entities']['Insert'];
+type RelationRow = Database['public']['Tables']['relations']['Row'];
+type RelationInsert = Database['public']['Tables']['relations']['Insert'];
+type ObservationRow = Database['public']['Tables']['observations']['Row'];
+type ObservationInsert = Database['public']['Tables']['observations']['Insert'];
+
 export interface SupabaseKnowledgeStorageConfig {
   supabaseUrl: string;
   /** Service role key — used as both the client API key and auth token. Bypasses RLS. */
@@ -81,49 +88,49 @@ export class SupabaseKnowledgeStorage implements KnowledgeStorage {
   // Row Mapping
   // ===========================================================================
 
-  private rowToEntity(row: Record<string, unknown>): Entity {
+  private rowToEntity(row: EntityRow): Entity {
     return {
-      id: row.id as string,
-      name: row.name as string,
+      id: row.id,
+      name: row.name,
       type: row.type as EntityType,
-      label: row.label as string,
+      label: row.label,
       properties: (row.properties as Record<string, unknown>) || {},
-      created_at: new Date(row.created_at as string),
-      updated_at: new Date(row.updated_at as string),
-      created_by: (row.created_by as string) || undefined,
+      created_at: new Date(row.created_at),
+      updated_at: new Date(row.updated_at),
+      created_by: row.created_by || undefined,
       visibility: (row.visibility as Entity['visibility']) || 'public',
-      valid_from: new Date((row.valid_from as string) || (row.created_at as string)),
-      valid_to: row.valid_to ? new Date(row.valid_to as string) : undefined,
-      superseded_by: (row.superseded_by as string) || undefined,
-      access_count: (row.access_count as number) || 0,
-      last_accessed_at: new Date((row.last_accessed_at as string) || (row.created_at as string)),
-      importance_score: (row.importance_score as number) ?? 0.5,
+      valid_from: new Date(row.valid_from || row.created_at),
+      valid_to: row.valid_to ? new Date(row.valid_to) : undefined,
+      superseded_by: row.superseded_by || undefined,
+      access_count: row.access_count || 0,
+      last_accessed_at: new Date(row.last_accessed_at || row.created_at),
+      importance_score: row.importance_score ?? 0.5,
     };
   }
 
-  private rowToRelation(row: Record<string, unknown>): Relation {
+  private rowToRelation(row: RelationRow): Relation {
     return {
-      id: row.id as string,
-      from_id: row.from_id as string,
-      to_id: row.to_id as string,
+      id: row.id,
+      from_id: row.from_id,
+      to_id: row.to_id,
       type: row.type as RelationType,
       properties: (row.properties as Record<string, unknown>) || {},
-      created_at: new Date(row.created_at as string),
-      created_by: (row.created_by as string) || undefined,
+      created_at: new Date(row.created_at),
+      created_by: row.created_by || undefined,
     };
   }
 
-  private rowToObservation(row: Record<string, unknown>): Observation {
+  private rowToObservation(row: ObservationRow): Observation {
     return {
-      id: row.id as string,
-      entity_id: row.entity_id as string,
-      content: row.content as string,
-      source_session: (row.source_session as string) || undefined,
-      added_by: (row.added_by as string) || undefined,
-      added_at: new Date(row.added_at as string),
-      valid_from: new Date((row.valid_from as string) || (row.added_at as string)),
-      valid_to: row.valid_to ? new Date(row.valid_to as string) : undefined,
-      superseded_by: (row.superseded_by as string) || undefined,
+      id: row.id,
+      entity_id: row.entity_id,
+      content: row.content,
+      source_session: row.source_session || undefined,
+      added_by: row.added_by || undefined,
+      added_at: new Date(row.added_at),
+      valid_from: new Date(row.valid_from || row.added_at),
+      valid_to: row.valid_to ? new Date(row.valid_to) : undefined,
+      superseded_by: row.superseded_by || undefined,
     };
   }
 
@@ -136,7 +143,7 @@ export class SupabaseKnowledgeStorage implements KnowledgeStorage {
     const now = new Date().toISOString();
     const id = randomUUID();
 
-    const row = {
+    const row: EntityInsert = {
       id,
       workspace_id: this.workspaceId,
       name: params.name,
@@ -222,7 +229,7 @@ export class SupabaseKnowledgeStorage implements KnowledgeStorage {
 
     const { data, error } = await query;
     if (error) throw new Error(`Failed to list entities: ${error.message}`);
-    return (data || []).map((row: Record<string, unknown>) => this.rowToEntity(row));
+    return (data || []).map((row) => this.rowToEntity(row as EntityRow));
   }
 
   async deleteEntity(id: string): Promise<void> {
@@ -243,7 +250,7 @@ export class SupabaseKnowledgeStorage implements KnowledgeStorage {
     const client = this.ensureClient();
     const id = randomUUID();
 
-    const row = {
+    const row: RelationInsert = {
       id,
       workspace_id: this.workspaceId,
       from_id: params.from_id,
@@ -273,7 +280,7 @@ export class SupabaseKnowledgeStorage implements KnowledgeStorage {
 
     const { data, error } = await query;
     if (error) throw new Error(`Failed to get relations from: ${error.message}`);
-    return (data || []).map((row: Record<string, unknown>) => this.rowToRelation(row));
+    return (data || []).map((row) => this.rowToRelation(row as RelationRow));
   }
 
   async getRelationsTo(entityId: string, types?: RelationType[]): Promise<Relation[]> {
@@ -286,7 +293,7 @@ export class SupabaseKnowledgeStorage implements KnowledgeStorage {
 
     const { data, error } = await query;
     if (error) throw new Error(`Failed to get relations to: ${error.message}`);
-    return (data || []).map((row: Record<string, unknown>) => this.rowToRelation(row));
+    return (data || []).map((row) => this.rowToRelation(row as RelationRow));
   }
 
   async deleteRelation(id: string): Promise<void> {
@@ -308,7 +315,7 @@ export class SupabaseKnowledgeStorage implements KnowledgeStorage {
     const id = randomUUID();
     const now = new Date().toISOString();
 
-    const row = {
+    const row: ObservationInsert = {
       id,
       workspace_id: this.workspaceId,
       entity_id: params.entity_id,
@@ -338,7 +345,7 @@ export class SupabaseKnowledgeStorage implements KnowledgeStorage {
       .order('added_at', { ascending: false });
 
     if (error) throw new Error(`Failed to get observations: ${error.message}`);
-    return (data || []).map((row: Record<string, unknown>) => this.rowToObservation(row));
+    return (data || []).map((row) => this.rowToObservation(row as ObservationRow));
   }
 
   // ===========================================================================
@@ -387,7 +394,7 @@ export class SupabaseKnowledgeStorage implements KnowledgeStorage {
 
     const entity_counts: Record<string, number> = {};
     for (const row of entityRows || []) {
-      const t = row.type as string;
+      const t = row.type;
       entity_counts[t] = (entity_counts[t] || 0) + 1;
     }
 
@@ -400,7 +407,7 @@ export class SupabaseKnowledgeStorage implements KnowledgeStorage {
 
     const relation_counts: Record<string, number> = {};
     for (const row of relationRows || []) {
-      const t = row.type as string;
+      const t = row.type;
       relation_counts[t] = (relation_counts[t] || 0) + 1;
     }
 

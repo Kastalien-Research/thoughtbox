@@ -101,6 +101,7 @@ export type Database = {
           valid_from: string
           valid_to: string | null
           visibility: string
+          workspace_id: string
         }
         Insert: {
           access_count?: number
@@ -118,6 +119,7 @@ export type Database = {
           valid_from?: string
           valid_to?: string | null
           visibility?: string
+          workspace_id: string
         }
         Update: {
           access_count?: number
@@ -135,6 +137,7 @@ export type Database = {
           valid_from?: string
           valid_to?: string | null
           visibility?: string
+          workspace_id?: string
         }
         Relationships: [
           {
@@ -142,6 +145,13 @@ export type Database = {
             columns: ["superseded_by"]
             isOneToOne: false
             referencedRelation: "entities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "entities_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
             referencedColumns: ["id"]
           },
         ]
@@ -158,6 +168,7 @@ export type Database = {
           superseded_by: string | null
           valid_from: string
           valid_to: string | null
+          workspace_id: string
         }
         Insert: {
           added_at?: string
@@ -170,6 +181,7 @@ export type Database = {
           superseded_by?: string | null
           valid_from?: string
           valid_to?: string | null
+          workspace_id: string
         }
         Update: {
           added_at?: string
@@ -182,6 +194,7 @@ export type Database = {
           superseded_by?: string | null
           valid_from?: string
           valid_to?: string | null
+          workspace_id?: string
         }
         Relationships: [
           {
@@ -203,6 +216,13 @@ export type Database = {
             columns: ["superseded_by"]
             isOneToOne: false
             referencedRelation: "observations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "observations_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
             referencedColumns: ["id"]
           },
         ]
@@ -415,6 +435,7 @@ export type Database = {
           properties: Json
           to_id: string
           type: string
+          workspace_id: string
         }
         Insert: {
           created_at?: string
@@ -424,6 +445,7 @@ export type Database = {
           properties?: Json
           to_id: string
           type: string
+          workspace_id: string
         }
         Update: {
           created_at?: string
@@ -433,6 +455,7 @@ export type Database = {
           properties?: Json
           to_id?: string
           type?: string
+          workspace_id?: string
         }
         Relationships: [
           {
@@ -447,6 +470,13 @@ export type Database = {
             columns: ["to_id"]
             isOneToOne: false
             referencedRelation: "entities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "relations_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
             referencedColumns: ["id"]
           },
         ]
@@ -685,10 +715,9 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      check_protocol_enforcement: {
-        Args: { target_path: string }
-        Returns: Json
-      }
+      check_protocol_enforcement:
+        | { Args: { target_path: string }; Returns: Json }
+        | { Args: { target_path: string; ws_id?: string }; Returns: Json }
       is_workspace_member: { Args: { ws_id: string }; Returns: boolean }
     }
     Enums: {
