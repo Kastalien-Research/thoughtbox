@@ -359,7 +359,8 @@ export class SupabaseKnowledgeStorage implements KnowledgeStorage {
 
   async traverseGraph(params: GraphTraversalParams): Promise<GraphTraversalResult> {
     const maxDepth = params.max_depth || 3;
-    const visited = new Set<string>([params.start_entity_id]);
+    const visitedEntities = new Set<string>([params.start_entity_id]);
+    const visitedRelations = new Set<string>();
     const entities: Entity[] = [];
     const relations: Relation[] = [];
     const queue: Array<{ id: string; depth: number }> = [
@@ -376,18 +377,24 @@ export class SupabaseKnowledgeStorage implements KnowledgeStorage {
 
       const outgoing = await this.getRelationsFrom(id, params.relation_types);
       for (const rel of outgoing) {
-        relations.push(rel);
-        if (!visited.has(rel.to_id)) {
-          visited.add(rel.to_id);
+        if (!visitedRelations.has(rel.id)) {
+          visitedRelations.add(rel.id);
+          relations.push(rel);
+        }
+        if (!visitedEntities.has(rel.to_id)) {
+          visitedEntities.add(rel.to_id);
           queue.push({ id: rel.to_id, depth: depth + 1 });
         }
       }
 
       const incoming = await this.getRelationsTo(id, params.relation_types);
       for (const rel of incoming) {
-        relations.push(rel);
-        if (!visited.has(rel.from_id)) {
-          visited.add(rel.from_id);
+        if (!visitedRelations.has(rel.id)) {
+          visitedRelations.add(rel.id);
+          relations.push(rel);
+        }
+        if (!visitedEntities.has(rel.from_id)) {
+          visitedEntities.add(rel.from_id);
           queue.push({ id: rel.from_id, depth: depth + 1 });
         }
       }
