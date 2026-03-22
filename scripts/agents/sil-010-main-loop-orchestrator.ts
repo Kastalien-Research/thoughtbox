@@ -287,7 +287,9 @@ async function runPhaseAgent(
   let followUpSent = false;
 
   const baseTools = [
-    "mcp__thoughtbox__thoughtbox_gateway",
+    "mcp__thoughtbox__thoughtbox_init",
+    "mcp__thoughtbox__thoughtbox_thought",
+    "mcp__thoughtbox__thoughtbox_session",
     "mcp__thoughtbox__observability_gateway",
   ];
 

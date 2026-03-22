@@ -46,8 +46,12 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 120  # 2 hour max
 
+    # Scheduled runs require manual approval via the "production" environment.
+    # workflow_dispatch runs skip the gate (you already clicked "Run").
+    environment: ${{ github.event_name == 'schedule' && 'production' || '' }}
+
     # Only run on main repo, not forks
-    if: github.repository == 'kastalien-research/thoughtbox'
+    if: github.repository == 'Kastalien-Research/thoughtbox'
 
     permissions:
       contents: write
@@ -55,17 +59,17 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
         with:
           fetch-depth: 0
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@02f6c237bd2518259fed6c71566509edfb3f2b74  # v4
         with:
           version: 9.15.4
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4
         with:
           node-version: '20'
           cache: 'pnpm'
@@ -141,7 +145,7 @@ jobs:
 
       - name: Upload Artifacts
         if: steps.sil.outputs.results_exist == 'true'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4
         with:
           name: improvement-results
           path: |

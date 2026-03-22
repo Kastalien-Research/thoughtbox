@@ -12,32 +12,35 @@
  * System prompt snippet for agents that use Thoughtbox.
  */
 export const THOUGHTBOX_INSTRUCTIONS = `
-You have access to Thoughtbox via MCP tools. Use thoughtbox_gateway for reasoning.
+You have access to Thoughtbox via MCP tools. The tools are decomposed by concern:
+
+- thoughtbox_init — session lifecycle and cipher
+- thoughtbox_thought — record reasoning, branch, revise
+- thoughtbox_session — retrieve and export sessions
+- thoughtbox_knowledge — knowledge graph queries
 
 ## Thoughtbox Usage Pattern
 
-1. First, initialize a session:
-   thoughtbox_gateway { operation: "start_new", args: { title: "Your task description" } }
+1. Initialize a session:
+   thoughtbox_init { operation: "start_new", project: "my-project", task: "Your task description" }
 
-2. Use the cipher for structured notation:
-   thoughtbox_gateway { operation: "cipher" }
+2. Load the cipher for structured notation:
+   thoughtbox_init { operation: "cipher" }
 
-3. Record thoughts with proper structure:
-   thoughtbox_gateway {
-     operation: "thought",
-     args: {
-       content: "Your reasoning here",
-       annotations: { ... }
-     }
+3. Record thoughts:
+   thoughtbox_thought {
+     thought: "Your reasoning here",
+     thoughtType: "reasoning",
+     nextThoughtNeeded: true
    }
 
 4. For branching exploration:
    - First record a thought
-   - Then create a branch: thoughtbox_gateway { operation: "thought", args: { branchId: "new-branch", branchFromThought: "S3" } }
+   - Then branch: thoughtbox_thought { thought: "Exploring alternative", thoughtType: "reasoning", nextThoughtNeeded: true, branchId: "new-branch", branchFromThought: 3 }
 
 ## Important Rules
 
-- Always initialize a session before using thoughts
+- Always initialize a session before recording thoughts
 - Use the cipher notation for structured reasoning
 - When comparing approaches, create branches
 - Record your actual reasoning, not placeholder text

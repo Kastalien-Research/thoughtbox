@@ -10,6 +10,18 @@ const SUPABASE_URL = process.env.SUPABASE_TEST_URL || 'http://127.0.0.1:54321';
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_TEST_SERVICE_ROLE_KEY
   || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU';
 
+async function isSupabaseAvailable(): Promise<boolean> {
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/`, {
+      headers: { apikey: SUPABASE_SERVICE_KEY },
+      signal: AbortSignal.timeout(2000),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
 describe('Persistence round-trip (integration)', () => {
   const client = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
     auth: { persistSession: false, autoRefreshToken: false },
@@ -18,8 +30,12 @@ describe('Persistence round-trip (integration)', () => {
   let workspaceId: string;
   let sessionId: string;
   let userId: string;
+  let available = false;
 
   beforeAll(async () => {
+    available = await isSupabaseAvailable();
+    if (!available) return;
+
     // Create a test user via Supabase Auth admin API
     const res = await fetch(`${SUPABASE_URL}/auth/v1/admin/users`, {
       method: 'POST',
@@ -52,7 +68,8 @@ describe('Persistence round-trip (integration)', () => {
     workspaceId = ws.id;
   });
 
-  it('creates a session', async () => {
+  it('creates a session', async (ctx) => {
+    if (!available) ctx.skip();
     const { data, error } = await client
       .from('sessions')
       .insert({
@@ -69,7 +86,8 @@ describe('Persistence round-trip (integration)', () => {
     sessionId = data!.id;
   });
 
-  it('saves a thought', async () => {
+  it('saves a thought', async (ctx) => {
+    if (!available) ctx.skip();
     const { data, error } = await client
       .from('thoughts')
       .insert({
@@ -88,7 +106,8 @@ describe('Persistence round-trip (integration)', () => {
     expect(data!.thought).toBe('This is a test thought that proves persistence works.');
   });
 
-  it('reads the thought back', async () => {
+  it('reads the thought back', async (ctx) => {
+    if (!available) ctx.skip();
     const { data, error } = await client
       .from('thoughts')
       .select()
@@ -102,7 +121,8 @@ describe('Persistence round-trip (integration)', () => {
     expect(data!.thought_number).toBe(1);
   });
 
-  it('reads the session back', async () => {
+  it('reads the session back', async (ctx) => {
+    if (!available) ctx.skip();
     const { data, error } = await client
       .from('sessions')
       .select()

@@ -238,7 +238,9 @@ After thorough analysis, output your final plan as a JSON code block.
           },
         },
         allowedTools: [
-          "mcp__thoughtbox__thoughtbox_gateway",
+          "mcp__thoughtbox__thoughtbox_init",
+          "mcp__thoughtbox__thoughtbox_thought",
+          "mcp__thoughtbox__thoughtbox_session",
           "mcp__thoughtbox__observability_gateway",
         ],
         permissionMode: "bypassPermissions",
