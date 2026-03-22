@@ -1,6 +1,8 @@
 import { z } from "zod";
 import type { ProtocolHandler } from "./handler.js";
 import type { InMemoryProtocolHandler } from "./in-memory-handler.js";
+import type { ThoughtHandler } from "../thought-handler.js";
+import type { KnowledgeStorage } from "../knowledge/types.js";
 
 export const theseusToolInputSchema = z.object({
   operation: z.enum(["init", "visa", "checkpoint", "outcome", "status", "complete"]),
@@ -44,7 +46,11 @@ Operations:
 export class TheseusTool {
   private activeSessionId: string | null = null;
 
-  constructor(private handler: ProtocolHandler | InMemoryProtocolHandler) {}
+  constructor(
+    private handler: ProtocolHandler | InMemoryProtocolHandler,
+    private thoughtHandler?: ThoughtHandler,
+    private knowledgeStorage?: KnowledgeStorage,
+  ) {}
 
   async handle(input: TheseusToolInput) {
     let result: Record<string, unknown>;
@@ -56,6 +62,10 @@ export class TheseusTool {
           input.description,
         );
         this.activeSessionId = result.session_id as string;
+        await this.bridgeThought(
+          `[Theseus:init] Refactoring session started. Scope: ${input.scope?.join(', ')}${input.description ? `. Goal: ${input.description}` : ''}`,
+          'action_report',
+        );
         break;
       }
       case "visa": {
@@ -65,6 +75,10 @@ export class TheseusTool {
           justification: input.justification!,
           antiPatternAcknowledged: input.antiPatternAcknowledged ?? true,
         });
+        await this.bridgeThought(
+          `[Theseus:visa] Scope expansion: ${input.filePath}. Justification: ${input.justification}`,
+          'decision_frame',
+        );
         break;
       }
       case "checkpoint": {
@@ -75,6 +89,10 @@ export class TheseusTool {
           approved: input.approved!,
           feedback: input.feedback,
         });
+        await this.bridgeThought(
+          `[Theseus:checkpoint] Cassandra audit: ${input.approved ? 'APPROVED' : 'REJECTED'}. ${input.commitMessage}${input.feedback ? `. Feedback: ${input.feedback}` : ''}`,
+          'action_report',
+        );
         break;
       }
       case "outcome": {
@@ -83,6 +101,10 @@ export class TheseusTool {
           testsPassed: input.testsPassed!,
           details: input.details,
         });
+        await this.bridgeThought(
+          `[Theseus:outcome] Tests ${input.testsPassed ? 'PASSED' : 'FAILED'}${input.details ? `. ${input.details}` : ''}`,
+          'action_report',
+        );
         break;
       }
       case "status": {
@@ -99,6 +121,11 @@ export class TheseusTool {
           input.terminalState!,
           input.summary,
         );
+        await this.bridgeThought(
+          `[Theseus:complete] Session ended: ${input.terminalState}${input.summary ? `. ${input.summary}` : ''}`,
+          'action_report',
+        );
+        await this.bridgeKnowledge(input.terminalState!, input.summary);
         this.activeSessionId = null;
         break;
       }
@@ -114,5 +141,49 @@ export class TheseusTool {
       throw new Error("No active Theseus session. Call init first.");
     }
     return this.activeSessionId;
+  }
+
+  private async bridgeThought(
+    content: string,
+    thoughtType: 'reasoning' | 'decision_frame' | 'action_report',
+  ): Promise<void> {
+    if (!this.thoughtHandler) return;
+    if (!this.thoughtHandler.getCurrentSessionId()) return;
+    try {
+      await this.thoughtHandler.processThought({
+        thought: content,
+        thoughtType,
+        nextThoughtNeeded: true,
+      });
+    } catch {
+      // Bridge failure is non-fatal — protocol operation already succeeded
+    }
+  }
+
+  private async bridgeKnowledge(
+    terminalState: string,
+    summary?: string,
+  ): Promise<void> {
+    if (!this.knowledgeStorage) return;
+    if (!summary) return;
+    try {
+      const entity = await this.knowledgeStorage.createEntity({
+        name: `Theseus: ${summary.slice(0, 80)}`,
+        type: 'Insight',
+        label: `Refactoring ${terminalState}`,
+        properties: {
+          protocol: 'theseus',
+          terminalState,
+          protocolSessionId: this.activeSessionId,
+        },
+      });
+      await this.knowledgeStorage.addObservation({
+        entity_id: entity.id,
+        content: summary,
+        source_session: this.thoughtHandler?.getCurrentSessionId() ?? undefined,
+      });
+    } catch {
+      // Bridge failure is non-fatal
+    }
   }
 }

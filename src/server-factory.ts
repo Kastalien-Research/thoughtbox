@@ -514,8 +514,8 @@ Call \`thoughtbox_hub\` { "operation": "register", "name": "Your Agent Name" } t
     logger.info('Protocol tools using in-memory backend');
   }
 
-  const theseusTool = new TheseusTool(protocolHandler);
-  const ulyssesTool = new UlyssesTool(protocolHandler);
+  const theseusTool = new TheseusTool(protocolHandler, thoughtHandler, knowledgeStorage);
+  const ulyssesTool = new UlyssesTool(protocolHandler, thoughtHandler, knowledgeStorage);
 
   registerExplicitTool(THESEUS_TOOL, theseusTool, DisclosureStage.STAGE_2_CIPHER_LOADED);
   registerExplicitTool(ULYSSES_TOOL, ulyssesTool, DisclosureStage.STAGE_2_CIPHER_LOADED);

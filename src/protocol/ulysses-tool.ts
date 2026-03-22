@@ -1,6 +1,8 @@
 import { z } from "zod";
 import type { ProtocolHandler } from "./handler.js";
 import type { InMemoryProtocolHandler } from "./in-memory-handler.js";
+import type { ThoughtHandler } from "../thought-handler.js";
+import type { KnowledgeStorage } from "../knowledge/types.js";
 
 export const ulyssesToolInputSchema = z.object({
   operation: z.enum(["init", "plan", "outcome", "reflect", "status", "complete"]),
@@ -44,7 +46,11 @@ Operations:
 export class UlyssesTool {
   private activeSessionId: string | null = null;
 
-  constructor(private handler: ProtocolHandler | InMemoryProtocolHandler) {}
+  constructor(
+    private handler: ProtocolHandler | InMemoryProtocolHandler,
+    private thoughtHandler?: ThoughtHandler,
+    private knowledgeStorage?: KnowledgeStorage,
+  ) {}
 
   async handle(input: UlyssesToolInput) {
     let result: Record<string, unknown>;
@@ -56,6 +62,10 @@ export class UlyssesTool {
           input.constraints,
         );
         this.activeSessionId = result.session_id as string;
+        await this.bridgeThought(
+          `[Ulysses:init] Debugging session started. Problem: ${input.problem}${input.constraints?.length ? `. Constraints: ${input.constraints.join(', ')}` : ''}`,
+          'action_report',
+        );
         break;
       }
       case "plan": {
@@ -65,6 +75,10 @@ export class UlyssesTool {
           recovery: input.recovery!,
           irreversible: input.irreversible ?? false,
         });
+        await this.bridgeThought(
+          `[Ulysses:plan] Primary: ${input.primary}. Recovery: ${input.recovery}${input.irreversible ? ' (IRREVERSIBLE)' : ''}`,
+          'decision_frame',
+        );
         break;
       }
       case "outcome": {
@@ -74,6 +88,10 @@ export class UlyssesTool {
           severity: input.severity,
           details: input.details,
         });
+        await this.bridgeThought(
+          `[Ulysses:outcome] Assessment: ${input.assessment}${input.severity ? ` (severity ${input.severity})` : ''}${input.details ? `. ${input.details}` : ''}`,
+          input.assessment === 'expected' ? 'action_report' : 'reasoning',
+        );
         break;
       }
       case "reflect": {
@@ -82,6 +100,10 @@ export class UlyssesTool {
           hypothesis: input.hypothesis!,
           falsification: input.falsification!,
         });
+        await this.bridgeThought(
+          `[Ulysses:reflect] Hypothesis: ${input.hypothesis}. Falsification: ${input.falsification}`,
+          'reasoning',
+        );
         break;
       }
       case "status": {
@@ -98,6 +120,11 @@ export class UlyssesTool {
           input.terminalState!,
           input.summary,
         );
+        await this.bridgeThought(
+          `[Ulysses:complete] Session ended: ${input.terminalState}${input.summary ? `. ${input.summary}` : ''}`,
+          'action_report',
+        );
+        await this.bridgeKnowledge(input.terminalState!, input.summary);
         this.activeSessionId = null;
         break;
       }
@@ -113,5 +140,49 @@ export class UlyssesTool {
       throw new Error('No active Ulysses session. Call init first.');
     }
     return this.activeSessionId;
+  }
+
+  private async bridgeThought(
+    content: string,
+    thoughtType: 'reasoning' | 'decision_frame' | 'action_report',
+  ): Promise<void> {
+    if (!this.thoughtHandler) return;
+    if (!this.thoughtHandler.getCurrentSessionId()) return;
+    try {
+      await this.thoughtHandler.processThought({
+        thought: content,
+        thoughtType,
+        nextThoughtNeeded: true,
+      });
+    } catch {
+      // Bridge failure is non-fatal — protocol operation already succeeded
+    }
+  }
+
+  private async bridgeKnowledge(
+    terminalState: string,
+    summary?: string,
+  ): Promise<void> {
+    if (!this.knowledgeStorage) return;
+    if (!summary) return;
+    try {
+      const entity = await this.knowledgeStorage.createEntity({
+        name: `Ulysses: ${summary.slice(0, 80)}`,
+        type: 'Insight',
+        label: `Debugging ${terminalState}`,
+        properties: {
+          protocol: 'ulysses',
+          terminalState,
+          protocolSessionId: this.activeSessionId,
+        },
+      });
+      await this.knowledgeStorage.addObservation({
+        entity_id: entity.id,
+        content: summary,
+        source_session: this.thoughtHandler?.getCurrentSessionId() ?? undefined,
+      });
+    } catch {
+      // Bridge failure is non-fatal
+    }
   }
 }
