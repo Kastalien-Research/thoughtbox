@@ -137,7 +137,7 @@ export class SupabaseStorage implements ThoughtboxStorage {
 
   private sessionToRow(params: CreateSessionParams): SessionInsert {
     return {
-      id: randomUUID(),
+      id: params.id || randomUUID(),
       workspace_id: this.workspaceId,
       title: params.title,
       description: params.description || null,

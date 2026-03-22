@@ -37,14 +37,15 @@ describe('ThoughtStore Adapter', () => {
     mockStorage = createMockStorage();
   });
 
-  it('T-TSA-1: createSession is a no-op (storage creates sessions lazily)', async () => {
+  it('T-TSA-1: createSession delegates with custom ID', async () => {
     const adapter = createThoughtStoreAdapter(mockStorage);
     await adapter.createSession('hub-session-1');
 
-    // The adapter's createSession is intentionally a no-op because ThoughtboxStorage
-    // generates its own UUIDs and doesn't support custom session IDs.
-    // Sessions are created implicitly on first saveThought.
-    expect(mockStorage.createSession).not.toHaveBeenCalled();
+    expect(mockStorage.createSession).toHaveBeenCalledWith({
+      id: 'hub-session-1',
+      title: 'Hub workspace session',
+      tags: ['hub'],
+    });
   });
 
   it('T-TSA-2: saveThought delegates correctly', async () => {

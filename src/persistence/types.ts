@@ -67,6 +67,8 @@ export interface Session {
  * Parameters for creating a new session
  */
 export interface CreateSessionParams {
+  /** Optional pre-generated session ID. If omitted, storage generates one. */
+  id?: string;
   title: string;
   description?: string;
   tags?: string[];

@@ -609,7 +609,7 @@ export class InMemoryStorage implements ThoughtboxStorage {
   // ===========================================================================
 
   async createSession(params: CreateSessionParams): Promise<Session> {
-    const id = randomUUID();
+    const id = params.id || randomUUID();
     const now = new Date();
 
     const session: Session = {

@@ -630,6 +630,19 @@ export class ThoughtHandler {
         validatedInput.totalThoughts = validatedInput.thoughtNumber;
       }
 
+      // If caller provides a sessionTitle while a session is active,
+      // they intend to start a new session. Close the current one first.
+      if (this.currentSessionId && validatedInput.sessionTitle) {
+        try {
+          await this.autoExportSession(this.currentSessionId);
+        } catch {
+          // Export failure is non-fatal
+        }
+        this.currentSessionId = null;
+        this.thoughtHistory = [];
+        this.branches = {};
+      }
+
       // Auto-create session on first thought (if no session active)
       if (!this.currentSessionId) {
         const session = await this.storage.createSession({
@@ -1031,22 +1044,33 @@ export class ThoughtHandler {
 
       // SIL-101: Verbose response mode - full response with all fields
       // Build response content array
+      const verbosePayload: Record<string, unknown> = {
+        thoughtNumber: validatedInput.thoughtNumber,
+        totalThoughts: validatedInput.totalThoughts,
+        nextThoughtNeeded: validatedInput.nextThoughtNeeded,
+        thoughtType: validatedInput.thoughtType,
+        branches: Object.keys(this.branches),
+        thoughtHistoryLength: this.thoughtHistory.length,
+        sessionId: this.currentSessionId,
+      };
+      if (validatedInput.confidence) verbosePayload.confidence = validatedInput.confidence;
+      if (validatedInput.options) verbosePayload.options = validatedInput.options;
+      if (validatedInput.actionResult) verbosePayload.actionResult = validatedInput.actionResult;
+      if (validatedInput.beliefs) verbosePayload.beliefs = validatedInput.beliefs;
+      if (validatedInput.assumptionChange) verbosePayload.assumptionChange = validatedInput.assumptionChange;
+      if (validatedInput.progressData) verbosePayload.progressData = validatedInput.progressData;
+      if (validatedInput.agentId) verbosePayload.agentId = validatedInput.agentId;
+      if (validatedInput.agentName) verbosePayload.agentName = validatedInput.agentName;
+      if (validatedInput.branchId) verbosePayload.branchId = validatedInput.branchId;
+      if (validatedInput.branchFromThought) verbosePayload.branchFromThought = validatedInput.branchFromThought;
+      if (validatedInput.isRevision) verbosePayload.isRevision = validatedInput.isRevision;
+      if (validatedInput.revisesThought) verbosePayload.revisesThought = validatedInput.revisesThought;
+      if (critiqueResult) verbosePayload.critique = critiqueResult;
+
       const content: Array<any> = [
         {
           type: "text",
-          text: JSON.stringify(
-            {
-              thoughtNumber: validatedInput.thoughtNumber,
-              totalThoughts: validatedInput.totalThoughts,
-              nextThoughtNeeded: validatedInput.nextThoughtNeeded,
-              branches: Object.keys(this.branches),
-              thoughtHistoryLength: this.thoughtHistory.length,
-              sessionId: this.currentSessionId,
-              ...(critiqueResult && { critique: critiqueResult }),
-            },
-            null,
-            2
-          ),
+          text: JSON.stringify(verbosePayload, null, 2),
         },
       ];
 

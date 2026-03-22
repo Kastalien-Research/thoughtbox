@@ -440,7 +440,7 @@ export class FileSystemStorage implements ThoughtboxStorage {
 
   async createSession(params: CreateSessionParams): Promise<Session> {
     this.ensureScoped();
-    const id = randomUUID();
+    const id = params.id || randomUUID();
     const now = new Date();
     const partitionPath = this.generatePartitionPath();
 
