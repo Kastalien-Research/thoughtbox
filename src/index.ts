@@ -62,26 +62,24 @@ async function createStorage(): Promise<StorageBundle> {
 
   if (storageType === "supabase") {
     const supabaseUrl = process.env.SUPABASE_URL;
-    const supabaseKey = process.env.SUPABASE_ANON_KEY;
-    const jwtSecret = process.env.SUPABASE_JWT_SECRET;
+    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-    if (!supabaseUrl || !supabaseKey || !jwtSecret) {
+    if (!supabaseUrl || !serviceRoleKey) {
       throw new Error(
-        "THOUGHTBOX_STORAGE=supabase requires SUPABASE_URL, SUPABASE_ANON_KEY, and SUPABASE_JWT_SECRET"
+        "THOUGHTBOX_STORAGE=supabase requires SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY"
       );
     }
 
     console.error("[Storage] Using Supabase per-session storage factory");
 
-    // For Supabase, we return a factory that spins up scoped instances synchronously
     const factory: StorageFactory = {
       getStorage: (workspaceId?: string) => {
         if (!workspaceId) throw new Error('workspaceId is required for Supabase storage');
-        return new SupabaseStorage({ supabaseUrl, supabaseKey, jwtSecret, workspaceId });
+        return new SupabaseStorage({ supabaseUrl, serviceRoleKey, workspaceId });
       },
       getKnowledgeStorage: (workspaceId?: string) => {
         if (!workspaceId) throw new Error('workspaceId is required for Supabase knowledge storage');
-        return new SupabaseKnowledgeStorage({ supabaseUrl, supabaseKey, jwtSecret, workspaceId });
+        return new SupabaseKnowledgeStorage({ supabaseUrl, serviceRoleKey, workspaceId });
       }
     };
 
@@ -196,18 +194,23 @@ async function startHttpServer() {
 
     console.error(`[MCP] ${req.method} request, session: ${mcpSessionId || 'new'}`);
 
-    // Dynamic API Key / Workspace resolution
+    // API key auth (ADR-AUTH-02): check ?key= query param or Authorization: Bearer <key>
     let workspaceId: string | undefined = undefined;
     const authHeader = req.headers.authorization as string | undefined;
     const headerKey = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : undefined;
     const queryKey = req.query.key as string | undefined;
     const providedKey = headerKey || queryKey;
+    const staticApiKey = process.env.THOUGHTBOX_API_KEY;
 
     if (providedKey) {
-      if (providedKey === process.env.THOUGHTBOX_API_KEY_LOCAL) {
-        // Bypass for local development if the master key is used
+      if (staticApiKey && providedKey === staticApiKey) {
+        // Static API key match (ADR-AUTH-02)
+        workspaceId = 'default-workspace';
+      } else if (providedKey === process.env.THOUGHTBOX_API_KEY_LOCAL) {
+        // Bypass for local development
         workspaceId = 'local-dev-workspace';
-      } else {
+      } else if (providedKey.startsWith('tbx_')) {
+        // Prefixed key — resolve via api_keys table
         try {
           workspaceId = await resolveApiKeyToWorkspace(providedKey);
         } catch (err) {
@@ -218,6 +221,13 @@ async function startHttpServer() {
           });
           return;
         }
+      } else {
+        res.status(401).json({
+          jsonrpc: "2.0",
+          error: { code: -32001, message: "Invalid API key" },
+          id: null,
+        });
+        return;
       }
     } else if (process.env.THOUGHTBOX_STORAGE === 'supabase') {
        // Require key for hosted environment

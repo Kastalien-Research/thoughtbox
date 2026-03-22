@@ -93,8 +93,7 @@ export async function truncateAllTables(
 export function getTestSupabaseConfig() {
   return {
     supabaseUrl: SUPABASE_TEST_URL,
-    supabaseKey: SUPABASE_TEST_SERVICE_ROLE_KEY,
-    jwtSecret: SUPABASE_TEST_JWT_SECRET,
+    serviceRoleKey: SUPABASE_TEST_SERVICE_ROLE_KEY,
   };
 }
 

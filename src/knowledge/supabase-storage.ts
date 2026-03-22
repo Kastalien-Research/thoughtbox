@@ -8,7 +8,6 @@
 
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '../database.types.js';
-import jwt from 'jsonwebtoken';
 import { randomUUID } from 'node:crypto';
 import type {
   KnowledgeStorage,
@@ -28,26 +27,21 @@ import type {
 
 export interface SupabaseKnowledgeStorageConfig {
   supabaseUrl: string;
-  supabaseKey: string;
-  jwtSecret: string;
+  /** Service role key — used as both the client API key and auth token. Bypasses RLS. */
+  serviceRoleKey: string;
   /** The workspace ID this knowledge storage instance is strictly scoped to. */
   workspaceId: string;
 }
 
 export class SupabaseKnowledgeStorage implements KnowledgeStorage {
   private supabaseUrl: string;
-  private supabaseKey: string;
-  private jwtSecret: string;
+  private serviceRoleKey: string;
   private workspaceId: string;
   private client: SupabaseClient<Database> | null = null;
-  private tokenExpiresAt = 0;
-  private static TOKEN_TTL = 3600;
-  private static TOKEN_REFRESH_MARGIN = 300;
 
   constructor(config: SupabaseKnowledgeStorageConfig) {
     this.supabaseUrl = config.supabaseUrl;
-    this.supabaseKey = config.supabaseKey;
-    this.jwtSecret = config.jwtSecret;
+    this.serviceRoleKey = config.serviceRoleKey;
     this.workspaceId = config.workspaceId;
   }
 
@@ -59,41 +53,16 @@ export class SupabaseKnowledgeStorage implements KnowledgeStorage {
     // Project scoping is deprecated in favor of strict workspaceId scoping at instantiation.
   }
 
-  private refreshClient(): void {
-
-    // Mint a custom JWT with workspace claim
-    const now = Math.floor(Date.now() / 1000);
-    const exp = now + SupabaseKnowledgeStorage.TOKEN_TTL;
-
-    const token = jwt.sign(
-      {
-        role: 'authenticated',
-        workspace_id: this.workspaceId,
-        iss: 'supabase-demo',
-        exp,
-      },
-      this.jwtSecret,
-    );
-
-    this.client = createClient(this.supabaseUrl, this.supabaseKey, {
-      auth: { persistSession: false, autoRefreshToken: false },
-      global: {
-        headers: { Authorization: `Bearer ${token}` },
-      },
-    });
-
-    this.tokenExpiresAt = exp;
-  }
-
   private ensureClient(): SupabaseClient<Database> {
     if (!this.workspaceId) {
       throw new Error('Workspace scope not established.');
     }
-    const now = Math.floor(Date.now() / 1000);
-    if (!this.client || now >= this.tokenExpiresAt - SupabaseKnowledgeStorage.TOKEN_REFRESH_MARGIN) {
-      this.refreshClient();
+    if (!this.client) {
+      this.client = createClient<Database>(this.supabaseUrl, this.serviceRoleKey, {
+        auth: { persistSession: false, autoRefreshToken: false },
+      });
     }
-    return this.client!;
+    return this.client;
   }
 
   // ===========================================================================

@@ -40,15 +40,10 @@ spec:
                 secretKeyRef:
                   name: supabase-url
                   key: latest
-            - name: SUPABASE_ANON_KEY
+            - name: SUPABASE_SERVICE_ROLE_KEY
               valueFrom:
                 secretKeyRef:
-                  name: supabase-anon-key
-                  key: latest
-            - name: SUPABASE_JWT_SECRET
-              valueFrom:
-                secretKeyRef:
-                  name: supabase-jwt-secret
+                  name: supabase-service-role-key
                   key: latest
             - name: THOUGHTBOX_STORAGE
               value: supabase

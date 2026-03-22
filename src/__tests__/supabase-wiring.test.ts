@@ -18,8 +18,7 @@ describe('H6: createStorage() wiring', () => {
   it('SupabaseStorage implements ThoughtboxStorage interface', () => {
     const storage = new SupabaseStorage({
       supabaseUrl: 'http://localhost:54321',
-      supabaseKey: 'test-key',
-      jwtSecret: 'test-secret',
+      serviceRoleKey: 'test-key',
       workspaceId: 'test-workspace',
     });
 
@@ -51,8 +50,7 @@ describe('H6: createStorage() wiring', () => {
   it('SupabaseKnowledgeStorage implements KnowledgeStorage interface', () => {
     const storage = new SupabaseKnowledgeStorage({
       supabaseUrl: 'http://localhost:54321',
-      supabaseKey: 'test-key',
-      jwtSecret: 'test-secret',
+      serviceRoleKey: 'test-key',
       workspaceId: 'test-workspace',
     });
 
