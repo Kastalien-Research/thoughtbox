@@ -38,8 +38,7 @@ import { resolveApiKeyToWorkspace } from "./auth/api-key.js";
  *
  * THOUGHTBOX_DATA_DIR -> Custom data directory (default: ~/.thoughtbox)
  *
- * Project scope is set at runtime by the progressive disclosure flow
- * (bind_root / start_new), not at startup.
+ * Project scope is set via MCP roots or THOUGHTBOX_PROJECT env var.
  */
 interface StorageFactory {
   getStorage: (workspaceId?: string) => ThoughtboxStorage;

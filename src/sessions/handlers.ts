@@ -140,9 +140,40 @@ export class SessionHandlers {
     thoughtCount: number;
     lastThought: ThoughtData | null;
     message: string;
+    restoration?: {
+      thoughtCount: number;
+      currentThoughtNumber: number;
+      branchCount: number;
+      nextThoughtNumber: number;
+    };
   }> {
     // Load session into ThoughtHandler
     await this.thoughtHandler.loadSession(args.sessionId);
+
+    // SIL-103: Restore handler state (thoughtHistory, branches, currentSessionId)
+    let restoration: {
+      thoughtCount: number;
+      currentThoughtNumber: number;
+      branchCount: number;
+      nextThoughtNumber: number;
+    } | undefined;
+
+    try {
+      const restored = await this.thoughtHandler.restoreFromSession(
+        args.sessionId
+      );
+      restoration = {
+        thoughtCount: restored.thoughtCount,
+        currentThoughtNumber: restored.currentThoughtNumber,
+        branchCount: restored.branchCount,
+        nextThoughtNumber: restored.currentThoughtNumber + 1,
+      };
+    } catch (err) {
+      console.warn(
+        `[SIL-103] Session restoration failed for ${args.sessionId}:`,
+        (err as Error).message
+      );
+    }
 
     // Get session details for response
     const session = await this.storage.getSession(args.sessionId);
@@ -151,7 +182,12 @@ export class SessionHandlers {
     }
 
     const thoughts = await this.storage.getThoughts(args.sessionId);
-    const lastThought = thoughts.length > 0 ? thoughts[thoughts.length - 1] : null;
+    const lastThought =
+      thoughts.length > 0 ? thoughts[thoughts.length - 1] : null;
+
+    const nextThought = restoration
+      ? restoration.nextThoughtNumber
+      : thoughts.length + 1;
 
     return {
       success: true,
@@ -159,7 +195,8 @@ export class SessionHandlers {
       session,
       thoughtCount: thoughts.length,
       lastThought,
-      message: `Session resumed. Continue reasoning from thought ${thoughts.length + 1}. Use thoughtbox tool with thoughtNumber: ${thoughts.length + 1} to continue.`,
+      message: `Session resumed. Continue reasoning from thought ${nextThought}. Use thoughtbox tool with thoughtNumber: ${nextThought} to continue.`,
+      ...(restoration && { restoration }),
     };
   }
 

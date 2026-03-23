@@ -13,15 +13,14 @@ export const SERVER_ARCHITECTURE_GUIDE = `<!-- srcbook:{"language":"typescript",
 
 ## Introduction
 
-Thoughtbox is an MCP (Model Context Protocol) server that provides cognitive enhancement tools for LLM agents. It exposes several capabilities through a progressive disclosure system:
+Thoughtbox is an MCP (Model Context Protocol) server that provides cognitive enhancement tools for LLM agents. All tools are available immediately at connection start. No staged unlocking is required.
 
-1. **init** - Session initialization and context management (Stage 0)
-2. **thoughtbox_gateway** - Always-enabled router for all operations (Stage 0)
-3. **thoughtbox_cipher** - Deep thinking primer that unlocks advanced tools (Stage 1)
-4. **session** - Session management and persistence (Stage 1)
-5. **thoughtbox** - Sequential thinking with 7 core reasoning patterns + autonomous critique (Stage 2)
-6. **notebook** - Literate programming toolhost for executable documentation (Stage 2)
-7. **mental_models** - Mental model application and analysis (Stage 3)
+1. **thoughtbox_gateway** - Always-available router for all operations
+2. **thoughtbox_cipher** - Deep thinking primer
+3. **session** - Session management and persistence
+4. **thoughtbox** - Sequential thinking with 7 core reasoning patterns + autonomous critique
+5. **notebook** - Literate programming toolhost for executable documentation
+6. **mental_models** - Mental model application and analysis
 
 This notebook explores the architecture, implementation patterns, and design decisions behind the Thoughtbox server.
 
@@ -36,7 +35,7 @@ Thoughtbox leverages all three MCP primitives to create a powerful thinking envi
 
 ## Architecture Overview
 
-The server consists of several interconnected components with progressive disclosure:
+The server consists of several interconnected components:
 
 \`\`\`
 ┌────────────────────────────────────────────────────────────────────┐
@@ -49,8 +48,8 @@ The server consists of several interconnected components with progressive disclo
 │  └──────────────────────────────────────────────────────────────┘ │
 │                              ↓                                     │
 │  ┌──────────────────────────────────────────────────────────────┐ │
-│  │   Gateway (always-on) + ToolRegistry + DiscoveryRegistry     │ │
-│  │   STAGE_0 → STAGE_1 → STAGE_2 → STAGE_3                      │ │
+│  │   Gateway (always-on) + ToolRegistry                         │ │
+│  │   All tools available immediately                             │ │
 │  └──────────────────────────────────────────────────────────────┘ │
 │       ↓           ↓            ↓            ↓           ↓         │
 │  ┌────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐  │
@@ -66,69 +65,41 @@ The server consists of several interconnected components with progressive disclo
 
 ### Key Design Patterns
 
-1. **Gateway Pattern**: Single always-enabled tool that routes to all handlers (bypasses tool list refresh issues)
+1. **Gateway Pattern**: Single always-enabled tool that routes to all handlers
 2. **Toolhost Pattern**: Single \`notebook\` tool with operation dispatch vs 10 separate tools
-3. **Progressive Disclosure**: Tools unlock in 4 stages (init → cipher → reasoning → domain tools)
-4. **Resource Embedding**: Responses include contextual documentation as embedded resources
-5. **Streamable HTTP**: Single transport via Express with per-session server instances
-6. **Lazy Initialization**: Resources created on-demand, not at startup
-7. **Autonomous Critique**: Optional LLM sampling for thought analysis via MCP sampling API
-8. **Persistent Sessions**: File-based storage with atomic writes and project isolation
+3. **Resource Embedding**: Responses include contextual documentation as embedded resources
+4. **Streamable HTTP**: Single transport via Express with per-session server instances
+5. **Lazy Initialization**: Resources created on-demand, not at startup
+6. **Autonomous Critique**: Optional LLM sampling for thought analysis via MCP sampling API
+7. **Persistent Sessions**: File-based storage with atomic writes and project isolation
 
 ## Gateway Tool Pattern
 
-The gateway tool (\`thoughtbox_gateway\`) is an always-enabled router that solves a critical problem with streaming HTTP clients and other MCP clients that don't properly refresh their tool lists.
-
-### The Problem
-
-When progressive disclosure enables new tools, clients must call \`tools/list\` again to see them. Many clients (especially streaming HTTP) don't handle \`tools/list_changed\` notifications properly, leaving tools invisible.
-
-### The Solution
-
-The gateway tool is enabled at Stage 0 and routes to ALL other handlers:
-
-\`\`\`typescript
-// gateway-handler.ts:58-73
-const OPERATION_REQUIRED_STAGE: Record<GatewayToolInput['operation'], DisclosureStage> = {
-  // Stage 0 operations - always available
-  get_state: DisclosureStage.STAGE_0_ENTRY,
-  list_sessions: DisclosureStage.STAGE_0_ENTRY,
-  load_context: DisclosureStage.STAGE_0_ENTRY,
-  start_new: DisclosureStage.STAGE_0_ENTRY,
-  // Stage 1 operations
-  cipher: DisclosureStage.STAGE_1_INIT_COMPLETE,
-  session: DisclosureStage.STAGE_1_INIT_COMPLETE,
-  // Stage 2 operations
-  thought: DisclosureStage.STAGE_2_CIPHER_LOADED,
-  notebook: DisclosureStage.STAGE_2_CIPHER_LOADED,
-};
-\`\`\`
+The gateway tool (\`thoughtbox_gateway\`) is an always-available router that dispatches to all other handlers through a single tool interface. All operations are available immediately at connection start. No staged unlocking is required.
 
 ### Gateway Operations
 
-| Operation | Stage Required | Advances To | Description |
-|-----------|---------------|-------------|-------------|
-| \`get_state\` | 0 | - | Get current session state |
-| \`list_sessions\` | 0 | - | List available sessions |
-| \`navigate\` | 0 | - | Navigate session hierarchy |
-| \`load_context\` | 0 | 1 | Load existing session |
-| \`start_new\` | 0 | 1 | Start new reasoning session |
-| \`list_roots\` | 0 | - | List MCP roots |
-| \`bind_root\` | 0 | - | Bind a root as project scope |
-| \`cipher\` | 1 | 2 | Load notation system |
-| \`session\` | 1 | - | Session management operations |
-| \`thought\` | 2 | - | Structured reasoning |
-| \`notebook\` | 2 | - | Literate programming |
+| Operation | Description |
+|-----------|-------------|
+| \`get_state\` | Get current session state |
+| \`list_sessions\` | List available sessions |
+| \`navigate\` | Navigate session hierarchy |
+| \`load_context\` | Load existing session |
+| \`start_new\` | Start new reasoning session |
+| \`list_roots\` | List MCP roots |
+| \`bind_root\` | Bind a root as project scope |
+| \`cipher\` | Load notation system |
+| \`session\` | Session management operations |
+| \`thought\` | Structured reasoning |
+| \`notebook\` | Literate programming |
 
 ### When to Use Gateway vs Direct Tools
 
 Use **gateway** when:
-- Client doesn't refresh tool lists properly
-- Using streaming HTTP transport
 - You want a single consistent interface
+- Using streaming HTTP transport
 
 Use **direct tools** when:
-- Client handles \`tools/list_changed\` correctly
 - You want cleaner tool discovery
 
 ###### gateway-usage.ts
@@ -165,176 +136,9 @@ console.log('Gateway approach:', JSON.stringify(viaGateway, null, 2));
 console.log('Direct approach:', JSON.stringify(viaDirect, null, 2));
 \`\`\`
 
-## Progressive Disclosure 4-Stage System
-
-Tools are revealed progressively based on workflow stages. This prevents overwhelming agents with all tools at once and guides them through the proper initialization sequence.
-
-### Stage Definitions
-
-\`\`\`typescript
-// tool-registry.ts:20-25
-export enum DisclosureStage {
-  STAGE_0_ENTRY = "entry",           // Connection start
-  STAGE_1_INIT_COMPLETE = "init_complete",  // After init
-  STAGE_2_CIPHER_LOADED = "cipher_loaded",  // After cipher
-  STAGE_3_DOMAIN_ACTIVE = "domain_active",  // Domain selected
-}
-\`\`\`
-
-### Tool Visibility by Stage
-
-| Stage | Tools Enabled | Trigger |
-|-------|---------------|---------|
-| **Stage 0** | \`init\`, \`thoughtbox_gateway\` | Connection start |
-| **Stage 1** | + \`thoughtbox_cipher\`, \`session\` | \`init(start_new)\` or \`init(load_context)\` |
-| **Stage 2** | + \`thoughtbox\`, \`notebook\` | \`thoughtbox_cipher\` call |
-| **Stage 3** | + \`mental_models\` (domain-filtered) | Domain selection in init |
-
-### Stage Advancement
-
-Stage advances are triggered by specific operations:
-
-\`\`\`typescript
-// gateway-handler.ts:78-90
-const OPERATION_ADVANCES_TO: Record<GatewayToolInput['operation'], DisclosureStage | null> = {
-  get_state: null,
-  load_context: DisclosureStage.STAGE_1_INIT_COMPLETE,
-  start_new: DisclosureStage.STAGE_1_INIT_COMPLETE,
-  cipher: DisclosureStage.STAGE_2_CIPHER_LOADED,
-  // ... other operations don't advance stage
-};
-\`\`\`
-
-After advancing, the server calls \`sendToolListChanged()\` to notify clients:
-
-\`\`\`typescript
-// After stage advancement
-if (advancesTo) {
-  this.toolRegistry.advanceToStage(advancesTo);
-  if (this.sendToolListChanged) {
-    this.sendToolListChanged();  // Notify clients
-  }
-}
-\`\`\`
-
-### ToolRegistry Implementation
-
-\`\`\`typescript
-// tool-registry.ts - Key methods
-export class ToolRegistry {
-  private tools = new Map<string, ToolEntry>();
-  private currentStage = DisclosureStage.STAGE_0_ENTRY;
-  private activeDomain: string | null = null;
-
-  register(name, tool, enabledAtStage, descriptions, domainFilter?) {
-    this.tools.set(name, { tool, enabledAtStage, domainFilter, descriptions });
-
-    // Only stage 0 tools start enabled
-    if (enabledAtStage !== DisclosureStage.STAGE_0_ENTRY) {
-      tool.disable();
-    }
-  }
-
-  advanceToStage(stage, domain?) {
-    this.currentStage = stage;
-    if (domain) this.activeDomain = domain;
-
-    // Update all tools based on new stage
-    for (const [name, entry] of this.tools) {
-      const shouldEnable = this.shouldToolBeEnabled(entry);
-      if (shouldEnable) {
-        entry.tool.enable();
-      } else {
-        entry.tool.disable();
-      }
-    }
-  }
-}
-\`\`\`
-
-## Discovery Registry (SPEC-009)
-
-Extends progressive disclosure with operation-based tool discovery. When agents call specific operations on "hub" tools, specialized tools become visible.
-
-### How Discovery Works
-
-\`\`\`typescript
-// discovery-registry.ts:82-120
-export class DiscoveryRegistry {
-  private triggers = new Map<string, DiscoveryTrigger[]>();
-  private discoverableTools = new Map<string, DiscoverableTool>();
-  private discoveredTools = new Set<string>();
-
-  /**
-   * Called when a hub tool operation executes
-   */
-  onOperationCalled(hubTool, operation, args?) {
-    const triggers = this.triggers.get(\`\${hubTool}:\${operation}\`) || [];
-    const newlyDiscovered = [];
-
-    for (const trigger of triggers) {
-      // Check stage constraint
-      if (trigger.requiredStage && !this.stageAllows(trigger.requiredStage)) {
-        continue;
-      }
-
-      // Enable each unlocked tool
-      for (const toolName of trigger.unlocksTools) {
-        if (!this.discoveredTools.has(toolName)) {
-          discoverable.tool.enable();
-          this.discoveredTools.add(toolName);
-          newlyDiscovered.push(toolName);
-        }
-      }
-    }
-
-    return newlyDiscovered.length > 0
-      ? { newlyDiscovered, message: \`Tools unlocked: \${newlyDiscovered.join(', ')}\` }
-      : null;
-  }
-}
-\`\`\`
-
-### Discovery Triggers Example
-
-\`\`\`typescript
-// Example: Calling session("analyze") unlocks analysis tools
-const trigger: DiscoveryTrigger = {
-  hubTool: 'session',
-  operation: 'analyze',
-  unlocksTools: ['extract_learnings', 'session_metrics'],
-  description: 'Analysis tools for reasoning sessions',
-  requiredStage: DisclosureStage.STAGE_2_CIPHER_LOADED,
-};
-\`\`\`
-
-### Auto-Hide Feature
-
-Discovered tools can auto-hide after inactivity:
-
-\`\`\`typescript
-// Tools auto-hide after 5 minutes of non-use
-discoveryRegistry.registerDiscoverableTool(
-  'extract_learnings',
-  tool,
-  discoveredBy,
-  descriptions,
-  5 * 60 * 1000  // autoHideAfterMs
-);
-\`\`\`
-
 ## State Management
 
-The StateManager tracks session state for each MCP connection, separate from progressive disclosure stages.
-
-### Two State Systems
-
-| System | Location | Purpose |
-|--------|----------|---------|
-| **DisclosureStage** | \`tool-registry.ts\` | Tool visibility control |
-| **ConnectionStage** | \`state-manager.ts\` | Session initialization state |
-
-These serve different purposes and don't map 1:1:
+The StateManager tracks session state for each MCP connection.
 
 \`\`\`typescript
 // state-manager.ts:15-19
@@ -755,27 +559,23 @@ This means every tool response includes just-in-time documentation about what wa
 
 ## Key Takeaways
 
-### 1. Gateway Solves Client Compatibility
+### 1. Gateway Provides a Single Entry Point
 
-The gateway tool ensures all clients can access all functionality, regardless of how they handle tool list updates. It's especially important for streaming HTTP clients.
+The gateway tool ensures all clients can access all functionality through a single consistent interface. All tools are available immediately at connection start.
 
-### 2. Progressive Disclosure Guides Workflow
+### 2. ConnectionStage Tracks Session Initialization
 
-The 4-stage system prevents tool overwhelm and ensures proper initialization. Agents must walk through the stages: init → cipher → reasoning.
+ConnectionStage tracks where a session is in its lifecycle (uninitialized, started, fully loaded). This is separate from tool availability.
 
-### 3. Two State Systems Serve Different Purposes
-
-DisclosureStage controls tool visibility; ConnectionStage tracks session initialization. They work together but don't map 1:1.
-
-### 4. LinkedThoughtStore Enables Efficient Queries
+### 3. LinkedThoughtStore Enables Efficient Queries
 
 The doubly-linked list with Map indexes provides O(1) lookups while maintaining chain structure for branching and revisions.
 
-### 5. Observatory Enables Real-Time Monitoring
+### 4. Observatory Enables Real-Time Monitoring
 
 Fire-and-forget event emission with channel-based WebSocket delivery lets external tools observe reasoning without affecting it.
 
-### 6. MCP Enables Structured Cognition
+### 5. MCP Enables Structured Cognition
 
 The Model Context Protocol isn't just about API calls - it's about giving LLMs structured ways to think, document, and organize knowledge.
 
@@ -786,8 +586,7 @@ The Model Context Protocol isn't just about API calls - it's about giving LLMs s
 | File | Purpose |
 |------|---------|
 | \`src/gateway/gateway-handler.ts\` | Gateway tool implementation |
-| \`src/tool-registry.ts\` | Progressive disclosure stages |
-| \`src/discovery-registry.ts\` | Operation-based tool discovery |
+| \`src/tool-registry.ts\` | Tool registration |
 | \`src/init/state-manager.ts\` | Session state tracking |
 | \`src/persistence/storage.ts\` | Storage and LinkedThoughtStore |
 | \`src/observatory/index.ts\` | Real-time monitoring |
@@ -795,4 +594,4 @@ The Model Context Protocol isn't just about API calls - it's about giving LLMs s
 
 ## Conclusion
 
-The Thoughtbox MCP server showcases modern patterns for building AI-native tools. The gateway pattern, progressive disclosure, and operation-based discovery create a flexible system that works across different client types while guiding agents through proper workflows.`;
+The Thoughtbox MCP server showcases modern patterns for building AI-native tools. The gateway pattern, toolhost dispatch, and resource embedding create a flexible system that works across different client types.`;

@@ -24,7 +24,7 @@ export const SESSION_TOOL: Tool = {
     properties: {
       operation: {
         type: "string",
-        enum: ["session_list", "session_get", "session_search", "session_resume", "session_export", "session_analyze", "session_extract_learnings", "session_discovery"],
+        enum: ["session_list", "session_get", "session_search", "session_resume", "session_export", "session_analyze", "session_extract_learnings"],
         description: "The session operation to execute",
       },
       args: {
@@ -222,30 +222,6 @@ export const SESSION_OPERATIONS: OperationDefinition[] = [
       targetTypes: ["pattern", "signal"],
     },
   },
-  {
-    name: "session_discovery",
-    title: "Manage Discovered Tools",
-    description: "Manage operation-based tool discovery (SPEC-009). List discovered tools, hide tools you no longer need, or re-show hidden tools.",
-    category: "tool-management",
-    inputSchema: {
-      type: "object",
-      properties: {
-        action: {
-          type: "string",
-          enum: ["list", "hide", "show"],
-          description: "Action to perform: 'list' shows all discovered tools, 'hide' hides a tool, 'show' re-enables a hidden tool",
-        },
-        toolName: {
-          type: "string",
-          description: "Name of the tool to hide or show (required for hide/show actions)",
-        },
-      },
-      required: ["action"],
-    },
-    example: {
-      action: "list",
-    },
-  },
 ];
 
 /**
@@ -289,10 +265,6 @@ export function getOperationsCatalog(): string {
         {
           name: "session-analysis",
           description: "Analyze session structure and extract learnings for DGM evolution",
-        },
-        {
-          name: "tool-management",
-          description: "Manage operation-based tool discovery (SPEC-009)",
         },
       ],
     },

@@ -16,17 +16,6 @@ export interface OperationDefinition {
 
 export const INIT_OPERATIONS: OperationDefinition[] = [
   {
-    name: "get_state",
-    title: "Get State",
-    description: "Get current navigation state and available actions. Shows connection stage, active project/task/aspect, and suggested next steps.",
-    category: "navigation",
-    inputSchema: {
-      type: "object",
-      properties: {},
-    },
-    example: {},
-  },
-  {
     name: "list_sessions",
     title: "List Sessions",
     description: "List previous reasoning sessions with optional filtering by project, task, aspect, or search text. Returns session metadata including title, thought count, and timestamps.",
@@ -63,38 +52,6 @@ export const INIT_OPERATIONS: OperationDefinition[] = [
     },
     example: {
       filters: { project: "thoughtbox", limit: 10 },
-    },
-  },
-  {
-    name: "navigate",
-    title: "Navigate",
-    description: "Navigate to a specific project/task/aspect in the hierarchy. Shows related sessions and available sub-levels.",
-    category: "navigation",
-    inputSchema: {
-      type: "object",
-      properties: {
-        target: {
-          type: "object",
-          properties: {
-            project: {
-              type: "string",
-              description: "Project name to navigate to",
-            },
-            task: {
-              type: "string",
-              description: "Task name within the project",
-            },
-            aspect: {
-              type: "string",
-              description: "Aspect within the task",
-            },
-          },
-        },
-      },
-      required: ["target"],
-    },
-    example: {
-      target: { project: "thoughtbox", task: "hub" },
     },
   },
   {
@@ -148,36 +105,6 @@ export const INIT_OPERATIONS: OperationDefinition[] = [
       aspect: "implementation",
     },
   },
-  {
-    name: "list_roots",
-    title: "List MCP Roots",
-    description: "Query available MCP roots from the connected client (SPEC-011). Shows which roots can be bound as project scope. Not all clients support roots.",
-    category: "roots",
-    inputSchema: {
-      type: "object",
-      properties: {},
-    },
-    example: {},
-  },
-  {
-    name: "bind_root",
-    title: "Bind Root",
-    description: "Bind an MCP root directory as the project scope (SPEC-011). Once bound, start_new will use the root name as the project automatically.",
-    category: "roots",
-    inputSchema: {
-      type: "object",
-      properties: {
-        rootUri: {
-          type: "string",
-          description: "URI of the MCP root to bind (e.g., 'file:///path/to/project')",
-        },
-      },
-      required: ["rootUri"],
-    },
-    example: {
-      rootUri: "file:///Users/dev/my-project",
-    },
-  },
 ];
 
 /**
@@ -217,10 +144,6 @@ export function getOperationsCatalog(): string {
         {
           name: "session-setup",
           description: "Load existing sessions or start new work",
-        },
-        {
-          name: "roots",
-          description: "MCP roots for project scoping (SPEC-011)",
         },
       ],
     },

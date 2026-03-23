@@ -52,8 +52,8 @@ describe('thoughtbox_operations — list', () => {
 
 describe('thoughtbox_operations — get', () => {
   it('returns full schema for a known operation', () => {
-    const result = handleGet('get_state') as any;
-    expect(result.name).toBe('get_state');
+    const result = handleGet('list_sessions') as any;
+    expect(result.name).toBe('list_sessions');
     expect(result.module).toBe('init');
     expect(result.inputSchema).toBeDefined();
     expect(result.inputSchema.properties).toBeDefined();
@@ -107,9 +107,9 @@ describe('thoughtbox_operations — dispatch', () => {
   it('dispatches get operation', () => {
     const result = handleOperationsTool({
       operation: 'get',
-      args: { name: 'get_state' },
+      args: { name: 'list_sessions' },
     }) as any;
-    expect(result.name).toBe('get_state');
+    expect(result.name).toBe('list_sessions');
   });
 
   it('returns error when get is called without name', () => {
