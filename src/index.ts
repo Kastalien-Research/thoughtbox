@@ -29,6 +29,7 @@ import { createFileSystemHubStorage } from "./hub/hub-storage-fs.js";
 import type { HubStorage } from "./hub/hub-types.js";
 import { initEvaluation, initMonitoring } from "./evaluation/index.js";
 import { resolveApiKeyToWorkspace } from "./auth/api-key.js";
+import { createHubHandler, type HubEvent } from "./hub/hub-handler.js";
 
 /**
  * Get the storage backend based on environment configuration.
@@ -316,6 +317,110 @@ async function startHttpServer() {
       server: { name: "thoughtbox-server", version: "1.2.2" },
     })
   );
+
+  // ---------------------------------------------------------------------------
+  // Hub Event SSE Endpoint — pushes HubEvents to Channel subscribers
+  // ---------------------------------------------------------------------------
+
+  interface SseClient {
+    res: Response;
+    workspaceId: string;
+  }
+
+  const sseClients = new Set<SseClient>();
+
+  function broadcastHubEvent(event: HubEvent): void {
+    const payload = `data: ${JSON.stringify(event)}\n\n`;
+    for (const client of sseClients) {
+      if (client.workspaceId === event.workspaceId || client.workspaceId === "*") {
+        try {
+          client.res.write(payload);
+        } catch {
+          sseClients.delete(client);
+        }
+      }
+    }
+  }
+
+  // Minimal thought store for the shared hub-handler (hub operations that
+  // create sessions/thoughts use this; most Channel operations don't need it)
+  const sharedThoughtStore = {
+    sessions: new Map<string, Map<number, unknown>>(),
+    async createSession(sessionId: string) {
+      this.sessions.set(sessionId, new Map());
+    },
+    async saveThought(sessionId: string, thought: any) {
+      if (!this.sessions.has(sessionId)) this.sessions.set(sessionId, new Map());
+      this.sessions.get(sessionId)!.set(thought.thoughtNumber, thought);
+    },
+    async getThought(sessionId: string, thoughtNumber: number) {
+      return this.sessions.get(sessionId)?.get(thoughtNumber) ?? null;
+    },
+    async getThoughts(sessionId: string) {
+      const session = this.sessions.get(sessionId);
+      if (!session) return [];
+      return [...session.values()];
+    },
+    async getThoughtCount(sessionId: string) {
+      return this.sessions.get(sessionId)?.size ?? 0;
+    },
+    async saveBranchThought(_sessionId: string, _branchId: string, _thought: any) {},
+    async getBranch(_sessionId: string, _branchId: string) { return []; },
+  };
+
+  const sharedHubHandler = createHubHandler(
+    hubStorage,
+    sharedThoughtStore,
+    broadcastHubEvent,
+  );
+
+  app.get("/hub/events", (req: Request, res: Response) => {
+    const workspaceId = (req.query.workspace_id as string) || "*";
+
+    res.writeHead(200, {
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache",
+      Connection: "keep-alive",
+    });
+    res.write(": connected\n\n");
+
+    const client: SseClient = { res, workspaceId };
+    sseClients.add(client);
+
+    req.on("close", () => {
+      sseClients.delete(client);
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // Hub API Endpoint — direct Hub operations for Channel reply tools
+  // ---------------------------------------------------------------------------
+
+  app.post("/hub/api", async (req: Request, res: Response) => {
+    try {
+      const { operation, agentId, ...args } = req.body as {
+        operation: string;
+        agentId?: string;
+        [key: string]: unknown;
+      };
+
+      if (!operation) {
+        res.status(400).json({ error: "operation is required" });
+        return;
+      }
+
+      const result = await sharedHubHandler.handle(
+        agentId ?? null,
+        operation,
+        args as Record<string, any>,
+      );
+
+      res.json(result);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      res.status(400).json({ error: message });
+    }
+  });
 
   const port = parseInt(process.env.PORT || "1731", 10);
   const httpServer = app.listen(port, () => {
