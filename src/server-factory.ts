@@ -1,11 +1,7 @@
 import { McpServer, ResourceTemplate } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { ListResourcesRequestSchema, ListResourceTemplatesRequestSchema, type CallToolResult } from "@modelcontextprotocol/sdk/types.js";
+import { ListResourcesRequestSchema, ListResourceTemplatesRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod"; // hypothesis test 3
 import type { HubStorage } from "./hub/hub-types.js";
-import { createHubToolHandler, type HubToolHandler } from "./hub/hub-tool-handler.js";
-import { HubToolInputSchema } from "./hub/hub-tool-schema.js";
-import { thoughtEmitter } from "./observatory/emitter.js";
-import { createThoughtStoreAdapter } from "./hub/thought-store-adapter.js";
 import { FileSystemTaskStore } from "./hub/hub-task-store.js";
 import { InMemoryTaskStore, InMemoryTaskMessageQueue } from "@modelcontextprotocol/sdk/experimental/tasks/stores/in-memory.js";
 import { PATTERNS_COOKBOOK } from "./resources/patterns-cookbook-content.js";
@@ -55,14 +51,12 @@ import { ThoughtboxEventEmitter } from "./events/index.js";
 import { SamplingHandler } from "./sampling/index.js";
 import { ThoughtQueryHandler } from "./resources/thought-query-handler.js";
 
-import { KNOWLEDGE_TOOL, KnowledgeTool } from "./knowledge/tool.js";
-import { SESSION_TOOL, SessionTool } from "./sessions/tool.js";
-import { THOUGHT_TOOL, ThoughtTool } from "./thought/tool.js";
-import { NOTEBOOK_TOOL, NotebookTool } from "./notebook/tool.js";
+import { KnowledgeTool } from "./knowledge/tool.js";
+import { SessionTool } from "./sessions/tool.js";
+import { ThoughtTool } from "./thought/tool.js";
+import { NotebookTool } from "./notebook/tool.js";
 import {
-  THESEUS_TOOL,
   TheseusTool,
-  ULYSSES_TOOL,
   UlyssesTool,
   ProtocolHandler,
   InMemoryProtocolHandler,
@@ -70,18 +64,14 @@ import {
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import {
   ObservabilityGatewayHandler,
-  ObservabilityInputSchema,
 } from "./observability/index.js";
 import { SUBAGENT_SUMMARIZE_CONTENT } from "./resources/subagent-summarize-content.js";
 import { EVOLUTION_CHECK_CONTENT } from "./resources/evolution-check-content.js";
 import { BEHAVIORAL_TESTS } from "./resources/behavioral-tests-content.js";
 import {
-  LOOPS_CATALOG,
   getCategories,
   getLoopsInCategory,
   getLoop,
-  type Loop,
-  type LoopMetadata,
 } from "./resources/loops-content.js";
 import { ClaudeFolderIntegration } from "./claude-folder-integration.js";
 import { getOperationsCatalog as getInitOperationsCatalog, getOperation as getInitOp } from "./init/operations.js";
@@ -89,7 +79,11 @@ import { getOperationsCatalog as getSessionOperationsCatalog, getOperation as ge
 import { getOperationsCatalog as getKnowledgeOperationsCatalog, getOperation as getKnowOp } from "./knowledge/operations.js";
 import { getOperationsCatalog as getHubOperationsCatalog, getOperation as getHubOp } from "./hub/operations.js";
 import { getOperation as getNbOp } from "./notebook/operations.js";
-import { handleOperationsTool, operationsToolInputSchema } from "./operations-tool/index.js";
+import {
+  SearchTool, SEARCH_TOOL,
+  ExecuteTool, EXECUTE_TOOL,
+  buildSearchCatalog,
+} from "./code-mode/index.js";
 
 // Configuration schema
 // Note: Using .default() means the field is always present after parsing.
@@ -159,23 +153,14 @@ export async function createMcpServer(args: CreateMcpServerArgs = {}): Promise<M
   const config = configSchema.parse(args.config ?? {});
   const logger = args.logger ?? defaultLogger;
 
-  const THOUGHTBOX_INSTRUCTIONS = `Thoughtbox is a structured reasoning server. All tools are available immediately.
+  const THOUGHTBOX_INSTRUCTIONS = `Thoughtbox is a structured reasoning server using Code Mode.
 
-Tool surface:
-- \`thoughtbox_session\`: Session management — list, get, search, resume, export, analyze
-- \`thoughtbox_thought\`: Step-by-step reasoning with branching, revision, and semantic types
-- \`thoughtbox_notebook\`: Literate programming notebooks
-- \`thoughtbox_knowledge\`: Knowledge graph — entities, relations, observations
-- \`thoughtbox_theseus\`: Friction-gated refactoring protocol
-- \`thoughtbox_ulysses\`: Surprise-gated debugging protocol
-- \`thoughtbox_operations\`: Discover operation schemas for any tool
-- \`observability_gateway\`: Metrics, health, alerts (no session required)
-- \`thoughtbox_hub\`: Multi-agent collaboration (when configured)
+Two tools:
+- \`thoughtbox_search\`: Write JavaScript to query the operation/prompt/resource catalog
+- \`thoughtbox_execute\`: Write JavaScript using the \`tb\` SDK to chain operations
 
-Recommended workflow:
-1) Use \`thoughtbox_session\` to list or search existing sessions.
-2) Use \`thoughtbox_thought\` for structured reasoning chains.
-3) Use \`thoughtbox_operations\` to discover detailed schemas for any tool.`;
+Workflow: search to discover available operations, then execute code against them.
+Use \`console.log()\` for debugging — output captured in response logs.`;
 
   // Create task infrastructure if hub storage is provided
   const taskStore = args.dataDir
@@ -392,11 +377,6 @@ Recommended workflow:
     );
   };
 
-  registerTool(KNOWLEDGE_TOOL, knowledgeTool);
-  registerTool(SESSION_TOOL, sessionTool);
-  registerTool(THOUGHT_TOOL, thoughtTool);
-  registerTool(NOTEBOOK_TOOL, notebookTool);
-
   // Protocol tools (Theseus + Ulysses) — ADR-015
   // Use Supabase backend when available, fall back to in-memory
   const protocolSupabaseUrl = process.env.SUPABASE_URL;
@@ -417,174 +397,32 @@ Recommended workflow:
   const theseusTool = new TheseusTool(protocolHandler, thoughtHandler, knowledgeStorage);
   const ulyssesTool = new UlyssesTool(protocolHandler, thoughtHandler, knowledgeStorage);
 
-  registerTool(THESEUS_TOOL, theseusTool);
-  registerTool(ULYSSES_TOOL, ulyssesTool);
-
-  logger.info('Protocol tools (Theseus + Ulysses) registered');
-
-  // Operations Catalog Tool (Always-On, No Session Required)
-  const OPERATIONS_TOOL_DESCRIPTION = 'Discover available Thoughtbox operations and their schemas. Always available -- no session required.';
-
-  server.registerTool(
-    "thoughtbox_operations",
-    {
-      description: OPERATIONS_TOOL_DESCRIPTION,
-      inputSchema: operationsToolInputSchema,
-    },
-    async (toolArgs) => {
-      const result = handleOperationsTool(toolArgs);
-      return {
-        content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }],
-      };
-    }
-  );
-
-// =============================================================================
-  // Observability Gateway Tool (Always-On, No Session Required)
-  // =============================================================================
-  // Separate tool for querying observability data (metrics, health, sessions, alerts).
-
-  const OBSERVABILITY_DESCRIPTION = `Query system observability data including metrics, health status, active sessions, and alerts. No session initialization required - connect and query directly.
-
-Operations:
-- health: System and service health check
-- metrics: Instant Prometheus query (PromQL)
-- metrics_range: Range query over time
-- sessions: List active reasoning sessions
-- session_info: Get details about a specific session
-- alerts: Get active/firing Prometheus alerts
-- dashboard_url: Get Grafana dashboard URL`;
-
   const observabilityHandler = new ObservabilityGatewayHandler({
     storage,
     prometheusUrl: process.env.PROMETHEUS_URL,
     grafanaUrl: process.env.GRAFANA_URL,
   });
 
-  server.registerTool(
-    "observability_gateway",
-    {
-      description: OBSERVABILITY_DESCRIPTION,
-      inputSchema: ObservabilityInputSchema,
-    },
-    async (toolArgs: { operation: string; args?: Record<string, unknown> }) => {
-      const result = await observabilityHandler.handle(toolArgs);
-      return {
-        content: result.content.map((block) => ({
-          type: "text" as const,
-          text: block.text,
-        })),
-        isError: result.isError,
-      };
-    }
-  );
-
   // =============================================================================
-  // Hub Tool (Multi-Agent Collaboration)
+  // Code Mode Tools (replaces individual tool registrations)
   // =============================================================================
-  // Routes to hub domain layer for workspace, problem, proposal, consensus,
-  // and channel operations. Uses SDK task infrastructure for task-capable clients.
 
-  if (args.hubStorage) {
-    const thoughtStoreAdapter = createThoughtStoreAdapter(storage);
-    const hubToolHandler = createHubToolHandler({
-      hubStorage: args.hubStorage,
-      thoughtStore: thoughtStoreAdapter,
-      envAgentId: process.env.THOUGHTBOX_AGENT_ID,
-      envAgentName: process.env.THOUGHTBOX_AGENT_NAME,
-      onEvent: (event) => {
-        if (event.type === 'problem_created') {
-          server.sendResourceListChanged();
-        }
-        if (event.type === 'message_posted') {
-          server.server.sendResourceUpdated({
-            uri: `thoughtbox://hub/${event.workspaceId}/channels/${event.data.problemId}`,
-          });
-        }
-        if (event.type === 'problem_status_changed') {
-          server.server.sendResourceUpdated({
-            uri: `thoughtbox://hub/${event.workspaceId}/status`,
-          });
-        }
-        // Bridge hub events to Observatory emitter for real-time UI
-        thoughtEmitter.emitHubEvent(event);
-      },
-    });
+  const searchCatalog = buildSearchCatalog();
+  const searchTool = new SearchTool(searchCatalog);
+  const executeTool = new ExecuteTool({
+    thoughtTool,
+    sessionTool,
+    knowledgeTool,
+    notebookTool,
+    theseusTool,
+    ulyssesTool,
+    observabilityHandler,
+  });
 
-    const HUB_TOOL_DESCRIPTION = `Multi-agent collaboration hub for coordinated reasoning.
+  registerTool(SEARCH_TOOL, searchTool);
+  registerTool(EXECUTE_TOOL, executeTool);
 
-Four operation categories: identity (register, quick_join, whoami), workspace (create/join/list/status/digest), problems (create/claim/update/list with dependencies and sub-problems), and collaboration (proposals, consensus, channels).
-
-Workflow: register → create/join workspace → create problems → claim/solve → propose/review/merge.
-All parameters are top-level (not nested in an args object). See parameter descriptions for which operations use each field.`;
-
-    const hubInputSchema = HubToolInputSchema.shape;
-
-    type HubSchema = typeof hubInputSchema;
-    server.experimental.tasks.registerToolTask<HubSchema, undefined>(
-      "thoughtbox_hub",
-      {
-        description: HUB_TOOL_DESCRIPTION,
-        inputSchema: hubInputSchema,
-        execution: { taskSupport: 'optional' },
-      },
-      {
-        createTask: async (toolArgs, extra) => {
-          const task = await extra.taskStore.createTask({ ttl: 300_000 });
-          try {
-            const result = await hubToolHandler.handle(toolArgs, extra.sessionId);
-            const status = result.isError ? 'failed' : 'completed';
-            await extra.taskStore.storeTaskResult(task.taskId, status, {
-              content: result.content,
-              isError: result.isError,
-            });
-            return { task: { ...task, status } };
-          } catch (error) {
-            await extra.taskStore.storeTaskResult(task.taskId, 'failed', {
-              content: [{ type: 'text', text: `Hub operation failed: ${error}` }],
-              isError: true,
-            });
-            return { task: { ...task, status: 'failed' } };
-          }
-        },
-        getTask: async (_toolArgs, extra) => {
-          const task = await extra.taskStore.getTask(extra.taskId);
-          if (!task) {
-            const now = new Date().toISOString();
-            return { taskId: extra.taskId, status: 'failed' as const, ttl: null, createdAt: now, lastUpdatedAt: now };
-          }
-          return task;
-        },
-        getTaskResult: async (_toolArgs, extra) => {
-          const stored = await extra.taskStore.getTaskResult(extra.taskId);
-          return stored as CallToolResult;
-        },
-      }
-    );
-
-    // Register channel resource template for hub
-    server.registerResource(
-      "hub-channels",
-      new ResourceTemplate("thoughtbox://hub/{workspaceId}/channels/{problemId}", { list: undefined }),
-      {
-        description: "Problem discussion channel messages",
-        mimeType: "application/json",
-      },
-      async (uri, variables) => {
-        const workspaceId = variables.workspaceId as string;
-        const problemId = variables.problemId as string;
-
-        const channel = await args.hubStorage!.getChannel(workspaceId, problemId);
-        return {
-          contents: [{
-            uri: uri.href,
-            mimeType: "application/json",
-            text: JSON.stringify(channel?.messages ?? [], null, 2),
-          }],
-        };
-      }
-    );
-  }
+  logger.info('Code Mode tools registered (search + execute)');
 
   // Register prompts using McpServer's registerPrompt API
   server.registerPrompt(

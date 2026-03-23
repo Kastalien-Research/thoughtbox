@@ -19,6 +19,20 @@ import {
   KNOWLEDGE_OPERATIONS,
   getOperation as getKnowledgeOperation,
 } from '../knowledge/operations.js';
+import {
+  THOUGHT_OPERATIONS,
+  getOperation as getThoughtOperation,
+} from '../thought/operations.js';
+import {
+  THESEUS_OPERATIONS,
+  getTheseusOperation,
+  ULYSSES_OPERATIONS,
+  getUlyssesOperation,
+} from '../protocol/operations.js';
+import {
+  OBSERVABILITY_OPERATIONS,
+  getOperation as getObservabilityOperation,
+} from '../observability/operations.js';
 
 
 export const operationsToolInputSchema = z.object({
@@ -28,7 +42,8 @@ export const operationsToolInputSchema = z.object({
     query: z.string().optional(),
     module: z.enum([
       'init', 'session', 'notebook',
-      'hub', 'knowledge',
+      'hub', 'knowledge', 'thought',
+      'theseus', 'ulysses', 'observability',
     ]).optional(),
   }).optional(),
 });
@@ -44,7 +59,8 @@ interface OperationSummary {
 }
 
 type ModuleName = 'init' | 'session' | 'notebook'
-  | 'hub' | 'knowledge';
+  | 'hub' | 'knowledge' | 'thought'
+  | 'theseus' | 'ulysses' | 'observability';
 
 interface ModuleCatalog {
   module: ModuleName;
@@ -77,6 +93,26 @@ const MODULE_CATALOGS: ModuleCatalog[] = [
     module: 'knowledge',
     operations: KNOWLEDGE_OPERATIONS,
     getOperation: getKnowledgeOperation,
+  },
+  {
+    module: 'thought',
+    operations: THOUGHT_OPERATIONS,
+    getOperation: getThoughtOperation,
+  },
+  {
+    module: 'theseus',
+    operations: THESEUS_OPERATIONS,
+    getOperation: getTheseusOperation,
+  },
+  {
+    module: 'ulysses',
+    operations: ULYSSES_OPERATIONS,
+    getOperation: getUlyssesOperation,
+  },
+  {
+    module: 'observability',
+    operations: OBSERVABILITY_OPERATIONS,
+    getOperation: getObservabilityOperation,
   },
 ];
 

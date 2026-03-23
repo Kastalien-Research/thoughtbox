@@ -13,7 +13,7 @@ import {
 } from '../handler.js';
 
 describe('thoughtbox_operations — list', () => {
-  it('returns all 7 modules', () => {
+  it('returns all 9 modules', () => {
     const result = handleList() as any;
     const moduleNames = result.modules.map((m: any) => m.module);
 
@@ -21,7 +21,12 @@ describe('thoughtbox_operations — list', () => {
     expect(moduleNames).toContain('session');
     expect(moduleNames).toContain('notebook');
     expect(moduleNames).toContain('hub');
-    expect(result.modules.length).toBe(5);
+    expect(moduleNames).toContain('thought');
+    expect(moduleNames).toContain('theseus');
+    expect(moduleNames).toContain('ulysses');
+    expect(moduleNames).toContain('observability');
+    expect(moduleNames).toContain('knowledge');
+    expect(result.modules.length).toBe(9);
   });
 
   it('totalOperations is the sum across all modules', () => {

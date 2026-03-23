@@ -1,0 +1,302 @@
+/**
+ * Code Mode Execute Tool
+ *
+ * Accepts LLM-generated JavaScript that chains Thoughtbox operations
+ * via the `tb` SDK object. Runs in a node:vm sandbox with only
+ * the tb namespace, console, and standard builtins available.
+ */
+
+import * as vm from "node:vm";
+import { z } from "zod";
+import type { CodeModeResult } from "./types.js";
+import { TB_SDK_TYPES } from "./sdk-types.js";
+import { traceExecute } from "./trace.js";
+
+import type { ThoughtTool, ThoughtToolInput } from "../thought/tool.js";
+import type { SessionTool, SessionToolInput } from "../sessions/tool.js";
+import type { KnowledgeTool, KnowledgeToolInput } from "../knowledge/tool.js";
+import type { NotebookTool, NotebookToolInput } from "../notebook/tool.js";
+import type { TheseusTool, TheseusToolInput } from "../protocol/theseus-tool.js";
+import type { UlyssesTool, UlyssesToolInput } from "../protocol/ulysses-tool.js";
+import type { ObservabilityGatewayHandler, ObservabilityInput } from "../observability/gateway-handler.js";
+
+const MAX_LOGS = 100;
+const TIMEOUT_MS = 30_000;
+const MAX_RESULT_BYTES = 24_000;
+
+export const executeToolInputSchema = z.object({
+  code: z.string().describe(
+    "JavaScript async arrow function using the `tb` SDK. " +
+    "Example: `async () => { const s = await tb.session.list(); return s; }`"
+  ),
+});
+
+export type ExecuteToolInput = z.infer<typeof executeToolInputSchema>;
+
+export interface ExecuteToolDeps {
+  thoughtTool: ThoughtTool;
+  sessionTool: SessionTool;
+  knowledgeTool: KnowledgeTool;
+  notebookTool: NotebookTool;
+  theseusTool: TheseusTool;
+  ulyssesTool: UlyssesTool;
+  observabilityHandler: ObservabilityGatewayHandler;
+}
+
+export const EXECUTE_TOOL = {
+  name: "thoughtbox_execute",
+  description: `Run JavaScript using the \`tb\` SDK to chain Thoughtbox operations in a single call.
+
+${TB_SDK_TYPES}
+
+Example:
+\`\`\`js
+async () => {
+  const sessions = await tb.session.list();
+  await tb.thought({
+    thought: "Analyzing prior sessions",
+    thoughtType: "reasoning",
+    nextThoughtNeeded: true,
+  });
+  return sessions;
+}
+\`\`\`
+
+Use \`console.log()\` for debugging — output captured in response logs.
+All tb methods return their result directly (already parsed from the tool response).`,
+  inputSchema: executeToolInputSchema,
+  annotations: {
+    readOnlyHint: false,
+    destructiveHint: false,
+    idempotentHint: false,
+  },
+};
+
+/**
+ * Extract the result value from a tool handler response.
+ * Tool handlers return { content: [{ type: "text", text: "..." }] }.
+ * We parse the JSON text and return the value directly.
+ */
+function unwrapToolResult(raw: unknown): unknown {
+  if (!raw || typeof raw !== "object") return raw;
+  const obj = raw as Record<string, unknown>;
+  if (obj.isError) {
+    const text = (obj.content as Array<{ text: string }>)?.[0]?.text;
+    throw new Error(text ?? "Tool execution failed");
+  }
+  const content = obj.content as Array<{ type: string; text: string }> | undefined;
+  if (!content?.[0]?.text) return raw;
+  try {
+    return JSON.parse(content[0].text);
+  } catch {
+    return content[0].text;
+  }
+}
+
+function buildTbObject(deps: ExecuteToolDeps): Record<string, unknown> {
+  const { thoughtTool, sessionTool, knowledgeTool, notebookTool,
+          theseusTool, ulyssesTool, observabilityHandler } = deps;
+
+  return {
+    thought: async (input: ThoughtToolInput) =>
+      unwrapToolResult(await thoughtTool.handle(input)),
+
+    session: {
+      list: async (args?: { limit?: number; offset?: number; tags?: string[] }) =>
+        unwrapToolResult(await sessionTool.handle({ operation: "session_list", ...args })),
+      get: async (sessionId: string) =>
+        unwrapToolResult(await sessionTool.handle({ operation: "session_get", sessionId })),
+      search: async (query: string, limit?: number) =>
+        unwrapToolResult(await sessionTool.handle({ operation: "session_search", query, limit })),
+      resume: async (sessionId: string) =>
+        unwrapToolResult(await sessionTool.handle({ operation: "session_resume", sessionId })),
+      export: async (sessionId: string, format?: "markdown" | "cipher" | "json") =>
+        unwrapToolResult(await sessionTool.handle({ operation: "session_export", sessionId, format })),
+      analyze: async (sessionId: string) =>
+        unwrapToolResult(await sessionTool.handle({ operation: "session_analyze", sessionId })),
+      extractLearnings: async (sessionId: string, args?: Record<string, unknown>) =>
+        unwrapToolResult(await sessionTool.handle({
+          operation: "session_extract_learnings", sessionId, ...args,
+        } as SessionToolInput)),
+    },
+
+    knowledge: {
+      createEntity: async (args: Record<string, unknown>) =>
+        unwrapToolResult(await knowledgeTool.handle({
+          operation: "knowledge_create_entity", ...args,
+        } as KnowledgeToolInput)),
+      getEntity: async (entityId: string) =>
+        unwrapToolResult(await knowledgeTool.handle({
+          operation: "knowledge_get_entity", entity_id: entityId,
+        } as KnowledgeToolInput)),
+      listEntities: async (args?: Record<string, unknown>) =>
+        unwrapToolResult(await knowledgeTool.handle({
+          operation: "knowledge_list_entities", ...args,
+        } as KnowledgeToolInput)),
+      addObservation: async (entityId: string, content: string, args?: Record<string, unknown>) =>
+        unwrapToolResult(await knowledgeTool.handle({
+          operation: "knowledge_add_observation", entity_id: entityId, content, ...args,
+        } as KnowledgeToolInput)),
+      createRelation: async (args: Record<string, unknown>) =>
+        unwrapToolResult(await knowledgeTool.handle({
+          operation: "knowledge_create_relation", ...args,
+        } as KnowledgeToolInput)),
+      queryGraph: async (startEntityId: string, args?: Record<string, unknown>) =>
+        unwrapToolResult(await knowledgeTool.handle({
+          operation: "knowledge_query_graph", start_entity_id: startEntityId, ...args,
+        } as KnowledgeToolInput)),
+      stats: async () =>
+        unwrapToolResult(await knowledgeTool.handle({
+          operation: "knowledge_stats",
+        } as KnowledgeToolInput)),
+    },
+
+    notebook: {
+      create: async (args: Record<string, unknown>) =>
+        unwrapToolResult(await notebookTool.handle({
+          operation: "notebook_create", ...args,
+        } as NotebookToolInput)),
+      list: async () =>
+        unwrapToolResult(await notebookTool.handle({
+          operation: "notebook_list",
+        } as NotebookToolInput)),
+      load: async (args: Record<string, unknown>) =>
+        unwrapToolResult(await notebookTool.handle({
+          operation: "notebook_load", ...args,
+        } as NotebookToolInput)),
+      addCell: async (args: Record<string, unknown>) =>
+        unwrapToolResult(await notebookTool.handle({
+          operation: "notebook_add_cell", ...args,
+        } as NotebookToolInput)),
+      updateCell: async (args: Record<string, unknown>) =>
+        unwrapToolResult(await notebookTool.handle({
+          operation: "notebook_update_cell", ...args,
+        } as NotebookToolInput)),
+      runCell: async (args: Record<string, unknown>) =>
+        unwrapToolResult(await notebookTool.handle({
+          operation: "notebook_run_cell", ...args,
+        } as NotebookToolInput)),
+      listCells: async (notebookId: string) =>
+        unwrapToolResult(await notebookTool.handle({
+          operation: "notebook_list_cells", notebookId,
+        } as NotebookToolInput)),
+      getCell: async (notebookId: string, cellId: string) =>
+        unwrapToolResult(await notebookTool.handle({
+          operation: "notebook_get_cell", notebookId, cellId,
+        } as NotebookToolInput)),
+      installDeps: async (notebookId: string) =>
+        unwrapToolResult(await notebookTool.handle({
+          operation: "notebook_install_deps", notebookId,
+        } as NotebookToolInput)),
+      export: async (args: Record<string, unknown>) =>
+        unwrapToolResult(await notebookTool.handle({
+          operation: "notebook_export", ...args,
+        } as NotebookToolInput)),
+    },
+
+    theseus: async (input: TheseusToolInput) =>
+      unwrapToolResult(await theseusTool.handle(input)),
+
+    ulysses: async (input: UlyssesToolInput) =>
+      unwrapToolResult(await ulyssesTool.handle(input)),
+
+    observability: async (input: ObservabilityInput) =>
+      unwrapToolResult(await observabilityHandler.handle(input)),
+  };
+}
+
+export class ExecuteTool {
+  private deps: ExecuteToolDeps;
+
+  constructor(deps: ExecuteToolDeps) {
+    this.deps = deps;
+  }
+
+  async handle(input: ExecuteToolInput): Promise<{ content: Array<{ type: "text"; text: string }> }> {
+    const start = Date.now();
+    const logs: string[] = [];
+
+    const cappedConsole = {
+      log: (...args: unknown[]) => {
+        if (logs.length < MAX_LOGS) logs.push(args.map(String).join(" "));
+      },
+      warn: (...args: unknown[]) => {
+        if (logs.length < MAX_LOGS) logs.push(`[warn] ${args.map(String).join(" ")}`);
+      },
+      error: (...args: unknown[]) => {
+        if (logs.length < MAX_LOGS) logs.push(`[error] ${args.map(String).join(" ")}`);
+      },
+    };
+
+    const tb = buildTbObject(this.deps);
+
+    const sandbox = {
+      tb,
+      console: cappedConsole,
+      setTimeout: globalThis.setTimeout,
+      clearTimeout: globalThis.clearTimeout,
+      JSON,
+      Object,
+      Array,
+      String,
+      Number,
+      Boolean,
+      RegExp,
+      Map,
+      Set,
+      Date,
+      Math,
+      Promise,
+      Error,
+      TypeError,
+      RangeError,
+    };
+
+    const context = vm.createContext(sandbox);
+
+    let output: CodeModeResult;
+    try {
+      const script = new vm.Script(`(${input.code})()`, {
+        filename: "codemode-exec.js",
+      });
+
+      // vm.Script timeout only covers synchronous execution.
+      // Promise.race adds a wall-clock timeout for async operations.
+      const rawResult = script.runInContext(context, { timeout: TIMEOUT_MS });
+      const result = await Promise.race([
+        rawResult,
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error("Execution timed out")), TIMEOUT_MS)
+        ),
+      ]);
+
+      const durationMs = Date.now() - start;
+      let serialized = JSON.stringify(result, null, 2) ?? "null";
+      let truncated = false;
+      if (serialized.length > MAX_RESULT_BYTES) {
+        serialized = serialized.slice(0, MAX_RESULT_BYTES) + "\n... [truncated]";
+        truncated = true;
+      }
+
+      output = {
+        result: truncated ? serialized : JSON.parse(serialized),
+        logs,
+        truncated: truncated || undefined,
+        durationMs,
+      };
+    } catch (err) {
+      output = {
+        result: null,
+        logs,
+        error: err instanceof Error ? err.message : String(err),
+        durationMs: Date.now() - start,
+      };
+    }
+
+    traceExecute({ code: input.code }, output);
+
+    return {
+      content: [{ type: "text" as const, text: JSON.stringify(output, null, 2) }],
+    };
+  }
+}
