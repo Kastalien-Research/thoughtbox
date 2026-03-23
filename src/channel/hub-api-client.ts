@@ -21,9 +21,7 @@ export interface HubApiClientConfig {
 
 export class HubApiClient {
   private config: HubApiClientConfig;
-  private mcpSessionId: string | null = null;
   private agentId: string | null = null;
-  private requestId = 0;
 
   constructor(config: HubApiClientConfig) {
     this.config = config;
@@ -34,20 +32,6 @@ export class HubApiClient {
    * Must be called before any other operations.
    */
   async initialize(): Promise<string> {
-    // Register via quick_join
-    const result = await this.callMcp("tools/call", {
-      name: "thoughtbox_execute",
-      arguments: {
-        code: `async () => {
-          // Check if already registered by listing workspaces
-          const workspaces = await tb.session.list({ limit: 1 });
-          return workspaces;
-        }`,
-      },
-    });
-
-    // For now, use direct hub operations via the SSE endpoint's hub-handler
-    // The Channel registers via the /hub/register endpoint
     const registerResult = await this.callHubEndpoint("register", {
       name: this.config.agentName,
       profile: this.config.agentProfile,
@@ -161,56 +145,5 @@ export class HubApiClient {
     }
 
     return response.json();
-  }
-
-  /**
-   * Call the MCP endpoint (for tools that go through the full MCP protocol).
-   */
-  private async callMcp(
-    method: string,
-    params: Record<string, unknown>,
-  ): Promise<unknown> {
-    const url = `${this.config.baseUrl}/mcp`;
-    this.requestId++;
-
-    const body = {
-      jsonrpc: "2.0",
-      id: this.requestId,
-      method,
-      params,
-    };
-
-    const headers: Record<string, string> = {
-      "Content-Type": "application/json",
-    };
-    if (this.mcpSessionId) {
-      headers["mcp-session-id"] = this.mcpSessionId;
-    }
-
-    const response = await fetch(url, {
-      method: "POST",
-      headers,
-      body: JSON.stringify(body),
-    });
-
-    // Capture session ID from response
-    const sessionHeader = response.headers.get("mcp-session-id");
-    if (sessionHeader) {
-      this.mcpSessionId = sessionHeader;
-    }
-
-    if (!response.ok) {
-      const text = await response.text();
-      throw new Error(`MCP error (${response.status}): ${text}`);
-    }
-
-    const result = await response.json();
-    if (result && typeof result === "object" && "error" in result) {
-      throw new Error(
-        `MCP RPC error: ${JSON.stringify((result as { error: unknown }).error)}`,
-      );
-    }
-
-    return (result as { result?: unknown }).result;
   }
 }
