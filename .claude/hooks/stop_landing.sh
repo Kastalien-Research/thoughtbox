@@ -17,7 +17,7 @@ fi
 issues=""
 
 # ── Check 1: Uncommitted changes ─────────────────────────────────
-uncommitted=$(git -C "$project_dir" status --porcelain 2>/dev/null | wc -l | tr -d ' ')
+uncommitted=$(git -C "$project_dir" status --porcelain 2>/dev/null | grep -cv '^??' || echo 0)
 if [[ "$uncommitted" -gt 0 ]]; then
   issues+="$uncommitted uncommitted files. "
 fi
