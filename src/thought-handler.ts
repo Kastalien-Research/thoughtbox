@@ -587,6 +587,34 @@ export class ThoughtHandler {
     }
   }
 
+  /**
+   * Generate a readable session title from the first thought's content.
+   * Extracts the first meaningful sentence/phrase, truncates to 80 chars.
+   */
+  private generateSessionTitle(thought: string): string {
+    // Strip markdown formatting
+    const cleaned = thought
+      .replace(/[#*_`~\[\]()>]/g, '')
+      .replace(/\n+/g, ' ')
+      .trim();
+
+    if (!cleaned) {
+      return `Session ${new Date().toISOString().slice(0, 10)}`;
+    }
+
+    // Take first sentence (up to period, question mark, or newline)
+    const firstSentence = cleaned.match(/^[^.!?\n]+[.!?]?/)?.[0] ?? cleaned;
+
+    // Truncate to 80 chars at a word boundary
+    if (firstSentence.length <= 80) {
+      return firstSentence.trim();
+    }
+
+    const truncated = firstSentence.slice(0, 80);
+    const lastSpace = truncated.lastIndexOf(' ');
+    return (lastSpace > 40 ? truncated.slice(0, lastSpace) : truncated).trim() + '...';
+  }
+
   private formatThought(thoughtData: ThoughtData): string {
     const {
       thoughtNumber,
@@ -672,7 +700,7 @@ export class ThoughtHandler {
         const session = await this.storage.createSession({
           title:
             validatedInput.sessionTitle ||
-            `Reasoning session ${new Date().toISOString()}`,
+            this.generateSessionTitle(validatedInput.thought),
           tags: validatedInput.sessionTags || [],
         });
         this.currentSessionId = session.id;
@@ -945,6 +973,11 @@ export class ThoughtHandler {
 
       // End session when reasoning is complete
       if (!validatedInput.nextThoughtNeeded && this.currentSessionId) {
+        // Transition session status to completed
+        await this.storage.updateSession(this.currentSessionId, {
+          status: 'completed',
+        });
+
         // AUDIT-003: Generate audit manifest at session close
         let auditManifest: import('./persistence/types.js').AuditManifest | undefined;
         try {

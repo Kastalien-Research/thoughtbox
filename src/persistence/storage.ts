@@ -639,7 +639,10 @@ export class InMemoryStorage implements ThoughtboxStorage {
     const existing = this.sessions.get(id);
     if (!existing) throw new Error(`Session ${id} not found`);
 
-    const updated = { ...existing, ...attrs, updatedAt: new Date() };
+    const updated: Session = { ...existing, ...attrs, updatedAt: new Date() };
+    if (attrs.status === 'completed' && !updated.completedAt) {
+      updated.completedAt = new Date();
+    }
     this.sessions.set(id, updated);
     return updated;
   }
