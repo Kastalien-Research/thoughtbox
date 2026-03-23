@@ -48,7 +48,7 @@ Only 200 tokens in YOUR context
   "tool": "Task",
   "subagent_type": "general-purpose",
   "description": "Summarize Thoughtbox session",
-  "prompt": "Retrieve and summarize Thoughtbox session.\\n\\n1. Call mcp__thoughtbox__thoughtbox_session with operation 'get' and args { sessionId: '<SESSION_ID>' }\\n2. Summarize the key insights in 3-5 sentences\\n\\nReturn ONLY your summary. Do not include raw thought content."
+  "prompt": "Retrieve and summarize Thoughtbox session.\\n\\n1. Call mcp__thoughtbox__thoughtbox_execute with code: async () => tb.session.get('<SESSION_ID>')\\n2. Summarize the key insights in 3-5 sentences\\n\\nReturn ONLY your summary. Do not include raw thought content."
 }
 \`\`\`
 
@@ -59,7 +59,7 @@ Only 200 tokens in YOUR context
   "tool": "Task",
   "subagent_type": "general-purpose",
   "description": "Search Thoughtbox sessions",
-  "prompt": "Search Thoughtbox for information about <TOPIC>.\\n\\n1. Call mcp__thoughtbox__thoughtbox_session with operation 'list'\\n2. For relevant sessions, call mcp__thoughtbox__thoughtbox_session with operation 'get' and the sessionId\\n3. Extract only information related to <TOPIC>\\n\\nReturn a concise summary of findings. Do not include raw thought content."
+  "prompt": "Search Thoughtbox for information about <TOPIC>.\\n\\n1. Call mcp__thoughtbox__thoughtbox_execute with code: async () => tb.session.list()\\n2. For relevant sessions, call mcp__thoughtbox__thoughtbox_execute with code: async () => tb.session.get('<SESSION_ID>')\\n3. Extract only information related to <TOPIC>\\n\\nReturn a concise summary of findings. Do not include raw thought content."
 }
 \`\`\`
 
@@ -70,7 +70,7 @@ Only 200 tokens in YOUR context
   "tool": "Task",
   "subagent_type": "general-purpose",
   "description": "Synthesize Thoughtbox sessions",
-  "prompt": "Synthesize conclusions across multiple Thoughtbox sessions.\\n\\n1. Call mcp__thoughtbox__thoughtbox_session with operation 'list'\\n2. Filter sessions with tags matching '<TAG>'\\n3. Retrieve each relevant session with operation 'get'\\n4. Identify common themes, contradictions, and key conclusions\\n5. Synthesize into a coherent summary\\n\\nReturn only your synthesis. Do not include raw thoughts."
+  "prompt": "Synthesize conclusions across multiple Thoughtbox sessions.\\n\\n1. Call mcp__thoughtbox__thoughtbox_execute with code: async () => tb.session.list()\\n2. Filter sessions with tags matching '<TAG>'\\n3. Retrieve each relevant session via mcp__thoughtbox__thoughtbox_execute with code: async () => tb.session.get('<SESSION_ID>')\\n4. Identify common themes, contradictions, and key conclusions\\n5. Synthesize into a coherent summary\\n\\nReturn only your synthesis. Do not include raw thoughts."
 }
 \`\`\`
 
@@ -121,7 +121,8 @@ const result = await Task({
     Retrieve and summarize Thoughtbox session about authentication.
 
     Steps:
-    1. mcp__thoughtbox__thoughtbox_session({ operation: "get", args: { sessionId: "abc-123" }})
+    1. Call mcp__thoughtbox__thoughtbox_execute with code:
+       async () => tb.session.get("abc-123")
     2. Extract key conclusions about authentication decisions
 
     Return a 3-sentence summary. No raw thoughts.
@@ -149,6 +150,6 @@ Tested 2026-01-16:
 ## See Also
 
 - \`thoughtbox://cipher\` - Token-efficient notation system (complementary approach)
-- \`thoughtbox_session\` with operation \`get\` - Direct retrieval (when you need full content)
+- \`thoughtbox_execute\` with \`tb.session.get(id)\` - Direct retrieval (when you need full content)
 - RLM paper: https://arxiv.org/abs/2512.24601
 `;
