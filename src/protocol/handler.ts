@@ -10,6 +10,17 @@ import type {
   ProtocolSession,
   TheseusTerminal,
   UlyssesTerminal,
+  DelphiTerminal,
+  DelphiState,
+  DelphiPhase,
+  DelphiInitInput,
+  DelphiHypothesizeInput,
+  DelphiDiscriminateInput,
+  DelphiProbeInput,
+  DelphiAssessInput,
+  DelphiDestabilizeInput,
+  DelphiWitnessInput,
+  DelphiCompleteInput,
   VisaInput,
   AuditInput,
   TheseusOutcomeInput,
@@ -795,6 +806,619 @@ export class ProtocolHandler {
       result.summary = summary;
     }
     return result;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Delphi operations
+  // ---------------------------------------------------------------------------
+
+  async delphiInit(
+    input: DelphiInitInput,
+  ): Promise<Record<string, unknown>> {
+    const supersededId = await this.supersedeExisting('delphi');
+
+    const initialState: DelphiState = {
+      questionFrame: {
+        question: input.question,
+        questionType: input.questionType ?? 'unspecified',
+        scope: input.scope ?? 'unbounded',
+        resolutionClass: input.resolutionClass,
+        admissibleEvidenceClasses:
+          input.admissibleEvidenceClasses ?? [],
+        inadmissibleEvidenceClasses:
+          input.inadmissibleEvidenceClasses ?? [],
+      },
+      hypotheses: [],
+      discriminants: [],
+      evidenceLedger: [],
+      opportunitySpace: [],
+      N: 0,
+      witnessStatus: 'available',
+      phase: 'pre_frame',
+      pendingChallenge: null,
+    };
+
+    const insertPayload = {
+      protocol: 'delphi' as const,
+      state_json: initialState as unknown as Json,
+      ...(this.workspaceId ? { workspace_id: this.workspaceId } : {}),
+    };
+
+    const { data: session, error } = await this.client
+      .from('protocol_sessions')
+      .insert(insertPayload)
+      .select()
+      .single();
+
+    if (error) {
+      throw new Error(
+        `Failed to create delphi session: ${error.message}`,
+      );
+    }
+
+    const result: Record<string, unknown> = {
+      session_id: session.id,
+      protocol: 'delphi',
+      status: 'active',
+      phase: 'pre_frame',
+      question: input.question,
+      resolutionClass: input.resolutionClass,
+    };
+    if (supersededId) result.superseded_session = supersededId;
+    return result;
+  }
+
+  async delphiHypothesize(
+    sessionId: string,
+    input: DelphiHypothesizeInput,
+  ): Promise<Record<string, unknown>> {
+    const session = await this.requireActiveSession('delphi');
+    if (session.id !== sessionId) {
+      throw new Error(
+        `Session ${sessionId} is not the active delphi session`,
+      );
+    }
+    const state = session.state_json as unknown as DelphiState;
+
+    if (state.phase !== 'pre_frame') {
+      throw new Error(
+        `Cannot hypothesize in phase "${state.phase}". Only allowed in pre_frame.`,
+      );
+    }
+    if (input.hypotheses.length < 2 || input.hypotheses.length > 4) {
+      throw new Error(
+        'Must declare 2-4 hypotheses (structurally distinct, include null/uncertainty).',
+      );
+    }
+
+    state.hypotheses = input.hypotheses.map((h, i) => ({
+      id: `H${i + 1}`,
+      statement: h.statement,
+      supportPattern: h.supportPattern,
+      falsificationCriteria: h.falsificationCriteria,
+      incomparableConditions: h.incomparableConditions,
+      status: 'live' as const,
+      evidenceChain: [],
+    }));
+
+    await this.updateDelphiState(session.id, state);
+    await this.recordDelphiEvent(session.id, 'hypothesize', {
+      hypotheses: state.hypotheses,
+    });
+
+    return {
+      session_id: session.id,
+      hypotheses: state.hypotheses.map(h => ({
+        id: h.id, statement: h.statement,
+      })),
+      count: state.hypotheses.length,
+    };
+  }
+
+  async delphiDiscriminate(
+    sessionId: string,
+    input: DelphiDiscriminateInput,
+  ): Promise<Record<string, unknown>> {
+    const session = await this.requireActiveSession('delphi');
+    if (session.id !== sessionId) {
+      throw new Error(
+        `Session ${sessionId} is not the active delphi session`,
+      );
+    }
+    const state = session.state_json as unknown as DelphiState;
+
+    if (state.phase !== 'pre_frame') {
+      throw new Error(
+        `Cannot add discriminants in phase "${state.phase}". No mid-session expansion.`,
+      );
+    }
+    if (state.hypotheses.length === 0) {
+      throw new Error(
+        'Must declare hypotheses before discriminants.',
+      );
+    }
+    if (input.discriminants.length < 1
+      || input.discriminants.length > 5) {
+      throw new Error(
+        'Must declare 1-5 discriminants.',
+      );
+    }
+
+    for (const d of input.discriminants) {
+      if (!d.closureRule.slots || d.closureRule.slots.length === 0) {
+        throw new Error(
+          `Discriminant "${d.id}" must have at least one evidence slot (finite closure rule).`,
+        );
+      }
+      if (d.closureRule.slots.length > 3) {
+        throw new Error(
+          `Discriminant "${d.id}" exceeds max 3 slots per closure rule.`,
+        );
+      }
+    }
+
+    state.discriminants = input.discriminants.map(d => ({
+      id: d.id,
+      essential: d.essential,
+      closureRule: {
+        slots: d.closureRule.slots.map(s => ({
+          id: s.id,
+          description: s.description,
+          requiredSourceClass: s.requiredSourceClass,
+          requiresIndependence: s.requiresIndependence,
+          status: 'empty' as const,
+        })),
+      },
+      bearingOn: d.bearingOn,
+      status: 'open' as const,
+    }));
+
+    state.phase = 'inquire';
+
+    await this.updateDelphiState(session.id, state);
+    await this.recordDelphiEvent(session.id, 'discriminate', {
+      discriminants: state.discriminants.map(d => ({
+        id: d.id, essential: d.essential,
+        slotCount: d.closureRule.slots.length,
+      })),
+    });
+
+    return {
+      session_id: session.id,
+      phase: 'inquire',
+      discriminants: state.discriminants.map(d => ({
+        id: d.id,
+        essential: d.essential,
+        slots: d.closureRule.slots.length,
+        bearingOn: d.bearingOn,
+      })),
+    };
+  }
+
+  async delphiProbe(
+    sessionId: string,
+    input: DelphiProbeInput,
+  ): Promise<Record<string, unknown>> {
+    const session = await this.requireActiveSession('delphi');
+    if (session.id !== sessionId) {
+      throw new Error(
+        `Session ${sessionId} is not the active delphi session`,
+      );
+    }
+    const state = session.state_json as unknown as DelphiState;
+
+    if (state.phase !== 'inquire') {
+      throw new Error(
+        `Cannot probe in phase "${state.phase}". Probes only allowed in INQUIRE.`,
+      );
+    }
+
+    const disc = state.discriminants.find(
+      d => d.id === input.targetDiscriminant,
+    );
+    if (!disc) {
+      throw new Error(
+        `Unknown discriminant "${input.targetDiscriminant}".`,
+      );
+    }
+
+    const slot = disc.closureRule.slots.find(
+      s => s.id === input.targetSlot,
+    );
+    if (!slot) {
+      throw new Error(
+        `Unknown slot "${input.targetSlot}" in discriminant "${input.targetDiscriminant}".`,
+      );
+    }
+
+    const probeId = `P${state.opportunitySpace.length + 1}`;
+    const record = {
+      id: probeId,
+      description: input.description,
+      targetDiscriminant: input.targetDiscriminant,
+      targetSlot: input.targetSlot,
+      probeType: input.probeType,
+      bound: input.bound,
+      interpretationMap: input.interpretationMap,
+      challengeProbe: input.challengeProbe,
+      timestamp: new Date().toISOString(),
+    };
+
+    state.opportunitySpace.push(record);
+    state.pendingChallenge = {
+      description: input.challengeProbe.description,
+      type: input.challengeProbe.type,
+      probeId,
+    };
+
+    await this.updateDelphiState(session.id, state);
+    await this.recordDelphiEvent(session.id, 'probe', record);
+
+    return {
+      session_id: session.id,
+      probeId,
+      targetDiscriminant: input.targetDiscriminant,
+      targetSlot: input.targetSlot,
+      challengePreCommitted: input.challengeProbe.description,
+    };
+  }
+
+  async delphiAssess(
+    sessionId: string,
+    input: DelphiAssessInput,
+  ): Promise<Record<string, unknown>> {
+    const session = await this.requireActiveSession('delphi');
+    if (session.id !== sessionId) {
+      throw new Error(
+        `Session ${sessionId} is not the active delphi session`,
+      );
+    }
+    const state = session.state_json as unknown as DelphiState;
+
+    if (state.phase !== 'inquire' && state.phase !== 'destabilize') {
+      throw new Error(
+        `Cannot assess in phase "${state.phase}".`,
+      );
+    }
+
+    const lastProbe = state.opportunitySpace[
+      state.opportunitySpace.length - 1
+    ];
+    if (!lastProbe) {
+      throw new Error('No probe to assess. Run probe first.');
+    }
+
+    if (!input.source || input.source.trim() === '') {
+      throw new Error(
+        'Evidence source cannot be empty (no unsupported agent synthesis).',
+      );
+    }
+
+    const entryId = `E${state.evidenceLedger.length + 1}`;
+    const entry = {
+      id: entryId,
+      probeId: lastProbe.id,
+      discriminantId: lastProbe.targetDiscriminant,
+      slotId: lastProbe.targetSlot,
+      rawObservation: input.finding,
+      source: input.source,
+      sourceClass: input.sourceClass,
+      independenceClass: input.independenceClass,
+      admissible: input.admissible,
+      contaminated: input.contaminated,
+      hypothesisEffects: input.hypothesisEffects,
+    };
+
+    state.evidenceLedger.push(entry);
+
+    if (input.admissible && input.filledSlots.length > 0) {
+      for (const slotId of input.filledSlots) {
+        for (const disc of state.discriminants) {
+          const slot = disc.closureRule.slots.find(
+            s => s.id === slotId,
+          );
+          if (slot && slot.status === 'empty') {
+            slot.status = 'filled';
+            slot.filledBy = entryId;
+          }
+        }
+      }
+
+      for (const disc of state.discriminants) {
+        const allFilled = disc.closureRule.slots.every(
+          s => s.status === 'filled',
+        );
+        if (allFilled && disc.status === 'open') {
+          disc.status = 'resolved';
+        }
+      }
+    }
+
+    for (const [hId, effect] of Object.entries(
+      input.hypothesisEffects,
+    )) {
+      const hyp = state.hypotheses.find(h => h.id === hId);
+      if (hyp && hyp.status === 'live') {
+        hyp.evidenceChain.push(entryId);
+        if (effect === 'supports' || effect === 'weakens') {
+          // evidence recorded; pruning is agent's explicit decision
+        }
+      }
+    }
+
+    if (input.materialChange) {
+      state.N = 0;
+      state.phase = 'inquire';
+    } else {
+      state.N += 1;
+      if (state.N >= 2) {
+        state.phase = 'synthesize';
+      } else {
+        state.phase = 'destabilize';
+      }
+    }
+
+    await this.updateDelphiState(session.id, state);
+    await this.recordDelphiEvent(session.id, 'assess', {
+      entryId,
+      materialChange: input.materialChange,
+      N: state.N,
+      phase: state.phase,
+    });
+
+    return {
+      session_id: session.id,
+      entryId,
+      materialChange: input.materialChange,
+      N: state.N,
+      phase: state.phase,
+      message: input.materialChange
+        ? 'Discriminating evidence recorded. N reset to 0.'
+        : state.N >= 2
+          ? 'Non-discriminating. N=2. SYNTHESIZE required.'
+          : `Non-discriminating. N=${state.N}. Execute pre-committed challenge.`,
+    };
+  }
+
+  async delphiDestabilize(
+    sessionId: string,
+    input: DelphiDestabilizeInput,
+  ): Promise<Record<string, unknown>> {
+    const session = await this.requireActiveSession('delphi');
+    if (session.id !== sessionId) {
+      throw new Error(
+        `Session ${sessionId} is not the active delphi session`,
+      );
+    }
+    const state = session.state_json as unknown as DelphiState;
+
+    if (state.phase !== 'destabilize') {
+      throw new Error(
+        `Cannot destabilize in phase "${state.phase}". Only allowed after non-discriminating assess.`,
+      );
+    }
+
+    if (!state.pendingChallenge) {
+      throw new Error(
+        'No pending challenge. This should not happen if protocol is followed correctly.',
+      );
+    }
+
+    await this.recordDelphiEvent(session.id, 'destabilize', {
+      challenge: state.pendingChallenge,
+      result: input.challengeResult,
+      materialChange: input.materialChange,
+    });
+
+    state.pendingChallenge = null;
+
+    if (input.materialChange) {
+      state.N = 0;
+      state.phase = 'inquire';
+    } else {
+      state.N = 2;
+      state.phase = 'synthesize';
+    }
+
+    await this.updateDelphiState(session.id, state);
+
+    return {
+      session_id: session.id,
+      materialChange: input.materialChange,
+      N: state.N,
+      phase: state.phase,
+      message: input.materialChange
+        ? 'Challenge changed landscape. N reset. Back to INQUIRE.'
+        : 'Challenge did not discriminate. N=2. SYNTHESIZE required.',
+    };
+  }
+
+  async delphiWitness(
+    sessionId: string,
+    input: DelphiWitnessInput,
+  ): Promise<Record<string, unknown>> {
+    const session = await this.requireActiveSession('delphi');
+    if (session.id !== sessionId) {
+      throw new Error(
+        `Session ${sessionId} is not the active delphi session`,
+      );
+    }
+    const state = session.state_json as unknown as DelphiState;
+
+    state.witnessStatus = 'invoked';
+
+    await this.updateDelphiState(session.id, state);
+    await this.recordDelphiEvent(session.id, 'witness', {
+      witnessType: input.witnessType,
+      challenge: input.challenge,
+      response: input.response,
+    });
+
+    return {
+      session_id: session.id,
+      witnessStatus: 'invoked',
+      witnessType: input.witnessType,
+      challenge: input.challenge,
+    };
+  }
+
+  async delphiComplete(
+    sessionId: string,
+    input: DelphiCompleteInput,
+  ): Promise<Record<string, unknown>> {
+    const session = await this.requireActiveSession('delphi');
+    if (session.id !== sessionId) {
+      throw new Error(
+        `Session ${sessionId} is not the active delphi session`,
+      );
+    }
+    const state = session.state_json as unknown as DelphiState;
+
+    if (input.terminalState === 'supported_thesis') {
+      if (state.witnessStatus !== 'invoked') {
+        throw new Error(
+          'SUPPORTED_THESIS requires Iron Witness invocation. Call witness first, or terminal will be reduced-assurance.',
+        );
+      }
+    }
+
+    if (input.terminalState === 'irreducible_uncertainty') {
+      if (state.witnessStatus !== 'invoked') {
+        throw new Error(
+          'IRREDUCIBLE_UNCERTAINTY requires Iron Witness invocation.',
+        );
+      }
+    }
+
+    if (input.terminalState === 'capability_gap') {
+      const hasBlockedEssential = state.discriminants.some(
+        d => d.essential && d.status === 'blocked',
+      );
+      if (!hasBlockedEssential) {
+        throw new Error(
+          'CAPABILITY_GAP requires at least one essential discriminant to be blocked.',
+        );
+      }
+    }
+
+    const liveHypotheses = state.hypotheses.filter(
+      h => h.status === 'live',
+    );
+    if (input.terminalState === 'supported_thesis'
+      && liveHypotheses.length > 1) {
+      throw new Error(
+        `SUPPORTED_THESIS requires exactly one live hypothesis. ${liveHypotheses.length} are still live. Prune rivals first.`,
+      );
+    }
+
+    await this.recordDelphiEvent(session.id, 'complete', {
+      terminalState: input.terminalState,
+      strength: input.strength,
+      assurance: input.assurance,
+      summary: input.summary,
+    });
+
+    const { error } = await this.client
+      .from('protocol_sessions')
+      .update({
+        status: input.terminalState,
+        completed_at: new Date().toISOString(),
+      })
+      .eq('id', session.id);
+
+    if (error) {
+      throw new Error(`Failed to complete session: ${error.message}`);
+    }
+
+    return {
+      session_id: session.id,
+      status: input.terminalState,
+      strength: input.strength,
+      assurance: input.assurance,
+      summary: input.summary,
+      evidenceCount: state.evidenceLedger.length,
+      probeCount: state.opportunitySpace.length,
+      liveHypotheses: liveHypotheses.length,
+    };
+  }
+
+  async delphiStatus(): Promise<Record<string, unknown>> {
+    const session = await this.getActiveSession('delphi');
+    if (!session) {
+      return { active: false, protocol: 'delphi' };
+    }
+
+    const state = session.state_json as unknown as DelphiState;
+    const { count: historyCount } = await this.client
+      .from('protocol_history')
+      .select('*', { count: 'exact', head: true })
+      .eq('session_id', session.id);
+
+    return {
+      active: true,
+      protocol: 'delphi',
+      session_id: session.id,
+      phase: state.phase,
+      N: state.N,
+      question: state.questionFrame.question,
+      resolutionClass: state.questionFrame.resolutionClass,
+      hypothesisCount: state.hypotheses.length,
+      liveHypotheses: state.hypotheses
+        .filter(h => h.status === 'live').length,
+      discriminantCount: state.discriminants.length,
+      resolvedDiscriminants: state.discriminants
+        .filter(d => d.status === 'resolved').length,
+      evidenceCount: state.evidenceLedger.length,
+      probeCount: state.opportunitySpace.length,
+      witnessStatus: state.witnessStatus,
+      pendingChallenge: state.pendingChallenge
+        ? state.pendingChallenge.description : null,
+      history_event_count: historyCount ?? 0,
+      created_at: session.created_at,
+    };
+  }
+
+  // ---------------------------------------------------------------------------
+  // Delphi helpers
+  // ---------------------------------------------------------------------------
+
+  private async updateDelphiState(
+    sessionId: string,
+    state: DelphiState,
+  ): Promise<void> {
+    const { error } = await this.client
+      .from('protocol_sessions')
+      .update({ state_json: state as unknown as Json })
+      .eq('id', sessionId);
+
+    if (error) {
+      throw new Error(
+        `Failed to update delphi state: ${error.message}`,
+      );
+    }
+  }
+
+  private async recordDelphiEvent(
+    sessionId: string,
+    eventType: string,
+    eventData: Record<string, unknown>,
+  ): Promise<void> {
+    const { error } = await this.client
+      .from('protocol_history')
+      .insert({
+        session_id: sessionId,
+        event_type: eventType,
+        event_json: {
+          ...eventData,
+          timestamp: new Date().toISOString(),
+        },
+      });
+
+    if (error) {
+      throw new Error(
+        `Failed to record delphi event: ${error.message}`,
+      );
+    }
   }
 
   // ---------------------------------------------------------------------------

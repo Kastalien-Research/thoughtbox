@@ -69,6 +69,8 @@ import {
   TheseusTool,
   ULYSSES_TOOL,
   UlyssesTool,
+  DELPHI_TOOL,
+  DelphiTool,
   ProtocolHandler,
   InMemoryProtocolHandler,
 } from "./protocol/index.js";
@@ -516,11 +518,13 @@ Call \`thoughtbox_hub\` { "operation": "register", "name": "Your Agent Name" } t
 
   const theseusTool = new TheseusTool(protocolHandler, thoughtHandler, knowledgeStorage);
   const ulyssesTool = new UlyssesTool(protocolHandler, thoughtHandler, knowledgeStorage);
+  const delphiTool = new DelphiTool(protocolHandler, thoughtHandler, knowledgeStorage);
 
   registerExplicitTool(THESEUS_TOOL, theseusTool, DisclosureStage.STAGE_2_CIPHER_LOADED);
   registerExplicitTool(ULYSSES_TOOL, ulyssesTool, DisclosureStage.STAGE_2_CIPHER_LOADED);
+  registerExplicitTool(DELPHI_TOOL, delphiTool, DisclosureStage.STAGE_2_CIPHER_LOADED);
 
-  logger.info('Protocol tools (Theseus + Ulysses) registered');
+  logger.info('Protocol tools (Theseus + Ulysses + Delphi) registered');
 
   // Operations Catalog Tool (Always-On, No Session Required)
   const OPERATIONS_TOOL_DESCRIPTION = 'Discover available Thoughtbox operations and their schemas. Always available -- no session required.';

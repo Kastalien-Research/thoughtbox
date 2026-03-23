@@ -15,12 +15,23 @@ export {
   type UlyssesToolInput,
 } from './ulysses-tool.js';
 
+export {
+  DELPHI_TOOL,
+  DelphiTool,
+  delphiToolInputSchema,
+  type DelphiToolInput,
+} from './delphi-tool.js';
+
 export type {
   Protocol,
   TheseusTerminal,
   TheseusStatus,
   UlyssesTerminal,
   UlyssesStatus,
+  DelphiTerminal,
+  DelphiStatus,
+  DelphiPhase,
+  DelphiState,
   ProtocolSession,
   ProtocolScope,
   ProtocolVisa,
@@ -32,4 +43,12 @@ export type {
   PlanInput,
   UlyssesOutcomeInput,
   ReflectInput,
+  DelphiInitInput,
+  DelphiHypothesizeInput,
+  DelphiDiscriminateInput,
+  DelphiProbeInput,
+  DelphiAssessInput,
+  DelphiDestabilizeInput,
+  DelphiWitnessInput,
+  DelphiCompleteInput,
 } from './types.js';
