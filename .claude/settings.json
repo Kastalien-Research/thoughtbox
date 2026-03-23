@@ -22,17 +22,6 @@
         ]
       }
     ],
-    "Stop": [
-      {
-        "matcher": "",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/stop.sh"
-          }
-        ]
-      }
-    ],
     "SubagentStop": [
       {
         "matcher": "",
