@@ -18,9 +18,7 @@ You have received structural metrics for a reasoning session. To perform qualita
 
 ## Step 1: Review Session Content
 
-Use the \`session\` tool with operation \`get\` to retrieve the full session with all thoughts if you haven't already.
-
-> **Note**: If tools appear unavailable, use \`thoughtbox_gateway\` with operation \`session\` instead. The gateway is always enabled and routes to the session handler internally.
+Use the \`thoughtbox_session\` tool with operation \`get\` to retrieve the full session with all thoughts if you haven't already.
 
 ## Step 2: Identify Key Moments
 

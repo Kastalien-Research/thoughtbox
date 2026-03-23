@@ -45,17 +45,13 @@ const notebook = await Task({
     SESSION_ID: <SESSION_ID>
     
     Steps:
-    1. Initialize Thoughtbox:
-       - mcp__thoughtbox__init({ operation: "get_state" })
-       - mcp__thoughtbox__thoughtbox_cipher()
-    
-    2. Retrieve session:
-       - mcp__thoughtbox__session({ 
-           operation: "get", 
+    1. Retrieve session:
+       - mcp__thoughtbox__thoughtbox_session({
+           operation: "get",
            args: { sessionId: "<SESSION_ID>" }
          })
-    
-    3. Analyze structure:
+
+    2. Analyze structure:
        - Identify main line vs branches
        - Find branch points (branchFromThought)
        - Detect revisions (isRevision)
@@ -458,19 +454,15 @@ Convert Thoughtbox session to interactive notebook.
 SESSION_ID: \${sessionId}
 
 Steps:
-1. Initialize: 
-   - mcp__thoughtbox__init({ operation: "get_state" })
-   - mcp__thoughtbox__thoughtbox_cipher()
+1. Retrieve:
+   - mcp__thoughtbox__thoughtbox_session({ operation: "get", args: { sessionId: "\${sessionId}" } })
 
-2. Retrieve:
-   - mcp__thoughtbox__session({ operation: "get", args: { sessionId: "\${sessionId}" } })
-
-3. Analyze thought structure:
+2. Analyze thought structure:
    - Main line thoughts (no branchId)
    - Branch points (has branchFromThought)
    - Synthesis points (combines branches)
 
-4. Generate .src.md notebook:
+3. Generate .src.md notebook:
 
 <!-- srcbook:{"language":"typescript"} -->
 
@@ -516,8 +508,8 @@ console.log(\`Notebook exported to \${filename}\`);
 ## See Also
 
 - \`subagent-summarize-content.ts\` - Pattern for session summarization
-- \`thoughtbox_cipher\` - Compress thought content before export
-- \`session.get\` - Retrieve full session data
+- \`thoughtbox://cipher\` - Token-efficient notation system
+- \`thoughtbox_session\` with operation \`get\` - Retrieve full session data
 - Example notebooks: \`srcbook/packages/api/srcbook/examples/thoughtbox-*.src.md\`
 
 ---

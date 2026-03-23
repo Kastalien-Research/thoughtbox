@@ -199,8 +199,8 @@ export interface KnowledgeStorage {
   initialize(): Promise<void>;
 
   /**
-   * Set the project scope. Called by the progressive disclosure flow
-   * (bind_root / start_new) after determining the project name.
+   * Set the project scope. Project scope is set via MCP roots
+   * or the THOUGHTBOX_PROJECT env var.
    * No-op if already set to the same project.
    * Throws if already set to a different project.
    */

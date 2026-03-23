@@ -272,24 +272,6 @@ mcp__thoughtbox__thoughtbox({
 });
 \`\`\`
 
-### Via Gateway (Always Available)
-
-If the \`thoughtbox\` tool appears unavailable (common with streaming HTTP clients that don't refresh tool lists), use the gateway:
-
-\`\`\`javascript
-mcp__thoughtbox__thoughtbox_gateway({
-  operation: 'thought',
-  args: {
-    thought: "Your reasoning step",
-    thoughtNumber: 1,
-    totalThoughts: 10,
-    nextThoughtNeeded: true
-  }
-});
-\`\`\`
-
-The gateway is always enabled at connection start and routes to the same thought handler internally. All patterns in this cookbook work identically via either access method.
-
 ---
 
 ## Remember

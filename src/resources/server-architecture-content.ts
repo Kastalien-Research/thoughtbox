@@ -15,12 +15,14 @@ export const SERVER_ARCHITECTURE_GUIDE = `<!-- srcbook:{"language":"typescript",
 
 Thoughtbox is an MCP (Model Context Protocol) server that provides cognitive enhancement tools for LLM agents. All tools are available immediately at connection start. No staged unlocking is required.
 
-1. **thoughtbox_gateway** - Always-available router for all operations
-2. **thoughtbox_cipher** - Deep thinking primer
-3. **session** - Session management and persistence
-4. **thoughtbox** - Sequential thinking with 7 core reasoning patterns + autonomous critique
-5. **notebook** - Literate programming toolhost for executable documentation
-6. **mental_models** - Mental model application and analysis
+1. **thoughtbox_session** - Session management and persistence
+2. **thoughtbox_thought** - Step-by-step reasoning with branching, revision, and semantic types
+3. **thoughtbox_notebook** - Literate programming notebooks
+4. **thoughtbox_knowledge** - Knowledge graph (entities, relations, observations)
+5. **thoughtbox_theseus** - Friction-gated refactoring protocol
+6. **thoughtbox_ulysses** - Surprise-gated debugging protocol
+7. **thoughtbox_operations** - Discover operation schemas for any tool
+8. **observability_gateway** - Metrics, health, alerts
 
 This notebook explores the architecture, implementation patterns, and design decisions behind the Thoughtbox server.
 
@@ -48,14 +50,13 @@ The server consists of several interconnected components:
 │  └──────────────────────────────────────────────────────────────┘ │
 │                              ↓                                     │
 │  ┌──────────────────────────────────────────────────────────────┐ │
-│  │   Gateway (always-on) + ToolRegistry                         │ │
-│  │   All tools available immediately                             │ │
+│  │   ToolRegistry — All tools available immediately              │ │
 │  └──────────────────────────────────────────────────────────────┘ │
 │       ↓           ↓            ↓            ↓           ↓         │
-│  ┌────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐  │
-│  │ Init   │ │ Thought  │ │ Notebook │ │ Session  │ │ Mental   │  │
-│  │Handler │ │ Handler  │ │ Handler  │ │ Handler  │ │ Models   │  │
-│  └────────┘ └──────────┘ └──────────┘ └──────────┘ └──────────┘  │
+│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐│
+│  │ Thought  │ │ Session  │ │ Notebook │ │Knowledge │ │ Protocol ││
+│  │ Handler  │ │ Handler  │ │ Handler  │ │ Handler  │ │ Handlers ││
+│  └──────────┘ └──────────┘ └──────────┘ └──────────┘ └──────────┘│
 │                              ↓                                     │
 │  ┌──────────────────────────────────────────────────────────────┐ │
 │  │   Persistence (FileSystemStorage) + Observatory (WebSocket)  │ │
@@ -65,51 +66,28 @@ The server consists of several interconnected components:
 
 ### Key Design Patterns
 
-1. **Gateway Pattern**: Single always-enabled tool that routes to all handlers
-2. **Toolhost Pattern**: Single \`notebook\` tool with operation dispatch vs 10 separate tools
+1. **Toolhost Pattern**: Each domain is a single tool with operation dispatch (e.g., \`thoughtbox_session\`, \`thoughtbox_thought\`)
+2. **Direct Tool Access**: All tools available immediately at connection start — no gateway or init ceremony
 3. **Resource Embedding**: Responses include contextual documentation as embedded resources
 4. **Streamable HTTP**: Single transport via Express with per-session server instances
 5. **Lazy Initialization**: Resources created on-demand, not at startup
 6. **Autonomous Critique**: Optional LLM sampling for thought analysis via MCP sampling API
 7. **Persistent Sessions**: File-based storage with atomic writes and project isolation
 
-## Gateway Tool Pattern
+## Tool Surface
 
-The gateway tool (\`thoughtbox_gateway\`) is an always-available router that dispatches to all other handlers through a single tool interface. All operations are available immediately at connection start. No staged unlocking is required.
+All tools are available immediately at connection start. Each tool is a domain-specific toolhost with operation dispatch.
 
-### Gateway Operations
+### Tool Examples
 
-| Operation | Description |
-|-----------|-------------|
-| \`get_state\` | Get current session state |
-| \`list_sessions\` | List available sessions |
-| \`navigate\` | Navigate session hierarchy |
-| \`load_context\` | Load existing session |
-| \`start_new\` | Start new reasoning session |
-| \`list_roots\` | List MCP roots |
-| \`bind_root\` | Bind a root as project scope |
-| \`cipher\` | Load notation system |
-| \`session\` | Session management operations |
-| \`thought\` | Structured reasoning |
-| \`notebook\` | Literate programming |
-
-### When to Use Gateway vs Direct Tools
-
-Use **gateway** when:
-- You want a single consistent interface
-- Using streaming HTTP transport
-
-Use **direct tools** when:
-- You want cleaner tool discovery
-
-###### gateway-usage.ts
+###### tool-usage.ts
 
 \`\`\`typescript
-// Example: Using gateway vs direct tools
+// Example: Using Thoughtbox tools directly
 
-// Gateway approach (always works)
-const viaGateway = {
-  tool: 'thoughtbox_gateway',
+// Structured reasoning
+const thought = {
+  tool: 'thoughtbox_thought',
   args: {
     operation: 'thought',
     args: {
@@ -121,19 +99,16 @@ const viaGateway = {
   }
 };
 
-// Direct approach (requires tool list refresh)
-const viaDirect = {
-  tool: 'thoughtbox',
+// Session management
+const sessions = {
+  tool: 'thoughtbox_session',
   args: {
-    thought: 'Analyzing the problem',
-    thoughtNumber: 1,
-    totalThoughts: 5,
-    nextThoughtNeeded: true
+    operation: 'list'
   }
 };
 
-console.log('Gateway approach:', JSON.stringify(viaGateway, null, 2));
-console.log('Direct approach:', JSON.stringify(viaDirect, null, 2));
+console.log('Thought:', JSON.stringify(thought, null, 2));
+console.log('Sessions:', JSON.stringify(sessions, null, 2));
 \`\`\`
 
 ## State Management
@@ -559,9 +534,9 @@ This means every tool response includes just-in-time documentation about what wa
 
 ## Key Takeaways
 
-### 1. Gateway Provides a Single Entry Point
+### 1. All Tools Available Immediately
 
-The gateway tool ensures all clients can access all functionality through a single consistent interface. All tools are available immediately at connection start.
+All tools are registered at startup and available from the first call. No initialization ceremony or staged unlocking required.
 
 ### 2. ConnectionStage Tracks Session Initialization
 
@@ -585,7 +560,6 @@ The Model Context Protocol isn't just about API calls - it's about giving LLMs s
 
 | File | Purpose |
 |------|---------|
-| \`src/gateway/gateway-handler.ts\` | Gateway tool implementation |
 | \`src/tool-registry.ts\` | Tool registration |
 | \`src/init/state-manager.ts\` | Session state tracking |
 | \`src/persistence/storage.ts\` | Storage and LinkedThoughtStore |
@@ -594,4 +568,4 @@ The Model Context Protocol isn't just about API calls - it's about giving LLMs s
 
 ## Conclusion
 
-The Thoughtbox MCP server showcases modern patterns for building AI-native tools. The gateway pattern, toolhost dispatch, and resource embedding create a flexible system that works across different client types.`;
+The Thoughtbox MCP server showcases modern patterns for building AI-native tools. The toolhost dispatch, resource embedding, and direct tool access create a flexible system that works across different client types.`;

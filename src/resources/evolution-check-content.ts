@@ -190,43 +190,11 @@ Key differences from paper:
 
 ---
 
-## Gateway Alternative
-
-If Thoughtbox tools appear unavailable (common with streaming HTTP clients), use the gateway:
-
-\`\`\`typescript
-// Via gateway (always available)
-await mcp__thoughtbox__thoughtbox_gateway({
-  operation: 'session',
-  args: {
-    operation: 'get',
-    args: { sessionId: '<YOUR_SESSION_ID>' }
-  }
-});
-
-// For revisions via gateway
-await mcp__thoughtbox__thoughtbox_gateway({
-  operation: 'thought',
-  args: {
-    thought: 'REVISED: ...',
-    thoughtNumber: 4,
-    totalThoughts: 10,
-    nextThoughtNeeded: false,
-    isRevision: true,
-    revisesThought: 4
-  }
-});
-\`\`\`
-
-The gateway routes to the same handlers internally with stage enforcement.
-
----
-
 ## See Also
 
-- \`thoughtbox_cipher\` — Compress thought content
+- \`thoughtbox://cipher\` — Token-efficient notation system
 - \`subagent-summarize\` — Context isolation for session retrieval
-- \`session\` tool with operation \`get\` — Direct session retrieval
-- \`thoughtbox_gateway\` — Always-available router for all operations
+- \`thoughtbox_session\` with operation \`get\` — Direct session retrieval
+- \`thoughtbox_thought\` with \`isRevision: true\` — Apply revisions
 - A-Mem paper: https://arxiv.org/abs/2502.12110
 `;

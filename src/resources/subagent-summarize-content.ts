@@ -48,7 +48,7 @@ Only 200 tokens in YOUR context
   "tool": "Task",
   "subagent_type": "general-purpose",
   "description": "Summarize Thoughtbox session",
-  "prompt": "Retrieve and summarize Thoughtbox session.\\n\\n1. Call mcp__thoughtbox__init with operation 'get_state'\\n2. Call mcp__thoughtbox__thoughtbox_cipher\\n3. Call mcp__thoughtbox__session with operation 'get' and sessionId '<SESSION_ID>'\\n4. Summarize the key insights in 3-5 sentences\\n\\nReturn ONLY your summary. Do not include raw thought content."
+  "prompt": "Retrieve and summarize Thoughtbox session.\\n\\n1. Call mcp__thoughtbox__thoughtbox_session with operation 'get' and args { sessionId: '<SESSION_ID>' }\\n2. Summarize the key insights in 3-5 sentences\\n\\nReturn ONLY your summary. Do not include raw thought content."
 }
 \`\`\`
 
@@ -59,7 +59,7 @@ Only 200 tokens in YOUR context
   "tool": "Task",
   "subagent_type": "general-purpose",
   "description": "Search Thoughtbox sessions",
-  "prompt": "Search Thoughtbox for information about <TOPIC>.\\n\\n1. Call mcp__thoughtbox__init with operation 'get_state'\\n2. Call mcp__thoughtbox__thoughtbox_cipher\\n3. Call mcp__thoughtbox__session with operation 'list'\\n4. For relevant sessions, call operation 'get' to retrieve thoughts\\n5. Extract only information related to <TOPIC>\\n\\nReturn a concise summary of findings. Do not include raw thought content."
+  "prompt": "Search Thoughtbox for information about <TOPIC>.\\n\\n1. Call mcp__thoughtbox__thoughtbox_session with operation 'list'\\n2. For relevant sessions, call mcp__thoughtbox__thoughtbox_session with operation 'get' and the sessionId\\n3. Extract only information related to <TOPIC>\\n\\nReturn a concise summary of findings. Do not include raw thought content."
 }
 \`\`\`
 
@@ -70,7 +70,7 @@ Only 200 tokens in YOUR context
   "tool": "Task",
   "subagent_type": "general-purpose",
   "description": "Synthesize Thoughtbox sessions",
-  "prompt": "Synthesize conclusions across multiple Thoughtbox sessions.\\n\\n1. Initialize Thoughtbox (init → cipher)\\n2. List sessions with tags matching '<TAG>'\\n3. Retrieve each relevant session\\n4. Identify common themes, contradictions, and key conclusions\\n5. Synthesize into a coherent summary\\n\\nReturn only your synthesis. Do not include raw thoughts."
+  "prompt": "Synthesize conclusions across multiple Thoughtbox sessions.\\n\\n1. Call mcp__thoughtbox__thoughtbox_session with operation 'list'\\n2. Filter sessions with tags matching '<TAG>'\\n3. Retrieve each relevant session with operation 'get'\\n4. Identify common themes, contradictions, and key conclusions\\n5. Synthesize into a coherent summary\\n\\nReturn only your synthesis. Do not include raw thoughts."
 }
 \`\`\`
 
@@ -121,10 +121,8 @@ const result = await Task({
     Retrieve and summarize Thoughtbox session about authentication.
 
     Steps:
-    1. mcp__thoughtbox__init({ operation: "get_state" })
-    2. mcp__thoughtbox__thoughtbox_cipher()
-    3. mcp__thoughtbox__session({ operation: "get", args: { sessionId: "abc-123" }})
-    4. Extract key conclusions about authentication decisions
+    1. mcp__thoughtbox__thoughtbox_session({ operation: "get", args: { sessionId: "abc-123" }})
+    2. Extract key conclusions about authentication decisions
 
     Return a 3-sentence summary. No raw thoughts.
   \`
@@ -148,34 +146,9 @@ Tested 2026-01-16:
 
 ---
 
-## Alternative: Via Gateway Tool
-
-If tool list doesn't refresh (common with streaming HTTP clients), use the gateway:
-
-\`\`\`json
-{
-  "tool": "Task",
-  "subagent_type": "general-purpose",
-  "description": "Summarize Thoughtbox session via gateway",
-  "prompt": "Retrieve and summarize session via gateway tool.\\n\\n1. mcp__thoughtbox__thoughtbox_gateway({ operation: 'start_new', args: { task: 'retrieve' } })\\n2. mcp__thoughtbox__thoughtbox_gateway({ operation: 'cipher' })\\n3. mcp__thoughtbox__thoughtbox_gateway({ operation: 'session', args: { operation: 'get', args: { sessionId: '<SESSION_ID>' } } })\\n4. Summarize key insights (3-5 sentences)\\n\\nReturn ONLY your summary. Do not include raw thought content."
-}
-\`\`\`
-
-### When to Use Gateway
-
-Use the gateway approach when:
-- Client doesn't refresh tool lists properly
-- Using streaming HTTP transport
-- Other Thoughtbox tools appear unavailable
-
-The gateway tool is always enabled at Stage 0 and routes to all other handlers internally.
-
----
-
 ## See Also
 
-- \`thoughtbox_cipher\` - Compress thought content (complementary approach)
-- \`session.get\` - Direct retrieval (when you need full content)
-- \`thoughtbox_gateway\` - Always-available router for all operations
+- \`thoughtbox://cipher\` - Token-efficient notation system (complementary approach)
+- \`thoughtbox_session\` with operation \`get\` - Direct retrieval (when you need full content)
 - RLM paper: https://arxiv.org/abs/2512.24601
 `;

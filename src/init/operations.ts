@@ -57,7 +57,7 @@ export const INIT_OPERATIONS: OperationDefinition[] = [
   {
     name: "load_context",
     title: "Load Context",
-    description: "Load full context for continuing a previous session. Retrieves session metadata, recent thoughts, and advances to STAGE_1 (init complete). After loading, call 'cipher' to proceed.",
+    description: "Load full context for continuing a previous session. Retrieves session metadata, recent thoughts, and advances to STAGE_1 (init complete).",
     category: "session-setup",
     inputSchema: {
       type: "object",

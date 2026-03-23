@@ -443,7 +443,6 @@ Recommended workflow:
   // Observability Gateway Tool (Always-On, No Session Required)
   // =============================================================================
   // Separate tool for querying observability data (metrics, health, sessions, alerts).
-  // No progressive disclosure - always available, direct query access.
 
   const OBSERVABILITY_DESCRIPTION = `Query system observability data including metrics, health status, active sessions, and alerts. No session initialization required - connect and query directly.
 
@@ -664,7 +663,7 @@ You MUST now spawn a sub-agent using the Task tool to fulfill this request. This
   "tool": "Task",
   "subagent_type": "general-purpose",
   "description": "${request ? request.slice(0, 50) : "Query Thoughtbox sessions"}",
-  "prompt": "${request ? `Task: ${request}` : "Retrieve and summarize Thoughtbox session data."}\\n\\nSteps:\\n1. Call mcp__thoughtbox__init with operation 'get_state'\\n2. Call mcp__thoughtbox__thoughtbox_cipher (wait for tools to unlock)\\n3. Call mcp__thoughtbox__session with appropriate operation:\\n   - 'list' to see available sessions\\n   - 'get' with sessionId to retrieve specific session\\n   - 'search' with query to find relevant sessions\\n4. Process the data according to the request\\n\\nReturn ONLY your findings/summary. Do not include raw thought content."
+  "prompt": "${request ? `Task: ${request}` : "Retrieve and summarize Thoughtbox session data."}\\n\\nSteps:\\n1. Call mcp__thoughtbox__thoughtbox_session with appropriate operation:\\n   - 'list' to see available sessions\\n   - 'get' with sessionId to retrieve specific session\\n   - 'search' with query to find relevant sessions\\n2. Process the data according to the request\\n\\nReturn ONLY your findings/summary. Do not include raw thought content."
 }
 \`\`\`
 

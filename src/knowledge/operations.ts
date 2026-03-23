@@ -157,7 +157,7 @@ export const KNOWLEDGE_OPERATIONS: OperationDefinition[] = [
     },
     example: {
       entity_id: "abc-123-def-456",
-      content: "This pattern also works well with progressive disclosure stages",
+      content: "This pattern also works well with staged hub workflows",
     },
   },
   {

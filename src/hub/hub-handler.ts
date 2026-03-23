@@ -1,5 +1,5 @@
 /**
- * Hub Handler — Central dispatcher with progressive disclosure and workspace isolation
+ * Hub Handler — Central dispatcher with hub-internal stage gating (0/1/2) and workspace isolation
  *
  * ADR-002 Sections 2, 6, and 7
  */

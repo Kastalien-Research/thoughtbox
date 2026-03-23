@@ -12,7 +12,6 @@ export const sessionToolInputSchema = z.object({
   operation: z.enum([
     "session_list", "session_get", "session_search", "session_resume",
     "session_export", "session_analyze", "session_extract_learnings",
-    "session_discovery",
   ]),
   sessionId: z.string().optional().describe("Session ID for get/resume/export/analyze/extract_learnings"),
   limit: z.number().optional().describe("Maximum results to return"),
@@ -24,8 +23,6 @@ export const sessionToolInputSchema = z.object({
   resolveAnchors: z.boolean().optional().describe("Resolve cross-session anchors in export"),
   keyMoments: z.array(KeyMomentSchema).optional().describe("Key moments for extract_learnings"),
   targetTypes: z.array(z.enum(["pattern", "anti-pattern", "signal"])).optional().describe("Learning types to extract"),
-  action: z.enum(["list", "hide", "show"]).optional().describe("Action for session_discovery"),
-  toolName: z.string().optional().describe("Tool name for discovery hide/show"),
 });
 
 export type SessionToolInput = z.infer<typeof sessionToolInputSchema>;
