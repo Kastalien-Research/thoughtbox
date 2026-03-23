@@ -15,6 +15,7 @@ hooks=(
   "$project_dir/.claude/hooks/bead_close_handoff.sh"
   "$project_dir/.claude/hooks/bead_workflow_state_writer.sh"
   "$project_dir/.claude/hooks/ulysses_state_writer.sh"
+  "$project_dir/.claude/hooks/receipt_writer.sh"
   "$project_dir/scripts/staged-hooks/probe_dispatcher.sh"
 )
 
