@@ -169,13 +169,6 @@ export function buildSearchCatalog(): SearchCatalog {
 
     resources: [
       {
-        name: "Thoughtbox Init Flow",
-        uri: "thoughtbox://init",
-        description:
-          "START HERE FIRST: Read this resource before using any Thoughtbox tools. Initializes session context and loads previous work for continuity.",
-        mimeType: "text/markdown",
-      },
-      {
         name: "Notebook Server Status",
         uri: "system://status",
         description: "Health snapshot of the notebook server",
@@ -194,29 +187,9 @@ export function buildSearchCatalog(): SearchCatalog {
         mimeType: "application/json",
       },
       {
-        name: "Gateway Operations Catalog",
-        uri: "thoughtbox://gateway/operations",
-        description:
-          "Complete catalog of gateway operations (thought, read_thoughts, get_structure, cipher, deep_analysis)",
-        mimeType: "application/json",
-      },
-      {
-        name: "Init Operations Catalog",
-        uri: "thoughtbox://init/operations",
-        description:
-          "Complete catalog of init operations (get_state, list_sessions, navigate, load_context, start_new, list_roots, bind_root)",
-        mimeType: "application/json",
-      },
-      {
         name: "Knowledge Operations Catalog",
         uri: "thoughtbox://knowledge/operations",
         description: "Complete catalog of knowledge graph operations with schemas and examples",
-        mimeType: "application/json",
-      },
-      {
-        name: "Hub Operations Catalog",
-        uri: "thoughtbox://hub/operations",
-        description: "Complete catalog of all 27 hub operations with stage metadata and vocabulary",
         mimeType: "application/json",
       },
       {
@@ -316,42 +289,6 @@ export function buildSearchCatalog(): SearchCatalog {
 
     resourceTemplates: [
       {
-        name: "Init Mode Selection",
-        uriTemplate: "thoughtbox://init/{mode}",
-        description: "Select new or continue mode",
-        mimeType: "text/markdown",
-      },
-      {
-        name: "Init Project Selection",
-        uriTemplate: "thoughtbox://init/{mode}/{project}",
-        description: "Select project for context",
-        mimeType: "text/markdown",
-      },
-      {
-        name: "Init Task Selection",
-        uriTemplate: "thoughtbox://init/{mode}/{project}/{task}",
-        description: "Select task within project",
-        mimeType: "text/markdown",
-      },
-      {
-        name: "Init Context Loaded",
-        uriTemplate: "thoughtbox://init/{mode}/{project}/{task}/{aspect}",
-        description: "Context loaded - ready to work",
-        mimeType: "text/markdown",
-      },
-      {
-        name: "Gateway Operation Detail",
-        uriTemplate: "thoughtbox://gateway/operations/{op}",
-        description: "Individual gateway operation schema and examples",
-        mimeType: "application/json",
-      },
-      {
-        name: "Init Operation Detail",
-        uriTemplate: "thoughtbox://init/operations/{op}",
-        description: "Individual init operation schema and examples",
-        mimeType: "application/json",
-      },
-      {
         name: "Session Operation Detail",
         uriTemplate: "thoughtbox://session/operations/{op}",
         description: "Individual session operation schema and examples",
@@ -364,12 +301,6 @@ export function buildSearchCatalog(): SearchCatalog {
         mimeType: "application/json",
       },
       {
-        name: "Hub Operation Detail",
-        uriTemplate: "thoughtbox://hub/operations/{op}",
-        description: "Individual hub operation schema and examples",
-        mimeType: "application/json",
-      },
-      {
         name: "Notebook Operation Detail",
         uriTemplate: "thoughtbox://notebook/operations/{op}",
         description: "Individual notebook operation schema and examples",
@@ -379,13 +310,6 @@ export function buildSearchCatalog(): SearchCatalog {
         name: "Interleaved Thinking Guides",
         uriTemplate: "thoughtbox://interleaved/{guide}",
         description: "Interleaved thinking guides",
-        mimeType: "text/markdown",
-      },
-      {
-        name: "Session Analysis Guide",
-        uriTemplate: "thoughtbox://session-analysis-guide",
-        description:
-          "Process guide for qualitative analysis of reasoning sessions. Teaches how to identify key moments and extract learnings for the DGM evolution system.",
         mimeType: "text/markdown",
       },
       {
@@ -417,12 +341,6 @@ export function buildSearchCatalog(): SearchCatalog {
         name: "Revision History",
         uriTemplate: "thoughtbox://revisions/{sessionId}/{thoughtNumber}",
         description: "Get complete revision history for a thought",
-        mimeType: "application/json",
-      },
-      {
-        name: "Hub Channel Messages",
-        uriTemplate: "thoughtbox://hub/{workspaceId}/channels/{problemId}",
-        description: "Problem discussion channel messages",
         mimeType: "application/json",
       },
     ],
