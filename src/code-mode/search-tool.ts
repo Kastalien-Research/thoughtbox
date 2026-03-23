@@ -44,7 +44,8 @@ interface SearchCatalog {
   resourceTemplates: Array<{ name: string; uriTemplate: string; description: string; mimeType: string }>;
 }
 
-Modules in catalog.operations: session, thought, knowledge, notebook, theseus, ulysses, observability, init
+Modules in catalog.operations: session, thought, knowledge, notebook, theseus, ulysses, observability
+Legacy entrypoints like init and hub are intentionally absent from the Code Mode catalog.
 
 Examples:
 - List all modules: \`async () => Object.keys(catalog.operations)\`
@@ -126,7 +127,12 @@ export class SearchTool {
         truncated = true;
       }
 
-      output = { result: JSON.parse(serialized ?? "null"), logs, truncated, durationMs };
+      output = {
+        result: truncated ? serialized : JSON.parse(serialized ?? "null"),
+        logs,
+        truncated: truncated || undefined,
+        durationMs,
+      };
     } catch (err) {
       output = {
         result: null,

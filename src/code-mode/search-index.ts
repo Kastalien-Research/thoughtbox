@@ -7,10 +7,8 @@
  */
 
 import { SESSION_OPERATIONS } from "../sessions/operations.js";
-import { INIT_OPERATIONS } from "../init/operations.js";
 import { NOTEBOOK_OPERATIONS } from "../notebook/operations.js";
 import { KNOWLEDGE_OPERATIONS } from "../knowledge/operations.js";
-import { HUB_OPERATIONS } from "../hub/operations.js";
 // Created concurrently — imports resolve at compile time
 import { THOUGHT_OPERATIONS } from "../thought/operations.js";
 import {
@@ -79,10 +77,8 @@ export function buildSearchCatalog(): SearchCatalog {
   return {
     operations: {
       session: indexOperations(SESSION_OPERATIONS),
-      init: indexOperations(INIT_OPERATIONS),
       notebook: indexOperations(NOTEBOOK_OPERATIONS),
       knowledge: indexOperations(KNOWLEDGE_OPERATIONS),
-      hub: indexOperations(HUB_OPERATIONS),
       thought: indexOperations(THOUGHT_OPERATIONS),
       theseus: indexOperations(THESEUS_OPERATIONS),
       ulysses: indexOperations(ULYSSES_OPERATIONS),

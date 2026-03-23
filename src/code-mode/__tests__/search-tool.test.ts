@@ -6,19 +6,21 @@ const catalog = buildSearchCatalog();
 const tool = new SearchTool(catalog);
 
 describe("thoughtbox_search", () => {
-  it("lists all module names", async () => {
+  it("lists only the Code Mode operation modules", async () => {
     const result = await tool.handle({
-      code: "async () => Object.keys(catalog.operations)",
+      code: "async () => Object.keys(catalog.operations).sort()",
     });
     const output = JSON.parse(result.content[0].text);
     expect(output.error).toBeUndefined();
-    expect(output.result).toContain("session");
-    expect(output.result).toContain("thought");
-    expect(output.result).toContain("knowledge");
-    expect(output.result).toContain("notebook");
-    expect(output.result).toContain("theseus");
-    expect(output.result).toContain("ulysses");
-    expect(output.result).toContain("observability");
+    expect(output.result).toEqual([
+      "knowledge",
+      "notebook",
+      "observability",
+      "session",
+      "theseus",
+      "thought",
+      "ulysses",
+    ]);
   });
 
   it("filters operations by module", async () => {
@@ -72,6 +74,25 @@ describe("thoughtbox_search", () => {
     const output = JSON.parse(result.content[0].text);
     expect(output.logs).toContain("hello");
     expect(output.result).toBe("done");
+  });
+
+  it("blocks access to process", async () => {
+    const result = await tool.handle({
+      code: `async () => typeof process`,
+    });
+    const output = JSON.parse(result.content[0].text);
+    expect(output.result).toBe("undefined");
+  });
+
+  it("returns truncated output instead of throwing on oversized results", async () => {
+    const result = await tool.handle({
+      code: `async () => ({ payload: "x".repeat(30000) })`,
+    });
+    const output = JSON.parse(result.content[0].text);
+    expect(output.error).toBeUndefined();
+    expect(output.truncated).toBe(true);
+    expect(typeof output.result).toBe("string");
+    expect(output.result).toContain("[truncated]");
   });
 
   it("returns error for invalid code", async () => {

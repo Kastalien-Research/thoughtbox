@@ -104,6 +104,15 @@ describe("thoughtbox_execute", () => {
     expect(output.result).toBe("undefined");
   });
 
+  it("tb.init is not available", async () => {
+    const tool = createExecuteTool();
+    const result = await tool.handle({
+      code: `async () => { return typeof tb.init; }`,
+    });
+    const output = JSON.parse(result.content[0].text);
+    expect(output.result).toBe("undefined");
+  });
+
   it("can call tb.session.list()", async () => {
     const tool = createExecuteTool();
     const result = await tool.handle({
@@ -149,6 +158,72 @@ describe("thoughtbox_execute", () => {
     expect(output.error).toBeUndefined();
     expect(output.result.thought).toBeDefined();
     expect(output.result.sessions).toBeDefined();
+  });
+
+  it("can call tb.theseus()", async () => {
+    const tool = createExecuteTool();
+    const result = await tool.handle({
+      code: `async () => {
+        const init = await tb.theseus({
+          operation: "init",
+          scope: ["src/code-mode/execute-tool.ts"],
+          description: "Exercise protocol surface",
+        });
+        const status = await tb.theseus({ operation: "status" });
+        return { init, status };
+      }`,
+    });
+    const output = JSON.parse(result.content[0].text);
+    expect(output.error).toBeUndefined();
+    expect(output.result.init.session_id).toBeDefined();
+    expect(output.result.status.session_id).toBe(output.result.init.session_id);
+  });
+
+  it("can call tb.ulysses()", async () => {
+    const tool = createExecuteTool();
+    const result = await tool.handle({
+      code: `async () => {
+        const init = await tb.ulysses({
+          operation: "init",
+          problem: "Exercise protocol surface",
+          constraints: ["unit-test"],
+        });
+        const status = await tb.ulysses({ operation: "status" });
+        return { init, status };
+      }`,
+    });
+    const output = JSON.parse(result.content[0].text);
+    expect(output.error).toBeUndefined();
+    expect(output.result.init.session_id).toBeDefined();
+    expect(output.result.status.session_id).toBe(output.result.init.session_id);
+  });
+
+  it("can call tb.observability()", async () => {
+    const tool = createExecuteTool();
+    const result = await tool.handle({
+      code: `async () => {
+        return await tb.observability({
+          operation: "dashboard_url",
+          args: { dashboard: "thoughtbox-mcp" },
+        });
+      }`,
+    });
+    const output = JSON.parse(result.content[0].text);
+    expect(output.error).toBeUndefined();
+    expect(output.result.dashboard).toBe("thoughtbox-mcp");
+    expect(output.result.url).toContain("/d/thoughtbox-mcp/thoughtbox-mcp");
+  });
+
+  it("returns truncated output for oversized results", async () => {
+    const tool = createExecuteTool();
+    const result = await tool.handle({
+      code: `async () => ({ payload: "x".repeat(30000) })`,
+    });
+    const output = JSON.parse(result.content[0].text);
+    expect(output.error).toBeUndefined();
+    expect(output.truncated).toBe(true);
+    expect(typeof output.result).toBe("string");
+    expect(output.result).toContain("[truncated]");
   });
 
   it("returns syntax error for invalid code", async () => {

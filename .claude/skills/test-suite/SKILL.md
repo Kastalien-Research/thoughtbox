@@ -1,43 +1,47 @@
 ---
 name: test-suite
-description: Run behavioral tests against all Thoughtbox MCP tools in order. Guides you through each test file, tracking pass/fail state. Use when verifying Thoughtbox server functionality after changes, deployments, or as a smoke test.
+description: Run behavioral smoke tests against the live Thoughtbox Code Mode MCP server. Verifies the public `/mcp` surface (`thoughtbox_search` + `thoughtbox_execute`) plus the main execution paths behind it.
 ---
 
-# Thoughtbox Behavioral Test Suite
+# Thoughtbox Code Mode Behavioral Test Suite
 
-Run behavioral tests against a live Thoughtbox MCP server, tool by tool, in progressive disclosure order.
+Run behavioral tests against a live Thoughtbox MCP server whose public surface is Code Mode.
+
+The authoritative hosted contract is:
+
+- `thoughtbox_search`
+- `thoughtbox_execute`
+
+The legacy progressive-disclosure suite (`thoughtbox_init`, `thoughtbox_operations`, raw per-domain tools) is no longer the primary behavioral contract for `/mcp`. Treat the old `01-09` markdown files in this folder as historical reference only unless you are explicitly auditing legacy behavior.
 
 ## Test Files
 
-Tests are numbered to match the server's progressive disclosure stages:
+| # | File | Focus | Tests |
+|---|------|-------|-------|
+| 01 | `tests/01-codemode-surface.md` | Public MCP surface and instructions | 4 |
+| 02 | `tests/02-codemode-search.md` | Search catalog discovery | 5 |
+| 03 | `tests/03-codemode-execute.md` | Execute tool workflows | 6 |
+| 04 | `tests/04-codemode-protocols-observability.md` | Protocol and observability namespaces via `tb.*` | 5 |
 
-| # | File | Tool | Stage | Tests |
-|---|------|------|-------|-------|
-| 01 | `tests/01-init.md` | `thoughtbox_init` | STAGE_0 | 8 |
-| 02 | `tests/02-operations.md` | `thoughtbox_operations` | STAGE_0 | 6 |
-| 03 | `tests/03-session.md` | `thoughtbox_session` | STAGE_1 | 10 |
-| 04 | `tests/04-knowledge.md` | `thoughtbox_knowledge` | STAGE_1 | 12 |
-| 05 | `tests/05-thought.md` | `thoughtbox_thought` | STAGE_2 | 14 |
-| 06 | `tests/06-notebook.md` | `thoughtbox_notebook` | STAGE_2 | 8 |
-| 07 | `tests/07-hub.md` | `thoughtbox_hub` | always-on | 15 |
-| 08 | `tests/08-theseus.md` | `thoughtbox_theseus` | STAGE_2 | 8 |
-| 09 | `tests/09-ulysses.md` | `thoughtbox_ulysses` | STAGE_2 | 11 |
-
-**Total: 92 tests across 9 tools**
+**Total: 20 behavioral smoke tests across the 2-tool Code Mode surface**
 
 ## How to Run
 
-### Step 1: Verify server is running
+### Step 1: Verify the server is running
 
-Check that the Thoughtbox MCP server is connected:
-```
-Read resource: thoughtbox://init
-```
-If this fails, the server isn't running. Start it with `pnpm start` or check `.mcp.json`.
+Confirm the live MCP server is reachable and using the Code Mode surface:
 
-### Step 2: Initialize state tracker
+1. Connect to the server.
+2. Call `tools/list`.
+3. Verify the tool list is exactly:
+   - `thoughtbox_search`
+   - `thoughtbox_execute`
 
-Create a state object to track results:
+If raw tools like `thoughtbox_init`, `thoughtbox_session`, or `thoughtbox_hub` appear in `tools/list`, the behavioral suite should fail immediately because the hosted surface is not the intended Code Mode contract.
+
+### Step 2: Initialize a test state tracker
+
+Track results in a state object:
 
 ```json
 {
@@ -51,91 +55,65 @@ Create a state object to track results:
 
 ### Step 3: Execute tests in order
 
-For each test file (01 through 09):
+For each test file (`01` through `04`):
 
-1. **Read the test file** from `.claude/skills/test-suite/tests/NN-<tool>.md`
-2. **Execute each test** by calling the MCP tools as described
-3. **Record the result** for each test:
-   - `pass` — tool returned expected results
-   - `fail` — tool returned unexpected results or errored
-   - `skip` — test cannot run (e.g., missing prerequisites)
-4. **Report progress** after each file completes:
-   ```
-   [03/09] thoughtbox_session: 9/10 pass, 1 fail (Test 7: cipher export requires cipher loaded)
-   ```
+1. Read the file from `.claude/skills/test-suite/tests/NN-codemode-*.md`
+2. Execute each test using the live `thoughtbox_search` and `thoughtbox_execute` tools
+3. Record `pass`, `fail`, or `skip`
+4. Report progress after each file
 
-### Step 4: Progressive disclosure gate
+Example:
 
-Tests are ordered so that earlier tests unlock later stages:
-
-- **01-init** includes `start_new` (unlocks STAGE_1) and `cipher` (unlocks STAGE_2)
-- **02-operations** can run at any stage
-- **03-04** require STAGE_1 (init must pass first)
-- **05-09** require STAGE_2 (cipher must load first)
-
-If init tests fail, stop and report — later tests cannot run.
-
-### Step 5: Final report
-
-After all files complete, produce a summary:
-
+```text
+[02/04] thoughtbox_search: 5/5 pass
 ```
-Thoughtbox Behavioral Test Suite — Results
-==========================================
-01-init:        8/8  pass
-02-operations:  6/6  pass
-03-session:     9/10 pass (1 fail)
-04-knowledge:   12/12 pass
-05-thought:     14/14 pass
-06-notebook:    7/8  pass (1 skip)
-07-hub:         15/15 pass
-08-theseus:     8/8  pass
-09-ulysses:     11/11 pass
-------------------------------------------
-Total: 90/92 pass, 1 fail, 1 skip
 
-Failed:
-- 03-session Test 7: Export cipher format — "cipher not loaded" error
+### Step 4: Final report
 
-Skipped:
-- 06-notebook Test 7: Dependency installation — no network in test env
+Produce a concise summary:
+
+```text
+Thoughtbox Code Mode Behavioral Suite — Results
+==============================================
+01-codemode-surface:                  4/4 pass
+02-codemode-search:                   5/5 pass
+03-codemode-execute:                  6/6 pass
+04-codemode-protocols-observability:  5/5 pass
+----------------------------------------------
+Total: 20/20 pass
 ```
+
+If anything fails, list the exact test and the observed discrepancy.
 
 ## Verification Discipline
 
-**A test is not PASS unless the response proves it.** Accepting a tool call that didn't error is not verification. Apply these rules:
+**A test is not PASS unless the response proves the claim.**
 
-### Rule 1: Use `verbose: true` for thoughtbox_thought
+### Rule 1: Verify the public surface, not internal implementation details
 
-The thought tool returns minimal boilerplate (`thoughtNumber`, `sessionId`) by default. Set `verbose: true` on every thought submission that includes structured payloads (`options`, `actionResult`, `beliefs`, `assumptionChange`, `progressData`, `agentId`). The verbose response includes the structured metadata mapping — that's the proof.
+The first check is always `tools/list`. The hosted contract is the public surface. Internal handlers or historical resources do not count as proof.
 
-### Rule 2: Cross-check with retrieval operations
+### Rule 2: Search tests must prove discovery fidelity
 
-After submitting data, verify it persisted by reading it back:
+When `thoughtbox_search` returns a module, operation, prompt, resource, or resource template, verify the returned names/URIs/descriptions match the intended query. "It returned something relevant" is not enough.
 
-| After this... | Verify with... |
-|---|---|
-| `thoughtbox_thought` submissions | `session_get` or `session_export format:"json"` — check thought metadata fields |
-| `knowledge_add_observation` | `knowledge_get_entity` — check observations array |
-| `notebook_add_cell` / `notebook_update_cell` | `notebook_get_cell` — check content matches |
-| Hub `create_problem` / `claim_problem` | `list_problems` — check status and assignment |
+### Rule 3: Execute tests must prove real behavior
 
-### Rule 3: Count what you submitted
+For `thoughtbox_execute`, verify both:
 
-When a session closes and returns an `auditManifest`, verify the counts match what you submitted. If you sent 9 `reasoning` thoughts and the manifest says 7, that's a data loss bug — not a pass.
+- the returned value
+- the side effect or follow-up state when applicable
 
-### Rule 4: Never rationalize failures
+Examples:
 
-If a response contains `"success": false`, that's a FAIL. Don't reinterpret it as "graceful handling" or "expected when no data exists." If the test expected the operation to succeed and it didn't, record the failure.
+- After `tb.thought(...)`, verify the resulting session is visible through `tb.session.list()` or `tb.session.get(...)`
+- After a protocol `init`, verify `status` reports the active session
+- After `console.log(...)`, verify logs were captured
 
-### Rule 5: Verify the claim, not the shape
+### Rule 4: Legacy namespaces must fail cleanly
 
-"Response includes field X" is not the same as "field X contains the correct value." Check values against what you submitted, not just that a JSON key exists.
+If the suite checks `tb.hub` or `tb.init`, the expected result is absence (`undefined`), not graceful fallback behavior.
 
-## Important Notes
+### Rule 5: Never rationalize mismatches
 
-- Tests are **behavioral**, not unit tests. They call live MCP tools and verify responses.
-- Each test is independent within its file, but files must run in order (progressive disclosure).
-- The hub tool requires `hubStorage` — if not configured, skip 07-hub entirely.
-- Theseus and Ulysses use in-memory handlers if Supabase is not configured — tests still work.
-- Some tests create persistent state (sessions, entities). Run against a test data directory if you want isolation.
+If the server exposes more than the intended two tools, or if search/execute exposes an out-of-scope namespace for this release, that is a failure against the current Code Mode contract.
