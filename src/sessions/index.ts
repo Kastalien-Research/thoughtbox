@@ -10,7 +10,6 @@
 
 import { SessionHandlers, type SessionHandlerDeps } from "./handlers.js";
 import { getOperation, SESSION_TOOL } from "./operations.js";
-import type { DiscoveryRegistry, DiscoveryNotification } from "../discovery-registry.js";
 
 export { SESSION_TOOL } from "./operations.js";
 export { getOperationNames, getOperationsCatalog } from "./operations.js";
@@ -21,12 +20,10 @@ export type { SessionHandlerDeps } from "./handlers.js";
  */
 export class SessionHandler {
   private handlers: SessionHandlers;
-  private discoveryRegistry: DiscoveryRegistry | null;
   private initialized = false;
 
   constructor(deps: SessionHandlerDeps) {
     this.handlers = new SessionHandlers(deps);
-    this.discoveryRegistry = deps.discoveryRegistry || null;
   }
 
   async init(): Promise<void> {
@@ -70,9 +67,6 @@ export class SessionHandler {
         case "extract_learnings":
           result = await this.handlers.handleExtractLearnings(args);
           break;
-        case "discovery":
-          result = await this.handlers.handleDiscovery(args);
-          break;
         default:
           throw new Error(`Unknown session operation: ${operation}`);
       }
@@ -96,15 +90,6 @@ export class SessionHandler {
         });
       }
 
-      // SPEC-009: Check for tool discovery triggers
-      const discovery = this.checkForDiscovery(operation, args);
-      if (discovery) {
-        content.push({
-          type: "text",
-          text: `\n---\n${discovery.message}\nThese specialized tools are now available.`,
-        });
-      }
-
       return { content, isError: false };
     } catch (error) {
       return {
@@ -124,18 +109,5 @@ export class SessionHandler {
         isError: true,
       };
     }
-  }
-
-  /**
-   * Check if this operation triggers tool discovery (SPEC-009)
-   */
-  private checkForDiscovery(
-    operation: string,
-    args: any
-  ): DiscoveryNotification | null {
-    if (!this.discoveryRegistry) {
-      return null;
-    }
-    return this.discoveryRegistry.onOperationCalled("session", operation, args);
   }
 }

@@ -13,23 +13,19 @@ import {
   type ExtractedLearning,
 } from "../persistence/index.js";
 import { ThoughtHandler } from "../thought-handler.js";
-import type { DiscoveryRegistry } from "../discovery-registry.js";
 
 export interface SessionHandlerDeps {
   storage: ThoughtboxStorage;
   thoughtHandler: ThoughtHandler;
-  discoveryRegistry?: DiscoveryRegistry;
 }
 
 export class SessionHandlers {
   private storage: ThoughtboxStorage;
   private thoughtHandler: ThoughtHandler;
-  private discoveryRegistry: DiscoveryRegistry | null;
 
   constructor(deps: SessionHandlerDeps) {
     this.storage = deps.storage;
     this.thoughtHandler = deps.thoughtHandler;
-    this.discoveryRegistry = deps.discoveryRegistry || null;
   }
 
   /**
@@ -629,86 +625,4 @@ export class SessionHandlers {
     };
   }
 
-  /**
-   * Manage discovered tools (SPEC-009)
-   */
-  async handleDiscovery(args: {
-    action: 'list' | 'hide' | 'show';
-    toolName?: string;
-  }): Promise<{
-    action: string;
-    success: boolean;
-    message: string;
-    discoveredTools?: string[];
-    allDiscoverableTools?: string[];
-  }> {
-    if (!this.discoveryRegistry) {
-      return {
-        action: args.action,
-        success: false,
-        message: "Discovery registry not available. Tool discovery is not enabled.",
-      };
-    }
-
-    switch (args.action) {
-      case 'list': {
-        const discovered = this.discoveryRegistry.getDiscoveredTools();
-        const allDiscoverable = this.discoveryRegistry.getAllDiscoverableTools();
-        return {
-          action: 'list',
-          success: true,
-          message: discovered.length > 0
-            ? `${discovered.length} tools currently discovered.`
-            : "No tools currently discovered. Call hub tool operations (like session.analyze) to unlock specialized tools.",
-          discoveredTools: discovered,
-          allDiscoverableTools: allDiscoverable,
-        };
-      }
-
-      case 'hide': {
-        if (!args.toolName) {
-          return {
-            action: 'hide',
-            success: false,
-            message: "toolName is required for hide action",
-          };
-        }
-        const hidden = this.discoveryRegistry.hideTool(args.toolName);
-        return {
-          action: 'hide',
-          success: hidden,
-          message: hidden
-            ? `Tool '${args.toolName}' has been hidden. It will no longer appear in tool listings.`
-            : `Failed to hide '${args.toolName}'. It may not be discovered or doesn't exist.`,
-          discoveredTools: this.discoveryRegistry.getDiscoveredTools(),
-        };
-      }
-
-      case 'show': {
-        if (!args.toolName) {
-          return {
-            action: 'show',
-            success: false,
-            message: "toolName is required for show action",
-          };
-        }
-        const shown = this.discoveryRegistry.showTool(args.toolName);
-        return {
-          action: 'show',
-          success: shown,
-          message: shown
-            ? `Tool '${args.toolName}' has been re-enabled and is now visible.`
-            : `Failed to show '${args.toolName}'. It may already be visible, not exist, or require a stage that isn't active.`,
-          discoveredTools: this.discoveryRegistry.getDiscoveredTools(),
-        };
-      }
-
-      default:
-        return {
-          action: args.action,
-          success: false,
-          message: `Unknown action: ${args.action}. Use 'list', 'hide', or 'show'.`,
-        };
-    }
-  }
 }

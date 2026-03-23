@@ -49,17 +49,12 @@ import {
 import {
   createInitFlow,
   type IInitHandler,
-  InitToolHandler,
-  StateManager,
 } from "./init/index.js";
 import { ThoughtHandler } from "./thought-handler.js";
 import { ThoughtboxEventEmitter } from "./events/index.js";
 import { SamplingHandler } from "./sampling/index.js";
 import { ThoughtQueryHandler } from "./resources/thought-query-handler.js";
-import { ToolRegistry, DisclosureStage } from "./tool-registry.js";
-import { DiscoveryRegistry } from "./discovery-registry.js";
 
-import { INIT_TOOL, InitTool } from "./init/tool.js";
 import { KNOWLEDGE_TOOL, KnowledgeTool } from "./knowledge/tool.js";
 import { SESSION_TOOL, SessionTool } from "./sessions/tool.js";
 import { THOUGHT_TOOL, ThoughtTool } from "./thought/tool.js";
@@ -164,28 +159,23 @@ export async function createMcpServer(args: CreateMcpServerArgs = {}): Promise<M
   const config = configSchema.parse(args.config ?? {});
   const logger = args.logger ?? defaultLogger;
 
-  const THOUGHTBOX_INSTRUCTIONS = `START HERE: Use the \`thoughtbox_gateway\` tool to set/restore scope before using other operations.
+  const THOUGHTBOX_INSTRUCTIONS = `Thoughtbox is a structured reasoning server. All tools are available immediately.
 
-Terminology:
-- "Operations" are sub-commands inside the gateway tool (e.g., \`thoughtbox_gateway.operation = "get_state"\`).
-- Operations map to handlers: init, cipher, thought, notebook, session, mental_models, deep_analysis.
-
-What "project" means (scope boundary):
-- If your client supports MCP Roots: bind a root directory as your project boundary, optionally narrow with a path prefix.
-- If your client does not support Roots: choose a stable logical project name for tagging.
+Tool surface:
+- \`thoughtbox_session\`: Session management — list, get, search, resume, export, analyze
+- \`thoughtbox_thought\`: Step-by-step reasoning with branching, revision, and semantic types
+- \`thoughtbox_notebook\`: Literate programming notebooks
+- \`thoughtbox_knowledge\`: Knowledge graph — entities, relations, observations
+- \`thoughtbox_theseus\`: Friction-gated refactoring protocol
+- \`thoughtbox_ulysses\`: Surprise-gated debugging protocol
+- \`thoughtbox_operations\`: Discover operation schemas for any tool
+- \`observability_gateway\`: Metrics, health, alerts (no session required)
+- \`thoughtbox_hub\`: Multi-agent collaboration (when configured)
 
 Recommended workflow:
-1) Call \`thoughtbox_gateway\` { "operation": "get_state" }.
-2) If Roots are supported, call \`thoughtbox_gateway\` { "operation": "list_roots" } then { "operation": "bind_root", ... }.
-3) Choose one: \`thoughtbox_gateway\` { "operation": "start_new", ... } (new work) or { "operation": "list_sessions" } then { "operation": "load_context", ... } (continue).
-4) Call \`thoughtbox_gateway\` { "operation": "cipher" } early (especially before long reasoning).
-5) Use \`thoughtbox_gateway\` { "operation": "thought", args: {...} } for structured reasoning.
-
-Progressive disclosure is enforced internally - you'll get clear errors if calling operations too early.
-
-For multi-agent collaboration, use the \`thoughtbox_hub\` tool with operations:
-register, create_workspace, join_workspace, create_problem, post_message, read_channel, etc.
-Call \`thoughtbox_hub\` { "operation": "register", "name": "Your Agent Name" } to join.`;
+1) Use \`thoughtbox_session\` to list or search existing sessions.
+2) Use \`thoughtbox_thought\` for structured reasoning chains.
+3) Use \`thoughtbox_operations\` to discover detailed schemas for any tool.`;
 
   // Create task infrastructure if hub storage is provided
   const taskStore = args.dataDir
@@ -202,12 +192,6 @@ Call \`thoughtbox_hub\` { "operation": "register", "name": "Your Agent Name" } t
     taskStore,
     taskMessageQueue,
   });
-
-  // Tool registry for progressive disclosure (SPEC-008)
-  const toolRegistry = new ToolRegistry();
-
-  // Discovery registry for operation-based tool discovery (SPEC-009)
-  const discoveryRegistry = new DiscoveryRegistry(toolRegistry);
 
   // Shared storage instance for this MCP server instance (used by thought + session tooling)
   // Use provided storage or default to InMemoryStorage
@@ -250,7 +234,6 @@ Call \`thoughtbox_hub\` { "operation": "register", "name": "Your Agent Name" } t
   const sessionHandler = new SessionHandler({
     storage,
     thoughtHandler,
-    discoveryRegistry,
   });
 
   // Create knowledge storage (project scoping happens later via setProject)
@@ -308,10 +291,7 @@ Call \`thoughtbox_hub\` { "operation": "register", "name": "Your Agent Name" } t
 
   // Initialize init flow (fire-and-forget)
   // handleInit() has fallback for when initHandler is null
-  // initToolHandler is used by the tool-based init flow
   let initHandler: IInitHandler | null = null;
-  let initToolHandler: InitToolHandler | null = null;
-  const initStateManager = new StateManager();
 
   // ADR-015: Protocol handler reference for project scoping.
   // Declared here so createInitFlow's .then() callback can capture the reference.
@@ -319,18 +299,8 @@ Call \`thoughtbox_hub\` { "operation": "register", "name": "Your Agent Name" } t
   let protocolHandler: ProtocolHandler | InMemoryProtocolHandler | null = null;
 
   try {
-    const { handler, index, stats, errors } = await createInitFlow();
+    const { handler, stats, errors } = await createInitFlow();
     initHandler = handler;
-    initToolHandler = new InitToolHandler({
-      storage,
-      knowledgeStorage,
-      protocolHandler: protocolHandler ?? undefined,
-      index,
-      stateManager: initStateManager,
-      toolRegistry,
-      mcpSessionId: sessionId,
-      mcpServer: server.server,
-    });
     logger.info(
       `Init flow index built: ${stats.sessionsIndexed} sessions, ${stats.projectsFound} projects, ${stats.tasksFound} tasks (${stats.buildTimeMs}ms)`
     );
@@ -345,157 +315,87 @@ Call \`thoughtbox_hub\` { "operation": "register", "name": "Your Agent Name" } t
 
 
 
-    // =============================================================================
-  // Progressive Disclosure Explicit Tools Registration
+  // =============================================================================
+  // Tool Registration (all tools enabled at startup)
   // =============================================================================
 
-  // Create explicit tool instances
-  const initTool = new InitTool(
-    initToolHandler!, 
-    async () => {
-      // Cipher operation implementation
-      toolRegistry.advanceToStage(DisclosureStage.STAGE_2_CIPHER_LOADED);
-      server.sendToolListChanged();
-      return { content: [{ type: 'text', text: getExtendedCipher(THOUGHTBOX_CIPHER) }] };
-    }
-  );
-  
   const knowledgeTool = new KnowledgeTool(knowledgeHandler!);
   const sessionTool = new SessionTool(sessionHandler);
   const thoughtTool = new ThoughtTool(thoughtHandler);
   const notebookTool = new NotebookTool(notebookHandler);
 
-  // Helper macro to register explicit tools with standardized error handling
-  const registerExplicitTool = <T>(
-    toolDef: { name: string, description: string, inputSchema: any, annotations?: any },
-    toolInstance: { handle: (args: T) => Promise<any> },
-    stage: DisclosureStage
-  ) => {
-    const inputShape = toolDef.inputSchema.shape 
-      ? toolDef.inputSchema 
-      : toolDef.inputSchema;
+  // Auto-resolve project scope from MCP roots (or THOUGHTBOX_PROJECT env var)
+  // Deferred: transport isn't connected during createMcpServer()
+  let projectResolved = false;
+  const resolveProject = async () => {
+    if (projectResolved) return;
+    projectResolved = true;
+    const envProject = process.env.THOUGHTBOX_PROJECT;
+    if (envProject) {
+      try {
+        await storage.setProject(envProject);
+        if (knowledgeStorage) await knowledgeStorage.setProject(envProject);
+        if (protocolHandler) protocolHandler.setProject(envProject);
+        logger.info(`Project set from THOUGHTBOX_PROJECT: ${envProject}`);
+      } catch (err) {
+        logger.warn('Failed to set project from env:', err);
+      }
+      return;
+    }
+    try {
+      const { roots } = await server.server.listRoots();
+      if (roots.length > 0) {
+        const root = roots[0];
+        const name = root.name
+          || root.uri.split('/').filter(Boolean).pop()
+          || 'default';
+        await storage.setProject(name);
+        if (knowledgeStorage) await knowledgeStorage.setProject(name);
+        if (protocolHandler) protocolHandler.setProject(name);
+        logger.info(`Project auto-resolved from root: ${name}`);
+      }
+    } catch (err) {
+      logger.debug('Could not resolve project from roots:', err);
+    }
+  };
 
-    const registered = server.registerTool(
+  // Helper to register tools with standardized error handling
+  // Calls resolveProject() on first invocation (transport must be connected)
+  const registerTool = <T>(
+    toolDef: { name: string; description: string; inputSchema: any; annotations?: any },
+    toolInstance: { handle: (args: T) => Promise<any> },
+  ) => {
+    server.registerTool(
       toolDef.name,
       {
         description: toolDef.description,
-        inputSchema: inputShape as any,
+        inputSchema: toolDef.inputSchema as any,
         annotations: toolDef.annotations,
       },
       async (args: any) => {
+        await resolveProject();
         try {
           const result = await toolInstance.handle(args as any);
           if (result && Array.isArray(result.content)) {
             return result;
           }
           return {
-            content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }]
+            content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }],
           };
         } catch (err: any) {
           return {
             content: [{ type: "text" as const, text: JSON.stringify({ error: err.message }, null, 2) }],
-            isError: true
+            isError: true,
           };
         }
       }
     );
-    
-    let descriptionDict: Partial<Record<DisclosureStage, string>> = {};
-    descriptionDict[stage] = toolDef.description;
-    
-    toolRegistry.register(
-      toolDef.name,
-      registered,
-      stage,
-      descriptionDict
-    );
   };
 
-  // Register all 5 explicit tools into the Progressive Disclosure toolRegistry
-  
-  // init is explicitly registered here instead of using registerExplicitTool
-  // This is because we need to implement the stage progression and SIL-103 
-  // Session Continuity logic previously housed in the Gateway Wrapper.
-  const initDef = INIT_TOOL;
-  const initShape = initDef.inputSchema as any;
-  
-  const registeredInit = server.registerTool(
-    initDef.name,
-    {
-      description: initDef.description,
-      inputSchema: initShape as any,
-      annotations: initDef.annotations,
-    },
-    async (args: any) => {
-      try {
-        const result = await initTool.handle(args as any);
-        const standardizedResult = (result && Array.isArray(result.content)) 
-          ? result 
-          : { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
-        
-        if (!standardizedResult.isError) {
-          const op = args.operation;
-          
-          // 1. Stage Advancement
-          // When context is loaded or new work started, we advance to stage 1.
-          if (op === 'load_context' || op === 'start_new') {
-            toolRegistry.advanceToStage(DisclosureStage.STAGE_1_INIT_COMPLETE);
-            
-            // Domain progression Logic could be here if args.domain is present
-            if (op === 'start_new' && args.domain) {
-              toolRegistry.setActiveDomain(args.domain);
-            }
-            
-            server.sendToolListChanged();
-          }
-
-          // 2. SIL-103: Session Continuity - restore ThoughtHandler state on load_context
-          if (op === 'load_context' && args.sessionId) {
-            try {
-              const restoration = await thoughtHandler.restoreFromSession(args.sessionId);
-              const restorationInfo = `\n\n**Session State Restored (SIL-103)**:\n- Thoughts: ${restoration.thoughtCount}\n- Current #: ${restoration.currentThoughtNumber}\n- Branches: ${restoration.branchCount}\n- Next thought will be #${restoration.currentThoughtNumber + 1}`;
-
-              // Find the text content block and append restoration info
-              for (const block of standardizedResult.content) {
-                if (block.type === 'text') {
-                  block.text += restorationInfo;
-                  break;
-                }
-              }
-            } catch (err: any) {
-              console.warn(`[SIL-103] Session restoration failed: ${err.message}`);
-            }
-          }
-        }
-        
-        return standardizedResult;
-      } catch (err: any) {
-        return {
-          content: [{ type: "text" as const, text: JSON.stringify({ error: err.message }, null, 2) }],
-          isError: true
-        };
-      }
-    }
-  );
-
-  toolRegistry.register(
-    initDef.name,
-    registeredInit,
-    DisclosureStage.STAGE_0_ENTRY,
-    { [DisclosureStage.STAGE_0_ENTRY]: initDef.description }
-  );
-  
-  // knowledge becomes available after init complete (stage 1)
-  registerExplicitTool(KNOWLEDGE_TOOL, knowledgeTool, DisclosureStage.STAGE_1_INIT_COMPLETE);
-  
-  // session becomes available after init complete (stage 1)
-  registerExplicitTool(SESSION_TOOL, sessionTool, DisclosureStage.STAGE_1_INIT_COMPLETE);
-
-  // thought becomes available when cipher loaded (stage 2)
-  registerExplicitTool(THOUGHT_TOOL, thoughtTool, DisclosureStage.STAGE_2_CIPHER_LOADED);
-
-  // notebook becomes available when cipher loaded (stage 2)
-  registerExplicitTool(NOTEBOOK_TOOL, notebookTool, DisclosureStage.STAGE_2_CIPHER_LOADED);
+  registerTool(KNOWLEDGE_TOOL, knowledgeTool);
+  registerTool(SESSION_TOOL, sessionTool);
+  registerTool(THOUGHT_TOOL, thoughtTool);
+  registerTool(NOTEBOOK_TOOL, notebookTool);
 
   // Protocol tools (Theseus + Ulysses) — ADR-015
   // Use Supabase backend when available, fall back to in-memory
@@ -517,15 +417,15 @@ Call \`thoughtbox_hub\` { "operation": "register", "name": "Your Agent Name" } t
   const theseusTool = new TheseusTool(protocolHandler, thoughtHandler, knowledgeStorage);
   const ulyssesTool = new UlyssesTool(protocolHandler, thoughtHandler, knowledgeStorage);
 
-  registerExplicitTool(THESEUS_TOOL, theseusTool, DisclosureStage.STAGE_2_CIPHER_LOADED);
-  registerExplicitTool(ULYSSES_TOOL, ulyssesTool, DisclosureStage.STAGE_2_CIPHER_LOADED);
+  registerTool(THESEUS_TOOL, theseusTool);
+  registerTool(ULYSSES_TOOL, ulyssesTool);
 
   logger.info('Protocol tools (Theseus + Ulysses) registered');
 
   // Operations Catalog Tool (Always-On, No Session Required)
   const OPERATIONS_TOOL_DESCRIPTION = 'Discover available Thoughtbox operations and their schemas. Always available -- no session required.';
 
-  const operationsTool = server.registerTool(
+  server.registerTool(
     "thoughtbox_operations",
     {
       description: OPERATIONS_TOOL_DESCRIPTION,
@@ -537,13 +437,6 @@ Call \`thoughtbox_hub\` { "operation": "register", "name": "Your Agent Name" } t
         content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }],
       };
     }
-  );
-
-  toolRegistry.register(
-    "thoughtbox_operations",
-    operationsTool,
-    DisclosureStage.STAGE_0_ENTRY,
-    { [DisclosureStage.STAGE_0_ENTRY]: OPERATIONS_TOOL_DESCRIPTION }
   );
 
 // =============================================================================

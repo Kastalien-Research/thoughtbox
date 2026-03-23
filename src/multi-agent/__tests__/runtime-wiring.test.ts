@@ -1,13 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { ThoughtTool } from '../../thought/tool.js';
-import { InitTool } from '../../init/tool.js';
-import { THOUGHTBOX_CIPHER } from '../../resources/thoughtbox-cipher-content.js';
-import { getExtendedCipher } from '../../multi-agent/cipher-extension.js';
 import { createHubHandler } from '../../hub/hub-handler.js';
 import { createInMemoryHubStorage, createInMemoryThoughtStore } from '../../hub/__tests__/test-helpers.js';
 
 // ---------------------------------------------------------------------------
-// A1/A2: Explicit Tools — config injection + cipher extension
+// A1/A2: Explicit Tools — config injection
 // ---------------------------------------------------------------------------
 
 describe('runtime-wiring: Explicit Tools', () => {
@@ -58,43 +55,6 @@ describe('runtime-wiring: Explicit Tools', () => {
     expect(callArgs.agentName).toBeUndefined();
   });
 
-  it('T-MA-WIR-3: handleCipher returns content containing ⊢ (turnstile) from logic extension', async () => {
-    const cipherHandler = vi.fn().mockResolvedValue({ content: [{ type: 'text', text: getExtendedCipher(THOUGHTBOX_CIPHER) }] });
-    const tool = new InitTool({} as any, cipherHandler);
-
-    const result = await tool.handle({ operation: 'cipher' });
-
-    expect(result.isError).toBeFalsy();
-    const text = result.content[0].type === 'text' ? result.content[0].text : '';
-    expect(text).toContain('⊢');
-  });
-
-  it('T-MA-WIR-4: handleCipher returns content containing CLAIM: prefix from logic extension', async () => {
-    const cipherHandler = vi.fn().mockResolvedValue({ content: [{ type: 'text', text: getExtendedCipher(THOUGHTBOX_CIPHER) }] });
-    const tool = new InitTool({} as any, cipherHandler);
-
-    const result = await tool.handle({ operation: 'cipher' });
-
-    const text = result.content[0].type === 'text' ? result.content[0].text : '';
-    expect(text).toContain('CLAIM:');
-    expect(text).toContain('PREMISE:');
-    expect(text).toContain('REFUTE:');
-  });
-
-  it('T-MA-WIR-5: handleCipher still contains base cipher content (H/E/C markers)', async () => {
-    const cipherHandler = vi.fn().mockResolvedValue({ content: [{ type: 'text', text: getExtendedCipher(THOUGHTBOX_CIPHER) }] });
-    const tool = new InitTool({} as any, cipherHandler);
-
-    const result = await tool.handle({ operation: 'cipher' });
-
-    const text = result.content[0].type === 'text' ? result.content[0].text : '';
-    // Base cipher markers must be present
-    for (const marker of ['H', 'E', 'C', 'Q', 'R', 'P', 'X']) {
-      expect(text).toContain(`| \`${marker}\` |`);
-    }
-    // Logic extension symbols must also be present
-    expect(text).toContain('⊨');
-  });
 });
 
 // ---------------------------------------------------------------------------

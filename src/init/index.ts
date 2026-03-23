@@ -110,30 +110,6 @@ export {
   getNextStates,
 } from './init-handler.js';
 
-// ============================================================================
-// Init Tool Handler (Tool-based - MCP 2025-11-25 spec)
-// ============================================================================
-
-export {
-  // Core tool handler
-  InitToolHandler,
-  INIT_TOOL,
-  initToolInputSchema,
-  getInitOperationNames,
-  type InitToolInput,
-  type InitToolHandlerConfig,
-} from './tool-handler.js';
-
-// ============================================================================
-// State Manager
-// ============================================================================
-
-export {
-  StateManager,
-  ConnectionStage,
-  type SessionState,
-  type BoundRoot,
-} from './state-manager.js';
 
 // ============================================================================
 // Renderers
