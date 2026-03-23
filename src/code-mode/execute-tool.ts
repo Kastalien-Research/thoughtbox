@@ -230,29 +230,23 @@ export class ExecuteTool {
 
     const tb = buildTbObject(this.deps);
 
-    const sandbox = {
+    // Security: pass only bridged objects, NOT host builtins.
+    // vm.createContext auto-provides context-local copies of Object,
+    // Array, Promise, etc. whose prototype chains are isolated from host.
+    // This closes [].constructor.constructor("return process")() escapes.
+    //
+    // THREAT MODEL: tb methods are host closures so
+    // tb.session.list.constructor is still host Function. node:vm is not
+    // a security boundary (https://nodejs.org/api/vm.html). The sandbox
+    // is defense-in-depth: code is LLM-generated from system-controlled
+    // prompts, not arbitrary user input. For true isolation, migrate to
+    // isolated-vm.
+    const context = vm.createContext({
       tb,
       console: cappedConsole,
       setTimeout: globalThis.setTimeout,
       clearTimeout: globalThis.clearTimeout,
-      JSON,
-      Object,
-      Array,
-      String,
-      Number,
-      Boolean,
-      RegExp,
-      Map,
-      Set,
-      Date,
-      Math,
-      Promise,
-      Error,
-      TypeError,
-      RangeError,
-    };
-
-    const context = vm.createContext(sandbox);
+    });
 
     let output: CodeModeResult;
     try {
@@ -288,7 +282,7 @@ export class ExecuteTool {
       output = {
         result: null,
         logs,
-        error: err instanceof Error ? err.message : String(err),
+        error: (err as { message?: string }).message ?? String(err),
         durationMs: Date.now() - start,
       };
     }

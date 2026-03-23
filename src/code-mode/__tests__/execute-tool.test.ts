@@ -95,6 +95,18 @@ describe("thoughtbox_execute", () => {
     expect(output.result).toBe("undefined");
   });
 
+  it("blocks constructor-chain escape to host process", async () => {
+    const tool = createExecuteTool();
+    const result = await tool.handle({
+      code: `async () => {
+        const Fn = [].constructor.constructor;
+        return Fn("return typeof process")();
+      }`,
+    });
+    const output = JSON.parse(result.content[0].text);
+    expect(output.result).toBe("undefined");
+  });
+
   it("tb.hub is not available", async () => {
     const tool = createExecuteTool();
     const result = await tool.handle({
