@@ -537,6 +537,37 @@ if [[ -f "$ulysses_state_dir/reflect-required" ]]; then
 fi
 
 # ===================================================================
+# SECTION: Delphi enforcer (synthesize-required blocks research)
+# ===================================================================
+
+delphi_state_dir="${PROJECT_DIR}/.claude/state/delphi"
+
+if [[ -f "$delphi_state_dir/synthesize-required" ]]; then
+    if [[ "$tool_name" == "Read" || "$tool_name" == "Glob" || "$tool_name" == "Grep" \
+       || "$tool_name" == "AskUserQuestion" ]]; then
+        exit 0
+    fi
+    if [[ "$tool_name" == *"delphi"* ]]; then
+        exit 0
+    fi
+    if [[ "$tool_name" == "Skill" || "$tool_name" == "Agent" ]]; then
+        exit 0
+    fi
+    if [[ "$tool_name" == "Bash" ]]; then
+        _cmd=$(echo "$tool_input" | jq -r '.command // ""')
+        if [[ "$_cmd" == *"bd "* \
+           || "$_cmd" == *"git status"* || "$_cmd" == *"git diff"* \
+           || "$_cmd" == *"git log"* ]]; then
+            exit 0
+        fi
+    fi
+    echo "BLOCKED: SYNTHESIZE REQUIRED (Delphi N=2)." >&2
+    echo "Two consecutive non-discriminating probes. Further research will not help." >&2
+    echo "Call thoughtbox_delphi { operation: \"witness\" } then { operation: \"complete\" }." >&2
+    exit 1
+fi
+
+# ===================================================================
 # SECTION: Bead workflow enforcer
 # ===================================================================
 
