@@ -57,7 +57,7 @@ export const INIT_OPERATIONS: OperationDefinition[] = [
   {
     name: "load_context",
     title: "Load Context",
-    description: "Load full context for continuing a previous session. Retrieves session metadata, recent thoughts, and advances to STAGE_1 (init complete).",
+    description: "Load full context for continuing a previous session. Retrieves session metadata and recent thoughts.",
     category: "session-setup",
     inputSchema: {
       type: "object",
@@ -76,7 +76,7 @@ export const INIT_OPERATIONS: OperationDefinition[] = [
   {
     name: "start_new",
     title: "Start New Work",
-    description: "Initialize new work context with project/task/aspect classification. Advances to STAGE_1. If a root is bound, the bound root name is used as the project automatically.",
+    description: "Initialize new work context with project/task/aspect classification. Project scope is auto-resolved from MCP roots or THOUGHTBOX_PROJECT env var.",
     category: "session-setup",
     inputSchema: {
       type: "object",

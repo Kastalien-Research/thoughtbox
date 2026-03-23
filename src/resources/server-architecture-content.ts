@@ -50,7 +50,7 @@ The server consists of several interconnected components:
 │  └──────────────────────────────────────────────────────────────┘ │
 │                              ↓                                     │
 │  ┌──────────────────────────────────────────────────────────────┐ │
-│  │   ToolRegistry — All tools available immediately              │ │
+│  │   Tool Registration — All tools available immediately           │ │
 │  └──────────────────────────────────────────────────────────────┘ │
 │       ↓           ↓            ↓            ↓           ↓         │
 │  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐│
@@ -111,51 +111,15 @@ console.log('Thought:', JSON.stringify(thought, null, 2));
 console.log('Sessions:', JSON.stringify(sessions, null, 2));
 \`\`\`
 
-## State Management
+## Project Scoping
 
-The StateManager tracks session state for each MCP connection.
+Project scope is resolved automatically at startup:
 
-\`\`\`typescript
-// state-manager.ts:15-19
-export enum ConnectionStage {
-  STAGE_1_UNINITIALIZED = 'stage_1',  // No init call yet
-  STAGE_2_INIT_STARTED = 'stage_2',   // Init called
-  STAGE_3_FULLY_LOADED = 'stage_3',   // Context loaded
-}
-\`\`\`
+1. **\`THOUGHTBOX_PROJECT\` env var** — explicit project name (takes precedence)
+2. **MCP Roots** — server calls \`listRoots()\` on the client and uses the first root's name
+3. **Default** — falls back to 'default' if neither is available
 
-### Session State
-
-\`\`\`typescript
-// state-manager.ts:34-55
-export interface SessionState {
-  stage: ConnectionStage;
-  project?: string;
-  task?: string;
-  aspect?: string;
-  activeSessionId?: string;
-  boundRoot?: BoundRoot;  // SPEC-011 MCP Roots support
-  lastUpdated: Date;
-}
-\`\`\`
-
-### BoundRoot (SPEC-011)
-
-For MCP Roots support, sessions can be scoped to a project root:
-
-\`\`\`typescript
-// state-manager.ts:24-29
-export interface BoundRoot {
-  uri: string;    // e.g., file:///path/to/project
-  name?: string;  // Human-readable name
-}
-
-// Usage
-stateManager.setBoundRoot(sessionId, {
-  uri: 'file:///Users/dev/my-project',
-  name: 'my-project'
-});
-\`\`\`
+This scopes all storage (sessions, knowledge graph, protocol state) to a single project namespace.
 
 ## Storage Architecture
 
@@ -538,9 +502,9 @@ This means every tool response includes just-in-time documentation about what wa
 
 All tools are registered at startup and available from the first call. No initialization ceremony or staged unlocking required.
 
-### 2. ConnectionStage Tracks Session Initialization
+### 2. Project Scope from MCP Roots
 
-ConnectionStage tracks where a session is in its lifecycle (uninitialized, started, fully loaded). This is separate from tool availability.
+Project scope is resolved automatically from MCP roots or \`THOUGHTBOX_PROJECT\` env var. No agent-driven initialization ceremony.
 
 ### 3. LinkedThoughtStore Enables Efficient Queries
 
@@ -560,11 +524,11 @@ The Model Context Protocol isn't just about API calls - it's about giving LLMs s
 
 | File | Purpose |
 |------|---------|
-| \`src/tool-registry.ts\` | Tool registration |
-| \`src/init/state-manager.ts\` | Session state tracking |
+| \`src/server-factory.ts\` | Server creation, tool registration, transport |
 | \`src/persistence/storage.ts\` | Storage and LinkedThoughtStore |
 | \`src/observatory/index.ts\` | Real-time monitoring |
-| \`src/server-factory.ts\` | Server creation and transport |
+| \`src/sessions/index.ts\` | Session tool handler |
+| \`src/thought-handler.ts\` | Thought processing and reasoning chains |
 
 ## Conclusion
 
