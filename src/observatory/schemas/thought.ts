@@ -45,7 +45,7 @@ export const ThoughtSchema = z.object({
 
   // AUDIT-001: Structured thought type (optional in observatory for historical data)
   /** Structured thought type */
-  thoughtType: z.enum(['reasoning', 'decision_frame', 'action_report', 'belief_snapshot', 'assumption_update', 'context_snapshot', 'progress']).optional(),
+  thoughtType: z.enum(['reasoning', 'decision_frame', 'action_report', 'belief_snapshot', 'assumption_update', 'context_snapshot', 'progress', 'action_receipt']).optional(),
   /** Confidence level for decision_frame */
   confidence: z.enum(['high', 'medium', 'low']).optional(),
   /** Options for decision_frame */
@@ -60,6 +60,8 @@ export const ThoughtSchema = z.object({
   contextData: z.object({ toolsAvailable: z.array(z.string()).optional(), systemPromptHash: z.string().optional(), modelId: z.string().optional(), constraints: z.array(z.string()).optional(), dataSourcesAccessed: z.array(z.string()).optional() }).optional(),
   /** Progress data for progress thoughts */
   progressData: z.object({ task: z.string(), status: z.enum(['pending', 'in_progress', 'done', 'blocked']), note: z.string().optional() }).optional(),
+  /** Receipt data for action_receipt thoughts */
+  receiptData: z.object({ toolName: z.string(), expected: z.string(), actual: z.string(), match: z.boolean(), residual: z.string().optional(), durationMs: z.number().optional() }).optional(),
 });
 
 export type Thought = z.infer<typeof ThoughtSchema>;

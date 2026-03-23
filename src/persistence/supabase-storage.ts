@@ -170,6 +170,7 @@ export class SupabaseStorage implements ThoughtboxStorage {
     if (row.assumption_change) thought.assumptionChange = row.assumption_change as ThoughtData['assumptionChange'];
     if (row.context_data) thought.contextData = row.context_data as ThoughtData['contextData'];
     if (row.progress_data) thought.progressData = row.progress_data as ThoughtData['progressData'];
+    if ((row as Record<string, unknown>).receipt_data) thought.receiptData = (row as Record<string, unknown>).receipt_data as ThoughtData['receiptData'];
     if (row.agent_id) thought.agentId = row.agent_id;
     if (row.agent_name) thought.agentName = row.agent_name;
     if (row.content_hash) thought.contentHash = row.content_hash;
@@ -200,6 +201,7 @@ export class SupabaseStorage implements ThoughtboxStorage {
       assumption_change: thought.assumptionChange ?? null,
       context_data: thought.contextData ?? null,
       progress_data: thought.progressData ?? null,
+      ...(thought.receiptData ? { receipt_data: thought.receiptData } : {}),
       agent_id: thought.agentId ?? null,
       agent_name: thought.agentName ?? null,
       content_hash: thought.contentHash ?? null,

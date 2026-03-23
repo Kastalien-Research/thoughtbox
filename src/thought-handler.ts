@@ -37,7 +37,7 @@ export interface ThoughtData {
   // SIL-101: Verbose response mode - when false (default), return minimal response
   verbose?: boolean;
   // Operations mode: structured thought type for auditability filtering
-  thoughtType?: 'reasoning' | 'decision_frame' | 'action_report' | 'belief_snapshot' | 'assumption_update' | 'context_snapshot' | 'progress';
+  thoughtType?: 'reasoning' | 'decision_frame' | 'action_report' | 'belief_snapshot' | 'assumption_update' | 'context_snapshot' | 'progress' | 'action_receipt';
   // AUDIT-001: Structured metadata fields (discriminated by thoughtType)
   confidence?: 'high' | 'medium' | 'low';
   options?: Array<{ label: string; selected: boolean; reason?: string }>;
@@ -46,6 +46,7 @@ export interface ThoughtData {
   assumptionChange?: { text: string; oldStatus: string; newStatus: 'believed' | 'uncertain' | 'refuted'; trigger?: string; downstream?: number[] };
   contextData?: { toolsAvailable?: string[]; systemPromptHash?: string; modelId?: string; constraints?: string[]; dataSourcesAccessed?: string[] };
   progressData?: { task: string; status: 'pending' | 'in_progress' | 'done' | 'blocked'; note?: string };
+  receiptData?: { toolName: string; expected: string; actual: string; match: boolean; residual?: string; durationMs?: number };
   // Multi-agent attribution (optional)
   agentId?: string;
   agentName?: string;
@@ -179,6 +180,7 @@ export class ThoughtHandler {
         assumptionChange: t.assumptionChange,
         contextData: t.contextData,
         progressData: t.progressData,
+        receiptData: t.receiptData,
       }));
 
       // Update lastAccessedAt
@@ -294,6 +296,7 @@ export class ThoughtHandler {
       assumptionChange: t.assumptionChange,
       contextData: t.contextData,
       progressData: t.progressData,
+      receiptData: t.receiptData,
     }));
 
     // 4. Calculate current thought number (max in main chain)
@@ -422,6 +425,7 @@ export class ThoughtHandler {
       assumptionChange: data.assumptionChange as ThoughtData['assumptionChange'],
       contextData: data.contextData as ThoughtData['contextData'],
       progressData: data.progressData as ThoughtData['progressData'],
+      receiptData: data.receiptData as ThoughtData['receiptData'],
       // Multi-agent attribution
       agentId: data.agentId as string | undefined,
       agentName: data.agentName as string | undefined,
@@ -456,6 +460,9 @@ export class ThoughtHandler {
         break;
       case 'progress':
         this.validateProgress(data);
+        break;
+      case 'action_receipt':
+        this.validateActionReceipt(data);
         break;
       default:
         throw new Error(
@@ -559,6 +566,23 @@ export class ThoughtHandler {
       throw new Error(
         "progress progressData requires status " +
         "('pending' | 'in_progress' | 'done' | 'blocked')."
+      );
+    }
+  }
+
+  private validateActionReceipt(data: Record<string, unknown>): void {
+    const rd = data.receiptData as Record<string, unknown> | undefined;
+    if (!rd || typeof rd !== 'object') {
+      throw new Error("action_receipt requires receiptData object.");
+    }
+    if (!rd.toolName || typeof rd.toolName !== 'string') {
+      throw new Error(
+        "action_receipt receiptData requires toolName (non-empty string)."
+      );
+    }
+    if (typeof rd.match !== 'boolean') {
+      throw new Error(
+        "action_receipt receiptData requires match (boolean)."
       );
     }
   }
@@ -751,6 +775,7 @@ export class ThoughtHandler {
           assumptionChange: validatedInput.assumptionChange,
           contextData: validatedInput.contextData,
           progressData: validatedInput.progressData,
+          receiptData: validatedInput.receiptData,
           // Multi-agent attribution (optional)
           agentId: validatedInput.agentId,
           agentName: validatedInput.agentName,
@@ -1059,6 +1084,7 @@ export class ThoughtHandler {
       if (validatedInput.beliefs) verbosePayload.beliefs = validatedInput.beliefs;
       if (validatedInput.assumptionChange) verbosePayload.assumptionChange = validatedInput.assumptionChange;
       if (validatedInput.progressData) verbosePayload.progressData = validatedInput.progressData;
+      if (validatedInput.receiptData) verbosePayload.receiptData = validatedInput.receiptData;
       if (validatedInput.agentId) verbosePayload.agentId = validatedInput.agentId;
       if (validatedInput.agentName) verbosePayload.agentName = validatedInput.agentName;
       if (validatedInput.branchId) verbosePayload.branchId = validatedInput.branchId;

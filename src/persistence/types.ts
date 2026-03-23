@@ -110,7 +110,7 @@ export interface ThoughtData {
   timestamp: string; // ISO 8601 - always present after persistence
 
   /** Operations mode: structured thought type for programmatic filtering */
-  thoughtType: 'reasoning' | 'decision_frame' | 'action_report' | 'belief_snapshot' | 'assumption_update' | 'context_snapshot' | 'progress';
+  thoughtType: 'reasoning' | 'decision_frame' | 'action_report' | 'belief_snapshot' | 'assumption_update' | 'context_snapshot' | 'progress' | 'action_receipt';
 
   /** Confidence level for decision_frame thoughts */
   confidence?: 'high' | 'medium' | 'low';
@@ -129,6 +129,15 @@ export interface ThoughtData {
     task: string;
     status: 'pending' | 'in_progress' | 'done' | 'blocked';
     note?: string;
+  };
+  /** Post-action receipt for action_receipt thoughts */
+  receiptData?: {
+    toolName: string;
+    expected: string;
+    actual: string;
+    match: boolean;
+    residual?: string;
+    durationMs?: number;
   };
 
   /**
@@ -349,6 +358,7 @@ export interface AuditManifest {
     assumption_update: number;
     context_snapshot: number;
     progress: number;
+    action_receipt: number;
   };
   decisions: {
     total: number;
