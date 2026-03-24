@@ -143,3 +143,6 @@ thoughtbox-web-two/
 # Dolt database files (added by bd init)
 .dolt/
 *.db
+
+
+.specs/channel-daemon/chatgpt01.md
