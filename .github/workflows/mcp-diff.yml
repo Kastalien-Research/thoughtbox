@@ -1,0 +1,30 @@
+name: MCP Server Diff
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+jobs:
+  mcp-diff:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: SamMorrowDrums/mcp-server-diff@v2
+        with:
+          setup_node: true
+          install_command: pnpm install --frozen-lockfile
+          build_command: pnpm build
+          start_command: node dist/channel/hub-channel.js
+        env:
+          THOUGHTBOX_AGENT_NAME: ci-diff
+          THOUGHTBOX_AGENT_PROFILE: REVIEWER
+          THOUGHTBOX_WORKSPACE_ID: ci-workspace
