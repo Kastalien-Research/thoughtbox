@@ -72,16 +72,6 @@
           {
             "type": "command",
             "command": "\"$CLAUDE_PROJECT_DIR/.claude/hooks/stop_landing.sh\""
-          },
-          {
-            "type": "prompt",
-            "prompt": "Check if escalation thresholds were hit but not escalated. Thresholds: scope change, external dependency failure (tool/API doesn't work as documented), repeated failure (same task failing >3 attempts), irreversible action pending, shippability assessment needed. Context: $ARGUMENTS. If ANY threshold was hit but not escalated to the user: {\"ok\": false, \"reason\": \"Escalation required: <threshold type>. Use /escalate to format a structured escalation before stopping.\"}. If no thresholds were hit or they were already escalated: {\"ok\": true}. IMPORTANT: Output ONLY the raw JSON object. No markdown, no code fences, no explanation.",
-            "model": "sonnet"
-          },
-          {
-            "type": "prompt",
-            "prompt": "Check if unblocked work is being abandoned. Context: $ARGUMENTS. If multiple workstreams were active and unblocked work with no blockers is being dropped without explicit deferral (no bead created): {\"ok\": false, \"reason\": \"Unblocked work remaining: <description>. Either continue or explicitly defer with a bead.\"}. If all work is properly landed or deferred: {\"ok\": true}. IMPORTANT: Output ONLY the raw JSON object. No markdown, no code fences, no explanation.",
-            "model": "sonnet"
           }
         ]
       }
@@ -100,18 +90,6 @@
             "model": "sonnet",
             "timeout": 120,
             "statusMessage": "Verification Judge reviewing..."
-          }
-        ]
-      }
-    ],
-    "PostToolUseFailure": [
-      {
-        "matcher": "Bash",
-        "hooks": [
-          {
-            "type": "prompt",
-            "prompt": "A Bash command just failed. Classify the failure type. Context: $ARGUMENTS\n\nClassify as one of:\n- INTERNAL: Bug in our code (agent should fix autonomously)\n- EXTERNAL: External dependency doesn't work as documented (MUST be escalated per engineering spec)\n- ENVIRONMENT: Local setup issue (agent should diagnose and fix)\n\nIf EXTERNAL dependency failure: {\"ok\": false, \"reason\": \"EXTERNAL DEPENDENCY FAILURE detected. Per engineering system spec, this MUST be escalated to Chief Agentic. Use /escalate to format a structured escalation.\"}.\nOtherwise: {\"ok\": true}.",
-            "model": "haiku"
           }
         ]
       }
