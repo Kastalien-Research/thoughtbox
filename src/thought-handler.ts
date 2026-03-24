@@ -385,14 +385,8 @@ export class ThoughtHandler {
       totalThoughts = thoughtNumber;
     }
 
-    // AUDIT-001: thoughtType is required
-    const thoughtType = data.thoughtType as ThoughtData['thoughtType'];
-    if (!thoughtType) {
-      throw new Error(
-        "thoughtType is required. Use 'reasoning' for general-purpose thoughts, " +
-        "or a specific type for auditable decisions/actions."
-      );
-    }
+    // AUDIT-001: thoughtType defaults to 'reasoning' if not provided
+    const thoughtType = (data.thoughtType as ThoughtData['thoughtType']) ?? 'reasoning';
 
     // AUDIT-001: Discriminated union validation
     this.validateStructuredFields(thoughtType, data);
