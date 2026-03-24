@@ -81,7 +81,7 @@ jobs:
           LANGSMITH_PROJECT: agentops-thoughtbox-dev
           LANGSMITH_ORG: ${{ secrets.LANGSMITH_ORG }}
         run: |
-          tsx agentops/runner/cli.ts implement \
+          pnpm exec tsx agentops/runner/cli.ts implement \
             --proposal-id "${{ needs.detect-mode.outputs.proposal_id }}" \
             --issue-number "${{ github.event.issue.number }}" \
             --mode "${{ needs.detect-mode.outputs.mode }}"

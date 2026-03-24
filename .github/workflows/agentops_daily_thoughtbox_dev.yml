@@ -52,9 +52,9 @@ jobs:
           LANGSMITH_ORG: ${{ secrets.LANGSMITH_ORG }}
         run: |
           if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
-            tsx agentops/runner/cli.ts daily-dev-brief --dry-run
+            pnpm exec tsx agentops/runner/cli.ts daily-dev-brief --dry-run
           else
-            tsx agentops/runner/cli.ts daily-dev-brief
+            pnpm exec tsx agentops/runner/cli.ts daily-dev-brief
           fi
 
       - name: Upload artifacts
