@@ -76,12 +76,12 @@
           {
             "type": "prompt",
             "prompt": "Check if escalation thresholds were hit but not escalated. Thresholds: scope change, external dependency failure (tool/API doesn't work as documented), repeated failure (same task failing >3 attempts), irreversible action pending, shippability assessment needed. Context: $ARGUMENTS. If ANY threshold was hit but not escalated to the user: {\"ok\": false, \"reason\": \"Escalation required: <threshold type>. Use /escalate to format a structured escalation before stopping.\"}. If no thresholds were hit or they were already escalated: {\"ok\": true}. IMPORTANT: Output ONLY the raw JSON object. No markdown, no code fences, no explanation.",
-            "model": "haiku"
+            "model": "sonnet"
           },
           {
             "type": "prompt",
             "prompt": "Check if unblocked work is being abandoned. Context: $ARGUMENTS. If multiple workstreams were active and unblocked work with no blockers is being dropped without explicit deferral (no bead created): {\"ok\": false, \"reason\": \"Unblocked work remaining: <description>. Either continue or explicitly defer with a bead.\"}. If all work is properly landed or deferred: {\"ok\": true}. IMPORTANT: Output ONLY the raw JSON object. No markdown, no code fences, no explanation.",
-            "model": "haiku"
+            "model": "sonnet"
           }
         ]
       }
