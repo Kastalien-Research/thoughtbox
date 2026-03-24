@@ -1,0 +1,17 @@
+#!/usr/bin/env sh
+
+# Block pushes to protected branches
+branch=$(git branch --show-current)
+case "$branch" in
+  main|master|production|beads-sync)
+    echo ""
+    echo "BLOCKED: Direct push to protected branch '$branch'."
+    echo "Use a feature branch and PR."
+    echo ""
+    exit 1
+    ;;
+esac
+
+# Block force pushes (check for --force or -f in the push command)
+# Git passes the remote and URL as arguments
+# We can't easily detect --force here, but we block the dangerous branches above
