@@ -7,9 +7,20 @@
 ![Thoughtbox Observatory](public/thoughtbox-observatory.png)
 *Observatory UI showing a reasoning session with 14 thoughts and a branch exploration (purple nodes 13-14) forking from thought 5.*
 
+## Code Mode
+
+Thoughtbox exposes exactly **two MCP tools** using the Code Mode pattern:
+
+- **`thoughtbox_search`** — Write JavaScript to query the operation/prompt/resource catalog. The LLM has full programmatic filtering power over the catalog.
+- **`thoughtbox_execute`** — Write JavaScript using the `tb` SDK to chain operations. Access thoughts, sessions, knowledge, notebooks, hub, observability, and protocol tools through a unified namespace.
+
+**Workflow:** search to discover available operations, then execute code against them. Use `console.log()` for debugging — output is captured in response logs.
+
+This replaces per-operation tool registration with a two-tool surface that scales without context window bloat.
+
 ## Multi-Agent Collaboration
 
-The Hub is the coordination layer. Agents register with role-specific profiles, join shared workspaces, and work through a structured problem-solving workflow — all via the `thoughtbox_hub` MCP tool.
+The Hub is the coordination layer. Agents register with role-specific profiles, join shared workspaces, and work through a structured problem-solving workflow — all via `thoughtbox_execute`.
 
 **The workflow:** register → create workspace → create problem → claim → work → propose solution → peer review → merge → consensus
 
@@ -22,7 +33,7 @@ The Hub is the coordination layer. Agents register with role-specific profiles, 
 
 **Agent Profiles:** `MANAGER`, `ARCHITECT`, `DEBUGGER`, `SECURITY`, `RESEARCHER`, `REVIEWER` — each provides domain-specific mental models and behavioral priming.
 
-**27 operations** across identity, workspace management, problems, proposals, consensus, channels, and status reporting.
+**28 operations** across identity, workspace management, problems, proposals, consensus, channels, and status reporting.
 
 ## Auditable Reasoning
 
@@ -37,6 +48,8 @@ Agents can think forward, plan backward, branch into parallel explorations, revi
 | **Branching** | Fork into parallel explorations (A, B, C...) | Comparing alternatives, A/B scenarios |
 | **Revision** | Update earlier thoughts with new information | Error correction, refined understanding |
 | **Critique** | Autonomous LLM review via MCP sampling | Self-checking, quality gates |
+
+Each thought carries a semantic `thoughtType` (`reasoning`, `decision_frame`, `action_report`, `belief_snapshot`, `assumption_update`, `context_snapshot`, `progress`) that classifies *what kind* of thought it is, orthogonal to the process pattern used.
 
 See the **[Patterns Cookbook](src/resources/docs/thoughtbox-patterns-cookbook.md)** for comprehensive examples.
 
@@ -55,8 +68,6 @@ The full observability stack includes OpenTelemetry tracing, Prometheus metrics,
 ## Knowledge & Reasoning Tools
 
 **Knowledge Graph** — Persistent memory across sessions. Capture insights, concepts, workflows, and decisions as typed entities with typed relations (`BUILDS_ON`, `CONTRADICTS`, `SUPERSEDES`, etc.) and visibility controls (`public`, `agent-private`, `team-private`).
-
-**Mental Models** — 15 structured reasoning frameworks (five-whys, pre-mortem, steelmanning, trade-off matrix, decomposition, and more) that provide process scaffolds for different problem types.
 
 **Notebooks** — Interactive literate programming combining documentation with executable JavaScript/TypeScript in isolated environments.
 
@@ -169,7 +180,7 @@ Thought 6: [SYNTHESIS] "Use PostgreSQL for transactions, MongoDB for analytics"
 | `THOUGHTBOX_DATA_DIR` | Base directory for persistent storage | `~/.thoughtbox` |
 | `THOUGHTBOX_PROJECT` | Project scope for session isolation | `_default` |
 | `THOUGHTBOX_TRANSPORT` | Transport type (`stdio` or `http`) | `http` |
-| `THOUGHTBOX_STORAGE` | Storage backend (`fs` or `memory`) | `fs` |
+| `THOUGHTBOX_STORAGE` | Storage backend (`fs`, `memory`, or `supabase`) | `fs` |
 | `THOUGHTBOX_OBSERVATORY_ENABLED` | Enable Observatory web UI | `false` |
 | `THOUGHTBOX_OBSERVATORY_PORT` | Observatory UI port | `1729` |
 | `THOUGHTBOX_OBSERVATORY_CORS` | CORS origins for Observatory (comma-separated) | (none) |
@@ -177,11 +188,13 @@ Thought 6: [SYNTHESIS] "Use PostgreSQL for transactions, MongoDB for analytics"
 | `THOUGHTBOX_AGENT_NAME` | Pre-assigned Hub agent name | (none) |
 | `THOUGHTBOX_EVENTS_ENABLED` | Enable event emission | `false` |
 | `THOUGHTBOX_EVENTS_DEST` | Event destination | `stderr` |
+| `SUPABASE_URL` | Supabase project URL (required for `supabase` storage) | (none) |
+| `SUPABASE_SERVICE_ROLE_KEY` | Supabase service role key (required for `supabase` storage) | (none) |
 | `PORT` | HTTP server port | `1731` |
 | `HOST` | HTTP server bind address | `0.0.0.0` |
 | `NODE_ENV` | Node environment | (none) |
 | `PROMETHEUS_URL` | Prometheus endpoint (Docker) | `http://prometheus:9090` |
-| `GRAFANA_URL` | Grafana endpoint (Docker) | `http://localhost:3001` |
+| `GRAFANA_URL` | Grafana endpoint (Docker) | `http://grafana:3000` |
 
 ## Development
 
@@ -196,11 +209,12 @@ pnpm dev      # Development with hot reload
 ### Testing
 
 ```bash
-npx vitest run          # Unit tests
-pnpm test               # Agentic tests — full suite (build + run)
-pnpm test:tool          # Agentic tests — tool-level only
-pnpm test:quick         # Agentic tests — quick (no build)
-pnpm test:behavioral    # Behavioral contract tests
+npx vitest run              # Unit tests
+pnpm test                   # Full suite (build + vitest)
+pnpm test:agentic           # Agentic tests — full suite (build + run)
+pnpm test:agentic:tool      # Agentic tests — tool-level only
+pnpm test:agentic:quick     # Agentic tests — quick (no build)
+pnpm test:behavioral        # Behavioral contract tests
 ```
 
 ### Docker Compose
@@ -221,28 +235,31 @@ Persistent data is stored in named volumes: `thoughtbox-data`, `prometheus-data`
 
 ```text
 src/
-├── index.ts              # Entry point (stdio/HTTP transport selection)
-├── server-factory.ts     # MCP server factory with tool registration
-├── tool-registry.ts      # Progressive disclosure (stage-based tool enabling)
-├── tool-descriptions.ts  # Stage-specific tool descriptions
-├── thought-handler.ts    # Thoughtbox tool logic with critique support
-├── gateway/              # Always-on routing tool
-│   ├── gateway-handler.ts  # Routes to handlers with stage enforcement
-│   └── operations.ts     # Gateway operations catalog
-├── init/                 # Init workflow and state management
-│   ├── tool-handler.ts   # Init tool operations
-│   └── state-manager.ts  # Session state persistence
-├── sessions/             # Session tool handler
-├── sampling/             # Autonomous critique via MCP sampling
-│   └── handler.ts        # SamplingHandler for LLM critique requests
-├── persistence/          # Storage layer
-│   ├── storage.ts        # InMemoryStorage with LinkedThoughtStore
-│   └── filesystem-storage.ts  # FileSystemStorage with atomic writes
-├── observatory/          # Real-time visualization
-│   ├── ui/               # Self-contained HTML/CSS/JS
-│   ├── ws-server.ts      # WebSocket server for live updates
-│   └── emitter.ts        # Event emission for thought changes
-├── hub/                  # Multi-agent collaboration
+├── index.ts                # Entry point (Streamable HTTP transport)
+├── server-factory.ts       # MCP server factory with tool registration
+├── thought-handler.ts      # Core thought recording logic
+├── types.ts                # Shared type definitions
+├── database.types.ts       # Supabase generated types
+├── code-mode/              # Code Mode tool surface
+│   ├── search-tool.ts      # thoughtbox_search — catalog query via JS
+│   ├── execute-tool.ts     # thoughtbox_execute — operation chaining via tb SDK
+│   ├── search-index.ts     # Frozen catalog of operations/prompts/resources
+│   └── sdk-types.ts        # TypeScript definitions for the tb SDK
+├── thought/                # Thought operations and tool definitions
+├── init/                   # Init workflow and state management
+│   ├── tool-handler.ts     # Init tool operations
+│   └── state-manager.ts    # Session state persistence
+├── sessions/               # Session management
+├── sampling/               # Autonomous critique via MCP sampling
+│   └── handler.ts          # SamplingHandler for LLM critique requests
+├── persistence/            # Storage layer
+│   ├── storage.ts          # InMemoryStorage with LinkedThoughtStore
+│   ├── filesystem-storage.ts  # FileSystemStorage with atomic writes
+│   └── supabase-storage.ts # SupabaseStorage for deployed/cloud usage
+├── observatory/            # Real-time visualization
+│   ├── ui/                 # Self-contained HTML/CSS/JS
+│   └── ws-server.ts        # WebSocket server for live updates
+├── hub/                    # Multi-agent collaboration
 │   ├── identity.ts         # Agent registration
 │   ├── workspace.ts        # Workspace management
 │   ├── problems.ts         # Problem tracking with dependencies
@@ -250,23 +267,33 @@ src/
 │   ├── consensus.ts        # Decision recording
 │   ├── channels.ts         # Problem-scoped messaging
 │   ├── hub-handler.ts      # Hub operation dispatcher
-│   └── operations.ts       # 27-operation catalog
-├── knowledge/            # Knowledge graph memory
-├── events/               # Event emission system
-├── mental-models/        # 15 reasoning frameworks
-├── notebook/             # Literate programming engine
-├── observability/        # Prometheus/Grafana integration
-└── resources/            # Documentation and patterns cookbook
+│   └── operations.ts       # 28-operation catalog
+├── channel/                # Hub event channels and SSE streaming
+├── multi-agent/            # Agent attribution, content hashing, conflict detection
+├── protocol/               # Ulysses and Theseus protocol tools
+├── knowledge/              # Knowledge graph memory
+├── auth/                   # API key authentication
+├── audit/                  # Audit manifest generation
+├── evaluation/             # LangSmith evaluation and online monitoring
+├── notebook/               # Literate programming engine
+├── events/                 # Event emission system
+├── observability/          # Prometheus/Grafana integration
+├── prompts/                # MCP prompt definitions
+├── references/             # Anchor parsing and resolution
+├── revision/               # Revision indexing
+├── operations-tool/        # Operations tool handler
+└── resources/              # Documentation and patterns cookbook
 ```
 
 ### Storage
 
-Thoughtbox supports two storage backends:
+Thoughtbox supports three storage backends:
 
-- **InMemoryStorage**: Default for development, uses `LinkedThoughtStore` for O(1) thought lookups
-- **FileSystemStorage**: Persistent storage with atomic writes and project isolation
+- **InMemoryStorage**: Volatile storage for testing, uses `LinkedThoughtStore` for O(1) thought lookups
+- **FileSystemStorage**: Persistent storage with atomic writes and project isolation (default)
+- **SupabaseStorage**: Cloud-native storage backed by Supabase Postgres for deployed instances
 
-Data is stored at `~/.thoughtbox/` by default:
+Data is stored at `~/.thoughtbox/` by default (FileSystemStorage):
 ```text
 ~/.thoughtbox/
 ├── config.json           # Global configuration
