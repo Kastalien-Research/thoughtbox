@@ -19,13 +19,11 @@ stdout=$(echo "$input_json" | jq -r '.tool_output.stdout // empty' 2>/dev/null)
 bead_ids=$(echo "$command" | grep -oE 'thoughtbox-[a-z0-9.]+' | tr '\n' ', ' | sed 's/,$//')
 
 # Write metric to session-metrics.jsonl (feeds the compounding loop)
+# Write metric to session-metrics.jsonl (feeds the compounding loop)
 metrics_file="${CLAUDE_PROJECT_DIR:-.}/.claude/state/session-metrics.jsonl"
+mkdir -p "$(dirname "$metrics_file")"
 branch=$(git -C "${CLAUDE_PROJECT_DIR:-.}" branch --show-current 2>/dev/null || echo "unknown")
 ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-
-for id in $(echo "$command" | grep -oE 'thoughtbox-[a-z0-9.]+'); do
-    printf '{"event":"bead_closed","bead_id":"%s","branch":"%s","ts":"%s"}\n' \
-        "$id" "$branch" "$ts" >> "$metrics_file"
 done
 
 cat <<EOF
