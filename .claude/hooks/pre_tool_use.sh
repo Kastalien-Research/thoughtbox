@@ -21,7 +21,7 @@ if [[ "$tool_name" == "Bash" ]]; then
   fi
 fi
 
-# ── GUARD 1: Read-before-write ─────────────────────────────────────
+# ── GUARD 2: Read-before-write ─────────────────────────────────────
 # Require that a file has been Read before it can be edited.
 # Tracked by post_tool_use.sh writing to file_access.jsonl.
 if [[ "${CC_DISABLE_READ_GUARD:-0}" != "1" ]]; then
