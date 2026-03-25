@@ -1,6 +1,6 @@
 ---
 name: bead-workflow
-description: "The mandatory process for every unit of work. Use this skill whenever starting work on a bead, bug, feature, or task. Enforces claim → hypothesize → implement → test → validate → close → pause. Every transition is gated by PreToolUse hooks that block (exit 1) on violations. Ulysses REFLECT escalation activates automatically on 2 consecutive surprises. If you're about to write code, check a bead, close an issue, or start new work — this skill applies."
+description: "The mandatory process for every unit of work. Use this skill whenever starting work on a bead, bug, feature, or task. Enforces claim → hypothesize → implement → test → validate → close. Every transition is gated by PreToolUse hooks that block (exit 1) on violations. Ulysses REFLECT escalation activates automatically on 2 consecutive surprises. If you're about to write code, check a bead, close an issue, or start new work — this skill applies."
 ---
 
 # Bead Workflow
@@ -9,7 +9,7 @@ Every unit of work follows this process. No exceptions.
 
 The hooks enforce this. They don't remind. They don't suggest. They block. If you try to skip a step, your tool call fails with an error message telling you what to do first.
 
-## The 7 Steps
+## The 6 Steps
 
 ### Step 1: Claim
 
@@ -78,24 +78,7 @@ bd close <id> --reason="<what was validated and how>"
 - `tests-passed-since-edit` sentinel doesn't exist (you haven't run tests since your last code change)
 - Multiple bead IDs in the command (each bead gets its own validation)
 
-After a successful close, the state writer creates `.claude/state/bead-workflow/pending-validation.json` and deletes `current-bead.json`.
-
-### Step 7: Pause
-
-**You cannot start the next bead until the user confirms.**
-
-The enforcer blocks all Edit/Write/Bash work commands while `pending-validation.json` exists. You can still:
-- Read files (Read, Glob, Grep)
-- Run tests and status checks
-- Use `bd` commands
-- Run `git status` / `git diff`
-
-The user clears the gate:
-```bash
-touch .claude/state/bead-workflow/validation-confirmed
-```
-
-Only the user triggers this. You do not clear your own validation gate.
+After a successful close, the state writer deletes `current-bead.json`. The bead is done — proceed to the next one.
 
 ## Ulysses Escalation
 
@@ -132,7 +115,6 @@ If you're hitting REFLECT on multiple beads, the problem is upstream:
 |------|----------|-----------|------------|---------------|
 | `current-bead.json` | `.claude/state/bead-workflow/` | Step 1 (claim) | Step 6 (close) | Hypothesis check on code edits |
 | `tests-passed-since-edit` | `.claude/state/bead-workflow/` | Step 4 (test pass) | Step 3 (code edit) | Close gate |
-| `pending-validation.json` | `.claude/state/bead-workflow/` | Step 6 (close) | Step 7 (user confirms) | Next bead gate |
 | `reflect-required` | `.claude/state/ulysses/` | 2nd surprise | REFLECT completion | Everything gate |
 
 ## Hooks

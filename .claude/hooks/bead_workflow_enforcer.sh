@@ -15,41 +15,6 @@ command=$(echo "$input_json" | jq -r '.tool_input.command // empty' 2>/dev/null)
 file_path=$(echo "$input_json" | jq -r '.tool_input.file_path // empty' 2>/dev/null)
 
 # ===================================================================
-# RULE 1: Pending validation — block work until user confirms
-# (Step 7: pause between beads)
-# ===================================================================
-if [[ -f "$state_dir/pending-validation.json" ]]; then
-  bead_ids=$(jq -r '.bead_ids // ""' "$state_dir/pending-validation.json")
-
-  # Allow: reading, searching, asking user
-  if [[ "$tool_name" == "Read" || "$tool_name" == "Glob" || "$tool_name" == "Grep" \
-     || "$tool_name" == "AskUserQuestion" ]]; then
-    exit 0
-  fi
-
-  # Allow: running tests, checking status, validation commands
-  if [[ "$tool_name" == "Bash" ]]; then
-    if [[ "$command" == *"vitest"* || "$command" == *"tsc"* \
-       || "$command" == *"test"* || "$command" == *"supabase"*"query"* \
-       || "$command" == *"supabase"*"migration list"* \
-       || "$command" == *"git status"* || "$command" == *"git diff"* \
-       || "$command" == *"bd "* \
-       || "$command" == *"validation-confirmed"* ]]; then
-      exit 0
-    fi
-  fi
-
-  echo "BLOCKED: Validation pending for closed bead(s): ${bead_ids}" >&2
-  echo "You MUST:" >&2
-  echo "  1. Run relevant tests and confirm they pass" >&2
-  echo "  2. State the validation result" >&2
-  echo "  3. Wait for user go-ahead" >&2
-  echo "  4. Run: touch .claude/state/bead-workflow/validation-confirmed" >&2
-  echo "Only test/validation commands are allowed until then." >&2
-  exit 1
-fi
-
-# ===================================================================
 # RULE 2: No code changes without hypothesis
 # (Step 2 gates Step 3)
 # ===================================================================

@@ -5,7 +5,7 @@ Every unit of work runs through two mandatory skills. Two additional protocols a
 
 ### Mandatory Skills
 
-**`bead-workflow`** — The process for every task, bug, or feature without exception. Enforces claim → hypothesize → implement → test → validate → close → pause. Hooks block violations at the tool level — this is not advisory.
+**`bead-workflow`** — The process for every task, bug, or feature without exception. Enforces claim → hypothesize → implement → test → validate → close. Hooks block violations at the tool level — this is not advisory.
 
 Read `.claude/skills/bead-workflow/SKILL.md` before starting any work.
 

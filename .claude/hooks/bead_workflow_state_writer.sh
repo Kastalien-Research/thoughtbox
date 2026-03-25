@@ -1,11 +1,10 @@
 #!/usr/bin/env bash
-# PostToolUse: Write state for the baseline bead workflow (steps 1-7).
+# PostToolUse: Write state for the baseline bead workflow (steps 1-6).
 # This is NOT Ulysses. This is the standard process for every bead.
 # Ulysses escalation is handled by ulysses_state_writer.sh separately.
 #
 # State files:
 #   current-bead.json        — claimed bead, hypothesis flag
-#   pending-validation.json  — exists after bd close until user confirms
 #   tests-passed-since-edit  — sentinel: tests ran clean after last code change
 set -uo pipefail
 
@@ -78,26 +77,8 @@ fi
 # -------------------------------------------------------
 if [[ "$tool_name" == "Bash" && "$command" == *"bd close"* ]]; then
   if [[ "$stdout" == *"Closed"* || "$stdout" == *"closed"* ]]; then
-    bead_ids=$(echo "$command" | grep -oE 'thoughtbox-[a-z0-9.]+' | tr '\n' ' ')
-    bead_count=$(echo "$command" | grep -oEc 'thoughtbox-[a-z0-9.]+')
-    (
-      flock -x 200
-      jq -n \
-        --arg ids "$bead_ids" \
-        --argjson count "${bead_count:-1}" \
-        --arg t "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-        '{bead_ids: $ids, count: $count, closed_at: $t, validated: false}' \
-        > "$state_dir/pending-validation.json"
-    ) 200>"$state_dir/pending-validation.json.lock"
     rm -f "$state_dir/current-bead.json"
   fi
-fi
-
-# -------------------------------------------------------
-# Step 7: validation confirmed by user
-# -------------------------------------------------------
-if [[ "$tool_name" == "Bash" && "$command" == *"validation-confirmed"* ]]; then
-  rm -f "$state_dir/pending-validation.json"
 fi
 
 exit 0

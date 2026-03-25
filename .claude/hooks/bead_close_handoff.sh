@@ -38,5 +38,5 @@ Before continuing, you MUST:
    - 2 consecutive fails on same bead = ULYSSES REFLECT before next attempt
    - New problem discovered = create discovered-from bead
 4. If PASS: update session-handoff.json
-5. PAUSE and wait for user go-ahead before starting next bead
+5. Continue to next bead when ready
 EOF

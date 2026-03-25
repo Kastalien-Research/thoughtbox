@@ -25,11 +25,6 @@ done
 # Read JSON input from stdin
 input_json=$(cat)
 
-# ── Surface pending validation from previous session ─────────────
-# Don't delete it — the new session can and should validate it.
-project_dir="${CLAUDE_PROJECT_DIR:-$(pwd)}"
-bead_pending="$project_dir/.claude/state/bead-workflow/pending-validation.json"                      
-
 # Ensure log directory and JSON file exist
 mkdir -p logs
 [[ ! -s logs/session_start.json ]] && echo "[]" > logs/session_start.json
@@ -47,15 +42,6 @@ if [[ "$load_context" == "true" ]]; then
     context=""
     context+="Session started at: $(date '+%Y-%m-%d %H:%M:%S')\n"
     context+="Session source: $source\n"
-
-    # Surface pending validation from previous session
-    if [[ -f "$bead_pending" ]]; then
-        pending_ids=$(jq -r '.bead_ids // ""' "$bead_pending" 2>/dev/null)
-        pending_ts=$(jq -r '.closed_at // ""' "$bead_pending" 2>/dev/null)
-        context+="\n--- PENDING VALIDATION ---\n"
-        context+="Beads closed but not validated: $pending_ids (closed at $pending_ts)\n"
-        context+="Run tests and validate before starting new work.\n"
-    fi
 
     # Add git information if available
     if git rev-parse --git-dir > /dev/null 2>&1; then
