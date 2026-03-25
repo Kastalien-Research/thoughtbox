@@ -1,5 +1,5 @@
 # Block commits to protected branches
-branch=$(git branch --show-current)
+branch=$(git symbolic-ref --short HEAD 2>/dev/null || echo "__detached__")
 case "$branch" in
   main|master|production|beads-sync)
     echo "BLOCKED: Cannot commit directly to '$branch'. Use a feature branch."
