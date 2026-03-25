@@ -4,6 +4,16 @@
     "ENABLE_CLAUDEAI_MCP_SERVERS": "false"
   },
   "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR/.claude/hooks/session_start.sh\" --load-context"
+          }
+        ]
+      }
+    ],
     "PreToolUse": [
       {
         "matcher": "",

@@ -18,6 +18,16 @@ stdout=$(echo "$input_json" | jq -r '.tool_output.stdout // empty' 2>/dev/null)
 # Extract the bead ID(s) from the command
 bead_ids=$(echo "$command" | grep -oE 'thoughtbox-[a-z0-9.]+' | tr '\n' ', ' | sed 's/,$//')
 
+# Write metric to session-metrics.jsonl (feeds the compounding loop)
+metrics_file="${CLAUDE_PROJECT_DIR:-.}/.claude/state/session-metrics.jsonl"
+branch=$(git -C "${CLAUDE_PROJECT_DIR:-.}" branch --show-current 2>/dev/null || echo "unknown")
+ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+
+for id in $(echo "$command" | grep -oE 'thoughtbox-[a-z0-9.]+'); do
+    printf '{"event":"bead_closed","bead_id":"%s","branch":"%s","ts":"%s"}\n' \
+        "$id" "$branch" "$ts" >> "$metrics_file"
+done
+
 cat <<EOF
 
 BEAD CLOSE DETECTED [$bead_ids]
@@ -31,6 +41,4 @@ Before continuing, you MUST:
    - New problem discovered = create discovered-from bead
 4. If PASS: update session-handoff.json
 5. PAUSE and wait for user go-ahead before starting next bead
-
-Run: node "\$CLAUDE_PROJECT_DIR/scripts/utils/update-bead-handoff.mjs" --closed="\$bead_ids"
 EOF
