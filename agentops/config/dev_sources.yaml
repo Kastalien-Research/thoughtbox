@@ -56,5 +56,16 @@ html:
         link: "a"
       fallback_to_generic: true
 
-# Notes:
-# The web tool had trouble fetching some RSS XML directly, but that doesn’t mean your Node fetch will fail; it’s often user-agent/header related. For OpenAI, the site itself links the RSS endpoint.
+# Cross-layer internal signals
+beads:
+  enabled: true
+  closed_lookback_hours: 24
+  ready_max_priority: 2
+
+assumptions:
+  enabled: true
+  stale_days: 14
+
+session_handoff:
+  enabled: true
+  max_age_hours: 48
