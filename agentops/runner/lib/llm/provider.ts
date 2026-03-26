@@ -46,7 +46,7 @@ export function getLLMConfig(): LLMConfig | null {
   if (openaiKey) {
     return {
       provider: 'openai',
-      model: 'gpt-4-turbo-preview',
+      model: 'gpt-4o',
       apiKey: openaiKey,
     };
   }

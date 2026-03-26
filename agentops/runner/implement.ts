@@ -5,7 +5,7 @@
 
 import { promises as fs } from 'fs';
 import * as path from 'path';
-import { execSync } from 'child_process';
+import { execSync, execFileSync } from 'child_process';
 import { GitHubClient, getGitHubContext } from './lib/github.js';
 import {
   loadTemplate,
@@ -103,14 +103,14 @@ export async function runImplementation(
       // REAL mode implementation
       console.log('⚙️  REAL MODE: Creating branch and implementing...');
 
-      branchName = `agent/${options.proposalId}/${runId}`;
+      branchName = `agent/${options.proposalId}`;
       console.log(`Creating branch: ${branchName}`);
 
       if (!options.dryRun) {
         // Create branch locally and check it out — the GitHub API branch
         // creation alone doesn't affect the local working tree, so commits
         // would land on whatever branch CI checked out (detached HEAD).
-        execSync(`git checkout -b ${branchName}`, { cwd: process.cwd() });
+        execFileSync('git', ['checkout', '-b', branchName], { cwd: process.cwd() });
         commandsExecuted.push(`git checkout -b ${branchName}`);
 
         // Day-0: Implement a small change to prove the path
@@ -141,20 +141,22 @@ export async function runImplementation(
         commandsExecuted.push(`touch ${markerPath}`);
 
         // Stage and commit
-        execSync(`git add ${markerPath}`, { cwd: process.cwd() });
+        execFileSync('git', ['add', markerPath], { cwd: process.cwd() });
         commandsExecuted.push(`git add ${markerPath}`);
 
-        const commitMessage = `feat(agentops): implement ${options.proposalId}
+        const commitMessage = [
+          `feat(agentops): implement ${options.proposalId}`,
+          '',
+          `Day-0 implementation for proposal: ${proposal.title}`,
+          '',
+          `- Mode: REAL`,
+          `- Run ID: ${runId}`,
+          `- Upstream issue: #${options.issueNumber}`,
+          '',
+          `Co-Authored-By: Claude Sonnet 4.5 (1M context) <noreply@anthropic.com>`,
+        ].join('\n');
 
-Day-0 implementation for proposal: ${proposal.title}
-
-- Mode: REAL
-- Run ID: ${runId}
-- Upstream issue: #${options.issueNumber}
-
-Co-Authored-By: Claude Sonnet 4.5 (1M context) <noreply@anthropic.com>`;
-
-        execSync(`git commit -m "${commitMessage.replace(/"/g, '\\"')}"`, {
+        execFileSync('git', ['commit', '-m', commitMessage], {
           cwd: process.cwd(),
         });
         commandsExecuted.push('git commit');
