@@ -15,7 +15,7 @@ export function getLLMConfig(): LLMConfig | null {
   const provider =
     (process.env.AGENTOPS_LLM_PROVIDER as LLMProvider) || 'anthropic';
   const model =
-    process.env.AGENTOPS_LLM_MODEL || 'claude-sonnet-4-5-20250514';
+    process.env.AGENTOPS_LLM_MODEL || 'claude-sonnet-4-5-20250929';
 
   // Try provider-specific key first
   if (provider === 'anthropic') {
@@ -37,7 +37,7 @@ export function getLLMConfig(): LLMConfig | null {
   if (anthropicKey) {
     return {
       provider: 'anthropic',
-      model: 'claude-sonnet-4-5-20250514',
+      model: 'claude-sonnet-4-5-20250929',
       apiKey: anthropicKey,
     };
   }

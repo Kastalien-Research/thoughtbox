@@ -31,7 +31,7 @@ async function testAnthropicKey(): Promise<TestResult> {
   try {
     const client = new Anthropic({ apiKey });
     const response = await client.messages.create({
-      model: model || 'claude-sonnet-4-5-20250514',
+      model: model || 'claude-sonnet-4-5-20250929',
       max_tokens: 10,
       messages: [{ role: 'user', content: 'Hi' }],
     });
@@ -40,7 +40,7 @@ async function testAnthropicKey(): Promise<TestResult> {
       provider: 'Anthropic',
       available: true,
       authenticated: true,
-      model: model || 'claude-sonnet-4-5-20250514',
+      model: model || 'claude-sonnet-4-5-20250929',
     };
   } catch (error) {
     return {

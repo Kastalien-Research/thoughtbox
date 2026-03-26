@@ -262,7 +262,7 @@ console.log('\n=== Testing Cost Calculation ===\n');
 // Test: Sonnet 4.5 standard pricing (≤200K)
 {
   const { costUsd, metadata } = calculateCost(
-    'claude-sonnet-4-5-20250514',
+    'claude-sonnet-4-5-20250929',
     100_000,
     50_000
   );
@@ -271,14 +271,14 @@ console.log('\n=== Testing Cost Calculation ===\n');
   assert.strictEqual(costUsd, 1.05);
   assert.strictEqual(metadata.inputPricePerMToken, 3.0);
   assert.strictEqual(metadata.outputPricePerMToken, 15.0);
-  assert.strictEqual(metadata.model, 'claude-sonnet-4-5-20250514');
+  assert.strictEqual(metadata.model, 'claude-sonnet-4-5-20250929');
   console.log('✅ Cost calculation: Sonnet 4.5 standard pricing');
 }
 
 // Test: Sonnet 4.5 large context pricing (>200K)
 {
   const { costUsd, metadata } = calculateCost(
-    'claude-sonnet-4-5-20250514',
+    'claude-sonnet-4-5-20250929',
     300_000,
     100_000
   );
