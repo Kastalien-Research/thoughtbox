@@ -49,13 +49,6 @@ export const ANTHROPIC_PRICING: Record<string, ModelPricing> = {
     source: 'https://www.anthropic.com/pricing',
     lastUpdated: '2026-01-29',
   },
-  // Legacy models (commonly used in config)
-  'claude-3-5-sonnet-20241022': {
-    inputPricePerMToken: 3.00,
-    outputPricePerMToken: 15.00,
-    source: 'https://www.anthropic.com/pricing',
-    lastUpdated: '2026-01-29',
-  },
 };
 
 export const OPENAI_PRICING: Record<string, ModelPricing> = {

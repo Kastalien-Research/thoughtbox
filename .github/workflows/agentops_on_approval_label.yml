@@ -76,6 +76,7 @@ jobs:
       - name: Run implementation
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           GITHUB_LABEL_NAME: ${{ github.event.label.name }}
           LANGSMITH_API_KEY: ${{ secrets.LANGSMITH_API_KEY }}
           LANGSMITH_PROJECT: agentops-thoughtbox-dev
