@@ -32,7 +32,7 @@ export const ANTHROPIC_PRICING: Record<string, ModelPricing> = {
     source: 'https://www.anthropic.com/pricing',
     lastUpdated: '2026-01-29',
   },
-  'claude-sonnet-4-5-20250929': {
+  'claude-sonnet-4-5-20250514': {
     inputPricePerMToken: 3.00,
     outputPricePerMToken: 15.00,
     largePricing: {
@@ -41,7 +41,7 @@ export const ANTHROPIC_PRICING: Record<string, ModelPricing> = {
       outputPricePerMToken: 22.50,
     },
     source: 'https://www.anthropic.com/pricing',
-    lastUpdated: '2026-01-29',
+    lastUpdated: '2026-03-25',
   },
   'claude-haiku-4-5-20250919': {
     inputPricePerMToken: 1.00,
@@ -106,7 +106,7 @@ export function calculateCost(
 
   if (!pricing) {
     console.warn(`No pricing found for model ${model}, using Sonnet 4.5 pricing as fallback`);
-    const fallback = ANTHROPIC_PRICING['claude-sonnet-4-5-20250929'];
+    const fallback = ANTHROPIC_PRICING['claude-sonnet-4-5-20250514'];
 
     return {
       costUsd: (inputTokens * fallback.inputPricePerMToken + outputTokens * fallback.outputPricePerMToken) / 1_000_000,

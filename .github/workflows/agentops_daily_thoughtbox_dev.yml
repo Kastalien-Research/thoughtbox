@@ -47,6 +47,7 @@ jobs:
       - name: Run daily dev brief
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           LANGSMITH_API_KEY: ${{ secrets.LANGSMITH_API_KEY }}
           LANGSMITH_PROJECT: agentops-thoughtbox-dev
           LANGSMITH_ORG: ${{ secrets.LANGSMITH_ORG }}
