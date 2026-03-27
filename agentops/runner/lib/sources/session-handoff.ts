@@ -48,7 +48,7 @@ export async function collectSessionHandoffSignals(
   const timestamp = handoff.timestamp || handoff.session_date;
   if (!timestamp) return [];
 
-  const age = Date.now() - new Date(timestamp).getTime();
+  const maxAgeMs = config.maxAgeHours * 3600_000;
   const tsMs = new Date(timestamp).getTime();
   if (Number.isNaN(tsMs)) return [];
   const age = Date.now() - tsMs;

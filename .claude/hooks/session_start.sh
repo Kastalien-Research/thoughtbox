@@ -152,6 +152,22 @@ if [[ "$load_context" == "true" ]]; then
         context+="Beads closed (recent): $recent_closes | Last 7 days: $last_7d\n"
     fi
 
+    # Thoughtbox interleaved thinking primer
+    # Only inject for top-level agents with Thoughtbox available
+    if [[ -z "${CLAUDE_AGENT_ID:-}" ]]; then
+        mcp_config="$project_dir/.mcp.json"
+        if [[ -f "$mcp_config" ]] && jq -e '.mcpServers["thoughtbox-cloud-run"] // .mcpServers["thoughtbox"]' "$mcp_config" > /dev/null 2>&1; then
+            context+="\n<thoughtbox-primer>\n"
+            context+="Record your reasoning in Thoughtbox between tool calls. "
+            context+="Use tb.thought() for observations and intermediate conclusions. "
+            context+="Use decision_frame when choosing between alternatives. "
+            context+="Use assumption_update when evidence changes your assumptions. "
+            context+="Think between every action — not just at the start and end. "
+            context+="The rhythm is: Think, Act, Think, Act.\n"
+            context+="</thoughtbox-primer>\n"
+        fi
+    fi
+
     # Output context in hook-specific format
     jq -n --arg ctx "$context" \
       '{hookSpecificOutput:{hookEventName:"SessionStart",additionalContext:$ctx}}'

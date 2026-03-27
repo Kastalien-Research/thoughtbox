@@ -116,8 +116,14 @@ interface TB {
 
   /** Observability queries. Source: src/observability/gateway-handler.ts */
   observability(input: {
-    operation: "health" | "metrics" | "metrics_range" | "sessions" | "session_info" | "alerts" | "dashboard_url";
-    args?: Record<string, unknown>;
+    operation: "health" | "sessions" | "session_info" | "session_timeline" | "session_cost";
+    args?: {
+      sessionId?: string;
+      limit?: number;
+      status?: "active" | "idle" | "all";
+      services?: string[];
+      model?: string;
+    };
   }): Promise<unknown>;
 }
 \`\`\``;

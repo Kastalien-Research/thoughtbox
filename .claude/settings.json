@@ -54,6 +54,15 @@
             "command": "\"$CLAUDE_PROJECT_DIR/.claude/hooks/bead_close_handoff.sh\""
           }
         ]
+      },
+      {
+        "matcher": "mcp__thoughtbox-cloud-run__thoughtbox_execute",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR/.claude/hooks/thoughtbox_session_tracker.sh\""
+          }
+        ]
       }
     ],
     "PostCompact": [
