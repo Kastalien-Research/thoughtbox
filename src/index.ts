@@ -187,7 +187,45 @@ async function startHttpServer() {
     host: process.env.HOST || "0.0.0.0",
   });
 
+  const isMultiTenant = process.env.THOUGHTBOX_STORAGE === 'supabase';
   const sessions = new Map<string, SessionEntry>();
+
+  // Singleton server + transport for local (non-multi-tenant) mode.
+  // Avoids per-request server creation when clients drop session headers
+  // (e.g., Claude Code reconnection bug).
+  let singletonEntry: SessionEntry | null = null;
+
+  async function getOrCreateSingleton(): Promise<SessionEntry> {
+    if (singletonEntry) return singletonEntry;
+
+    const singletonId = crypto.randomUUID();
+    const storage = factory.getStorage();
+    const knowledgeStorage = factory.getKnowledgeStorage();
+
+    const server = await createMcpServer({
+      sessionId: singletonId,
+      storage,
+      hubStorage,
+      dataDir,
+      knowledgeStorage,
+      config: {
+        disableThoughtLogging:
+          (process.env.DISABLE_THOUGHT_LOGGING || "").toLowerCase() === "true",
+      },
+    });
+
+    const transport = new StreamableHTTPServerTransport({
+      sessionIdGenerator: undefined,
+      enableJsonResponse: true,
+    });
+
+    await server.connect(transport);
+    console.error(`[MCP] Singleton server created: ${singletonId}`);
+
+    singletonEntry = { transport, server };
+    sessions.set(singletonId, singletonEntry);
+    return singletonEntry;
+  }
 
   app.all("/mcp", async (req: Request, res: Response) => {
     const mcpSessionId = req.headers["mcp-session-id"] as string | undefined;
@@ -204,13 +242,10 @@ async function startHttpServer() {
 
     if (providedKey) {
       if (staticApiKey && providedKey === staticApiKey) {
-        // Static API key match (ADR-AUTH-02)
         workspaceId = 'default-workspace';
       } else if (providedKey === process.env.THOUGHTBOX_API_KEY_LOCAL) {
-        // Bypass for local development
         workspaceId = 'local-dev-workspace';
       } else if (providedKey.startsWith('tbx_')) {
-        // Prefixed key — resolve via api_keys table
         try {
           workspaceId = await resolveApiKeyToWorkspace(providedKey);
         } catch (err) {
@@ -229,8 +264,7 @@ async function startHttpServer() {
         });
         return;
       }
-    } else if (process.env.THOUGHTBOX_STORAGE === 'supabase') {
-       // Require key for hosted environment
+    } else if (isMultiTenant) {
        res.status(401).json({
         jsonrpc: "2.0",
         error: { code: -32001, message: "Missing API key" },
@@ -240,55 +274,63 @@ async function startHttpServer() {
     }
 
     try {
-      if (mcpSessionId && sessions.has(mcpSessionId)) {
-        const entry = sessions.get(mcpSessionId)!;
-        await entry.transport.handleRequest(req, res, req.body);
+      // --- Multi-tenant (Supabase) mode: per-session servers ---
+      if (isMultiTenant) {
+        if (mcpSessionId && sessions.has(mcpSessionId)) {
+          const entry = sessions.get(mcpSessionId)!;
+          await entry.transport.handleRequest(req, res, req.body);
+
+          if (req.method === "DELETE") {
+            sessions.delete(mcpSessionId);
+            entry.transport.close();
+          }
+          return;
+        }
+
+        const sessionId = mcpSessionId || crypto.randomUUID();
+        const storage = factory.getStorage(workspaceId);
+        const knowledgeStorage = factory.getKnowledgeStorage(workspaceId);
+
+        const server = await createMcpServer({
+          sessionId,
+          storage,
+          hubStorage,
+          dataDir,
+          knowledgeStorage,
+          config: {
+            disableThoughtLogging:
+              (process.env.DISABLE_THOUGHT_LOGGING || "").toLowerCase() === "true",
+          },
+        });
+
+        const transport = new StreamableHTTPServerTransport({
+          sessionIdGenerator: () => sessionId,
+          enableJsonResponse: true,
+        });
+
+        sessions.set(sessionId, { transport, server });
+        transport.onclose = () => {
+          sessions.delete(transport.sessionId || sessionId);
+        };
+
+        await server.connect(transport);
+        await transport.handleRequest(req, res, req.body);
 
         if (req.method === "DELETE") {
-          sessions.delete(mcpSessionId);
-          entry.transport.close();
+          sessions.delete(sessionId);
+          transport.close();
         }
         return;
       }
 
-      const sessionId = mcpSessionId || crypto.randomUUID();
-
-      // Instantiate strictly-scoped storage using the resolved workspaceId
-      const storage = factory.getStorage(workspaceId);
-      const knowledgeStorage = factory.getKnowledgeStorage(workspaceId);
-
-      const server = await createMcpServer({
-        sessionId,
-        storage,
-        hubStorage,
-        dataDir,
-        knowledgeStorage,
-        config: {
-          disableThoughtLogging:
-            (process.env.DISABLE_THOUGHT_LOGGING || "").toLowerCase() === "true",
-        },
-      });
-
-      const transport = new StreamableHTTPServerTransport({
-        sessionIdGenerator: () => sessionId,
-        enableJsonResponse: true,
-      });
-
-      sessions.set(sessionId, {
-        transport,
-        server,
-      });
-
-      transport.onclose = () => {
-        sessions.delete(transport.sessionId || sessionId);
-      };
-
-      await server.connect(transport);
-      await transport.handleRequest(req, res, req.body);
+      // --- Local (singleton) mode: one server, all requests share it ---
+      const entry = await getOrCreateSingleton();
+      await entry.transport.handleRequest(req, res, req.body);
 
       if (req.method === "DELETE") {
-        sessions.delete(sessionId);
-        transport.close();
+        singletonEntry = null;
+        sessions.clear();
+        entry.transport.close();
       }
     } catch (error) {
       console.error("MCP ERROR:", error);
