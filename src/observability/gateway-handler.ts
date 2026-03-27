@@ -1,16 +1,14 @@
 /**
  * Observability Gateway Handler
  *
- * Routes operations for the observability_gateway MCP tool.
- * No session initialization required - direct query access.
+ * Routes operations for the tb.observability() SDK call.
+ * Queries OTEL events via OtelEventStorage + Thoughtbox session data.
  */
 
 import { z } from 'zod';
-import { PrometheusClient, type PrometheusConfig } from './prometheus-client.js';
 import { checkHealth, type HealthArgs } from './operations/health.js';
-import { queryMetrics, queryMetricsRange, type MetricsArgs, type MetricsRangeArgs } from './operations/metrics.js';
 import { listSessions, getSessionInfo, type SessionsArgs, type SessionInfoArgs } from './operations/sessions.js';
-import { getAlerts, type AlertsArgs } from './operations/alerts.js';
+import { OtelEventStorage, type OtelStorageConfig } from '../otel/otel-storage.js';
 import type { ThoughtboxStorage } from '../persistence/types.js';
 
 // =============================================================================
@@ -19,37 +17,20 @@ import type { ThoughtboxStorage } from '../persistence/types.js';
 
 export const ObservabilityOperationSchema = z.enum([
   'health',
-  'metrics',
-  'metrics_range',
   'sessions',
   'session_info',
-  'alerts',
-  'dashboard_url',
+  'session_timeline',
+  'session_cost',
 ]);
 
 export type ObservabilityOperation = z.infer<typeof ObservabilityOperationSchema>;
 
 export const ObservabilityArgsSchema = z.object({
-  // Metrics operations
-  query: z.string().optional(),
-  time: z.string().optional(),
-  start: z.string().optional(),
-  end: z.string().optional(),
-  step: z.string().optional(),
-
-  // Session operations
   sessionId: z.string().optional(),
   limit: z.number().optional(),
   status: z.enum(['active', 'idle', 'all']).optional(),
-
-  // Health operations
   services: z.array(z.string()).optional(),
-
-  // Alerts operations
-  state: z.enum(['firing', 'pending', 'all']).optional(),
-
-  // Dashboard operations
-  dashboard: z.string().optional(),
+  model: z.string().optional(),
 }).optional();
 
 export const ObservabilityInputSchema = z.object({
@@ -59,28 +40,21 @@ export const ObservabilityInputSchema = z.object({
 
 export type ObservabilityInput = z.infer<typeof ObservabilityInputSchema>;
 
-// Tool input schema for MCP registration
 export const observabilityToolInputSchema = {
   operation: {
     type: 'string',
-    enum: ['health', 'metrics', 'metrics_range', 'sessions', 'session_info', 'alerts', 'dashboard_url'],
+    enum: ['health', 'sessions', 'session_info', 'session_timeline', 'session_cost'],
     description: 'The observability operation to perform',
   },
   args: {
     type: 'object',
     description: 'Operation-specific arguments',
     properties: {
-      query: { type: 'string', description: 'PromQL query for metrics operations' },
-      time: { type: 'string', description: 'Evaluation timestamp (RFC3339 or Unix timestamp)' },
-      start: { type: 'string', description: 'Range query start time' },
-      end: { type: 'string', description: 'Range query end time' },
-      step: { type: 'string', description: 'Query resolution step (e.g., 15s, 1m)' },
-      sessionId: { type: 'string', description: 'Session ID for session_info operation' },
-      services: { type: 'array', items: { type: 'string' }, description: 'Filter health check to specific services' },
+      sessionId: { type: 'string', description: 'Session ID for timeline, cost, or session_info' },
       limit: { type: 'number', description: 'Maximum number of results' },
       status: { type: 'string', enum: ['active', 'idle', 'all'], description: 'Filter sessions by status' },
-      state: { type: 'string', enum: ['firing', 'pending', 'all'], description: 'Filter alerts by state' },
-      dashboard: { type: 'string', description: 'Dashboard name for URL generation' },
+      services: { type: 'array', items: { type: 'string' }, description: 'Filter health check to specific services' },
+      model: { type: 'string', description: 'Filter cost by model name' },
     },
   },
 } as const;
@@ -105,8 +79,9 @@ interface ToolResult {
 
 export interface ObservabilityGatewayConfig {
   storage: ThoughtboxStorage;
-  prometheusUrl?: string;
-  grafanaUrl?: string;
+  workspaceId?: string;
+  supabaseUrl?: string;
+  serviceRoleKey?: string;
   thoughtboxUrl?: string;
 }
 
@@ -115,20 +90,24 @@ export interface ObservabilityGatewayConfig {
 // =============================================================================
 
 export class ObservabilityGatewayHandler {
-  private readonly prometheusClient: PrometheusClient;
-  private readonly grafanaUrl: string;
   private readonly thoughtboxUrl: string;
   private readonly storage: ThoughtboxStorage;
+  private readonly workspaceId: string;
+  private readonly otelStorage: OtelEventStorage | null;
 
   constructor(config: ObservabilityGatewayConfig) {
-    const prometheusConfig: PrometheusConfig = {
-      url: config.prometheusUrl ?? process.env.PROMETHEUS_URL ?? 'http://prometheus:9090',
-      timeout: 10000,
-    };
-    this.prometheusClient = new PrometheusClient(prometheusConfig);
-    this.grafanaUrl = config.grafanaUrl ?? process.env.GRAFANA_URL ?? 'http://localhost:3001';
     this.thoughtboxUrl = config.thoughtboxUrl ?? 'http://thoughtbox:1731';
     this.storage = config.storage;
+    this.workspaceId = config.workspaceId ?? 'default-workspace';
+
+    if (config.supabaseUrl && config.serviceRoleKey) {
+      this.otelStorage = new OtelEventStorage({
+        supabaseUrl: config.supabaseUrl,
+        serviceRoleKey: config.serviceRoleKey,
+      });
+    } else {
+      this.otelStorage = null;
+    }
   }
 
   async handle(input: unknown): Promise<ToolResult> {
@@ -142,23 +121,17 @@ export class ObservabilityGatewayHandler {
         case 'health':
           result = await this.handleHealth(args as HealthArgs);
           break;
-        case 'metrics':
-          result = await this.handleMetrics(args as MetricsArgs);
-          break;
-        case 'metrics_range':
-          result = await this.handleMetricsRange(args as MetricsRangeArgs);
-          break;
         case 'sessions':
           result = await this.handleSessions(args as SessionsArgs);
           break;
         case 'session_info':
           result = await this.handleSessionInfo(args as SessionInfoArgs);
           break;
-        case 'alerts':
-          result = await this.handleAlerts(args as AlertsArgs);
+        case 'session_timeline':
+          result = await this.handleSessionTimeline(args);
           break;
-        case 'dashboard_url':
-          result = this.handleDashboardUrl(args.dashboard);
+        case 'session_cost':
+          result = await this.handleSessionCost(args);
           break;
         default:
           throw new Error(`Unknown operation: ${operation}`);
@@ -183,15 +156,7 @@ export class ObservabilityGatewayHandler {
   }
 
   private async handleHealth(args: HealthArgs) {
-    return checkHealth(args, this.prometheusClient, this.thoughtboxUrl, this.grafanaUrl);
-  }
-
-  private async handleMetrics(args: MetricsArgs) {
-    return queryMetrics(args, this.prometheusClient);
-  }
-
-  private async handleMetricsRange(args: MetricsRangeArgs) {
-    return queryMetricsRange(args, this.prometheusClient);
+    return checkHealth(args, this.thoughtboxUrl, this.otelStorage);
   }
 
   private async handleSessions(args: SessionsArgs) {
@@ -202,13 +167,31 @@ export class ObservabilityGatewayHandler {
     return getSessionInfo(args, this.storage);
   }
 
-  private async handleAlerts(args: AlertsArgs) {
-    return getAlerts(args, this.prometheusClient);
+  private async handleSessionTimeline(
+    args: { sessionId?: string; limit?: number },
+  ) {
+    if (!this.otelStorage) {
+      return { error: 'OTEL queries require Supabase configuration' };
+    }
+    if (!args.sessionId) {
+      return { error: 'sessionId is required for session_timeline' };
+    }
+    return this.otelStorage.querySessionTimeline(
+      this.workspaceId,
+      args.sessionId,
+      { limit: args.limit },
+    );
   }
 
-  private handleDashboardUrl(dashboard?: string) {
-    const dashboardName = dashboard ?? 'thoughtbox-mcp';
-    const url = `${this.grafanaUrl}/d/${dashboardName}/${dashboardName}`;
-    return { url, dashboard: dashboardName };
+  private async handleSessionCost(
+    args: { sessionId?: string },
+  ) {
+    if (!this.otelStorage) {
+      return { error: 'OTEL queries require Supabase configuration' };
+    }
+    return this.otelStorage.querySessionCost(
+      this.workspaceId,
+      args.sessionId,
+    );
   }
 }

@@ -28,8 +28,9 @@ import {
 import { createFileSystemHubStorage } from "./hub/hub-storage-fs.js";
 import type { HubStorage } from "./hub/hub-types.js";
 import { initEvaluation, initMonitoring } from "./evaluation/index.js";
-import { resolveApiKeyToWorkspace } from "./auth/api-key.js";
 import { createHubHandler, type HubEvent } from "./hub/hub-handler.js";
+import { resolveRequestAuth } from "./auth/resolve-request-auth.js";
+import { mountOtlpRoutes } from "./otel/index.js";
 
 /**
  * Get the storage backend based on environment configuration.
@@ -232,40 +233,27 @@ async function startHttpServer() {
 
     console.error(`[MCP] ${req.method} request, session: ${mcpSessionId || 'new'}`);
 
-    // API key auth (ADR-AUTH-02): check ?key= query param or Authorization: Bearer <key>
+    // API key auth (ADR-AUTH-02): resolve workspace from key
     let workspaceId: string | undefined = undefined;
-    const authHeader = req.headers.authorization as string | undefined;
-    const headerKey = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : undefined;
-    const queryKey = req.query.key as string | undefined;
-    const providedKey = headerKey || queryKey;
-    const staticApiKey = process.env.THOUGHTBOX_API_KEY;
+    const hasKey = req.headers.authorization || req.query.key;
 
-    if (providedKey) {
-      if (staticApiKey && providedKey === staticApiKey) {
-        workspaceId = 'default-workspace';
-      } else if (providedKey === process.env.THOUGHTBOX_API_KEY_LOCAL) {
-        workspaceId = 'local-dev-workspace';
-      } else if (providedKey.startsWith('tbx_')) {
-        try {
-          workspaceId = await resolveApiKeyToWorkspace(providedKey);
-        } catch (err) {
-          res.status(401).json({
-            jsonrpc: "2.0",
-            error: { code: -32001, message: "Invalid or inactive API key" },
-            id: null,
-          });
-          return;
-        }
-      } else {
+    if (hasKey) {
+      try {
+        workspaceId = await resolveRequestAuth(req, {
+          staticKey: process.env.THOUGHTBOX_API_KEY,
+          localDevKey: process.env.THOUGHTBOX_API_KEY_LOCAL,
+        });
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Authentication failed';
         res.status(401).json({
           jsonrpc: "2.0",
-          error: { code: -32001, message: "Invalid API key" },
+          error: { code: -32001, message },
           id: null,
         });
         return;
       }
     } else if (isMultiTenant) {
-       res.status(401).json({
+      res.status(401).json({
         jsonrpc: "2.0",
         error: { code: -32001, message: "Missing API key" },
         id: null,
@@ -463,6 +451,19 @@ async function startHttpServer() {
       res.status(400).json({ error: message });
     }
   });
+
+  // ---------------------------------------------------------------------------
+  // OTLP Ingestion Routes (multi-tenant / deployed mode only)
+  // ---------------------------------------------------------------------------
+
+  if (isMultiTenant) {
+    mountOtlpRoutes(app, {
+      supabaseUrl: process.env.SUPABASE_URL!,
+      serviceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      staticApiKey: process.env.THOUGHTBOX_API_KEY,
+      localDevApiKey: process.env.THOUGHTBOX_API_KEY_LOCAL,
+    });
+  }
 
   const port = parseInt(process.env.PORT || "1731", 10);
   const httpServer = app.listen(port, () => {

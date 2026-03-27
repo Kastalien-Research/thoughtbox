@@ -1,7 +1,7 @@
 /**
  * Observability Module
  *
- * Exports for the observability_gateway MCP tool.
+ * Exports for the tb.observability() SDK call.
  */
 
 export {
@@ -11,5 +11,3 @@ export {
   type ObservabilityInput,
   type ObservabilityOperation,
 } from './gateway-handler.js';
-
-export { PrometheusClient, type PrometheusConfig } from './prometheus-client.js';

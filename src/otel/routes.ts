@@ -1,0 +1,139 @@
+/**
+ * OTLP/HTTP ingestion routes.
+ *
+ * Mounts POST /v1/logs and POST /v1/metrics on the given Express app.
+ * Parses OTLP JSON payloads and writes directly to Supabase — no
+ * in-memory store.
+ */
+
+import type { Express, Request, Response } from 'express';
+import { json as expressJson } from 'express';
+import { OtelEventStorage } from './otel-storage.js';
+import { parseLogsPayload, parseMetricsPayload } from './parser.js';
+import { resolveRequestAuth } from '../auth/resolve-request-auth.js';
+import type { OtlpLogsPayload, OtlpMetricsPayload } from './types.js';
+
+export interface OtlpRoutesConfig {
+  supabaseUrl: string;
+  serviceRoleKey: string;
+  staticApiKey?: string;
+  localDevApiKey?: string;
+  /** Workspace ID for static key auth (default: 'default-workspace') */
+  defaultWorkspaceId?: string;
+  /** Workspace ID for local-dev key auth (default: 'local-dev-workspace') */
+  localDevWorkspaceId?: string;
+}
+
+function countLogRecords(payload: OtlpLogsPayload): number {
+  let count = 0;
+  for (const rl of payload.resourceLogs ?? []) {
+    for (const sl of rl.scopeLogs ?? []) {
+      count += sl.logRecords?.length ?? 0;
+    }
+  }
+  return count;
+}
+
+function countMetricDataPoints(payload: OtlpMetricsPayload): number {
+  let count = 0;
+  for (const rm of payload.resourceMetrics ?? []) {
+    for (const sm of rm.scopeMetrics ?? []) {
+      for (const m of sm.metrics ?? []) {
+        count += (m.sum?.dataPoints?.length ?? 0)
+          + (m.gauge?.dataPoints?.length ?? 0);
+      }
+    }
+  }
+  return count;
+}
+
+/**
+ * Resolve auth for an OTLP request, sending a 401 response on failure.
+ * Returns the workspace ID or null (response already sent).
+ */
+async function resolveOtlpAuth(
+  req: Request,
+  res: Response,
+  config: OtlpRoutesConfig,
+): Promise<string | null> {
+  try {
+    return await resolveRequestAuth(req, {
+      staticKey: config.staticApiKey,
+      localDevKey: config.localDevApiKey,
+      staticKeyWorkspaceId: config.defaultWorkspaceId,
+      localDevWorkspaceId: config.localDevWorkspaceId,
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Authentication failed';
+    res.status(401).json({ error: message });
+    return null;
+  }
+}
+
+export function mountOtlpRoutes(
+  app: Express,
+  config: OtlpRoutesConfig,
+): void {
+  const storage = new OtelEventStorage({
+    supabaseUrl: config.supabaseUrl,
+    serviceRoleKey: config.serviceRoleKey,
+  });
+
+  const jsonParser = expressJson({ limit: '1mb' });
+
+  app.post('/v1/logs', jsonParser, async (req: Request, res: Response) => {
+    const contentType = req.headers['content-type'];
+    if (contentType && !contentType.includes('application/json')) {
+      res.status(415).json({ error: 'Content-Type must be application/json' });
+      return;
+    }
+
+    try {
+      const workspaceId = await resolveOtlpAuth(req, res, config);
+      if (!workspaceId) return;
+
+      const payload = req.body as OtlpLogsPayload;
+      const rows = parseLogsPayload(payload, workspaceId);
+      const result = await storage.ingest(rows);
+      console.error(`[OTLP] Ingested ${result.inserted} log events`);
+      res.json({});
+    } catch (error) {
+      const payload = req.body as OtlpLogsPayload;
+      console.error('[OTLP] Logs ingestion error:', error);
+      res.status(500).json({
+        partialSuccess: {
+          rejectedLogRecords: countLogRecords(payload),
+          errorMessage: error instanceof Error ? error.message : 'Internal error',
+        },
+      });
+    }
+  });
+
+  app.post('/v1/metrics', jsonParser, async (req: Request, res: Response) => {
+    const contentType = req.headers['content-type'];
+    if (contentType && !contentType.includes('application/json')) {
+      res.status(415).json({ error: 'Content-Type must be application/json' });
+      return;
+    }
+
+    try {
+      const workspaceId = await resolveOtlpAuth(req, res, config);
+      if (!workspaceId) return;
+
+      const payload = req.body as OtlpMetricsPayload;
+      const rows = parseMetricsPayload(payload, workspaceId);
+      const result = await storage.ingest(rows);
+      console.error(`[OTLP] Ingested ${result.inserted} metric data points`);
+      res.json({});
+    } catch (error) {
+      const payload = req.body as OtlpMetricsPayload;
+      console.error('[OTLP] Metrics ingestion error:', error);
+      res.status(500).json({
+        partialSuccess: {
+          rejectedMetricRecords: countMetricDataPoints(payload),
+          errorMessage: error instanceof Error ? error.message : 'Internal error',
+        },
+      });
+    }
+  });
+}
