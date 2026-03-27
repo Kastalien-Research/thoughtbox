@@ -49,7 +49,9 @@ export async function collectSessionHandoffSignals(
   if (!timestamp) return [];
 
   const age = Date.now() - new Date(timestamp).getTime();
-  const maxAgeMs = config.maxAgeHours * 60 * 60 * 1000;
+  const tsMs = new Date(timestamp).getTime();
+  if (Number.isNaN(tsMs)) return [];
+  const age = Date.now() - tsMs;
   if (age > maxAgeMs) return [];
 
   const signals: SignalItem[] = [];
