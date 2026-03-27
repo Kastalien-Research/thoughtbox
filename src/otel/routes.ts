@@ -83,7 +83,7 @@ export function mountOtlpRoutes(
 
   app.post('/v1/logs', jsonParser, async (req: Request, res: Response) => {
     const contentType = req.headers['content-type'];
-    if (contentType && !contentType.includes('application/json')) {
+    if (!contentType || !contentType.includes('application/json')) {
       res.status(415).json({ error: 'Content-Type must be application/json' });
       return;
     }
@@ -111,7 +111,7 @@ export function mountOtlpRoutes(
 
   app.post('/v1/metrics', jsonParser, async (req: Request, res: Response) => {
     const contentType = req.headers['content-type'];
-    if (contentType && !contentType.includes('application/json')) {
+    if (!contentType || !contentType.includes('application/json')) {
       res.status(415).json({ error: 'Content-Type must be application/json' });
       return;
     }

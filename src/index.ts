@@ -285,6 +285,7 @@ async function startHttpServer() {
           hubStorage,
           dataDir,
           knowledgeStorage,
+          workspaceId,
           config: {
             disableThoughtLogging:
               (process.env.DISABLE_THOUGHT_LOGGING || "").toLowerCase() === "true",

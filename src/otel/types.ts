@@ -147,10 +147,12 @@ export function nanosToIso(nanos: string | undefined): {
   timestamp_ns: number;
   timestamp_at: string;
 } {
-  const ns = Number(nanos ?? '0');
-  const ms = Math.floor(ns / 1_000_000);
+  const raw = nanos ?? '0';
+  // Use BigInt for the division to avoid float precision loss on
+  // 2024+ timestamps (>1.7e18 ns exceeds Number.MAX_SAFE_INTEGER).
+  const ms = Number(BigInt(raw) / 1_000_000n);
   return {
-    timestamp_ns: ns,
+    timestamp_ns: Number(raw),
     timestamp_at: new Date(ms).toISOString(),
   };
 }

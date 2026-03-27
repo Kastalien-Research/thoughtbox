@@ -121,6 +121,20 @@ describe('OTLP Routes', () => {
     expect(res.status).toBe(415);
   });
 
+  it('rejects requests with no Content-Type header', async ({ skip }) => {
+    if (!available) skip();
+
+    const res = await fetch(`${baseUrl}/v1/logs`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${TEST_API_KEY}`,
+      },
+      body: '{}',
+    });
+
+    expect(res.status).toBe(415);
+  });
+
   // ==========================================================================
   // Logs ingestion
   // ==========================================================================

@@ -778,6 +778,14 @@ export type Database = {
         | { Args: { target_path: string }; Returns: Json }
         | { Args: { target_path: string; ws_id?: string }; Returns: Json }
       is_workspace_member: { Args: { ws_id: string }; Returns: boolean }
+      otel_session_cost: {
+        Args: { p_session_id?: string; p_workspace_id: string }
+        Returns: {
+          data_points: number
+          model: string
+          total_cost: number
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never

@@ -107,45 +107,29 @@ export class OtelEventStorage {
     workspaceId: string,
     sessionId?: string,
   ): Promise<SessionCostResult> {
-    let query = this.supabase
-      .from('otel_events')
-      .select('metric_value, event_attrs')
-      .eq('workspace_id', workspaceId)
-      .eq('event_type', 'metric')
-      .eq('event_name', 'claude_code.cost.usage');
-
-    if (sessionId) {
-      query = query.eq('session_id', sessionId);
-    }
-
-    const { data, error } = await query;
+    const { data, error } = await this.supabase
+      .rpc('otel_session_cost', {
+        p_workspace_id: workspaceId,
+        ...(sessionId ? { p_session_id: sessionId } : {}),
+      });
 
     if (error) {
       throw new Error(`Cost query failed: ${error.message}`);
     }
 
-    const byModel = new Map<string, { total: number; count: number }>();
+    const rows = (data ?? []) as Array<{
+      model: string;
+      total_cost: number;
+      data_points: number;
+    }>;
 
-    for (const row of data ?? []) {
-      const attrs = row.event_attrs as Record<string, unknown> | null;
-      const model = String(attrs?.model ?? 'unknown');
-      const value = row.metric_value ?? 0;
-      const entry = byModel.get(model) ?? { total: 0, count: 0 };
-      entry.total += value;
-      entry.count += 1;
-      byModel.set(model, entry);
-    }
+    const costs: CostEntry[] = rows.map((r) => ({
+      model: r.model,
+      total_cost: r.total_cost,
+      data_points: r.data_points,
+    }));
 
-    const costs: CostEntry[] = [];
-    let total = 0;
-    for (const [model, entry] of byModel) {
-      costs.push({
-        model,
-        total_cost: entry.total,
-        data_points: entry.count,
-      });
-      total += entry.total;
-    }
+    const total = costs.reduce((sum, c) => sum + c.total_cost, 0);
 
     return {
       session_id: sessionId ?? null,
