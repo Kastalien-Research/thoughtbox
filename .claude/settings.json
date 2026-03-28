@@ -1,7 +1,8 @@
 {
   "env": {
     "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "true",
-    "ENABLE_CLAUDEAI_MCP_SERVERS": "false"
+    "ENABLE_CLAUDEAI_MCP_SERVERS": "false",
+    "OTEL_EXPORTER_OTLP_HEADERS": "Authorization=Bearer ${THOUGHTBOX_API_KEY}"
   },
   "hooks": {
     "SessionStart": [
