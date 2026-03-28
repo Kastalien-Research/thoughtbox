@@ -12,8 +12,6 @@ hooks=(
   "$project_dir/.claude/hooks/specsuite_post_tool_use.sh"
   "$project_dir/.claude/hooks/track_file_access.sh"
   "$project_dir/.claude/hooks/assumption-tracker.sh"
-  "$project_dir/.claude/hooks/bead_close_handoff.sh"
-  "$project_dir/.claude/hooks/bead_workflow_state_writer.sh"
   "$project_dir/.claude/hooks/ulysses_state_writer.sh"
   "$project_dir/.claude/hooks/receipt_writer.sh"
   "$project_dir/scripts/staged-hooks/probe_dispatcher.sh"
