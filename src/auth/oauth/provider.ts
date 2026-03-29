@@ -46,6 +46,15 @@ function hashToken(token: string): string {
   return crypto.createHash('sha256').update(token).digest('hex');
 }
 
+function escapeHtmlAttr(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
 export class ThoughtboxOAuthProvider implements OAuthServerProvider {
   private readonly _clientsStore: OAuthRegisteredClientsStore;
   private readonly tokenStorage: OAuthTokenStorage;
@@ -261,18 +270,15 @@ export class ThoughtboxOAuthProvider implements OAuthServerProvider {
     client: OAuthClientInformationFull,
     params: AuthorizationParams,
   ): string {
+    const esc = escapeHtmlAttr;
     const clientName = client.client_name ?? client.client_id;
-    const escapedClientName = clientName
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;');
 
     return `<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Authorize ${escapedClientName} — Thoughtbox</title>
+<title>Authorize ${esc(clientName)} — Thoughtbox</title>
 <style>
   body { font-family: system-ui, sans-serif; max-width: 420px; margin: 80px auto; padding: 0 16px; color: #1a1a1a; }
   h1 { font-size: 1.25rem; font-weight: 600; }
@@ -284,16 +290,16 @@ export class ThoughtboxOAuthProvider implements OAuthServerProvider {
 </style>
 </head>
 <body>
-<h1>Authorize ${escapedClientName}</h1>
+<h1>Authorize ${esc(clientName)}</h1>
 <p>Enter your Thoughtbox API key to grant access to your workspace.</p>
 <form method="POST" action="/authorize">
-  <input type="hidden" name="client_id" value="${client.client_id}">
-  <input type="hidden" name="redirect_uri" value="${params.redirectUri}">
-  <input type="hidden" name="code_challenge" value="${params.codeChallenge}">
+  <input type="hidden" name="client_id" value="${esc(client.client_id)}">
+  <input type="hidden" name="redirect_uri" value="${esc(params.redirectUri)}">
+  <input type="hidden" name="code_challenge" value="${esc(params.codeChallenge)}">
   <input type="hidden" name="code_challenge_method" value="S256">
   <input type="hidden" name="response_type" value="code">
-  ${params.state ? `<input type="hidden" name="state" value="${params.state}">` : ''}
-  ${params.scopes?.length ? `<input type="hidden" name="scope" value="${params.scopes.join(' ')}">` : ''}
+  ${params.state ? `<input type="hidden" name="state" value="${esc(params.state)}">` : ''}
+  ${params.scopes?.length ? `<input type="hidden" name="scope" value="${esc(params.scopes.join(' '))}">` : ''}
   <label for="api_key">API Key</label>
   <input type="text" id="api_key" name="api_key" placeholder="tbx_..." required autofocus>
   <p class="hint">Find your API key in the Thoughtbox web app under Settings.</p>
