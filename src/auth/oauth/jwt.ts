@@ -18,6 +18,8 @@ export interface AccessTokenClaims {
 
 const ACCESS_TOKEN_TTL_SECONDS = 30 * 60; // 30 minutes
 
+const issuer = process.env.BASE_URL || 'http://localhost:1731';
+
 /** Lazy-initialized signing key. */
 let signingKey: Uint8Array | undefined;
 
@@ -48,6 +50,7 @@ export async function signAccessToken(
   } satisfies JWTPayload & Omit<AccessTokenClaims, 'sub'>)
     .setProtectedHeader({ alg: 'HS256' })
     .setSubject(claims.sub)
+    .setIssuer(issuer)
     .setIssuedAt(now)
     .setExpirationTime(expiresAt)
     .sign(getSigningKey());
@@ -60,6 +63,7 @@ export async function verifyAccessToken(
 ): Promise<AccessTokenClaims & { expiresAt: number }> {
   const { payload } = await jwtVerify(token, getSigningKey(), {
     algorithms: ['HS256'],
+    issuer,
   });
 
   const sub = payload.sub;

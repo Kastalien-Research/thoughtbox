@@ -40,6 +40,7 @@ export interface ThoughtboxOAuthProviderOpts {
   clientsStore: OAuthRegisteredClientsStore;
   tokenStorage: OAuthTokenStorage;
   defaultWorkspaceId?: string;
+  scopesSupported?: string[];
 }
 
 function hashToken(token: string): string {
@@ -59,11 +60,15 @@ export class ThoughtboxOAuthProvider implements OAuthServerProvider {
   private readonly _clientsStore: OAuthRegisteredClientsStore;
   private readonly tokenStorage: OAuthTokenStorage;
   private readonly defaultWorkspaceId?: string;
+  private readonly scopesSupported?: Set<string>;
 
   constructor(opts: ThoughtboxOAuthProviderOpts) {
     this._clientsStore = opts.clientsStore;
     this.tokenStorage = opts.tokenStorage;
     this.defaultWorkspaceId = opts.defaultWorkspaceId;
+    this.scopesSupported = opts.scopesSupported
+      ? new Set(opts.scopesSupported)
+      : undefined;
   }
 
   get clientsStore(): OAuthRegisteredClientsStore {
@@ -223,14 +228,15 @@ export class ThoughtboxOAuthProvider implements OAuthServerProvider {
   }
 
   // ---------------------------------------------------------------------------
-  // revokeToken — mark refresh token as revoked (JWTs are no-op)
+  // revokeToken — attempt revocation regardless of hint (RFC 7009 §2.1)
   // ---------------------------------------------------------------------------
 
   async revokeToken(
     _client: OAuthClientInformationFull,
     request: OAuthTokenRevocationRequest,
   ): Promise<void> {
-    if (request.token_type_hint === 'access_token') return;
+    // token_type_hint is advisory per RFC 7009. Always attempt revocation —
+    // revokeRefreshToken is a no-op if the hash doesn't match any row.
     const tokenHash = hashToken(request.token);
     await this.tokenStorage.revokeRefreshToken(tokenHash);
   }
@@ -246,7 +252,10 @@ export class ThoughtboxOAuthProvider implements OAuthServerProvider {
     res: Response,
   ): Promise<void> {
     const code = crypto.randomBytes(32).toString('hex');
-    const scopes = params.scopes ?? [];
+    const requested = params.scopes ?? [];
+    const scopes = this.scopesSupported
+      ? requested.filter((s) => this.scopesSupported!.has(s))
+      : requested;
 
     await this.tokenStorage.storeAuthCode(code, {
       clientId: client.client_id,

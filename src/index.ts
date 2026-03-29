@@ -221,9 +221,12 @@ async function startHttpServer() {
     ? new SupabaseTokenStorage({ supabaseUrl, serviceRoleKey })
     : new InMemoryTokenStorage();
 
+  const scopesSupported = ['mcp:tools'];
+
   const oauthProvider = new ThoughtboxOAuthProvider({
     clientsStore: oauthClientStorage,
     tokenStorage: oauthTokenStorage,
+    scopesSupported,
     ...(hasSupabase ? {} : { defaultWorkspaceId: 'local-dev-workspace' }),
   });
 
@@ -232,7 +235,7 @@ async function startHttpServer() {
     issuerUrl,
     baseUrl: issuerUrl,
     resourceServerUrl,
-    scopesSupported: ['mcp:tools'],
+    scopesSupported,
     resourceName: 'Thoughtbox MCP Server',
   });
 
