@@ -1,9 +1,9 @@
 /**
- * OAuth 2.1 client registration stores.
+ * OAuth 2.1 client registration storage.
  *
  * Two implementations:
- * - SupabaseClientsStore: persists to oauth_clients table (deployed)
- * - InMemoryClientsStore: Map-backed, volatile (local dev)
+ * - OAuthClientSupabaseStorage: persists to oauth_clients table (deployed)
+ * - InMemoryClientStorage: Map-backed, volatile (local dev)
  *
  * Client secrets are stored as plaintext because the SDK's clientAuth
  * middleware does a direct string equality check (clientAuth.js:23).
@@ -61,24 +61,34 @@ function clientToRow(
   };
 }
 
-export interface SupabaseClientsStoreOpts {
+export interface OAuthClientSupabaseStorageOpts {
   supabaseUrl: string;
   serviceRoleKey: string;
 }
 
-export class SupabaseClientsStore implements OAuthRegisteredClientsStore {
-  private supabase: SupabaseClient;
+export class OAuthClientSupabaseStorage implements OAuthRegisteredClientsStore {
+  private readonly supabaseUrl: string;
+  private readonly serviceRoleKey: string;
+  private client?: SupabaseClient;
 
-  constructor(opts: SupabaseClientsStoreOpts) {
-    this.supabase = createClient(opts.supabaseUrl, opts.serviceRoleKey, {
-      auth: { persistSession: false, autoRefreshToken: false },
-    });
+  constructor(opts: OAuthClientSupabaseStorageOpts) {
+    this.supabaseUrl = opts.supabaseUrl;
+    this.serviceRoleKey = opts.serviceRoleKey;
+  }
+
+  private ensureClient(): SupabaseClient {
+    if (!this.client) {
+      this.client = createClient(this.supabaseUrl, this.serviceRoleKey, {
+        auth: { persistSession: false, autoRefreshToken: false },
+      });
+    }
+    return this.client;
   }
 
   async getClient(
     clientId: string,
   ): Promise<OAuthClientInformationFull | undefined> {
-    const { data, error } = await this.supabase
+    const { data, error } = await this.ensureClient()
       .from('oauth_clients')
       .select('client_id, client_secret, client_secret_expires_at, client_id_issued_at, metadata')
       .eq('client_id', clientId)
@@ -94,7 +104,7 @@ export class SupabaseClientsStore implements OAuthRegisteredClientsStore {
   ): Promise<OAuthClientInformationFull> {
     const row = clientToRow(client);
 
-    const { error } = await this.supabase
+    const { error } = await this.ensureClient()
       .from('oauth_clients')
       .insert(row);
 
@@ -106,7 +116,7 @@ export class SupabaseClientsStore implements OAuthRegisteredClientsStore {
   }
 }
 
-export class InMemoryClientsStore implements OAuthRegisteredClientsStore {
+export class InMemoryClientStorage implements OAuthRegisteredClientsStore {
   private clients = new Map<string, OAuthClientInformationFull>();
 
   async getClient(

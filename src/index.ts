@@ -32,11 +32,12 @@ import { createHubHandler, type HubEvent } from "./hub/hub-handler.js";
 import { resolveRequestAuth } from "./auth/resolve-request-auth.js";
 import { mountOtlpRoutes } from "./otel/index.js";
 import { mcpAuthRouter } from "@modelcontextprotocol/sdk/server/auth/router.js";
-import { createClient } from "@supabase/supabase-js";
 import {
   ThoughtboxOAuthProvider,
-  SupabaseClientsStore,
-  InMemoryClientsStore,
+  OAuthClientSupabaseStorage,
+  InMemoryClientStorage,
+  SupabaseTokenStorage,
+  InMemoryTokenStorage,
   verifyAccessToken as verifyOAuthToken,
 } from "./auth/oauth/index.js";
 
@@ -210,24 +211,19 @@ async function startHttpServer() {
 
   const supabaseUrl = process.env.SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const hasSupabase = isMultiTenant && supabaseUrl && serviceRoleKey;
 
-  const oauthClientsStore = isMultiTenant
-    ? new SupabaseClientsStore({
-        supabaseUrl: supabaseUrl!,
-        serviceRoleKey: serviceRoleKey!,
-      })
-    : new InMemoryClientsStore();
+  const oauthClientStorage = hasSupabase
+    ? new OAuthClientSupabaseStorage({ supabaseUrl, serviceRoleKey })
+    : new InMemoryClientStorage();
 
-  const oauthSupabase =
-    isMultiTenant && supabaseUrl && serviceRoleKey
-      ? createClient(supabaseUrl, serviceRoleKey, {
-          auth: { persistSession: false, autoRefreshToken: false },
-        })
-      : undefined;
+  const oauthTokenStorage = hasSupabase
+    ? new SupabaseTokenStorage({ supabaseUrl, serviceRoleKey })
+    : new InMemoryTokenStorage();
 
   const oauthProvider = new ThoughtboxOAuthProvider({
-    clientsStore: oauthClientsStore,
-    supabase: oauthSupabase,
+    clientsStore: oauthClientStorage,
+    tokenStorage: oauthTokenStorage,
     defaultWorkspaceId: 'local-dev-workspace',
   });
 
