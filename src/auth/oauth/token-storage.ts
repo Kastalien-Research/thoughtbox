@@ -98,23 +98,22 @@ export class SupabaseTokenStorage implements OAuthTokenStorage {
 
   async consumeAuthCode(code: string, clientId: string): Promise<AuthCodeEntry> {
     // Atomic: UPDATE ... SET consumed_at = now()
-    // WHERE code = ? AND consumed_at IS NULL RETURNING *
+    // WHERE code = ? AND consumed_at IS NULL AND expires_at > now()
+    // RETURNING *
     const { data, error } = await this.ensureClient()
       .from('oauth_authorization_codes')
       .update({ consumed_at: new Date().toISOString() })
       .eq('code', code)
       .is('consumed_at', null)
+      .gt('expires_at', new Date().toISOString())
       .select('*')
       .single();
 
     if (error || !data) {
-      throw new InvalidGrantError('Invalid or already-used authorization code');
+      throw new InvalidGrantError('Invalid, already-used, or expired authorization code');
     }
     if (data.client_id !== clientId) {
       throw new InvalidGrantError('Client mismatch');
-    }
-    if (new Date(data.expires_at).getTime() < Date.now()) {
-      throw new InvalidGrantError('Authorization code expired');
     }
 
     return {

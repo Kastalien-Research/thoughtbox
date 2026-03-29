@@ -156,6 +156,7 @@ async function createStorage(): Promise<StorageBundle> {
 interface SessionEntry {
   transport: StreamableHTTPServerTransport;
   server: Awaited<ReturnType<typeof createMcpServer>>;
+  workspaceId: string;
 }
 
 async function maybeStartObservatory(hubStorage?: HubStorage, persistentStorage?: ThoughtboxStorage): Promise<ObservatoryServer | null> {
@@ -273,7 +274,7 @@ async function startHttpServer() {
     await server.connect(transport);
     console.error(`[MCP] Singleton server created: ${singletonId}`);
 
-    singletonEntry = { transport, server };
+    singletonEntry = { transport, server, workspaceId: 'local-dev-workspace' };
     sessions.set(singletonId, singletonEntry);
     return singletonEntry;
   }
@@ -353,6 +354,16 @@ async function startHttpServer() {
       if (isMultiTenant) {
         if (mcpSessionId && sessions.has(mcpSessionId)) {
           const entry = sessions.get(mcpSessionId)!;
+
+          if (entry.workspaceId !== workspaceId) {
+            res.status(403).json({
+              jsonrpc: "2.0",
+              error: { code: -32001, message: "Session belongs to a different workspace" },
+              id: null,
+            });
+            return;
+          }
+
           await entry.transport.handleRequest(req, res, req.body);
 
           if (req.method === "DELETE") {
@@ -384,7 +395,7 @@ async function startHttpServer() {
           enableJsonResponse: true,
         });
 
-        sessions.set(sessionId, { transport, server });
+        sessions.set(sessionId, { transport, server, workspaceId: workspaceId! });
         transport.onclose = () => {
           sessions.delete(transport.sessionId || sessionId);
         };
