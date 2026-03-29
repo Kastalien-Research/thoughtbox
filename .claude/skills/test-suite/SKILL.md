@@ -20,10 +20,14 @@ The legacy progressive-disclosure suite (`thoughtbox_init`, `thoughtbox_operatio
 |---|------|-------|-------|
 | 01 | `tests/01-codemode-surface.md` | Public MCP surface and instructions | 4 |
 | 02 | `tests/02-codemode-search.md` | Search catalog discovery | 5 |
-| 03 | `tests/03-codemode-execute.md` | Execute tool workflows | 6 |
-| 04 | `tests/04-codemode-protocols-observability.md` | Protocol and observability namespaces via `tb.*` | 5 |
+| 03 | `tests/03-codemode-thought.md` | Thought workflows: all types, branching, revision, agents | 15 |
+| 04 | `tests/04-codemode-sessions.md` | Session CRUD, search, resume, export, analysis | 8 |
+| 05 | `tests/05-codemode-knowledge.md` | Knowledge graph: entities, relations, traversal | 5 |
+| 06 | `tests/06-codemode-protocols.md` | Theseus, Ulysses, and observability lifecycles | 8 |
 
-**Total: 20 behavioral smoke tests across the 2-tool Code Mode surface**
+**Total: 45 behavioral tests across the 2-tool Code Mode surface**
+
+Every test creates real data in Supabase and verifies it through retrieval. The suite should leave named sessions visible in the web app's Runs view.
 
 ## How to Run
 
