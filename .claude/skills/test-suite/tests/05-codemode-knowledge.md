@@ -36,7 +36,7 @@ Purpose: Verify entity CRUD, observations, relations, graph traversal, and stats
      await tb.knowledge.createEntity({ name: "test-decision-001", type: "Decision", label: "Test Decision" });
      const all = await tb.knowledge.listEntities();
      const concepts = await tb.knowledge.listEntities({ types: ["Concept"] });
-     return { allCount: all.length, conceptCount: concepts.length };
+     return { allCount: all.count ?? all.entities?.length, conceptCount: concepts.count ?? concepts.entities?.length };
    }
    ```
 2. Verify `conceptCount < allCount`

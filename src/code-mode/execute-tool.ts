@@ -133,11 +133,11 @@ function buildTbObject(deps: ExecuteToolDeps): Record<string, unknown> {
         unwrapToolResult(await knowledgeTool.handle({
           operation: "knowledge_list_entities", ...args,
         } as KnowledgeToolInput)),
-      addObservation: async (args: { entity_id: string; content: string }) =>
+      addObservation: async (args: { entity_id: string; content: string; source_session?: string; added_by?: string }) =>
         unwrapToolResult(await knowledgeTool.handle({
-          operation: "knowledge_add_observation", entity_id: args.entity_id, content: args.content,
+          operation: "knowledge_add_observation", ...args,
         } as KnowledgeToolInput)),
-      createRelation: async (args: { from_id: string; to_id: string; relation_type: string }) =>
+      createRelation: async (args: { from_id: string; to_id: string; relation_type: string; properties?: Record<string, unknown> }) =>
         unwrapToolResult(await knowledgeTool.handle({
           operation: "knowledge_create_relation", ...args,
         } as KnowledgeToolInput)),
