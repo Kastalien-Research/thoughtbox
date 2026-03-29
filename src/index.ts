@@ -204,6 +204,13 @@ async function startHttpServer() {
   const isMultiTenant = process.env.THOUGHTBOX_STORAGE === 'supabase';
   const sessions = new Map<string, SessionEntry>();
 
+  // Cloud Run (and most reverse proxies) set X-Forwarded-For.
+  // express-rate-limit throws ValidationError if it sees that header
+  // without trust proxy enabled, crashing the OAuth /authorize handler.
+  if (isMultiTenant) {
+    app.set('trust proxy', 1);
+  }
+
   if (shouldWarnOnExposedLocalMode(host, isMultiTenant)) {
     console.warn(
       "[Security] Local/singleton mode is bound to 0.0.0.0. Hub HTTP endpoints and local storage are not workspace-isolated; do not expose this server to untrusted users.",

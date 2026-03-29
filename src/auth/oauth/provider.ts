@@ -99,8 +99,10 @@ export class ThoughtboxOAuthProvider implements OAuthServerProvider {
       let workspaceId: string;
       try {
         workspaceId = await resolveApiKeyToWorkspace(apiKey);
-      } catch {
-        throw new AccessDeniedError('Invalid API key');
+      } catch (err) {
+        const detail = err instanceof Error ? err.message : 'Unknown error';
+        console.error(`[OAuth] API key resolution failed: ${detail}`);
+        throw new AccessDeniedError(detail);
       }
       await this.issueAuthCodeAndRedirect(
         client, params, workspaceId, res,
