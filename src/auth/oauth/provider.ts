@@ -232,12 +232,17 @@ export class ThoughtboxOAuthProvider implements OAuthServerProvider {
   // ---------------------------------------------------------------------------
 
   async revokeToken(
-    _client: OAuthClientInformationFull,
+    client: OAuthClientInformationFull,
     request: OAuthTokenRevocationRequest,
   ): Promise<void> {
-    // token_type_hint is advisory per RFC 7009. Always attempt revocation —
-    // revokeRefreshToken is a no-op if the hash doesn't match any row.
     const tokenHash = hashToken(request.token);
+    // RFC 7009 §2.1: verify the token was issued to this client
+    try {
+      await this.tokenStorage.lookupRefreshToken(tokenHash, client.client_id);
+    } catch {
+      // Token not found or belongs to a different client — return 200 per RFC 7009
+      return;
+    }
     await this.tokenStorage.revokeRefreshToken(tokenHash);
   }
 
@@ -292,7 +297,7 @@ export class ThoughtboxOAuthProvider implements OAuthServerProvider {
   body { font-family: system-ui, sans-serif; max-width: 420px; margin: 80px auto; padding: 0 16px; color: #1a1a1a; }
   h1 { font-size: 1.25rem; font-weight: 600; }
   label { display: block; margin-top: 16px; font-size: 0.875rem; font-weight: 500; }
-  input[type=text] { width: 100%; padding: 8px 12px; margin-top: 4px; border: 1px solid #ccc; border-radius: 6px; font-size: 0.9rem; box-sizing: border-box; }
+  input[type=password] { width: 100%; padding: 8px 12px; margin-top: 4px; border: 1px solid #ccc; border-radius: 6px; font-size: 0.9rem; box-sizing: border-box; }
   button { margin-top: 16px; padding: 10px 20px; background: #1a1a1a; color: #fff; border: none; border-radius: 6px; font-size: 0.9rem; cursor: pointer; }
   button:hover { background: #333; }
   .hint { font-size: 0.8rem; color: #666; margin-top: 4px; }
@@ -310,7 +315,7 @@ export class ThoughtboxOAuthProvider implements OAuthServerProvider {
   ${params.state ? `<input type="hidden" name="state" value="${esc(params.state)}">` : ''}
   ${params.scopes?.length ? `<input type="hidden" name="scope" value="${esc(params.scopes.join(' '))}">` : ''}
   <label for="api_key">API Key</label>
-  <input type="text" id="api_key" name="api_key" placeholder="tbx_..." required autofocus>
+  <input type="password" id="api_key" name="api_key" placeholder="tbx_..." required autofocus>
   <p class="hint">Find your API key in the Thoughtbox web app under Settings.</p>
   <button type="submit">Authorize</button>
 </form>

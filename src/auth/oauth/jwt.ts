@@ -18,7 +18,7 @@ export interface AccessTokenClaims {
 
 const ACCESS_TOKEN_TTL_SECONDS = 30 * 60; // 30 minutes
 
-const issuer = process.env.BASE_URL || 'http://localhost:1731';
+const issuer = process.env.BASE_URL || `http://localhost:${process.env.PORT || '1731'}`;
 
 /** Lazy-initialized signing key. */
 let signingKey: Uint8Array | undefined;
