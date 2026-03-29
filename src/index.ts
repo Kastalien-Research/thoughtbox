@@ -31,6 +31,14 @@ import { initEvaluation, initMonitoring } from "./evaluation/index.js";
 import { createHubHandler, type HubEvent } from "./hub/hub-handler.js";
 import { resolveRequestAuth } from "./auth/resolve-request-auth.js";
 import { mountOtlpRoutes } from "./otel/index.js";
+import { mcpAuthRouter } from "@modelcontextprotocol/sdk/server/auth/router.js";
+import { createClient } from "@supabase/supabase-js";
+import {
+  ThoughtboxOAuthProvider,
+  SupabaseClientsStore,
+  InMemoryClientsStore,
+  verifyAccessToken as verifyOAuthToken,
+} from "./auth/oauth/index.js";
 
 /**
  * Get the storage backend based on environment configuration.
@@ -188,8 +196,51 @@ async function startHttpServer() {
     host: process.env.HOST || "0.0.0.0",
   });
 
+  const port = parseInt(process.env.PORT || "1731", 10);
   const isMultiTenant = process.env.THOUGHTBOX_STORAGE === 'supabase';
   const sessions = new Map<string, SessionEntry>();
+
+  // ---------------------------------------------------------------------------
+  // OAuth 2.1 — mount auth router (discovery, registration, token, revoke)
+  // ---------------------------------------------------------------------------
+
+  const baseUrl = process.env.BASE_URL || `http://localhost:${port}`;
+  const issuerUrl = new URL(baseUrl);
+  const resourceServerUrl = new URL('/mcp', baseUrl);
+
+  const supabaseUrl = process.env.SUPABASE_URL;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  const oauthClientsStore = isMultiTenant
+    ? new SupabaseClientsStore({
+        supabaseUrl: supabaseUrl!,
+        serviceRoleKey: serviceRoleKey!,
+      })
+    : new InMemoryClientsStore();
+
+  const oauthSupabase =
+    isMultiTenant && supabaseUrl && serviceRoleKey
+      ? createClient(supabaseUrl, serviceRoleKey, {
+          auth: { persistSession: false, autoRefreshToken: false },
+        })
+      : undefined;
+
+  const oauthProvider = new ThoughtboxOAuthProvider({
+    clientsStore: oauthClientsStore,
+    supabase: oauthSupabase,
+    defaultWorkspaceId: 'local-dev-workspace',
+  });
+
+  const authRouter = mcpAuthRouter({
+    provider: oauthProvider,
+    issuerUrl,
+    baseUrl: issuerUrl,
+    resourceServerUrl,
+    scopesSupported: ['mcp:tools'],
+    resourceName: 'Thoughtbox MCP Server',
+  });
+
+  app.use(authRouter);
 
   // Singleton server + transport for local (non-multi-tenant) mode.
   // Avoids per-request server creation when clients drop session headers
@@ -233,11 +284,46 @@ async function startHttpServer() {
 
     console.error(`[MCP] ${req.method} request, session: ${mcpSessionId || 'new'}`);
 
-    // API key auth (ADR-AUTH-02): resolve workspace from key
+    // Dual auth: OAuth JWT or API key (tbx_*)
     let workspaceId: string | undefined = undefined;
-    const hasKey = req.headers.authorization || req.query.key;
+    const authHeader = req.headers.authorization as string | undefined;
+    const queryKey = req.query.key as string | undefined;
 
-    if (hasKey) {
+    if (authHeader?.startsWith('Bearer ')) {
+      const token = authHeader.slice(7);
+
+      if (token.startsWith('tbx_')) {
+        // API key via Bearer header
+        try {
+          workspaceId = await resolveRequestAuth(req, {
+            staticKey: process.env.THOUGHTBOX_API_KEY,
+            localDevKey: process.env.THOUGHTBOX_API_KEY_LOCAL,
+          });
+        } catch (err) {
+          const message = err instanceof Error ? err.message : 'Authentication failed';
+          res.status(401).json({
+            jsonrpc: "2.0",
+            error: { code: -32001, message },
+            id: null,
+          });
+          return;
+        }
+      } else {
+        // OAuth JWT
+        try {
+          const claims = await verifyOAuthToken(token);
+          workspaceId = claims.workspace_id;
+        } catch {
+          res.status(401).json({
+            jsonrpc: "2.0",
+            error: { code: -32001, message: "Invalid or expired OAuth token" },
+            id: null,
+          });
+          return;
+        }
+      }
+    } else if (queryKey) {
+      // API key via query param
       try {
         workspaceId = await resolveRequestAuth(req, {
           staticKey: process.env.THOUGHTBOX_API_KEY,
@@ -255,7 +341,7 @@ async function startHttpServer() {
     } else if (isMultiTenant) {
       res.status(401).json({
         jsonrpc: "2.0",
-        error: { code: -32001, message: "Missing API key" },
+        error: { code: -32001, message: "Missing API key or OAuth token" },
         id: null,
       });
       return;
@@ -466,7 +552,6 @@ async function startHttpServer() {
     });
   }
 
-  const port = parseInt(process.env.PORT || "1731", 10);
   const httpServer = app.listen(port, () => {
     console.log(`Thoughtbox MCP Server listening on port ${port}`);
   });
