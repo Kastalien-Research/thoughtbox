@@ -4,8 +4,9 @@
  * Implements the SDK's OAuthServerProvider interface. Acts as both
  * Authorization Server and Resource Server (combined AS+RS).
  *
- * Token persistence is delegated to an OAuthTokenStorage implementation
- * (Supabase for deployed, in-memory for local dev).
+ * Local mode: auto-consent with defaultWorkspaceId.
+ * Multi-tenant mode: serves a consent page that accepts a tbx_* API key
+ * to resolve the workspace UUID.
  */
 
 import type { Response } from 'express';
@@ -22,11 +23,13 @@ import type {
 import type { OAuthRegisteredClientsStore } from '@modelcontextprotocol/sdk/server/auth/clients.js';
 import {
   InvalidRequestError,
+  AccessDeniedError,
 } from '@modelcontextprotocol/sdk/server/auth/errors.js';
 import {
   signAccessToken,
   verifyAccessToken as verifyJwt,
 } from './jwt.js';
+import { resolveApiKeyToWorkspace } from '../api-key.js';
 import type { OAuthTokenStorage } from './token-storage.js';
 import crypto from 'node:crypto';
 
@@ -46,12 +49,12 @@ function hashToken(token: string): string {
 export class ThoughtboxOAuthProvider implements OAuthServerProvider {
   private readonly _clientsStore: OAuthRegisteredClientsStore;
   private readonly tokenStorage: OAuthTokenStorage;
-  private readonly defaultWorkspaceId: string;
+  private readonly defaultWorkspaceId?: string;
 
   constructor(opts: ThoughtboxOAuthProviderOpts) {
     this._clientsStore = opts.clientsStore;
     this.tokenStorage = opts.tokenStorage;
-    this.defaultWorkspaceId = opts.defaultWorkspaceId ?? 'local-dev-workspace';
+    this.defaultWorkspaceId = opts.defaultWorkspaceId;
   }
 
   get clientsStore(): OAuthRegisteredClientsStore {
@@ -59,7 +62,7 @@ export class ThoughtboxOAuthProvider implements OAuthServerProvider {
   }
 
   // ---------------------------------------------------------------------------
-  // authorize — auto-consent, generate auth code, redirect
+  // authorize — local: auto-consent; multi-tenant: consent page with API key
   // ---------------------------------------------------------------------------
 
   async authorize(
@@ -67,42 +70,49 @@ export class ThoughtboxOAuthProvider implements OAuthServerProvider {
     params: AuthorizationParams,
     res: Response,
   ): Promise<void> {
-    const code = crypto.randomBytes(32).toString('hex');
-    const now = Date.now();
-    const scopes = params.scopes ?? [];
-
-    await this.tokenStorage.storeAuthCode(code, {
-      clientId: client.client_id,
-      workspaceId: this.defaultWorkspaceId,
-      codeChallenge: params.codeChallenge,
-      redirectUri: params.redirectUri,
-      scopes,
-      expiresAt: now + AUTH_CODE_TTL_MS,
-    });
-
-    const redirectUrl = new URL(params.redirectUri);
-    redirectUrl.searchParams.set('code', code);
-    if (params.state) {
-      redirectUrl.searchParams.set('state', params.state);
+    // Local mode: auto-approve with hardcoded workspace
+    if (this.defaultWorkspaceId) {
+      await this.issueAuthCodeAndRedirect(
+        client, params, this.defaultWorkspaceId, res,
+      );
+      return;
     }
 
-    res.redirect(302, redirectUrl.href);
+    // Multi-tenant: check if this is the form submission (POST with api_key)
+    const apiKey = (res.req?.body as Record<string, unknown> | undefined)?.api_key as string | undefined;
+
+    if (apiKey) {
+      let workspaceId: string;
+      try {
+        workspaceId = await resolveApiKeyToWorkspace(apiKey);
+      } catch {
+        throw new AccessDeniedError('Invalid API key');
+      }
+      await this.issueAuthCodeAndRedirect(
+        client, params, workspaceId, res,
+      );
+      return;
+    }
+
+    // Serve the consent page
+    res.status(200).type('html').send(this.renderConsentPage(client, params));
   }
 
   // ---------------------------------------------------------------------------
-  // challengeForAuthorizationCode — return stored code_challenge
+  // challengeForAuthorizationCode — return stored code_challenge (read-only)
   // ---------------------------------------------------------------------------
 
   async challengeForAuthorizationCode(
     client: OAuthClientInformationFull,
     authorizationCode: string,
   ): Promise<string> {
-    const entry = await this.tokenStorage.lookupAuthCode(authorizationCode, client.client_id);
-    return entry.codeChallenge;
+    return this.tokenStorage.getAuthCodeChallenge(
+      authorizationCode, client.client_id,
+    );
   }
 
   // ---------------------------------------------------------------------------
-  // exchangeAuthorizationCode — consume code, issue tokens
+  // exchangeAuthorizationCode — atomically consume code, issue tokens
   // ---------------------------------------------------------------------------
 
   async exchangeAuthorizationCode(
@@ -112,8 +122,9 @@ export class ThoughtboxOAuthProvider implements OAuthServerProvider {
     _redirectUri?: string,
     _resource?: URL,
   ): Promise<OAuthTokens> {
-    const entry = await this.tokenStorage.lookupAuthCode(authorizationCode, client.client_id);
-    await this.tokenStorage.consumeAuthCode(authorizationCode);
+    const entry = await this.tokenStorage.consumeAuthCode(
+      authorizationCode, client.client_id,
+    );
 
     const { token: accessToken, expiresAt } = await signAccessToken({
       sub: client.client_id,
@@ -153,14 +164,18 @@ export class ThoughtboxOAuthProvider implements OAuthServerProvider {
     _resource?: URL,
   ): Promise<OAuthTokens> {
     const tokenHash = hashToken(refreshToken);
-    const entry = await this.tokenStorage.lookupRefreshToken(tokenHash, client.client_id);
+    const entry = await this.tokenStorage.lookupRefreshToken(
+      tokenHash, client.client_id,
+    );
 
     const effectiveScopes = scopes ?? entry.scopes;
     if (scopes) {
       const allowed = new Set(entry.scopes);
       for (const s of scopes) {
         if (!allowed.has(s)) {
-          throw new InvalidRequestError(`Scope "${s}" not granted in original authorization`);
+          throw new InvalidRequestError(
+            `Scope "${s}" not granted in original authorization`,
+          );
         }
       }
     }
@@ -209,5 +224,82 @@ export class ThoughtboxOAuthProvider implements OAuthServerProvider {
     if (request.token_type_hint === 'access_token') return;
     const tokenHash = hashToken(request.token);
     await this.tokenStorage.revokeRefreshToken(tokenHash);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Private helpers
+  // ---------------------------------------------------------------------------
+
+  private async issueAuthCodeAndRedirect(
+    client: OAuthClientInformationFull,
+    params: AuthorizationParams,
+    workspaceId: string,
+    res: Response,
+  ): Promise<void> {
+    const code = crypto.randomBytes(32).toString('hex');
+    const scopes = params.scopes ?? [];
+
+    await this.tokenStorage.storeAuthCode(code, {
+      clientId: client.client_id,
+      workspaceId,
+      codeChallenge: params.codeChallenge,
+      redirectUri: params.redirectUri,
+      scopes,
+      expiresAt: Date.now() + AUTH_CODE_TTL_MS,
+    });
+
+    const redirectUrl = new URL(params.redirectUri);
+    redirectUrl.searchParams.set('code', code);
+    if (params.state) {
+      redirectUrl.searchParams.set('state', params.state);
+    }
+
+    res.redirect(302, redirectUrl.href);
+  }
+
+  private renderConsentPage(
+    client: OAuthClientInformationFull,
+    params: AuthorizationParams,
+  ): string {
+    const clientName = client.client_name ?? client.client_id;
+    const escapedClientName = clientName
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+
+    return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Authorize ${escapedClientName} — Thoughtbox</title>
+<style>
+  body { font-family: system-ui, sans-serif; max-width: 420px; margin: 80px auto; padding: 0 16px; color: #1a1a1a; }
+  h1 { font-size: 1.25rem; font-weight: 600; }
+  label { display: block; margin-top: 16px; font-size: 0.875rem; font-weight: 500; }
+  input[type=text] { width: 100%; padding: 8px 12px; margin-top: 4px; border: 1px solid #ccc; border-radius: 6px; font-size: 0.9rem; box-sizing: border-box; }
+  button { margin-top: 16px; padding: 10px 20px; background: #1a1a1a; color: #fff; border: none; border-radius: 6px; font-size: 0.9rem; cursor: pointer; }
+  button:hover { background: #333; }
+  .hint { font-size: 0.8rem; color: #666; margin-top: 4px; }
+</style>
+</head>
+<body>
+<h1>Authorize ${escapedClientName}</h1>
+<p>Enter your Thoughtbox API key to grant access to your workspace.</p>
+<form method="POST" action="/authorize">
+  <input type="hidden" name="client_id" value="${client.client_id}">
+  <input type="hidden" name="redirect_uri" value="${params.redirectUri}">
+  <input type="hidden" name="code_challenge" value="${params.codeChallenge}">
+  <input type="hidden" name="code_challenge_method" value="S256">
+  <input type="hidden" name="response_type" value="code">
+  ${params.state ? `<input type="hidden" name="state" value="${params.state}">` : ''}
+  ${params.scopes?.length ? `<input type="hidden" name="scope" value="${params.scopes.join(' ')}">` : ''}
+  <label for="api_key">API Key</label>
+  <input type="text" id="api_key" name="api_key" placeholder="tbx_..." required autofocus>
+  <p class="hint">Find your API key in the Thoughtbox web app under Settings.</p>
+  <button type="submit">Authorize</button>
+</form>
+</body>
+</html>`;
   }
 }

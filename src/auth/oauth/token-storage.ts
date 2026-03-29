@@ -30,8 +30,8 @@ export interface RefreshTokenEntry {
 
 export interface OAuthTokenStorage {
   storeAuthCode(code: string, entry: AuthCodeEntry): Promise<void>;
-  lookupAuthCode(code: string, clientId: string): Promise<AuthCodeEntry>;
-  consumeAuthCode(code: string): Promise<void>;
+  getAuthCodeChallenge(code: string, clientId: string): Promise<string>;
+  consumeAuthCode(code: string, clientId: string): Promise<AuthCodeEntry>;
   storeRefreshToken(tokenHash: string, entry: RefreshTokenEntry): Promise<void>;
   lookupRefreshToken(tokenHash: string, clientId: string): Promise<RefreshTokenEntry>;
   revokeRefreshToken(tokenHash: string): Promise<void>;
@@ -83,16 +83,36 @@ export class SupabaseTokenStorage implements OAuthTokenStorage {
     }
   }
 
-  async lookupAuthCode(code: string, clientId: string): Promise<AuthCodeEntry> {
+  async getAuthCodeChallenge(code: string, clientId: string): Promise<string> {
     const { data, error } = await this.ensureClient()
       .from('oauth_authorization_codes')
-      .select('*')
+      .select('code_challenge, client_id')
       .eq('code', code)
       .single();
 
     if (error || !data) throw new InvalidGrantError('Invalid authorization code');
     if (data.client_id !== clientId) throw new InvalidGrantError('Client mismatch');
-    if (data.consumed_at) throw new InvalidGrantError('Authorization code already used');
+
+    return data.code_challenge;
+  }
+
+  async consumeAuthCode(code: string, clientId: string): Promise<AuthCodeEntry> {
+    // Atomic: UPDATE ... SET consumed_at = now()
+    // WHERE code = ? AND consumed_at IS NULL RETURNING *
+    const { data, error } = await this.ensureClient()
+      .from('oauth_authorization_codes')
+      .update({ consumed_at: new Date().toISOString() })
+      .eq('code', code)
+      .is('consumed_at', null)
+      .select('*')
+      .single();
+
+    if (error || !data) {
+      throw new InvalidGrantError('Invalid or already-used authorization code');
+    }
+    if (data.client_id !== clientId) {
+      throw new InvalidGrantError('Client mismatch');
+    }
     if (new Date(data.expires_at).getTime() < Date.now()) {
       throw new InvalidGrantError('Authorization code expired');
     }
@@ -105,13 +125,6 @@ export class SupabaseTokenStorage implements OAuthTokenStorage {
       scopes: data.scopes ?? [],
       expiresAt: new Date(data.expires_at).getTime(),
     };
-  }
-
-  async consumeAuthCode(code: string): Promise<void> {
-    await this.ensureClient()
-      .from('oauth_authorization_codes')
-      .update({ consumed_at: new Date().toISOString() })
-      .eq('code', code);
   }
 
   async storeRefreshToken(tokenHash: string, entry: RefreshTokenEntry): Promise<void> {
@@ -153,10 +166,14 @@ export class SupabaseTokenStorage implements OAuthTokenStorage {
   }
 
   async revokeRefreshToken(tokenHash: string): Promise<void> {
-    await this.ensureClient()
+    const { error } = await this.ensureClient()
       .from('oauth_refresh_tokens')
       .update({ revoked_at: new Date().toISOString() })
       .eq('token_hash', tokenHash);
+
+    if (error) {
+      throw new Error(`Failed to revoke refresh token: ${error.message}`);
+    }
   }
 }
 
@@ -180,18 +197,21 @@ export class InMemoryTokenStorage implements OAuthTokenStorage {
     this.authCodes.set(code, { ...entry });
   }
 
-  async lookupAuthCode(code: string, clientId: string): Promise<AuthCodeEntry> {
+  async getAuthCodeChallenge(code: string, clientId: string): Promise<string> {
+    const entry = this.authCodes.get(code);
+    if (!entry) throw new InvalidGrantError('Invalid authorization code');
+    if (entry.clientId !== clientId) throw new InvalidGrantError('Client mismatch');
+    return entry.codeChallenge;
+  }
+
+  async consumeAuthCode(code: string, clientId: string): Promise<AuthCodeEntry> {
     const entry = this.authCodes.get(code);
     if (!entry) throw new InvalidGrantError('Invalid authorization code');
     if (entry.clientId !== clientId) throw new InvalidGrantError('Client mismatch');
     if (entry.consumedAt) throw new InvalidGrantError('Authorization code already used');
     if (entry.expiresAt < Date.now()) throw new InvalidGrantError('Authorization code expired');
+    entry.consumedAt = Date.now();
     return entry;
-  }
-
-  async consumeAuthCode(code: string): Promise<void> {
-    const entry = this.authCodes.get(code);
-    if (entry) entry.consumedAt = Date.now();
   }
 
   async storeRefreshToken(tokenHash: string, entry: RefreshTokenEntry): Promise<void> {

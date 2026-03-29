@@ -224,7 +224,7 @@ async function startHttpServer() {
   const oauthProvider = new ThoughtboxOAuthProvider({
     clientsStore: oauthClientStorage,
     tokenStorage: oauthTokenStorage,
-    defaultWorkspaceId: 'local-dev-workspace',
+    ...(hasSupabase ? {} : { defaultWorkspaceId: 'local-dev-workspace' }),
   });
 
   const authRouter = mcpAuthRouter({
@@ -341,6 +341,8 @@ async function startHttpServer() {
         id: null,
       });
       return;
+    } else if (!workspaceId) {
+      console.error('[MCP] Unauthenticated request in local mode');
     }
 
     try {
