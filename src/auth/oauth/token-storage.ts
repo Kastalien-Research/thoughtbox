@@ -104,6 +104,7 @@ export class SupabaseTokenStorage implements OAuthTokenStorage {
       .from('oauth_authorization_codes')
       .update({ consumed_at: new Date().toISOString() })
       .eq('code', code)
+      .eq('client_id', clientId)
       .is('consumed_at', null)
       .gt('expires_at', new Date().toISOString())
       .select('*')
