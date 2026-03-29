@@ -29,6 +29,7 @@ import { createFileSystemHubStorage } from "./hub/hub-storage-fs.js";
 import type { HubStorage } from "./hub/hub-types.js";
 import { initEvaluation, initMonitoring } from "./evaluation/index.js";
 import { createHubHandler, type HubEvent } from "./hub/hub-handler.js";
+import { createHubHttpSurface, shouldWarnOnExposedLocalMode } from "./http/hub-http.js";
 import { resolveRequestAuth } from "./auth/resolve-request-auth.js";
 import { mountOtlpRoutes } from "./otel/index.js";
 import { mcpAuthRouter } from "@modelcontextprotocol/sdk/server/auth/router.js";
@@ -194,13 +195,20 @@ async function startHttpServer() {
   const traceListener = initEvaluation();
   initMonitoring(traceListener ?? undefined);
 
+  const host = process.env.HOST || "0.0.0.0";
   const app = createMcpExpressApp({
-    host: process.env.HOST || "0.0.0.0",
+    host,
   });
 
   const port = parseInt(process.env.PORT || "1731", 10);
   const isMultiTenant = process.env.THOUGHTBOX_STORAGE === 'supabase';
   const sessions = new Map<string, SessionEntry>();
+
+  if (shouldWarnOnExposedLocalMode(host, isMultiTenant)) {
+    console.warn(
+      "[Security] Local/singleton mode is bound to 0.0.0.0. Hub HTTP endpoints and local storage are not workspace-isolated; do not expose this server to untrusted users.",
+    );
+  }
 
   // ---------------------------------------------------------------------------
   // OAuth 2.1 — mount auth router (discovery, registration, token, revoke)
@@ -451,26 +459,6 @@ async function startHttpServer() {
   // Hub Event SSE Endpoint — pushes HubEvents to Channel subscribers
   // ---------------------------------------------------------------------------
 
-  interface SseClient {
-    res: Response;
-    workspaceId: string;
-  }
-
-  const sseClients = new Set<SseClient>();
-
-  function broadcastHubEvent(event: HubEvent): void {
-    const payload = `data: ${JSON.stringify(event)}\n\n`;
-    for (const client of sseClients) {
-      if (client.workspaceId === event.workspaceId || client.workspaceId === "*") {
-        try {
-          client.res.write(payload);
-        } catch {
-          sseClients.delete(client);
-        }
-      }
-    }
-  }
-
   // Minimal thought store for the shared hub-handler (hub operations that
   // create sessions/thoughts use this; most Channel operations don't need it)
   const sharedThoughtStore = {
@@ -497,59 +485,17 @@ async function startHttpServer() {
     async getBranch(_sessionId: string, _branchId: string) { return []; },
   };
 
-  const sharedHubHandler = createHubHandler(
-    hubStorage,
-    sharedThoughtStore,
-    broadcastHubEvent,
+  const hubHttpSurface = createHubHttpSurface(
+    createHubHandler(
+      hubStorage,
+      sharedThoughtStore,
+      (event: HubEvent) => hubHttpSurface.broadcastHubEvent(event),
+    ),
   );
 
-  app.get("/hub/events", (req: Request, res: Response) => {
-    const workspaceId = (req.query.workspace_id as string) || "*";
-
-    res.writeHead(200, {
-      "Content-Type": "text/event-stream",
-      "Cache-Control": "no-cache",
-      Connection: "keep-alive",
-    });
-    res.write(": connected\n\n");
-
-    const client: SseClient = { res, workspaceId };
-    sseClients.add(client);
-
-    req.on("close", () => {
-      sseClients.delete(client);
-    });
-  });
-
-  // ---------------------------------------------------------------------------
-  // Hub API Endpoint — direct Hub operations for Channel reply tools
-  // ---------------------------------------------------------------------------
-
-  app.post("/hub/api", async (req: Request, res: Response) => {
-    try {
-      const { operation, agentId, ...args } = req.body as {
-        operation: string;
-        agentId?: string;
-        [key: string]: unknown;
-      };
-
-      if (!operation) {
-        res.status(400).json({ error: "operation is required" });
-        return;
-      }
-
-      const result = await sharedHubHandler.handle(
-        agentId ?? null,
-        operation,
-        args as Record<string, any>,
-      );
-
-      res.json(result);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      res.status(400).json({ error: message });
-    }
-  });
+  if (!isMultiTenant) {
+    hubHttpSurface.mount(app);
+  }
 
   // ---------------------------------------------------------------------------
   // OTLP Ingestion Routes (multi-tenant / deployed mode only)
