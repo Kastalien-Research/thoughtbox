@@ -4,23 +4,24 @@
  */
 
 import { randomUUID } from 'node:crypto';
-import type {
-  Protocol,
-  ProtocolSession,
-  TheseusTerminal,
-  UlyssesTerminal,
-  VisaInput,
-  AuditInput,
-  TheseusOutcomeInput,
-  PlanInput,
-  UlyssesOutcomeInput,
-  ReflectInput,
-  ProtocolEnforcementInput,
-  ProtocolEnforcementResult,
-  ProtocolScope,
-  ProtocolVisa,
-  ProtocolAudit,
-  ProtocolHistoryEvent,
+import {
+  isTestFile,
+  type Protocol,
+  type ProtocolSession,
+  type TheseusTerminal,
+  type UlyssesTerminal,
+  type VisaInput,
+  type AuditInput,
+  type TheseusOutcomeInput,
+  type PlanInput,
+  type UlyssesOutcomeInput,
+  type ReflectInput,
+  type ProtocolEnforcementInput,
+  type ProtocolEnforcementResult,
+  type ProtocolScope,
+  type ProtocolVisa,
+  type ProtocolAudit,
+  type ProtocolHistoryEvent,
 } from './types.js';
 
 export class InMemoryProtocolHandler {
@@ -540,10 +541,11 @@ export class InMemoryProtocolHandler {
       return { enforce: false };
     }
 
+    const savedWorkspaceId = this.workspaceId;
     if (input.workspaceId) {
       this.setProject(input.workspaceId);
     }
-
+    try {
     const ulyssesSession = this.getActiveSession('ulysses');
     if (ulyssesSession) {
       const state = ulyssesSession.state_json as { S?: number };
@@ -570,8 +572,7 @@ export class InMemoryProtocolHandler {
       return { enforce: false };
     }
 
-    const isTestFile = /(\/(tests?|__tests__)\/|\.test\.|\.spec\.)/.test(targetPath);
-    if (isTestFile) {
+    if (isTestFile(targetPath)) {
       return {
         enforce: true,
         blocked: true,
@@ -601,5 +602,8 @@ export class InMemoryProtocolHandler {
       session_id: session.id,
       protocol: 'theseus',
     };
+    } finally {
+      this.workspaceId = savedWorkspaceId;
+    }
   }
 }

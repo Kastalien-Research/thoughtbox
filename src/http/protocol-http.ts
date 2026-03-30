@@ -44,7 +44,7 @@ export function createProtocolHttpSurface(
         res.json(result);
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
-        res.status(400).json({ error: message });
+        res.status(500).json({ error: message });
       }
     });
   }

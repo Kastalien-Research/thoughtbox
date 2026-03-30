@@ -15,6 +15,8 @@ export {
   type UlyssesToolInput,
 } from './ulysses-tool.js';
 
+export { isTestFile } from './types.js';
+
 export type {
   Protocol,
   TheseusTerminal,

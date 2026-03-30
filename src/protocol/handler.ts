@@ -5,19 +5,20 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database, Json } from '../database.types.js';
-import type {
-  Protocol,
-  ProtocolSession,
-  TheseusTerminal,
-  UlyssesTerminal,
-  VisaInput,
-  AuditInput,
-  TheseusOutcomeInput,
-  PlanInput,
-  UlyssesOutcomeInput,
-  ReflectInput,
-  ProtocolEnforcementInput,
-  ProtocolEnforcementResult,
+import {
+  isTestFile,
+  type Protocol,
+  type ProtocolSession,
+  type TheseusTerminal,
+  type UlyssesTerminal,
+  type VisaInput,
+  type AuditInput,
+  type TheseusOutcomeInput,
+  type PlanInput,
+  type UlyssesOutcomeInput,
+  type ReflectInput,
+  type ProtocolEnforcementInput,
+  type ProtocolEnforcementResult,
 } from './types.js';
 
 export class ProtocolHandler {
@@ -810,10 +811,11 @@ export class ProtocolHandler {
       return { enforce: false };
     }
 
+    const savedWorkspaceId = this.workspaceId;
     if (input.workspaceId) {
       this.setProject(input.workspaceId);
     }
-
+    try {
     const ulyssesSession = await this.getActiveSession('ulysses');
     if (ulyssesSession) {
       const state = ulyssesSession.state_json as { S?: number };
@@ -840,9 +842,7 @@ export class ProtocolHandler {
       return { enforce: false };
     }
 
-    const isTestFile =
-      /(^|\/)(tests?|__tests__)(\/|$)|\.test\.|\.spec\./.test(targetPath);
-    if (isTestFile) {
+    if (isTestFile(targetPath)) {
       return {
         enforce: true,
         blocked: true,
@@ -882,5 +882,8 @@ export class ProtocolHandler {
       protocol: 'theseus',
       session_id: theseusSession.id,
     };
+    } finally {
+      this.workspaceId = savedWorkspaceId;
+    }
   }
 }

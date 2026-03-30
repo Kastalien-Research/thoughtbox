@@ -122,3 +122,15 @@ export interface ProtocolEnforcementResult {
   session_id?: string;
   required_action?: 'reflect' | 'visa';
 }
+
+const TEST_DIR_SEGMENTS = ['tests', 'test', '__tests__'];
+const TEST_FILE_EXTENSIONS = ['.test.', '.spec.'];
+
+export function isTestFile(filePath: string): boolean {
+  const segments = filePath.split('/');
+  if (segments.some(s => TEST_DIR_SEGMENTS.includes(s))) {
+    return true;
+  }
+  const basename = segments[segments.length - 1] ?? '';
+  return TEST_FILE_EXTENSIONS.some(ext => basename.includes(ext));
+}
