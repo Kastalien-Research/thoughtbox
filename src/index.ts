@@ -30,6 +30,10 @@ import type { HubStorage } from "./hub/hub-types.js";
 import { initEvaluation, initMonitoring } from "./evaluation/index.js";
 import { createHubHandler, type HubEvent } from "./hub/hub-handler.js";
 import { createHubHttpSurface, shouldWarnOnExposedLocalMode } from "./http/hub-http.js";
+import {
+  createProtocolHttpSurface,
+  type ProtocolEnforcementHandler,
+} from "./http/protocol-http.js";
 import { resolveRequestAuth } from "./auth/resolve-request-auth.js";
 import { mountOtlpRoutes } from "./otel/index.js";
 import { mcpAuthRouter } from "@modelcontextprotocol/sdk/server/auth/router.js";
@@ -158,6 +162,7 @@ interface SessionEntry {
   transport: StreamableHTTPServerTransport;
   server: Awaited<ReturnType<typeof createMcpServer>>;
   workspaceId: string;
+  protocolHandler: ProtocolEnforcementHandler | null;
 }
 
 async function maybeStartObservatory(hubStorage?: HubStorage, persistentStorage?: ThoughtboxStorage): Promise<ObservatoryServer | null> {
@@ -268,6 +273,7 @@ async function startHttpServer() {
     const singletonId = crypto.randomUUID();
     const storage = factory.getStorage();
     const knowledgeStorage = factory.getKnowledgeStorage();
+    let singletonProtocolHandler: SessionEntry["protocolHandler"] = null;
 
     const server = await createMcpServer({
       sessionId: singletonId,
@@ -275,6 +281,9 @@ async function startHttpServer() {
       hubStorage,
       dataDir,
       knowledgeStorage,
+      onProtocolHandlerReady: (handler) => {
+        singletonProtocolHandler = handler;
+      },
       config: {
         disableThoughtLogging:
           (process.env.DISABLE_THOUGHT_LOGGING || "").toLowerCase() === "true",
@@ -289,7 +298,12 @@ async function startHttpServer() {
     await server.connect(transport);
     console.error(`[MCP] Singleton server created: ${singletonId}`);
 
-    singletonEntry = { transport, server, workspaceId: 'local-dev-workspace' };
+    singletonEntry = {
+      transport,
+      server,
+      workspaceId: 'local-dev-workspace',
+      protocolHandler: singletonProtocolHandler,
+    };
     sessions.set(singletonId, singletonEntry);
     return singletonEntry;
   }
@@ -410,7 +424,12 @@ async function startHttpServer() {
           enableJsonResponse: true,
         });
 
-        sessions.set(sessionId, { transport, server, workspaceId: workspaceId! });
+        sessions.set(sessionId, {
+          transport,
+          server,
+          workspaceId: workspaceId!,
+          protocolHandler: null,
+        });
         transport.onclose = () => {
           sessions.delete(transport.sessionId || sessionId);
         };
@@ -502,6 +521,14 @@ async function startHttpServer() {
 
   if (!isMultiTenant) {
     hubHttpSurface.mount(app);
+  }
+
+  const protocolHttpSurface = createProtocolHttpSurface(
+    () => singletonEntry?.protocolHandler ?? null,
+  );
+
+  if (!isMultiTenant) {
+    protocolHttpSurface.mount(app);
   }
 
   // ---------------------------------------------------------------------------

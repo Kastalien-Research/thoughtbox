@@ -15,6 +15,8 @@ import type {
   PlanInput,
   UlyssesOutcomeInput,
   ReflectInput,
+  ProtocolEnforcementInput,
+  ProtocolEnforcementResult,
   ProtocolScope,
   ProtocolVisa,
   ProtocolAudit,
@@ -532,8 +534,37 @@ export class InMemoryProtocolHandler {
   }
 
   async checkEnforcement(
-    targetPath: string,
-  ): Promise<Record<string, unknown>> {
+    input: ProtocolEnforcementInput,
+  ): Promise<ProtocolEnforcementResult> {
+    if (!input.mutation) {
+      return { enforce: false };
+    }
+
+    if (input.workspaceId) {
+      this.setProject(input.workspaceId);
+    }
+
+    const ulyssesSession = this.getActiveSession('ulysses');
+    if (ulyssesSession) {
+      const state = ulyssesSession.state_json as { S?: number };
+      if ((state.S ?? 0) === 2) {
+        return {
+          enforce: true,
+          blocked: true,
+          reason:
+            'REFLECT REQUIRED: Ulysses session is waiting for reflect before further mutation',
+          protocol: 'ulysses',
+          session_id: ulyssesSession.id,
+          required_action: 'reflect',
+        };
+      }
+    }
+
+    const targetPath = input.targetPath;
+    if (!targetPath) {
+      return { enforce: false };
+    }
+
     const session = this.getActiveSession('theseus');
     if (!session) {
       return { enforce: false };
@@ -546,6 +577,7 @@ export class InMemoryProtocolHandler {
         blocked: true,
         reason: 'TEST LOCK: Cannot modify test files during refactoring',
         session_id: session.id,
+        protocol: 'theseus',
       };
     }
 
@@ -558,6 +590,8 @@ export class InMemoryProtocolHandler {
         blocked: true,
         reason: 'VISA REQUIRED: File outside declared scope',
         session_id: session.id,
+        protocol: 'theseus',
+        required_action: 'visa',
       };
     }
 

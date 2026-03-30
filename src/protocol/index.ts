@@ -32,4 +32,6 @@ export type {
   PlanInput,
   UlyssesOutcomeInput,
   ReflectInput,
+  ProtocolEnforcementInput,
+  ProtocolEnforcementResult,
 } from './types.js';

@@ -107,3 +107,18 @@ export interface ReflectInput {
   hypothesis: string;
   falsification: string;
 }
+
+export interface ProtocolEnforcementInput {
+  mutation: boolean;
+  targetPath?: string;
+  workspaceId?: string;
+}
+
+export interface ProtocolEnforcementResult {
+  enforce: boolean;
+  blocked?: boolean;
+  reason?: string;
+  protocol?: Protocol;
+  session_id?: string;
+  required_action?: 'reflect' | 'visa';
+}

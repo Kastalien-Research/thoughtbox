@@ -135,6 +135,10 @@ export interface CreateMcpServerArgs {
   knowledgeStorage?: import('./knowledge/types.js').KnowledgeStorage;
   /** Workspace ID for multi-tenant OTEL queries */
   workspaceId?: string;
+  /** Optional callback to expose the shared protocol handler */
+  onProtocolHandlerReady?: (
+    handler: ProtocolHandler | InMemoryProtocolHandler,
+  ) => void;
 }
 
 const defaultLogger: Logger = {
@@ -395,6 +399,8 @@ Use \`console.log()\` for debugging — output captured in response logs.`;
     protocolHandler = new InMemoryProtocolHandler();
     logger.info('Protocol tools using in-memory backend');
   }
+
+  args.onProtocolHandlerReady?.(protocolHandler);
 
   const theseusTool = new TheseusTool(protocolHandler, thoughtHandler, knowledgeStorage);
   const ulyssesTool = new UlyssesTool(protocolHandler, thoughtHandler, knowledgeStorage);

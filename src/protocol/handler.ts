@@ -16,6 +16,8 @@ import type {
   PlanInput,
   UlyssesOutcomeInput,
   ReflectInput,
+  ProtocolEnforcementInput,
+  ProtocolEnforcementResult,
 } from './types.js';
 
 export class ProtocolHandler {
@@ -798,20 +800,87 @@ export class ProtocolHandler {
   }
 
   // ---------------------------------------------------------------------------
-  // Enforcement RPC (for hooks)
+  // Enforcement checks (for hooks and local runtime adapters)
   // ---------------------------------------------------------------------------
 
   async checkEnforcement(
-    targetPath: string,
-  ): Promise<Record<string, unknown>> {
-    const { data, error } = await this.client.rpc(
-      'check_protocol_enforcement',
-      { target_path: targetPath },
-    );
+    input: ProtocolEnforcementInput,
+  ): Promise<ProtocolEnforcementResult> {
+    if (!input.mutation) {
+      return { enforce: false };
+    }
+
+    if (input.workspaceId) {
+      this.setProject(input.workspaceId);
+    }
+
+    const ulyssesSession = await this.getActiveSession('ulysses');
+    if (ulyssesSession) {
+      const state = ulyssesSession.state_json as { S?: number };
+      if ((state.S ?? 0) === 2) {
+        return {
+          enforce: true,
+          blocked: true,
+          reason:
+            'REFLECT REQUIRED: Ulysses session is waiting for reflect before further mutation',
+          protocol: 'ulysses',
+          session_id: ulyssesSession.id,
+          required_action: 'reflect',
+        };
+      }
+    }
+
+    const targetPath = input.targetPath;
+    if (!targetPath) {
+      return { enforce: false };
+    }
+
+    const theseusSession = await this.getActiveSession('theseus');
+    if (!theseusSession) {
+      return { enforce: false };
+    }
+
+    const isTestFile =
+      /(^|\/)(tests?|__tests__)(\/|$)|\.test\.|\.spec\./.test(targetPath);
+    if (isTestFile) {
+      return {
+        enforce: true,
+        blocked: true,
+        reason: 'TEST LOCK: Cannot modify test files during refactoring',
+        protocol: 'theseus',
+        session_id: theseusSession.id,
+      };
+    }
+
+    const { data: scopeRows, error } = await this.client
+      .from('protocol_scope')
+      .select('file_path')
+      .eq('session_id', theseusSession.id);
 
     if (error) {
       throw new Error(`Enforcement check failed: ${error.message}`);
     }
-    return data as Record<string, unknown>;
+
+    const isInScope = (scopeRows ?? []).some(({ file_path }) =>
+      targetPath.startsWith(file_path),
+    );
+
+    if (!isInScope) {
+      return {
+        enforce: true,
+        blocked: true,
+        reason: 'VISA REQUIRED: File outside declared scope',
+        protocol: 'theseus',
+        session_id: theseusSession.id,
+        required_action: 'visa',
+      };
+    }
+
+    return {
+      enforce: true,
+      blocked: false,
+      protocol: 'theseus',
+      session_id: theseusSession.id,
+    };
   }
 }
