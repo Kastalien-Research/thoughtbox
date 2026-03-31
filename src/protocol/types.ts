@@ -123,6 +123,8 @@ export interface ProtocolEnforcementResult {
   required_action?: 'reflect' | 'visa';
 }
 
+export const ULYSSES_STATE_NEEDS_REFLECT = 2;
+
 const TEST_DIR_SEGMENTS = ['tests', 'test', '__tests__'];
 const TEST_FILE_EXTENSIONS = ['.test.', '.spec.'];
 

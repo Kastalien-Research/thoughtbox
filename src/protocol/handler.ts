@@ -7,6 +7,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database, Json } from '../database.types.js';
 import {
   isTestFile,
+  ULYSSES_STATE_NEEDS_REFLECT,
   type Protocol,
   type ProtocolSession,
   type TheseusTerminal,
@@ -37,6 +38,7 @@ export class ProtocolHandler {
 
   private async getActiveSession(
     protocol: Protocol,
+    workspaceId: string | null = this.workspaceId,
   ): Promise<ProtocolSession | null> {
     let query = this.client
       .from('protocol_sessions')
@@ -46,8 +48,8 @@ export class ProtocolHandler {
       .order('created_at', { ascending: false })
       .limit(1);
 
-    if (this.workspaceId) {
-      query = query.eq('workspace_id', this.workspaceId);
+    if (workspaceId) {
+      query = query.eq('workspace_id', workspaceId);
     }
 
     const { data, error } = await query.single();
@@ -811,15 +813,11 @@ export class ProtocolHandler {
       return { enforce: false };
     }
 
-    const savedWorkspaceId = this.workspaceId;
-    if (input.workspaceId) {
-      this.setProject(input.workspaceId);
-    }
-    try {
-    const ulyssesSession = await this.getActiveSession('ulysses');
+    const workspaceId = input.workspaceId ?? this.workspaceId;
+    const ulyssesSession = await this.getActiveSession('ulysses', workspaceId);
     if (ulyssesSession) {
       const state = ulyssesSession.state_json as { S?: number };
-      if ((state.S ?? 0) === 2) {
+      if ((state.S ?? 0) === ULYSSES_STATE_NEEDS_REFLECT) {
         return {
           enforce: true,
           blocked: true,
@@ -837,7 +835,7 @@ export class ProtocolHandler {
       return { enforce: false };
     }
 
-    const theseusSession = await this.getActiveSession('theseus');
+    const theseusSession = await this.getActiveSession('theseus', workspaceId);
     if (!theseusSession) {
       return { enforce: false };
     }
@@ -882,8 +880,5 @@ export class ProtocolHandler {
       protocol: 'theseus',
       session_id: theseusSession.id,
     };
-    } finally {
-      this.workspaceId = savedWorkspaceId;
-    }
   }
 }

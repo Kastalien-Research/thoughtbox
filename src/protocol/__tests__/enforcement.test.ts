@@ -111,4 +111,29 @@ describe("InMemoryProtocolHandler enforcement", () => {
       }),
     ).resolves.toEqual({ enforce: false });
   });
+
+  it("does not mutate handler workspace while checking another workspace", async () => {
+    const handler = new InMemoryProtocolHandler();
+    handler.setProject("repo-a");
+    await handler.theseusInit(["src/refactor/"], "Workspace-specific refactor");
+
+    await expect(
+      handler.checkEnforcement({
+        mutation: true,
+        targetPath: "src/refactor/file.ts",
+        workspaceId: "repo-b",
+      }),
+    ).resolves.toEqual({ enforce: false });
+
+    await expect(
+      handler.checkEnforcement({
+        mutation: true,
+        targetPath: "src/refactor/file.ts",
+      }),
+    ).resolves.toMatchObject({
+      enforce: true,
+      blocked: false,
+      protocol: "theseus",
+    });
+  });
 });

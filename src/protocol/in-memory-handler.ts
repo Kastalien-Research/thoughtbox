@@ -6,6 +6,7 @@
 import { randomUUID } from 'node:crypto';
 import {
   isTestFile,
+  ULYSSES_STATE_NEEDS_REFLECT,
   type Protocol,
   type ProtocolSession,
   type TheseusTerminal,
@@ -38,10 +39,11 @@ export class InMemoryProtocolHandler {
 
   private getActiveSession(
     protocol: Protocol,
+    workspaceId: string | null = this.workspaceId,
   ): ProtocolSession | null {
     return this.sessions
       .filter(s => s.protocol === protocol && s.status === 'active')
-      .filter(s => !this.workspaceId || s.workspace_id === this.workspaceId)
+      .filter(s => !workspaceId || s.workspace_id === workspaceId)
       .sort((a, b) => b.created_at.localeCompare(a.created_at))[0] ?? null;
   }
 
@@ -541,15 +543,11 @@ export class InMemoryProtocolHandler {
       return { enforce: false };
     }
 
-    const savedWorkspaceId = this.workspaceId;
-    if (input.workspaceId) {
-      this.setProject(input.workspaceId);
-    }
-    try {
-    const ulyssesSession = this.getActiveSession('ulysses');
+    const workspaceId = input.workspaceId ?? this.workspaceId;
+    const ulyssesSession = this.getActiveSession('ulysses', workspaceId);
     if (ulyssesSession) {
       const state = ulyssesSession.state_json as { S?: number };
-      if ((state.S ?? 0) === 2) {
+      if ((state.S ?? 0) === ULYSSES_STATE_NEEDS_REFLECT) {
         return {
           enforce: true,
           blocked: true,
@@ -567,7 +565,7 @@ export class InMemoryProtocolHandler {
       return { enforce: false };
     }
 
-    const session = this.getActiveSession('theseus');
+    const session = this.getActiveSession('theseus', workspaceId);
     if (!session) {
       return { enforce: false };
     }
@@ -602,8 +600,5 @@ export class InMemoryProtocolHandler {
       session_id: session.id,
       protocol: 'theseus',
     };
-    } finally {
-      this.workspaceId = savedWorkspaceId;
-    }
   }
 }
