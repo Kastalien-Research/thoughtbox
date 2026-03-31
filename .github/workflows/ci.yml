@@ -81,3 +81,9 @@ jobs:
 
       - name: Run test suite
         run: pnpm test
+
+      - name: Generate control-plane artifacts
+        run: pnpm generate:control-plane
+
+      - name: Check control-plane manifest and drift gates
+        run: pnpm check:control-plane
