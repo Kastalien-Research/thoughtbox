@@ -84,31 +84,23 @@ export class SearchTool {
       },
     };
 
-    const sandbox = {
-      catalog: Object.freeze(this.catalog),
+    // Build the catalog inside the VM so async evaluation uses the context's
+    // own intrinsics instead of host constructors. This mirrors the safer
+    // execute-tool approach and avoids deployment-only hangs from cross-realm
+    // Promise/builtin interactions.
+    const context = vm.createContext({
+      __catalogJson: JSON.stringify(this.catalog),
       console: cappedConsole,
-      JSON,
-      Object,
-      Array,
-      String,
-      Number,
-      Boolean,
-      RegExp,
-      Map,
-      Set,
-      Date,
-      Math,
-      Promise,
-      Error,
-      TypeError,
-      RangeError,
-    };
-
-    const context = vm.createContext(sandbox);
+      setTimeout: globalThis.setTimeout,
+      clearTimeout: globalThis.clearTimeout,
+    });
 
     let output: CodeModeResult;
     try {
-      const script = new vm.Script(`(${input.code})()`, {
+      const script = new vm.Script(`
+        const catalog = Object.freeze(JSON.parse(__catalogJson));
+        (${input.code})()
+      `, {
         filename: "codemode-search.js",
       });
       const rawResult = script.runInContext(context, { timeout: TIMEOUT_MS });
@@ -137,7 +129,9 @@ export class SearchTool {
       output = {
         result: null,
         logs,
-        error: err instanceof Error ? err.message : String(err),
+        error: typeof err === "object" && err !== null && "message" in err
+          ? String((err as { message: unknown }).message)
+          : String(err),
         durationMs: Date.now() - start,
       };
     }
