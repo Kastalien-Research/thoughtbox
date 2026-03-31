@@ -78,7 +78,7 @@ describe('nanosToIso', () => {
 });
 
 describe('parseLogsPayload', () => {
-  const workspaceId = 'ws-test-123';
+  const workspaceId = '22222222-2222-4222-a222-222222222222';
 
   it('parses a single log record with event.name attribute', () => {
     const payload: OtlpLogsPayload = {
@@ -180,7 +180,7 @@ describe('parseLogsPayload', () => {
 });
 
 describe('parseMetricsPayload', () => {
-  const workspaceId = 'ws-test-123';
+  const workspaceId = '22222222-2222-4222-a222-222222222222';
 
   it('parses a sum metric with data points', () => {
     const payload: OtlpMetricsPayload = {

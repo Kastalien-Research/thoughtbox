@@ -10,6 +10,7 @@ import { describe, it, expect, beforeAll, beforeEach, afterAll } from 'vitest';
 import express from 'express';
 import type { Server } from 'node:http';
 import { mountOtlpRoutes } from '../routes.js';
+import { ensureStaticWorkspace } from '../../auth/static-workspace.js';
 import {
   isSupabaseAvailable,
   getTestSupabaseConfig,
@@ -33,13 +34,18 @@ describe('OTLP Routes', () => {
     await ensureTestWorkspace();
 
     const config = getTestSupabaseConfig();
+    process.env.SUPABASE_URL = config.supabaseUrl;
+    process.env.SUPABASE_SERVICE_ROLE_KEY = config.serviceRoleKey;
+
+    // Pre-create the static workspace so the FK constraint is satisfied
+    await ensureStaticWorkspace('default');
+
     const app = express();
 
     mountOtlpRoutes(app, {
       supabaseUrl: config.supabaseUrl,
       serviceRoleKey: config.serviceRoleKey,
       staticApiKey: TEST_API_KEY,
-      defaultWorkspaceId: TEST_WORKSPACE_ID,
     });
 
     server = await new Promise<Server>((resolve) => {
