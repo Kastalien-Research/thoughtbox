@@ -19,7 +19,7 @@ describe('H6: createStorage() wiring', () => {
     const storage = new SupabaseStorage({
       supabaseUrl: 'http://localhost:54321',
       serviceRoleKey: 'test-key',
-      workspaceId: 'test-workspace',
+      workspaceId: '11111111-1111-1111-1111-111111111111',
     });
 
     // Verify all required methods exist
@@ -51,7 +51,7 @@ describe('H6: createStorage() wiring', () => {
     const storage = new SupabaseKnowledgeStorage({
       supabaseUrl: 'http://localhost:54321',
       serviceRoleKey: 'test-key',
-      workspaceId: 'test-workspace',
+      workspaceId: '11111111-1111-1111-1111-111111111111',
     });
 
     const iface: KnowledgeStorage = storage;

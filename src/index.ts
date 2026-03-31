@@ -35,6 +35,7 @@ import {
   type ProtocolEnforcementHandler,
 } from "./http/protocol-http.js";
 import { resolveRequestAuth } from "./auth/resolve-request-auth.js";
+import { ensureStaticWorkspace } from "./auth/static-workspace.js";
 import { mountOtlpRoutes } from "./otel/index.js";
 import { mcpAuthRouter } from "@modelcontextprotocol/sdk/server/auth/router.js";
 import {
@@ -248,7 +249,7 @@ async function startHttpServer() {
     clientsStore: oauthClientStorage,
     tokenStorage: oauthTokenStorage,
     scopesSupported,
-    ...(hasSupabase ? {} : { defaultWorkspaceId: 'local-dev-workspace' }),
+    ...(hasSupabase ? {} : { defaultWorkspaceId: await ensureStaticWorkspace('local-dev') }),
   });
 
   const authRouter = mcpAuthRouter({
@@ -301,7 +302,7 @@ async function startHttpServer() {
     singletonEntry = {
       transport,
       server,
-      workspaceId: 'local-dev-workspace',
+      workspaceId: await ensureStaticWorkspace('local-dev'),
       protocolHandler: singletonProtocolHandler,
     };
     sessions.set(singletonId, singletonEntry);

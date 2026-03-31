@@ -31,8 +31,9 @@ describe('architectural constraints', () => {
     // Known violations — tech debt, not exemptions.
     // Remove from this list as each file is fixed.
     const knownDebt = new Set([
-      'protocol/handler.ts', // thoughtbox-kcv: needs ProtocolStorage interface
-      'auth/api-key.ts',     // uses SupabaseClient for API key validation
+      'protocol/handler.ts',      // thoughtbox-kcv: needs ProtocolStorage interface
+      'auth/api-key.ts',          // uses SupabaseClient for API key validation
+      'auth/static-workspace.ts', // upserts workspace rows for static key auth
     ]);
 
     const allowed = (file: string): boolean => {

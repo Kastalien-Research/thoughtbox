@@ -18,10 +18,6 @@ export interface OtlpRoutesConfig {
   serviceRoleKey: string;
   staticApiKey?: string;
   localDevApiKey?: string;
-  /** Workspace ID for static key auth (default: 'default-workspace') */
-  defaultWorkspaceId?: string;
-  /** Workspace ID for local-dev key auth (default: 'local-dev-workspace') */
-  localDevWorkspaceId?: string;
 }
 
 function countLogRecords(payload: OtlpLogsPayload): number {
@@ -60,8 +56,6 @@ async function resolveOtlpAuth(
     return await resolveRequestAuth(req, {
       staticKey: config.staticApiKey,
       localDevKey: config.localDevApiKey,
-      staticKeyWorkspaceId: config.defaultWorkspaceId,
-      localDevWorkspaceId: config.localDevWorkspaceId,
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Authentication failed';

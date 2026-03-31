@@ -1,6 +1,6 @@
 /**
  * Shared request authentication — extracts API key from Bearer header
- * or query param and resolves it to a workspace ID.
+ * or query param and resolves it to a workspace ID (always a UUID).
  *
  * Used by both MCP and OTLP route handlers. Each caller formats
  * errors in their own protocol (JSON-RPC vs plain JSON).
@@ -8,20 +8,17 @@
 
 import type { Request } from 'express';
 import { resolveApiKeyToWorkspace } from './api-key.js';
+import { ensureStaticWorkspace } from './static-workspace.js';
 
 export interface RequestAuthOpts {
   staticKey?: string;
   localDevKey?: string;
-  /** Workspace ID returned for staticKey matches (default: 'default-workspace') */
-  staticKeyWorkspaceId?: string;
-  /** Workspace ID returned for localDevKey matches (default: 'local-dev-workspace') */
-  localDevWorkspaceId?: string;
 }
 
 /**
  * Extract and resolve the API key from a request.
  *
- * @returns workspace ID
+ * @returns workspace UUID
  * @throws Error with a message suitable for the client
  */
 export async function resolveRequestAuth(
@@ -40,11 +37,11 @@ export async function resolveRequestAuth(
   }
 
   if (opts.staticKey && providedKey === opts.staticKey) {
-    return opts.staticKeyWorkspaceId ?? 'default-workspace';
+    return ensureStaticWorkspace('default');
   }
 
   if (opts.localDevKey && providedKey === opts.localDevKey) {
-    return opts.localDevWorkspaceId ?? 'local-dev-workspace';
+    return ensureStaticWorkspace('local-dev');
   }
 
   if (providedKey.startsWith('tbx_')) {

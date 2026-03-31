@@ -5,7 +5,7 @@
     "CLAUDE_CODE_ENABLE_TELEMETRY": "1",
     "OTEL_EXPORTER_OTLP_PROTOCOL": "http/json",
     "OTEL_EXPORTER_OTLP_ENDPOINT": "https://mcp.kastalienresearch.ai",
-    "OTEL_EXPORTER_OTLP_HEADERS": "Authorization=Bearer ${THOUGHTBOX_API_KEY}",
+    "OTEL_EXPORTER_OTLP_HEADERS": "Authorization=Bearer tbx_RPpNqDtj_edLdHyBKXDD-UIaNBoxF9Big5qWn-Sv_",
     "OTEL_METRICS_EXPORTER": "otlp",
     "OTEL_LOGS_EXPORTER": "otlp"
   },

@@ -98,7 +98,7 @@ export class ObservabilityGatewayHandler {
   constructor(config: ObservabilityGatewayConfig) {
     this.thoughtboxUrl = config.thoughtboxUrl ?? 'http://thoughtbox:1731';
     this.storage = config.storage;
-    this.workspaceId = config.workspaceId ?? 'default-workspace';
+    this.workspaceId = config.workspaceId ?? '00000000-0000-4000-a000-000000000001';
 
     if (config.supabaseUrl && config.serviceRoleKey) {
       this.otelStorage = new OtelEventStorage({
