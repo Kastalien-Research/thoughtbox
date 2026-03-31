@@ -8,7 +8,7 @@ Source: automation-self-improvement/control-plane/manifest.yaml
 | --- | --- | --- | --- | --- | --- |
 | decision-plane | Decision Plane | partial | daily_dev_brief, proposal_approval | control-plane-spec-index | control-plane-spec-drift, control-plane-spec-systems, control-plane-spec-test-truth, control-plane-spec-workflows |
 | execution-plane | Execution Plane | partial | improvement_loop | control-plane-spec-workflows | control-plane-spec-drift |
-| governance-plane | Governance and Drift Plane | implemented | daily_dev_brief, improvement_loop, prompt_refinement_batch, proposal_approval, tool_pedagogy_batch | control-plane-spec-index | ci-gate, control-plane-json, test-truth-json |
+| governance-plane | Governance and Drift Plane | implemented | daily_dev_brief, improvement_loop, prompt_refinement_batch, proposal_approval, tool_pedagogy_batch | control-plane-spec-index | control-plane-json, test-truth-json |
 | learning-plane | Learning and Refinement Plane | partial | prompt_refinement_batch, tool_pedagogy_batch | control-plane-spec-test-truth | test-truth-json |
 
 ## Paths

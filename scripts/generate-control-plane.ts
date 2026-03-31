@@ -110,6 +110,7 @@ export interface Manifest {
     id: string;
     severity: 'low' | 'medium' | 'high';
     matcher: string;
+    legacy_prefixes?: string[];
     failure_message: string;
   }>;
 }
@@ -228,7 +229,7 @@ function normalizeManifest(manifest: Manifest): Manifest {
         maturity: w.maturity,
         paths: sort(w.paths.map(normalizePath)),
         entrypoints: sort(w.entrypoints.map(normalizePath)),
-        states: sort(w.states.map(normalizePath)),
+        states: dedupe(w.states.map(normalizePath)),
         steps: dedupe(w.steps.map((s) => s.trim())),
         inputs: sort(w.inputs.map(normalizePath)),
         outputs: sort(w.outputs.map(normalizePath)),
@@ -275,6 +276,7 @@ function normalizeManifest(manifest: Manifest): Manifest {
         id: rule.id,
         severity: rule.severity,
         matcher: rule.matcher,
+        legacy_prefixes: rule.legacy_prefixes ? sort(rule.legacy_prefixes) : undefined,
         failure_message: rule.failure_message,
       };
     }),
@@ -483,7 +485,7 @@ async function buildTestTruth(manifest: Manifest, vitestConfig: { include: strin
 
   for (const suite of manifest.tests) {
     const files = await collectFiles(suite.glob);
-    const ciFiles = files.filter((file) => vitestIncludeSet.has(file)).filter((file) => !file.includes('/agentops/tests/') || file.includes('agentops/tests') && suite.glob === 'agentops/tests/**/*.test.ts');
+    const ciFiles = files.filter((file) => vitestIncludeSet.has(file));
     const realDependencies = sort(dedupe(suite.real_dependencies.map(normalizePath)));
     const classif = classifyProfile(suite, files, vitestIncludeSet);
     const fileRecords: TestFileRecord[] = files.map((file) => {
@@ -701,7 +703,12 @@ function generateDrift(manifest: Manifest): string {
 
 ${markdownTable(
   ['Rule ID', 'Severity', 'Matcher', 'Failure Message'],
-  manifest.drift_rules.map((rule) => [rule.id, rule.severity, rule.matcher, rule.failure_message]),
+  manifest.drift_rules.map((rule) => {
+    const matcherDisplay = rule.legacy_prefixes
+      ? `legacy-prefix-list: ${rule.legacy_prefixes.join(', ')}`
+      : rule.matcher;
+    return [rule.id, rule.severity, matcherDisplay, rule.failure_message];
+  }),
 )}
 
 ## Generated Artifacts

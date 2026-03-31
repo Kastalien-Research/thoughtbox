@@ -101,7 +101,6 @@
           "control-plane-spec-index"
         ],
         "downstream_artifacts": [
-          "ci-gate",
           "control-plane-json",
           "test-truth-json"
         ]
@@ -153,8 +152,8 @@
         "states": [
           "discover",
           "draft",
-          "published",
-          "validated"
+          "validated",
+          "published"
         ],
         "steps": [
           "discover pending issues, signals, and coverage debt",
@@ -189,8 +188,8 @@
         ],
         "states": [
           "composing",
-          "evaluating",
           "implementing",
+          "evaluating",
           "integrating"
         ],
         "steps": [
@@ -226,10 +225,10 @@
           "automation-self-improvement/agentops/runner/cli.ts"
         ],
         "states": [
-          "analyze",
           "collect",
-          "defer_or_apply",
-          "propose"
+          "analyze",
+          "propose",
+          "defer_or_apply"
         ],
         "steps": [
           "review session-level drift signals",
@@ -263,9 +262,9 @@
           "scripts/check-control-plane.ts"
         ],
         "states": [
-          "approved",
-          "pre-validating",
           "queued",
+          "pre-validating",
+          "approved",
           "rejected"
         ],
         "steps": [
@@ -300,10 +299,10 @@
           "automation-self-improvement/agentops/runner/cli.ts"
         ],
         "states": [
-          "analyze",
           "collect",
-          "defer_or_apply",
-          "propose"
+          "analyze",
+          "propose",
+          "defer_or_apply"
         ],
         "steps": [
           "analyze traces and friction",
@@ -531,7 +530,13 @@
       {
         "id": "no-legacy-root-paths",
         "severity": "high",
-        "matcher": "(^|/)(agentops|benchmarks|dgm-specs)/|^\\\\.specs/self-improvement-loop/",
+        "matcher": "legacy-prefix-list",
+        "legacy_prefixes": [
+          ".specs/self-improvement-loop/",
+          "agentops/",
+          "benchmarks/",
+          "dgm-specs/"
+        ],
         "failure_message": "Authoritative control-plane paths must not use legacy root-level paths as canonical references"
       },
       {

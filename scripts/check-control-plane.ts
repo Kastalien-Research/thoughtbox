@@ -17,8 +17,11 @@ const __dirname = path.dirname(__filename);
 const REPO_ROOT = path.resolve(process.cwd());
 
 const MANIFEST_PATH = path.join(REPO_ROOT, 'automation-self-improvement/control-plane/manifest.yaml');
-const LEGACY_PREFIXES = ['agentops/', 'benchmarks/', 'dgm-specs/', '.specs/self-improvement-loop/'];
 const TEST_IGNORE_GLOBS = ['**/node_modules/**', '**/.git/**', '**/dist/**'];
+const CATCH_ALL_TEST_GLOBS = [
+  'src/**/__tests__/**/*.ts',
+  'tests/**/*.ts',
+];
 
 interface CheckFailure {
   id: string;
@@ -29,9 +32,17 @@ function normalizePath(value: string): string {
   return value.replace(/\\/g, '/').replace(/\/+$/, '');
 }
 
-function hasLegacyPrefix(value: string): boolean {
+function extractLegacyPrefixes(manifest: Manifest): string[] {
+  const legacyRule = manifest.drift_rules.find((rule) => rule.id === 'no-legacy-root-paths');
+  if (!legacyRule) return [];
+  const prefixes = (legacyRule as Record<string, unknown>).legacy_prefixes;
+  if (!Array.isArray(prefixes)) return [];
+  return prefixes.filter((p): p is string => typeof p === 'string' && p.length > 0);
+}
+
+function hasLegacyPrefix(value: string, legacyPrefixes: string[]): boolean {
   const normalized = normalizePath(value);
-  return LEGACY_PREFIXES.some((prefix) => normalized.startsWith(prefix));
+  return legacyPrefixes.some((prefix) => normalized.startsWith(prefix));
 }
 
 function hasGlob(value: string): boolean {
@@ -149,17 +160,25 @@ function schemaFailure(error: unknown): CheckFailure {
   return { id: 'schema', message: `Manifest schema invalid: ${String(error)}` };
 }
 
-async function validateReferences(manifest: Manifest): Promise<CheckFailure[]> {
+async function validateReferences(manifest: Manifest, legacyPrefixes: string[]): Promise<CheckFailure[]> {
   const failures: CheckFailure[] = [];
   const references = gatherReferencedPaths(manifest);
 
   for (const reference of references) {
-    if (hasLegacyPrefix(reference)) {
+    if (hasLegacyPrefix(reference, legacyPrefixes)) {
       failures.push({ id: 'legacy-path', message: `Legacy path reference found: ${reference}` });
       continue;
     }
 
-    if (!hasGlob(reference) && !path.isAbsolute(reference)) {
+    if (hasGlob(reference)) {
+      const matches = await collectFiles(reference);
+      if (matches.length === 0) {
+        failures.push({ id: 'empty-glob', message: `Glob pattern matches zero files: ${reference}` });
+      }
+      continue;
+    }
+
+    if (!path.isAbsolute(reference)) {
       const abs = path.join(REPO_ROOT, reference);
       const existsOnDisk = await exists(abs);
       if (!existsOnDisk) {
@@ -168,13 +187,37 @@ async function validateReferences(manifest: Manifest): Promise<CheckFailure[]> {
       continue;
     }
 
-    if (path.isAbsolute(reference)) {
-      const relative = isRelativeOrAbsolute(reference);
-      if (!relative.startsWith('..')) {
-        const abs = path.join(REPO_ROOT, relative);
-        if (!(await exists(abs))) {
-          failures.push({ id: 'missing-path', message: `Manifest absolute path missing: ${reference}` });
-        }
+    const relative = isRelativeOrAbsolute(reference);
+    if (!relative.startsWith('..')) {
+      const abs = path.join(REPO_ROOT, relative);
+      if (!(await exists(abs))) {
+        failures.push({ id: 'missing-path', message: `Manifest absolute path missing: ${reference}` });
+      }
+    }
+  }
+
+  return failures;
+}
+
+function validateCrossReferences(manifest: Manifest): CheckFailure[] {
+  const failures: CheckFailure[] = [];
+  const workflowIds = new Set(manifest.workflows.map((w) => w.id));
+  const artifactIds = new Set(manifest.artifacts.map((a) => a.id));
+
+  for (const system of manifest.systems) {
+    for (const wfId of system.owner_workflows) {
+      if (!workflowIds.has(wfId)) {
+        failures.push({ id: 'broken-ref', message: `System '${system.id}' references unknown workflow: ${wfId}` });
+      }
+    }
+    for (const artId of system.upstream_artifacts ?? []) {
+      if (!artifactIds.has(artId)) {
+        failures.push({ id: 'broken-ref', message: `System '${system.id}' references unknown upstream artifact: ${artId}` });
+      }
+    }
+    for (const artId of system.downstream_artifacts ?? []) {
+      if (!artifactIds.has(artId)) {
+        failures.push({ id: 'broken-ref', message: `System '${system.id}' references unknown downstream artifact: ${artId}` });
       }
     }
   }
@@ -202,16 +245,11 @@ async function checkGeneratedArtifacts(): Promise<CheckFailure[]> {
   return failures;
 }
 
-async function discoverCodeTests(_manifest: Manifest): Promise<Set<string>> {
-  const globs = [
-    'src/**/__tests__/**/*.ts',
-    'tests/**/*.ts',
-    'agentops/tests/**/*.ts',
-    'automation-self-improvement/agentops/tests/**/*.ts',
-    'observability/**/test/**/*.ts',
-  ];
+async function discoverCodeTests(manifest: Manifest): Promise<Set<string>> {
+  const manifestGlobs = manifest.tests.map((suite) => suite.glob);
+  const allGlobs = [...new Set([...CATCH_ALL_TEST_GLOBS, ...manifestGlobs])];
 
-  const groups = await Promise.all(globs.map(collectFiles));
+  const groups = await Promise.all(allGlobs.map(collectFiles));
   const discovered = new Set<string>();
   for (const group of groups) {
     for (const file of group) {
@@ -276,8 +314,10 @@ async function main(): Promise<void> {
     return;
   }
 
+  const legacyPrefixes = extractLegacyPrefixes(manifest);
   failures.push(...validateManifestDepth(manifest));
-  failures.push(...(await validateReferences(manifest)));
+  failures.push(...validateCrossReferences(manifest));
+  failures.push(...(await validateReferences(manifest, legacyPrefixes)));
   failures.push(...(await checkGeneratedArtifacts()));
   failures.push(...(await validateDeclaredSuites(manifest)));
   failures.push(...(await validateDeterminism(MANIFEST_PATH)));

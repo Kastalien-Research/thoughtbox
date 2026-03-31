@@ -33,9 +33,9 @@ ADR-017 establishes a declarative source of truth for unified autonomy, architec
 
 | Workflow ID | Plane | Trigger | States |
 | --- | --- | --- | --- |
-| daily_dev_brief | decision | scheduler/manual | discover, draft, published, validated |
-| improvement_loop | execution | approved proposal | composing, evaluating, implementing, integrating |
-| prompt_refinement_batch | learning | weekly cadence or explicit request | analyze, collect, defer_or_apply, propose |
-| proposal_approval | decision | explicit proposal review plus human approval | approved, pre-validating, queued, rejected |
-| tool_pedagogy_batch | learning | weekly cadence or explicit request | analyze, collect, defer_or_apply, propose |
+| daily_dev_brief | decision | scheduler/manual | discover, draft, validated, published |
+| improvement_loop | execution | approved proposal | composing, implementing, evaluating, integrating |
+| prompt_refinement_batch | learning | weekly cadence or explicit request | collect, analyze, propose, defer_or_apply |
+| proposal_approval | decision | explicit proposal review plus human approval | queued, pre-validating, approved, rejected |
+| tool_pedagogy_batch | learning | weekly cadence or explicit request | collect, analyze, propose, defer_or_apply |
 

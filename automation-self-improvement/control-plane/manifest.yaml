@@ -106,7 +106,6 @@ systems:
     downstream_artifacts:
       - control-plane-json
       - test-truth-json
-      - ci-gate
 
 workflows:
   - id: daily_dev_brief
@@ -418,7 +417,12 @@ tests:
 drift_rules:
   - id: no-legacy-root-paths
     severity: high
-    matcher: '(^|/)(agentops|benchmarks|dgm-specs)/|^\\.specs/self-improvement-loop/'
+    matcher: legacy-prefix-list
+    legacy_prefixes:
+      - agentops/
+      - benchmarks/
+      - dgm-specs/
+      - .specs/self-improvement-loop/
     failure_message: Authoritative control-plane paths must not use legacy root-level paths as canonical references
   - id: no-missing-paths
     severity: high

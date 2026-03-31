@@ -8,7 +8,7 @@ Source: automation-self-improvement/control-plane/manifest.yaml
 
 | Rule ID | Severity | Matcher | Failure Message |
 | --- | --- | --- | --- |
-| no-legacy-root-paths | high | (^\|/)(agentops\|benchmarks\|dgm-specs)/\|^\\.specs/self-improvement-loop/ | Authoritative control-plane paths must not use legacy root-level paths as canonical references |
+| no-legacy-root-paths | high | legacy-prefix-list: .specs/self-improvement-loop/, agentops/, benchmarks/, dgm-specs/ | Authoritative control-plane paths must not use legacy root-level paths as canonical references |
 | no-missing-paths | high | manifest-path-existence | All manifest paths must exist in repository at check time |
 | no-stale-generated-artifacts | high | generated-output-stale | Generated markdown and JSON artifacts must be up to date with manifest output |
 | no-undeclared-test-surfaces | high | undeclared-test-surface | Code-based test files must be declared in the manifest tests section |
