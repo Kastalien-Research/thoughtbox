@@ -1,0 +1,29 @@
+#!/usr/bin/env sh
+
+# Enforce conventional commits
+msg=$(head -1 "$1")
+
+# Allow merge commits
+case "$msg" in
+  Merge*) exit 0 ;;
+esac
+
+# Check format: type(scope): description or type: description
+if ! echo "$msg" | grep -qE '^(feat|fix|perf|refactor|docs|test|chore|security|breaking)(\(.+\))?!?: .+'; then
+  echo ""
+  echo "BLOCKED: Commit message does not follow conventional commits."
+  echo "  Got: $msg"
+  echo "  Expected: type(scope): description"
+  echo "  Types: feat fix perf refactor docs test chore security breaking"
+  echo ""
+  exit 1
+fi
+
+# Check length
+len=$(echo "$msg" | wc -c | tr -d ' ')
+if [ "$len" -gt 73 ]; then
+  echo ""
+  echo "BLOCKED: Commit subject is $len chars (max 72)."
+  echo ""
+  exit 1
+fi

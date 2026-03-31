@@ -12,7 +12,7 @@ export const OBSERVABILITY_OPERATIONS: OperationDefinition[] = [
     name: "health",
     title: "Health Check",
     description:
-      "Check health of Thoughtbox infrastructure services (Prometheus, Grafana, Thoughtbox MCP). Optionally filter to specific services.",
+      "Check health of Thoughtbox infrastructure services (Thoughtbox server, Supabase OTEL store). Optionally filter to specific services.",
     category: "infrastructure",
     inputSchema: {
       type: "object",
@@ -26,67 +26,7 @@ export const OBSERVABILITY_OPERATIONS: OperationDefinition[] = [
       },
     },
     example: {
-      services: ["prometheus", "grafana"],
-    },
-  },
-  {
-    name: "metrics",
-    title: "Query Metrics",
-    description:
-      "Execute an instant PromQL query against Prometheus. Returns the current value of the queried metric at a single point in time.",
-    category: "metrics",
-    inputSchema: {
-      type: "object",
-      properties: {
-        query: {
-          type: "string",
-          description: "PromQL query expression",
-        },
-        time: {
-          type: "string",
-          description:
-            "Evaluation timestamp (RFC3339 or Unix). Defaults to now.",
-        },
-      },
-      required: ["query"],
-    },
-    example: {
-      query: "thoughtbox_thoughts_total",
-    },
-  },
-  {
-    name: "metrics_range",
-    title: "Query Metrics Range",
-    description:
-      "Execute a range PromQL query over a time window. Returns a series of values at the specified step interval.",
-    category: "metrics",
-    inputSchema: {
-      type: "object",
-      properties: {
-        query: {
-          type: "string",
-          description: "PromQL query expression",
-        },
-        start: {
-          type: "string",
-          description: "Range start time (RFC3339 or Unix)",
-        },
-        end: {
-          type: "string",
-          description: "Range end time (RFC3339 or Unix)",
-        },
-        step: {
-          type: "string",
-          description: "Query resolution step (e.g., 15s, 1m, 5m)",
-        },
-      },
-      required: ["query", "start", "end", "step"],
-    },
-    example: {
-      query: "rate(thoughtbox_thoughts_total[5m])",
-      start: "2026-03-23T00:00:00Z",
-      end: "2026-03-23T01:00:00Z",
-      step: "1m",
+      services: ["thoughtbox", "supabase"],
     },
   },
   {
@@ -136,43 +76,47 @@ export const OBSERVABILITY_OPERATIONS: OperationDefinition[] = [
     },
   },
   {
-    name: "alerts",
-    title: "Get Alerts",
+    name: "session_timeline",
+    title: "Session Timeline",
     description:
-      "Retrieve current Prometheus alerts, optionally filtered by state (firing, pending, or all).",
-    category: "alerts",
+      "Retrieve the chronological timeline of OTEL events (tool calls, API requests, errors) for a Claude Code session. Events are ordered by timestamp.",
+    category: "otel",
     inputSchema: {
       type: "object",
       properties: {
-        state: {
+        sessionId: {
           type: "string",
-          enum: ["firing", "pending", "all"],
-          description: "Filter alerts by state (default: all)",
+          description: "The Claude Code session ID to query",
+        },
+        limit: {
+          type: "number",
+          description: "Maximum number of events to return (default: 200)",
         },
       },
+      required: ["sessionId"],
     },
     example: {
-      state: "firing",
+      sessionId: "abc-123-def-456",
+      limit: 100,
     },
   },
   {
-    name: "dashboard_url",
-    title: "Get Dashboard URL",
+    name: "session_cost",
+    title: "Session Cost",
     description:
-      "Generate a Grafana dashboard URL for the specified dashboard name. Defaults to the main Thoughtbox dashboard.",
-    category: "infrastructure",
+      "Get aggregated API cost data for a Claude Code session, broken down by model. If no sessionId is provided, returns costs across all sessions.",
+    category: "otel",
     inputSchema: {
       type: "object",
       properties: {
-        dashboard: {
+        sessionId: {
           type: "string",
-          description:
-            "Dashboard name (default: thoughtbox-mcp)",
+          description: "Optional session ID to scope cost query",
         },
       },
     },
     example: {
-      dashboard: "thoughtbox-mcp",
+      sessionId: "abc-123-def-456",
     },
   },
 ];

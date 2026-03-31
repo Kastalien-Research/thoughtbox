@@ -133,6 +133,12 @@ export interface CreateMcpServerArgs {
   dataDir?: string;
   /** Optional pre-created knowledge storage (used by Supabase mode) */
   knowledgeStorage?: import('./knowledge/types.js').KnowledgeStorage;
+  /** Workspace ID for multi-tenant OTEL queries */
+  workspaceId?: string;
+  /** Optional callback to expose the shared protocol handler */
+  onProtocolHandlerReady?: (
+    handler: ProtocolHandler | InMemoryProtocolHandler,
+  ) => void;
 }
 
 const defaultLogger: Logger = {
@@ -394,13 +400,16 @@ Use \`console.log()\` for debugging — output captured in response logs.`;
     logger.info('Protocol tools using in-memory backend');
   }
 
+  args.onProtocolHandlerReady?.(protocolHandler);
+
   const theseusTool = new TheseusTool(protocolHandler, thoughtHandler, knowledgeStorage);
   const ulyssesTool = new UlyssesTool(protocolHandler, thoughtHandler, knowledgeStorage);
 
   const observabilityHandler = new ObservabilityGatewayHandler({
     storage,
-    prometheusUrl: process.env.PROMETHEUS_URL,
-    grafanaUrl: process.env.GRAFANA_URL,
+    workspaceId: args.workspaceId,
+    supabaseUrl: process.env.SUPABASE_URL,
+    serviceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY,
   });
 
   // =============================================================================

@@ -93,6 +93,12 @@ export class TheseusTool {
           `[Theseus:checkpoint] Cassandra audit: ${input.approved ? 'APPROVED' : 'REJECTED'}. ${input.commitMessage}${input.feedback ? `. Feedback: ${input.feedback}` : ''}`,
           'action_report',
         );
+        if (!input.approved) {
+          await this.bridgeAuditKnowledge(
+            input.commitMessage!,
+            input.feedback,
+          );
+        }
         break;
       }
       case "outcome": {
@@ -180,6 +186,33 @@ export class TheseusTool {
       await this.knowledgeStorage.addObservation({
         entity_id: entity.id,
         content: summary,
+        source_session: this.thoughtHandler?.getCurrentSessionId() ?? undefined,
+      });
+    } catch {
+      // Bridge failure is non-fatal
+    }
+  }
+
+  private async bridgeAuditKnowledge(
+    commitMessage: string,
+    feedback?: string,
+  ): Promise<void> {
+    if (!this.knowledgeStorage) return;
+    try {
+      const entity = await this.knowledgeStorage.createEntity({
+        name: `Theseus audit: ${commitMessage.slice(0, 80)}`,
+        type: 'Insight',
+        label: 'Cassandra audit rejection',
+        properties: {
+          protocol: 'theseus',
+          protocolSessionId: this.activeSessionId,
+        },
+      });
+      await this.knowledgeStorage.addObservation({
+        entity_id: entity.id,
+        content: feedback
+          ? `Checkpoint rejected: ${commitMessage}\nFeedback: ${feedback}`
+          : `Checkpoint rejected: ${commitMessage}`,
         source_session: this.thoughtHandler?.getCurrentSessionId() ?? undefined,
       });
     } catch {

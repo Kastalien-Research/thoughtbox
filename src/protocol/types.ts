@@ -107,3 +107,32 @@ export interface ReflectInput {
   hypothesis: string;
   falsification: string;
 }
+
+export interface ProtocolEnforcementInput {
+  mutation: boolean;
+  targetPath?: string;
+  workspaceId?: string;
+}
+
+export interface ProtocolEnforcementResult {
+  enforce: boolean;
+  blocked?: boolean;
+  reason?: string;
+  protocol?: Protocol;
+  session_id?: string;
+  required_action?: 'reflect' | 'visa';
+}
+
+export const ULYSSES_STATE_NEEDS_REFLECT = 2;
+
+const TEST_DIR_SEGMENTS = ['tests', 'test', '__tests__'];
+const TEST_FILE_EXTENSIONS = ['.test.', '.spec.'];
+
+export function isTestFile(filePath: string): boolean {
+  const segments = filePath.split('/');
+  if (segments.some(s => TEST_DIR_SEGMENTS.includes(s))) {
+    return true;
+  }
+  const basename = segments[segments.length - 1] ?? '';
+  return TEST_FILE_EXTENSIONS.some(ext => basename.includes(ext));
+}

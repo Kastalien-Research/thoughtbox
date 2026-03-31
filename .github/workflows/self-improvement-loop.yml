@@ -31,9 +31,10 @@ on:
         default: false
         type: boolean
 
-  # Scheduled runs (weekly on Sundays at 2am UTC)
-  schedule:
-    - cron: '0 2 * * 0'
+  # Scheduled runs disabled until SIL→Observatory wire and CI Thoughtbox server are fixed.
+  # Re-enable when: (1) Thoughtbox server starts in CI, (2) ImprovementTracker is wired in.
+  # schedule:
+  #   - cron: '0 2 * * 0'
 
 # Prevent concurrent runs
 concurrency:

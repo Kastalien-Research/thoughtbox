@@ -31,7 +31,7 @@ Purpose: Verify the executable-code discovery surface for operations, prompts, r
    async () => Object.keys(catalog.operations.session).sort()
    ```
 
-**Expected:** Includes session operations such as `session_list`, `session_get`, and `session_resume`
+**Expected:** Includes session operations such as `session_list`, `session_get`, `session_search`, `session_resume`, `session_export`, `session_analyze`, `session_extract_learnings`
 
 ---
 

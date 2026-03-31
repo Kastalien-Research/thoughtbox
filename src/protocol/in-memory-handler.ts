@@ -4,21 +4,25 @@
  */
 
 import { randomUUID } from 'node:crypto';
-import type {
-  Protocol,
-  ProtocolSession,
-  TheseusTerminal,
-  UlyssesTerminal,
-  VisaInput,
-  AuditInput,
-  TheseusOutcomeInput,
-  PlanInput,
-  UlyssesOutcomeInput,
-  ReflectInput,
-  ProtocolScope,
-  ProtocolVisa,
-  ProtocolAudit,
-  ProtocolHistoryEvent,
+import {
+  isTestFile,
+  ULYSSES_STATE_NEEDS_REFLECT,
+  type Protocol,
+  type ProtocolSession,
+  type TheseusTerminal,
+  type UlyssesTerminal,
+  type VisaInput,
+  type AuditInput,
+  type TheseusOutcomeInput,
+  type PlanInput,
+  type UlyssesOutcomeInput,
+  type ReflectInput,
+  type ProtocolEnforcementInput,
+  type ProtocolEnforcementResult,
+  type ProtocolScope,
+  type ProtocolVisa,
+  type ProtocolAudit,
+  type ProtocolHistoryEvent,
 } from './types.js';
 
 export class InMemoryProtocolHandler {
@@ -35,10 +39,11 @@ export class InMemoryProtocolHandler {
 
   private getActiveSession(
     protocol: Protocol,
+    workspaceId: string | null = this.workspaceId,
   ): ProtocolSession | null {
     return this.sessions
       .filter(s => s.protocol === protocol && s.status === 'active')
-      .filter(s => !this.workspaceId || s.workspace_id === this.workspaceId)
+      .filter(s => !workspaceId || s.workspace_id === workspaceId)
       .sort((a, b) => b.created_at.localeCompare(a.created_at))[0] ?? null;
   }
 
@@ -532,20 +537,46 @@ export class InMemoryProtocolHandler {
   }
 
   async checkEnforcement(
-    targetPath: string,
-  ): Promise<Record<string, unknown>> {
-    const session = this.getActiveSession('theseus');
+    input: ProtocolEnforcementInput,
+  ): Promise<ProtocolEnforcementResult> {
+    if (!input.mutation) {
+      return { enforce: false };
+    }
+
+    const workspaceId = input.workspaceId ?? this.workspaceId;
+    const ulyssesSession = this.getActiveSession('ulysses', workspaceId);
+    if (ulyssesSession) {
+      const state = ulyssesSession.state_json as { S?: number };
+      if ((state.S ?? 0) === ULYSSES_STATE_NEEDS_REFLECT) {
+        return {
+          enforce: true,
+          blocked: true,
+          reason:
+            'REFLECT REQUIRED: Ulysses session is waiting for reflect before further mutation',
+          protocol: 'ulysses',
+          session_id: ulyssesSession.id,
+          required_action: 'reflect',
+        };
+      }
+    }
+
+    const targetPath = input.targetPath;
+    if (!targetPath) {
+      return { enforce: false };
+    }
+
+    const session = this.getActiveSession('theseus', workspaceId);
     if (!session) {
       return { enforce: false };
     }
 
-    const isTestFile = /(\/(tests?|__tests__)\/|\.test\.|\.spec\.)/.test(targetPath);
-    if (isTestFile) {
+    if (isTestFile(targetPath)) {
       return {
         enforce: true,
         blocked: true,
         reason: 'TEST LOCK: Cannot modify test files during refactoring',
         session_id: session.id,
+        protocol: 'theseus',
       };
     }
 
@@ -558,6 +589,8 @@ export class InMemoryProtocolHandler {
         blocked: true,
         reason: 'VISA REQUIRED: File outside declared scope',
         session_id: session.id,
+        protocol: 'theseus',
+        required_action: 'visa',
       };
     }
 

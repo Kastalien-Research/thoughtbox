@@ -6,7 +6,7 @@ max_proposals: 3
 min_proposals: 2
 
 # Signal Collection
-max_signal_items: 30
+max_signal_items: 45
 
 # Evidence Requirements
 min_evidence_links_per_proposal: 1

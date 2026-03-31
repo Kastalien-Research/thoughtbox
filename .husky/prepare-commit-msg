@@ -1,0 +1,25 @@
+#!/usr/bin/env sh
+
+# Block mass deletions — catches Jules-style disasters
+deleted=$(git diff --cached --diff-filter=D --name-only | wc -l | tr -d ' ')
+if [ "$deleted" -gt 10 ]; then
+  echo ""
+  echo "BLOCKED: This commit deletes $deleted files."
+  echo "If this is intentional, run: HUSKY_MASS_DELETE=1 git commit"
+  echo ""
+  if [ "$HUSKY_MASS_DELETE" != "1" ]; then
+    exit 1
+  fi
+fi
+
+# Block commits that touch more files than reasonable for one unit of work
+changed=$(git diff --cached --name-only | wc -l | tr -d ' ')
+if [ "$changed" -gt 50 ]; then
+  echo ""
+  echo "WARNING: This commit touches $changed files."
+  echo "If this is intentional, run: HUSKY_LARGE_COMMIT=1 git commit"
+  echo ""
+  if [ "$HUSKY_LARGE_COMMIT" != "1" ]; then
+    exit 1
+  fi
+fi

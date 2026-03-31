@@ -104,6 +104,10 @@ export class UlyssesTool {
           `[Ulysses:reflect] Hypothesis: ${input.hypothesis}. Falsification: ${input.falsification}`,
           'reasoning',
         );
+        await this.bridgeReflectionKnowledge(
+          input.hypothesis!,
+          input.falsification!,
+        );
         break;
       }
       case "status": {
@@ -179,6 +183,32 @@ export class UlyssesTool {
       await this.knowledgeStorage.addObservation({
         entity_id: entity.id,
         content: summary,
+        source_session: this.thoughtHandler?.getCurrentSessionId() ?? undefined,
+      });
+    } catch {
+      // Bridge failure is non-fatal
+    }
+  }
+
+  private async bridgeReflectionKnowledge(
+    hypothesis: string,
+    falsification: string,
+  ): Promise<void> {
+    if (!this.knowledgeStorage) return;
+    try {
+      const entity = await this.knowledgeStorage.createEntity({
+        name: `Ulysses hypothesis: ${hypothesis.slice(0, 80)}`,
+        type: 'Insight',
+        label: 'Ulysses reflection',
+        properties: {
+          protocol: 'ulysses',
+          protocolSessionId: this.activeSessionId,
+          falsification,
+        },
+      });
+      await this.knowledgeStorage.addObservation({
+        entity_id: entity.id,
+        content: `Hypothesis: ${hypothesis}\nFalsification: ${falsification}`,
         source_session: this.thoughtHandler?.getCurrentSessionId() ?? undefined,
       });
     } catch {

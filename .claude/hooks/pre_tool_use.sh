@@ -1,141 +1,204 @@
 #!/usr/bin/env bash
-# PreToolUse: Safety guards for all tool calls.
-# Does NOT enforce workflow — that's ulysses_enforcer.sh and bead_workflow_enforcer.sh.
+# PreToolUse: safety guards plus Thoughtbox-backed protocol enforcement.
 set -euo pipefail
 
+project_dir="${CLAUDE_PROJECT_DIR:-$(pwd)}"
 input_json=$(cat)
 tool_name=$(echo "$input_json" | jq -r '.tool_name // ""')
 tool_input=$(echo "$input_json" | jq -c '.tool_input // {}')
 
-# ── GUARD 1: Dangerous rm ──────────────────────────────────────────
+command=""
+normalized_command=""
 if [[ "$tool_name" == "Bash" ]]; then
   command=$(echo "$tool_input" | jq -r '.command // ""')
-  normalized=$(echo "$command" | tr -s ' ' | tr '[:upper:]' '[:lower:]')
-
-  if echo "$normalized" | grep -qE '\brm\s+.*-[a-z]*r[a-z]*f' || \
-     echo "$normalized" | grep -qE '\brm\s+.*-[a-z]*f[a-z]*r' || \
-     echo "$normalized" | grep -qE '\brm\s+--recursive\s+--force' || \
-     echo "$normalized" | grep -qE '\brm\s+--force\s+--recursive'; then
-    echo "BLOCKED: rm -rf is prohibited. Use 'trash' for recoverable deletion." >&2
-    exit 2
-  fi
+  normalized_command=$(echo "$command" | tr -s ' ' | tr '[:upper:]' '[:lower:]')
 fi
 
-# ── GUARD 2: .env write protection ─────────────────────────────────
-if [[ "$tool_name" == "Edit" || "$tool_name" == "Write" ]]; then
-  file_path=$(echo "$tool_input" | jq -r '.file_path // ""')
-  if [[ "$file_path" == *".env"* && "$file_path" != *".env.sample"* \
-     && "$file_path" != *".env.example"* ]]; then
-    echo "BLOCKED: Write to .env files is prohibited. Modify manually." >&2
-    exit 2
-  fi
-elif [[ "$tool_name" == "Bash" ]]; then
-  command=$(echo "$tool_input" | jq -r '.command // ""')
-  if echo "$command" | grep -qE '(>|>>|tee).*\.env\b' \
-     && ! echo "$command" | grep -q '\.env\.sample\|\.env\.example'; then
-    echo "BLOCKED: Shell redirect to .env files is prohibited." >&2
-    exit 2
-  fi
-fi
+block() {
+  echo "BLOCKED: $1" >&2
+  exit 2
+}
 
-# ── GUARD 3: .claude infrastructure self-modification ──────────────
-if [[ "$tool_name" == "Edit" || "$tool_name" == "Write" ]]; then
-  file_path=$(echo "$tool_input" | jq -r '.file_path // ""')
-  if [[ "$file_path" == *".claude/settings"* || "$file_path" == *".claude/hooks/"* ]]; then
-    echo "BLOCKED: Agents cannot modify .claude/hooks or .claude/settings." >&2
-    echo "User must make these changes manually." >&2
-    exit 2
+normalize_target_path() {
+  local raw_path="$1"
+  if [[ -z "$raw_path" ]]; then
+    return 0
   fi
-elif [[ "$tool_name" == "Bash" ]]; then
-  command=$(echo "$tool_input" | jq -r '.command // ""')
-  if echo "$command" | grep -qE '(>|>>|tee|mv|cp|rm).*\.claude/(hooks|settings)'; then
-    echo "BLOCKED: Shell modification of .claude/hooks or .claude/settings is prohibited." >&2
-    exit 2
-  fi
-fi
 
-# ── GUARD 4: Memory-bearing file protection ────────────────────────
-# Block Write (full replace) to CLAUDE.md, AGENTS.md, agent prompts.
-# Edit (surgical replacement) is allowed — it can't delete content it doesn't reference.
-if [[ "$tool_name" == "Write" ]]; then
-  file_path=$(echo "$tool_input" | jq -r '.file_path // ""')
-  basename=$(basename "$file_path")
-  case "$basename" in
-    CLAUDE.md|AGENTS.md)
-      echo "BLOCKED: Write (full replace) to $basename is prohibited. Use Edit." >&2
-      exit 2
+  case "$raw_path" in
+    "$project_dir"/*)
+      printf '%s\n' "${raw_path#"$project_dir"/}"
+      ;;
+    *)
+      printf '%s\n' "$raw_path"
       ;;
   esac
-  if [[ "$file_path" == *".claude/agents/"* && "$file_path" == *.md ]]; then
-    echo "BLOCKED: Write (full replace) to agent prompt files is prohibited. Use Edit." >&2
-    exit 2
+}
+
+is_read_only_bash() {
+  case "$normalized_command" in
+    ""|\
+    "pwd"|\
+    "pwd "*|\
+    "ls"|\
+    "ls "*|\
+    "cat "*|\
+    "head "*|\
+    "tail "*|\
+    "wc "*|\
+    "rg "*|\
+    "grep "*|\
+    "find "*|\
+    "jq "*|\
+    "sed -n "*|\
+    "git status"*|\
+    "git diff"*|\
+    "git log"*|\
+    "git show"*|\
+    "git branch --show-current"*)
+      return 0
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
+is_mutating_tool() {
+  case "$tool_name" in
+    Write|Edit|NotebookEdit)
+      return 0
+      ;;
+    Bash)
+      if is_read_only_bash; then
+        return 1
+      fi
+      return 0
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
+resolve_workspace_id() {
+  if [[ -n "${THOUGHTBOX_PROJECT:-}" ]]; then
+    printf '%s\n' "$THOUGHTBOX_PROJECT"
+    return 0
   fi
-fi
 
-# ── GUARD 5: Protected directory protection ────────────────────────
-PROTECTED_DIRS=("specs/" ".specs/" "docs/" "self-improvement/")
+  if [[ -n "${THOUGHTBOX_WORKSPACE_ID:-}" ]]; then
+    printf '%s\n' "$THOUGHTBOX_WORKSPACE_ID"
+    return 0
+  fi
 
+  basename "$project_dir"
+}
+
+resolve_protocol_enforcement_url() {
+  if [[ -n "${THOUGHTBOX_PROTOCOL_ENFORCEMENT_URL:-}" ]]; then
+    printf '%s\n' "$THOUGHTBOX_PROTOCOL_ENFORCEMENT_URL"
+    return 0
+  fi
+
+  if [[ -n "${THOUGHTBOX_URL:-}" ]]; then
+    printf '%s\n' "${THOUGHTBOX_URL%/}/protocol/enforcement"
+    return 0
+  fi
+
+  local config_path="$project_dir/.mcp.json"
+  if [[ -f "$config_path" ]]; then
+    local mcp_url
+    mcp_url=$(jq -r '.mcpServers.thoughtbox.url // ""' "$config_path" 2>/dev/null || echo "")
+    if [[ -n "$mcp_url" ]]; then
+      printf '%s\n' "${mcp_url%/mcp}/protocol/enforcement"
+      return 0
+    fi
+  fi
+
+  printf '%s\n' "http://localhost:1731/protocol/enforcement"
+}
+
+run_protocol_enforcement() {
+  local mutation="$1"
+  local target_path="$2"
+
+  if [[ "$mutation" != "true" ]]; then
+    return 0
+  fi
+
+  local endpoint
+  endpoint=$(resolve_protocol_enforcement_url)
+  local workspace_id
+  workspace_id=$(resolve_workspace_id)
+
+  local payload
+  payload=$(jq -nc \
+    --argjson mutation true \
+    --arg targetPath "$target_path" \
+    --arg workspaceId "$workspace_id" \
+    '{
+      mutation: $mutation,
+      targetPath: (if ($targetPath | length) > 0 then $targetPath else null end),
+      workspaceId: (if ($workspaceId | length) > 0 then $workspaceId else null end)
+    }')
+
+  local response
+  if ! response=$(curl -fsS --max-time 2 \
+    -H "Content-Type: application/json" \
+    -H "Connection: close" \
+    -d "$payload" \
+    "$endpoint" 2>/dev/null); then
+    return 0
+  fi
+
+  local blocked reason protocol required_action
+  blocked=$(echo "$response" | jq -r '.blocked // false' 2>/dev/null || echo false)
+  if [[ "$blocked" != "true" ]]; then
+    return 0
+  fi
+
+  reason=$(echo "$response" | jq -r '.reason // "Protocol enforcement blocked this action."' 2>/dev/null || echo "Protocol enforcement blocked this action.")
+  protocol=$(echo "$response" | jq -r '.protocol // ""' 2>/dev/null || echo "")
+  required_action=$(echo "$response" | jq -r '.required_action // ""' 2>/dev/null || echo "")
+
+  if [[ -n "$protocol" ]]; then
+    echo "BLOCKED [$protocol]: $reason" >&2
+  else
+    echo "BLOCKED: $reason" >&2
+  fi
+
+  if [[ -n "$required_action" ]]; then
+    echo "Required action: $required_action" >&2
+  fi
+
+  exit 2
+}
+
+# ── GUARD 1: Dangerous rm ──────────────────────────────────────────
 if [[ "$tool_name" == "Bash" ]]; then
-  command=$(echo "$tool_input" | jq -r '.command // ""')
-  for dir in "${PROTECTED_DIRS[@]}"; do
-    if echo "$command" | grep -qE "\brm\s+.*${dir}"; then
-      echo "BLOCKED: Cannot delete files in protected directory: $dir" >&2
-      exit 2
-    fi
-    if echo "$command" | grep -qE "\bmv\s+.*${dir}.*\s+/dev/null"; then
-      echo "BLOCKED: Cannot discard files from protected directory: $dir" >&2
-      exit 2
-    fi
-  done
-fi
-
-if [[ "$tool_name" == "Write" ]]; then
-  file_path=$(echo "$tool_input" | jq -r '.file_path // ""')
-  for dir in "${PROTECTED_DIRS[@]}"; do
-    if [[ "$file_path" == *"${dir}"* ]]; then
-      echo "BLOCKED: Write (full replace) in $dir is prohibited. Use Edit." >&2
-      exit 2
-    fi
-  done
-fi
-
-# ── GUARD 6: Git safety ───────────────────────────────────────────
-if [[ "$tool_name" == "Bash" ]]; then
-  command=$(echo "$tool_input" | jq -r '.command // ""')
-  normalized=$(echo "$command" | tr -s ' ' | tr '[:upper:]' '[:lower:]')
-
-  # Force push
-  if echo "$normalized" | grep -qE 'git\s+push\s+.*--force' || \
-     echo "$normalized" | grep -qE 'git\s+push\s+.*\s-f\b'; then
-    echo "BLOCKED: Force push is prohibited." >&2
-    exit 2
-  fi
-
-  # Direct push to protected branches
-  for branch in main master develop production; do
-    if echo "$normalized" | grep -qE "git\s+push\s+.*\s+${branch}\b"; then
-      echo "BLOCKED: Direct push to $branch is prohibited. Use a PR." >&2
-      exit 2
-    fi
-  done
-
-  # Branch deletion
-  if echo "$normalized" | grep -qE 'git\s+branch\s+-D\s+' || \
-     echo "$normalized" | grep -qE 'git\s+push\s+.*--delete'; then
-    echo "BLOCKED: Branch deletion requires explicit user request." >&2
-    exit 2
-  fi
-
-  # Conventional commit warning (non-blocking)
-  if echo "$normalized" | grep -qE 'git\s+commit\s+.*-m\s+'; then
-    msg=$(echo "$command" | sed -n "s/.*-m\s*['\"]\([^'\"]*\)['\"].*/\1/p" | head -1)
-    if [[ -n "$msg" ]] && ! echo "$msg" | grep -qE '^(feat|fix|refactor|docs|test|chore|perf|style|security|breaking)(\(.+\))?!?:'; then
-      echo "WARNING: Commit message doesn't follow conventional format: type(scope): subject" >&2
-    fi
+  if echo "$normalized_command" | grep -qE '\brm\s+.*-[a-z]*r[a-z]*f' || \
+     echo "$normalized_command" | grep -qE '\brm\s+.*-[a-z]*f[a-z]*r' || \
+     echo "$normalized_command" | grep -qE '\brm\s+--recursive\s+--force' || \
+     echo "$normalized_command" | grep -qE '\brm\s+--force\s+--recursive'; then
+    block "rm -rf is prohibited. Use 'trash' for recoverable deletion."
   fi
 fi
 
-# ── GUARD 7: Read-before-write ─────────────────────────────────────
+# ── GUARD 2: Protocol-aware enforcement ────────────────────────────
+mutation=false
+if is_mutating_tool; then
+  mutation=true
+fi
+
+target_path=""
+if [[ "$tool_name" == "Write" || "$tool_name" == "Edit" || "$tool_name" == "NotebookEdit" ]]; then
+  target_path=$(normalize_target_path "$(echo "$tool_input" | jq -r '.file_path // .notebook_path // ""')")
+fi
+
+run_protocol_enforcement "$mutation" "$target_path"
+
+# ── GUARD 3: Read-before-write ─────────────────────────────────────
 # Require that a file has been Read before it can be edited.
 # Tracked by post_tool_use.sh writing to file_access.jsonl.
 if [[ "${CC_DISABLE_READ_GUARD:-0}" != "1" ]]; then
@@ -143,11 +206,10 @@ if [[ "${CC_DISABLE_READ_GUARD:-0}" != "1" ]]; then
     file_path=$(echo "$tool_input" | jq -r '.file_path // ""')
 
     if [[ -n "$file_path" && -f "$file_path" ]]; then
-      access_log="${CLAUDE_PROJECT_DIR:-.}/.claude/state/file_access.jsonl"
+      access_log="${project_dir}/.claude/state/file_access.jsonl"
 
       if [[ ! -f "$access_log" ]]; then
-        echo "BLOCKED: Must Read $file_path before modifying it (no access log)." >&2
-        exit 2
+        block "Must Read $file_path before modifying it (no access log)."
       fi
 
       abs_path=$(python3 -c "import os,sys; print(os.path.abspath(sys.argv[1]))" \
@@ -158,8 +220,7 @@ if [[ "${CC_DISABLE_READ_GUARD:-0}" != "1" ]]; then
         "$access_log" 2>/dev/null || echo "")
 
       if [[ -z "$last_read" ]]; then
-        echo "BLOCKED: Must Read $file_path before modifying it." >&2
-        exit 2
+        block "Must Read $file_path before modifying it."
       fi
 
       last_write=$(jq -sr --arg p "$abs_path" \
@@ -167,8 +228,7 @@ if [[ "${CC_DISABLE_READ_GUARD:-0}" != "1" ]]; then
         "$access_log" 2>/dev/null || echo "")
 
       if [[ -n "$last_write" && "$last_read" < "$last_write" ]]; then
-        echo "BLOCKED: Must re-Read $file_path after last edit before modifying again." >&2
-        exit 2
+        block "Must re-Read $file_path after last edit before modifying again."
       fi
     fi
   fi

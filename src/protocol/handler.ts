@@ -5,17 +5,21 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database, Json } from '../database.types.js';
-import type {
-  Protocol,
-  ProtocolSession,
-  TheseusTerminal,
-  UlyssesTerminal,
-  VisaInput,
-  AuditInput,
-  TheseusOutcomeInput,
-  PlanInput,
-  UlyssesOutcomeInput,
-  ReflectInput,
+import {
+  isTestFile,
+  ULYSSES_STATE_NEEDS_REFLECT,
+  type Protocol,
+  type ProtocolSession,
+  type TheseusTerminal,
+  type UlyssesTerminal,
+  type VisaInput,
+  type AuditInput,
+  type TheseusOutcomeInput,
+  type PlanInput,
+  type UlyssesOutcomeInput,
+  type ReflectInput,
+  type ProtocolEnforcementInput,
+  type ProtocolEnforcementResult,
 } from './types.js';
 
 export class ProtocolHandler {
@@ -34,6 +38,7 @@ export class ProtocolHandler {
 
   private async getActiveSession(
     protocol: Protocol,
+    workspaceId: string | null = this.workspaceId,
   ): Promise<ProtocolSession | null> {
     let query = this.client
       .from('protocol_sessions')
@@ -43,8 +48,8 @@ export class ProtocolHandler {
       .order('created_at', { ascending: false })
       .limit(1);
 
-    if (this.workspaceId) {
-      query = query.eq('workspace_id', this.workspaceId);
+    if (workspaceId) {
+      query = query.eq('workspace_id', workspaceId);
     }
 
     const { data, error } = await query.single();
@@ -798,20 +803,82 @@ export class ProtocolHandler {
   }
 
   // ---------------------------------------------------------------------------
-  // Enforcement RPC (for hooks)
+  // Enforcement checks (for hooks and local runtime adapters)
   // ---------------------------------------------------------------------------
 
   async checkEnforcement(
-    targetPath: string,
-  ): Promise<Record<string, unknown>> {
-    const { data, error } = await this.client.rpc(
-      'check_protocol_enforcement',
-      { target_path: targetPath },
-    );
+    input: ProtocolEnforcementInput,
+  ): Promise<ProtocolEnforcementResult> {
+    if (!input.mutation) {
+      return { enforce: false };
+    }
+
+    const workspaceId = input.workspaceId ?? this.workspaceId;
+    const ulyssesSession = await this.getActiveSession('ulysses', workspaceId);
+    if (ulyssesSession) {
+      const state = ulyssesSession.state_json as { S?: number };
+      if ((state.S ?? 0) === ULYSSES_STATE_NEEDS_REFLECT) {
+        return {
+          enforce: true,
+          blocked: true,
+          reason:
+            'REFLECT REQUIRED: Ulysses session is waiting for reflect before further mutation',
+          protocol: 'ulysses',
+          session_id: ulyssesSession.id,
+          required_action: 'reflect',
+        };
+      }
+    }
+
+    const targetPath = input.targetPath;
+    if (!targetPath) {
+      return { enforce: false };
+    }
+
+    const theseusSession = await this.getActiveSession('theseus', workspaceId);
+    if (!theseusSession) {
+      return { enforce: false };
+    }
+
+    if (isTestFile(targetPath)) {
+      return {
+        enforce: true,
+        blocked: true,
+        reason: 'TEST LOCK: Cannot modify test files during refactoring',
+        protocol: 'theseus',
+        session_id: theseusSession.id,
+      };
+    }
+
+    const { data: scopeRows, error } = await this.client
+      .from('protocol_scope')
+      .select('file_path')
+      .eq('session_id', theseusSession.id);
 
     if (error) {
       throw new Error(`Enforcement check failed: ${error.message}`);
     }
-    return data as Record<string, unknown>;
+
+    const isInScope = (scopeRows ?? []).some(({ file_path }) =>
+      targetPath.startsWith(file_path),
+    );
+
+    if (!isInScope) {
+      return {
+        enforce: true,
+        blocked: true,
+        reason: 'VISA REQUIRED: File outside declared scope',
+        protocol: 'theseus',
+        session_id: theseusSession.id,
+        required_action: 'visa',
+      };
+    }
+
+    return {
+      enforce: true,
+      blocked: false,
+      protocol: 'theseus',
+      session_id: theseusSession.id,
+    };
   }
 }

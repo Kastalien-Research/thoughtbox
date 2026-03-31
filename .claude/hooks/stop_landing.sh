@@ -37,10 +37,7 @@ fi
 
 # ── Decision ──────────────────────────────────────────────────────
 if [[ -n "$issues" ]]; then
-  jq -n --arg reason "Work not landed: ${issues}Commit, push, and close/defer beads before stopping." '{
-    decision: "block",
-    reason: $reason
-  }'
+  echo "WARNING: Work not landed: ${issues}Commit, push, and close/defer beads before stopping." >&2
 fi
 
 exit 0

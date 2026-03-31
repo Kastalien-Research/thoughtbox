@@ -59,9 +59,9 @@ interface TB {
     createEntity(args: { name: string; type: "Insight" | "Concept" | "Workflow" | "Decision" | "Agent"; label: string; properties?: Record<string, unknown>; created_by?: string; visibility?: "public" | "agent-private" | "user-private" | "team-private" }): Promise<unknown>;
     getEntity(entityId: string): Promise<unknown>;
     listEntities(args?: { types?: string[]; name_pattern?: string; created_after?: string; created_before?: string; limit?: number; offset?: number }): Promise<unknown>;
-    addObservation(entityId: string, content: string, args?: { source_session?: string; added_by?: string }): Promise<unknown>;
+    addObservation(args: { entity_id: string; content: string; source_session?: string; added_by?: string }): Promise<unknown>;
     createRelation(args: { from_id: string; to_id: string; relation_type: "RELATES_TO" | "BUILDS_ON" | "CONTRADICTS" | "EXTRACTED_FROM" | "APPLIED_IN" | "LEARNED_BY" | "DEPENDS_ON" | "SUPERSEDES" | "MERGED_FROM"; properties?: Record<string, unknown> }): Promise<unknown>;
-    queryGraph(startEntityId: string, args?: { relation_types?: string[]; max_depth?: number; filter?: Record<string, unknown> }): Promise<unknown>;
+    queryGraph(args: { start_entity_id: string; relation_types?: string[]; max_depth?: number }): Promise<unknown>;
     stats(): Promise<unknown>;
   };
 
@@ -116,8 +116,14 @@ interface TB {
 
   /** Observability queries. Source: src/observability/gateway-handler.ts */
   observability(input: {
-    operation: "health" | "metrics" | "metrics_range" | "sessions" | "session_info" | "alerts" | "dashboard_url";
-    args?: Record<string, unknown>;
+    operation: "health" | "sessions" | "session_info" | "session_timeline" | "session_cost";
+    args?: {
+      sessionId?: string;
+      limit?: number;
+      status?: "active" | "idle" | "all";
+      services?: string[];
+      model?: string;
+    };
   }): Promise<unknown>;
 }
 \`\`\``;

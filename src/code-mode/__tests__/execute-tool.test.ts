@@ -215,15 +215,15 @@ describe("thoughtbox_execute", () => {
     const result = await tool.handle({
       code: `async () => {
         return await tb.observability({
-          operation: "dashboard_url",
-          args: { dashboard: "thoughtbox-mcp" },
+          operation: "health",
+          args: { services: ["thoughtbox"] },
         });
       }`,
     });
     const output = JSON.parse(result.content[0].text);
     expect(output.error).toBeUndefined();
-    expect(output.result.dashboard).toBe("thoughtbox-mcp");
-    expect(output.result.url).toContain("/d/thoughtbox-mcp/thoughtbox-mcp");
+    expect(output.result.timestamp).toBeDefined();
+    expect(output.result.services).toBeDefined();
   });
 
   it("returns truncated output for oversized results", async () => {

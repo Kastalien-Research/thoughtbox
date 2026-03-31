@@ -28,14 +28,6 @@ if [[ -f "$bead_state" ]]; then
   ctx+="ID: $bead_id | Hypothesis: $hyp | Surprises: $surprise\n\n"
 fi
 
-# ── Pending validation ─────────────────────────────────────────────
-pending="$project_dir/.claude/state/bead-workflow/pending-validation.json"
-if [[ -f "$pending" ]]; then
-  pending_ids=$(jq -r '.bead_ids // ""' "$pending" 2>/dev/null)
-  ctx+="## Pending Validation\n"
-  ctx+="Beads awaiting validation: $pending_ids\n\n"
-fi
-
 # ── Ulysses reflect-required ──────────────────────────────────────
 if [[ -f "$ulysses_reflect" ]]; then
   ctx+="## ULYSSES: REFLECT REQUIRED\n"

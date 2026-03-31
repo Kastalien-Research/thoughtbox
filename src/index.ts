@@ -28,8 +28,23 @@ import {
 import { createFileSystemHubStorage } from "./hub/hub-storage-fs.js";
 import type { HubStorage } from "./hub/hub-types.js";
 import { initEvaluation, initMonitoring } from "./evaluation/index.js";
-import { resolveApiKeyToWorkspace } from "./auth/api-key.js";
 import { createHubHandler, type HubEvent } from "./hub/hub-handler.js";
+import { createHubHttpSurface, shouldWarnOnExposedLocalMode } from "./http/hub-http.js";
+import {
+  createProtocolHttpSurface,
+  type ProtocolEnforcementHandler,
+} from "./http/protocol-http.js";
+import { resolveRequestAuth } from "./auth/resolve-request-auth.js";
+import { mountOtlpRoutes } from "./otel/index.js";
+import { mcpAuthRouter } from "@modelcontextprotocol/sdk/server/auth/router.js";
+import {
+  ThoughtboxOAuthProvider,
+  OAuthClientSupabaseStorage,
+  InMemoryClientStorage,
+  SupabaseTokenStorage,
+  InMemoryTokenStorage,
+  verifyAccessToken as verifyOAuthToken,
+} from "./auth/oauth/index.js";
 
 /**
  * Get the storage backend based on environment configuration.
@@ -146,6 +161,8 @@ async function createStorage(): Promise<StorageBundle> {
 interface SessionEntry {
   transport: StreamableHTTPServerTransport;
   server: Awaited<ReturnType<typeof createMcpServer>>;
+  workspaceId: string;
+  protocolHandler: ProtocolEnforcementHandler | null;
 }
 
 async function maybeStartObservatory(hubStorage?: HubStorage, persistentStorage?: ThoughtboxStorage): Promise<ObservatoryServer | null> {
@@ -183,112 +200,258 @@ async function startHttpServer() {
   const traceListener = initEvaluation();
   initMonitoring(traceListener ?? undefined);
 
+  const host = process.env.HOST || "0.0.0.0";
   const app = createMcpExpressApp({
-    host: process.env.HOST || "0.0.0.0",
+    host,
   });
 
+  const port = parseInt(process.env.PORT || "1731", 10);
+  const isMultiTenant = process.env.THOUGHTBOX_STORAGE === 'supabase';
   const sessions = new Map<string, SessionEntry>();
+
+  // Cloud Run (and most reverse proxies) set X-Forwarded-For.
+  // express-rate-limit throws ValidationError if it sees that header
+  // without trust proxy enabled, crashing the OAuth /authorize handler.
+  if (isMultiTenant) {
+    app.set('trust proxy', 1);
+  }
+
+  if (shouldWarnOnExposedLocalMode(host, isMultiTenant)) {
+    console.warn(
+      "[Security] Local/singleton mode is bound to 0.0.0.0. Hub HTTP endpoints and local storage are not workspace-isolated; do not expose this server to untrusted users.",
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // OAuth 2.1 — mount auth router (discovery, registration, token, revoke)
+  // ---------------------------------------------------------------------------
+
+  const baseUrl = process.env.BASE_URL || `http://localhost:${port}`;
+  const issuerUrl = new URL(baseUrl);
+  const resourceServerUrl = new URL('/mcp', baseUrl);
+
+  const supabaseUrl = process.env.SUPABASE_URL;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const hasSupabase = isMultiTenant && supabaseUrl && serviceRoleKey;
+
+  const oauthClientStorage = hasSupabase
+    ? new OAuthClientSupabaseStorage({ supabaseUrl, serviceRoleKey })
+    : new InMemoryClientStorage();
+
+  const oauthTokenStorage = hasSupabase
+    ? new SupabaseTokenStorage({ supabaseUrl, serviceRoleKey })
+    : new InMemoryTokenStorage();
+
+  const scopesSupported = ['mcp:tools'];
+
+  const oauthProvider = new ThoughtboxOAuthProvider({
+    clientsStore: oauthClientStorage,
+    tokenStorage: oauthTokenStorage,
+    scopesSupported,
+    ...(hasSupabase ? {} : { defaultWorkspaceId: 'local-dev-workspace' }),
+  });
+
+  const authRouter = mcpAuthRouter({
+    provider: oauthProvider,
+    issuerUrl,
+    baseUrl: issuerUrl,
+    resourceServerUrl,
+    scopesSupported,
+    resourceName: 'Thoughtbox MCP Server',
+  });
+
+  app.use(authRouter);
+
+  // Singleton server + transport for local (non-multi-tenant) mode.
+  // Avoids per-request server creation when clients drop session headers
+  // (e.g., Claude Code reconnection bug).
+  let singletonEntry: SessionEntry | null = null;
+
+  async function getOrCreateSingleton(): Promise<SessionEntry> {
+    if (singletonEntry) return singletonEntry;
+
+    const singletonId = crypto.randomUUID();
+    const storage = factory.getStorage();
+    const knowledgeStorage = factory.getKnowledgeStorage();
+    let singletonProtocolHandler: SessionEntry["protocolHandler"] = null;
+
+    const server = await createMcpServer({
+      sessionId: singletonId,
+      storage,
+      hubStorage,
+      dataDir,
+      knowledgeStorage,
+      onProtocolHandlerReady: (handler) => {
+        singletonProtocolHandler = handler;
+      },
+      config: {
+        disableThoughtLogging:
+          (process.env.DISABLE_THOUGHT_LOGGING || "").toLowerCase() === "true",
+      },
+    });
+
+    const transport = new StreamableHTTPServerTransport({
+      sessionIdGenerator: undefined,
+      enableJsonResponse: true,
+    });
+
+    await server.connect(transport);
+    console.error(`[MCP] Singleton server created: ${singletonId}`);
+
+    singletonEntry = {
+      transport,
+      server,
+      workspaceId: 'local-dev-workspace',
+      protocolHandler: singletonProtocolHandler,
+    };
+    sessions.set(singletonId, singletonEntry);
+    return singletonEntry;
+  }
 
   app.all("/mcp", async (req: Request, res: Response) => {
     const mcpSessionId = req.headers["mcp-session-id"] as string | undefined;
 
     console.error(`[MCP] ${req.method} request, session: ${mcpSessionId || 'new'}`);
 
-    // API key auth (ADR-AUTH-02): check ?key= query param or Authorization: Bearer <key>
+    // Dual auth: OAuth JWT or API key (tbx_*)
     let workspaceId: string | undefined = undefined;
     const authHeader = req.headers.authorization as string | undefined;
-    const headerKey = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : undefined;
     const queryKey = req.query.key as string | undefined;
-    const providedKey = headerKey || queryKey;
-    const staticApiKey = process.env.THOUGHTBOX_API_KEY;
 
-    if (providedKey) {
-      if (staticApiKey && providedKey === staticApiKey) {
-        // Static API key match (ADR-AUTH-02)
-        workspaceId = 'default-workspace';
-      } else if (providedKey === process.env.THOUGHTBOX_API_KEY_LOCAL) {
-        // Bypass for local development
-        workspaceId = 'local-dev-workspace';
-      } else if (providedKey.startsWith('tbx_')) {
-        // Prefixed key — resolve via api_keys table
+    if (authHeader?.startsWith('Bearer ')) {
+      const token = authHeader.slice(7);
+
+      if (token.startsWith('tbx_')) {
+        // API key via Bearer header
         try {
-          workspaceId = await resolveApiKeyToWorkspace(providedKey);
+          workspaceId = await resolveRequestAuth(req, {
+            staticKey: process.env.THOUGHTBOX_API_KEY,
+            localDevKey: process.env.THOUGHTBOX_API_KEY_LOCAL,
+          });
         } catch (err) {
+          const message = err instanceof Error ? err.message : 'Authentication failed';
           res.status(401).json({
             jsonrpc: "2.0",
-            error: { code: -32001, message: "Invalid or inactive API key" },
+            error: { code: -32001, message },
             id: null,
           });
           return;
         }
       } else {
+        // OAuth JWT
+        try {
+          const claims = await verifyOAuthToken(token);
+          workspaceId = claims.workspace_id;
+        } catch {
+          res.status(401).json({
+            jsonrpc: "2.0",
+            error: { code: -32001, message: "Invalid or expired OAuth token" },
+            id: null,
+          });
+          return;
+        }
+      }
+    } else if (queryKey) {
+      // API key via query param
+      try {
+        workspaceId = await resolveRequestAuth(req, {
+          staticKey: process.env.THOUGHTBOX_API_KEY,
+          localDevKey: process.env.THOUGHTBOX_API_KEY_LOCAL,
+        });
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Authentication failed';
         res.status(401).json({
           jsonrpc: "2.0",
-          error: { code: -32001, message: "Invalid API key" },
+          error: { code: -32001, message },
           id: null,
         });
         return;
       }
-    } else if (process.env.THOUGHTBOX_STORAGE === 'supabase') {
-       // Require key for hosted environment
-       res.status(401).json({
+    } else if (isMultiTenant) {
+      res.status(401).json({
         jsonrpc: "2.0",
-        error: { code: -32001, message: "Missing API key" },
+        error: { code: -32001, message: "Missing API key or OAuth token" },
         id: null,
       });
       return;
+    } else if (!workspaceId) {
+      console.error('[MCP] Unauthenticated request in local mode');
     }
 
     try {
-      if (mcpSessionId && sessions.has(mcpSessionId)) {
-        const entry = sessions.get(mcpSessionId)!;
-        await entry.transport.handleRequest(req, res, req.body);
+      // --- Multi-tenant (Supabase) mode: per-session servers ---
+      if (isMultiTenant) {
+        if (mcpSessionId && sessions.has(mcpSessionId)) {
+          const entry = sessions.get(mcpSessionId)!;
+
+          if (entry.workspaceId !== workspaceId) {
+            res.status(403).json({
+              jsonrpc: "2.0",
+              error: { code: -32001, message: "Session belongs to a different workspace" },
+              id: null,
+            });
+            return;
+          }
+
+          await entry.transport.handleRequest(req, res, req.body);
+
+          if (req.method === "DELETE") {
+            sessions.delete(mcpSessionId);
+            entry.transport.close();
+          }
+          return;
+        }
+
+        const sessionId = mcpSessionId || crypto.randomUUID();
+        const storage = factory.getStorage(workspaceId);
+        const knowledgeStorage = factory.getKnowledgeStorage(workspaceId);
+
+        const server = await createMcpServer({
+          sessionId,
+          storage,
+          hubStorage,
+          dataDir,
+          knowledgeStorage,
+          workspaceId,
+          config: {
+            disableThoughtLogging:
+              (process.env.DISABLE_THOUGHT_LOGGING || "").toLowerCase() === "true",
+          },
+        });
+
+        const transport = new StreamableHTTPServerTransport({
+          sessionIdGenerator: () => sessionId,
+          enableJsonResponse: true,
+        });
+
+        sessions.set(sessionId, {
+          transport,
+          server,
+          workspaceId: workspaceId!,
+          protocolHandler: null,
+        });
+        transport.onclose = () => {
+          sessions.delete(transport.sessionId || sessionId);
+        };
+
+        await server.connect(transport);
+        await transport.handleRequest(req, res, req.body);
 
         if (req.method === "DELETE") {
-          sessions.delete(mcpSessionId);
-          entry.transport.close();
+          sessions.delete(sessionId);
+          transport.close();
         }
         return;
       }
 
-      const sessionId = mcpSessionId || crypto.randomUUID();
-
-      // Instantiate strictly-scoped storage using the resolved workspaceId
-      const storage = factory.getStorage(workspaceId);
-      const knowledgeStorage = factory.getKnowledgeStorage(workspaceId);
-
-      const server = await createMcpServer({
-        sessionId,
-        storage,
-        hubStorage,
-        dataDir,
-        knowledgeStorage,
-        config: {
-          disableThoughtLogging:
-            (process.env.DISABLE_THOUGHT_LOGGING || "").toLowerCase() === "true",
-        },
-      });
-
-      const transport = new StreamableHTTPServerTransport({
-        sessionIdGenerator: () => sessionId,
-        enableJsonResponse: true,
-      });
-
-      sessions.set(sessionId, {
-        transport,
-        server,
-      });
-
-      transport.onclose = () => {
-        sessions.delete(transport.sessionId || sessionId);
-      };
-
-      await server.connect(transport);
-      await transport.handleRequest(req, res, req.body);
+      // --- Local (singleton) mode: one server, all requests share it ---
+      const entry = await getOrCreateSingleton();
+      await entry.transport.handleRequest(req, res, req.body);
 
       if (req.method === "DELETE") {
-        sessions.delete(sessionId);
-        transport.close();
+        singletonEntry = null;
+        sessions.clear();
+        entry.transport.close();
       }
     } catch (error) {
       console.error("MCP ERROR:", error);
@@ -322,26 +485,6 @@ async function startHttpServer() {
   // Hub Event SSE Endpoint — pushes HubEvents to Channel subscribers
   // ---------------------------------------------------------------------------
 
-  interface SseClient {
-    res: Response;
-    workspaceId: string;
-  }
-
-  const sseClients = new Set<SseClient>();
-
-  function broadcastHubEvent(event: HubEvent): void {
-    const payload = `data: ${JSON.stringify(event)}\n\n`;
-    for (const client of sseClients) {
-      if (client.workspaceId === event.workspaceId || client.workspaceId === "*") {
-        try {
-          client.res.write(payload);
-        } catch {
-          sseClients.delete(client);
-        }
-      }
-    }
-  }
-
   // Minimal thought store for the shared hub-handler (hub operations that
   // create sessions/thoughts use this; most Channel operations don't need it)
   const sharedThoughtStore = {
@@ -368,61 +511,39 @@ async function startHttpServer() {
     async getBranch(_sessionId: string, _branchId: string) { return []; },
   };
 
-  const sharedHubHandler = createHubHandler(
-    hubStorage,
-    sharedThoughtStore,
-    broadcastHubEvent,
+  const hubHttpSurface = createHubHttpSurface(
+    createHubHandler(
+      hubStorage,
+      sharedThoughtStore,
+      (event: HubEvent) => hubHttpSurface.broadcastHubEvent(event),
+    ),
   );
 
-  app.get("/hub/events", (req: Request, res: Response) => {
-    const workspaceId = (req.query.workspace_id as string) || "*";
+  if (!isMultiTenant) {
+    hubHttpSurface.mount(app);
+  }
 
-    res.writeHead(200, {
-      "Content-Type": "text/event-stream",
-      "Cache-Control": "no-cache",
-      Connection: "keep-alive",
-    });
-    res.write(": connected\n\n");
+  const protocolHttpSurface = createProtocolHttpSurface(
+    () => singletonEntry?.protocolHandler ?? null,
+  );
 
-    const client: SseClient = { res, workspaceId };
-    sseClients.add(client);
-
-    req.on("close", () => {
-      sseClients.delete(client);
-    });
-  });
+  if (!isMultiTenant) {
+    protocolHttpSurface.mount(app);
+  }
 
   // ---------------------------------------------------------------------------
-  // Hub API Endpoint — direct Hub operations for Channel reply tools
+  // OTLP Ingestion Routes (multi-tenant / deployed mode only)
   // ---------------------------------------------------------------------------
 
-  app.post("/hub/api", async (req: Request, res: Response) => {
-    try {
-      const { operation, agentId, ...args } = req.body as {
-        operation: string;
-        agentId?: string;
-        [key: string]: unknown;
-      };
+  if (isMultiTenant) {
+    mountOtlpRoutes(app, {
+      supabaseUrl: process.env.SUPABASE_URL!,
+      serviceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      staticApiKey: process.env.THOUGHTBOX_API_KEY,
+      localDevApiKey: process.env.THOUGHTBOX_API_KEY_LOCAL,
+    });
+  }
 
-      if (!operation) {
-        res.status(400).json({ error: "operation is required" });
-        return;
-      }
-
-      const result = await sharedHubHandler.handle(
-        agentId ?? null,
-        operation,
-        args as Record<string, any>,
-      );
-
-      res.json(result);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      res.status(400).json({ error: message });
-    }
-  });
-
-  const port = parseInt(process.env.PORT || "1731", 10);
   const httpServer = app.listen(port, () => {
     console.log(`Thoughtbox MCP Server listening on port ${port}`);
   });

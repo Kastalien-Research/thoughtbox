@@ -1,94 +1,156 @@
 ---
 name: theseus-protocol
-description: A friction-gated, boundary-constrained refactoring protocol for autonomous agents. Uses adversarial prompt evaluation (Cassandra Audit), strict interface locks (Epistemic Visas), and Thoughtbox-backed persistence to prevent the "Refactoring Fugue State".
-argument-hint: <init|checkpoint|visa|outcome|status> [args]
+description: Thoughtbox-first Theseus workflow for behavior-preserving refactors. Use this when structure changes but behavior must stay fixed and scope drift needs hard boundaries.
+argument-hint: <init|visa|checkpoint|outcome|status|complete> [args]
 user-invocable: true
-allowed-tools: Bash, Read, Glob, Grep, Write, mcp__thoughtbox__thoughtbox_gateway
+allowed-tools: Read, Glob, Grep, Task, Agent, mcp__thoughtbox__thoughtbox_gateway, mcp__thoughtbox__thoughtbox_theseus
 ---
 
-# The Theseus Protocol
+# Theseus Protocol
 
-A structured framework for autonomous refactoring. While debugging (Ulysses Protocol) is convergent—bounded by verifiable ignorance—refactoring is inherently divergent. Without friction, autoregressive agents will succumb to ontological sprawl ("Refactoring Fugue State").
+Theseus is a Thoughtbox-owned refactoring protocol.
 
-This protocol uses bureaucratic friction, adversarial auditing, and strict boundary locking to mechanically prevent scope drift and enforce atomic, value-additive changes.
+`thoughtbox_theseus` owns scope, visa state, audit state, and terminal status.
+Claude Code hooks only ask Thoughtbox whether a write should be blocked.
 
-**Core Philosophy**: You cannot ask an agent if its refactor improved the code (Maker's Bias). Value must be mathematically defined as that which survives adversarial critique.
+Do not use `.theseus/` files or `scripts/theseus.sh` as authoritative state.
+Do not rely on implicit `git reset --hard` recovery in the active workflow.
 
-## Persistent Environment via Thoughtbox
+## Runtime Contract
 
-Theseus integrates heavily with **Thoughtbox** (Supabase backend) to persist epistemic telemetry. Over time, recording the agent's structural choices, rejected checkpoints, and visa applications allows meta-agents to analyze tendencies and physically alter the repository's ruleset to make good outcomes more likely.
-
----
-
-## The Workflow & Mechanisms
-
-### 1. `init` — Scope Declaration and The Test Lock
-
-1. Initialize local state (e.g., `B=0`) and declare the files in scope.
-2. Start a Thoughtbox session for the refactoring trace:
-   ```json
-   thoughtbox_gateway { "operation": "start_new", "args": { "task": "theseus-refactor", "aspect": "protocol-session" } }
-   ```
-3. **The Test-Suite Write Lock**: Writing to `/tests/` or equivalent verification directories is cryptographically disabled. A true refactor changes structure without altering behavior. Modifying tests means altering behavior.
-
-### 2. `visa` — The Epistemic Visa (Handling B > 0)
-
-If the agent attempts to write to a file *outside* the declared scope, the action is blocked (`VisaRequiredException`).
-1. The agent must drop into Thoughtbox and submit an *Epistemic Visa*:
-   ```json
-   thoughtbox_gateway { "operation": "thought", "args": {
-     "thoughtType": "visa_application",
-     "justification": "Compiler failure forced modification in Module B due to signature change in Module A.",
-     "promised_modifications": ["Line 42 ONLY"],
-     "anti_pattern_ignorance": true
-   }}
-   ```
-2. Filing this visa introduces computational friction. The agent natively optimizes to avoid it, eliminating casual "Boy Scout" scope creep and forcing it to follow only necessary dependencies.
-
-### 3. `checkpoint` — The Cassandra Audit & Syntactic Tollbooth
-
-When the agent reaches a stable, tested state (`B=0`) and attempts a commit:
-
-1. **Syntactic Tollbooth**: The agent proposes a commit narrative. A regex hook denies the commit if it detects compound actions (e.g., words like "and", "also", "plus", or multiple verbs). Commits must be ruthlessly atomic.
-2. **The Cassandra Audit**: The diff is submitted to Thoughtbox and evaluated by an adversarial, zero-context LLM (Cassandra).
-   ```json
-   thoughtbox_gateway { "operation": "thought", "args": {
-     "thoughtType": "cassandra_audit",
-     "diff": "<git diff --stat>",
-     "target": "--reject-if-premature-abstraction --reject-if-moving-furniture"
-   }}
-   ```
-3. The checkpoint only saves if the primary agent successfully proves concrete structural yield (e.g., complexity reduction, interface decoupling) against Cassandra's critique.
-
-### 4. `outcome` — Red-Green Timer & Hard Reversibility
-
-If the agent makes a modification and breaks the compile/test step:
-1. It has exactly **one attempt** to repair the damage.
-2. If it fails the repair attempt, the environment enforces a ruthless `git reset --hard` to the last `B=0` checkpoint.
-3. This eliminates "shadow state" (where an agent hallucinates a fix 10 steps down the road while sitting in a broken environment).
-
----
+1. Protocol entry is explicit-only in v1.
+2. Before the first protocol tool call, ensure Thoughtbox session context exists:
+   - `thoughtbox_gateway { operation: "start_new", args: { task: "<refactor task>", aspect: "theseus-protocol" } }`
+   - `thoughtbox_gateway { operation: "cipher" }`
+3. Then call `thoughtbox_theseus` for every protocol transition.
+4. Hooks consult Thoughtbox before mutating file operations.
+5. Hooks do not spawn agents or mutate protocol state.
+6. Helper agents may audit or gather evidence, but only the coordinator calls `thoughtbox_theseus`.
 
 ## Commands
 
-Parse the first word of `$ARGUMENTS` to determine the command (implemented in `scripts/theseus.sh`):
+### `init`
 
-*   **`init <scope>`**: Lock tests, declare initial scope, start Thoughtbox session.
-*   **`visa <file> <reason>`**: Apply for out-of-bounds file modification.
-*   **`checkpoint <atomic-narrative>`**: Trigger the syntactic and Cassandra audits.
-*   **`outcome <compile-status>`**: Record test pass/fail. Triggers hard reset if 2 consecutive fails.
-*   **`status`**: Show current Boundary (B) state, active visas, and Cassandra audit history.
+Required inputs:
+- Declared scope
+- Optional refactor description
 
-## Candidate Hooks
+Call:
+```json
+thoughtbox_theseus {
+  "operation": "init",
+  "scope": ["src/module-a.ts", "src/module-b/"],
+  "description": "<refactor goal>"
+}
+```
 
-| Event | Hook | Rule Enforced |
-|-------|------|---------------|
-| `PreToolUse:Write` | **Scope Lock**: Reject edit if target file is not in declared scope and lacks an approved Visa. | Drift prevention. |
-| `PreToolUse:Write` | **Test Lock**: Reject edit if target file is a test file. | Invariant behavior. |
-| `PostToolUse:Bash (tests)` | **Red-Green Timer**: If failure count = 2, run `git reset --hard` and reset to last `B=0`. | Zero tolerance for shadow state. |
-| `git commit` | **The Tollbooth**: Reject if message contains "and" or fails Cassandra audit. | Reversibility and Value guarantees. |
+After `init`, test files are write-locked and out-of-scope writes require a visa.
 
-## Terminal States
-- **REFACTOR COMPLETE**: Checkpoint committed. Tests pass. Thoughtbox session archived for meta-agent trend analysis.
-- **AUDIT FAILURE**: Cassandra repeatedly rejects diffs as "Moving Furniture" -> Protocol terminates.
-- **SCOPE EXHAUSTION**: Visa applications rejected -> Protocol rolls back and splits the refactor task.
+### `visa`
+
+Required inputs:
+- Out-of-scope file path
+- Justification
+
+Call:
+```json
+thoughtbox_theseus {
+  "operation": "visa",
+  "filePath": "src/dependency.ts",
+  "justification": "<why the scope must expand>",
+  "antiPatternAcknowledged": true
+}
+```
+
+This is the only supported way to expand scope in the active workflow.
+
+### `checkpoint`
+
+Required inputs:
+- Diff hash or equivalent checkpoint identity
+- Atomic narrative
+- Cassandra verdict
+
+Call:
+```json
+thoughtbox_theseus {
+  "operation": "checkpoint",
+  "diffHash": "<diff hash>",
+  "commitMessage": "<atomic narrative>",
+  "approved": true,
+  "feedback": "<optional audit rationale>"
+}
+```
+
+Before `checkpoint`, you may optionally run a reviewer or judge agent to produce the Cassandra-style audit. That agent returns only a verdict and rationale. The coordinator records the outcome with `thoughtbox_theseus`.
+
+### `outcome`
+
+Required inputs:
+- Whether validation passed
+- Optional details
+
+Call:
+```json
+thoughtbox_theseus {
+  "operation": "outcome",
+  "testsPassed": false,
+  "details": "<what failed>"
+}
+```
+
+The protocol records whether the refactor remains in a valid state. Recovery requirements are described by protocol state, not hidden local git resets.
+
+### `status`
+
+Call:
+```json
+thoughtbox_theseus {
+  "operation": "status"
+}
+```
+
+Use the returned state as the only source of truth for scope, visas, and audit history.
+
+### `complete`
+
+Call:
+```json
+thoughtbox_theseus {
+  "operation": "complete",
+  "terminalState": "complete",
+  "summary": "<what structural yield was achieved>"
+}
+```
+
+Completion should yield protocol closure plus reusable knowledge about successes, audit failures, or scope exhaustion.
+
+## Invariants
+
+1. Scope is explicit and server-owned.
+2. Test files are never modified during the refactor.
+3. Out-of-scope writes require a visa.
+4. Checkpoints are explicit and auditable.
+5. Audit evidence may come from helper agents, but state transitions belong to the coordinator.
+6. Knowledge capture includes failures, not just successful refactors.
+
+## Subagent Use
+
+Use subagents only at explicit checkpoint phases.
+
+Good uses:
+- Cassandra-style audit before `checkpoint`
+- Independent diff review for premature abstraction
+- Focused evidence gathering around a requested visa
+
+Bad uses:
+- Hook-triggered subagents
+- Letting a helper agent call `thoughtbox_theseus`
+- Treating git rollback behavior as the protocol itself
+
+## References
+
+- Authoritative MCP tool: `thoughtbox_theseus`
+- Durable context and thought trace: `thoughtbox_gateway`
+- Protocol implementation: `src/protocol/theseus-tool.ts`
+- Enforcement design reference: `references/theseus-gate.md`

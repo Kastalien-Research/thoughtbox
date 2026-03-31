@@ -40,13 +40,19 @@ Purpose: Verify that the live `/mcp` endpoint exposes the intended Code Mode con
 **Goal:** Verify that moving to Code Mode did not remove prompts/resources from the MCP surface.
 
 **Steps:**
-1. Call `prompts/list`
-2. Call `resources/list`
+1. Call:
+   ```js
+   async () => ({
+     prompts: catalog.prompts.length,
+     resources: catalog.resources.length,
+     resourceTemplates: catalog.resourceTemplates.length
+   })
+   ```
 
 **Expected:**
-- Prompts list is non-empty
-- Resources list is non-empty
-- Prompts/resources remain accessible even though raw tools are gone
+- Prompts count > 0
+- Resources count > 0
+- Resource templates count > 0
 
 ---
 
@@ -55,7 +61,7 @@ Purpose: Verify that the live `/mcp` endpoint exposes the intended Code Mode con
 **Goal:** Verify the suite can proceed using only the two public Code Mode tools.
 
 **Steps:**
-1. Use `thoughtbox_search` to discover a session-related capability
+1. Use `thoughtbox_search` to discover session operations
 2. Use `thoughtbox_execute` to call `tb.session.list()`
 
 **Expected:** No dependency on any raw legacy tool invocation

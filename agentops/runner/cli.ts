@@ -62,6 +62,9 @@ async function handleImplement(args: string[]): Promise<void> {
     throw new Error('--proposal-id is required');
   }
   const proposalId = args[proposalIdIndex + 1];
+  if (!/^proposal-\d+$/.test(proposalId)) {
+    throw new Error(`--proposal-id must match proposal-N format, got: ${proposalId}`);
+  }
 
   // Parse --issue-number
   const issueNumberIndex = args.indexOf('--issue-number');
@@ -69,6 +72,9 @@ async function handleImplement(args: string[]): Promise<void> {
     throw new Error('--issue-number is required');
   }
   const issueNumber = parseInt(args[issueNumberIndex + 1], 10);
+  if (Number.isNaN(issueNumber)) {
+    throw new Error(`--issue-number must be a number, got: ${args[issueNumberIndex + 1]}`);
+  }
 
   // Parse --mode (or infer from label)
   let mode: 'SMOKE' | 'REAL' = 'REAL';

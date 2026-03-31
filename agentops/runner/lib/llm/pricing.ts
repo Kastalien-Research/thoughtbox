@@ -41,18 +41,11 @@ export const ANTHROPIC_PRICING: Record<string, ModelPricing> = {
       outputPricePerMToken: 22.50,
     },
     source: 'https://www.anthropic.com/pricing',
-    lastUpdated: '2026-01-29',
+    lastUpdated: '2026-03-25',
   },
   'claude-haiku-4-5-20250919': {
     inputPricePerMToken: 1.00,
     outputPricePerMToken: 5.00,
-    source: 'https://www.anthropic.com/pricing',
-    lastUpdated: '2026-01-29',
-  },
-  // Legacy models (commonly used in config)
-  'claude-3-5-sonnet-20241022': {
-    inputPricePerMToken: 3.00,
-    outputPricePerMToken: 15.00,
     source: 'https://www.anthropic.com/pricing',
     lastUpdated: '2026-01-29',
   },

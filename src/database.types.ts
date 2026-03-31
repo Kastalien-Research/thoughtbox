@@ -227,6 +227,62 @@ export type Database = {
           },
         ]
       }
+      otel_events: {
+        Row: {
+          body: string | null
+          created_at: string | null
+          event_attrs: Json | null
+          event_name: string
+          event_type: string
+          id: string
+          metric_value: number | null
+          resource_attrs: Json | null
+          session_id: string | null
+          severity: string | null
+          timestamp_at: string
+          timestamp_ns: number
+          workspace_id: string
+        }
+        Insert: {
+          body?: string | null
+          created_at?: string | null
+          event_attrs?: Json | null
+          event_name: string
+          event_type: string
+          id?: string
+          metric_value?: number | null
+          resource_attrs?: Json | null
+          session_id?: string | null
+          severity?: string | null
+          timestamp_at: string
+          timestamp_ns: number
+          workspace_id: string
+        }
+        Update: {
+          body?: string | null
+          created_at?: string | null
+          event_attrs?: Json | null
+          event_name?: string
+          event_type?: string
+          id?: string
+          metric_value?: number | null
+          resource_attrs?: Json | null
+          session_id?: string | null
+          severity?: string | null
+          timestamp_at?: string
+          timestamp_ns?: number
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "otel_events_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           created_at: string
@@ -554,6 +610,7 @@ export type Database = {
           options: Json | null
           parent_hash: string | null
           progress_data: Json | null
+          receipt_data: Json | null
           revises_thought: number | null
           session_id: string
           thought: string
@@ -582,6 +639,7 @@ export type Database = {
           options?: Json | null
           parent_hash?: string | null
           progress_data?: Json | null
+          receipt_data?: Json | null
           revises_thought?: number | null
           session_id: string
           thought: string
@@ -610,6 +668,7 @@ export type Database = {
           options?: Json | null
           parent_hash?: string | null
           progress_data?: Json | null
+          receipt_data?: Json | null
           revises_thought?: number | null
           session_id?: string
           thought?: string
@@ -719,6 +778,14 @@ export type Database = {
         | { Args: { target_path: string }; Returns: Json }
         | { Args: { target_path: string; ws_id?: string }; Returns: Json }
       is_workspace_member: { Args: { ws_id: string }; Returns: boolean }
+      otel_session_cost: {
+        Args: { p_session_id?: string; p_workspace_id: string }
+        Returns: {
+          data_points: number
+          model: string
+          total_cost: number
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never

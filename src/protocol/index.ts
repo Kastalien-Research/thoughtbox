@@ -15,6 +15,8 @@ export {
   type UlyssesToolInput,
 } from './ulysses-tool.js';
 
+export { isTestFile, ULYSSES_STATE_NEEDS_REFLECT } from './types.js';
+
 export type {
   Protocol,
   TheseusTerminal,
@@ -32,4 +34,6 @@ export type {
   PlanInput,
   UlyssesOutcomeInput,
   ReflectInput,
+  ProtocolEnforcementInput,
+  ProtocolEnforcementResult,
 } from './types.js';
