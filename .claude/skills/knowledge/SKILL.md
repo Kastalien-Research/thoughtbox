@@ -1,6 +1,6 @@
 ---
 name: knowledge
-description: Unified cross-store knowledge query. Searches MEMORY.md, Thoughtbox knowledge graph, Beads issues, git history, and assumption registry in parallel, returning results with provenance.
+description: Unified cross-store knowledge query. Searches MEMORY.md, Thoughtbox knowledge graph, git history, and assumption registry in parallel, returning results with provenance.
 argument-hint: <search query>
 user-invocable: true
 allowed-tools: Read, Glob, Grep, Bash, ToolSearch
@@ -16,11 +16,10 @@ Execute all searches in parallel:
 
 1. **MEMORY.md**: Search the auto memory file at `.claude/projects/*/memory/MEMORY.md` for the query terms using Grep
 2. **Thoughtbox Knowledge Graph**: Use ToolSearch to load `mcp__thoughtbox_gateway` tools, then search entities and observations matching the query
-3. **Beads Issues**: Run `bd search "$ARGUMENTS"` to find matching issues
-4. **Git History**: Run `git log --all --oneline --grep="$ARGUMENTS" -20` for commit history
-5. **Assumption Registry**: Search `.assumptions/*.jsonl` for matching assumption records using Grep
-6. **DGM Patterns**: Search `.dgm/fitness.json` for patterns matching the query using Grep
-7. **Session Handoffs**: Search `.sessions/handoff-*.json` for relevant context using Grep
+3. **Git History**: Run `git log --all --oneline --grep="$ARGUMENTS" -20` for commit history
+4. **Assumption Registry**: Search `.assumptions/*.jsonl` for matching assumption records using Grep
+5. **DGM Patterns**: Search `.dgm/fitness.json` for patterns matching the query using Grep
+6. **Session Handoffs**: Search `.sessions/handoff-*.json` for relevant context using Grep
 
 ### Phase 2: Collate and Rank (Orient)
 
@@ -42,14 +41,12 @@ Present results grouped by relevance, with provenance:
 - [Thoughtbox] Entity: {name} — {observation} (created {date})
 
 ### Medium Relevance
-- [Beads] {issue-id}: {title} ({status})
 - [Git] {commit-hash}: {message} ({date})
 
 ### Low Relevance
 - [Assumptions] {assumption} (confidence: {N}%, last verified: {date})
 
 ### Cross-References
-- MEMORY.md line {N} references Beads issue {id}
 - Thoughtbox entity "{name}" relates to git commit {hash}
 
 ### Gaps

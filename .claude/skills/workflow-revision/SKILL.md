@@ -36,8 +36,7 @@ Read the review findings and classify each into:
 
 For each finding that requires a sub-agent:
 
-1. Create a bead for the fix: `bd create --title="Fix: <finding summary>" --type=bug --priority=2`
-2. Dispatch a sub-agent with:
+1. Dispatch a sub-agent with:
    - The specific finding to address
    - The relevant spec section
    - The file(s) to modify
@@ -76,7 +75,7 @@ After all fixes are applied:
 
 **If review passes** (all claims verified, no blocking findings):
 - Update state: set `stages.revision.status` to `"completed"`, `currentStage` to `"compound"`
-- Close any fix beads created in this stage
+
 - Hand off to the conductor
 
 **If review still has findings**:
@@ -103,7 +102,7 @@ Options:
 A. Accept current state (acknowledge known gaps, proceed to Compound)
 B. Re-enter at Planning stage (re-plan the approach)
 C. Re-enter at Dev-Docs stage (revise spec/ADR)
-D. Abandon workflow (close bead, delete branch)
+D. Abandon workflow (delete branch)
 
 Recommendation: [A/B/C/D] because [reason]
 ```
@@ -131,7 +130,7 @@ Throughout this stage, keep the state file current:
 
 ## Operational Rules
 
-- Each fix sub-agent gets its own bead (1 bead = 1 fix = 1 commit after review passes)
+- Each fix gets its own sub-agent (1 fix = 1 commit after review passes)
 - Do NOT commit during revision — commits happen only after review validates the final state
 - If a fix introduces new issues, those count against the iteration budget
 - Inline style fixes do not consume an iteration

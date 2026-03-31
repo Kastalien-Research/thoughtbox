@@ -52,6 +52,26 @@ if [[ "$load_context" == "true" ]]; then
         if [[ "$changes" -gt 0 ]]; then
             context+="Uncommitted changes: $changes files\n"
         fi
+
+        # GitHub Flow enforcement: warn if not on main
+        if [[ "$branch" != "main" && "$branch" != "master" ]]; then
+            # Check if the branch has already been merged to main
+            if git merge-base --is-ancestor HEAD main 2>/dev/null; then
+                context+="\n⚠️ STALE BRANCH: You are on '$branch' which is already merged to main.\n"
+                context+="Run: git checkout main && git pull origin main && git branch -d $branch\n"
+                context+="Do this BEFORE starting any new work.\n"
+            else
+                # Check if there's a merged PR for this branch
+                if command -v gh &> /dev/null; then
+                    pr_state=$(gh pr list --head "$branch" --state merged --json number --jq '.[0].number' 2>/dev/null || true)
+                    if [[ -n "$pr_state" ]]; then
+                        context+="\n⚠️ STALE BRANCH: PR #$pr_state for '$branch' was merged.\n"
+                        context+="Run: git checkout main && git pull origin main && git branch -d $branch\n"
+                        context+="Do this BEFORE starting any new work.\n"
+                    fi
+                fi
+            fi
+        fi
     fi
 
     # Project-scoped knowledge memory status (lightweight; no token-heavy dumps)
@@ -138,18 +158,6 @@ if [[ "$load_context" == "true" ]]; then
             context+="\n--- Recent GitHub Issues ---\n"
             context+="$issues\n"
         fi
-    fi
-
-    # Session metrics trend (closed compounding loop)
-    metrics_file="$project_dir/.claude/state/session-metrics.jsonl"
-    if [[ -f "$metrics_file" ]]; then
-        recent_closes=$(tail -100 "$metrics_file" \
-            | jq -s '[.[] | select(.event=="bead_closed")] | length' 2>/dev/null || echo 0)
-        last_7d=$(tail -100 "$metrics_file" \
-            | jq -s --arg cutoff "$(date -u -v-7d +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || date -u +%Y-%m-%dT%H:%M:%SZ)" \
-              '[.[] | select(.event=="bead_closed" and .ts > $cutoff)] | length' 2>/dev/null || echo 0)
-        context+="\n--- Session Metrics ---\n"
-        context+="Beads closed (recent): $recent_closes | Last 7 days: $last_7d\n"
     fi
 
     # Thoughtbox interleaved thinking primer

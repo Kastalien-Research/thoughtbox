@@ -95,20 +95,7 @@ Based on the workflow outcome:
 1. Leave artifacts in staging with a note about the incomplete state
 2. The next workflow that touches this domain will find them during ideation
 
-### Step 4: Close Tracking Issues
-
-1. Close the main workflow bead:
-   ```bash
-   bd close <beadId> --reason="Workflow completed: <1-line summary>"
-   ```
-2. Close any sub-beads created during implementation and revision:
-   ```bash
-   bd list --status=in_progress
-   ```
-   Close each one that was part of this workflow.
-3. Create follow-up beads for any known gaps or deferred items discovered during the workflow.
-
-### Step 5: Prepare for Merge
+### Step 4: Prepare for Merge
 
 1. **Ensure all changes are committed**:
    ```bash
@@ -143,11 +130,11 @@ Based on the workflow outcome:
    Merge now, or leave open for review?
    ```
 
-### Step 6: Delegate Learning Capture
+### Step 5: Delegate Learning Capture
 
 Invoke `/capture-learning` to extract reusable learnings from this workflow session. Pass it the reflection from Step 1 as context.
 
-### Step 7: Update Workflow State
+### Step 6: Update Workflow State
 
 Set the final state:
 
@@ -164,7 +151,7 @@ Set the final state:
 }
 ```
 
-### Step 8: Final Report
+### Step 7: Final Report
 
 Present the completion summary:
 
@@ -174,7 +161,6 @@ WORKFLOW COMPLETE
 
 <title>
 Branch: <branch>
-Bead: <beadId> (closed)
 ADR: <final location>
 
 Stages:
@@ -187,14 +173,12 @@ Stages:
   7. Compound     [x] learning captured
   8. Reflection   [x] ADR accepted/rejected
 
-Follow-up issues: N created
 PR: <url or "merged">
 ```
 
 ## Anti-Patterns
 
 - Do NOT skip the ADR move — artifacts left in staging rot and confuse future workflows
-- Do NOT close beads without a reason — the reason is the archaeological record
 - Do NOT merge without pushing first — local-only merges are invisible to the team
 - Do NOT skip the learning capture — the whole point of reflection is to compound
 - Do NOT fabricate reflection — base it on actual evidence from the workflow state and summaries

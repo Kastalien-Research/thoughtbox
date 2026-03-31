@@ -56,10 +56,10 @@ check "dispatcher exit code is 0" "$?"
 # Test 4: Individual hooks log errors on malformed input
 echo ""
 echo "Test 4: ulysses_state_writer handles corrupted current-bead.json"
-bead_dir="$PROJECT_DIR/.claude/state/bead-workflow"
-mkdir -p "$bead_dir"
+state_dir="$PROJECT_DIR/.claude/state/bead-workflow"
+mkdir -p "$state_dir"
 # Create a corrupted current-bead.json
-echo "CORRUPTED" > "$bead_dir/current-bead.json"
+echo "CORRUPTED" > "$state_dir/current-bead.json"
 echo '{"tool_name":"Bash","tool_input":{"command":"vitest run"},"tool_response":{"stdout":"FAIL","exit_code":"1"}}' \
   | CLAUDE_PROJECT_DIR="$PROJECT_DIR" "$PROJECT_DIR/.claude/hooks/ulysses_state_writer.sh" 2>/dev/null || true
 if grep -q "ulysses_state_writer" "$ERROR_LOG" 2>/dev/null; then
@@ -68,7 +68,7 @@ else
   check "ulysses_state_writer logged error for corrupted JSON" "1"
 fi
 # Clean up corrupted state
-rm -f "$bead_dir/current-bead.json" "$bead_dir/current-bead.json.lock"
+rm -f "$state_dir/current-bead.json" "$state_dir/current-bead.json.lock"
 
 # Test 5: Error log is valid JSONL
 echo ""

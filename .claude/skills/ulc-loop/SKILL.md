@@ -90,7 +90,7 @@ Max iterations: <max_iterations>
 Completion promise: "BUDGET EXHAUSTED OR ALL WORK COMPLETE"
 
 The loop will:
-1. Check beads backlog for ready work
+1. Check backlog for ready work
 2. Dispatch sub-agents for substantial tasks
 3. Explore via QD when backlog is empty
 4. Stop when budget is exhausted or all work is complete

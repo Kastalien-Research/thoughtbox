@@ -35,7 +35,7 @@ Budget your turns across four phases. Do not skip phases or over-invest in any s
 - Run full test suite to confirm no regressions
 - Document root cause, classification, and fix
 - Update memory with patterns learned
-- Close the beads issue with evidence
+- Document fix with evidence
 
 ## Spiral Detection
 
@@ -64,10 +64,3 @@ Every fix report must include:
 5. **After evidence**: Passing state
 6. **Regression check**: Full test suite status
 
-## Issue Tracking
-
-Use `bd` for all task tracking:
-- `bd show <id>` to review the issue
-- `bd update <id> --status=in_progress` when starting
-- `bd close <id>` when fix is verified
-- `bd create --title="..." --type=bug` for new issues discovered during triage

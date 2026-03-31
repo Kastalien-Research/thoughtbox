@@ -14,7 +14,6 @@ Distill wisdom from experience in this area: $ARGUMENTS
 
 Gather evidence of past decisions and outcomes:
 - Read recent git history (`git log --oneline -20`)
-- Check beads issues (`bd list --status=closed`)
 - Review agent memory and learnings
 - Check `.claude/rules/` for existing principles
 - Look at code patterns in the codebase

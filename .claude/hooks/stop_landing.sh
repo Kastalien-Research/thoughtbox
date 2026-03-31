@@ -4,7 +4,6 @@
 set -uo pipefail
 
 project_dir="${CLAUDE_PROJECT_DIR:-$(pwd)}"
-bead_state="$project_dir/.claude/state/bead-workflow/current-bead.json"
 
 input_json=$(cat)
 
@@ -17,8 +16,8 @@ fi
 issues=""
 
 # ── Check 1: Uncommitted changes ─────────────────────────────────
-uncommitted=$(git -C "$project_dir" status --porcelain 2>/dev/null | grep -cv '^??')                                                    
-uncommitted=${uncommitted:-0}        
+uncommitted=$(git -C "$project_dir" status --porcelain 2>/dev/null | grep -cv '^??')
+uncommitted=${uncommitted:-0}
 if [[ "$uncommitted" -gt 0 ]]; then
   issues+="$uncommitted uncommitted files. "
 fi
@@ -29,15 +28,17 @@ if [[ "$unpushed" -gt 0 ]]; then
   issues+="$unpushed unpushed commits. "
 fi
 
-# ── Check 3: In-progress bead being abandoned ────────────────────
-if [[ -f "$bead_state" ]]; then
-  bead_id=$(jq -r '.bead_id // "unknown"' "$bead_state" 2>/dev/null)
-  issues+="In-progress bead $bead_id still active. "
+# ── Check 3: Still on a stale/merged branch ──────────────────────
+branch=$(git -C "$project_dir" branch --show-current 2>/dev/null || echo "unknown")
+if [[ "$branch" != "main" && "$branch" != "master" && "$branch" != "unknown" ]]; then
+  if git -C "$project_dir" merge-base --is-ancestor HEAD main 2>/dev/null; then
+    issues+="On merged branch '$branch' — switch to main and delete it. "
+  fi
 fi
 
 # ── Decision ──────────────────────────────────────────────────────
 if [[ -n "$issues" ]]; then
-  echo "WARNING: Work not landed: ${issues}Commit, push, and close/defer beads before stopping." >&2
+  echo "WARNING: Work not landed: ${issues}Commit, push, and switch to main before stopping." >&2
 fi
 
 exit 0

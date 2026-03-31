@@ -1,36 +1,36 @@
 ---
 name: status
-description: Generate a status report across all workstreams using beads issue tracking. Shows active work, blockers, and available tasks.
+description: Generate a status report across all workstreams using git history and GitHub issues. Shows active work, recent changes, and open PRs.
 argument-hint: ''
 user-invocable: true
 allowed-tools: Bash
 ---
 
-Generate a comprehensive status report by running these commands:
+Generate a comprehensive status report by running these checks:
 
-!`bd stats 2>/dev/null || echo "No beads stats available"`
+!`git log --oneline -10 2>/dev/null || echo "No recent commits"`
 
-!`bd list --status=in_progress 2>/dev/null || echo "No in-progress issues"`
+!`git branch -a --sort=-committerdate | head -10 2>/dev/null || echo "No branches"`
 
-!`bd blocked 2>/dev/null || echo "No blocked issues"`
+!`gh issue list --limit 10 2>/dev/null || echo "No GitHub issues available"`
 
-!`bd ready 2>/dev/null || echo "No ready issues"`
+!`gh pr list --limit 10 2>/dev/null || echo "No open PRs"`
 
 Summarize findings in this format:
 
 ## Status Report
 
-### Active Work
-[List in-progress issues with assignees]
+### Recent Activity
+[List recent commits and active branches]
 
-### Blocked
-[List blocked issues and what they're waiting on]
+### Open PRs
+[List open pull requests and their status]
 
-### Available
-[List ready issues that can be picked up]
+### Open Issues
+[List open GitHub issues]
 
 ### Project Health
-[Stats summary — open/closed/blocked counts]
+[Summary of activity level, branch hygiene, PR backlog]
 
 ### Recommendations
 [Suggested next actions based on current state]

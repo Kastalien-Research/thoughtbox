@@ -1,10 +1,9 @@
 #!/usr/bin/env bash
 # PostCompact: Re-inject critical state after compaction.
-# Outputs additionalContext JSON so Claude recovers bead, ulysses, git, and architecture context.
+# Outputs additionalContext JSON so Claude recovers ulysses, git, and architecture context.
 set -uo pipefail
 
 project_dir="${CLAUDE_PROJECT_DIR:-$(pwd)}"
-bead_state="$project_dir/.claude/state/bead-workflow/current-bead.json"
 ulysses_reflect="$project_dir/.claude/state/ulysses/reflect-required"
 handoff_file="$project_dir/.claude/session-handoff.json"
 
@@ -18,15 +17,6 @@ ctx+="## Decided Architecture (non-negotiable)\n"
 ctx+="Execution: Cloud Run. Persistence: Supabase (Postgres, Auth, Storage). "
 ctx+="Billing: Stripe. Session routing: Cloud Memorystore for Redis. "
 ctx+="NO Cloud Storage FUSE. Containers are stateless.\n\n"
-
-# ── Current bead state ─────────────────────────────────────────────
-if [[ -f "$bead_state" ]]; then
-  bead_id=$(jq -r '.bead_id // "unknown"' "$bead_state" 2>/dev/null)
-  hyp=$(jq -r '.hypothesis_stated // false' "$bead_state" 2>/dev/null)
-  surprise=$(jq -r '.surprise_count // 0' "$bead_state" 2>/dev/null)
-  ctx+="## Active Bead\n"
-  ctx+="ID: $bead_id | Hypothesis: $hyp | Surprises: $surprise\n\n"
-fi
 
 # ── Ulysses reflect-required ──────────────────────────────────────
 if [[ -f "$ulysses_reflect" ]]; then
@@ -64,9 +54,6 @@ if [[ -f "$handoff_file" ]]; then
     ctx+="$summary\n\n"
   fi
 fi
-
-# ── Run bd prime (side effect, ignore failures) ───────────────────
-bd prime > /dev/null 2>&1 || true
 
 # ── Output additionalContext JSON ─────────────────────────────────
 jq -n --arg ctx "$ctx" '{

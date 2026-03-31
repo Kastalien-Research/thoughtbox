@@ -26,11 +26,6 @@ Before asking the questions, gather existing context that might already contain 
 2. **Check compound learnings** for prior experience:
    Search for relevant learnings in knowledge stores, agent memory, and previous reflections.
 
-3. **Check open issues** for related work:
-   ```bash
-   bd list --status=open
-   ```
-
 Present a brief summary of what you found before proceeding to the questions.
 
 ### Step 2: Ask the Four Questions
@@ -98,8 +93,7 @@ If the user confirms proceeding:
 
 If the user decides NOT to proceed:
 1. Update workflow state with status `"completed"` and notes explaining why
-2. Close the workflow bead with the reason
-3. The workflow ends here
+2. The workflow ends here
 
 ## Prior Art Check
 

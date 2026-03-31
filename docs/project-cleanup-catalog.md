@@ -4,7 +4,7 @@ Generated 2026-03-24. Audit of all top-level directories and files.
 
 ## Corrections
 
-- `self-improvement/` is NOT superseded by Observatory. KEEP.
+- `self-improvement/`, `agentic-dev-team/`, `agentops/`, `dgm-specs/` removed as part of unified autonomy control plane cleanup (2026-03-31).
 
 ## DELETE (no active references, no ongoing value)
 
@@ -18,7 +18,6 @@ Generated 2026-03-24. Audit of all top-level directories and files.
 | `.letta/` | Stale Letta agent session reference |
 | `.specification-suite/` | Superseded by `.specs/` and `.adr/`; crash lockfiles |
 | `audit-demo/` | Vendored copy of `modelcontextprotocol/servers` for a one-time audit |
-| `beads_tb/` | Empty Dolt database stub |
 | `benchmarks/` | Moved to `dgm-specs/harness/`; residual |
 | `code-review-comments/` | Disposable Greptile review dumps from past PRs |
 | `infra/` | Committed runtime log dumps, no config or IaC |
@@ -63,15 +62,11 @@ Contains WORKFLOW-v2.md and product vision. Promote to `docs/` rather than archi
 | `.husky/` | Active pre-commit hooks |
 | `.specs/` | Canonical spec directory |
 | `.thoughtbox/` | Local filesystem storage for the MCP server |
-| `agentic-dev-team/` | Spec referenced by AGENTS.md for escalation thresholds |
-| `agentops/` | CI workflows + npm scripts depend on it |
-| `dgm-specs/` | Benchmark harness invoked by npm scripts; src/ cross-references |
 | `docs/` | WORKFLOW-MASTER-DESCRIPTION.md is a live reference target |
 | `observability/` | Grafana/Prometheus configs mounted by docker-compose |
 | `otel-collector/` | OTEL configs mounted by docker-compose |
 | `research-workflows/` | SQLite DB used by agent scripts |
 | `scripts/` | CI workflows + npm scripts depend on it |
-| `self-improvement/` | SIL specs — NOT superseded by Observatory |
 | `supabase/` | Active migrations and local dev config |
 | `templates/` | Build-time template source for notebooks |
 | All standard config files | package.json, tsconfig, vitest, oxlint, Dockerfile, etc. |

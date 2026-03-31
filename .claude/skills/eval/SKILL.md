@@ -17,8 +17,7 @@ Collect and display metrics for the current session:
 
 1. Count commits: `git log --oneline --since="today" | wc -l`
 2. Count test results: check for recent vitest output or `.eval/metrics/` entries
-3. Count beads changes: `bd list --status=closed` recently
-4. Token usage: check LangSmith state file if available
+3. Token usage: check LangSmith state file if available
 5. Pattern usage: check `.dgm/fitness.json` for patterns used this session
 6. Session duration: check session start time from logs
 
@@ -30,7 +29,7 @@ Display as:
 |--------|-------|----------|-------|
 | Commits | 5 | 3.2 avg | +56% |
 | Tests passing | 42/42 | 40/42 | +2 |
-| Beads closed | 3 | 2.1 avg | +43% |
+
 | Files changed | 12 | 8.5 avg | +41% |
 | Patterns used | 7 | 5.3 avg | +32% |
 ```
@@ -67,8 +66,6 @@ Write a metric snapshot to `.eval/metrics/session-{timestamp}.json`:
     "commits": 0,
     "tests_total": 0,
     "tests_passing": 0,
-    "beads_closed": 0,
-    "beads_created": 0,
     "files_changed": 0,
     "patterns_referenced": 0,
     "assumptions_verified": 0,

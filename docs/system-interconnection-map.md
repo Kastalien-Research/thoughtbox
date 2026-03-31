@@ -1,6 +1,8 @@
 # System Interconnection Map
 
-Generated 2026-03-24. Exhaustive audit of all infrastructure systems, their connections, and their operational status.
+Generated 2026-03-24. Updated 2026-03-31.
+
+> **Note (2026-03-31):** The directories `agentops/`, `dgm-specs/`, `agentic-dev-team/`, `self-improvement/`, `.specs/self-improvement-loop/`, and `.specs/patroy-one/` have been removed as part of the unified autonomy control plane cleanup. Systems 1, 4, and 6 below and the Self-Improvement Specs section are historical records of what existed at audit time. Cross-system references to those directories in other sections are now stale.
 
 ## Executive Summary
 
@@ -18,8 +20,6 @@ The most consequential finding: **connecting SIL to Observatory requires ~35 lin
 | Changelog update | Every merged PR | Working |
 | Build (embed-templates, embed-loops) | Every build | Working |
 | MCP publish | Every version tag | Working |
-| AgentOps daily brief | Daily cron (11:30 UTC) | Runs but silently degrades to fixture data (no API key) |
-| AgentOps implement | Issue label trigger | Runs but writes marker files, not real code |
 | Self-improvement loop | Weekly cron (Sun 2am UTC) + dispatch | Runs but Observatory wire is disconnected |
 
 ### What's Built But Disconnected
@@ -27,15 +27,12 @@ The most consequential finding: **connecting SIL to Observatory requires ~35 lin
 | Component | What it needs to work |
 |-----------|----------------------|
 | Observatory (ImprovementTracker → Store → Scorecard → WebSocket) | SIL to call `improvementTracker.track*()` (~35 lines) |
-| AgentOps signal collection | `ANTHROPIC_API_KEY` in CI workflow env |
-| AgentOps implementation | Real code generation agent (current: marker file only) |
-| DGM benchmark harness | CI integration (currently npm-only, never triggered) |
 | Research-workflows MAP-Elites | Execution loop (all 11 workflows at seed/0.0) |
 | ULC QD exploration | Fix broken column names in SQLite query |
 
 ---
 
-## System 1: AgentOps (`agentops/`)
+## System 1: AgentOps (`agentops/`) — REMOVED 2026-03-31
 
 ### Purpose
 
@@ -133,8 +130,10 @@ trigger: issue labeled smoke:proposal-N or approved:proposal-N
 
 ### Connections to Other Systems
 
-- **To scripts/**: `scripts/utils/bootstrap-signal-store.ts` writes `agentops/signals/index.json`; `scripts/agents/ulc-meta-loop.ts` reads `agentops/signals/*.jsonl`
-- **To everything else**: None. AgentOps is fully self-contained. No shared state with SIL, dgm-specs, observatory, or research-workflows.
+> Directory removed 2026-03-31. Former connections listed for historical reference.
+
+- **To scripts/**: `scripts/utils/bootstrap-signal-store.ts` wrote `agentops/signals/index.json`; `scripts/agents/ulc-meta-loop.ts` read `agentops/signals/*.jsonl`
+- **To everything else**: None. AgentOps was fully self-contained.
 
 ---
 
@@ -334,7 +333,7 @@ Needs: `improvement_events` Supabase table + Supabase-backed store implementatio
 
 ---
 
-## System 4: DGM Benchmark Harness (`dgm-specs/`)
+## System 4: DGM Benchmark Harness (`dgm-specs/`) — REMOVED 2026-03-31
 
 ### Purpose
 
@@ -472,7 +471,7 @@ The reinit schema is missing the 4 runtime tables (`adversarial_findings`, `atta
 
 ---
 
-## System 6: Agentic Dev Team (`agentic-dev-team/`)
+## System 6: Agentic Dev Team (`agentic-dev-team/`) — REMOVED 2026-03-31
 
 ### Purpose
 
@@ -522,7 +521,6 @@ Hypothesis doc for Hub + Agent Teams coordination proof on `fix/sub-agent-stage-
 | `check-artifacts.sh` | `artifact-guard.yml`, pre-commit hook | Blocks local-only files from commits |
 | `changelog-update.ts` | `changelog.yml` on merged PRs | Parses conventional commits → CHANGELOG.md |
 | `agents/run-improvement-loop.ts` | `self-improvement-loop.yml` weekly | SIL entry point |
-| `utils/update-bead-handoff.mjs` | PostToolUse hook on `bd close` | Updates session-handoff.json |
 
 ### Agent Runner Infrastructure
 
@@ -543,7 +541,7 @@ Hypothesis doc for Hub + Agent Teams coordination proof on `fix/sub-agent-stage-
 | `db-migrate.sh` | References SQLite/Drizzle; superseded by Supabase |
 | `utils/spec-index.mjs` | Targets `specs/` (old path), not `.specs/` |
 | `utils/capture-handoff.mjs` | Intended for PreCompact/Stop hooks but never wired |
-| `utils/validate-handoff.mjs` | Schema check would always fail (expects `beads` field not written) |
+| `utils/validate-handoff.mjs` | Schema check would always fail (expects fields not written) |
 | `utils/time-check.ts` | Standalone diagnostic, no trigger |
 | `utils/bootstrap-signal-store.ts` | One-time setup, no trigger |
 | `validate-server-json.cjs` | One-time MCP schema validation |
@@ -656,22 +654,20 @@ SIL (inner loop)
   → Verification audit trail
 ```
 
-### Actual Flow (what's connected today)
+### Actual Flow (as of 2026-03-31 cleanup)
 
 ```
-AgentOps ──── ISOLATED (no LLM key, fixture mode, no shared state) ────
+AgentOps ──── REMOVED (directory deleted)
+DGM Benchmarks ──── REMOVED (directory deleted)
+Agentic Dev Team ──── REMOVED (directory deleted)
+self-improvement/ ──── REMOVED (directory deleted)
 
 SIL ─── RUNS but ──→ ✗ Observatory (import missing, ~35 lines to fix)
-                  ──→ ✗ DGM Benchmarks (never called from CI)
 
 Observatory ──── ALL INTERNAL WIRING COMPLETE ──── but never receives events
 
-DGM Benchmarks ──── FUNCTIONAL via npm ──── but never triggered automatically
-
 Research Workflows ──── SEEDED ──── but evolutionary loop never run
                    ──── 6 adversarial findings ──── all unfixed
-
-Agentic Dev Team ──── SPEC ONLY ──── roles map to scripts/agents/ conceptually
 ```
 
 ### Junction Points (where connections break)
@@ -679,13 +675,8 @@ Agentic Dev Team ──── SPEC ONLY ──── roles map to scripts/agents
 | From | To | Break point | Fix effort |
 |------|----|-------------|-----------|
 | SIL | Observatory | Missing import + 8 track calls in sil-010 | ~35 lines, 2 files |
-| SIL | DGM Benchmarks | No CI step calls benchmarks after SIL | Add step to self-improvement-loop.yml |
-| AgentOps | LLM synthesis | `ANTHROPIC_API_KEY` missing from CI env | Add secret to workflow env block |
-| AgentOps | Real code gen | Implement writes marker, not code | Wire real implementation agent |
 | Observatory | Supabase | Store writes to filesystem JSONL | New table + Supabase store impl |
 | ULC | Research DB | Wrong column names in QD query | Fix 3 column names in 2 skill files |
-| DGM | CI | Benchmarks never triggered automatically | Add to CI or SIL workflow |
-| Research DB | REINIT schema | 4 runtime tables missing from schema.sql | Add DDL to REINIT-PLEASE/schema.sql |
 
 ---
 
@@ -718,7 +709,7 @@ From `dgm-specs/implementation-status.json` + verified against filesystem:
 
 ---
 
-## Self-Improvement Specs (`self-improvement/`)
+## Self-Improvement Specs (`self-improvement/`) — REMOVED 2026-03-31
 
 ### Documents and What They Specify
 
@@ -759,23 +750,21 @@ dgm-specs/ (validation: benchmark harness + runtime state)
 - SIL-006 branching reasoner
 - SIL-012 CLAUDE.md updater
 - BCV 4-layer contract verification
-- DGM benchmark harness (4 scenarios, baseline comparison)
-- AgentOps signal collection (4 sources) + synthesis + issue creation
 - Research workflows DB with MAP-Elites grid + adversarial playbook
 - 17 CI workflows covering lint, test, publish, triage, dedupe, changelog
 - Agent runner infrastructure (generic + specialized + adversarial)
 
+### Removed (2026-03-31):
+- AgentOps signal collection, synthesis, and issue creation (`agentops/`)
+- DGM benchmark harness (`dgm-specs/`)
+- Agentic dev team spec (`agentic-dev-team/`)
+- Self-improvement specs (`self-improvement/`)
+
 ### Broken connections to fix:
 1. SIL → Observatory (~35 lines)
-2. AgentOps API key in CI (1 line)
-3. ULC QD query column names (3 columns in 2 files)
-4. REINIT-PLEASE schema completeness (4 DDL statements)
+2. ULC QD query column names (3 columns in 2 files)
 
 ### Missing pieces:
 1. Supabase persistence for improvement events (replaces JSONL)
-2. DGM benchmarks in CI (add workflow step)
-3. AgentOps real implementation agent (replace marker file)
-4. Observatory evaluation gatekeeper Gate 2 (currently stub)
-5. SPEC-persistence.md (never written)
-6. Tiered evaluator (SIL-004, not started)
-7. MAP-Elites evolutionary loop (seeded but never exercised)
+2. Observatory evaluation gatekeeper Gate 2 (currently stub)
+3. MAP-Elites evolutionary loop (seeded but never exercised)

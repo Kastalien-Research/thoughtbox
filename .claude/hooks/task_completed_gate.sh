@@ -5,18 +5,18 @@
 set -uo pipefail
 
 project_dir="${CLAUDE_PROJECT_DIR:-$(pwd)}"
-state_dir="$project_dir/.claude/state/bead-workflow"
+state_dir="$project_dir/.claude/state"
 
 # Consume stdin
 cat > /dev/null
 
-# If no bead workflow state dir, no enforcement
-[[ -d "$state_dir" ]] || exit 0
-
 # If tests-passed-since-edit sentinel is missing, block
-if [[ ! -f "$state_dir/tests-passed-since-edit" ]]; then
-  echo "Tests have not passed since last code change. Run tests before completing this task." >&2
-  exit 2
+if [[ -f "$state_dir/tests-passed-since-edit" ]]; then
+  exit 0
 fi
 
-exit 0
+# No sentinel — but if the state dir doesn't exist, don't block
+[[ -d "$state_dir" ]] || exit 0
+
+echo "Tests have not passed since last code change. Run tests before completing this task." >&2
+exit 2
