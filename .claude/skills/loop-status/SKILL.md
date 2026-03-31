@@ -19,14 +19,13 @@ Check each execution layer:
 2. Recent session handoffs from `.sessions/handoff-*.json` (last 3)
 
 **AgentOps (Daily) Layer**:
-1. Check for recent AgentOps runs: look for `agentops/runs/` artifacts
+1. Check for recent AgentOps runs: look for `automation-self-improvement/agentops/runs/` artifacts
 2. Check GitHub issues created by AgentOps: `gh issue list --label=agentops --limit 5`
 3. Check pending proposals awaiting approval
 
 **SIL (Weekly) Layer**:
-1. Read `dgm-specs/implementation-status.json` for spec implementation status
-2. Check for recent SIL PRs: `gh pr list --label=self-improvement --limit 5`
-3. Check `.dgm/fitness.json` for pattern evolution state
+1. Check for recent SIL PRs: `gh pr list --label=self-improvement --limit 5`
+2. Check `.dgm/fitness.json` for pattern evolution state
 
 **Cross-Loop State**:
 1. Read loop controller state from `.eval/loop-state.json` (if exists)
