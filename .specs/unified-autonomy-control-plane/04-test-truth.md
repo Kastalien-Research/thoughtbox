@@ -17,15 +17,15 @@ Source of truth: `automation-self-improvement/control-plane/manifest.yaml`
 | --- | --- |
 | ci-executed | 1 |
 | ci-declared-but-empty | 0 |
-| local-integration | 2 |
+| local-integration | 1 |
 | local-only | 2 |
-| stale-or-unreferenced | 0 |
+| stale-or-unreferenced | 1 |
 
 ## Suites
 
 | Suite | Runner | Manifest profile | Computed profile | Declared files | CI files | Uses real services |
 | --- | --- | --- | --- | --- | --- | --- |
-| automation_agentops_suite | vitest | local-integration | local-integration | 8 | 0 | yes |
+| automation_agentops_suite | vitest | local-integration | stale-or-unreferenced | 0 | 0 | yes |
 | mental_models_smoke_suite | vitest | local-only | local-only | 1 | 0 | no |
 | observability_sidecar_suite | vitest | local-integration | local-integration | 1 | 0 | yes |
 | src_unit_suite | vitest | ci-executed | ci-executed | 69 | 66 | yes |
@@ -48,14 +48,6 @@ Source of truth: `automation-self-improvement/control-plane/manifest.yaml`
 
 | Suite | File | CI executed | Uses real services | Covered components |
 | --- | --- | --- | --- | --- |
-| automation_agentops_suite | automation-self-improvement/agentops/tests/cross-layer-sources.test.ts | no | yes | agentops, integration, proposal, workflow |
-| automation_agentops_suite | automation-self-improvement/agentops/tests/extract.test.ts | no | yes | agentops, integration, proposal, workflow |
-| automation_agentops_suite | automation-self-improvement/agentops/tests/integration.test.ts | no | yes | agentops, integration, proposal, workflow |
-| automation_agentops_suite | automation-self-improvement/agentops/tests/phase1.2.test.ts | no | yes | agentops, integration, proposal, workflow |
-| automation_agentops_suite | automation-self-improvement/agentops/tests/sources.test.ts | no | yes | agentops, integration, proposal, workflow |
-| automation_agentops_suite | automation-self-improvement/agentops/tests/synthesis.test.ts | no | yes | agentops, integration, proposal, workflow |
-| automation_agentops_suite | automation-self-improvement/agentops/tests/template.test.ts | no | yes | agentops, integration, proposal, workflow |
-| automation_agentops_suite | automation-self-improvement/agentops/tests/xml-parsing.test.ts | no | yes | agentops, integration, proposal, workflow |
 | mental_models_smoke_suite | tests/mental-models.test.ts | no | no | behavior, mental models, session contracts |
 | observability_sidecar_suite | observability/mcp-sidecar-observability/test/integration.test.ts | no | yes | observability, runtime, runtime integration |
 | src_unit_suite | src/__tests__/api-key-auth.test.ts | yes | yes | knowledge, observability, persistence, runtime, server |
@@ -144,5 +136,12 @@ Source of truth: `automation-self-improvement/control-plane/manifest.yaml`
 
 ## Unknown test files
 
-- None
+- agentops/tests/cross-layer-sources.test.ts
+- agentops/tests/extract.test.ts
+- agentops/tests/integration.test.ts
+- agentops/tests/phase1.2.test.ts
+- agentops/tests/sources.test.ts
+- agentops/tests/synthesis.test.ts
+- agentops/tests/template.test.ts
+- agentops/tests/xml-parsing.test.ts
 
