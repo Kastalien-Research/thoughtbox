@@ -561,6 +561,14 @@
   },
   "test_surfaces": {
     "declared": [
+      "automation-self-improvement/agentops/tests/cross-layer-sources.test.ts",
+      "automation-self-improvement/agentops/tests/extract.test.ts",
+      "automation-self-improvement/agentops/tests/integration.test.ts",
+      "automation-self-improvement/agentops/tests/phase1.2.test.ts",
+      "automation-self-improvement/agentops/tests/sources.test.ts",
+      "automation-self-improvement/agentops/tests/synthesis.test.ts",
+      "automation-self-improvement/agentops/tests/template.test.ts",
+      "automation-self-improvement/agentops/tests/xml-parsing.test.ts",
       "observability/mcp-sidecar-observability/test/integration.test.ts",
       "src/__tests__/api-key-auth.test.ts",
       "src/__tests__/architecture.test.ts",
@@ -648,14 +656,14 @@
       "tests/unit/tiered-evaluator.test.ts"
     ],
     "discovered": [
-      "agentops/tests/cross-layer-sources.test.ts",
-      "agentops/tests/extract.test.ts",
-      "agentops/tests/integration.test.ts",
-      "agentops/tests/phase1.2.test.ts",
-      "agentops/tests/sources.test.ts",
-      "agentops/tests/synthesis.test.ts",
-      "agentops/tests/template.test.ts",
-      "agentops/tests/xml-parsing.test.ts",
+      "automation-self-improvement/agentops/tests/cross-layer-sources.test.ts",
+      "automation-self-improvement/agentops/tests/extract.test.ts",
+      "automation-self-improvement/agentops/tests/integration.test.ts",
+      "automation-self-improvement/agentops/tests/phase1.2.test.ts",
+      "automation-self-improvement/agentops/tests/sources.test.ts",
+      "automation-self-improvement/agentops/tests/synthesis.test.ts",
+      "automation-self-improvement/agentops/tests/template.test.ts",
+      "automation-self-improvement/agentops/tests/xml-parsing.test.ts",
       "observability/mcp-sidecar-observability/test/integration.test.ts",
       "src/__tests__/api-key-auth.test.ts",
       "src/__tests__/architecture.test.ts",
@@ -742,15 +750,6 @@
       "tests/unit/sil-integration.test.ts",
       "tests/unit/tiered-evaluator.test.ts"
     ],
-    "undeclared": [
-      "agentops/tests/cross-layer-sources.test.ts",
-      "agentops/tests/extract.test.ts",
-      "agentops/tests/integration.test.ts",
-      "agentops/tests/phase1.2.test.ts",
-      "agentops/tests/sources.test.ts",
-      "agentops/tests/synthesis.test.ts",
-      "agentops/tests/template.test.ts",
-      "agentops/tests/xml-parsing.test.ts"
-    ]
+    "undeclared": []
   }
 }

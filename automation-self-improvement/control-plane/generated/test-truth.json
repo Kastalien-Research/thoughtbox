@@ -19,8 +19,17 @@
       "glob": "automation-self-improvement/agentops/tests/**/*.ts",
       "runner": "vitest",
       "execution_profile": "local-integration",
-      "manifest_classification": "stale-or-unreferenced",
-      "files": [],
+      "manifest_classification": "local-integration",
+      "files": [
+        "automation-self-improvement/agentops/tests/cross-layer-sources.test.ts",
+        "automation-self-improvement/agentops/tests/extract.test.ts",
+        "automation-self-improvement/agentops/tests/integration.test.ts",
+        "automation-self-improvement/agentops/tests/phase1.2.test.ts",
+        "automation-self-improvement/agentops/tests/sources.test.ts",
+        "automation-self-improvement/agentops/tests/synthesis.test.ts",
+        "automation-self-improvement/agentops/tests/template.test.ts",
+        "automation-self-improvement/agentops/tests/xml-parsing.test.ts"
+      ],
       "ci_files": [],
       "real_dependencies": [
         "docker",
@@ -40,7 +49,176 @@
         "moved tests use local and external dependencies"
       ],
       "dependencies_real_services": true,
-      "file_records": []
+      "file_records": [
+        {
+          "file": "automation-self-improvement/agentops/tests/cross-layer-sources.test.ts",
+          "ci_executed": false,
+          "runner": "vitest",
+          "runner_include_glob": "automation-self-improvement/agentops/tests/**/*.ts",
+          "real_dependencies": [
+            "docker",
+            "mocks",
+            "network",
+            "subprocess",
+            "supabase"
+          ],
+          "uses_real_services": true,
+          "covered_components": [
+            "agentops",
+            "integration",
+            "proposal",
+            "workflow"
+          ],
+          "missing_integration_or_e2e": true
+        },
+        {
+          "file": "automation-self-improvement/agentops/tests/extract.test.ts",
+          "ci_executed": false,
+          "runner": "vitest",
+          "runner_include_glob": "automation-self-improvement/agentops/tests/**/*.ts",
+          "real_dependencies": [
+            "docker",
+            "mocks",
+            "network",
+            "subprocess",
+            "supabase"
+          ],
+          "uses_real_services": true,
+          "covered_components": [
+            "agentops",
+            "integration",
+            "proposal",
+            "workflow"
+          ],
+          "missing_integration_or_e2e": true
+        },
+        {
+          "file": "automation-self-improvement/agentops/tests/integration.test.ts",
+          "ci_executed": false,
+          "runner": "vitest",
+          "runner_include_glob": "automation-self-improvement/agentops/tests/**/*.ts",
+          "real_dependencies": [
+            "docker",
+            "mocks",
+            "network",
+            "subprocess",
+            "supabase"
+          ],
+          "uses_real_services": true,
+          "covered_components": [
+            "agentops",
+            "integration",
+            "proposal",
+            "workflow"
+          ],
+          "missing_integration_or_e2e": true
+        },
+        {
+          "file": "automation-self-improvement/agentops/tests/phase1.2.test.ts",
+          "ci_executed": false,
+          "runner": "vitest",
+          "runner_include_glob": "automation-self-improvement/agentops/tests/**/*.ts",
+          "real_dependencies": [
+            "docker",
+            "mocks",
+            "network",
+            "subprocess",
+            "supabase"
+          ],
+          "uses_real_services": true,
+          "covered_components": [
+            "agentops",
+            "integration",
+            "proposal",
+            "workflow"
+          ],
+          "missing_integration_or_e2e": true
+        },
+        {
+          "file": "automation-self-improvement/agentops/tests/sources.test.ts",
+          "ci_executed": false,
+          "runner": "vitest",
+          "runner_include_glob": "automation-self-improvement/agentops/tests/**/*.ts",
+          "real_dependencies": [
+            "docker",
+            "mocks",
+            "network",
+            "subprocess",
+            "supabase"
+          ],
+          "uses_real_services": true,
+          "covered_components": [
+            "agentops",
+            "integration",
+            "proposal",
+            "workflow"
+          ],
+          "missing_integration_or_e2e": true
+        },
+        {
+          "file": "automation-self-improvement/agentops/tests/synthesis.test.ts",
+          "ci_executed": false,
+          "runner": "vitest",
+          "runner_include_glob": "automation-self-improvement/agentops/tests/**/*.ts",
+          "real_dependencies": [
+            "docker",
+            "mocks",
+            "network",
+            "subprocess",
+            "supabase"
+          ],
+          "uses_real_services": true,
+          "covered_components": [
+            "agentops",
+            "integration",
+            "proposal",
+            "workflow"
+          ],
+          "missing_integration_or_e2e": true
+        },
+        {
+          "file": "automation-self-improvement/agentops/tests/template.test.ts",
+          "ci_executed": false,
+          "runner": "vitest",
+          "runner_include_glob": "automation-self-improvement/agentops/tests/**/*.ts",
+          "real_dependencies": [
+            "docker",
+            "mocks",
+            "network",
+            "subprocess",
+            "supabase"
+          ],
+          "uses_real_services": true,
+          "covered_components": [
+            "agentops",
+            "integration",
+            "proposal",
+            "workflow"
+          ],
+          "missing_integration_or_e2e": true
+        },
+        {
+          "file": "automation-self-improvement/agentops/tests/xml-parsing.test.ts",
+          "ci_executed": false,
+          "runner": "vitest",
+          "runner_include_glob": "automation-self-improvement/agentops/tests/**/*.ts",
+          "real_dependencies": [
+            "docker",
+            "mocks",
+            "network",
+            "subprocess",
+            "supabase"
+          ],
+          "uses_real_services": true,
+          "covered_components": [
+            "agentops",
+            "integration",
+            "proposal",
+            "workflow"
+          ],
+          "missing_integration_or_e2e": true
+        }
+      ]
     },
     {
       "suite_id": "mental_models_smoke_suite",
@@ -2022,14 +2200,14 @@
     }
   ],
   "discovered_test_files": [
-    "agentops/tests/cross-layer-sources.test.ts",
-    "agentops/tests/extract.test.ts",
-    "agentops/tests/integration.test.ts",
-    "agentops/tests/phase1.2.test.ts",
-    "agentops/tests/sources.test.ts",
-    "agentops/tests/synthesis.test.ts",
-    "agentops/tests/template.test.ts",
-    "agentops/tests/xml-parsing.test.ts",
+    "automation-self-improvement/agentops/tests/cross-layer-sources.test.ts",
+    "automation-self-improvement/agentops/tests/extract.test.ts",
+    "automation-self-improvement/agentops/tests/integration.test.ts",
+    "automation-self-improvement/agentops/tests/phase1.2.test.ts",
+    "automation-self-improvement/agentops/tests/sources.test.ts",
+    "automation-self-improvement/agentops/tests/synthesis.test.ts",
+    "automation-self-improvement/agentops/tests/template.test.ts",
+    "automation-self-improvement/agentops/tests/xml-parsing.test.ts",
     "observability/mcp-sidecar-observability/test/integration.test.ts",
     "src/__tests__/api-key-auth.test.ts",
     "src/__tests__/architecture.test.ts",
@@ -2117,6 +2295,14 @@
     "tests/unit/tiered-evaluator.test.ts"
   ],
   "declared_test_files": [
+    "automation-self-improvement/agentops/tests/cross-layer-sources.test.ts",
+    "automation-self-improvement/agentops/tests/extract.test.ts",
+    "automation-self-improvement/agentops/tests/integration.test.ts",
+    "automation-self-improvement/agentops/tests/phase1.2.test.ts",
+    "automation-self-improvement/agentops/tests/sources.test.ts",
+    "automation-self-improvement/agentops/tests/synthesis.test.ts",
+    "automation-self-improvement/agentops/tests/template.test.ts",
+    "automation-self-improvement/agentops/tests/xml-parsing.test.ts",
     "observability/mcp-sidecar-observability/test/integration.test.ts",
     "src/__tests__/api-key-auth.test.ts",
     "src/__tests__/architecture.test.ts",
@@ -2203,16 +2389,7 @@
     "tests/unit/sil-integration.test.ts",
     "tests/unit/tiered-evaluator.test.ts"
   ],
-  "undeclared_test_files": [
-    "agentops/tests/cross-layer-sources.test.ts",
-    "agentops/tests/extract.test.ts",
-    "agentops/tests/integration.test.ts",
-    "agentops/tests/phase1.2.test.ts",
-    "agentops/tests/sources.test.ts",
-    "agentops/tests/synthesis.test.ts",
-    "agentops/tests/template.test.ts",
-    "agentops/tests/xml-parsing.test.ts"
-  ],
+  "undeclared_test_files": [],
   "overlapping_test_files": [],
   "coverage_components": [
     "agentops",
@@ -2236,9 +2413,9 @@
     "by_classification": {
       "ci-executed": 1,
       "ci-declared-but-empty": 0,
-      "local-integration": 1,
+      "local-integration": 2,
       "local-only": 2,
-      "stale-or-unreferenced": 1
+      "stale-or-unreferenced": 0
     }
   },
   "explicit_gaps": [
