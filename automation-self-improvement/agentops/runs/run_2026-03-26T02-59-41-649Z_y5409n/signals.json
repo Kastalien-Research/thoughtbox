@@ -1,0 +1,503 @@
+{
+  "collected_at": "2026-03-26T02:59:48.630Z",
+  "total_collected": 45,
+  "signals": [
+    {
+      "source": "repo_commits",
+      "title": "security(agentops): harden approval workflow and fix command injection",
+      "url": "https://github.com/Kastalien-Research/thoughtbox/commit/0e96a041dca70edc261974ef87f1695ac88044ee",
+      "published_at": "2026-03-26T02:40:04Z",
+      "summary": "security(agentops): harden approval workflow and fix command injection\n\n- Add dev brief guard: verify AGENTOPS_META_BEGIN marker in issue body\n  before processing labels, preventing non-brief issues from triggering\n  the implement pipeline\n- Add environment: production gate on implement job\n- Pin all GitHub Actions to SHA hashes (matching ci.yml)\n- Replace execSync string interpolation with execFileSync array args\n  to prevent command injection via proposal IDs\n- Remove timestamp/random suffix from branch names (agent/proposal-N)\n- Validate proposal-id format and issue-number as integer in CLI\n- Update OpenAI fallback model from gpt-4-turbo-preview to gpt-4o\n\nCo-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>",
+      "tags": [
+        "commit"
+      ]
+    },
+    {
+      "source": "repo_commits",
+      "title": "fix(agentops): wire API key in approval workflow, purge stale model refs",
+      "url": "https://github.com/Kastalien-Research/thoughtbox/commit/2a36c1c75a80d0383852629112c5851fcf23bb1e",
+      "published_at": "2026-03-26T02:27:28Z",
+      "summary": "fix(agentops): wire API key in approval workflow, purge stale model refs\n\n- Add ANTHROPIC_API_KEY to agentops_on_approval_label.yml (same gap\n  as the daily brief workflow)\n- Update test-api-keys.ts default from 3.5 Sonnet to 4.5 Sonnet\n- Update phase1.2 pricing tests to reference 20250514 model ID\n- Remove dead claude-3-5-sonnet-20241022 entry from pricing table\n\nCo-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>",
+      "tags": [
+        "commit"
+      ]
+    },
+    {
+      "source": "repo_commits",
+      "title": "fix(agentops): wire ANTHROPIC_API_KEY and bump to Sonnet 4.5",
+      "url": "https://github.com/Kastalien-Research/thoughtbox/commit/47711611150c9fbfb94f2523421dd31314155014",
+      "published_at": "2026-03-26T02:25:22Z",
+      "summary": "fix(agentops): wire ANTHROPIC_API_KEY and bump to Sonnet 4.5\n\nThe daily dev brief workflow never passed ANTHROPIC_API_KEY to the\nrunner, so getLLMConfig() always returned null and fell back to\nfixture mode. Add the secret to the workflow env block and update\nthe default model from claude-3-5-sonnet to claude-sonnet-4-5.\n\nCo-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>",
+      "tags": [
+        "commit"
+      ]
+    },
+    {
+      "source": "repo_commits",
+      "title": "docs: add Codebase as API design brief",
+      "url": "https://github.com/Kastalien-Research/thoughtbox/commit/dd73cdc0f5053451f41caf49ebf7db8cb984e2eb",
+      "published_at": "2026-03-25T20:51:22Z",
+      "summary": "docs: add Codebase as API design brief\n\nCaptures design conversation: Thoughtbox exposes codebases as typed SDK\nsurfaces (tb.codebase.*), enabling project memory through code artifacts\nrather than agent memory. Grounded in facades experiment data (18 trials,\n42-56% tool use reduction). Defines three-plane architecture (catalog,\nknowledge, trace), Bayesian learning loop over PatternCards/DecisionCards,\nand build order.\n\nCo-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>",
+      "tags": [
+        "commit"
+      ]
+    },
+    {
+      "source": "repo_commits",
+      "title": "docs: add architecture reference and fix maxScale YAML drift",
+      "url": "https://github.com/Kastalien-Research/thoughtbox/commit/07b37887a3f24bb56cf3a562d02fcf9df7afa3a8",
+      "published_at": "2026-03-25T03:51:04Z",
+      "summary": "docs: add architecture reference and fix maxScale YAML drift\n\nArchitecture docs in docs/architecture/ covering:\n- Data model (full Supabase schema, tables, RLS, triggers)\n- Auth and billing (API key flow, workspace roles, Stripe)\n- Server architecture (MCP tools, storage backends, request lifecycle)\n- Infrastructure (Cloud Run, Terraform, secrets, deploy process)\n\nAlso fixes cloud-run-service.yaml maxScale from 5 to 1 to match\nthe actual deployed config. Multiple instances break in-memory\nMCP sessions.\n\nCo-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>",
+      "tags": [
+        "commit"
+      ]
+    },
+    {
+      "source": "repo_commits",
+      "title": "fix(hooks): remove per-bead pause gate that required human-in-the-loop",
+      "url": "https://github.com/Kastalien-Research/thoughtbox/commit/8daabf63182d8d059dd88e55d7c309d515e47d5a",
+      "published_at": "2026-03-25T03:27:35Z",
+      "summary": "fix(hooks): remove per-bead pause gate that required human-in-the-loop\n\nThe bead workflow had a Step 7 (Pause) that created a\npending-validation.json gate after every bead close, blocking all work\nuntil the human ran `touch validation-confirmed`. This directly\ncontradicted AGENTS.md (\"Default: human is NOT in the loop\") and added\nzero value after the bead already passed hypothesis → test → validate →\nclose.\n\nRemoved:\n- Rule 1 (pending validation block) from bead_workflow_enforcer.sh\n- pending-validation.json write + validation-confirmed handler from\n  bead_workflow_state_writer.sh\n- Pending validation surfacing from session_start.sh\n- Pending validation section from post_compact_context.sh\n- Step 7 from bead-workflow SKILL.md (now 6 steps)\n- \"PAUSE and wait\" language from bead_close_handoff.sh\n\nCo-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>",
+      "tags": [
+        "commit"
+      ]
+    },
+    {
+      "source": "repo_commits",
+      "title": "Update .claude/hooks/pre_tool_use.sh",
+      "url": "https://github.com/Kastalien-Research/thoughtbox/commit/5068ed74675c1fe37d92f70e8cb81b5192adbc25",
+      "published_at": "2026-03-25T03:16:59Z",
+      "summary": "Update .claude/hooks/pre_tool_use.sh\n\nCo-authored-by: greptile-apps[bot] <165735046+greptile-apps[bot]@users.noreply.github.com>",
+      "tags": [
+        "commit"
+      ]
+    },
+    {
+      "source": "repo_commits",
+      "title": "Update .husky/pre-commit",
+      "url": "https://github.com/Kastalien-Research/thoughtbox/commit/edecdf0b4059a6734ab13393a1cec1e36a53bd85",
+      "published_at": "2026-03-25T03:16:50Z",
+      "summary": "Update .husky/pre-commit\n\nCo-authored-by: greptile-apps[bot] <165735046+greptile-apps[bot]@users.noreply.github.com>",
+      "tags": [
+        "commit"
+      ]
+    },
+    {
+      "source": "repo_commits",
+      "title": "Update .claude/hooks/bead_close_handoff.sh",
+      "url": "https://github.com/Kastalien-Research/thoughtbox/commit/452861fcdf8a678acc75c081d7f9c5d922192b32",
+      "published_at": "2026-03-25T03:16:39Z",
+      "summary": "Update .claude/hooks/bead_close_handoff.sh\n\nCo-authored-by: greptile-apps[bot] <165735046+greptile-apps[bot]@users.noreply.github.com>",
+      "tags": [
+        "commit"
+      ]
+    },
+    {
+      "source": "repo_commits",
+      "title": "fix(hooks): background LangSmith tracing to eliminate latency",
+      "url": "https://github.com/Kastalien-Research/thoughtbox/commit/83c4be9f7b42de1492c0f631d0d5674ba4610271",
+      "published_at": "2026-03-25T02:09:58Z",
+      "summary": "fix(hooks): background LangSmith tracing to eliminate latency\n\nRun stop.sh async so transcript upload doesn't block every response.\nEnv vars moved to settings.local.json to skip .env awk parsing.\n\nCo-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>",
+      "tags": [
+        "commit"
+      ]
+    },
+    {
+      "source": "arxiv",
+      "title": "Vibe Coding XR: Accelerating AI + XR Prototyping with XR Blocks and Gemini",
+      "url": "http://arxiv.org/abs/2603.24591v1",
+      "published_at": "2026-03-25T17:58:56Z",
+      "summary": "While large language models have accelerated software development through \"vibe coding\", prototyping intelligent Extended Reality (XR) experiences remains inaccessible due to the friction of complex game engines and low-level sensor integration. To bridge this gap, we contribute XR Blocks, an open-source, modular WebXR framework that abstracts spatial computing complexities into high-level, human-centered primitives. Building upon this foundation, we present Vibe Coding XR, an end-to-end rapid prototyping workflow that leverages LLMs to translate natural language intent directly into functional XR software. Using a web-based interface, creators can transform high-level prompts (e.g., \"create a dandelion that reacts to hand\") into interactive WebXR applications in under a minute. We provide a preliminary technical evaluation on a pilot dataset (VCXR60) alongside diverse application scenarios highlighting mixed-reality realism, multi-modal interaction, and generative AI integrations. By democratizing spatial software creation, this work empowers practitioners to bypass low-level hurdles and rapidly move from \"idea to reality.\" Code and live demos are available at https://xrblocks.github.io/gem and https://github.com/google/xrblocks.",
+      "tags": [
+        "arxiv",
+        "research"
+      ]
+    },
+    {
+      "source": "arxiv",
+      "title": "The Stochastic Gap: A Markovian Framework for Pre-Deployment Reliability and Oversight-Cost Auditing in Agentic Artificial Intelligence",
+      "url": "http://arxiv.org/abs/2603.24582v1",
+      "published_at": "2026-03-25T17:56:11Z",
+      "summary": "Agentic artificial intelligence (AI) in organizations is a sequential decision problem constrained by reliability and oversight cost. When deterministic workflows are replaced by stochastic policies over actions and tool calls, the key question is not whether a next step appears plausible, but whether the resulting trajectory remains statistically supported, locally unambiguous, and economically governable. We develop a measure-theoretic Markov framework for this setting. The core quantities are state blind-spot mass B_n(tau), state-action blind mass B^SA_{pi,n}(tau), an entropy-based human-in-the-loop escalation gate, and an expected oversight-cost identity over the workflow visitation measure. We instantiate the framework on the Business Process Intelligence Challenge 2019 purchase-to-pay log (251,734 cases, 1,595,923 events, 42 distinct workflow actions) and construct a log-driven simulated agent from a chronological 80/20 split of the same process. The main empirical finding is that a large workflow can appear well supported at the state level while retaining substantial blind mass over next-step decisions: refining the operational state to include case context, economic magnitude, and actor class expands the state space from 42 to 668 and raises state-action blind mass from 0.0165 at tau=50 to 0.1253 at tau=1000. On the held-out split, m(s) = max_a pi-hat(a|s) tracks realized autonomous step accuracy within 3.4 percentage points on average. The same quantities that delimit statistically credible autonomy also determine expected oversight burden. The framework is demonstrated on a large-scale enterprise procurement workflow and is designed for direct application to engineering processes for which operational event logs are available.",
+      "tags": [
+        "arxiv",
+        "research"
+      ]
+    },
+    {
+      "source": "arxiv",
+      "title": "MARCH: Multi-Agent Reinforced Self-Check for LLM Hallucination",
+      "url": "http://arxiv.org/abs/2603.24579v1",
+      "published_at": "2026-03-25T17:54:10Z",
+      "summary": "Hallucination remains a critical bottleneck for large language models (LLMs), undermining their reliability in real-world applications, especially in Retrieval-Augmented Generation (RAG) systems. While existing hallucination detection methods employ LLM-as-a-judge to verify LLM outputs against retrieved evidence, they suffer from inherent confirmation bias, where the verifier inadvertently reproduces the errors of the original generation. To address this, we introduce Multi-Agent Reinforced Self-Check for Hallucination (MARCH), a framework that enforces rigorous factual alignment by leveraging deliberate information asymmetry. MARCH orchestrates a collaborative pipeline of three specialized agents: a Solver, a Proposer, and a Checker. The Solver generates an initial RAG response, which the Proposer decomposes into claim-level verifiable atomic propositions. Crucially, the Checker validates these propositions against retrieved evidence in isolation, deprived of the Solver's original output. This well-crafted information asymmetry scheme breaks the cycle of self-confirmation bias. By training this pipeline with multi-agent reinforcement learning (MARL), we enable the agents to co-evolve and optimize factual adherence. Extensive experiments across hallucination benchmarks demonstrate that MARCH substantially reduces hallucination rates. Notably, an 8B-parameter LLM equipped with MARCH achieves performance competitive with powerful closed-source models. MARCH paves a scalable path for factual self-improvement of LLMs through co-evolution. The code is at https://github.com/Qwen-Applications/MARCH.",
+      "tags": [
+        "arxiv",
+        "research"
+      ]
+    },
+    {
+      "source": "arxiv",
+      "title": "Chameleon: Episodic Memory for Long-Horizon Robotic Manipulation",
+      "url": "http://arxiv.org/abs/2603.24576v1",
+      "published_at": "2026-03-25T17:52:43Z",
+      "summary": "Robotic manipulation often requires memory: occlusion and state changes can make decision-time observations perceptually aliased, making action selection non-Markovian at the observation level because the same observation may arise from different interaction histories. Most embodied agents implement memory via semantically compressed traces and similarity-based retrieval, which discards disambiguating fine-grained perceptual cues and can return perceptually similar but decision-irrelevant episodes. Inspired by human episodic memory, we propose Chameleon, which writes geometry-grounded multimodal tokens to preserve disambiguating context and produces goal-directed recall through a differentiable memory stack. We also introduce Camo-Dataset, a real-robot UR5e dataset spanning episodic recall, spatial tracking, and sequential manipulation under perceptual aliasing. Across tasks, Chameleon consistently improves decision reliability and long-horizon control over strong baselines in perceptually confusable settings.",
+      "tags": [
+        "arxiv",
+        "research"
+      ]
+    },
+    {
+      "source": "arxiv",
+      "title": "Team of Thoughts: Efficient Test-time Scaling of Agentic Systems through Orchestrated Tool Calling",
+      "url": "http://arxiv.org/abs/2602.16485v2",
+      "published_at": "2026-02-18T14:19:01Z",
+      "summary": "Existing Multi-Agent Systems (MAS) typically rely on homogeneous model configurations, failing to exploit the diverse expertise inherent in different post-trained architectures. We propose Team-of-Thoughts, a heterogeneous MAS framework that treats diverse models as specialized tools within an orchestrator-driven paradigm. Team-of-Thoughts introduces two novel components: (1) Orchestrator Calibration, which identifies models with superior coordination and synthesis capabilities, and (2) Agent Self-Assessment, a protocol where tool agents profile their own domain-specific strengths to guide selection. At inference, the orchestrator dynamically activates the most compatible agents based on these profiles to maximize capability coverage. Across five mathematical reasoning and code generation benchmarks, Team-of-Thoughts consistently outperforms individual models and existing MAS baselines. Notably, on AIME24 and LiveCodeBench, Team-of-Thoughts achieves 96.00% and 77.91% accuracy, respectively, significantly improving over homogeneous role-play baselines (80.00% and 65.93%).",
+      "tags": [
+        "arxiv",
+        "research"
+      ]
+    },
+    {
+      "source": "arxiv",
+      "title": "LensWalk: Agentic Video Understanding by Planning How You See in Videos",
+      "url": "http://arxiv.org/abs/2603.24558v1",
+      "published_at": "2026-03-25T17:38:54Z",
+      "summary": "The dense, temporal nature of video presents a profound challenge for automated analysis. Despite the use of powerful Vision-Language Models, prevailing methods for video understanding are limited by the inherent disconnect between reasoning and perception: they rely on static, pre-processed information and cannot actively seek raw evidence from video as their understanding evolves. To address this, we introduce LensWalk, a flexible agentic framework that empowers a Large Language Model reasoner to control its own visual observation actively. LensWalk establishes a tight reason-plan-observe loop where the agent dynamically specifies, at each step, the temporal scope and sampling density of the video it observes. Using a suite of versatile, Vision-Language Model based tools parameterized by these specifications, the agent can perform broad scans for cues, focus on specific segments for fact extraction, and stitch evidence from multiple moments for holistic verification. This design allows for progressive, on-demand evidence gathering that directly serves the agent's evolving chain of thought. Without requiring any model fine-tuning, LensWalk delivers substantial, plug-and-play performance gains on multiple model recipes, boosting their accuracy by over 5\\% on challenging long-video benchmarks like LVBench and Video-MME. Our analysis reveals that enabling an agent to control how it sees is key to unlocking more accurate, robust, and interpretable video reasoning.",
+      "tags": [
+        "arxiv",
+        "research"
+      ]
+    },
+    {
+      "source": "arxiv",
+      "title": "Benchmarking quantum simulation with neutron-scattering experiments",
+      "url": "http://arxiv.org/abs/2603.15608v2",
+      "published_at": "2026-03-16T17:56:58Z",
+      "summary": "A central goal of quantum computation is the realistic simulation of quantum materials. Although quantum processors have advanced rapidly in scale and fidelity, it has remained unclear whether pre-fault-tolerant devices can perform quantitatively reliable material simulations within their limited gate budgets. Here, we demonstrate that a superconducting quantum processor operating on up to 50 qubits can already produce meaningful, quantitative comparisons with inelastic neutron-scattering measurements of KCuF$_3$, a canonical realization of a gapless Luttinger liquid system with a strongly correlated ground state and a spectrum of emergent spinons. The quantum simulation is enabled by a quantum-classical workflow for computing dynamical structure factors (DSFs). The resulting spectra are benchmarked against experimental measurements using multiple metrics, highlighting the impact of circuit depth and circuit fidelity on simulation accuracy. Finally, we extend our simulations to 1D XXZ Heisenberg model with next-nearest neighbor interactions and a strong anisotropy, producing a gapped excitation spectrum, which could be used to describe the CsCoX$_3$ compounds above the Néel temperature. Our results establish a framework for computing DSFs for quantum materials in classically challenging regimes of strong entanglement and long-range interactions, enabling quantum simulations that are directly testable against laboratory measurements.",
+      "tags": [
+        "arxiv",
+        "research"
+      ]
+    },
+    {
+      "source": "arxiv",
+      "title": "Advancing AI Trustworthiness Through Patient Simulation: Risk Assessment of Conversational Agents for Antidepressant Selection",
+      "url": "http://arxiv.org/abs/2602.11391v2",
+      "published_at": "2026-02-11T21:53:18Z",
+      "summary": "Objective: This paper introduces a patient simulator for scalable, automated evaluation of healthcare conversational agents, generating realistic, controllable interactions that systematically vary across medical, linguistic, and behavioral dimensions to support risk assessment across populations. Methods: Grounded in the NIST AI Risk Management Framework, the simulator integrates three profile components: (1) medical profiles constructed from All of Us electronic health records using risk-ratio gating; (2) linguistic profiles modeling health literacy and condition-specific communication; and (3) behavioral profiles representing cooperative, distracted, and adversarial engagement. Profiles were evaluated against NIST AI RMF trustworthiness requirements and assessed against an AI Decision Aid for antidepressant selection. Results: Across 500 simulated conversations, the simulator revealed monotonic degradation in AI Decision Aid performance across health literacy levels: Rank-1 concept retrieval ranged from 47.6% (limited) to 81.9% (proficient), with corresponding recommendation degradation. Medical concept fidelity was high (96.6% across 8,210 concepts), validated by human annotators (0.73 kappa) and an LLM judge with comparable agreement (0.78 kappa). Behavioral profiles were reliably distinguished (0.93 kappa), and linguistic profiles showed moderate agreement (0.61 kappa). Conclusions: The simulator exposes measurable performance risks in conversational healthcare AI. Health literacy emerged as a primary risk factor with direct implications for equitable AI deployment.",
+      "tags": [
+        "arxiv",
+        "research"
+      ]
+    },
+    {
+      "source": "arxiv",
+      "title": "DomAgent: Leveraging Knowledge Graphs and Case-Based Reasoning for Domain-Specific Code Generation",
+      "url": "http://arxiv.org/abs/2603.21430v2",
+      "published_at": "2026-03-22T22:39:32Z",
+      "summary": "Large language models (LLMs) have shown impressive capabilities in code generation. However, because most LLMs are trained on public domain corpora, directly applying them to real-world software development often yields low success rates, as these scenarios frequently require domain-specific knowledge. In particular, domain-specific tasks usually demand highly specialized solutions, which are often underrepresented or entirely absent in the training data of generic LLMs. To address this challenge, we propose DomAgent, an autonomous coding agent that bridges this gap by enabling LLMs to generate domain-adapted code through structured reasoning and targeted retrieval. A core component of DomAgent is DomRetriever, a novel retrieval module that emulates how humans learn domain-specific knowledge, by combining conceptual understanding with experiential examples. It dynamically integrates top-down knowledge-graph reasoning with bottom-up case-based reasoning, enabling iterative retrieval and synthesis of structured knowledge and representative cases to ensure contextual relevance and broad task coverage. DomRetriever can operate as part of DomAgent or independently with any LLM for flexible domain adaptation. We evaluate DomAgent on an open benchmark dataset in the data science domain (DS-1000) and further apply it to real-world truck software development tasks. Experimental results show that DomAgent significantly enhances domain-specific code generation, enabling small open-source models to close much of the performance gap with large proprietary LLMs in complex, real-world applications. The code is available at: https://github.com/Wangshuaiia/DomAgent.",
+      "tags": [
+        "arxiv",
+        "research"
+      ]
+    },
+    {
+      "source": "arxiv",
+      "title": "AVO: Agentic Variation Operators for Autonomous Evolutionary Search",
+      "url": "http://arxiv.org/abs/2603.24517v1",
+      "published_at": "2026-03-25T16:55:04Z",
+      "summary": "Agentic Variation Operators (AVO) are a new family of evolutionary variation operators that replace the fixed mutation, crossover, and hand-designed heuristics of classical evolutionary search with autonomous coding agents. Rather than confining a language model to candidate generation within a prescribed pipeline, AVO instantiates variation as a self-directed agent loop that can consult the current lineage, a domain-specific knowledge base, and execution feedback to propose, repair, critique, and verify implementation edits. We evaluate AVO on attention, among the most aggressively optimized kernel targets in AI, on NVIDIA Blackwell (B200) GPUs. Over 7 days of continuous autonomous evolution on multi-head attention, AVO discovers kernels that outperform cuDNN by up to 3.5% and FlashAttention-4 by up to 10.5% across the evaluated configurations. The discovered optimizations transfer readily to grouped-query attention, requiring only 30 minutes of additional autonomous adaptation and yielding gains of up to 7.0% over cuDNN and 9.3% over FlashAttention-4. Together, these results show that agentic variation operators move beyond prior LLM-in-the-loop evolutionary pipelines by elevating the agent from candidate generator to variation operator, and can discover performance-critical micro-architectural optimizations that produce kernels surpassing state-of-the-art expert-engineered attention implementations on today's most advanced GPU hardware.",
+      "tags": [
+        "arxiv",
+        "research"
+      ]
+    },
+    {
+      "source": "arxiv",
+      "title": "Agentic Verification of Software Systems",
+      "url": "http://arxiv.org/abs/2511.17330v2",
+      "published_at": "2025-11-21T15:51:48Z",
+      "summary": "Automatically generated code is gaining traction recently, owing to the prevalence of Large Language Models (LLMs). Further, the AlphaProof initiative has demonstrated the possibility of using AI for general mathematical reasoning. Reasoning about computer programs (software) can be accomplished via general mathematical reasoning; however, it tends to be more structured and richer in contexts. This forms an attractive proposition, since then AI agents can be used to reason about voluminous code that gets generated by AI. In this work, we present a first LLM agent, AutoRocq, for conducting program verification. Unlike past works, which rely on extensive training of LLMs on proof examples, our agent learns on-the-fly and improves the proof via an iterative refinement loop. The iterative improvement of the proof is achieved by the proof agent communicating with the Rocq (formerly Coq) theorem prover to get additional context and feedback. The final result of the iteration is a proof derivation checked by the Rocq theorem prover. In this way, our proof construction involves autonomous collaboration between the proof agent and the theorem prover. This autonomy facilitates the search for proofs and decision-making in deciding on the structure of the proof tree. Experimental evaluation on SV-COMP benchmarks and on Linux kernel modules shows promising efficacy in achieving automated program verification. As automation in code generation becomes more widespread, we posit that our proof agent can be potentially integrated with AI coding agents to achieve a generate and validate loop, thus moving closer to the vision of trusted automatic programming.",
+      "tags": [
+        "arxiv",
+        "research"
+      ]
+    },
+    {
+      "source": "arxiv",
+      "title": "Claudini: Autoresearch Discovers State-of-the-Art Adversarial Attack Algorithms for LLMs",
+      "url": "http://arxiv.org/abs/2603.24511v1",
+      "published_at": "2026-03-25T16:50:56Z",
+      "summary": "LLM agents like Claude Code can not only write code but also be used for autonomous AI research and engineering \\citep{rank2026posttrainbench, novikov2025alphaevolve}. We show that an \\emph{autoresearch}-style pipeline \\citep{karpathy2026autoresearch} powered by Claude Code discovers novel white-box adversarial attack \\textit{algorithms} that \\textbf{significantly outperform all existing (30+) methods} in jailbreaking and prompt injection evaluations. Starting from existing attack implementations, such as GCG~\\citep{zou2023universal}, the agent iterates to produce new algorithms achieving up to 40\\% attack success rate on CBRN queries against GPT-OSS-Safeguard-20B, compared to $\\leq$10\\% for existing algorithms (\\Cref{fig:teaser}, left). The discovered algorithms generalize: attacks optimized on surrogate models transfer directly to held-out models, achieving \\textbf{100\\% ASR against Meta-SecAlign-70B} \\citep{chen2025secalign} versus 56\\% for the best baseline (\\Cref{fig:teaser}, middle). Extending the findings of~\\cite{carlini2025autoadvexbench}, our results are an early demonstration that incremental safety and security research can be automated using LLM agents. White-box adversarial red-teaming is particularly well-suited for this: existing methods provide strong starting points, and the optimization objective yields dense, quantitative feedback. We release all discovered attacks alongside baseline implementations and evaluation code at https://github.com/romovpa/claudini.",
+      "tags": [
+        "arxiv",
+        "research"
+      ]
+    },
+    {
+      "source": "rss",
+      "title": "Inside our approach to the Model Spec",
+      "url": "https://openai.com/index/our-approach-to-the-model-spec",
+      "published_at": "Wed, 25 Mar 2026 10:00:00 GMT",
+      "summary": "Learn how OpenAI’s Model Spec serves as a public framework for model behavior, balancing safety, user freedom, and accountability as AI systems advance.",
+      "tags": [
+        "rss",
+        "Research"
+      ]
+    },
+    {
+      "source": "rss",
+      "title": "Introducing the OpenAI Safety Bug Bounty program",
+      "url": "https://openai.com/index/safety-bug-bounty",
+      "published_at": "Wed, 25 Mar 2026 00:00:00 GMT",
+      "summary": "OpenAI launches a Safety Bug Bounty program to identify AI abuse and safety risks, including agentic vulnerabilities, prompt injection, and data exfiltration.",
+      "tags": [
+        "rss",
+        "Safety"
+      ]
+    },
+    {
+      "source": "rss",
+      "title": "Helping developers build safer AI experiences for teens",
+      "url": "https://openai.com/index/teen-safety-policies-gpt-oss-safeguard",
+      "published_at": "Tue, 24 Mar 2026 11:00:00 GMT",
+      "summary": "OpenAI releases prompt-based teen safety policies for developers using gpt-oss-safeguard, helping moderate age-specific risks in AI systems.",
+      "tags": [
+        "rss",
+        "Safety"
+      ]
+    },
+    {
+      "source": "rss",
+      "title": "Update on the OpenAI Foundation",
+      "url": "https://openai.com/index/update-on-the-openai-foundation",
+      "published_at": "Tue, 24 Mar 2026 09:00:00 GMT",
+      "summary": "The OpenAI Foundation announces plans to invest at least $1 billion in curing diseases, economic opportunity, AI resilience, and community programs.",
+      "tags": [
+        "rss",
+        "Company"
+      ]
+    },
+    {
+      "source": "rss",
+      "title": "Powering product discovery in ChatGPT",
+      "url": "https://openai.com/index/powering-product-discovery-in-chatgpt",
+      "published_at": "Tue, 24 Mar 2026 09:00:00 GMT",
+      "summary": "ChatGPT introduces richer, visually immersive shopping powered by the Agentic Commerce Protocol, enabling product discovery, side-by-side comparisons, and merchant integration.",
+      "tags": [
+        "rss",
+        "Product"
+      ]
+    },
+    {
+      "source": "html_newsroom",
+      "title": "Newsroom",
+      "url": "mailto:press@anthropic.com",
+      "tags": [
+        "html",
+        "news"
+      ]
+    },
+    {
+      "source": "html_newsroom",
+      "title": "Project Genie: Experimenting with infinite, interactive worlds",
+      "url": "https://blog.google/innovation-and-ai/models-and-research/google-deepmind/project-genie",
+      "tags": [
+        "html",
+        "news"
+      ]
+    },
+    {
+      "source": "html_newsroom",
+      "title": "Lyria 3 Pro: Create longer tracks in more",
+      "url": "https://blog.google/innovation-and-ai/technology/ai/lyria-3-pro",
+      "tags": [
+        "html",
+        "news"
+      ]
+    },
+    {
+      "source": "html_newsroom",
+      "title": "Measuring progress toward AGI: A cognitive framework",
+      "url": "https://blog.google/innovation-and-ai/models-and-research/google-deepmind/measuring-agi-cognitive-framework",
+      "tags": [
+        "html",
+        "news"
+      ]
+    },
+    {
+      "source": "html_newsroom",
+      "title": "From games to biology and beyond: 10 years of AlphaGo’s impact",
+      "url": "https://deepmind.google/blog/10-years-of-alphago/",
+      "tags": [
+        "html",
+        "news"
+      ]
+    },
+    {
+      "source": "html_newsroom",
+      "title": "Gemini 3.1 Flash-Lite: Built for intelligence at scale",
+      "url": "https://blog.google/innovation-and-ai/models-and-research/gemini-models/gemini-3-1-flash-lite",
+      "tags": [
+        "html",
+        "news"
+      ]
+    },
+    {
+      "source": "html_newsroom",
+      "title": "Nano Banana 2: Combining Pro capabilities with lightning-fast speed",
+      "url": "https://blog.google/innovation-and-ai/technology/ai/nano-banana-2",
+      "tags": [
+        "html",
+        "news"
+      ]
+    },
+    {
+      "source": "html_newsroom",
+      "title": "Gemini 3.1 Pro: A smarter model for your most complex tasks",
+      "url": "https://blog.google/innovation-and-ai/models-and-research/gemini-models/gemini-3-1-pro",
+      "tags": [
+        "html",
+        "news"
+      ]
+    },
+    {
+      "source": "html_newsroom",
+      "title": "A new way to express yourself: Gemini can now create music",
+      "url": "https://blog.google/innovation-and-ai/products/gemini-app/lyria-3",
+      "tags": [
+        "html",
+        "news"
+      ]
+    },
+    {
+      "source": "html_newsroom",
+      "title": "Accelerating discovery in India through AI-powered science and education",
+      "url": "https://deepmind.google/blog/accelerating-discovery-in-india-through-ai-powered-science-and-education/",
+      "tags": [
+        "html",
+        "news"
+      ]
+    },
+    {
+      "source": "html_newsroom",
+      "title": "Gemini 3 Deep Think: Advancing science, research and engineering",
+      "url": "https://blog.google/innovation-and-ai/models-and-research/gemini-models/gemini-3-deep-think/",
+      "tags": [
+        "html",
+        "news"
+      ]
+    },
+    {
+      "source": "beads_ready",
+      "title": "Add Channels and Consensus tabs to observatory",
+      "url": "",
+      "summary": "",
+      "tags": [
+        "feature",
+        "P2"
+      ]
+    },
+    {
+      "source": "beads_ready",
+      "title": "Export system broken: require is not defined (ESM/CJS mismatch)",
+      "url": "",
+      "summary": "The export system (both auto-export on session close and manual session.export with format=json) fails with 'require is not defined'. This is a CommonJS require() call in an ESM module context. Affect",
+      "tags": [
+        "bug",
+        "P1"
+      ]
+    },
+    {
+      "source": "beads_ready",
+      "title": "HDD: Backfill agentops test coverage (20% → target 60%+)",
+      "url": "",
+      "summary": "",
+      "tags": [
+        "task",
+        "P2"
+      ]
+    },
+    {
+      "source": "beads_ready",
+      "title": "Rename observatory tabs from Git metaphors to Thoughtbox primitives",
+      "url": "",
+      "summary": "",
+      "tags": [
+        "feature",
+        "P2"
+      ]
+    },
+    {
+      "source": "beads_ready",
+      "title": "Flatten nested sub-operation arg shapes for session/notebook/mental_models",
+      "url": "",
+      "summary": "Currently, session/notebook/mental_models operations require double-nested args: { operation: 'session', args: { operation: 'list', args: { limit: 3 } } }. This is 'present-at-hand' (Heidegger) — agen",
+      "tags": [
+        "feature",
+        "P2"
+      ]
+    },
+    {
+      "source": "beads_ready",
+      "title": "Fix hub-handler event payloads — data shape mismatch causes ? in observatory",
+      "url": "",
+      "summary": "",
+      "tags": [
+        "bug",
+        "P1"
+      ]
+    },
+    {
+      "source": "beads_ready",
+      "title": "Add missing activity events — agent registration, reviews, claims, dependencies",
+      "url": "",
+      "summary": "",
+      "tags": [
+        "feature",
+        "P2"
+      ]
+    }
+  ],
+  "metadata": {
+    "collected_at": "2026-03-26T02:59:48.630Z",
+    "sources_attempted": [
+      "repo",
+      "arxiv",
+      "rss",
+      "html",
+      "beads",
+      "assumptions",
+      "session_handoff"
+    ],
+    "sources_succeeded": [
+      "repo",
+      "arxiv",
+      "rss",
+      "html",
+      "beads",
+      "assumptions",
+      "session_handoff"
+    ],
+    "sources_failed": [],
+    "total_signals": 45,
+    "signals_by_source": {
+      "repo": 10,
+      "arxiv": 12,
+      "rss": 5,
+      "html": 11,
+      "beads": 7,
+      "assumptions": 12,
+      "session_handoff": 14
+    },
+    "elapsed_ms_by_source": {
+      "repo": 390,
+      "arxiv": 1117,
+      "rss": 550,
+      "html": 4908,
+      "beads": 1,
+      "assumptions": 0,
+      "session_handoff": 1
+    }
+  }
+}

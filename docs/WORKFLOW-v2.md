@@ -34,7 +34,7 @@ Enforcement (hooks, guards, blockers) is a fail-safe for when the environment's 
 │  │ Reports environmental friction.               │    │
 │  │                                               │    │
 │  │ Tools: Read, Glob, Grep, Bash (read-only),   │    │
-│  │        Agent (dispatch), Thoughtbox, Beads    │    │
+│  │        Agent (dispatch), Thoughtbox            │    │
 │  │ NOT: Edit, Write, git commit                  │    │
 │  ├──────────────────────────────────────────────┤    │
 │  │ SUB-AGENTS (workers, modify the environment)  │    │
@@ -100,9 +100,7 @@ We use **GitHub Flow**: one long-lived branch (`main`), all work on short-lived 
 - Every branch gets a PR. Every PR gets reviewed (by human and/or code review agents). Every PR merges via rebase (no merge commits — `required_linear_history` is enforced on `main`).
 - Branches are deleted immediately after merge.
 
-### Special Branches
 
-- `beads-sync`: Auto-managed by the beads daemon. Never commit to this manually. Never delete it.
 
 ### Branch Lifecycle
 
@@ -131,14 +129,14 @@ Agents MUST NOT create branches with timestamps or random suffixes (e.g., `imple
 
 A branch corresponds to exactly one logical change. If work on a branch reveals a separate issue, that issue gets its own branch — it does not get committed to the current branch.
 
-**This rule is enforced structurally, not just by instruction.** Each bead automatically provisions a worktree, so the agent is physically isolated to its branch's scope. It cannot commit to the wrong branch because it is not on it. See "Scope Isolation via Worktrees" below.
+**This rule is enforced structurally, not just by instruction.** Each unit of work is assigned a worktree, so the agent is physically isolated to its branch's scope. It cannot commit to the wrong branch because it is not on it. See "Scope Isolation via Worktrees" below.
 
 ### Scope Isolation via Worktrees
 
-When an agent claims a bead and begins work, the environment provisions a git worktree for that bead's branch. The agent works in the worktree, not in the main checkout. This means:
+When an agent claims a task and begins work, the environment provisions a git worktree for that task's branch. The agent works in the worktree, not in the main checkout. This means:
 
 - The agent can only commit to the branch it was assigned.
-- Discovering an unrelated issue mid-work requires creating a new bead, which provisions a new worktree on a new branch. The agent records the discovery as a Thoughtbox thought (type: `context_snapshot`) and creates a bead with a `discovered-from` dependency, but does the actual fix in the new worktree.
+- Discovering an unrelated issue mid-work requires creating a new task, which provisions a new worktree on a new branch. The agent records the discovery as a Thoughtbox thought (type: `context_snapshot`) and tracks it as a new issue, then does the actual fix in the new worktree.
 - The orchestrator's main checkout remains clean.
 
 This is the primary structural mechanism for preventing the mixed-concern PR problem. The enforcement hook (checking commit scope against branch name) exists as a fail-safe but should rarely trigger.
@@ -147,7 +145,7 @@ This is the primary structural mechanism for preventing the mixed-concern PR pro
 
 Any branch not updated in 14 days is considered stale. Stale branches should be either:
 - Rebased onto current main and continued, or
-- Deleted (with a bead capturing what was learned, if anything)
+- Deleted (capturing what was learned, if anything)
 
 ### Merge Flow (Rebase-Only)
 
@@ -254,11 +252,11 @@ The Chief Agentic, assuming that he is in the loop, will review the plan and mak
 
 At this stage, the chief orchestrator agent uses the /work workflow from the compound-engineering plugin to implement the plan generated in the previous stage.
 
-Prior to beginning work, the chief orchestrator agent should create beads that correspond to the units of work that each sub-agent that it deploys will be actually performing: the number of beads and subagents should match. Importantly, the chief orchestrator agent should refrain from doing any manual work themselves, choosing instead to deploy either sub-agents or an agent team to implement the work instead. This protects the chief orchestrator's context from unnecessary work-time tokens best abstracted away in a subagent's summary.
+Prior to beginning work, the chief orchestrator agent should define units of work that each sub-agent will perform: the number of units and subagents should match. Importantly, the chief orchestrator agent should refrain from doing any manual work themselves, choosing instead to deploy either sub-agents or an agent team to implement the work instead. This protects the chief orchestrator's context from unnecessary work-time tokens best abstracted away in a subagent's summary.
 
 Each sub-agent receives:
 1. The work workflow from the compound engineering plugin
-2. A worktree provisioned for its bead's branch
+2. A worktree provisioned for its task's branch
 3. Instructions to use Thoughtbox throughout implementation
 
 The sub-agents should be following a test-driven development process.
@@ -271,8 +269,8 @@ This means that wherever possible any code generated by one of the task agents o
 
 Each sub-agent's unit of work comprises exactly one commit. This commit is made at the end of the review stage, upon being validated — not during implementation. Until review validates the work, the changes are uncommitted working state.
 
-- One bead = one sub-agent = one worktree = one unit of work = one commit
-- The commit message follows conventional commit format and references the bead ID
+- One sub-agent = one worktree = one unit of work = one commit
+- The commit message follows conventional commit format
 - The commit includes both the code changes AND any spec updates in the same commit
 - If review rejects the work, there is nothing to revert because nothing was committed
 
@@ -284,7 +282,7 @@ Each sub-agent must return its summary in the following format. This format is d
 ## Sub-Agent Work Summary
 
 ### Task
-- Bead: beads-XXX
+- Task: <task-id>
 - Branch: <current branch>
 - Worktree: <worktree path>
 - Spec: .specs/<spec-file>.md
@@ -392,7 +390,7 @@ This protocol makes the correct behavior structural rather than instructional.
 
 ### Discovery
 
-An agent working in its worktree encounters something outside the scope of its current bead. Examples:
+An agent working in its worktree encounters something outside the scope of its current task. Examples:
 - A bug in a file unrelated to the current feature
 - A convention violation that predates the current work
 - A missing test for existing functionality
@@ -402,15 +400,15 @@ An agent working in its worktree encounters something outside the scope of its c
 
 1. **Record the discovery in Thoughtbox** as a `context_snapshot` thought: what was found, where, and why it matters. This takes seconds and costs nothing.
 
-2. **Create a bead** with `discovered-from:<current-bead-id>` dependency. This puts it in the backlog with provenance.
+2. **Create a new issue** to track the discovered work. This puts it in the backlog with provenance.
 
-3. **Continue working on the current bead.** Do not fix the discovered issue in the current worktree.
+3. **Continue working on the current task.** Do not fix the discovered issue in the current worktree.
 
 4. **If the discovery is blocking** (the current work literally cannot proceed without fixing it), escalate to the orchestrator, which provisions a new worktree for the blocking fix and sequences the work.
 
 ### Why This Works
 
-The agent does not need to decide whether the fix "belongs" on the current branch. The environment makes the question moot: the agent is in a worktree, so the only branch it can commit to is the one it was assigned. Creating a bead and moving on is cheaper than trying to context-switch, and the Thoughtbox record ensures the discovery isn't lost.
+The agent does not need to decide whether the fix "belongs" on the current branch. The environment makes the question moot: the agent is in a worktree, so the only branch it can commit to is the one it was assigned. Creating an issue and moving on is cheaper than trying to context-switch, and the Thoughtbox record ensures the discovery isn't lost.
 
 The fail-safe hook (checking commit scope against branch name) exists for cases where worktrees are not used — but the goal is that worktrees are always used, making the hook a dead letter.
 

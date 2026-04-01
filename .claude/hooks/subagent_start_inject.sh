@@ -4,7 +4,6 @@
 set -uo pipefail
 
 project_dir="${CLAUDE_PROJECT_DIR:-$(pwd)}"
-bead_state="$project_dir/.claude/state/bead-workflow/current-bead.json"
 ulysses_reflect="$project_dir/.claude/state/ulysses/reflect-required"
 
 # Consume stdin
@@ -27,12 +26,6 @@ ctx+="- Do NOT introduce infrastructure not in this list without escalation.\n\n
 branch=$(git -C "$project_dir" branch --show-current 2>/dev/null || echo "unknown")
 ctx+="## Current Context\n"
 ctx+="Branch: $branch\n"
-
-if [[ -f "$bead_state" ]]; then
-  bead_id=$(jq -r '.bead_id // "unknown"' "$bead_state" 2>/dev/null)
-  hyp=$(jq -r '.hypothesis_stated // false' "$bead_state" 2>/dev/null)
-  ctx+="Active bead: $bead_id (hypothesis: $hyp)\n"
-fi
 
 # ── Ulysses warning ───────────────────────────────────────────────
 if [[ -f "$ulysses_reflect" ]]; then

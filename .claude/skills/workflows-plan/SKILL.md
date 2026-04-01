@@ -121,10 +121,6 @@ Wait for user approval before proceeding.
 
 After user approves:
 
-1. **Create beads** for each task:
-   ```bash
-   bd create --title="<task title>" --type=task --priority=2
-   ```
    Set up dependencies between them:
    ```bash
    bd dep add <child-bead> <parent-bead>
@@ -143,7 +139,7 @@ After user approves:
    ==================
 
    Plan: .workflow/plan.md
-   Tasks: N (beads created)
+   Tasks: N
    Dependencies: [summary]
 
    Next: Stage 4 - Implementation (/workflows-work)

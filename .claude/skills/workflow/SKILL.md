@@ -37,10 +37,9 @@ cat .workflow/state.json 2>/dev/null
 **If no state exists**: Initialize a new workflow:
 
 1. Generate a short ID: `workflow-$(date +%s | tail -c 5)`
-2. Create a bead for the workflow if one doesn't exist
-3. Create or confirm the feature branch (per AGENTS.md branch rules)
-4. Write the initial state file (see State Schema below)
-5. Begin at Stage 1: Ideation
+2. Create or confirm the feature branch (per AGENTS.md branch rules)
+3. Write the initial state file (see State Schema below)
+4. Begin at Stage 1: Ideation
 
 ## State Schema
 
@@ -51,7 +50,6 @@ Write to `.workflow/state.json`:
   "id": "workflow-<short-id>",
   "title": "<feature name from $ARGUMENTS>",
   "branch": "<type>/<branch-name>",
-  "beadId": "<bead-id>",
   "startedAt": "<ISO timestamp>",
   "updatedAt": "<ISO timestamp>",
   "currentStage": "ideation",
@@ -108,7 +106,6 @@ When dispatching implementation sub-agents (Stage 4), each must return its summa
 ## Sub-Agent Work Summary
 
 ### Task
-- Bead: beads-XXX
 - Branch: <current branch>
 - Spec: specs/<spec-file>.md
 - ADR: .adr/staging/<adr-file>.md (if applicable)
@@ -153,11 +150,11 @@ For each ADR hypothesis that this unit of work touches:
 - [any assumptions made that should be verified]
 ```
 
-Save summaries to: `.adr/staging/<NNN>-<name>-summary-<bead-id>.md`
+Save summaries to: `.adr/staging/<NNN>-<name>-summary.md`
 
 ## Operational Rules
 
-1. **1 bead = 1 sub-agent = 1 commit**: Each sub-agent's unit of work is exactly one commit, made after review validates the work — not during implementation.
+1. **1 sub-agent = 1 commit**: Each sub-agent's unit of work is exactly one commit, made after review validates the work — not during implementation.
 2. **Summaries to disk**: Persist sub-agent summaries immediately. Without this, orchestrator crashes lose all work.
 3. **Orchestrators delegate**: You do NOT read implementation code or write production code. You dispatch sub-agents and validate their summaries.
 4. **Atomic commits**: The commit includes both code changes AND any spec updates in the same commit.
@@ -169,7 +166,7 @@ After each stage transition, render this dashboard:
 
 ```
 WORKFLOW: <title>
-Branch: <branch> | Bead: <beadId>
+Branch: <branch>
 Started: <startedAt>
 
 Stage                 Status        Artifacts

@@ -16,7 +16,7 @@ You are executing Stage 4 (Implementation) of the development workflow. A plan e
 Before starting, verify:
 1. `.workflow/state.json` exists and `currentStage` is `"implementation"`
 2. Plan file exists (check `stages.planning.artifacts.plan` in state, usually `.workflow/plan.md`)
-3. Beads exist for each task (created during planning)
+
 
 If pre-conditions are not met, report what's missing and halt.
 
@@ -30,9 +30,8 @@ Read `.workflow/plan.md` and the spec/ADR it references. Build the task executio
 
 For each task in dependency order:
 
-1. **Update the task's bead** to `in_progress`:
+
    ```bash
-   bd update <bead-id> --status=in_progress
    ```
 
 2. **Dispatch a sub-agent** (use the Agent tool with `subagent_type: "general-purpose"`) with:
@@ -58,7 +57,7 @@ Each sub-agent MUST return this format:
 ## Sub-Agent Work Summary
 
 ### Task
-- Bead: <bead-id>
+
 - Branch: <current branch>
 - Spec: <spec path>
 
@@ -101,7 +100,7 @@ If tests fail, note which tasks' changes caused the failure.
 Check off each task from the plan:
 - All acceptance criteria met?
 - All summaries persisted to disk?
-- All beads updated?
+
 - Tests passing?
 
 ### Step 5: Record and Handoff
@@ -110,7 +109,7 @@ Check off each task from the plan:
    - Set `stages.implementation.status` to `"completed"`
    - Set `stages.implementation.completedAt` to current ISO timestamp
    - Set `stages.implementation.artifacts.summaries` to list of summary file paths
-   - Set `stages.implementation.artifacts.issues` to list of bead IDs
+   
    - Set `currentStage` to `"review"`
    - Update `updatedAt`
 
@@ -128,7 +127,7 @@ Check off each task from the plan:
 
 ## Operational Rules
 
-1. **1 bead = 1 sub-agent = 1 commit**: Each sub-agent works on exactly one task. Commits happen AFTER review (Stage 5), not during implementation.
+1. **1 sub-agent = 1 commit**: Each sub-agent works on exactly one task. Commits happen AFTER review (Stage 5), not during implementation.
 2. **Summaries to disk immediately**: If the orchestrator crashes, summaries on disk survive. This is your recovery mechanism.
 3. **Do NOT commit during implementation**: Code changes remain uncommitted until review validates them.
 4. **Do NOT implement tasks yourself**: Always dispatch sub-agents. Protect your context window.

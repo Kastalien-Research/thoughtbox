@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 # PreToolUse: BLOCK when Ulysses REFLECT is required.
 # This ONLY handles the escalation circuit breaker.
-# The baseline bead workflow is in bead_workflow_enforcer.sh.
+# The baseline workflow enforcer is separate.
 set -euo pipefail
 
 ulysses_state_dir="${CLAUDE_PROJECT_DIR:-.}/.claude/state/ulysses"
-bead_state_dir="${CLAUDE_PROJECT_DIR:-.}/.claude/state/bead-workflow"
+workflow_state_dir="${CLAUDE_PROJECT_DIR:-.}/.claude/state/bead-workflow"
 
 # If no reflect-required sentinel, pass through
 [[ -f "$ulysses_state_dir/reflect-required" ]] || exit 0
@@ -35,14 +35,14 @@ if [[ "$tool_name" == "Skill" ]]; then
   exit 0
 fi
 
-bead_id="unknown"
+task_id="unknown"
 count=0
-if [[ -f "$bead_state_dir/current-bead.json" ]]; then
-  bead_id=$(jq -r '.bead_id // "unknown"' "$bead_state_dir/current-bead.json")
-  count=$(jq -r '.surprise_count // 0' "$bead_state_dir/current-bead.json")
+if [[ -f "$workflow_state_dir/current-bead.json" ]]; then
+  task_id=$(jq -r '.bead_id // "unknown"' "$workflow_state_dir/current-bead.json")
+  count=$(jq -r '.surprise_count // 0' "$workflow_state_dir/current-bead.json")
 fi
 
-echo "BLOCKED: REFLECT REQUIRED (${count} consecutive surprises on ${bead_id})." >&2
+echo "BLOCKED: REFLECT REQUIRED (${count} consecutive surprises on ${task_id})." >&2
 echo "You MUST run Ulysses REFLECT before any further work." >&2
 echo "After REFLECT completes, the reflect-required sentinel is cleared." >&2
 exit 1

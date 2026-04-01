@@ -12,14 +12,8 @@ Generate `specs/continual-improvement/INDEX.md`.
 node scripts/utils/spec-index.mjs
 ```
 
-### `bootstrap-signal-store.ts`
-Initialize `agentops/signals/index.json`.
-```bash
-npx tsx scripts/utils/bootstrap-signal-store.ts
-```
-
 ### `capture-handoff.mjs`
-Capture git + beads into `.claude/session-handoff.json`.
+Capture git state into `.claude/session-handoff.json`.
 ```bash
 node scripts/utils/capture-handoff.mjs
 ```

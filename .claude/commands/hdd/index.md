@@ -16,13 +16,13 @@ Complete explanation of the hypothesis-driven development approach, workflow pha
 #### [quick-reference](./quick-reference.md)
 Quick command reference and cheat sheet for the HDD workflow.
 
-### Session Management (Beads Integration)
+### Session Management
 
 #### [init](./init.md)
-Initialize a new HDD session by creating epic and phase structure in beads.
+Initialize a new HDD session by creating epic and phase structure.
 
 #### [state](./state.md)
-State management, checkpoints, and phase transitions using beads.
+State management, checkpoints, and phase transitions.
 
 ### Phase Commands
 

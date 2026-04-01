@@ -59,17 +59,17 @@ assert_json_field() {
   fi
 }
 
-echo "=== Testing bead_workflow_state_writer.sh ==="
+echo "=== Testing workflow_state_writer.sh ==="
 echo ""
 
-# Test 1: Claim creates current-bead.json
-echo "Test 1: Claim creates current-bead.json"
+# Test 1: Claim creates state file
+echo "Test 1: Claim creates state file"
 export CLAUDE_PROJECT_DIR="$TEST_STATE_DIR"
 mkdir -p "$TEST_STATE_DIR/.claude/state/bead-workflow"
 make_json "Bash" "bd update thoughtbox-abc --claim" "✓ Updated issue: thoughtbox-abc" \
   | "$SCRIPT_DIR/bead_workflow_state_writer.sh"
-assert_file_exists "$TEST_STATE_DIR/.claude/state/bead-workflow/current-bead.json" "file created"
-assert_json_field "$TEST_STATE_DIR/.claude/state/bead-workflow/current-bead.json" ".bead_id" "thoughtbox-abc" "bead_id correct"
+assert_file_exists "$TEST_STATE_DIR/.claude/state/bead-workflow/current-bead.json" "state file created"
+assert_json_field "$TEST_STATE_DIR/.claude/state/bead-workflow/current-bead.json" ".bead_id" "thoughtbox-abc" "task_id correct"
 assert_json_field "$TEST_STATE_DIR/.claude/state/bead-workflow/current-bead.json" ".hypothesis_stated" "false" "hypothesis_stated is false"
 
 # Test 2: Notes sets hypothesis_stated
@@ -114,7 +114,7 @@ rm -rf "$TEST_STATE_DIR/.claude/state"
 mkdir -p "$TEST_STATE_DIR/.claude/state/bead-workflow"
 mkdir -p "$TEST_STATE_DIR/.claude/state/ulysses"
 
-# Create a current bead with surprise_count
+# Create state with surprise_count
 jq -n '{bead_id: "thoughtbox-xyz", hypothesis_stated: true, surprise_count: 0}' \
   > "$TEST_STATE_DIR/.claude/state/bead-workflow/current-bead.json"
 
