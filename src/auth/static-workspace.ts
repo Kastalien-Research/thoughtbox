@@ -72,7 +72,15 @@ async function getOrCreateServiceUser(
     password: crypto.randomUUID(),
     email_confirm: true,
   });
-  if (error) throw new Error(`Cannot create service user: ${error.message}`);
+  if (error) {
+    if (error.message.includes('already registered')) {
+      // Lost a concurrent-creation race — re-fetch
+      const { data: refetch } = await client.auth.admin.listUsers({ page: 1, perPage: 1000 });
+      const found = refetch?.users?.find((u) => u.email === email);
+      if (found) return found.id;
+    }
+    throw new Error(`Cannot create service user: ${error.message}`);
+  }
   return data.user.id;
 }
 

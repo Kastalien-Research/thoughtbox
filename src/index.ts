@@ -263,52 +263,6 @@ async function startHttpServer() {
 
   app.use(authRouter);
 
-  // Singleton server + transport for local (non-multi-tenant) mode.
-  // Avoids per-request server creation when clients drop session headers
-  // (e.g., Claude Code reconnection bug).
-  let singletonEntry: SessionEntry | null = null;
-
-  async function getOrCreateSingleton(): Promise<SessionEntry> {
-    if (singletonEntry) return singletonEntry;
-
-    const singletonId = crypto.randomUUID();
-    const storage = factory.getStorage();
-    const knowledgeStorage = factory.getKnowledgeStorage();
-    let singletonProtocolHandler: SessionEntry["protocolHandler"] = null;
-
-    const server = await createMcpServer({
-      sessionId: singletonId,
-      storage,
-      hubStorage,
-      dataDir,
-      knowledgeStorage,
-      onProtocolHandlerReady: (handler) => {
-        singletonProtocolHandler = handler;
-      },
-      config: {
-        disableThoughtLogging:
-          (process.env.DISABLE_THOUGHT_LOGGING || "").toLowerCase() === "true",
-      },
-    });
-
-    const transport = new StreamableHTTPServerTransport({
-      sessionIdGenerator: undefined,
-      enableJsonResponse: true,
-    });
-
-    await server.connect(transport);
-    console.error(`[MCP] Singleton server created: ${singletonId}`);
-
-    singletonEntry = {
-      transport,
-      server,
-      workspaceId: await ensureStaticWorkspace('local-dev'),
-      protocolHandler: singletonProtocolHandler,
-    };
-    sessions.set(singletonId, singletonEntry);
-    return singletonEntry;
-  }
-
   app.all("/mcp", async (req: Request, res: Response) => {
     const mcpSessionId = req.headers["mcp-session-id"] as string | undefined;
 
@@ -445,14 +399,55 @@ async function startHttpServer() {
         return;
       }
 
-      // --- Local (singleton) mode: one server, all requests share it ---
-      const entry = await getOrCreateSingleton();
-      await entry.transport.handleRequest(req, res, req.body);
+      // --- Local mode: per-session servers, same pattern as multi-tenant ---
+      if (mcpSessionId && sessions.has(mcpSessionId)) {
+        const entry = sessions.get(mcpSessionId)!;
+        await entry.transport.handleRequest(req, res, req.body);
+        if (req.method === "DELETE") {
+          sessions.delete(mcpSessionId);
+          entry.transport.close();
+        }
+        return;
+      }
+
+      const sessionId = mcpSessionId || crypto.randomUUID();
+      const localWorkspaceId = await ensureStaticWorkspace('local-dev');
+      const storage = factory.getStorage();
+      const knowledgeStorage = factory.getKnowledgeStorage();
+
+      const server = await createMcpServer({
+        sessionId,
+        storage,
+        hubStorage,
+        dataDir,
+        knowledgeStorage,
+        workspaceId: localWorkspaceId,
+        config: {
+          disableThoughtLogging:
+            (process.env.DISABLE_THOUGHT_LOGGING || "").toLowerCase() === "true",
+        },
+      });
+
+      const transport = new StreamableHTTPServerTransport({
+        sessionIdGenerator: () => sessionId,
+        enableJsonResponse: true,
+      });
+
+      const localEntry: SessionEntry = {
+        transport,
+        server,
+        workspaceId: localWorkspaceId,
+        protocolHandler: null,
+      };
+      sessions.set(sessionId, localEntry);
+      transport.onclose = () => sessions.delete(transport.sessionId || sessionId);
+
+      await server.connect(transport);
+      await transport.handleRequest(req, res, req.body);
 
       if (req.method === "DELETE") {
-        singletonEntry = null;
-        sessions.clear();
-        entry.transport.close();
+        sessions.delete(sessionId);
+        transport.close();
       }
     } catch (error) {
       console.error("MCP ERROR:", error);
@@ -524,9 +519,12 @@ async function startHttpServer() {
     hubHttpSurface.mount(app);
   }
 
-  const protocolHttpSurface = createProtocolHttpSurface(
-    () => singletonEntry?.protocolHandler ?? null,
-  );
+  const protocolHttpSurface = createProtocolHttpSurface(() => {
+    for (const entry of sessions.values()) {
+      if (entry.protocolHandler) return entry.protocolHandler;
+    }
+    return null;
+  });
 
   if (!isMultiTenant) {
     protocolHttpSurface.mount(app);

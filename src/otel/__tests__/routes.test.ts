@@ -71,6 +71,8 @@ describe('OTLP Routes', () => {
     if (server) {
       await new Promise<void>((resolve) => server.close(() => resolve()));
     }
+    delete process.env.SUPABASE_URL;
+    delete process.env.SUPABASE_SERVICE_ROLE_KEY;
   });
 
   // ==========================================================================
