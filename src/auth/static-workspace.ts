@@ -49,6 +49,8 @@ export async function ensureStaticWorkspace(slug: string): Promise<string> {
       console.error(
         `[static-workspace] Failed to upsert workspace '${slug}': ${error.message}`,
       );
+      // Do not cache — allow retry on next request
+      return id;
     }
   }
 
@@ -61,7 +63,7 @@ async function getOrCreateServiceUser(
   client: SupabaseClient<any>,
 ): Promise<string> {
   const email = 'service@thoughtbox.local';
-  const { data: list } = await client.auth.admin.listUsers();
+  const { data: list } = await client.auth.admin.listUsers({ page: 1, perPage: 1000 });
   const existing = list?.users?.find((u) => u.email === email);
   if (existing) return existing.id;
 
