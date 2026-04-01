@@ -415,6 +415,14 @@ async function startHttpServer() {
       const storage = factory.getStorage();
       const knowledgeStorage = factory.getKnowledgeStorage();
 
+      const localEntry: SessionEntry = {
+        transport: null!,
+        server: null!,
+        workspaceId: localWorkspaceId,
+        protocolHandler: null,
+      };
+      sessions.set(sessionId, localEntry);
+
       const server = await createMcpServer({
         sessionId,
         storage,
@@ -422,6 +430,9 @@ async function startHttpServer() {
         dataDir,
         knowledgeStorage,
         workspaceId: localWorkspaceId,
+        onProtocolHandlerReady: (handler) => {
+          localEntry.protocolHandler = handler;
+        },
         config: {
           disableThoughtLogging:
             (process.env.DISABLE_THOUGHT_LOGGING || "").toLowerCase() === "true",
@@ -433,13 +444,8 @@ async function startHttpServer() {
         enableJsonResponse: true,
       });
 
-      const localEntry: SessionEntry = {
-        transport,
-        server,
-        workspaceId: localWorkspaceId,
-        protocolHandler: null,
-      };
-      sessions.set(sessionId, localEntry);
+      localEntry.transport = transport;
+      localEntry.server = server;
       transport.onclose = () => sessions.delete(transport.sessionId || sessionId);
 
       await server.connect(transport);
