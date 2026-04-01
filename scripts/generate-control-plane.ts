@@ -14,6 +14,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import path from 'node:path';
 import { parse } from 'yaml';
 import process from 'node:process';
+import { DISCOVER_GLOBS, IGNORE_GLOBS } from './control-plane-globs.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -23,22 +24,8 @@ const DEFAULT_MANIFEST_PATH = path.join(REPO_ROOT, 'automation-self-improvement/
 const DEFAULT_VITEST_CONFIG_PATH = path.join(REPO_ROOT, 'vitest.config.ts');
 const GENERATED_BY = 'scripts/generate-control-plane.ts';
 
-const DISCOVER_GLOBS = [
-  'src/**/__tests__/**/*.ts',
-  'tests/**/*.ts',
-  'agentops/tests/**/*.ts',
-  'automation-self-improvement/agentops/tests/**/*.ts',
-  'observability/**/*/test/**/*.ts',
-];
-
-const IGNORE_GLOBS = [
-  '**/node_modules/**',
-  '**/.git/**',
-  '**/dist/**',
-  '**/.turbo/**',
-  '**/coverage/**',
-  '**/.local-stash.bak/**',
-];
+// DISCOVER_GLOBS and IGNORE_GLOBS imported from ./control-plane-globs.ts
+// Do not redeclare here — edit the shared module to keep checker in sync.
 
 const GENERATED_AT = 'manifest-driven-stable';
 const BANNER = `<!--
@@ -352,7 +339,7 @@ function validateManifest(manifest: unknown): Manifest {
     assert(Array.isArray(artifact.consumed_by), `artifacts[${idx}].consumed_by must be array`);
   });
 
-  assert(typeof generationOutputs !== undefined && generationOutputs.length > 0, 'generation.outputs must have at least one entry');
+  assert(generationOutputs.length > 0, 'generation.outputs must have at least one entry');
   assert(toArray(generationOutputs, 'generation.outputs').every((value) => typeof value === 'string'), 'generation.outputs must contain strings');
 
   tests.forEach((suite, idx) => {

@@ -11,17 +11,15 @@ import process from 'node:process';
 import { parse } from 'yaml';
 
 import { type Manifest, type GeneratedArtifacts, buildManifestBundle, getManifest, validateManifest } from './generate-control-plane.js';
+import { DISCOVER_GLOBS, IGNORE_GLOBS } from './control-plane-globs.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const REPO_ROOT = path.resolve(process.cwd());
 
 const MANIFEST_PATH = path.join(REPO_ROOT, 'automation-self-improvement/control-plane/manifest.yaml');
-const TEST_IGNORE_GLOBS = ['**/node_modules/**', '**/.git/**', '**/dist/**'];
-const CATCH_ALL_TEST_GLOBS = [
-  'src/**/__tests__/**/*.ts',
-  'tests/**/*.ts',
-];
+const TEST_IGNORE_GLOBS = IGNORE_GLOBS;
+const CATCH_ALL_TEST_GLOBS = DISCOVER_GLOBS;
 
 interface CheckFailure {
   id: string;
