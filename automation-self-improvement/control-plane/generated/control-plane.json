@@ -1,0 +1,755 @@
+{
+  "generated_at": "manifest-driven-stable",
+  "generator": "scripts/generate-control-plane.ts",
+  "manifest": {
+    "version": "1.0.0",
+    "repo": {
+      "name": "thoughtbox",
+      "root": ".",
+      "branch": "main"
+    },
+    "systems": [
+      {
+        "id": "decision-plane",
+        "name": "Decision Plane",
+        "paths": [
+          ".adr/staging/ADR-017-unified-autonomy-control-plane.md",
+          ".specs/unified-autonomy-control-plane",
+          "automation-self-improvement/agentops",
+          "automation-self-improvement/control-plane",
+          "automation-self-improvement/self-improvement"
+        ],
+        "entrypoints": [
+          ".adr/staging/ADR-017-unified-autonomy-control-plane.md",
+          ".github/workflows/ci.yml",
+          "automation-self-improvement/control-plane/manifest.yaml",
+          "package.json",
+          "scripts/check-control-plane.ts",
+          "scripts/generate-control-plane.ts"
+        ],
+        "maturity": "partial",
+        "owner_workflows": [
+          "daily_dev_brief",
+          "proposal_approval"
+        ],
+        "upstream_artifacts": [
+          "control-plane-spec-index"
+        ],
+        "downstream_artifacts": [
+          "control-plane-spec-drift",
+          "control-plane-spec-systems",
+          "control-plane-spec-test-truth",
+          "control-plane-spec-workflows"
+        ]
+      },
+      {
+        "id": "execution-plane",
+        "name": "Execution Plane",
+        "paths": [
+          "src/http",
+          "src/hub",
+          "src/knowledge",
+          "src/multi-agent",
+          "src/observability",
+          "src/persistence",
+          "src/protocol"
+        ],
+        "entrypoints": [
+          "src/http",
+          "src/hub",
+          "src/index.ts",
+          "src/observability/index.ts",
+          "src/persistence/index.ts",
+          "src/protocol/index.ts"
+        ],
+        "maturity": "partial",
+        "owner_workflows": [
+          "improvement_loop"
+        ],
+        "upstream_artifacts": [
+          "control-plane-spec-workflows"
+        ],
+        "downstream_artifacts": [
+          "control-plane-spec-drift"
+        ]
+      },
+      {
+        "id": "governance-plane",
+        "name": "Governance and Drift Plane",
+        "paths": [
+          ".github/workflows/ci.yml",
+          ".specs/unified-autonomy-control-plane",
+          ".specs/unified-autonomy-loop",
+          "automation-self-improvement/control-plane",
+          "scripts"
+        ],
+        "entrypoints": [
+          ".github/workflows/ci.yml",
+          "package.json",
+          "scripts/check-control-plane.ts",
+          "scripts/generate-control-plane.ts"
+        ],
+        "maturity": "implemented",
+        "owner_workflows": [
+          "daily_dev_brief",
+          "improvement_loop",
+          "prompt_refinement_batch",
+          "proposal_approval",
+          "tool_pedagogy_batch"
+        ],
+        "upstream_artifacts": [
+          "control-plane-spec-index"
+        ],
+        "downstream_artifacts": [
+          "control-plane-json",
+          "test-truth-json"
+        ]
+      },
+      {
+        "id": "learning-plane",
+        "name": "Learning and Refinement Plane",
+        "paths": [
+          "automation-self-improvement/agentic-dev-team",
+          "automation-self-improvement/agentops",
+          "automation-self-improvement/agentops/tests",
+          "automation-self-improvement/self-improvement",
+          "automation-self-improvement/self-improvement/SPEC-index.md",
+          "docs/system-interconnection-map.md"
+        ],
+        "entrypoints": [
+          "automation-self-improvement/agentops/runner/cli.ts",
+          "automation-self-improvement/agentops/runner/daily-dev-brief.ts",
+          "automation-self-improvement/agentops/runner/implement.ts",
+          "automation-self-improvement/self-improvement/PLAN-cost-effective-self-improvement-loop.md",
+          "scripts/agentic-test.ts"
+        ],
+        "maturity": "partial",
+        "owner_workflows": [
+          "prompt_refinement_batch",
+          "tool_pedagogy_batch"
+        ],
+        "upstream_artifacts": [
+          "control-plane-spec-test-truth"
+        ],
+        "downstream_artifacts": [
+          "test-truth-json"
+        ]
+      }
+    ],
+    "workflows": [
+      {
+        "id": "daily_dev_brief",
+        "plane": "decision",
+        "trigger": "scheduler/manual",
+        "maturity": "partial",
+        "paths": [
+          "automation-self-improvement/agentops/config",
+          "automation-self-improvement/agentops/runner/daily-dev-brief.ts"
+        ],
+        "entrypoints": [
+          "automation-self-improvement/agentops/runner/cli.ts"
+        ],
+        "states": [
+          "discover",
+          "draft",
+          "validated",
+          "published"
+        ],
+        "steps": [
+          "discover pending issues, signals, and coverage debt",
+          "prepare decision candidate record",
+          "update control-plane test-truth surfaces",
+          "publish draft package for review"
+        ],
+        "inputs": [
+          "decision candidates",
+          "test coverage gaps"
+        ],
+        "outputs": [
+          "control-plane trace package",
+          "decision candidate bundle"
+        ],
+        "gates": [
+          "data integrity",
+          "schema conformance"
+        ]
+      },
+      {
+        "id": "improvement_loop",
+        "plane": "execution",
+        "trigger": "approved proposal",
+        "maturity": "research-only",
+        "paths": [
+          "automation-self-improvement/self-improvement",
+          "src"
+        ],
+        "entrypoints": [
+          "scripts/agentic-test.ts"
+        ],
+        "states": [
+          "composing",
+          "implementing",
+          "evaluating",
+          "integrating"
+        ],
+        "steps": [
+          "compose code changes from accepted proposal",
+          "execute declared local integrations",
+          "collect evidence in generated truth artifacts",
+          "gate integration readiness"
+        ],
+        "inputs": [
+          "approved proposal",
+          "execution constraints"
+        ],
+        "outputs": [
+          "evaluation summary",
+          "implementation evidence"
+        ],
+        "gates": [
+          "check-control-plane pass",
+          "implementation complete"
+        ]
+      },
+      {
+        "id": "prompt_refinement_batch",
+        "plane": "learning",
+        "trigger": "weekly cadence or explicit request",
+        "maturity": "research-only",
+        "paths": [
+          ".claude/rules",
+          ".claude/skills",
+          "automation-self-improvement/self-improvement"
+        ],
+        "entrypoints": [
+          "automation-self-improvement/agentops/runner/cli.ts"
+        ],
+        "states": [
+          "collect",
+          "analyze",
+          "propose",
+          "defer_or_apply"
+        ],
+        "steps": [
+          "review session-level drift signals",
+          "draft prompt/rule adjustments",
+          "queue review packet",
+          "mark acceptance status"
+        ],
+        "inputs": [
+          "session summaries",
+          "test-truth coverage gaps"
+        ],
+        "outputs": [
+          "prompt refinement packet"
+        ],
+        "gates": [
+          "policy alignment",
+          "quality bar"
+        ]
+      },
+      {
+        "id": "proposal_approval",
+        "plane": "decision",
+        "trigger": "explicit proposal review plus human approval",
+        "maturity": "partial",
+        "paths": [
+          ".adr/accepted",
+          ".adr/rejected",
+          ".adr/staging"
+        ],
+        "entrypoints": [
+          "scripts/check-control-plane.ts"
+        ],
+        "states": [
+          "queued",
+          "pre-validating",
+          "approved",
+          "rejected"
+        ],
+        "steps": [
+          "load proposal and linked evidence",
+          "run validation check on manifest links",
+          "apply approval record",
+          "hand off to execution backlog"
+        ],
+        "inputs": [
+          "decision candidate bundle",
+          "proposal payload"
+        ],
+        "outputs": [
+          "approved change request",
+          "rejection rationale"
+        ],
+        "gates": [
+          "checklist complete",
+          "control-plane check"
+        ]
+      },
+      {
+        "id": "tool_pedagogy_batch",
+        "plane": "learning",
+        "trigger": "weekly cadence or explicit request",
+        "maturity": "research-only",
+        "paths": [
+          ".claude/skills",
+          "automation-self-improvement/agentops"
+        ],
+        "entrypoints": [
+          "automation-self-improvement/agentops/runner/cli.ts"
+        ],
+        "states": [
+          "collect",
+          "analyze",
+          "propose",
+          "defer_or_apply"
+        ],
+        "steps": [
+          "analyze traces and friction",
+          "derive pedagogy improvements",
+          "write queue packet for decision plane",
+          "mark scope and confidence"
+        ],
+        "inputs": [
+          "agent telemetry",
+          "trace summaries"
+        ],
+        "outputs": [
+          "learning backlog update",
+          "tool-pedagogy proposal packet"
+        ],
+        "gates": [
+          "evidence quality",
+          "reviewer signoff"
+        ]
+      }
+    ],
+    "artifacts": [
+      {
+        "id": "control-plane-json",
+        "kind": "json",
+        "path": "automation-self-improvement/control-plane/generated/control-plane.json",
+        "source_of_truth": "automation-self-improvement/control-plane/manifest.yaml",
+        "produced_by": "scripts/generate-control-plane.ts",
+        "consumed_by": [
+          "check:control-plane",
+          "ci"
+        ]
+      },
+      {
+        "id": "control-plane-spec-drift",
+        "kind": "markdown",
+        "path": ".specs/unified-autonomy-control-plane/03-generation-and-drift.md",
+        "source_of_truth": "automation-self-improvement/control-plane/manifest.yaml",
+        "produced_by": "scripts/generate-control-plane.ts",
+        "consumed_by": [
+          "check:control-plane"
+        ]
+      },
+      {
+        "id": "control-plane-spec-index",
+        "kind": "markdown",
+        "path": ".specs/unified-autonomy-control-plane/00-index.md",
+        "source_of_truth": "automation-self-improvement/control-plane/manifest.yaml",
+        "produced_by": "scripts/generate-control-plane.ts",
+        "consumed_by": [
+          "check:control-plane",
+          "ci"
+        ]
+      },
+      {
+        "id": "control-plane-spec-systems",
+        "kind": "markdown",
+        "path": ".specs/unified-autonomy-control-plane/01-systems.md",
+        "source_of_truth": "automation-self-improvement/control-plane/manifest.yaml",
+        "produced_by": "scripts/generate-control-plane.ts",
+        "consumed_by": [
+          "review"
+        ]
+      },
+      {
+        "id": "control-plane-spec-test-truth",
+        "kind": "markdown",
+        "path": ".specs/unified-autonomy-control-plane/04-test-truth.md",
+        "source_of_truth": "automation-self-improvement/control-plane/manifest.yaml",
+        "produced_by": "scripts/generate-control-plane.ts",
+        "consumed_by": [
+          "check:control-plane",
+          "ci"
+        ]
+      },
+      {
+        "id": "control-plane-spec-workflows",
+        "kind": "markdown",
+        "path": ".specs/unified-autonomy-control-plane/02-workflows-and-state.md",
+        "source_of_truth": "automation-self-improvement/control-plane/manifest.yaml",
+        "produced_by": "scripts/generate-control-plane.ts",
+        "consumed_by": [
+          "review"
+        ]
+      },
+      {
+        "id": "test-truth-json",
+        "kind": "json",
+        "path": "automation-self-improvement/control-plane/generated/test-truth.json",
+        "source_of_truth": "automation-self-improvement/control-plane/manifest.yaml",
+        "produced_by": "scripts/generate-control-plane.ts",
+        "consumed_by": [
+          "check:control-plane",
+          "ci"
+        ]
+      }
+    ],
+    "generation": {
+      "source_of_truth": "automation-self-improvement/control-plane/manifest.yaml",
+      "generated_by": "scripts/generate-control-plane.ts",
+      "generated_from": "automation-self-improvement/control-plane/manifest.yaml",
+      "outputs": [
+        ".specs/unified-autonomy-control-plane/00-index.md",
+        ".specs/unified-autonomy-control-plane/01-systems.md",
+        ".specs/unified-autonomy-control-plane/02-workflows-and-state.md",
+        ".specs/unified-autonomy-control-plane/03-generation-and-drift.md",
+        ".specs/unified-autonomy-control-plane/04-test-truth.md",
+        "automation-self-improvement/control-plane/generated/control-plane.json",
+        "automation-self-improvement/control-plane/generated/test-truth.json"
+      ]
+    },
+    "tests": [
+      {
+        "suite_id": "automation_agentops_suite",
+        "glob": "automation-self-improvement/agentops/tests/**/*.ts",
+        "runner": "vitest",
+        "execution_profile": "local-integration",
+        "real_dependencies": [
+          "docker",
+          "mocks",
+          "network",
+          "subprocess",
+          "supabase"
+        ],
+        "coverage": {
+          "components": [
+            "agentops",
+            "integration",
+            "proposal",
+            "workflow"
+          ]
+        },
+        "gaps": [
+          "automation-self-improvement/agentops/tests/*.ts is out-of-band relative to current Vitest include config",
+          "moved tests use local and external dependencies"
+        ]
+      },
+      {
+        "suite_id": "mental_models_smoke_suite",
+        "glob": "tests/mental-models.test.ts",
+        "runner": "vitest",
+        "execution_profile": "local-only",
+        "real_dependencies": [
+          "gateway",
+          "mocks"
+        ],
+        "coverage": {
+          "components": [
+            "behavior",
+            "mental models",
+            "session contracts"
+          ]
+        },
+        "gaps": [
+          "not part of current CI include list"
+        ]
+      },
+      {
+        "suite_id": "observability_sidecar_suite",
+        "glob": "observability/mcp-sidecar-observability/test/**/*.test.ts",
+        "runner": "vitest",
+        "execution_profile": "local-integration",
+        "real_dependencies": [
+          "network",
+          "subprocess"
+        ],
+        "coverage": {
+          "components": [
+            "observability",
+            "runtime",
+            "runtime integration"
+          ]
+        },
+        "gaps": [
+          "local-only in CI because no legacy sidecar compose path in this config"
+        ]
+      },
+      {
+        "suite_id": "src_unit_suite",
+        "glob": "src/**/__tests__/**/*.ts",
+        "runner": "vitest",
+        "execution_profile": "ci-executed",
+        "real_dependencies": [
+          "mocks",
+          "network",
+          "subprocess",
+          "supabase"
+        ],
+        "coverage": {
+          "components": [
+            "knowledge",
+            "observability",
+            "persistence",
+            "runtime",
+            "server"
+          ]
+        },
+        "gaps": [
+          "local Supabase integration tests may skip when Supabase is unavailable",
+          "no guarantee of full end-to-end chain coverage"
+        ]
+      },
+      {
+        "suite_id": "tests_unit_suite",
+        "glob": "tests/unit/*.ts",
+        "runner": "vitest",
+        "execution_profile": "local-only",
+        "real_dependencies": [
+          "local state",
+          "mocks"
+        ],
+        "coverage": {
+          "components": [
+            "behavior",
+            "contracts",
+            "tooling"
+          ]
+        },
+        "gaps": [
+          "tests/unit/*.ts is out-of-band relative to current Vitest include config"
+        ]
+      }
+    ],
+    "drift_rules": [
+      {
+        "id": "no-legacy-root-paths",
+        "severity": "high",
+        "matcher": "legacy-prefix-list",
+        "legacy_prefixes": [
+          ".specs/self-improvement-loop/",
+          "agentops/",
+          "benchmarks/",
+          "dgm-specs/"
+        ],
+        "failure_message": "Authoritative control-plane paths must not use legacy root-level paths as canonical references"
+      },
+      {
+        "id": "no-missing-paths",
+        "severity": "high",
+        "matcher": "manifest-path-existence",
+        "failure_message": "All manifest paths must exist in repository at check time"
+      },
+      {
+        "id": "no-stale-generated-artifacts",
+        "severity": "high",
+        "matcher": "generated-output-stale",
+        "failure_message": "Generated markdown and JSON artifacts must be up to date with manifest output"
+      },
+      {
+        "id": "no-undeclared-test-surfaces",
+        "severity": "high",
+        "matcher": "undeclared-test-surface",
+        "failure_message": "Code-based test files must be declared in the manifest tests section"
+      }
+    ]
+  },
+  "test_surfaces": {
+    "declared": [
+      "automation-self-improvement/agentops/tests/cross-layer-sources.test.ts",
+      "automation-self-improvement/agentops/tests/extract.test.ts",
+      "automation-self-improvement/agentops/tests/integration.test.ts",
+      "automation-self-improvement/agentops/tests/phase1.2.test.ts",
+      "automation-self-improvement/agentops/tests/sources.test.ts",
+      "automation-self-improvement/agentops/tests/synthesis.test.ts",
+      "automation-self-improvement/agentops/tests/template.test.ts",
+      "automation-self-improvement/agentops/tests/xml-parsing.test.ts",
+      "observability/mcp-sidecar-observability/test/integration.test.ts",
+      "src/__tests__/api-key-auth.test.ts",
+      "src/__tests__/architecture.test.ts",
+      "src/__tests__/persistence-roundtrip.test.ts",
+      "src/__tests__/supabase-test-helpers.ts",
+      "src/__tests__/supabase-wiring.test.ts",
+      "src/audit/__tests__/manifest-generator.test.ts",
+      "src/code-mode/__tests__/execute-tool.test.ts",
+      "src/code-mode/__tests__/search-tool.test.ts",
+      "src/code-mode/__tests__/server-surface.test.ts",
+      "src/http/__tests__/hub-http.test.ts",
+      "src/http/__tests__/protocol-hook-integration.test.ts",
+      "src/http/__tests__/protocol-http.test.ts",
+      "src/hub/__tests__/agent-identity.test.ts",
+      "src/hub/__tests__/artifact-refs.test.ts",
+      "src/hub/__tests__/attribution.test.ts",
+      "src/hub/__tests__/channel-resources.test.ts",
+      "src/hub/__tests__/channel-subscription.test.ts",
+      "src/hub/__tests__/channels.test.ts",
+      "src/hub/__tests__/concurrent.test.ts",
+      "src/hub/__tests__/consensus.test.ts",
+      "src/hub/__tests__/dependencies.test.ts",
+      "src/hub/__tests__/errors.test.ts",
+      "src/hub/__tests__/hub-event-callback.test.ts",
+      "src/hub/__tests__/hub-handler.test.ts",
+      "src/hub/__tests__/hub-task-store.test.ts",
+      "src/hub/__tests__/hub-tool-wiring.test.ts",
+      "src/hub/__tests__/identity-profiles.test.ts",
+      "src/hub/__tests__/identity.test.ts",
+      "src/hub/__tests__/integration.test.ts",
+      "src/hub/__tests__/isolation.test.ts",
+      "src/hub/__tests__/per-session-identity.test.ts",
+      "src/hub/__tests__/proactive-conflicts.test.ts",
+      "src/hub/__tests__/problems.test.ts",
+      "src/hub/__tests__/profile-prompt.test.ts",
+      "src/hub/__tests__/profiles-extended.test.ts",
+      "src/hub/__tests__/profiles-integration.test.ts",
+      "src/hub/__tests__/profiles-registry.test.ts",
+      "src/hub/__tests__/proposals.test.ts",
+      "src/hub/__tests__/proxy.test.ts",
+      "src/hub/__tests__/quick-join.test.ts",
+      "src/hub/__tests__/storage.test.ts",
+      "src/hub/__tests__/sub-problems.test.ts",
+      "src/hub/__tests__/terminal-state.test.ts",
+      "src/hub/__tests__/test-helpers.ts",
+      "src/hub/__tests__/thought-priming.test.ts",
+      "src/hub/__tests__/thought-store-adapter.test.ts",
+      "src/hub/__tests__/wiring-integration.test.ts",
+      "src/hub/__tests__/workspace-digest.test.ts",
+      "src/hub/__tests__/workspace.test.ts",
+      "src/knowledge/__tests__/supabase-knowledge-storage.test.ts",
+      "src/multi-agent/__tests__/cipher-extension.test.ts",
+      "src/multi-agent/__tests__/claim-parser.test.ts",
+      "src/multi-agent/__tests__/conflict-detection.test.ts",
+      "src/multi-agent/__tests__/content-hash.test.ts",
+      "src/multi-agent/__tests__/identity-resilience.test.ts",
+      "src/multi-agent/__tests__/multi-agent-integration.test.ts",
+      "src/multi-agent/__tests__/runtime-wiring.test.ts",
+      "src/multi-agent/__tests__/test-helpers.ts",
+      "src/multi-agent/__tests__/thought-attribution.test.ts",
+      "src/multi-agent/__tests__/thought-diff.test.ts",
+      "src/observatory/__tests__/server-historical.test.ts",
+      "src/observatory/__tests__/storage-adapter.test.ts",
+      "src/operations-tool/__tests__/handler.test.ts",
+      "src/otel/__tests__/otel-storage.test.ts",
+      "src/otel/__tests__/parser.test.ts",
+      "src/otel/__tests__/routes.test.ts",
+      "src/persistence/__tests__/supabase-storage.test.ts",
+      "src/protocol/__tests__/enforcement.test.ts",
+      "src/protocol/__tests__/handler.test.ts",
+      "tests/mental-models.test.ts",
+      "tests/unit/config-loader.test.ts",
+      "tests/unit/contamination.test.ts",
+      "tests/unit/dataset-manager.test.ts",
+      "tests/unit/evaluation-gatekeeper.test.ts",
+      "tests/unit/evaluators.test.ts",
+      "tests/unit/experiment-runner.test.ts",
+      "tests/unit/improvement-store.test.ts",
+      "tests/unit/improvement-tracker.test.ts",
+      "tests/unit/online-monitor.test.ts",
+      "tests/unit/proctor.test.ts",
+      "tests/unit/sampler.test.ts",
+      "tests/unit/scorecard-aggregator.test.ts",
+      "tests/unit/sil-integration.test.ts",
+      "tests/unit/tiered-evaluator.test.ts"
+    ],
+    "discovered": [
+      "automation-self-improvement/agentops/tests/cross-layer-sources.test.ts",
+      "automation-self-improvement/agentops/tests/extract.test.ts",
+      "automation-self-improvement/agentops/tests/integration.test.ts",
+      "automation-self-improvement/agentops/tests/phase1.2.test.ts",
+      "automation-self-improvement/agentops/tests/sources.test.ts",
+      "automation-self-improvement/agentops/tests/synthesis.test.ts",
+      "automation-self-improvement/agentops/tests/template.test.ts",
+      "automation-self-improvement/agentops/tests/xml-parsing.test.ts",
+      "observability/mcp-sidecar-observability/test/integration.test.ts",
+      "src/__tests__/api-key-auth.test.ts",
+      "src/__tests__/architecture.test.ts",
+      "src/__tests__/persistence-roundtrip.test.ts",
+      "src/__tests__/supabase-test-helpers.ts",
+      "src/__tests__/supabase-wiring.test.ts",
+      "src/audit/__tests__/manifest-generator.test.ts",
+      "src/code-mode/__tests__/execute-tool.test.ts",
+      "src/code-mode/__tests__/search-tool.test.ts",
+      "src/code-mode/__tests__/server-surface.test.ts",
+      "src/http/__tests__/hub-http.test.ts",
+      "src/http/__tests__/protocol-hook-integration.test.ts",
+      "src/http/__tests__/protocol-http.test.ts",
+      "src/hub/__tests__/agent-identity.test.ts",
+      "src/hub/__tests__/artifact-refs.test.ts",
+      "src/hub/__tests__/attribution.test.ts",
+      "src/hub/__tests__/channel-resources.test.ts",
+      "src/hub/__tests__/channel-subscription.test.ts",
+      "src/hub/__tests__/channels.test.ts",
+      "src/hub/__tests__/concurrent.test.ts",
+      "src/hub/__tests__/consensus.test.ts",
+      "src/hub/__tests__/dependencies.test.ts",
+      "src/hub/__tests__/errors.test.ts",
+      "src/hub/__tests__/hub-event-callback.test.ts",
+      "src/hub/__tests__/hub-handler.test.ts",
+      "src/hub/__tests__/hub-task-store.test.ts",
+      "src/hub/__tests__/hub-tool-wiring.test.ts",
+      "src/hub/__tests__/identity-profiles.test.ts",
+      "src/hub/__tests__/identity.test.ts",
+      "src/hub/__tests__/integration.test.ts",
+      "src/hub/__tests__/isolation.test.ts",
+      "src/hub/__tests__/per-session-identity.test.ts",
+      "src/hub/__tests__/proactive-conflicts.test.ts",
+      "src/hub/__tests__/problems.test.ts",
+      "src/hub/__tests__/profile-prompt.test.ts",
+      "src/hub/__tests__/profiles-extended.test.ts",
+      "src/hub/__tests__/profiles-integration.test.ts",
+      "src/hub/__tests__/profiles-registry.test.ts",
+      "src/hub/__tests__/proposals.test.ts",
+      "src/hub/__tests__/proxy.test.ts",
+      "src/hub/__tests__/quick-join.test.ts",
+      "src/hub/__tests__/storage.test.ts",
+      "src/hub/__tests__/sub-problems.test.ts",
+      "src/hub/__tests__/terminal-state.test.ts",
+      "src/hub/__tests__/test-helpers.ts",
+      "src/hub/__tests__/thought-priming.test.ts",
+      "src/hub/__tests__/thought-store-adapter.test.ts",
+      "src/hub/__tests__/wiring-integration.test.ts",
+      "src/hub/__tests__/workspace-digest.test.ts",
+      "src/hub/__tests__/workspace.test.ts",
+      "src/knowledge/__tests__/supabase-knowledge-storage.test.ts",
+      "src/multi-agent/__tests__/cipher-extension.test.ts",
+      "src/multi-agent/__tests__/claim-parser.test.ts",
+      "src/multi-agent/__tests__/conflict-detection.test.ts",
+      "src/multi-agent/__tests__/content-hash.test.ts",
+      "src/multi-agent/__tests__/identity-resilience.test.ts",
+      "src/multi-agent/__tests__/multi-agent-integration.test.ts",
+      "src/multi-agent/__tests__/runtime-wiring.test.ts",
+      "src/multi-agent/__tests__/test-helpers.ts",
+      "src/multi-agent/__tests__/thought-attribution.test.ts",
+      "src/multi-agent/__tests__/thought-diff.test.ts",
+      "src/observatory/__tests__/server-historical.test.ts",
+      "src/observatory/__tests__/storage-adapter.test.ts",
+      "src/operations-tool/__tests__/handler.test.ts",
+      "src/otel/__tests__/otel-storage.test.ts",
+      "src/otel/__tests__/parser.test.ts",
+      "src/otel/__tests__/routes.test.ts",
+      "src/persistence/__tests__/supabase-storage.test.ts",
+      "src/protocol/__tests__/enforcement.test.ts",
+      "src/protocol/__tests__/handler.test.ts",
+      "tests/mental-models.test.ts",
+      "tests/unit/config-loader.test.ts",
+      "tests/unit/contamination.test.ts",
+      "tests/unit/dataset-manager.test.ts",
+      "tests/unit/evaluation-gatekeeper.test.ts",
+      "tests/unit/evaluators.test.ts",
+      "tests/unit/experiment-runner.test.ts",
+      "tests/unit/improvement-store.test.ts",
+      "tests/unit/improvement-tracker.test.ts",
+      "tests/unit/online-monitor.test.ts",
+      "tests/unit/proctor.test.ts",
+      "tests/unit/sampler.test.ts",
+      "tests/unit/scorecard-aggregator.test.ts",
+      "tests/unit/sil-integration.test.ts",
+      "tests/unit/tiered-evaluator.test.ts"
+    ],
+    "undeclared": []
+  }
+}

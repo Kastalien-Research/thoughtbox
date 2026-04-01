@@ -1,0 +1,438 @@
+version: "1.0.0"
+repo:
+  name: thoughtbox
+  root: .
+  branch: main
+
+systems:
+  - id: decision-plane
+    name: Decision Plane
+    paths:
+      - .adr/staging/ADR-017-unified-autonomy-control-plane.md
+      - .specs/unified-autonomy-control-plane
+      - automation-self-improvement/control-plane
+      - automation-self-improvement/self-improvement
+      - automation-self-improvement/agentops
+    entrypoints:
+      - .adr/staging/ADR-017-unified-autonomy-control-plane.md
+      - automation-self-improvement/control-plane/manifest.yaml
+      - scripts/generate-control-plane.ts
+      - scripts/check-control-plane.ts
+      - .github/workflows/ci.yml
+      - package.json
+    maturity: partial
+    owner_workflows:
+      - daily_dev_brief
+      - proposal_approval
+    upstream_artifacts:
+      - control-plane-spec-index
+    downstream_artifacts:
+      - control-plane-spec-systems
+      - control-plane-spec-workflows
+      - control-plane-spec-drift
+      - control-plane-spec-test-truth
+
+  - id: execution-plane
+    name: Execution Plane
+    paths:
+      - src/hub
+      - src/http
+      - src/persistence
+      - src/knowledge
+      - src/protocol
+      - src/observability
+      - src/multi-agent
+    entrypoints:
+      - src/index.ts
+      - src/hub
+      - src/http
+      - src/persistence/index.ts
+      - src/observability/index.ts
+      - src/protocol/index.ts
+    maturity: partial
+    owner_workflows:
+      - improvement_loop
+    upstream_artifacts:
+      - control-plane-spec-workflows
+    downstream_artifacts:
+      - control-plane-spec-drift
+
+  - id: learning-plane
+    name: Learning and Refinement Plane
+    paths:
+      - automation-self-improvement/agentops
+      - automation-self-improvement/agentic-dev-team
+      - automation-self-improvement/agentops/tests
+      - automation-self-improvement/self-improvement
+      - automation-self-improvement/self-improvement/SPEC-index.md
+      - docs/system-interconnection-map.md
+    entrypoints:
+      - automation-self-improvement/agentops/runner/cli.ts
+      - automation-self-improvement/agentops/runner/daily-dev-brief.ts
+      - automation-self-improvement/agentops/runner/implement.ts
+      - automation-self-improvement/self-improvement/PLAN-cost-effective-self-improvement-loop.md
+      - scripts/agentic-test.ts
+    maturity: partial
+    owner_workflows:
+      - tool_pedagogy_batch
+      - prompt_refinement_batch
+    upstream_artifacts:
+      - control-plane-spec-test-truth
+    downstream_artifacts:
+      - test-truth-json
+
+  - id: governance-plane
+    name: Governance and Drift Plane
+    paths:
+      - .github/workflows/ci.yml
+      - .specs/unified-autonomy-loop
+      - .specs/unified-autonomy-control-plane
+      - automation-self-improvement/control-plane
+      - scripts
+    entrypoints:
+      - .github/workflows/ci.yml
+      - scripts/generate-control-plane.ts
+      - scripts/check-control-plane.ts
+      - package.json
+    maturity: implemented
+    owner_workflows:
+      - daily_dev_brief
+      - proposal_approval
+      - improvement_loop
+      - tool_pedagogy_batch
+      - prompt_refinement_batch
+    upstream_artifacts:
+      - control-plane-spec-index
+    downstream_artifacts:
+      - control-plane-json
+      - test-truth-json
+
+workflows:
+  - id: daily_dev_brief
+    plane: decision
+    trigger: scheduler/manual
+    maturity: partial
+    paths:
+      - automation-self-improvement/agentops/runner/daily-dev-brief.ts
+      - automation-self-improvement/agentops/config
+    entrypoints:
+      - automation-self-improvement/agentops/runner/cli.ts
+    states:
+      - discover
+      - draft
+      - validated
+      - published
+    steps:
+      - discover pending issues, signals, and coverage debt
+      - prepare decision candidate record
+      - update control-plane test-truth surfaces
+      - publish draft package for review
+    inputs:
+      - decision candidates
+      - test coverage gaps
+    outputs:
+      - decision candidate bundle
+      - control-plane trace package
+    gates:
+      - data integrity
+      - schema conformance
+
+  - id: proposal_approval
+    plane: decision
+    trigger: explicit proposal review plus human approval
+    maturity: partial
+    paths:
+      - .adr/staging
+      - .adr/accepted
+      - .adr/rejected
+    entrypoints:
+      - scripts/check-control-plane.ts
+    states:
+      - queued
+      - pre-validating
+      - approved
+      - rejected
+    steps:
+      - load proposal and linked evidence
+      - run validation check on manifest links
+      - apply approval record
+      - hand off to execution backlog
+    inputs:
+      - proposal payload
+      - decision candidate bundle
+    outputs:
+      - approved change request
+      - rejection rationale
+    gates:
+      - checklist complete
+      - control-plane check
+
+  - id: improvement_loop
+    plane: execution
+    trigger: approved proposal
+    maturity: research-only
+    paths:
+      - src
+      - automation-self-improvement/self-improvement
+    entrypoints:
+      - scripts/agentic-test.ts
+    states:
+      - composing
+      - implementing
+      - evaluating
+      - integrating
+    steps:
+      - compose code changes from accepted proposal
+      - execute declared local integrations
+      - collect evidence in generated truth artifacts
+      - gate integration readiness
+    inputs:
+      - approved proposal
+      - execution constraints
+    outputs:
+      - implementation evidence
+      - evaluation summary
+    gates:
+      - implementation complete
+      - check-control-plane pass
+
+  - id: tool_pedagogy_batch
+    plane: learning
+    trigger: weekly cadence or explicit request
+    maturity: research-only
+    paths:
+      - automation-self-improvement/agentops
+      - .claude/skills
+    entrypoints:
+      - automation-self-improvement/agentops/runner/cli.ts
+    states:
+      - collect
+      - analyze
+      - propose
+      - defer_or_apply
+    steps:
+      - analyze traces and friction
+      - derive pedagogy improvements
+      - write queue packet for decision plane
+      - mark scope and confidence
+    inputs:
+      - agent telemetry
+      - trace summaries
+    outputs:
+      - tool-pedagogy proposal packet
+      - learning backlog update
+    gates:
+      - evidence quality
+      - reviewer signoff
+
+  - id: prompt_refinement_batch
+    plane: learning
+    trigger: weekly cadence or explicit request
+    maturity: research-only
+    paths:
+      - .claude/rules
+      - .claude/skills
+      - automation-self-improvement/self-improvement
+    entrypoints:
+      - automation-self-improvement/agentops/runner/cli.ts
+    states:
+      - collect
+      - analyze
+      - propose
+      - defer_or_apply
+    steps:
+      - review session-level drift signals
+      - draft prompt/rule adjustments
+      - queue review packet
+      - mark acceptance status
+    inputs:
+      - session summaries
+      - test-truth coverage gaps
+    outputs:
+      - prompt refinement packet
+    gates:
+      - policy alignment
+      - quality bar
+
+artifacts:
+  - id: control-plane-spec-index
+    kind: markdown
+    path: .specs/unified-autonomy-control-plane/00-index.md
+    source_of_truth: automation-self-improvement/control-plane/manifest.yaml
+    produced_by: scripts/generate-control-plane.ts
+    consumed_by:
+      - check:control-plane
+      - ci
+
+  - id: control-plane-spec-systems
+    kind: markdown
+    path: .specs/unified-autonomy-control-plane/01-systems.md
+    source_of_truth: automation-self-improvement/control-plane/manifest.yaml
+    produced_by: scripts/generate-control-plane.ts
+    consumed_by:
+      - review
+
+  - id: control-plane-spec-workflows
+    kind: markdown
+    path: .specs/unified-autonomy-control-plane/02-workflows-and-state.md
+    source_of_truth: automation-self-improvement/control-plane/manifest.yaml
+    produced_by: scripts/generate-control-plane.ts
+    consumed_by:
+      - review
+
+  - id: control-plane-spec-drift
+    kind: markdown
+    path: .specs/unified-autonomy-control-plane/03-generation-and-drift.md
+    source_of_truth: automation-self-improvement/control-plane/manifest.yaml
+    produced_by: scripts/generate-control-plane.ts
+    consumed_by:
+      - check:control-plane
+
+  - id: control-plane-spec-test-truth
+    kind: markdown
+    path: .specs/unified-autonomy-control-plane/04-test-truth.md
+    source_of_truth: automation-self-improvement/control-plane/manifest.yaml
+    produced_by: scripts/generate-control-plane.ts
+    consumed_by:
+      - check:control-plane
+      - ci
+
+  - id: control-plane-json
+    kind: json
+    path: automation-self-improvement/control-plane/generated/control-plane.json
+    source_of_truth: automation-self-improvement/control-plane/manifest.yaml
+    produced_by: scripts/generate-control-plane.ts
+    consumed_by:
+      - check:control-plane
+      - ci
+
+  - id: test-truth-json
+    kind: json
+    path: automation-self-improvement/control-plane/generated/test-truth.json
+    source_of_truth: automation-self-improvement/control-plane/manifest.yaml
+    produced_by: scripts/generate-control-plane.ts
+    consumed_by:
+      - check:control-plane
+      - ci
+
+generation:
+  source_of_truth: automation-self-improvement/control-plane/manifest.yaml
+  generated_by: scripts/generate-control-plane.ts
+  generated_from: automation-self-improvement/control-plane/manifest.yaml
+  outputs:
+    - .specs/unified-autonomy-control-plane/00-index.md
+    - .specs/unified-autonomy-control-plane/01-systems.md
+    - .specs/unified-autonomy-control-plane/02-workflows-and-state.md
+    - .specs/unified-autonomy-control-plane/03-generation-and-drift.md
+    - .specs/unified-autonomy-control-plane/04-test-truth.md
+    - automation-self-improvement/control-plane/generated/control-plane.json
+    - automation-self-improvement/control-plane/generated/test-truth.json
+
+tests:
+  - suite_id: src_unit_suite
+    glob: src/**/__tests__/**/*.ts
+    runner: vitest
+    execution_profile: ci-executed
+    real_dependencies:
+      - mocks
+      - supabase
+      - network
+      - subprocess
+    coverage:
+      components:
+        - runtime
+        - persistence
+        - knowledge
+        - observability
+        - server
+    gaps:
+      - local Supabase integration tests may skip when Supabase is unavailable
+      - no guarantee of full end-to-end chain coverage
+
+  - suite_id: tests_unit_suite
+    glob: tests/unit/*.ts
+    runner: vitest
+    execution_profile: local-only
+    real_dependencies:
+      - mocks
+      - local state
+    coverage:
+      components:
+        - behavior
+        - contracts
+        - tooling
+    gaps:
+      - tests/unit/*.ts is out-of-band relative to current Vitest include config
+
+  - suite_id: automation_agentops_suite
+    glob: automation-self-improvement/agentops/tests/**/*.ts
+    runner: vitest
+    execution_profile: local-integration
+    real_dependencies:
+      - mocks
+      - network
+      - supabase
+      - subprocess
+      - docker
+    coverage:
+      components:
+        - agentops
+        - proposal
+        - integration
+        - workflow
+    gaps:
+      - automation-self-improvement/agentops/tests/*.ts is out-of-band relative to current Vitest include config
+      - moved tests use local and external dependencies
+
+  - suite_id: observability_sidecar_suite
+    glob: observability/mcp-sidecar-observability/test/**/*.test.ts
+    runner: vitest
+    execution_profile: local-integration
+    real_dependencies:
+      - network
+      - subprocess
+    coverage:
+      components:
+        - observability
+        - runtime integration
+        - runtime
+    gaps:
+      - local-only in CI because no legacy sidecar compose path in this config
+
+  - suite_id: mental_models_smoke_suite
+    glob: tests/mental-models.test.ts
+    runner: vitest
+    execution_profile: local-only
+    real_dependencies:
+      - mocks
+      - gateway
+    coverage:
+      components:
+        - mental models
+        - session contracts
+        - behavior
+    gaps:
+      - not part of current CI include list
+
+drift_rules:
+  - id: no-legacy-root-paths
+    severity: high
+    matcher: legacy-prefix-list
+    legacy_prefixes:
+      - agentops/
+      - benchmarks/
+      - dgm-specs/
+      - .specs/self-improvement-loop/
+    failure_message: Authoritative control-plane paths must not use legacy root-level paths as canonical references
+  - id: no-missing-paths
+    severity: high
+    matcher: manifest-path-existence
+    failure_message: All manifest paths must exist in repository at check time
+  - id: no-undeclared-test-surfaces
+    severity: high
+    matcher: undeclared-test-surface
+    failure_message: Code-based test files must be declared in the manifest tests section
+  - id: no-stale-generated-artifacts
+    severity: high
+    matcher: generated-output-stale
+    failure_message: Generated markdown and JSON artifacts must be up to date with manifest output
