@@ -6,15 +6,15 @@ GOVERNANCE.md @glassbead-tc
 CLAUDE.md @glassbead-tc
 AGENTS.md @glassbead-tc
 
-# ADR lifecycle — acceptance is a governance action
+# ADR lifecycle - acceptance is a governance action
 /.adr/accepted/ @glassbead-tc
 /.adr/staging/ @glassbead-tc
 
-# Control plane manifest — source of truth for architecture
+# Control plane manifest - source of truth for architecture
 /automation-self-improvement/control-plane/manifest.yaml @glassbead-tc
 
-# Schemas — changing these changes what the adversarial reviewer accepts
+# Schemas - changing these changes what the adversarial reviewer accepts
 /.schemas/ @glassbead-tc
 
-# Spec directory — architectural specs require review
+# Spec directory - architectural specs require review
 /.specs/ @glassbead-tc
