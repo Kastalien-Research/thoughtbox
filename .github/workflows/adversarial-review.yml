@@ -57,6 +57,8 @@ jobs:
 
       - name: Run adversarial review
         uses: letta-ai/letta-code-action@v0
+        env:
+          LETTA_API_KEY: ${{ secrets.LETTA_API_KEY }}
         with:
           letta_api_key: ${{ secrets.LETTA_API_KEY }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
