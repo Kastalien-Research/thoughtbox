@@ -1,0 +1,71 @@
+name: Schema Sync
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'supabase/migrations/**'
+
+jobs:
+  sync:
+    name: Apply migrations + sync types
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write   # commit updated types back to main
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Link project
+        run: supabase link --project-ref akjccuoncxlvrrtkvtno
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+
+      - name: Apply pending migrations
+        run: supabase db push
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+
+      - name: Regenerate types
+        run: |
+          supabase gen types typescript \
+            --project-id akjccuoncxlvrrtkvtno \
+            > src/database.types.ts
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+
+      - name: Commit updated types
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add src/database.types.ts
+          if git diff --cached --quiet; then
+            echo "Types unchanged — nothing to commit"
+          else
+            git commit -m "chore(schema): regenerate database.types.ts [skip ci]"
+            git push
+          fi
+
+      - name: Notify web app
+        run: |
+          curl -s -X POST \
+            -H "Authorization: Bearer ${{ secrets.GH_PAT }}" \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            https://api.github.com/repos/Kastalien-Research/thoughtbox-web-two/dispatches \
+            -d '{
+              "event_type": "schema-updated",
+              "client_payload": {
+                "thoughtbox_sha": "${{ github.sha }}",
+                "types_url": "https://raw.githubusercontent.com/Kastalien-Research/thoughtbox/${{ github.sha }}/src/database.types.ts"
+              }
+            }'
