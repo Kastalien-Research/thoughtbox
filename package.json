@@ -62,6 +62,7 @@
     "improvement-loop:verbose": "tsx scripts/agents/run-improvement-loop.ts --verbose",
     "generate:control-plane": "tsx scripts/generate-control-plane.ts",
     "check:control-plane": "tsx scripts/check-control-plane.ts",
+    "validate:pr": "tsx scripts/validate-pr-description.ts",
     "test:behavioral": "tsx scripts/agents/test-behavioral-contracts.ts",
     "test:behavioral:variance": "tsx scripts/agents/test-behavioral-contracts.ts --variance-only",
     "check:lint": "oxlint -c oxlint.json src/",

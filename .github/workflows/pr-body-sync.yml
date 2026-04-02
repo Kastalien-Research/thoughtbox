@@ -1,0 +1,133 @@
+name: Sync PR Body
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize]
+
+jobs:
+  sync-pr-body:
+    name: Generate PR Body from JSON
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          fetch-depth: 2
+
+      - name: Sync PR body
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
+        with:
+          script: |
+            const fs = require('fs');
+
+            const branch = context.payload.pull_request.head.ref;
+            const safeBranch = branch.replace(/\//g, '-');
+            const prFile = `prs/${safeBranch}.json`;
+            const eventType = context.payload.action; // "opened" or "synchronize"
+
+            // Read the PR description JSON
+            let pr;
+            try {
+              pr = JSON.parse(fs.readFileSync(prFile, 'utf8'));
+            } catch (e) {
+              console.log(`No PR description found at ${prFile} - skipping body sync`);
+              return;
+            }
+
+            // For synchronize: only proceed if the JSON changed in this push
+            if (eventType === 'synchronize') {
+              const { execSync } = require('child_process');
+              let changedFiles;
+              try {
+                changedFiles = execSync('git diff --name-only HEAD~1 HEAD', { encoding: 'utf8' });
+              } catch {
+                changedFiles = '';
+              }
+              if (!changedFiles.includes(prFile)) {
+                console.log(`${prFile} unchanged in this push - skipping body sync`);
+                return;
+              }
+            }
+
+            // Render the JSON to markdown
+            function renderBody(pr, prFile) {
+              const lines = [];
+
+              lines.push('## Summary');
+              lines.push('');
+              lines.push(pr.summary);
+              lines.push('');
+
+              if (pr.adrs && pr.adrs.length > 0) {
+                lines.push('## ADRs');
+                lines.push('');
+                for (const adr of pr.adrs) {
+                  lines.push(`- ${adr}`);
+                }
+                lines.push('');
+              }
+
+              if (pr.claims && pr.claims.length > 0) {
+                lines.push('## Claims');
+                lines.push('');
+                lines.push('| ID | Statement | Evidence |');
+                lines.push('|---|---|---|');
+                for (const claim of pr.claims) {
+                  const evidencePath = claim.evidence_path
+                    ? `\`${claim.evidence_path}\``
+                    : '--';
+                  lines.push(`| \`${claim.id}\` | ${claim.statement} | ${claim.evidence_type}: ${evidencePath} |`);
+                }
+                lines.push('');
+              }
+
+              if (pr.attestation) {
+                lines.push('## Attestation');
+                lines.push('');
+                lines.push(`_Attested by **${pr.attestation.attested_by}** on ${pr.attestation.timestamp}_`);
+                if (pr.attestation.note) {
+                  lines.push('');
+                  lines.push(`> ${pr.attestation.note}`);
+                }
+                lines.push('');
+              }
+
+              lines.push('---');
+              lines.push(`_Generated from [\`${prFile}\`](../../blob/${context.payload.pull_request.head.sha}/${prFile})_`);
+
+              return lines.join('\n');
+            }
+
+            const rendered = renderBody(pr, prFile);
+
+            // Set (opened) or append (synchronize with JSON change)
+            let newBody;
+
+            if (eventType === 'opened') {
+              newBody = rendered;
+            } else {
+              const currentBody = context.payload.pull_request.body || '';
+              const timestamp = new Date().toISOString();
+              const update = [
+                '',
+                '---',
+                '',
+                `### Updated ${timestamp}`,
+                '',
+                rendered,
+              ].join('\n');
+              newBody = currentBody + update;
+            }
+
+            await github.rest.pulls.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.payload.pull_request.number,
+              body: newBody,
+            });
+
+            console.log(`PR body ${eventType === 'opened' ? 'set' : 'appended'} successfully`);

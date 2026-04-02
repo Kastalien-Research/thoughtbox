@@ -1,0 +1,106 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "thoughtbox/adr/v1",
+  "title": "Thoughtbox ADR",
+  "description": "Machine-readable ADR format for new ADRs. Existing markdown ADRs are not migrated.",
+  "type": "object",
+  "required": ["id", "title", "status", "date", "claims"],
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "ADR identifier, e.g. ADR-020",
+      "pattern": "^ADR-[A-Z0-9]+"
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1
+    },
+    "status": {
+      "type": "string",
+      "enum": ["proposed", "accepted", "rejected", "superseded"]
+    },
+    "date": {
+      "type": "string",
+      "description": "ISO 8601 date, e.g. 2026-04-02"
+    },
+    "branch": {
+      "type": "string",
+      "description": "Git branch this ADR was authored on"
+    },
+    "context": {
+      "type": "string",
+      "description": "Why this decision is needed"
+    },
+    "claims": {
+      "type": "array",
+      "description": "Falsifiable claims this ADR makes. Each must be verifiable by the adversarial reviewer.",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["id", "statement", "type", "behavioral"],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Claim identifier, unique within this ADR, e.g. c1"
+          },
+          "statement": {
+            "type": "string",
+            "description": "What is being claimed, in plain language"
+          },
+          "type": {
+            "type": "string",
+            "enum": ["implementation", "behavioral", "governance", "performance"],
+            "description": "implementation: code exists; behavioral: system does X; governance: process enforced; performance: measurable metric"
+          },
+          "behavioral": {
+            "type": "boolean",
+            "description": "If true, verifying this claim requires an agentic test run or human attestation. A unit test is insufficient."
+          },
+          "required_evidence": {
+            "type": "string",
+            "description": "Plain-language description of what evidence must exist to verify this claim"
+          }
+        }
+      }
+    },
+    "hypotheses": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "prediction", "falsification"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string" },
+          "prediction": { "type": "string" },
+          "falsification": {
+            "type": "string",
+            "description": "How you would prove this hypothesis false"
+          }
+        }
+      }
+    },
+    "decisions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["dimension", "choice"],
+        "additionalProperties": false,
+        "properties": {
+          "dimension": { "type": "string" },
+          "choice": { "type": "string" },
+          "rationale": { "type": "string" }
+        }
+      }
+    },
+    "consequences": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "links": {
+      "type": "array",
+      "items": { "type": "string" }
+    }
+  }
+}

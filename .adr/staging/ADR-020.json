@@ -1,0 +1,99 @@
+{
+  "id": "ADR-020",
+  "title": "Adversarial Review System",
+  "status": "proposed",
+  "date": "2026-04-02",
+  "branch": "feat/adversarial-review",
+  "context": "Governance systems in this repo repeatedly pass CI and human review while failing to actually enforce the behaviors they claim to enforce. The root cause: the same system that writes the spec also writes the tests, and tests designed to confirm compliance will find it. The only review that breaks this cycle is adversarial: assume claims are false, derive what must necessarily exist if they were true, and check for that. This ADR introduces a two-phase CI check: a fast deterministic validator (Phase 1) and a stateful Letta Code adversarial agent review (Phase 2).",
+  "claims": [
+    {
+      "id": "c1",
+      "statement": "validate:pr fails when prs/<branch>.json is missing, malformed, or references non-existent ADR claims",
+      "type": "implementation",
+      "behavioral": false,
+      "required_evidence": "Running validate:pr against a branch with no PR description exits non-zero. Running it against a valid PR description exits zero."
+    },
+    {
+      "id": "c2",
+      "statement": "The adversarial-review.yml workflow triggers on PR open and push to main, runs Phase 1 (deterministic) before Phase 2 (LLM), and blocks merge on FAIL verdict",
+      "type": "implementation",
+      "behavioral": false,
+      "required_evidence": "Workflow file exists with pull_request trigger, validate-pr-description job gates adversarial-review job via needs:, and adversarial-review job exits 1 on FAIL verdict"
+    },
+    {
+      "id": "c3",
+      "statement": "The Letta adversarial agent reads the PR description and referenced ADR JSON, adversarially checks each claim against codebase evidence, and produces a machine-parseable ADVERSARIAL_VERDICT line",
+      "type": "behavioral",
+      "behavioral": true,
+      "required_evidence": "A real run of the adversarial agent against a PR with a hollow claim must produce ADVERSARIAL_VERDICT with verdict FAIL and a specific finding. Human attestation from the repo owner is required."
+    },
+    {
+      "id": "c4",
+      "statement": "CODEOWNERS requires @glassbead-tc review for all governance artifacts: .adr/, .specs/, .schemas/, .github/workflows/, automation-self-improvement/control-plane/manifest.yaml",
+      "type": "governance",
+      "behavioral": false,
+      "required_evidence": ".github/CODEOWNERS contains entries for all listed paths pointing to @glassbead-tc"
+    },
+    {
+      "id": "c5",
+      "statement": "The JSON schemas for ADR and PR description enforce required fields and enum values via Zod in the validator",
+      "type": "implementation",
+      "behavioral": false,
+      "required_evidence": "validate:pr returns schema-violation errors when required fields are missing or enum values are invalid"
+    }
+  ],
+  "hypotheses": [
+    {
+      "id": "h1",
+      "prediction": "The adversarial agent will catch hollow test claims that deterministic CI does not",
+      "falsification": "Run the adversarial agent against a PR that claims integration tests exist but only has mocks. If it returns PASS, the hypothesis fails."
+    },
+    {
+      "id": "h2",
+      "prediction": "The stateful memory of the adversarial agent improves catch rate over time as it accumulates codebase-specific failure patterns",
+      "falsification": "After 10 PR reviews, the agent should catch at least one pattern it missed on the first run. If the catch rate does not improve, the hypothesis fails."
+    },
+    {
+      "id": "h3",
+      "prediction": "Requiring PR description JSON before LLM review eliminates the class of governance bypass where agents declare work done without structured evidence",
+      "falsification": "If an agent can get a PR to CI green without a valid prs/<branch>.json, the hypothesis fails."
+    }
+  ],
+  "decisions": [
+    {
+      "dimension": "LLM model family",
+      "choice": "Non-Anthropic, non-OpenAI model via Letta Code + OpenRouter",
+      "rationale": "Adversarial reviewer must not exhibit in-family preference bias toward Claude-generated output"
+    },
+    {
+      "dimension": "Agent statefulness",
+      "choice": "Stateful Letta agent with persistent memory across all PR reviews",
+      "rationale": "Memory of past hollow claims and codebase-specific failure patterns improves catch rate over time"
+    },
+    {
+      "dimension": "Phase structure",
+      "choice": "Two phases: deterministic fast check gates LLM review",
+      "rationale": "Fail fast on structural issues before spending LLM credits. Deterministic check catches missing files and broken references; LLM review catches semantic hollowness."
+    },
+    {
+      "dimension": "PR description format",
+      "choice": "JSON in prs/<branch>.json, validated by Zod schema",
+      "rationale": "Machine-readable, version-controlled, linter-enforceable, directly comparable to ADR JSON claims"
+    }
+  ],
+  "consequences": [
+    "Every PR to main must include prs/<branch>.json — no exceptions",
+    "New ADRs are JSON format; existing markdown ADRs are not migrated",
+    "Requires LETTA_API_KEY and ADVERSARIAL_REVIEWER_AGENT_ID in repo secrets",
+    "Adversarial agent must be created in Letta ADE with non-Anthropic/OpenAI model before CI can pass Phase 2",
+    "CODEOWNERS now covers .adr/staging/, .adr/accepted/, .specs/, .schemas/, and manifest.yaml",
+    "Behavioral claims in ADRs require agentic_test log or human attestation — unit tests are insufficient"
+  ],
+  "links": [
+    "Validator: scripts/validate-pr-description.ts",
+    "Workflow: .github/workflows/adversarial-review.yml",
+    "Prompt: .github/prompts/adversarial-review-prompt.md",
+    "ADR schema: .schemas/adr-v1.json",
+    "PR description schema: .schemas/pr-description-v1.json"
+  ]
+}
