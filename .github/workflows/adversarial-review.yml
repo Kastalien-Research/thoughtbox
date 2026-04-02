@@ -90,13 +90,29 @@ jobs:
             cat .github/prompts/adversarial-review-prompt.md
           } > /tmp/adversarial-prompt.txt
 
-          # Pipe prompt via stdin -- letta -p with no arg reads from stdin
-          RESULT=$(cat /tmp/adversarial-prompt.txt | letta \
-            -a "${{ secrets.ADVERSARIAL_REVIEWER_AGENT_ID }}" \
-            --new \
-            --yolo \
-            --output-format json \
-            -p 2>&1) || true
+          # Pipe prompt via stdin with retry -- transient Letta Cloud errors are common
+          MAX_ATTEMPTS=3
+          ATTEMPT=0
+          RESULT=""
+          while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
+            ATTEMPT=$((ATTEMPT + 1))
+            echo "Attempt $ATTEMPT of $MAX_ATTEMPTS..."
+            RESULT=$(cat /tmp/adversarial-prompt.txt | letta \
+              -a "${{ secrets.ADVERSARIAL_REVIEWER_AGENT_ID }}" \
+              --new \
+              --yolo \
+              --output-format json \
+              -p 2>&1) || true
+            # Break early if we got a verdict
+            if echo "$RESULT" | grep -q 'ADVERSARIAL_VERDICT'; then
+              echo "Got verdict on attempt $ATTEMPT"
+              break
+            fi
+            if [ $ATTEMPT -lt $MAX_ATTEMPTS ]; then
+              echo "No verdict on attempt $ATTEMPT, retrying in 15s..."
+              sleep 15
+            fi
+          done
 
           echo "$RESULT" > /tmp/review-result.json
 
@@ -154,7 +170,8 @@ jobs:
           echo "::error::Adversarial review found violations. See PR comment for details."
           exit 1
 
-      - name: Warn on unknown verdict
+      - name: Fail on unknown verdict
         if: steps.review.outputs.verdict == 'UNKNOWN'
         run: |
-          echo "::warning::Adversarial reviewer did not return a parseable verdict. Investigate the review comment."
+          echo "::error::Adversarial reviewer did not return a parseable verdict (agent error or transient failure). Check the review comment and re-run."
+          exit 1
