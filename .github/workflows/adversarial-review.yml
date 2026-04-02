@@ -62,6 +62,7 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           agent_id: ${{ secrets.ADVERSARIAL_REVIEWER_AGENT_ID }}
           prompt: ${{ steps.prompt.outputs.value }}
+          model: auto
 
       - name: Parse verdict and gate CI
         uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
