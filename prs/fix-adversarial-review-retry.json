@@ -1,0 +1,15 @@
+{
+  "branch": "fix/adversarial-review-retry",
+  "title": "fix(ci): retry on transient Letta errors, block on UNKNOWN verdict",
+  "summary": "Two fixes to the adversarial review workflow: (1) wrap the Letta CLI call in a retry loop (up to 3 attempts, 15s between) so transient 'Failed to send message' errors don't produce a false green; (2) treat UNKNOWN verdict as a hard block (exit 1) rather than a warning.",
+  "adrs": ["ADR-020"],
+  "claims": [
+    {
+      "id": "c1",
+      "adr_claim_id": "c2",
+      "statement": "The adversarial-review.yml workflow retries the Letta CLI up to 3 times on transient failure and blocks merge on both FAIL and UNKNOWN verdicts",
+      "evidence_type": "implementation",
+      "evidence_path": ".github/workflows/adversarial-review.yml"
+    }
+  ]
+}
