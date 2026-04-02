@@ -220,10 +220,10 @@ async function main(): Promise<void> {
       }
     }
 
-    if (!found && pr.adrs.length > 0) {
+    if (!found) {
       failures.push({
         code: "unresolved-claim-ref",
-        message: `Claim "${claim.id}" references adr_claim_id "${claim.adr_claim_id}" which does not exist in any referenced ADR`,
+        message: `Claim "${claim.id}" references adr_claim_id "${claim.adr_claim_id}" which does not exist in any referenced ADR. If this claim has no ADR, use "__none__" as the adr_claim_id.`,
       });
     }
 
