@@ -12,6 +12,19 @@ case "$branch" in
     ;;
 esac
 
-# Block force pushes (check for --force or -f in the push command)
-# Git passes the remote and URL as arguments
-# We can't easily detect --force here, but we block the dangerous branches above
+# Skip automated branches
+case "$branch" in
+  dependabot/*|renovate/*)
+    exit 0
+    ;;
+esac
+
+# Require a valid PR description before pushing
+echo "Validating PR description for branch '$branch'..."
+if ! pnpm validate:pr --branch "$branch"; then
+  echo ""
+  echo "BLOCKED: Fix the PR description above before pushing."
+  echo "  Create or update: prs/$(echo "$branch" | sed 's|/|-|g').json"
+  echo ""
+  exit 1
+fi
