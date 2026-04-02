@@ -45,6 +45,31 @@ jobs:
       - name: Checkout
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 
+      - name: Verify secrets
+        env:
+          HAS_KEY: ${{ secrets.LETTA_API_KEY != '' }}
+          HAS_AGENT: ${{ secrets.ADVERSARIAL_REVIEWER_AGENT_ID != '' }}
+        run: |
+          echo "LETTA_API_KEY set: $HAS_KEY"
+          echo "ADVERSARIAL_REVIEWER_AGENT_ID set: $HAS_AGENT"
+          if [ "$HAS_KEY" != "true" ] || [ "$HAS_AGENT" != "true" ]; then
+            echo "::error::Missing required secrets"
+            exit 1
+          fi
+
+      - name: Test API key
+        env:
+          LETTA_API_KEY: ${{ secrets.LETTA_API_KEY }}
+        run: |
+          HTTP_HEALTH=$(curl -s -o /dev/null -w "%{http_code}" \
+            -H "Authorization: Bearer $LETTA_API_KEY" \
+            https://api.letta.com/v1/health)
+          echo "Health check: $HTTP_HEALTH"
+          HTTP_AGENTS=$(curl -s -o /dev/null -w "%{http_code}" \
+            -H "Authorization: Bearer $LETTA_API_KEY" \
+            https://api.letta.com/v1/agents?limit=1)
+          echo "Agents list: $HTTP_AGENTS"
+
       - name: Install Letta Code CLI
         run: npm install -g @letta-ai/letta-code@latest
 
