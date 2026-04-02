@@ -1,0 +1,145 @@
+name: Adversarial Review
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened]
+
+jobs:
+  # ── Phase 1: Deterministic validation (fast, no LLM) ──────────────────────
+  validate-pr-description:
+    name: Validate PR Description
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@a7487c7e89a18df4991f7f222e4898a00d66ddda # v4.1.0
+        with:
+          version: 9.15.4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "22"
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Validate PR description
+        run: pnpm validate:pr --branch "${{ github.head_ref }}"
+
+  # ── Phase 2: Adversarial LLM review ───────────────────────────────────────
+  adversarial-review:
+    name: Adversarial Review (Letta)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: validate-pr-description
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Install Letta Code CLI
+        run: npm install -g @letta-ai/letta-code@latest
+
+      - name: Build adversarial prompt
+        id: prompt
+        run: |
+          BRANCH="${{ github.head_ref }}"
+          SAFE_BRANCH="${BRANCH//\//-}"
+          PR_FILE="prs/${SAFE_BRANCH}.json"
+
+          # Inject branch context at the top, then append the base prompt
+          FULL_PROMPT="PR branch: ${BRANCH}
+PR description file: ${PR_FILE}
+
+$(cat .github/prompts/adversarial-review-prompt.md)"
+
+          # Write to temp file to avoid shell escaping issues
+          echo "$FULL_PROMPT" > /tmp/adversarial-prompt.txt
+          echo "pr_file=${PR_FILE}" >> $GITHUB_OUTPUT
+
+      - name: Run adversarial review
+        id: review
+        env:
+          LETTA_API_KEY: ${{ secrets.LETTA_API_KEY }}
+        run: |
+          RESULT=$(letta \
+            -p "$(cat /tmp/adversarial-prompt.txt)" \
+            --tools "Read,Glob,Grep" \
+            --output-format json \
+            --agent "${{ secrets.ADVERSARIAL_REVIEWER_AGENT_ID }}" \
+            --yolo \
+            --new 2>&1) || true
+
+          # Persist result for comment step
+          echo "$RESULT" > /tmp/review-result.json
+
+          # Extract the text response
+          RESULT_TEXT=$(echo "$RESULT" | python3 -c "
+import sys, json
+try:
+    d = json.load(sys.stdin)
+    print(d.get('result', ''))
+except Exception:
+    print(sys.stdin.read())
+" 2>/dev/null || cat /tmp/review-result.json)
+
+          # Determine verdict
+          if echo "$RESULT_TEXT" | grep -q '"verdict":"FAIL"'; then
+            echo "verdict=FAIL" >> $GITHUB_OUTPUT
+          elif echo "$RESULT_TEXT" | grep -q '"verdict":"PASS"'; then
+            echo "verdict=PASS" >> $GITHUB_OUTPUT
+          else
+            echo "verdict=UNKNOWN" >> $GITHUB_OUTPUT
+          fi
+
+          # Store truncated result text for comment (GitHub output limit)
+          {
+            echo "result_text<<REVIEW_EOF"
+            echo "$RESULT_TEXT" | head -300
+            echo "REVIEW_EOF"
+          } >> $GITHUB_OUTPUT
+
+      - name: Post review comment
+        if: always()
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
+        with:
+          script: |
+            const verdict = '${{ steps.review.outputs.verdict }}';
+            const resultText = `${{ steps.review.outputs.result_text }}`;
+            const emoji = verdict === 'PASS' ? '✅' : verdict === 'FAIL' ? '❌' : '⚠️';
+            const label = verdict === 'UNKNOWN' ? 'UNKNOWN (agent did not return a verdict)' : verdict;
+
+            const body = [
+              `## ${emoji} Adversarial Review — ${label}`,
+              '',
+              resultText || '_No output from adversarial reviewer._',
+              '',
+              `---`,
+              `_Reviewed by Letta adversarial agent. Branch: \`${{ github.head_ref }}\`_`
+            ].join('\n');
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body,
+            });
+
+      - name: Fail on violations
+        if: steps.review.outputs.verdict == 'FAIL'
+        run: |
+          echo "::error::Adversarial review found violations. See PR comment for details."
+          exit 1
+
+      - name: Warn on unknown verdict
+        if: steps.review.outputs.verdict == 'UNKNOWN'
+        run: |
+          echo "::warning::Adversarial reviewer did not return a parseable verdict. Treating as non-blocking but investigate the review comment."

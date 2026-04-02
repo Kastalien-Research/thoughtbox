@@ -1,0 +1,52 @@
+{
+  "branch": "feat/adversarial-review",
+  "adrs": ["ADR-020"],
+  "summary": "Implements the adversarial review system: a two-phase CI check that deterministically validates PR description JSON (Phase 1) and then runs a stateful Letta Code adversarial agent to verify that claims made in the PR description are substantiated by real codebase evidence (Phase 2). Also extends CODEOWNERS to require explicit review for all governance artifacts.",
+  "claims": [
+    {
+      "id": "c1",
+      "adr_claim_id": "c1",
+      "statement": "validate:pr fails when prs/<branch>.json is missing, malformed, or references non-existent ADR claims",
+      "evidence_type": "deterministic_check",
+      "evidence_path": "scripts/validate-pr-description.ts",
+      "evidence_description": "The validator exits non-zero with a missing-pr-description error when no file exists (verified by running pnpm validate:pr --branch feat/adversarial-review before this file was created). Zod schema validation exits non-zero with schema-violation errors on malformed input. adr_claim_id resolution fails with unresolved-claim-ref when a referenced claim does not exist in the ADR."
+    },
+    {
+      "id": "c2",
+      "adr_claim_id": "c2",
+      "statement": "The adversarial-review.yml workflow triggers on PR open and push to main, runs Phase 1 before Phase 2, and blocks merge on FAIL verdict",
+      "evidence_type": "implementation",
+      "evidence_path": ".github/workflows/adversarial-review.yml",
+      "evidence_description": "Workflow has pull_request trigger with types [opened, synchronize, reopened] targeting main. adversarial-review job declares needs: validate-pr-description. Fail-on-violations step runs exit 1 when verdict is FAIL."
+    },
+    {
+      "id": "c3",
+      "adr_claim_id": "c3",
+      "statement": "The Letta adversarial agent reads the PR description and referenced ADR JSON, adversarially checks each claim, and produces a machine-parseable ADVERSARIAL_VERDICT line",
+      "evidence_type": "human_attestation",
+      "evidence_path": null,
+      "evidence_description": "Requires the Letta agent to be created in Letta ADE and ADVERSARIAL_REVIEWER_AGENT_ID added to repo secrets before this can be verified. Human attestation required after first live run."
+    },
+    {
+      "id": "c4",
+      "adr_claim_id": "c4",
+      "statement": "CODEOWNERS requires @glassbead-tc review for all governance artifacts",
+      "evidence_type": "implementation",
+      "evidence_path": ".github/CODEOWNERS",
+      "evidence_description": "CODEOWNERS contains entries for .adr/accepted/, .adr/staging/, .specs/, .schemas/, .github/workflows/, .github/CODEOWNERS, .github/prompts/, automation-self-improvement/control-plane/manifest.yaml, GOVERNANCE.md, CLAUDE.md, AGENTS.md — all pointing to @glassbead-tc"
+    },
+    {
+      "id": "c5",
+      "adr_claim_id": "c5",
+      "statement": "The JSON schemas enforce required fields and enum values via Zod",
+      "evidence_type": "implementation",
+      "evidence_path": "scripts/validate-pr-description.ts",
+      "evidence_description": "PRDescriptionSchema and AdrSchema use z.enum() for evidence_type and claim type fields. z.object() with required fields rejects input missing branch, adrs, summary, or claims. Zod .safeParse() errors are mapped to schema-violation failures."
+    }
+  ],
+  "attestation": {
+    "attested_by": "human",
+    "timestamp": "2026-04-02T00:00:00Z",
+    "note": "c3 requires live Letta agent run. Attestation placeholder — update after ADVERSARIAL_REVIEWER_AGENT_ID is configured in repo secrets and a test run is completed."
+  }
+}
