@@ -100,14 +100,7 @@ jobs:
 
           echo "$RESULT" > /tmp/review-result.json
 
-          RESULT_TEXT=$(echo "$RESULT" | python3 -c "
-import sys, json
-try:
-    d = json.load(sys.stdin)
-    print(d.get('result', ''))
-except Exception:
-    print('')
-" 2>/dev/null)
+          RESULT_TEXT=$(echo "$RESULT" | python3 -c $'import sys, json\ntry:\n    d = json.load(sys.stdin)\n    print(d.get(\'result\', \'\'))\nexcept Exception:\n    print(\'\')' 2>/dev/null)
 
           if [ -z "$RESULT_TEXT" ]; then
             RESULT_TEXT="$RESULT"
