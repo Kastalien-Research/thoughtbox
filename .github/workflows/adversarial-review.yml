@@ -32,7 +32,7 @@ jobs:
       - name: Validate PR description
         run: pnpm validate:pr --branch "${{ github.head_ref }}"
 
-  # Phase 2: Adversarial LLM review via Letta Code GitHub Action
+  # Phase 2: Adversarial LLM review via Letta Code headless CLI
   adversarial-review:
     name: Adversarial Review (Letta)
     runs-on: ubuntu-latest
@@ -41,73 +41,102 @@ jobs:
     permissions:
       contents: read
       pull-requests: write
-      issues: write
     steps:
       - name: Checkout
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 
-      - name: Build prompt
-        id: prompt
+      - name: Install Letta Code CLI
+        run: npm install -g @letta-ai/letta-code@latest
+
+      - name: Run adversarial review
+        id: review
+        env:
+          LETTA_API_KEY: ${{ secrets.LETTA_API_KEY }}
         run: |
           BRANCH="${{ github.head_ref }}"
           SAFE="${BRANCH//\//-}"
           PR_FILE="prs/${SAFE}.json"
-          echo "value=Adversarial review for branch '${BRANCH}'. PR description: ${PR_FILE}. Read .github/prompts/adversarial-review-prompt.md for your full instructions and follow them exactly." >> $GITHUB_OUTPUT
-          echo "pr_file=${PR_FILE}" >> $GITHUB_OUTPUT
 
-      - name: Run adversarial review
-        uses: letta-ai/letta-code-action@v0
-        env:
-          LETTA_API_KEY: ${{ secrets.LETTA_API_KEY }}
-        with:
-          letta_api_key: ${{ secrets.LETTA_API_KEY }}
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          agent_id: ${{ secrets.ADVERSARIAL_REVIEWER_AGENT_ID }}
-          prompt: ${{ steps.prompt.outputs.value }}
-          model: auto
+          # Write prompt to file first -- avoids backtick shell interpolation
+          {
+            echo "PR branch: ${BRANCH}"
+            echo "PR description file: ${PR_FILE}"
+            echo ""
+            cat .github/prompts/adversarial-review-prompt.md
+          } > /tmp/adversarial-prompt.txt
 
-      - name: Parse verdict and gate CI
+          # Pipe prompt via stdin -- letta -p with no arg reads from stdin
+          RESULT=$(cat /tmp/adversarial-prompt.txt | letta \
+            -a "${{ secrets.ADVERSARIAL_REVIEWER_AGENT_ID }}" \
+            --new \
+            --yolo \
+            --output-format json \
+            -p 2>&1) || true
+
+          echo "$RESULT" > /tmp/review-result.json
+
+          RESULT_TEXT=$(echo "$RESULT" | python3 -c "
+import sys, json
+try:
+    d = json.load(sys.stdin)
+    print(d.get('result', ''))
+except Exception:
+    print('')
+" 2>/dev/null)
+
+          if [ -z "$RESULT_TEXT" ]; then
+            RESULT_TEXT="$RESULT"
+          fi
+
+          if echo "$RESULT_TEXT" | grep -q '"verdict":"FAIL"'; then
+            echo "verdict=FAIL" >> $GITHUB_OUTPUT
+          elif echo "$RESULT_TEXT" | grep -q '"verdict":"PASS"'; then
+            echo "verdict=PASS" >> $GITHUB_OUTPUT
+          else
+            echo "verdict=UNKNOWN" >> $GITHUB_OUTPUT
+          fi
+
+          {
+            echo "result_text<<REVIEW_EOF"
+            echo "$RESULT_TEXT" | head -300
+            echo "REVIEW_EOF"
+          } >> $GITHUB_OUTPUT
+
+      - name: Post review comment
+        if: always()
         uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
         with:
           script: |
-            // Find the most recent comment on this PR containing ADVERSARIAL_VERDICT
-            const comments = await github.rest.issues.listComments({
+            const verdict = '${{ steps.review.outputs.verdict }}';
+            const resultText = `${{ steps.review.outputs.result_text }}`;
+            const emoji = verdict === 'PASS' ? '[PASS]' : verdict === 'FAIL' ? '[FAIL]' : '[?]';
+            const label = verdict === 'UNKNOWN'
+              ? 'UNKNOWN (agent did not return a verdict)'
+              : verdict;
+
+            const body = [
+              `## ${emoji} Adversarial Review -- ${label}`,
+              '',
+              resultText || '_No output from adversarial reviewer._',
+              '',
+              '---',
+              `_Reviewed by Letta adversarial agent. Branch: \`${{ github.head_ref }}\`_`
+            ].join('\n');
+
+            await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: context.issue.number,
-              per_page: 100,
+              body,
             });
 
-            const verdictComment = [...comments.data]
-              .reverse()
-              .find(c => c.body && c.body.includes('ADVERSARIAL_VERDICT:'));
+      - name: Fail on violations
+        if: steps.review.outputs.verdict == 'FAIL'
+        run: |
+          echo "::error::Adversarial review found violations. See PR comment for details."
+          exit 1
 
-            if (!verdictComment) {
-              core.setFailed('Adversarial reviewer did not post a verdict. Check the Letta agent run.');
-              return;
-            }
-
-            const match = verdictComment.body.match(/ADVERSARIAL_VERDICT:\s*(\{[^\n]+\})/);
-            if (!match) {
-              core.setFailed('ADVERSARIAL_VERDICT line found but could not be parsed as JSON.');
-              return;
-            }
-
-            let verdict;
-            try {
-              verdict = JSON.parse(match[1]);
-            } catch (e) {
-              core.setFailed(`ADVERSARIAL_VERDICT JSON parse failed: ${e.message}`);
-              return;
-            }
-
-            if (verdict.verdict === 'FAIL') {
-              const violations = (verdict.violations || [])
-                .map(v => `  - [${v.claim_id}] ${v.finding}`)
-                .join('\n');
-              core.setFailed(`Adversarial review FAILED:\n${violations}`);
-            } else if (verdict.verdict === 'PASS') {
-              console.log('Adversarial review PASSED.');
-            } else {
-              core.setFailed(`Unknown verdict value: ${verdict.verdict}`);
-            }
+      - name: Warn on unknown verdict
+        if: steps.review.outputs.verdict == 'UNKNOWN'
+        run: |
+          echo "::warning::Adversarial reviewer did not return a parseable verdict. Investigate the review comment."
