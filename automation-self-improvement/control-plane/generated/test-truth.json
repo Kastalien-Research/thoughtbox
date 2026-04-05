@@ -373,9 +373,12 @@
         "src/multi-agent/__tests__/test-helpers.ts",
         "src/multi-agent/__tests__/thought-attribution.test.ts",
         "src/multi-agent/__tests__/thought-diff.test.ts",
+        "src/notebook/__tests__/repl-globals.test.ts",
+        "src/notebook/__tests__/variable-cells.test.ts",
         "src/observatory/__tests__/server-historical.test.ts",
         "src/observatory/__tests__/storage-adapter.test.ts",
         "src/operations-tool/__tests__/handler.test.ts",
+        "src/otel/__tests__/module-cache.test.ts",
         "src/otel/__tests__/otel-storage.test.ts",
         "src/otel/__tests__/parser.test.ts",
         "src/otel/__tests__/routes.test.ts",
@@ -441,9 +444,12 @@
         "src/multi-agent/__tests__/runtime-wiring.test.ts",
         "src/multi-agent/__tests__/thought-attribution.test.ts",
         "src/multi-agent/__tests__/thought-diff.test.ts",
+        "src/notebook/__tests__/repl-globals.test.ts",
+        "src/notebook/__tests__/variable-cells.test.ts",
         "src/observatory/__tests__/server-historical.test.ts",
         "src/observatory/__tests__/storage-adapter.test.ts",
         "src/operations-tool/__tests__/handler.test.ts",
+        "src/otel/__tests__/module-cache.test.ts",
         "src/otel/__tests__/otel-storage.test.ts",
         "src/otel/__tests__/parser.test.ts",
         "src/otel/__tests__/routes.test.ts",
@@ -1731,6 +1737,48 @@
           "missing_integration_or_e2e": true
         },
         {
+          "file": "src/notebook/__tests__/repl-globals.test.ts",
+          "ci_executed": true,
+          "runner": "vitest",
+          "runner_include_glob": "src/**/__tests__/**/*.ts",
+          "real_dependencies": [
+            "mocks",
+            "network",
+            "subprocess",
+            "supabase"
+          ],
+          "uses_real_services": true,
+          "covered_components": [
+            "knowledge",
+            "observability",
+            "persistence",
+            "runtime",
+            "server"
+          ],
+          "missing_integration_or_e2e": true
+        },
+        {
+          "file": "src/notebook/__tests__/variable-cells.test.ts",
+          "ci_executed": true,
+          "runner": "vitest",
+          "runner_include_glob": "src/**/__tests__/**/*.ts",
+          "real_dependencies": [
+            "mocks",
+            "network",
+            "subprocess",
+            "supabase"
+          ],
+          "uses_real_services": true,
+          "covered_components": [
+            "knowledge",
+            "observability",
+            "persistence",
+            "runtime",
+            "server"
+          ],
+          "missing_integration_or_e2e": true
+        },
+        {
           "file": "src/observatory/__tests__/server-historical.test.ts",
           "ci_executed": true,
           "runner": "vitest",
@@ -1774,6 +1822,27 @@
         },
         {
           "file": "src/operations-tool/__tests__/handler.test.ts",
+          "ci_executed": true,
+          "runner": "vitest",
+          "runner_include_glob": "src/**/__tests__/**/*.ts",
+          "real_dependencies": [
+            "mocks",
+            "network",
+            "subprocess",
+            "supabase"
+          ],
+          "uses_real_services": true,
+          "covered_components": [
+            "knowledge",
+            "observability",
+            "persistence",
+            "runtime",
+            "server"
+          ],
+          "missing_integration_or_e2e": true
+        },
+        {
+          "file": "src/otel/__tests__/module-cache.test.ts",
           "ci_executed": true,
           "runner": "vitest",
           "runner_include_glob": "src/**/__tests__/**/*.ts",
@@ -2269,9 +2338,12 @@
     "src/multi-agent/__tests__/test-helpers.ts",
     "src/multi-agent/__tests__/thought-attribution.test.ts",
     "src/multi-agent/__tests__/thought-diff.test.ts",
+    "src/notebook/__tests__/repl-globals.test.ts",
+    "src/notebook/__tests__/variable-cells.test.ts",
     "src/observatory/__tests__/server-historical.test.ts",
     "src/observatory/__tests__/storage-adapter.test.ts",
     "src/operations-tool/__tests__/handler.test.ts",
+    "src/otel/__tests__/module-cache.test.ts",
     "src/otel/__tests__/otel-storage.test.ts",
     "src/otel/__tests__/parser.test.ts",
     "src/otel/__tests__/routes.test.ts",
@@ -2364,9 +2436,12 @@
     "src/multi-agent/__tests__/test-helpers.ts",
     "src/multi-agent/__tests__/thought-attribution.test.ts",
     "src/multi-agent/__tests__/thought-diff.test.ts",
+    "src/notebook/__tests__/repl-globals.test.ts",
+    "src/notebook/__tests__/variable-cells.test.ts",
     "src/observatory/__tests__/server-historical.test.ts",
     "src/observatory/__tests__/storage-adapter.test.ts",
     "src/operations-tool/__tests__/handler.test.ts",
+    "src/otel/__tests__/module-cache.test.ts",
     "src/otel/__tests__/otel-storage.test.ts",
     "src/otel/__tests__/parser.test.ts",
     "src/otel/__tests__/routes.test.ts",
