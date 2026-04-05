@@ -77,6 +77,9 @@ interface TB {
     getCell(notebookId: string, cellId: string): Promise<unknown>;
     installDeps(notebookId: string): Promise<unknown>;
     export(args: { notebookId: string; path?: string }): Promise<unknown>;
+    storeVar(args: { notebookId: string; name: string; value: string }): Promise<unknown>;
+    peekVar(args: { notebookId: string; name: string; start?: number; end?: number }): Promise<unknown>;
+    runWithREPL(args: { notebookId: string; cellId: string }): Promise<unknown>;
   };
 
   /** Theseus Protocol: friction-gated refactoring. Source: src/protocol/theseus-tool.ts */
