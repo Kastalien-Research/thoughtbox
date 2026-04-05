@@ -550,6 +550,28 @@ export class NotebookStateManager {
       onFinal: (result) => {
         finalResult = result;
       },
+      onSubCall: async (prompt, opts) => {
+        let Anthropic;
+        try {
+          const mod = await import("@anthropic-ai/sdk");
+          Anthropic = mod.default ?? mod.Anthropic;
+        } catch {
+          throw new Error(
+            "sub_call requires @anthropic-ai/sdk — " +
+              "install it with npm install @anthropic-ai/sdk"
+          );
+        }
+        const client = new Anthropic();
+        const resp = await client.messages.create({
+          model: opts?.model ?? "claude-sonnet-4-5-20250929",
+          max_tokens: 4096,
+          messages: [{ role: "user", content: prompt }],
+        });
+        const textBlock = resp.content.find(
+          (b: { type: string }) => b.type === "text"
+        );
+        return (textBlock as { text: string })?.text ?? "";
+      },
     };
 
     let finalResult: string | undefined;

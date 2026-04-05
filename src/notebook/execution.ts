@@ -30,6 +30,10 @@ export interface REPLHandler {
   ): Promise<{ value: string; size: number }>;
   onVars(): Promise<string[]>;
   onFinal(result: string): void;
+  onSubCall(
+    prompt: string,
+    opts?: { model?: string }
+  ): Promise<string>;
 }
 
 /**
@@ -51,6 +55,7 @@ export interface ExecutionResult {
   stderr: string;
   exitCode: number | null;
   success: boolean;
+  finalResult?: string;
 }
 
 export interface ExecutionOptions {
@@ -355,6 +360,20 @@ export async function executeWithREPL(
           }
           case "final": {
             handler.onFinal(msg.value!);
+            break;
+          }
+          case "sub_call": {
+            const text = await handler.onSubCall(
+              msg.prompt!,
+              msg.value
+                ? JSON.parse(msg.value)
+                : undefined
+            );
+            child.send({
+              type: "response",
+              reqId: msg.reqId,
+              result: text,
+            });
             break;
           }
           default: {

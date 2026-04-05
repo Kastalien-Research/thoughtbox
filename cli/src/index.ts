@@ -129,8 +129,7 @@ function mergeSettings(
     existing = JSON.parse(raw) as Record<string, unknown>;
   }
 
-  const hookCommand =
-    'node "$CLAUDE_PROJECT_DIR/.claude/hooks/thoughtbox-post-tool-use.js"';
+  const hookCommand = `node "${hookScriptPath}"`;
   const merged = mergeThoughtboxHook(
     existing,
     hookCommand,
@@ -345,15 +344,10 @@ async function main(): Promise<void> {
   }
 
   console.log("Installing hook script...");
-  copyHookScript(cwd);
+  const hookPath = copyHookScript(cwd);
 
   console.log("Configuring .claude/settings.json...");
-  mergeSettings(
-    cwd,
-    'node "$CLAUDE_PROJECT_DIR/.claude/hooks/thoughtbox-post-tool-use.js"',
-    cliArgs.apiKey,
-    cliArgs.serverUrl,
-  );
+  mergeSettings(cwd, hookPath, cliArgs.apiKey, cliArgs.serverUrl);
 
   checkGitignore(cwd);
 
