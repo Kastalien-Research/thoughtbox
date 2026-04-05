@@ -11,7 +11,8 @@ import { json as expressJson } from 'express';
 import { OtelEventStorage } from './otel-storage.js';
 import { parseLogsPayload, parseMetricsPayload } from './parser.js';
 import { resolveRequestAuth } from '../auth/resolve-request-auth.js';
-import type { OtlpLogsPayload, OtlpMetricsPayload } from './types.js';
+import type { OtelEventRow, OtlpLogsPayload, OtlpMetricsPayload } from './types.js';
+import type { ModuleCache } from './module-cache.js';
 
 export interface OtlpRoutesConfig {
   supabaseUrl: string;
@@ -64,6 +65,28 @@ async function resolveOtlpAuth(
   }
 }
 
+function enrichRows(
+  rows: OtelEventRow[],
+  cache: ModuleCache | null,
+): OtelEventRow[] {
+  if (!cache) return rows;
+  for (const row of rows) {
+    const filePath = row.event_attrs['file.path'];
+    if (typeof filePath !== 'string') continue;
+
+    const mod = cache.resolveFile(filePath);
+    if (!mod) continue;
+
+    row.event_attrs['module.name'] = mod.name;
+
+    const toolName = row.event_attrs['tool.name'];
+    if (toolName === 'Edit' || toolName === 'Write') {
+      row.event_attrs['module.dependent_count'] = mod.dependentCount;
+    }
+  }
+  return rows;
+}
+
 export function mountOtlpRoutes(
   app: Express,
   config: OtlpRoutesConfig,
@@ -88,7 +111,9 @@ export function mountOtlpRoutes(
 
       const payload = req.body as OtlpLogsPayload;
       const rows = parseLogsPayload(payload, workspaceId);
-      const result = await storage.ingest(rows);
+      // Module enrichment — best-effort, null cache means no enrichment
+      const enrichedRows = enrichRows(rows, null);
+      const result = await storage.ingest(enrichedRows);
       console.error(`[OTLP] Ingested ${result.inserted} log events`);
       res.json({});
     } catch (error) {
