@@ -12,11 +12,13 @@ import type {
 import { randomid } from "./types.js";
 import {
   executeCodeCell,
+  executeWithREPL,
   installDependencies,
   writeCodeCellToDisk,
   writePackageJsonToDisk,
   writeTsconfigToDisk,
   type ExecutionResult,
+  type REPLHandler,
 } from "./execution.js";
 import { encode, decode, createEmptyNotebook } from "./encoding.js";
 import { getTemplate, AVAILABLE_TEMPLATES } from "./templates.generated.js";
@@ -461,6 +463,111 @@ export class NotebookStateManager {
         : cell.value;
 
     return { value: sliced, size: cell.size };
+  }
+
+  /**
+   * Add a code cell, write it to disk, return the cell ID.
+   */
+  async addCodeCell(
+    notebookId: string,
+    filename: string,
+    source: string
+  ): Promise<string> {
+    const notebook = this.notebooks.get(notebookId);
+    if (!notebook) {
+      throw new Error(`Notebook ${notebookId} not found`);
+    }
+    const notebookDir = this.notebookDirs.get(notebookId)!;
+
+    const cell: CodeCell = {
+      id: randomid(),
+      type: "code",
+      language: notebook.language,
+      filename,
+      source,
+      status: "idle",
+    };
+    notebook.cells.push(cell);
+    notebook.updatedAt = Date.now();
+
+    await writeCodeCellToDisk(notebookDir, filename, source);
+    return cell.id;
+  }
+
+  /**
+   * Execute a code cell with REPL globals (IPC bridge).
+   */
+  async runCellWithREPL(
+    notebookId: string,
+    cellId: string
+  ): Promise<ExecutionResult> {
+    const notebook = this.notebooks.get(notebookId);
+    if (!notebook) {
+      throw new Error(`Notebook ${notebookId} not found`);
+    }
+    const cell = notebook.cells.find((c) => c.id === cellId);
+    if (!cell || cell.type !== "code") {
+      throw new Error(`Code cell ${cellId} not found`);
+    }
+    if (cell.status === "running") {
+      throw new Error(`Cell ${cellId} is already running`);
+    }
+
+    const notebookDir = this.notebookDirs.get(notebookId)!;
+    const filepath = path.join(notebookDir, "src", cell.filename);
+
+    cell.status = "running";
+    cell.output = undefined;
+    cell.error = undefined;
+
+    const handler: REPLHandler = {
+      onStore: async (name, value) => {
+        this.storeVar(notebookId, name, value);
+      },
+      onPeek: async (name, start?, end?) => {
+        return this.peekVar(notebookId, name, start, end);
+      },
+      onVars: async () => {
+        const nb = this.notebooks.get(notebookId)!;
+        return nb.cells
+          .filter(
+            (c): c is VariableCell => c.type === "variable"
+          )
+          .map((c) => c.name);
+      },
+      onFinal: (result) => {
+        (notebook as any).result = result;
+      },
+    };
+
+    let execResult: ExecutionResult;
+    try {
+      execResult = await executeWithREPL(
+        filepath,
+        { cwd: notebookDir },
+        handler
+      );
+      if (execResult.success) {
+        cell.status = "completed";
+        cell.output = execResult.stdout || execResult.stderr;
+      } else {
+        cell.status = "failed";
+        cell.error = execResult.stderr || execResult.stdout;
+      }
+    } catch (err) {
+      cell.status = "failed";
+      cell.error =
+        err instanceof Error ? err.message : String(err);
+      execResult = {
+        stdout: "",
+        stderr: cell.error,
+        exitCode: -1,
+        success: false,
+      };
+    }
+
+    notebook.updatedAt = Date.now();
+    return execResult;
   }
 
   /**

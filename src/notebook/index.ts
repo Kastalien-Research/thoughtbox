@@ -470,6 +470,35 @@ export class NotebookHandler {
   }
 
   /**
+   * Handle notebook_run_with_repl tool call
+   */
+  async handleRunWithREPL(args: any): Promise<any> {
+    const { notebookId, cellId } = args;
+
+    if (!notebookId || typeof notebookId !== "string") {
+      throw new Error("notebookId is required and must be a string");
+    }
+    if (!cellId || typeof cellId !== "string") {
+      throw new Error("cellId is required and must be a string");
+    }
+
+    const result = await this.stateManager.runCellWithREPL(
+      notebookId,
+      cellId
+    );
+
+    return {
+      success: result.success,
+      execution: {
+        stdout: result.stdout,
+        stderr: result.stderr,
+        exitCode: result.exitCode,
+        success: result.success,
+      },
+    };
+  }
+
+  /**
    * Process MCP tool call (Toolhost dispatcher pattern)
    */
   async processTool(operation: string, args: any): Promise<any> {
@@ -515,6 +544,9 @@ export class NotebookHandler {
           break;
         case "peek_var":
           result = await this.handlePeekVar(args);
+          break;
+        case "run_with_repl":
+          result = await this.handleRunWithREPL(args);
           break;
         default:
           throw new Error(`Unknown notebook operation: ${operation}`);

@@ -338,6 +338,33 @@ Both modes always receive the content, ensuring transport transparency.`,
       name: "result",
     },
   },
+  {
+    name: "notebook_run_with_repl",
+    title: "Run Cell with REPL Globals",
+    description:
+      "Execute a code cell with REPL globals injected " +
+      "(store, peek, vars, FINAL, print, sub_call). " +
+      "The cell communicates with the notebook via IPC.",
+    category: "execution",
+    inputSchema: {
+      type: "object",
+      properties: {
+        notebookId: {
+          type: "string",
+          description: "Notebook ID",
+        },
+        cellId: {
+          type: "string",
+          description: "Cell ID to execute with REPL globals",
+        },
+      },
+      required: ["notebookId", "cellId"],
+    },
+    example: {
+      notebookId: "abc123",
+      cellId: "cell456",
+    },
+  },
 ];
 
 /**

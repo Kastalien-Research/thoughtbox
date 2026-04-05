@@ -7,6 +7,7 @@ export const notebookToolInputSchema = z.object({
     "notebook_add_cell", "notebook_update_cell", "notebook_run_cell",
     "notebook_install_deps", "notebook_list_cells", "notebook_get_cell",
     "notebook_export", "notebook_store_var", "notebook_peek_var",
+    "notebook_run_with_repl",
   ]),
   notebookId: z.string().optional().describe("Notebook ID"),
   cellId: z.string().optional().describe("Cell ID"),
