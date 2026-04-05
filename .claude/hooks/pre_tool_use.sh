@@ -234,4 +234,62 @@ if [[ "${CC_DISABLE_READ_GUARD:-0}" != "1" ]]; then
   fi
 fi
 
+# ── GUARD 4: HDD workflow enforcement ─────────────────────────────
+# No code changes to src/ or supabase/migrations/ without an active
+# HDD session that has hypotheses recorded. Prevents skipping the
+# mandatory HDD workflow for new features and architectural decisions.
+hdd_state="${project_dir}/.hdd/state.json"
+
+if [[ "$tool_name" == "Edit" || "$tool_name" == "Write" ]]; then
+  _fp=$(echo "$tool_input" | jq -r '.file_path // ""')
+  if [[ "$_fp" == */src/* || "$_fp" == */cli/src/* || "$_fp" == */supabase/migrations/* ]]; then
+    if [[ ! -f "$hdd_state" ]]; then
+      block "No HDD session active. Run /hdd to stage an ADR before making code changes."
+    fi
+
+    # Check HDD session has hypotheses
+    hyp_count=$(jq -r '.hypotheses | length // 0' "$hdd_state" 2>/dev/null || echo 0)
+    if [[ "$hyp_count" -eq 0 ]]; then
+      block "HDD session has no hypotheses. Record hypotheses before making code changes."
+    fi
+
+    # Check HDD session is current (updated within last 7 days)
+    hdd_updated=$(jq -r '.updated_at // ""' "$hdd_state" 2>/dev/null || echo "")
+    if [[ -n "$hdd_updated" ]]; then
+      hdd_epoch=$(date -jf "%Y-%m-%dT%H:%M:%SZ" "$hdd_updated" +%s 2>/dev/null \
+        || date -d "$hdd_updated" +%s 2>/dev/null \
+        || echo 0)
+      now_epoch=$(date +%s)
+      age_days=$(( (now_epoch - hdd_epoch) / 86400 ))
+      if [[ "$age_days" -gt 7 ]]; then
+        hdd_title=$(jq -r '.title // "unknown"' "$hdd_state" 2>/dev/null)
+        block "HDD session '${hdd_title}' is ${age_days} days old (last updated: ${hdd_updated}). Start a new HDD session for current work: /hdd"
+      fi
+    fi
+  fi
+fi
+
+# ── GUARD 5: Ulysses reflect-required ─────────────────────────────
+# When Ulysses surprise count hits S=2, block everything except
+# read-only tools and the reflect operation itself.
+ulysses_state_dir="${project_dir}/.claude/state/ulysses"
+
+if [[ -f "$ulysses_state_dir/reflect-required" ]]; then
+  if [[ "$tool_name" == "Read" || "$tool_name" == "Glob" || "$tool_name" == "Grep" \
+     || "$tool_name" == "AskUserQuestion" ]]; then
+    exit 0
+  fi
+  if [[ "$tool_name" == "Bash" ]]; then
+    _cmd=$(echo "$tool_input" | jq -r '.command // ""')
+    if [[ "$_cmd" == *"ulysses"* && "$_cmd" == *"reflect"* ]] \
+       || [[ "$_cmd" == *"git status"* || "$_cmd" == *"git diff"* ]]; then
+      exit 0
+    fi
+  fi
+  if [[ "$tool_name" == "Skill" ]]; then
+    exit 0
+  fi
+  block "REFLECT REQUIRED. Ulysses protocol requires reflection before continuing."
+fi
+
 exit 0
