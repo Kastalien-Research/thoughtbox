@@ -268,7 +268,7 @@ globalThis.sub_call = async function sub_call(prompt, opts) {
   return __ipcRequest({
     type: 'sub_call',
     prompt,
-    ...(opts || {}),
+    value: opts ? JSON.stringify(opts) : undefined,
   });
 };
 
