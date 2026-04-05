@@ -129,7 +129,9 @@ function mergeSettings(
     existing = JSON.parse(raw) as Record<string, unknown>;
   }
 
-  const hookCommand = `node "${hookScriptPath}"`;
+  const relPath = path.relative(projectDir, hookScriptPath);
+  const hookCommand =
+    `node "$CLAUDE_PROJECT_DIR/${relPath.replace(/\\/g, "/")}"`;
   const merged = mergeThoughtboxHook(
     existing,
     hookCommand,
