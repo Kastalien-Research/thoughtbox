@@ -44,11 +44,20 @@ export const CodeCellSchema = z.object({
   error: z.string().optional(),
 });
 
+export const VariableCellSchema = z.object({
+  id: z.string(),
+  type: z.literal("variable"),
+  name: z.string(),
+  value: z.string(),
+  size: z.number(),
+});
+
 export const CellSchema = z.union([
   TitleCellSchema,
   MarkdownCellSchema,
   PackageJsonCellSchema,
   CodeCellSchema,
+  VariableCellSchema,
 ]);
 
 // Notebook Schema
@@ -71,6 +80,7 @@ export type TitleCell = z.infer<typeof TitleCellSchema>;
 export type MarkdownCell = z.infer<typeof MarkdownCellSchema>;
 export type PackageJsonCell = z.infer<typeof PackageJsonCellSchema>;
 export type CodeCell = z.infer<typeof CodeCellSchema>;
+export type VariableCell = z.infer<typeof VariableCellSchema>;
 export type Cell = z.infer<typeof CellSchema>;
 
 export type NotebookMetadata = z.infer<typeof NotebookMetadataSchema>;

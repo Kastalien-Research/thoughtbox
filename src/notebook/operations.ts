@@ -272,6 +272,72 @@ Both modes always receive the content, ensuring transport transparency.`,
       path: "/path/to/output.src.md",
     },
   },
+  {
+    name: "notebook_store_var",
+    title: "Store Variable",
+    description:
+      "Store a named variable in a notebook. Creates or updates " +
+      "a variable cell. Budget: max 100 variables, 100K chars each, " +
+      "1M total chars.",
+    category: "cell-operations",
+    inputSchema: {
+      type: "object",
+      properties: {
+        notebookId: {
+          type: "string",
+          description: "Notebook ID",
+        },
+        name: {
+          type: "string",
+          description: "Variable name (unique within notebook)",
+        },
+        value: {
+          type: "string",
+          description: "Variable value to store",
+        },
+      },
+      required: ["notebookId", "name", "value"],
+    },
+    example: {
+      notebookId: "abc123",
+      name: "result",
+      value: '{"scores":[1,2,3]}',
+    },
+  },
+  {
+    name: "notebook_peek_var",
+    title: "Peek Variable",
+    description:
+      "Read a named variable from a notebook. Optionally slice " +
+      "with start/end character offsets for large values.",
+    category: "cell-operations",
+    inputSchema: {
+      type: "object",
+      properties: {
+        notebookId: {
+          type: "string",
+          description: "Notebook ID",
+        },
+        name: {
+          type: "string",
+          description: "Variable name to read",
+        },
+        start: {
+          type: "integer",
+          description: "Start character offset (inclusive)",
+        },
+        end: {
+          type: "integer",
+          description: "End character offset (exclusive)",
+        },
+      },
+      required: ["notebookId", "name"],
+    },
+    example: {
+      notebookId: "abc123",
+      name: "result",
+    },
+  },
 ];
 
 /**

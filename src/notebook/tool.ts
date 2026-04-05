@@ -6,7 +6,7 @@ export const notebookToolInputSchema = z.object({
     "notebook_create", "notebook_list", "notebook_load",
     "notebook_add_cell", "notebook_update_cell", "notebook_run_cell",
     "notebook_install_deps", "notebook_list_cells", "notebook_get_cell",
-    "notebook_export",
+    "notebook_export", "notebook_store_var", "notebook_peek_var",
   ]),
   notebookId: z.string().optional().describe("Notebook ID"),
   cellId: z.string().optional().describe("Cell ID"),
@@ -18,6 +18,10 @@ export const notebookToolInputSchema = z.object({
   cellType: z.enum(["title", "markdown", "code"]).optional().describe("Cell type for add_cell"),
   filename: z.string().optional().describe("Filename for code cells"),
   position: z.number().int().optional().describe("Insert position for add_cell (0-indexed)"),
+  name: z.string().optional().describe("Variable name for store_var/peek_var"),
+  value: z.string().optional().describe("Variable value for store_var"),
+  start: z.number().int().optional().describe("Start offset for peek_var slicing"),
+  end: z.number().int().optional().describe("End offset for peek_var slicing"),
 });
 
 export type NotebookToolInput = z.infer<typeof notebookToolInputSchema>;

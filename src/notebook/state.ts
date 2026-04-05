@@ -7,6 +7,7 @@ import type {
   CodeCell,
   CodeLanguage,
   PackageJsonCell,
+  VariableCell,
 } from "./types.js";
 import { randomid } from "./types.js";
 import {
@@ -367,6 +368,99 @@ export class NotebookStateManager {
 
     // Always return content
     return content;
+  }
+
+  /**
+   * Store a variable in a notebook
+   */
+  storeVar(
+    notebookId: string,
+    name: string,
+    value: string
+  ): VariableCell {
+    const notebook = this.notebooks.get(notebookId);
+    if (!notebook) {
+      throw new Error(`Notebook ${notebookId} not found`);
+    }
+
+    if (value.length > 100_000) {
+      throw new Error(
+        `Variable "${name}" exceeds 100K char limit (${value.length} chars)`
+      );
+    }
+
+    const existing = notebook.cells.find(
+      (c): c is VariableCell => c.type === "variable" && c.name === name
+    );
+
+    if (existing) {
+      existing.value = value;
+      existing.size = value.length;
+      notebook.updatedAt = Date.now();
+      return existing;
+    }
+
+    const varCells = notebook.cells.filter(
+      (c) => c.type === "variable"
+    );
+    if (varCells.length >= 100) {
+      throw new Error(
+        "Variable cell limit reached (max 100 per notebook)"
+      );
+    }
+
+    const totalChars = varCells.reduce(
+      (sum, c) => sum + (c as VariableCell).size,
+      0
+    );
+    if (totalChars + value.length > 1_000_000) {
+      throw new Error(
+        `Total variable storage would exceed 1M char limit ` +
+        `(current: ${totalChars}, adding: ${value.length})`
+      );
+    }
+
+    const cell: VariableCell = {
+      id: randomid(),
+      type: "variable",
+      name,
+      value,
+      size: value.length,
+    };
+    notebook.cells.push(cell);
+    notebook.updatedAt = Date.now();
+    return cell;
+  }
+
+  /**
+   * Peek at a variable in a notebook
+   */
+  peekVar(
+    notebookId: string,
+    name: string,
+    start?: number,
+    end?: number
+  ): { value: string; size: number } {
+    const notebook = this.notebooks.get(notebookId);
+    if (!notebook) {
+      throw new Error(`Notebook ${notebookId} not found`);
+    }
+
+    const cell = notebook.cells.find(
+      (c): c is VariableCell => c.type === "variable" && c.name === name
+    );
+    if (!cell) {
+      throw new Error(
+        `Variable "${name}" not found in notebook ${notebookId}`
+      );
+    }
+
+    const sliced =
+      start !== undefined || end !== undefined
+        ? cell.value.slice(start, end)
+        : cell.value;
+
+    return { value: sliced, size: cell.size };
   }
 
   /**

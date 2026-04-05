@@ -412,6 +412,64 @@ export class NotebookHandler {
   }
 
   /**
+   * Handle notebook_store_var tool call
+   */
+  async handleStoreVar(args: any): Promise<any> {
+    const { notebookId, name, value } = args;
+
+    if (!notebookId || typeof notebookId !== "string") {
+      throw new Error("notebookId is required and must be a string");
+    }
+    if (!name || typeof name !== "string") {
+      throw new Error("name is required and must be a string");
+    }
+    if (value === undefined || typeof value !== "string") {
+      throw new Error("value is required and must be a string");
+    }
+
+    const cell = this.stateManager.storeVar(notebookId, name, value);
+
+    return {
+      success: true,
+      variable: {
+        id: cell.id,
+        name: cell.name,
+        size: cell.size,
+      },
+    };
+  }
+
+  /**
+   * Handle notebook_peek_var tool call
+   */
+  async handlePeekVar(args: any): Promise<any> {
+    const { notebookId, name, start, end } = args;
+
+    if (!notebookId || typeof notebookId !== "string") {
+      throw new Error("notebookId is required and must be a string");
+    }
+    if (!name || typeof name !== "string") {
+      throw new Error("name is required and must be a string");
+    }
+
+    const result = this.stateManager.peekVar(
+      notebookId,
+      name,
+      start,
+      end
+    );
+
+    return {
+      success: true,
+      variable: {
+        name,
+        value: result.value,
+        size: result.size,
+      },
+    };
+  }
+
+  /**
    * Process MCP tool call (Toolhost dispatcher pattern)
    */
   async processTool(operation: string, args: any): Promise<any> {
@@ -451,6 +509,12 @@ export class NotebookHandler {
           break;
         case "export":
           result = await this.handleExportNotebook(args);
+          break;
+        case "store_var":
+          result = await this.handleStoreVar(args);
+          break;
+        case "peek_var":
+          result = await this.handlePeekVar(args);
           break;
         default:
           throw new Error(`Unknown notebook operation: ${operation}`);

@@ -41,6 +41,11 @@ export function encode(notebook: Notebook): string {
       lines.push(cell.source);
       lines.push("```");
       lines.push("");
+    } else if (cell.type === "variable") {
+      lines.push(`<!-- var:${cell.name} size:${cell.size} -->`);
+      lines.push(cell.value);
+      lines.push("<!-- /var -->");
+      lines.push("");
     }
   }
 
@@ -149,6 +154,35 @@ export function decode(srcmd: string): Notebook {
         }
       }
     }
+    // Variable cell (<!-- var:name size:N -->)
+    else if (line.startsWith("<!-- var:")) {
+      const varMatch = line.match(/<!-- var:(\S+) size:(\d+) -->/);
+      if (varMatch) {
+        const name = varMatch[1];
+        i++;
+
+        const valueLines: string[] = [];
+        while (i < lines.length && lines[i] !== "<!-- /var -->") {
+          valueLines.push(lines[i]);
+          i++;
+        }
+
+        // Skip closing marker
+        if (i < lines.length && lines[i] === "<!-- /var -->") i++;
+
+        // Skip following empty line
+        if (i < lines.length && lines[i].trim() === "") i++;
+
+        const value = valueLines.join("\n");
+        cells.push({
+          id: randomid(),
+          type: "variable",
+          name,
+          value,
+          size: value.length,
+        });
+      }
+    }
     // Markdown cell (everything else)
     else {
       const markdownLines: string[] = [];
@@ -157,7 +191,8 @@ export function decode(srcmd: string): Notebook {
       while (
         i < lines.length &&
         !lines[i].startsWith("# ") &&
-        !lines[i].startsWith("###### ")
+        !lines[i].startsWith("###### ") &&
+        !lines[i].startsWith("<!-- var:")
       ) {
         markdownLines.push(lines[i]);
         i++;
