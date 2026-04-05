@@ -237,6 +237,10 @@ async function startHttpServer() {
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   const hasSupabase = isMultiTenant && supabaseUrl && serviceRoleKey;
 
+  const connStorage = hasSupabase
+    ? new ConnectionStorage({ supabaseUrl, serviceRoleKey })
+    : null;
+
   const oauthClientStorage = hasSupabase
     ? new OAuthClientSupabaseStorage({ supabaseUrl, serviceRoleKey })
     : new InMemoryClientStorage();
@@ -353,8 +357,7 @@ async function startHttpServer() {
           await entry.transport.handleRequest(req, res, req.body);
 
           if (req.method === "DELETE") {
-            if (entry.connectionId && hasSupabase) {
-              const connStorage = new ConnectionStorage({ supabaseUrl: supabaseUrl!, serviceRoleKey: serviceRoleKey! });
+            if (entry.connectionId && connStorage) {
               connStorage.end(entry.connectionId).catch((err) =>
                 console.error('[Connection] Failed to close connection:', err)
               );
@@ -394,9 +397,8 @@ async function startHttpServer() {
           protocolHandler: null,
         });
 
-        if (hasSupabase && workspaceId) {
+        if (connStorage && workspaceId) {
           try {
-            const connStorage = new ConnectionStorage({ supabaseUrl: supabaseUrl!, serviceRoleKey: serviceRoleKey! });
             const conn = await connStorage.create({ workspace_id: workspaceId });
             const entry = sessions.get(sessionId);
             if (entry) entry.connectionId = conn.id;
@@ -408,8 +410,7 @@ async function startHttpServer() {
 
         transport.onclose = () => {
           const closingEntry = sessions.get(transport.sessionId || sessionId);
-          if (closingEntry?.connectionId && hasSupabase) {
-            const connStorage = new ConnectionStorage({ supabaseUrl: supabaseUrl!, serviceRoleKey: serviceRoleKey! });
+          if (closingEntry?.connectionId && connStorage) {
             connStorage.end(closingEntry.connectionId).catch((err) =>
               console.error('[Connection] Failed to close connection:', err)
             );
@@ -422,8 +423,7 @@ async function startHttpServer() {
 
         if (req.method === "DELETE") {
           const deletingEntry = sessions.get(sessionId);
-          if (deletingEntry?.connectionId && hasSupabase) {
-            const connStorage = new ConnectionStorage({ supabaseUrl: supabaseUrl!, serviceRoleKey: serviceRoleKey! });
+          if (deletingEntry?.connectionId && connStorage) {
             connStorage.end(deletingEntry.connectionId).catch((err) =>
               console.error('[Connection] Failed to close connection:', err)
             );
