@@ -36,6 +36,7 @@ import {
 } from "./http/protocol-http.js";
 import { resolveRequestAuth } from "./auth/resolve-request-auth.js";
 import { ensureStaticWorkspace } from "./auth/static-workspace.js";
+import { ConnectionStorage } from "./connections/storage.js";
 import { mountOtlpRoutes } from "./otel/index.js";
 import { mcpAuthRouter } from "@modelcontextprotocol/sdk/server/auth/router.js";
 import {
@@ -164,6 +165,7 @@ interface SessionEntry {
   server: Awaited<ReturnType<typeof createMcpServer>>;
   workspaceId: string;
   protocolHandler: ProtocolEnforcementHandler | null;
+  connectionId?: string;
 }
 
 async function maybeStartObservatory(hubStorage?: HubStorage, persistentStorage?: ThoughtboxStorage): Promise<ObservatoryServer | null> {
@@ -351,6 +353,12 @@ async function startHttpServer() {
           await entry.transport.handleRequest(req, res, req.body);
 
           if (req.method === "DELETE") {
+            if (entry.connectionId && hasSupabase) {
+              const connStorage = new ConnectionStorage({ supabaseUrl: supabaseUrl!, serviceRoleKey: serviceRoleKey! });
+              connStorage.end(entry.connectionId).catch((err) =>
+                console.error('[Connection] Failed to close connection:', err)
+              );
+            }
             sessions.delete(mcpSessionId);
             entry.transport.close();
           }
@@ -385,7 +393,27 @@ async function startHttpServer() {
           workspaceId: workspaceId!,
           protocolHandler: null,
         });
+
+        if (hasSupabase && workspaceId) {
+          try {
+            const connStorage = new ConnectionStorage({ supabaseUrl: supabaseUrl!, serviceRoleKey: serviceRoleKey! });
+            const conn = await connStorage.create({ workspace_id: workspaceId });
+            const entry = sessions.get(sessionId);
+            if (entry) entry.connectionId = conn.id;
+            await connStorage.closeStale(workspaceId).catch(() => {});
+          } catch (err) {
+            console.error('[Connection] Failed to create connection:', err);
+          }
+        }
+
         transport.onclose = () => {
+          const closingEntry = sessions.get(transport.sessionId || sessionId);
+          if (closingEntry?.connectionId && hasSupabase) {
+            const connStorage = new ConnectionStorage({ supabaseUrl: supabaseUrl!, serviceRoleKey: serviceRoleKey! });
+            connStorage.end(closingEntry.connectionId).catch((err) =>
+              console.error('[Connection] Failed to close connection:', err)
+            );
+          }
           sessions.delete(transport.sessionId || sessionId);
         };
 
@@ -393,6 +421,13 @@ async function startHttpServer() {
         await transport.handleRequest(req, res, req.body);
 
         if (req.method === "DELETE") {
+          const deletingEntry = sessions.get(sessionId);
+          if (deletingEntry?.connectionId && hasSupabase) {
+            const connStorage = new ConnectionStorage({ supabaseUrl: supabaseUrl!, serviceRoleKey: serviceRoleKey! });
+            connStorage.end(deletingEntry.connectionId).catch((err) =>
+              console.error('[Connection] Failed to close connection:', err)
+            );
+          }
           sessions.delete(sessionId);
           transport.close();
         }
