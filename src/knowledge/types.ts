@@ -48,7 +48,8 @@ export type EntityType =
   | 'Concept'      // Domain knowledge term
   | 'Workflow'     // Successful/failed workflow (renamed from 'Pattern' to avoid conflict)
   | 'Decision'     // Architectural choice with rationale
-  | 'Agent';       // Agent profile with specializations
+  | 'Agent'        // Agent profile with specializations
+  | 'Module';      // Codebase structural unit (SPEC-PROJECT-MODEL)
 
 /**
  * Parameters for creating a new entity

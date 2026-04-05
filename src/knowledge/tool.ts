@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { KnowledgeHandler } from "./handler.js";
 
-const EntityTypeSchema = z.enum(["Insight", "Concept", "Workflow", "Decision", "Agent"]);
+const EntityTypeSchema = z.enum(["Insight", "Concept", "Workflow", "Decision", "Agent", "Module"]);
 const VisibilitySchema = z.enum(["public", "agent-private", "user-private", "team-private"]);
 const RelationTypeSchema = z.enum([
   "RELATES_TO", "BUILDS_ON", "CONTRADICTS", "EXTRACTED_FROM",

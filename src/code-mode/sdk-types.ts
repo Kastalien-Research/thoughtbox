@@ -56,7 +56,7 @@ interface TB {
 
   /** Knowledge graph. Source: src/knowledge/tool.ts */
   knowledge: {
-    createEntity(args: { name: string; type: "Insight" | "Concept" | "Workflow" | "Decision" | "Agent"; label: string; properties?: Record<string, unknown>; created_by?: string; visibility?: "public" | "agent-private" | "user-private" | "team-private" }): Promise<unknown>;
+    createEntity(args: { name: string; type: "Insight" | "Concept" | "Workflow" | "Decision" | "Agent" | "Module"; label: string; properties?: Record<string, unknown>; created_by?: string; visibility?: "public" | "agent-private" | "user-private" | "team-private" }): Promise<unknown>;
     getEntity(entityId: string): Promise<unknown>;
     listEntities(args?: { types?: string[]; name_pattern?: string; created_after?: string; created_before?: string; limit?: number; offset?: number }): Promise<unknown>;
     addObservation(args: { entity_id: string; content: string; source_session?: string; added_by?: string }): Promise<unknown>;
