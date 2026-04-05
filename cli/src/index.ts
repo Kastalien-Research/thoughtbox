@@ -55,24 +55,34 @@ async function validateApiKey(
   serverUrl: string,
   apiKey: string,
 ): Promise<void> {
-  const url = `${serverUrl}/health`;
+  const url = `${serverUrl}/v1/logs`;
   let response: Response;
   try {
     response = await fetch(url, {
-      headers: { Authorization: `Bearer ${apiKey}` },
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ resourceLogs: [] }),
     });
   } catch (err: unknown) {
     const msg =
       err instanceof Error ? err.message : String(err);
     console.error(
-      `Failed to connect to ${url}: ${msg}`,
+      `Failed to connect to ${serverUrl}: ${msg}`,
     );
+    process.exit(1);
+  }
+
+  if (response.status === 401 || response.status === 403) {
+    console.error("API key validation failed: invalid key");
     process.exit(1);
   }
 
   if (!response.ok) {
     console.error(
-      `API key validation failed: ${response.status} ${response.statusText}`,
+      `Server error during validation: ${response.status} ${response.statusText}`,
     );
     process.exit(1);
   }
