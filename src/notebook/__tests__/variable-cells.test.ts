@@ -57,6 +57,18 @@ describe("variable-addressed cells", () => {
     }).toThrow("Variable cell limit reached");
   });
 
+  it("enforces total budget on variable update", () => {
+    // 10 vars × 95K = 950K, plus one small var → 950_001 < 1M
+    for (let i = 0; i < 10; i++) {
+      manager.storeVar(notebookId, `v${i}`, "x".repeat(95_000));
+    }
+    manager.storeVar(notebookId, "target", "x");
+    // Update target to 100K → other 950K + 100K = 1_050K > 1M
+    expect(() => {
+      manager.storeVar(notebookId, "target", "x".repeat(100_000));
+    }).toThrow("exceed 1M char limit");
+  });
+
   it("throws on peek of nonexistent variable", () => {
     expect(() => {
       manager.peekVar(notebookId, "ghost");

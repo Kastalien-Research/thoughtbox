@@ -57,8 +57,7 @@ describe("REPL Globals", () => {
     );
     const result = await mgr.runCellWithREPL(notebookId, cellId);
     expect(result.success).toBe(true);
-    const nb = mgr.getNotebook(notebookId);
-    expect((nb as any).result).toBe("the answer is 42");
+    expect(result.finalResult).toBe("the answer is 42");
   });
 
   it("print() captures output", async () => {

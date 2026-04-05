@@ -489,6 +489,9 @@ export class NotebookHandler {
 
     return {
       success: result.success,
+      ...(result.finalResult !== undefined && {
+        finalResult: result.finalResult,
+      }),
       execution: {
         stdout: result.stdout,
         stderr: result.stderr,
@@ -650,6 +653,9 @@ Available operations:
 - list_cells: List all cells in notebook
 - get_cell: Get cell details
 - export: Export notebook to .src.md
+- store_var: Store a named variable (max 100 per notebook, 100K chars each, 1M total)
+- peek_var: Read a named variable with optional character-range slicing
+- run_with_repl: Execute a code cell with REPL globals (store, peek, vars, FINAL, print)
 
 Common operation examples:
 

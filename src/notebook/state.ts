@@ -396,6 +396,18 @@ export class NotebookStateManager {
     );
 
     if (existing) {
+      const otherChars = notebook.cells
+        .filter(
+          (c): c is VariableCell =>
+            c.type === "variable" && c.name !== name
+        )
+        .reduce((s, c) => s + c.size, 0);
+      if (otherChars + value.length > 1_000_000) {
+        throw new Error(
+          `Total variable storage would exceed 1M char limit ` +
+            `(current: ${otherChars}, adding: ${value.length})`
+        );
+      }
       existing.value = value;
       existing.size = value.length;
       notebook.updatedAt = Date.now();
@@ -536,10 +548,11 @@ export class NotebookStateManager {
           .map((c) => c.name);
       },
       onFinal: (result) => {
-        (notebook as any).result = result;
+        finalResult = result;
       },
     };
 
+    let finalResult: string | undefined;
     let execResult: ExecutionResult;
     try {
       execResult = await executeWithREPL(
@@ -567,7 +580,7 @@ export class NotebookStateManager {
     }
 
     notebook.updatedAt = Date.now();
-    return execResult;
+    return { ...execResult, finalResult };
   }
 
   /**
