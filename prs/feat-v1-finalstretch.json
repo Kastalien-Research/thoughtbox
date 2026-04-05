@@ -1,0 +1,55 @@
+{
+  "branch": "feat/v1-finalstretch",
+  "adrs": [],
+  "summary": "Implements all 6 specs from .specs/thoughtbox-v1-finalstretch/: hook-based tool event capture (SPEC-HOOK-CAPTURE), connection tracking (SPEC-CONNECTION-TRACKING), TypeScript project model parser (SPEC-PROJECT-MODEL), blast radius event enrichment (SPEC-BLAST-RADIUS), CLI init command (SPEC-CLI-INIT), and notebook RLM REPL extensions (SPEC-NOTEBOOK-RLM). Adds a new thoughtbox CLI npm package, Supabase connections table, and extends the notebook module with variable cells, REPL globals, and IPC-based sub_call.",
+  "claims": [
+    {
+      "id": "c1",
+      "adr_claim_id": null,
+      "statement": "PostToolUse hook script captures tool events as OTLP log records and sends to /v1/logs via detached curl",
+      "evidence_type": "deterministic_check",
+      "evidence_path": "cli/src/__tests__/hook.test.ts",
+      "evidence_description": "5 tests verify hook parses tool events (Read, Edit, Bash), exits silently without API key, and handles malformed JSON without crashing."
+    },
+    {
+      "id": "c2",
+      "adr_claim_id": null,
+      "statement": "TypeScript project parser discovers modules, extracts exports, and detects dependency edges from both imports and re-exports",
+      "evidence_type": "deterministic_check",
+      "evidence_path": "cli/src/__tests__/parser.test.ts",
+      "evidence_description": "5 tests verify module discovery from directories with index.ts, export extraction, dependency edge detection (including re-export statements), file counting, and error on missing tsconfig."
+    },
+    {
+      "id": "c3",
+      "adr_claim_id": null,
+      "statement": "Variable cells support store/peek with budget enforcement and .src.md round-tripping",
+      "evidence_type": "deterministic_check",
+      "evidence_path": "src/notebook/__tests__/variable-cells.test.ts",
+      "evidence_description": "7 tests verify store/peek round-trip, in-place update, slicing, 100K char limit, 100 cell limit, missing variable error, and export/import round-trip."
+    },
+    {
+      "id": "c4",
+      "adr_claim_id": null,
+      "statement": "REPL globals (store, peek, vars, FINAL, print) work inside executed code cells via IPC",
+      "evidence_type": "deterministic_check",
+      "evidence_path": "src/notebook/__tests__/repl-globals.test.ts",
+      "evidence_description": "4 tests verify store+peek via IPC, vars() listing, FINAL() setting notebook result, and print() output capture."
+    },
+    {
+      "id": "c5",
+      "adr_claim_id": null,
+      "statement": "ModuleCache resolves file paths to modules via longest-prefix matching",
+      "evidence_type": "deterministic_check",
+      "evidence_path": "src/otel/__tests__/module-cache.test.ts",
+      "evidence_description": "6 tests verify correct module resolution, untracked file handling, nested files, absolute paths, exact path match, and partial prefix rejection."
+    },
+    {
+      "id": "c6",
+      "adr_claim_id": null,
+      "statement": "Settings merge creates, appends, and updates Thoughtbox hook entries without overwriting existing hooks",
+      "evidence_type": "deterministic_check",
+      "evidence_path": "cli/src/__tests__/settings.test.ts",
+      "evidence_description": "5 tests verify creating hooks from empty settings, appending without overwriting, updating in place, adding env vars, and preserving existing env vars."
+    }
+  ]
+}
