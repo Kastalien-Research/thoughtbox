@@ -46,7 +46,7 @@ function getConnectionId() {
     // Fall through to generate new ID
   }
 
-  const id = `${ppid}-${Date.now().toString(36)}`;
+  const id = `${ppid}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
 
   try {
     mkdirSync(connDir, { recursive: true });
@@ -165,18 +165,21 @@ function main() {
     const record = buildOtlpLogRecord(event);
     const body = JSON.stringify(record);
 
-    spawn("curl", [
+    const child = spawn("curl", [
       "-s",
       "-o", "/dev/null",
       "-X", "POST",
       `${url}/v1/logs`,
-      "-H", "Content-Type: application/json",
-      "-H", `Authorization: Bearer ${apiKey}`,
+      "--config", "-",
       "-d", body,
     ], {
       detached: true,
-      stdio: "ignore",
-    }).unref();
+      stdio: ["pipe", "ignore", "ignore"],
+    });
+    child.stdin.end(
+      `header = "Authorization: Bearer ${apiKey}"\nheader = "Content-Type: application/json"\n`
+    );
+    child.unref();
   } catch {
     // Never throw from hook scripts
   }
