@@ -5,7 +5,7 @@
   "claims": [
     {
       "id": "c1",
-      "adr_claim_id": null,
+      "adr_claim_id": "__none__",
       "statement": "PostToolUse hook script captures tool events as OTLP log records and sends to /v1/logs via detached curl",
       "evidence_type": "deterministic_check",
       "evidence_path": "cli/src/__tests__/hook.test.ts",
@@ -13,7 +13,7 @@
     },
     {
       "id": "c2",
-      "adr_claim_id": null,
+      "adr_claim_id": "__none__",
       "statement": "TypeScript project parser discovers modules, extracts exports, and detects dependency edges from both imports and re-exports",
       "evidence_type": "deterministic_check",
       "evidence_path": "cli/src/__tests__/parser.test.ts",
@@ -21,7 +21,7 @@
     },
     {
       "id": "c3",
-      "adr_claim_id": null,
+      "adr_claim_id": "__none__",
       "statement": "Variable cells support store/peek with budget enforcement and .src.md round-tripping",
       "evidence_type": "deterministic_check",
       "evidence_path": "src/notebook/__tests__/variable-cells.test.ts",
@@ -29,7 +29,7 @@
     },
     {
       "id": "c4",
-      "adr_claim_id": null,
+      "adr_claim_id": "__none__",
       "statement": "REPL globals (store, peek, vars, FINAL, print) work inside executed code cells via IPC",
       "evidence_type": "deterministic_check",
       "evidence_path": "src/notebook/__tests__/repl-globals.test.ts",
@@ -37,7 +37,7 @@
     },
     {
       "id": "c5",
-      "adr_claim_id": null,
+      "adr_claim_id": "__none__",
       "statement": "ModuleCache resolves file paths to modules via longest-prefix matching",
       "evidence_type": "deterministic_check",
       "evidence_path": "src/otel/__tests__/module-cache.test.ts",
@@ -45,7 +45,7 @@
     },
     {
       "id": "c6",
-      "adr_claim_id": null,
+      "adr_claim_id": "__none__",
       "statement": "Settings merge creates, appends, and updates Thoughtbox hook entries without overwriting existing hooks",
       "evidence_type": "deterministic_check",
       "evidence_path": "cli/src/__tests__/settings.test.ts",

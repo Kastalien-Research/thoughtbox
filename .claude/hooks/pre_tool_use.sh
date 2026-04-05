@@ -256,9 +256,22 @@ if [[ "$tool_name" == "Edit" || "$tool_name" == "Write" ]]; then
     # Check HDD session is current (updated within last 7 days)
     hdd_updated=$(jq -r '.updated_at // ""' "$hdd_state" 2>/dev/null || echo "")
     if [[ -n "$hdd_updated" ]]; then
-      hdd_epoch=$(date -jf "%Y-%m-%dT%H:%M:%SZ" "$hdd_updated" +%s 2>/dev/null \
-        || date -d "$hdd_updated" +%s 2>/dev/null \
-        || echo 0)
+      # Parse ISO 8601 date portably (handles both macOS and Linux, with/without ms)
+      hdd_epoch=$(python3 -c "
+import sys, datetime
+ts = sys.argv[1]
+for fmt in ('%Y-%m-%dT%H:%M:%S.%fZ', '%Y-%m-%dT%H:%M:%SZ', '%Y-%m-%dT%H:%M:%S%z'):
+    try:
+        dt = datetime.datetime.strptime(ts, fmt)
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=datetime.timezone.utc)
+        print(int(dt.timestamp()))
+        break
+    except ValueError:
+        continue
+else:
+    print(0)
+" "$hdd_updated" 2>/dev/null || echo 0)
       now_epoch=$(date +%s)
       age_days=$(( (now_epoch - hdd_epoch) / 86400 ))
       if [[ "$age_days" -gt 7 ]]; then

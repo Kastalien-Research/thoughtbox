@@ -31,7 +31,18 @@ describe("pre_tool_use protocol enforcement", () => {
     curlCapturePath = path.join(projectDir, "curl-payload.json");
 
     mkdirSync(path.join(projectDir, "src"), { recursive: true });
+    mkdirSync(path.join(projectDir, ".hdd"), { recursive: true });
     mkdirSync(fakeBinDir, { recursive: true });
+
+    // HDD state required by Guard 4 in pre_tool_use.sh
+    writeFileSync(
+      path.join(projectDir, ".hdd", "state.json"),
+      JSON.stringify({
+        workflow: "hdd",
+        hypotheses: [{ id: "H1", claim: "test" }],
+        updated_at: new Date().toISOString(),
+      }),
+    );
 
     const fakeCurlPath = path.join(fakeBinDir, "curl");
     writeFileSync(
