@@ -76,6 +76,24 @@ export interface CreateSessionParams {
   mcpSessionId?: string;
 }
 
+export interface Run {
+  id: string;
+  workspaceId?: string;
+  sessionId: string;
+  mcpSessionId?: string;
+  otelSessionId?: string;
+  startedAt: Date;
+  endedAt?: Date;
+}
+
+export interface CreateRunParams {
+  id?: string;
+  sessionId: string;
+  mcpSessionId?: string;
+  otelSessionId?: string;
+  startedAt?: Date;
+}
+
 /**
  * Filter options for listing sessions
  */
@@ -331,6 +349,14 @@ export interface SessionManifest {
   version: string; // Schema version, e.g., "1.0.0"
   thoughtFiles: string[]; // ["001.json", "002.json", ...]
   branchFiles: Record<string, string[]>; // { "alt-1": ["001.json", ...] }
+  runs?: Array<{
+    id: string;
+    sessionId: string;
+    mcpSessionId?: string;
+    otelSessionId?: string;
+    startedAt: string;
+    endedAt?: string;
+  }>;
   metadata: {
     title: string;
     description?: string;
@@ -592,6 +618,30 @@ export interface ThoughtboxStorage {
    * List sessions with optional filtering
    */
   listSessions(filter?: SessionFilter): Promise<Session[]>;
+
+  /**
+   * Create a run binding row for a session.
+   */
+  createRun(params: CreateRunParams): Promise<Run>;
+
+  /**
+   * List run bindings for a session.
+   */
+  listRunsForSession(sessionId: string): Promise<Run[]>;
+
+  /**
+   * Attach an OTEL session ID to the latest matching MCP-bound run.
+   */
+  bindRunOtelSession(
+    mcpSessionId: string,
+    otelSessionId: string,
+    attrs?: { endedAt?: Date }
+  ): Promise<Run | null>;
+
+  /**
+   * Close any open runs for a session.
+   */
+  endRunsForSession(sessionId: string, endedAt?: Date): Promise<void>;
 
   // ---------------------------------------------------------------------------
   // Thought Operations

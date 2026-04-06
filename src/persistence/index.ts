@@ -9,7 +9,9 @@
 export type {
   Config,
   Session,
+  Run,
   CreateSessionParams,
+  CreateRunParams,
   SessionFilter,
   ThoughtData,
   ThoughtInput,

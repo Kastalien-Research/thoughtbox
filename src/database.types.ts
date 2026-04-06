@@ -537,6 +537,51 @@ export type Database = {
           },
         ]
       }
+      runs: {
+        Row: {
+          ended_at: string | null
+          id: string
+          mcp_session_id: string | null
+          otel_session_id: string | null
+          session_id: string
+          started_at: string
+          workspace_id: string
+        }
+        Insert: {
+          ended_at?: string | null
+          id?: string
+          mcp_session_id?: string | null
+          otel_session_id?: string | null
+          session_id: string
+          started_at?: string
+          workspace_id: string
+        }
+        Update: {
+          ended_at?: string | null
+          id?: string
+          mcp_session_id?: string | null
+          otel_session_id?: string | null
+          session_id?: string
+          started_at?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "runs_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "runs_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sessions: {
         Row: {
           branch_count: number

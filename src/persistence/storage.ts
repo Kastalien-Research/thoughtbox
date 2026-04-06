@@ -12,7 +12,9 @@ import type {
   ThoughtboxStorage,
   Config,
   Session,
+  Run,
   CreateSessionParams,
+  CreateRunParams,
   SessionFilter,
   ThoughtData,
   IntegrityValidationResult,
@@ -539,6 +541,7 @@ export class LinkedThoughtStore {
 export class InMemoryStorage implements ThoughtboxStorage {
   private config: Config | null = null;
   private sessions: Map<string, Session> = new Map();
+  private runs: Map<string, Run> = new Map();
   private project: string | null = null;
 
   /**
@@ -709,6 +712,49 @@ export class InMemoryStorage implements ThoughtboxStorage {
     }
 
     return sessions;
+  }
+
+  async createRun(params: CreateRunParams): Promise<Run> {
+    const run: Run = {
+      id: params.id || randomUUID(),
+      sessionId: params.sessionId,
+      mcpSessionId: params.mcpSessionId,
+      otelSessionId: params.otelSessionId,
+      startedAt: params.startedAt || new Date(),
+    };
+    this.runs.set(run.id, run);
+    return run;
+  }
+
+  async listRunsForSession(sessionId: string): Promise<Run[]> {
+    return Array.from(this.runs.values())
+      .filter((run) => run.sessionId === sessionId)
+      .sort((a, b) => a.startedAt.getTime() - b.startedAt.getTime());
+  }
+
+  async bindRunOtelSession(
+    mcpSessionId: string,
+    otelSessionId: string,
+  ): Promise<Run | null> {
+    const candidates = Array.from(this.runs.values())
+      .filter((run) => run.mcpSessionId === mcpSessionId && (!run.otelSessionId || run.otelSessionId === otelSessionId))
+      .sort((a, b) => b.startedAt.getTime() - a.startedAt.getTime());
+
+    const run = candidates[0];
+    if (!run) return null;
+
+    run.otelSessionId = otelSessionId;
+    this.runs.set(run.id, run);
+    return run;
+  }
+
+  async endRunsForSession(sessionId: string, endedAt = new Date()): Promise<void> {
+    for (const run of this.runs.values()) {
+      if (run.sessionId === sessionId && !run.endedAt) {
+        run.endedAt = endedAt;
+        this.runs.set(run.id, run);
+      }
+    }
   }
 
   // ===========================================================================

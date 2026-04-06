@@ -2,98 +2,102 @@
 
 ## Goal
 
-Ship the smallest usable Thoughtbox loop without blocking on notebooks, blast radius, or a repo merge.
+Ship the smallest demoable Thoughtbox path: one coherent `run` within a `session` that can be shown to a user with linked telemetry and linked internal session data.
+
+## Why This Checklist Replaced The Old One
+
+The previous checklist assumed the current session identity scheme could be validated into coherence. That assumption is no longer trustworthy. The new checklist keeps `session` as the primary object, treats `run` as belonging to a `session`, and requires a mechanically provable composite binding record that stores both external IDs.
+
+See `DEPENDENCY-LEDGER.md` for the full proof path, infrastructure prerequisites, and operational blockers.
 
 ## Definition Of Done
 
-- [ ] A user can get an API key from the web app.
-- [ ] A user can connect Claude Code to the deployed MCP service.
-- [ ] One real run produces OTEL telemetry in the deployed backend.
-- [ ] One reasoning session links to that same run/work period.
-- [ ] The web app shows one coherent run with reasoning and tool activity.
-- [ ] Broken setup shows an explicit error/empty state instead of a blank dashboard.
+- [ ] One fresh real Claude Code work period creates exactly one canonical run binding row.
+- [ ] That run binding row is attached to exactly one `session`.
+- [ ] OTEL events for that work period are resolved through the bound `otel_session_id`.
+- [ ] Internal Thoughtbox session data for that work period are resolved through the same run binding row without redefining `session` as subordinate to `run`.
+- [ ] The web app can render one run view keyed by the binding row within its session context.
+- [ ] The run view shows both telemetry activity and internal session/reasoning data for the same run.
+- [ ] Missing run-linked data produces an explicit error or empty state instead of ambiguity.
 
-## P0
+## Critical Path
 
-### 1. Prove The Correlation Key
+### 1. Establish Canonical Run Identity
 
-- [ ] Confirm whether Claude Code OTEL `session.id` matches the MCP session identifier seen by the server.
-- [ ] If it matches, use that as the join key.
-- [ ] If it does not match, introduce an explicit `connection_key` and propagate it through both paths.
-- [ ] Persist the chosen key on backend `sessions`.
+- [x] Create one first-class run binding row.
+- [x] Define exactly where the binding row is created.
+- [x] Define exactly when the binding row lifecycle begins and ends.
+- [x] Keep `session` as the primary persistent object.
+- [x] Keep `run` as a work period belonging to a `session`.
+- [x] Remove reliance on inferred joins between `sessions.id`, `sessions.mcp_session_id`, and `otel_events.session_id`.
 
-### 2. Backend Query Surface
+### 2. Persist The Run Record
 
-- [ ] Add the minimal backend query needed to fetch one work period/run by correlation key.
-- [ ] Include attached reasoning sessions.
-- [ ] Include OTEL events in chronological order.
-- [ ] Include event counts, file-touch counts when present, and cost summary.
-- [ ] Do not build a dedicated `connections` table unless the simple join fails.
+- [x] Add or finalize the persisted record that represents one run.
+- [x] Store both `mcp_session_id` and `otel_session_id` on that record.
+- [x] Store the session linkage for that run without reversing the ontology.
+- [x] Store workspace ownership and start/end timestamps.
+- [x] Make the run record the primary lookup unit for the demo path.
 
-### 3. Web App Run View
+### 3. Attach OTEL To Run Identity
 
-- [ ] List recent runs/work periods for a workspace.
+- [x] Persist OTEL rows with raw OTEL `session.id`.
+- [ ] Verify one fresh real run binds that OTEL `session.id` onto the correct run row.
+- [x] Query OTEL rows for the demo exclusively through the run binding row.
+
+### 4. Attach Internal Session Data To Run Identity
+
+- [x] Persist the binding record that attaches runs to sessions.
+- [ ] Verify one fresh real run produces internal session data attached to the bound `session_id`.
+- [x] Query internal session data for the demo exclusively through the run binding row.
+
+### 5. Build One Minimal Run View
+
+- [ ] List recent runs.
 - [ ] Add one run detail page.
+- [ ] Load the page by run binding row.
 - [ ] Show start/end time.
-- [ ] Show attached reasoning sessions.
-- [ ] Show chronological timeline of:
-- [ ] user prompt when available
-- [ ] tool decisions/results
-- [ ] API requests/errors
-- [ ] structured thoughts/reasoning
-- [ ] cost
+- [ ] Show telemetry timeline.
+- [ ] Show attached internal session/reasoning records.
+- [ ] Show cost summary when available.
 - [ ] Show touched files when available.
 
-### 4. Error And Empty States
+### 6. Error And Empty States
 
-- [ ] Show a clear state when telemetry is not configured.
-- [ ] Show a clear state when telemetry exists but no reasoning sessions are linked.
-- [ ] Show a clear state when reasoning sessions exist but telemetry is missing.
-- [ ] Remove any blank or ambiguous dashboard states in the run flow.
+- [ ] Show a clear state when a run exists but OTEL is missing.
+- [ ] Show a clear state when a run exists but internal session data is missing.
+- [ ] Show a clear state when no runs exist.
+- [ ] Remove blank or ambiguous run states.
 
-### 5. Onboarding
-
-- [ ] Decide whether `thoughtbox init` ships in this cut.
-- [ ] If yes, implement `thoughtbox init` to:
-- [ ] validate API key
-- [ ] configure MCP URL
-- [ ] configure OTLP env vars
-- [ ] warn if `.claude/` is not ignored
-- [ ] provide a smoke test
-- [ ] If no, ship a manual quickstart in the web app and docs with the exact same steps.
-
-### 6. End-To-End Smoke Test
+### 7. End-To-End Demo Proof
 
 - [ ] Create a fresh API key from the live web app.
 - [ ] Configure Claude Code against the deployed MCP service.
 - [ ] Run one short real coding task.
-- [ ] Verify OTEL events land in `otel_events`.
-- [ ] Verify a reasoning session is created.
-- [ ] Verify the correlation works.
-- [ ] Verify the web app displays the run coherently.
+- [ ] Verify one canonical run binding row was created for that work period.
+- [ ] Verify OTEL rows exist for that bound `otel_session_id`.
+- [ ] Verify internal session data exist for that bound `session_id`.
+- [ ] Verify the web app renders that run coherently.
+
+## Kill Switch
+
+- [ ] If any step above still requires inference instead of a direct lookup through the binding row, stop and change the model before continuing.
 
 ## Explicitly Deferred
 
-- [ ] Dedicated `connections` table
-- [ ] Hook-first capture as the primary ingestion path
-- [ ] Project model upload
-- [ ] Module dependency traversal
+- [ ] Notebook work
 - [ ] Blast radius graph visualization
 - [ ] Scope drift scoring
-- [ ] Notebook work
+- [ ] Project model upload
+- [ ] Module dependency traversal
 - [ ] Monorepo migration
-
-## Docs Cleanup After Product Path Works
-
-- [ ] Update `docs/architecture/infrastructure.md` to match deployed reality.
-- [ ] Update `docs/architecture/index.md` so the web app deploy target is no longer `TBD`.
-- [ ] Keep `SPEC-USABILITY-CUTLINE.md` as the product cut line.
+- [ ] Any feature not required to show one coherent run
 
 ## Priority Order
 
-1. Prove the correlation key.
-2. Make the web app show one coherent run.
-3. Add explicit error and empty states.
-4. Finish onboarding.
-5. Update stale docs.
-6. Stop.
+1. Establish canonical run binding row.
+2. Persist one run record.
+3. Attach OTEL and internal session data through that run binding row.
+4. Render one ugly but coherent run page.
+5. Demo it.
+6. Only then consider follow-on work.

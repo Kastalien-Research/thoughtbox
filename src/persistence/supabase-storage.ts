@@ -13,8 +13,10 @@ import type {
   ThoughtboxStorage,
   Config,
   Session,
+  Run,
   SessionStatus,
   CreateSessionParams,
+  CreateRunParams,
   SessionFilter,
   ThoughtData,
   IntegrityValidationResult,
@@ -26,6 +28,9 @@ import type {
 type SessionRow = Database['public']['Tables']['sessions']['Row'];
 type SessionInsert = Database['public']['Tables']['sessions']['Insert'];
 type SessionUpdate = Database['public']['Tables']['sessions']['Update'];
+type RunRow = Database['public']['Tables']['runs']['Row'];
+type RunInsert = Database['public']['Tables']['runs']['Insert'];
+type RunUpdate = Database['public']['Tables']['runs']['Update'];
 type ThoughtRow = Database['public']['Tables']['thoughts']['Row'];
 import { RevisionIndexBuilder } from '../revision/revision-index.js';
 
@@ -147,6 +152,30 @@ export class SupabaseStorage implements ThoughtboxStorage {
       thought_count: 0,
       branch_count: 0,
       status: 'active',
+    };
+  }
+
+  private rowToRun(row: RunRow): Run {
+    return {
+      id: row.id,
+      workspaceId: row.workspace_id,
+      sessionId: row.session_id,
+      mcpSessionId: row.mcp_session_id || undefined,
+      otelSessionId: row.otel_session_id || undefined,
+      startedAt: new Date(row.started_at),
+      endedAt: row.ended_at ? new Date(row.ended_at) : undefined,
+    };
+  }
+
+  private runToRow(params: CreateRunParams): RunInsert {
+    return {
+      id: params.id || randomUUID(),
+      workspace_id: this.workspaceId,
+      session_id: params.sessionId,
+      mcp_session_id: params.mcpSessionId || null,
+      otel_session_id: params.otelSessionId || null,
+      started_at: (params.startedAt || new Date()).toISOString(),
+      ended_at: null,
     };
   }
 
@@ -328,6 +357,80 @@ export class SupabaseStorage implements ThoughtboxStorage {
     const { data, error } = await query;
     if (error) throw new Error(`Failed to list sessions: ${error.message}`);
     return (data || []).map((row) => this.rowToSession(row as SessionRow));
+  }
+
+  async createRun(params: CreateRunParams): Promise<Run> {
+    const client = this.ensureClient();
+    const row = this.runToRow(params);
+    const { data, error } = await client
+      .from('runs')
+      .insert(row)
+      .select()
+      .single();
+
+    if (error) throw new Error(`Failed to create run: ${error.message}`);
+    return this.rowToRun(data);
+  }
+
+  async listRunsForSession(sessionId: string): Promise<Run[]> {
+    const client = this.ensureClient();
+    const { data, error } = await client
+      .from('runs')
+      .select()
+      .eq('workspace_id', this.workspaceId)
+      .eq('session_id', sessionId)
+      .order('started_at', { ascending: true });
+
+    if (error) throw new Error(`Failed to list runs: ${error.message}`);
+    return (data || []).map((row) => this.rowToRun(row));
+  }
+
+  async bindRunOtelSession(
+    mcpSessionId: string,
+    otelSessionId: string,
+    attrs?: { endedAt?: Date },
+  ): Promise<Run | null> {
+    const client = this.ensureClient();
+    const { data, error } = await client
+      .from('runs')
+      .select()
+      .eq('workspace_id', this.workspaceId)
+      .eq('mcp_session_id', mcpSessionId)
+      .or(`otel_session_id.is.null,otel_session_id.eq.${otelSessionId}`)
+      .order('started_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (error) throw new Error(`Failed to find run for OTEL binding: ${error.message}`);
+    if (!data) return null;
+
+    const update: RunUpdate = { otel_session_id: otelSessionId };
+    if (attrs?.endedAt) {
+      update.ended_at = attrs.endedAt.toISOString();
+    }
+
+    const { data: updated, error: updateError } = await client
+      .from('runs')
+      .update(update)
+      .eq('id', data.id)
+      .eq('workspace_id', this.workspaceId)
+      .select()
+      .single();
+
+    if (updateError) throw new Error(`Failed to bind OTEL session to run: ${updateError.message}`);
+    return this.rowToRun(updated);
+  }
+
+  async endRunsForSession(sessionId: string, endedAt = new Date()): Promise<void> {
+    const client = this.ensureClient();
+    const { error } = await client
+      .from('runs')
+      .update({ ended_at: endedAt.toISOString() })
+      .eq('workspace_id', this.workspaceId)
+      .eq('session_id', sessionId)
+      .is('ended_at', null);
+
+    if (error) throw new Error(`Failed to end runs for session: ${error.message}`);
   }
 
   // ===========================================================================

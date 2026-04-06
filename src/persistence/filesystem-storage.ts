@@ -28,7 +28,9 @@ import type {
   ThoughtboxStorage,
   Config,
   Session,
+  Run,
   CreateSessionParams,
+  CreateRunParams,
   SessionFilter,
   ThoughtData,
   IntegrityValidationResult,
@@ -66,6 +68,7 @@ export class FileSystemStorage implements ThoughtboxStorage {
   private project: string | null = null;
   private config: Config | null = null;
   private sessions: Map<string, Session> = new Map();
+  private runs: Map<string, Run> = new Map();
   private linkedStore: LinkedThoughtStore = new LinkedThoughtStore();
   private initialized = false;
   private initPromise: Promise<void> | null = null;
@@ -373,6 +376,16 @@ export class FileSystemStorage implements ThoughtboxStorage {
       };
 
       this.sessions.set(sessionId, session);
+      for (const run of manifest.runs || []) {
+        this.runs.set(run.id, {
+          id: run.id,
+          sessionId: run.sessionId,
+          mcpSessionId: run.mcpSessionId,
+          otelSessionId: run.otelSessionId,
+          startedAt: new Date(run.startedAt),
+          endedAt: run.endedAt ? new Date(run.endedAt) : undefined,
+        });
+      }
 
       // Load main chain thoughts
       for (const thoughtFile of manifest.thoughtFiles) {
@@ -471,6 +484,7 @@ export class FileSystemStorage implements ThoughtboxStorage {
       version: '1.0.0',
       thoughtFiles: [],
       branchFiles: {},
+      runs: [],
       metadata: {
         title: params.title,
         description: params.description,
@@ -595,6 +609,93 @@ export class FileSystemStorage implements ThoughtboxStorage {
     }
 
     return sessions;
+  }
+
+  async createRun(params: CreateRunParams): Promise<Run> {
+    const session = this.sessions.get(params.sessionId);
+    if (!session) throw new Error(`Session ${params.sessionId} not found`);
+
+    const run: Run = {
+      id: params.id || randomUUID(),
+      sessionId: params.sessionId,
+      mcpSessionId: params.mcpSessionId,
+      otelSessionId: params.otelSessionId,
+      startedAt: params.startedAt || new Date(),
+    };
+    this.runs.set(run.id, run);
+
+    const sessionDir = this.getSessionDir(params.sessionId, session.partitionPath);
+    const manifestPath = this.getManifestPath(sessionDir);
+    const manifestData = await fs.readFile(manifestPath, 'utf-8');
+    const manifest: SessionManifest = JSON.parse(manifestData);
+    manifest.runs = manifest.runs || [];
+    manifest.runs.push({
+      id: run.id,
+      sessionId: run.sessionId,
+      mcpSessionId: run.mcpSessionId,
+      otelSessionId: run.otelSessionId,
+      startedAt: run.startedAt.toISOString(),
+      endedAt: run.endedAt?.toISOString(),
+    });
+    await this.atomicWriteJson(manifestPath, manifest);
+
+    return run;
+  }
+
+  async listRunsForSession(sessionId: string): Promise<Run[]> {
+    return Array.from(this.runs.values())
+      .filter((run) => run.sessionId === sessionId)
+      .sort((a, b) => a.startedAt.getTime() - b.startedAt.getTime());
+  }
+
+  async bindRunOtelSession(
+    mcpSessionId: string,
+    otelSessionId: string,
+  ): Promise<Run | null> {
+    const run = Array.from(this.runs.values())
+      .filter((candidate) => candidate.mcpSessionId === mcpSessionId && (!candidate.otelSessionId || candidate.otelSessionId === otelSessionId))
+      .sort((a, b) => b.startedAt.getTime() - a.startedAt.getTime())[0];
+
+    if (!run) return null;
+    run.otelSessionId = otelSessionId;
+    this.runs.set(run.id, run);
+    await this.persistRun(run);
+    return run;
+  }
+
+  async endRunsForSession(sessionId: string, endedAt = new Date()): Promise<void> {
+    const runs = await this.listRunsForSession(sessionId);
+    await Promise.all(runs.filter((run) => !run.endedAt).map(async (run) => {
+      run.endedAt = endedAt;
+      this.runs.set(run.id, run);
+      await this.persistRun(run);
+    }));
+  }
+
+  private async persistRun(run: Run): Promise<void> {
+    const session = this.sessions.get(run.sessionId);
+    if (!session) return;
+
+    const sessionDir = this.getSessionDir(run.sessionId, session.partitionPath);
+    const manifestPath = this.getManifestPath(sessionDir);
+    const manifestData = await fs.readFile(manifestPath, 'utf-8');
+    const manifest: SessionManifest = JSON.parse(manifestData);
+    manifest.runs = manifest.runs || [];
+    const index = manifest.runs.findIndex((candidate) => candidate.id === run.id);
+    const serialized = {
+      id: run.id,
+      sessionId: run.sessionId,
+      mcpSessionId: run.mcpSessionId,
+      otelSessionId: run.otelSessionId,
+      startedAt: run.startedAt.toISOString(),
+      endedAt: run.endedAt?.toISOString(),
+    };
+    if (index >= 0) {
+      manifest.runs[index] = serialized;
+    } else {
+      manifest.runs.push(serialized);
+    }
+    await this.atomicWriteJson(manifestPath, manifest);
   }
 
   // ===========================================================================

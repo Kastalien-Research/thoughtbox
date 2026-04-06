@@ -698,6 +698,10 @@ export class ThoughtHandler {
           tags: validatedInput.sessionTags || [],
           mcpSessionId: this.mcpSessionId ?? undefined,
         });
+        await this.storage.createRun({
+          sessionId: session.id,
+          mcpSessionId: this.mcpSessionId ?? undefined,
+        });
         this.currentSessionId = session.id;
         // Clear in-memory state for new session
         this.thoughtHistory = [];
@@ -972,6 +976,7 @@ export class ThoughtHandler {
         await this.storage.updateSession(this.currentSessionId, {
           status: 'completed',
         });
+        await this.storage.endRunsForSession(this.currentSessionId);
 
         // AUDIT-003: Generate audit manifest at session close
         let auditManifest: import('./persistence/types.js').AuditManifest | undefined;

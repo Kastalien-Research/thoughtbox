@@ -27,6 +27,7 @@ export interface TimelineEvent {
 
 export interface SessionTimelineResult {
   session_id: string;
+  run_ids: string[];
   events: TimelineEvent[];
   count: number;
 }
@@ -39,6 +40,7 @@ export interface CostEntry {
 
 export interface SessionCostResult {
   session_id: string | null;
+  run_ids: string[];
   costs: CostEntry[];
   total: number;
 }
@@ -74,7 +76,85 @@ export class OtelEventStorage {
       );
     }
 
+    await this.reconcileRunBindings(rows);
+
     return { inserted: rows.length };
+  }
+
+  private async reconcileRunBindings(rows: OtelEventRow[]): Promise<void> {
+    for (const row of rows) {
+      if (!row.session_id) continue;
+
+      const eventAttrs = row.event_attrs as Record<string, unknown>;
+      const thoughtboxSessionId = typeof eventAttrs['thoughtbox.session_id'] === 'string'
+        ? eventAttrs['thoughtbox.session_id']
+        : null;
+      const mcpSessionId = typeof eventAttrs['mcp.session_id'] === 'string'
+        ? eventAttrs['mcp.session_id']
+        : (typeof eventAttrs['connection_id'] === 'string' ? eventAttrs['connection_id'] : null);
+
+      if (!thoughtboxSessionId || !mcpSessionId) continue;
+
+      const { data: existingByMcp, error: mcpLookupError } = await this.supabase
+        .from('runs')
+        .select('id, mcp_session_id, otel_session_id')
+        .eq('workspace_id', row.workspace_id)
+        .eq('mcp_session_id', mcpSessionId)
+        .limit(1)
+        .maybeSingle();
+
+      if (mcpLookupError) {
+        throw new Error(`Run binding MCP lookup failed: ${mcpLookupError.message}`);
+      }
+
+      const existing = existingByMcp
+        ? existingByMcp
+        : await (async () => {
+          const { data: fallbackRun, error: fallbackLookupError } = await this.supabase
+            .from('runs')
+            .select('id, mcp_session_id, otel_session_id')
+            .eq('workspace_id', row.workspace_id)
+            .eq('session_id', thoughtboxSessionId)
+            .is('mcp_session_id', null)
+            .order('started_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+          if (fallbackLookupError) {
+            throw new Error(`Run binding fallback lookup failed: ${fallbackLookupError.message}`);
+          }
+
+          return fallbackRun;
+        })();
+
+      if (existing) {
+        const { error: updateError } = await this.supabase
+          .from('runs')
+          .update({
+            mcp_session_id: existing.mcp_session_id || mcpSessionId,
+            otel_session_id: existing.otel_session_id || row.session_id,
+          })
+          .eq('id', existing.id);
+
+        if (updateError) {
+          throw new Error(`Run binding update failed: ${updateError.message}`);
+        }
+      } else {
+        const { error: insertError } = await this.supabase
+          .from('runs')
+          .insert({
+            workspace_id: row.workspace_id,
+            session_id: thoughtboxSessionId,
+            mcp_session_id: mcpSessionId,
+            otel_session_id: row.session_id,
+            started_at: row.timestamp_at,
+          });
+
+        if (insertError) {
+          throw new Error(`Run binding insert failed: ${insertError.message}`);
+        }
+      }
+    }
   }
 
   async querySessionTimeline(
@@ -84,11 +164,33 @@ export class OtelEventStorage {
   ): Promise<SessionTimelineResult> {
     const limit = opts?.limit ?? 200;
 
+    const { data: runs, error: runsError } = await this.supabase
+      .from('runs')
+      .select('id, otel_session_id')
+      .eq('workspace_id', workspaceId)
+      .eq('session_id', sessionId)
+      .not('otel_session_id', 'is', null)
+      .order('started_at', { ascending: true });
+
+    if (runsError) {
+      throw new Error(`Run lookup failed: ${runsError.message}`);
+    }
+
+    const otelSessionIds = Array.from(new Set((runs ?? []).map((run) => run.otel_session_id).filter(Boolean)));
+    if (otelSessionIds.length === 0) {
+      return {
+        session_id: sessionId,
+        run_ids: (runs ?? []).map((run) => run.id),
+        events: [],
+        count: 0,
+      };
+    }
+
     const { data, error } = await this.supabase
       .from('otel_events')
       .select('id, event_type, event_name, severity, timestamp_at, body, metric_value, event_attrs')
       .eq('workspace_id', workspaceId)
-      .eq('session_id', sessionId)
+      .in('session_id', otelSessionIds)
       .order('timestamp_at', { ascending: true })
       .limit(limit);
 
@@ -98,6 +200,7 @@ export class OtelEventStorage {
 
     return {
       session_id: sessionId,
+      run_ids: (runs ?? []).map((run) => run.id),
       events: (data ?? []) as TimelineEvent[],
       count: data?.length ?? 0,
     };
@@ -107,32 +210,68 @@ export class OtelEventStorage {
     workspaceId: string,
     sessionId?: string,
   ): Promise<SessionCostResult> {
-    const { data, error } = await this.supabase
-      .rpc('otel_session_cost', {
-        p_workspace_id: workspaceId,
-        ...(sessionId ? { p_session_id: sessionId } : {}),
-      });
+    let otelSessionIds: string[] | null = null;
+    let runIds: string[] = [];
 
+    if (sessionId) {
+      const { data: runs, error: runsError } = await this.supabase
+        .from('runs')
+        .select('id, otel_session_id')
+        .eq('workspace_id', workspaceId)
+        .eq('session_id', sessionId)
+        .not('otel_session_id', 'is', null);
+
+      if (runsError) {
+        throw new Error(`Run lookup failed: ${runsError.message}`);
+      }
+
+      runIds = (runs ?? []).map((run) => run.id);
+      otelSessionIds = Array.from(
+        new Set(
+          (runs ?? [])
+            .map((run) => run.otel_session_id)
+            .filter((sessionId): sessionId is string => typeof sessionId === 'string' && sessionId.length > 0),
+        ),
+      );
+      if (otelSessionIds.length === 0) {
+        return { session_id: sessionId, run_ids: runIds, costs: [], total: 0 };
+      }
+    }
+
+    let query = this.supabase
+      .from('otel_events')
+      .select('event_attrs, metric_value')
+      .eq('workspace_id', workspaceId)
+      .eq('event_type', 'metric')
+      .eq('event_name', 'claude_code.cost.usage');
+
+    if (otelSessionIds) {
+      query = query.in('session_id', otelSessionIds);
+    }
+
+    const { data, error } = await query;
     if (error) {
       throw new Error(`Cost query failed: ${error.message}`);
     }
 
-    const rows = (data ?? []) as Array<{
-      model: string;
-      total_cost: number;
-      data_points: number;
-    }>;
+    const aggregates = new Map<string, CostEntry>();
+    for (const row of data ?? []) {
+      const attrs = (row.event_attrs ?? {}) as Record<string, unknown>;
+      const model = typeof attrs.model === 'string' ? attrs.model : 'unknown';
+      const metricValue = typeof row.metric_value === 'number' ? row.metric_value : 0;
+      const existing = aggregates.get(model) || { model, total_cost: 0, data_points: 0 };
+      existing.total_cost += metricValue;
+      existing.data_points += 1;
+      aggregates.set(model, existing);
+    }
 
-    const costs: CostEntry[] = rows.map((r) => ({
-      model: r.model,
-      total_cost: r.total_cost,
-      data_points: r.data_points,
-    }));
+    const costs = Array.from(aggregates.values());
 
     const total = costs.reduce((sum, c) => sum + c.total_cost, 0);
 
     return {
       session_id: sessionId ?? null,
+      run_ids: runIds,
       costs,
       total,
     };
