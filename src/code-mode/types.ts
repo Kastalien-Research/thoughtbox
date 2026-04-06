@@ -17,4 +17,6 @@ export interface CodeModeResult {
   truncated?: boolean;
   /** Wall-clock execution time in milliseconds */
   durationMs: number;
+  /** Active Thoughtbox session ID (captured from tb.thought calls) */
+  sessionId?: string;
 }

@@ -93,13 +93,26 @@ function unwrapToolResult(raw: unknown): unknown {
   }
 }
 
-function buildTbObject(deps: ExecuteToolDeps): Record<string, unknown> {
+interface TbContext {
+  sessionId?: string;
+}
+
+function buildTbObject(deps: ExecuteToolDeps, ctx: TbContext): Record<string, unknown> {
   const { thoughtTool, sessionTool, knowledgeTool, notebookTool,
           theseusTool, ulyssesTool, observabilityHandler } = deps;
 
   return {
-    thought: async (input: ThoughtToolInput) =>
-      unwrapToolResult(await thoughtTool.handle(input)),
+    thought: async (input: ThoughtToolInput) => {
+      const result = unwrapToolResult(await thoughtTool.handle(input));
+      const r = result as Record<string, unknown> | null;
+      if (r?.sessionId && typeof r.sessionId === 'string') {
+        ctx.sessionId = r.sessionId;
+      }
+      if (r?.closedSessionId && typeof r.closedSessionId === 'string') {
+        ctx.sessionId = r.closedSessionId;
+      }
+      return result;
+    },
 
     session: {
       list: async (args?: { limit?: number; offset?: number; tags?: string[] }) =>
@@ -228,7 +241,8 @@ export class ExecuteTool {
       },
     };
 
-    const tb = buildTbObject(this.deps);
+    const tbCtx: TbContext = {};
+    const tb = buildTbObject(this.deps, tbCtx);
 
     // Security: pass only bridged objects, NOT host builtins.
     // vm.createContext auto-provides context-local copies of Object,
@@ -285,6 +299,10 @@ export class ExecuteTool {
         error: (err as { message?: string }).message ?? String(err),
         durationMs: Date.now() - start,
       };
+    }
+
+    if (tbCtx.sessionId) {
+      output.sessionId = tbCtx.sessionId;
     }
 
     traceExecute({ code: input.code }, output);
