@@ -691,13 +691,21 @@ export class ThoughtHandler {
 
       // Auto-create session on first thought (if no session active)
       if (!this.currentSessionId) {
-        const session = await this.storage.createSession({
-          id: this.mcpSessionId ?? undefined,
-          title:
-            validatedInput.sessionTitle ||
-            this.generateSessionTitle(validatedInput.thought),
-          tags: validatedInput.sessionTags || [],
-        });
+        const sessionId = this.mcpSessionId ?? undefined;
+        let session = sessionId
+          ? await this.storage.getSession(sessionId)
+          : null;
+
+        if (!session) {
+          session = await this.storage.createSession({
+            id: sessionId,
+            title:
+              validatedInput.sessionTitle ||
+              this.generateSessionTitle(validatedInput.thought),
+            tags: validatedInput.sessionTags || [],
+          });
+        }
+
         await this.storage.createRun({
           sessionId: session.id,
         });
