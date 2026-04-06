@@ -51,25 +51,14 @@ See `DEPENDENCY-LEDGER.md` for the full proof path, infrastructure prerequisites
 - [ ] Verify one fresh real run produces internal session data attached to the bound `session_id`.
 - [x] Query internal session data for the demo exclusively through the run binding row.
 
-### 5. Build One Minimal Run View
-
-- [ ] List recent runs.
-- [ ] Add one run detail page.
-- [ ] Load the page by run binding row.
-- [ ] Show start/end time.
-- [ ] Show telemetry timeline.
-- [ ] Show attached internal session/reasoning records.
-- [ ] Show cost summary when available.
-- [ ] Show touched files when available.
-
-### 6. Error And Empty States
+### 5. Error And Empty States
 
 - [ ] Show a clear state when a run exists but OTEL is missing.
 - [ ] Show a clear state when a run exists but internal session data is missing.
 - [ ] Show a clear state when no runs exist.
 - [ ] Remove blank or ambiguous run states.
 
-### 7. End-To-End Demo Proof
+### 6. End-To-End Demo Proof
 
 - [ ] Create a fresh API key from the live web app.
 - [ ] Configure Claude Code against the deployed MCP service.
@@ -98,6 +87,5 @@ See `DEPENDENCY-LEDGER.md` for the full proof path, infrastructure prerequisites
 1. Establish canonical run binding row.
 2. Persist one run record.
 3. Attach OTEL and internal session data through that run binding row.
-4. Render one ugly but coherent run page.
-5. Demo it.
-6. Only then consider follow-on work.
+4. Demo it.
+5. Only then consider follow-on work.
