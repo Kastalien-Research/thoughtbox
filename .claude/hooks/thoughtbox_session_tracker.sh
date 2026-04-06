@@ -15,7 +15,7 @@ claude_session_id=$(echo "$input_json" | jq -r '.session_id // empty' 2>/dev/nul
 # Extract sessionId or closedSessionId from the tool result
 thoughtbox_session_id=$(echo "$input_json" \
     | jq -r '
-        .tool_result.content // .tool_result // .
+        .tool_result.content // .tool_result // .tool_response // .
         | if type == "array" then .[0].text // .[0] else . end
         | if type == "string" then (try fromjson catch .) else . end
         | (.result | if type == "object" then (.sessionId // .closedSessionId) else null end) // .sessionId // .closedSessionId // .session_id // empty
