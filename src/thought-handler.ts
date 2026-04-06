@@ -695,6 +695,7 @@ export class ThoughtHandler {
         let session = sessionId
           ? await this.storage.getSession(sessionId)
           : null;
+        const isNewSession = !session;
 
         if (!session) {
           session = await this.storage.createSession({
@@ -710,34 +711,36 @@ export class ThoughtHandler {
           sessionId: session.id,
         });
         this.currentSessionId = session.id;
-        // Clear in-memory state for new session
+        // Clear in-memory state for new or resumed session
         this.thoughtHistory = [];
         this.branches = {};
 
-        // Observatory: Emit session started event
-        if (thoughtEmitter.hasListeners()) {
-          try {
-            thoughtEmitter.emitSessionStarted({
-              session: {
-                id: session.id,
-                title: session.title,
-                tags: session.tags || [],
-                createdAt: session.createdAt.toISOString(),
-                status: 'active',
-              },
-            });
-          } catch (e) {
-            console.warn('[Observatory] Session start emit failed:', e instanceof Error ? e.message : e);
+        if (isNewSession) {
+          // Observatory: Emit session started event
+          if (thoughtEmitter.hasListeners()) {
+            try {
+              thoughtEmitter.emitSessionStarted({
+                session: {
+                  id: session.id,
+                  title: session.title,
+                  tags: session.tags || [],
+                  createdAt: session.createdAt.toISOString(),
+                  status: 'active',
+                },
+              });
+            } catch (e) {
+              console.warn('[Observatory] Session start emit failed:', e instanceof Error ? e.message : e);
+            }
           }
-        }
 
-        // SIL-104: Emit session_created event
-        if (this.eventEmitter?.isEnabled()) {
-          this.eventEmitter.emitSessionCreated({
-            sessionId: session.id,
-            title: session.title,
-            tags: session.tags,
-          });
+          // SIL-104: Emit session_created event
+          if (this.eventEmitter?.isEnabled()) {
+            this.eventEmitter.emitSessionCreated({
+              sessionId: session.id,
+              title: session.title,
+              tags: session.tags,
+            });
+          }
         }
       }
 
