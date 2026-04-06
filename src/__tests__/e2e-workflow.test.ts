@@ -514,3 +514,184 @@ describe("Theseus protocol e2e through tool layer", () => {
     expect(status.scope.map((s: any) => s.file_path)).toContain("src/bar.ts");
   });
 });
+
+// =============================================================================
+// Code Mode unwrapToolResult
+// =============================================================================
+
+describe("Code Mode unwrapToolResult", () => {
+  // BUG: unwrapToolResult only reads content[0], drops embedded resources.
+  // The handler returns [json_result, resource, resource_link] but Code Mode
+  // only parses content[0] and throws away the rest.
+  it.fails("verbose thought response has _embedded after unwrap", async () => {
+    const storage = new InMemoryStorage();
+    const handler = new ThoughtHandler(true, storage);
+
+    const raw = await handler.processThought({
+      thought: "test",
+      thoughtType: "reasoning",
+      nextThoughtNeeded: true,
+      thoughtNumber: 1,
+      totalThoughts: 3,
+      verbose: true,
+      includeGuide: true,
+    });
+
+    // Handler returns multi-content — this works
+    expect(raw.content.length).toBeGreaterThan(1);
+
+    // Simulate unwrapToolResult: only reads content[0]
+    const content0 = raw.content[0] as { text: string };
+    const parsed = JSON.parse(content0.text);
+    // BUG: content[1+] (embedded resources) are lost
+    // When unwrapToolResult is fixed, it should attach them as _embedded
+    expect(parsed._embedded).toBeDefined();
+  });
+});
+
+// =============================================================================
+// Session resume bleed
+// =============================================================================
+
+describe("Session resume", () => {
+  let storage: InMemoryStorage;
+  let handler: ThoughtHandler;
+
+  beforeEach(() => {
+    storage = new InMemoryStorage();
+    handler = new ThoughtHandler(true, storage);
+  });
+
+  // BUG: session.resume switches the ThoughtHandler's active session,
+  // causing subsequent thoughts to go to the wrong session
+  it.fails("resume does not hijack active session", async () => {
+    // Create session A
+    await handler.processThought({
+      thought: "session A thought",
+      thoughtType: "reasoning",
+      nextThoughtNeeded: true,
+      sessionTitle: "Session A",
+    });
+    const sessionA = handler.getCurrentSessionId()!;
+
+    // Create session B by closing A and starting fresh
+    await handler.processThought({
+      thought: "close A",
+      thoughtType: "reasoning",
+      nextThoughtNeeded: false,
+    });
+    await handler.processThought({
+      thought: "session B thought",
+      thoughtType: "reasoning",
+      nextThoughtNeeded: true,
+      sessionTitle: "Session B",
+    });
+    const sessionB = handler.getCurrentSessionId()!;
+    expect(sessionB).not.toBe(sessionA);
+
+    // Resume session A via the session tool
+    const { SessionTool } = await import("../sessions/tool.js");
+    const sessionTool = new SessionTool(storage);
+    await sessionTool.handle({ operation: "session_resume", sessionId: sessionA });
+
+    // Active session should still be B — resume is a read, not a context switch
+    const afterResume = handler.getCurrentSessionId();
+    expect(afterResume).toBe(sessionB);
+  });
+});
+
+// =============================================================================
+// Protocol auto-bridge knowledge pollution
+// =============================================================================
+
+describe("Protocol knowledge bridge", () => {
+  // BUG: every protocol complete() with a summary auto-creates a knowledge
+  // entity. Smoke tests, placeholder text, junk summaries all become
+  // permanent Insight entities that pollute the graph. No delete exists.
+  it.fails("complete does not create junk knowledge entities from placeholder summaries", async () => {
+    const protocolHandler = new InMemoryProtocolHandler();
+    const thoughtHandler = new ThoughtHandler(true);
+    // Use a mock that tracks creates
+    const created: Array<Record<string, unknown>> = [];
+    const fakeKnowledge = {
+      createEntity: async (args: Record<string, unknown>) => {
+        created.push(args);
+        return { id: "fake-id", name: args.name, type: args.type };
+      },
+      addObservation: async () => ({}),
+    };
+    const tool = new UlyssesTool(protocolHandler, thoughtHandler, fakeKnowledge as any);
+
+    const call = async (input: Record<string, unknown>) => {
+      const raw = await tool.handle(input as any);
+      return JSON.parse(raw.content[0].text);
+    };
+
+    await call({ operation: "init", problem: "test" });
+    await call({
+      operation: "complete",
+      terminalState: "resolved",
+      summary: "test complete",
+    });
+
+    // Protocol should NOT auto-create knowledge entities
+    expect(created.length).toBe(0);
+  });
+});
+
+// =============================================================================
+// Notebook SDK consistency
+// =============================================================================
+
+describe("Notebook SDK consistency", () => {
+  it("full notebook lifecycle: create, add cell, run, get cell", async () => {
+    const { NotebookHandler } = await import("../notebook/index.js");
+    const { NotebookTool } = await import("../notebook/tool.js");
+    const handler = new NotebookHandler();
+    await handler.init();
+    const notebookTool = new NotebookTool(handler);
+
+    // Create
+    const createResult = await notebookTool.handle({
+      operation: "notebook_create",
+      title: "e2e-test",
+      language: "javascript",
+    } as any);
+    const created = JSON.parse((createResult.content[0] as any).text);
+    const nbId = created.notebook?.id;
+    expect(nbId).toBeDefined();
+
+    // Add cell
+    const addResult = await notebookTool.handle({
+      operation: "notebook_add_cell",
+      notebookId: nbId,
+      cellType: "code",
+      content: "console.log('hello')",
+      filename: "test.js",
+    } as any);
+    const added = JSON.parse((addResult.content[0] as any).text);
+    const cellId = added.cell?.id;
+    expect(cellId).toBeDefined();
+
+    // Run cell
+    const runResult = await notebookTool.handle({
+      operation: "notebook_run_cell",
+      notebookId: nbId,
+      cellId: cellId,
+    } as any);
+    const ran = JSON.parse((runResult.content[0] as any).text);
+    expect(ran.success).toBe(true);
+    expect(ran.execution?.stdout).toContain("hello");
+
+    // Get cell
+    const getResult = await notebookTool.handle({
+      operation: "notebook_get_cell",
+      notebookId: nbId,
+      cellId: cellId,
+    } as any);
+    const got = JSON.parse((getResult.content[0] as any).text);
+    expect(got.success).toBe(true);
+    expect(got.cell?.id).toBe(cellId);
+    expect(got.cell?.status).toBe("completed");
+  });
+});
