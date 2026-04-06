@@ -366,16 +366,14 @@ export class ThoughtHandler {
     // If no active session, history is stale from a previous session — start at 1
     let thoughtNumber = data.thoughtNumber as number | undefined;
     if (thoughtNumber === undefined) {
-      if (!this.currentSessionId) {
-        thoughtNumber = 1;
-      } else {
+      if (this.currentSessionId) {
         const mainChainThoughts = this.thoughtHistory.filter(t => !t.branchId);
-        if (mainChainThoughts.length === 0) {
-          thoughtNumber = 1;
-        } else {
-          const maxNumber = Math.max(...mainChainThoughts.map(t => t.thoughtNumber ?? 0));
-          thoughtNumber = maxNumber + 1;
-        }
+        thoughtNumber = mainChainThoughts.length === 0
+          ? 1
+          : Math.max(...mainChainThoughts.map(t => t.thoughtNumber ?? 0)) + 1;
+      } else {
+        // Placeholder — will be reassigned after session create/restore
+        thoughtNumber = -1;
       }
     }
 
@@ -744,6 +742,17 @@ export class ThoughtHandler {
               tags: session.tags,
             });
           }
+        }
+      }
+
+      // Deferred SIL-102: assign thoughtNumber after session restore
+      if (validatedInput.thoughtNumber < 1) {
+        const mainChainThoughts = this.thoughtHistory.filter(t => !t.branchId);
+        validatedInput.thoughtNumber = mainChainThoughts.length === 0
+          ? 1
+          : Math.max(...mainChainThoughts.map(t => t.thoughtNumber ?? 0)) + 1;
+        if (validatedInput.thoughtNumber > validatedInput.totalThoughts) {
+          validatedInput.totalThoughts = validatedInput.thoughtNumber;
         }
       }
 
