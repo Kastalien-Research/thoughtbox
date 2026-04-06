@@ -689,7 +689,7 @@ export class ThoughtHandler {
         this.branches = {};
       }
 
-      // Auto-create session on first thought (if no session active)
+      // Create or resume session on first thought (if no session active)
       if (!this.currentSessionId) {
         const sessionId = this.mcpSessionId ?? undefined;
         let session = sessionId
@@ -710,12 +710,12 @@ export class ThoughtHandler {
         await this.storage.createRun({
           sessionId: session.id,
         });
-        this.currentSessionId = session.id;
         if (isNewSession) {
+          this.currentSessionId = session.id;
           this.thoughtHistory = [];
           this.branches = {};
         } else {
-          await this.loadSession(session.id);
+          await this.restoreFromSession(session.id);
         }
 
         if (isNewSession) {
