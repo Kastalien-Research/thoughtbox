@@ -74,6 +74,7 @@ import {
   getLoop,
 } from "./resources/loops-content.js";
 import { ClaudeFolderIntegration } from "./claude-folder-integration.js";
+import { SKILL_DEFINITIONS, getSkillCatalog, getSkill } from "./resources/skills/index.js";
 import { getOperationsCatalog as getInitOperationsCatalog, getOperation as getInitOp } from "./init/operations.js";
 import { getOperationsCatalog as getSessionOperationsCatalog, getOperation as getSessOp } from "./sessions/operations.js";
 import { getOperationsCatalog as getKnowledgeOperationsCatalog, getOperation as getKnowOp } from "./knowledge/operations.js";
@@ -810,6 +811,48 @@ mcp__thoughtbox__thoughtbox({
     }
   );
 
+  // Thoughtbox Skills — registered as both prompts and resources (unified pattern)
+  // Accessible as prompts: skill-onboard, skill-research, etc.
+  // Accessible as resources: thoughtbox://skills/onboard, thoughtbox://skills/research, etc.
+  for (const skill of SKILL_DEFINITIONS) {
+    const argsSchema: Record<string, z.ZodTypeAny> = {};
+    for (const arg of skill.args) {
+      argsSchema[arg.name] = arg.required
+        ? z.string().describe(arg.description)
+        : z.string().optional().describe(arg.description);
+    }
+
+    server.registerPrompt(
+      `skill-${skill.name}`,
+      {
+        description: skill.description,
+        argsSchema,
+      },
+      async (args) => {
+        const argSummary = Object.entries(args)
+          .filter(([, v]) => v !== undefined && v !== "")
+          .map(([k, v]) => `**${k}**: ${v}`)
+          .join("\n");
+
+        const header = argSummary
+          ? `# Execute: ${skill.title}\n\n${argSummary}\n\n---\n\n`
+          : "";
+
+        return {
+          messages: [
+            {
+              role: "user" as const,
+              content: {
+                type: "text" as const,
+                text: header + skill.content,
+              },
+            },
+          ],
+        };
+      }
+    );
+  }
+
   // Register static resources using McpServer's registerResource API
   server.registerResource(
     "status",
@@ -1469,6 +1512,64 @@ mcp__thoughtbox__thoughtbox({
     }
   );
 
+  // Skills catalog resource (static)
+  server.registerResource(
+    "skills-catalog",
+    "thoughtbox://skills",
+    {
+      description:
+        "Catalog of all Thoughtbox workflow skills with descriptions and usage",
+      mimeType: "text/markdown",
+    },
+    async (uri) => ({
+      contents: [
+        {
+          uri: uri.toString(),
+          mimeType: "text/markdown",
+          text: getSkillCatalog(),
+        },
+      ],
+    })
+  );
+
+  // Skills resource template — individual skill content
+  server.registerResource(
+    "skill-content",
+    new ResourceTemplate("thoughtbox://skills/{name}", { list: undefined }),
+    {
+      description:
+        "Individual skill workflow guide. Available skills: onboard, research, decision, debug, refactor, session-review, knowledge-query, evolution",
+      mimeType: "text/markdown",
+    },
+    async (uri, params) => {
+      const name = typeof params === "object" && params !== null
+        ? String((params as Record<string, unknown>).name ?? "")
+        : "";
+      const skill = getSkill(name);
+      if (!skill) {
+        const available = SKILL_DEFINITIONS.map((s) => s.name).join(", ");
+        return {
+          contents: [
+            {
+              uri: uri.toString(),
+              mimeType: "text/markdown",
+              text: `# Skill Not Found\n\n**Error**: No skill named "${name}".\n\n**Available skills**: ${available}\n\nUse \`thoughtbox://skills\` to see the full catalog.`,
+            },
+          ],
+        };
+      }
+      return {
+        contents: [
+          {
+            uri: uri.toString(),
+            mimeType: "text/markdown",
+            text: skill.content,
+          },
+        ],
+      };
+    }
+  );
+
   // SPEC-001: Thought query resource templates
   const thoughtQueryHandler = new ThoughtQueryHandler(storage);
 
@@ -1662,6 +1763,14 @@ mcp__thoughtbox__thoughtbox({
           "Context isolation pattern for retrieving sessions. Same content as subagent-summarize prompt.",
         mimeType: "text/markdown",
       },
+      // Skill resources (unified prompt/resource pattern)
+      {
+        uri: "thoughtbox://skills",
+        name: "Thoughtbox Skills Catalog",
+        description:
+          "Catalog of all Thoughtbox workflow skills: onboard, research, decision, debug, refactor, session-review, knowledge-query, evolution",
+        mimeType: "text/markdown",
+      },
       // Behavioral test resources (unified with test prompts)
       {
         uri: BEHAVIORAL_TESTS.thoughtbox.uri,
@@ -1733,6 +1842,14 @@ mcp__thoughtbox__thoughtbox({
           uriTemplate: "thoughtbox://init/{mode}/{project}/{task}/{aspect}",
           name: "Init Context Loaded",
           description: "Context loaded - ready to work",
+          mimeType: "text/markdown",
+        },
+        // Skill resource templates
+        {
+          uriTemplate: "thoughtbox://skills/{name}",
+          name: "Skill Guide",
+          description:
+            "Individual skill workflow guide. Available: onboard, research, decision, debug, refactor, session-review, knowledge-query, evolution",
           mimeType: "text/markdown",
         },
         // Per-operation resource templates (Fix #4)
