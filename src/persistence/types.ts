@@ -48,6 +48,7 @@ export interface Session {
   title: string;
   description?: string;
   tags: string[];
+  mcpSessionId?: string;
   thoughtCount: number;
   branchCount: number;
   status: SessionStatus;
@@ -72,6 +73,7 @@ export interface CreateSessionParams {
   title: string;
   description?: string;
   tags?: string[];
+  mcpSessionId?: string;
 }
 
 /**
@@ -333,6 +335,7 @@ export interface SessionManifest {
     title: string;
     description?: string;
     tags: string[];
+    mcpSessionId?: string;
     createdAt: string; // ISO 8601
     updatedAt: string; // ISO 8601
   };

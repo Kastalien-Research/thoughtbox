@@ -124,6 +124,7 @@ export class SupabaseStorage implements ThoughtboxStorage {
       id: row.id,
       title: row.title,
       description: row.description || undefined,
+      mcpSessionId: row.mcp_session_id || undefined,
       tags: row.tags || [],
       thoughtCount: row.thought_count,
       branchCount: row.branch_count,
@@ -141,6 +142,7 @@ export class SupabaseStorage implements ThoughtboxStorage {
       workspace_id: this.workspaceId,
       title: params.title,
       description: params.description || null,
+      mcp_session_id: params.mcpSessionId || null,
       tags: params.tags || [],
       thought_count: 0,
       branch_count: 0,
@@ -253,6 +255,7 @@ export class SupabaseStorage implements ThoughtboxStorage {
     if (attrs.tags !== undefined) updateData.tags = attrs.tags;
     if (attrs.thoughtCount !== undefined) updateData.thought_count = attrs.thoughtCount;
     if (attrs.branchCount !== undefined) updateData.branch_count = attrs.branchCount;
+    if (attrs.mcpSessionId !== undefined) updateData.mcp_session_id = attrs.mcpSessionId;
     if (attrs.status !== undefined) {
       updateData.status = attrs.status;
       if (attrs.status === 'completed') {

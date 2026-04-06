@@ -91,6 +91,25 @@ describe('thought-attribution', () => {
     expect(parsed.thoughtNumber).toBe(1);
   });
 
+  it('T-MA-ATT-11: processThought() auto-creates session with mcpSessionId when handler has it', async () => {
+    const sessionHandler = new ThoughtHandler(true, storage, 'mcp-session-bridge-001');
+    await sessionHandler.initialize();
+
+    const result = await sessionHandler.processThought({
+      thought: 'Seed thought with mcp session id',
+      nextThoughtNeeded: true,
+      thoughtType: 'reasoning',
+    });
+
+    expect(result.isError).toBeUndefined();
+    const sessionId = sessionHandler.getCurrentSessionId();
+    expect(sessionId).toBeDefined();
+
+    const session = await storage.getSession(sessionId as string);
+    expect(session).not.toBeNull();
+    expect(session!.mcpSessionId).toBe('mcp-session-bridge-001');
+  });
+
   it('T-MA-ATT-5: Gateway handleThought() passes configured agentId to processThought()', async () => {
     // This test verifies the end-to-end flow by using ThoughtHandler directly
     // (GatewayHandler depends on too many other handlers for unit test)

@@ -616,6 +616,7 @@ export class InMemoryStorage implements ThoughtboxStorage {
       id,
       title: params.title,
       description: params.description,
+      mcpSessionId: params.mcpSessionId,
       tags: params.tags || [],
       thoughtCount: 0,
       branchCount: 0,

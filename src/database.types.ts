@@ -544,6 +544,7 @@ export type Database = {
           created_at: string
           description: string | null
           id: string
+          mcp_session_id: string | null
           last_accessed_at: string
           status: string
           tags: string[]
@@ -558,6 +559,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           id?: string
+          mcp_session_id?: string | null
           last_accessed_at?: string
           status?: string
           tags?: string[]
@@ -572,6 +574,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           id?: string
+          mcp_session_id?: string | null
           last_accessed_at?: string
           status?: string
           tags?: string[]
@@ -921,4 +924,3 @@ export const Constants = {
     Enums: {},
   },
 } as const
-

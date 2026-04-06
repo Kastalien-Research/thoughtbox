@@ -75,6 +75,32 @@ describe('SupabaseStorage (ThoughtboxStorage)', () => {
       expect(retrieved!.title).toBe('Test Session');
     });
 
+    it('persists mcpSessionId in session create/get/list operations', async ({ skip }) => {
+      if (!available) skip();
+      const session = await storage.createSession({
+        title: 'Run-key Session',
+        description: 'MCP session ID should persist',
+        tags: ['run-key'],
+        mcpSessionId: 'mcp-test-123',
+      });
+
+      const fetched = await storage.getSession(session.id);
+      expect(fetched).not.toBeNull();
+      expect(fetched!.mcpSessionId).toBe('mcp-test-123');
+
+      const listed = await storage.listSessions({ search: 'Run-key' });
+      expect(listed).toHaveLength(1);
+      expect(listed[0].mcpSessionId).toBe('mcp-test-123');
+    });
+
+    it('omits mcpSessionId when createSession does not provide it', async ({ skip }) => {
+      if (!available) skip();
+      const session = await storage.createSession({ title: 'No Run Key' });
+      const fetched = await storage.getSession(session.id);
+      expect(fetched).not.toBeNull();
+      expect(fetched!.mcpSessionId).toBeUndefined();
+    });
+
     it('returns null for nonexistent session', async ({ skip }) => {
       if (!available) skip();
       const result = await storage.getSession('00000000-0000-0000-0000-000000000000');

@@ -696,6 +696,7 @@ export class ThoughtHandler {
             validatedInput.sessionTitle ||
             this.generateSessionTitle(validatedInput.thought),
           tags: validatedInput.sessionTags || [],
+          mcpSessionId: this.mcpSessionId ?? undefined,
         });
         this.currentSessionId = session.id;
         // Clear in-memory state for new session
