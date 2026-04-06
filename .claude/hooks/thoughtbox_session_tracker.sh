@@ -18,7 +18,7 @@ thoughtbox_session_id=$(echo "$input_json" \
         .tool_result.content // .tool_result // .
         | if type == "array" then .[0].text // .[0] else . end
         | if type == "string" then (try fromjson catch .) else . end
-        | .result.sessionId // .result.closedSessionId // .sessionId // .closedSessionId // .session_id // empty
+        | (.result | if type == "object" then (.sessionId // .closedSessionId) else null end) // .sessionId // .closedSessionId // .session_id // empty
     ' 2>/dev/null || true)
 
 if [[ -n "$thoughtbox_session_id" && "$thoughtbox_session_id" != "null" ]]; then
