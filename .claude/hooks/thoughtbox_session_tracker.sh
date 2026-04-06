@@ -28,17 +28,13 @@ fi
 build_otlp_binding_payload() {
     local claude_session="$1"
     local tb_session="$2"
-    local ts
-    ts=$(python3 - <<'PY'
-from datetime import datetime, timezone
-print(datetime.now(timezone.utc).isoformat().replace("+00:00","Z"))
-PY
-)
+    local time_nanos
+    time_nanos=$(python3 -c "import time; print(int(time.time() * 1_000_000_000))")
 
     jq -n \
       --arg session_id "$claude_session" \
       --arg tb_session_id "$tb_session" \
-      --arg timestamp "$ts" \
+      --arg time_nanos "$time_nanos" \
       '{
         resourceLogs: [{
           resource: {
@@ -49,14 +45,14 @@ PY
           },
           scopeLogs: [{
             logRecords: [{
+              timeUnixNano: $time_nanos,
               body: { stringValue: "thoughtbox.run_binding" },
               severityText: "INFO",
               attributes: [
                 { key: "event.name", value: { stringValue: "thoughtbox.run_binding" } },
                 { key: "mcp.session_id", value: { stringValue: $session_id } },
                 { key: "thoughtbox.session_id", value: { stringValue: $tb_session_id } },
-                { key: "binding.source", value: { stringValue: "thoughtbox_session_tracker" } },
-                { key: "tool.timestamp", value: { stringValue: $timestamp } }
+                { key: "binding.source", value: { stringValue: "thoughtbox_session_tracker" } }
               ]
             }]
           }]
