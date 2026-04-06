@@ -29,12 +29,12 @@ See `DEPENDENCY-LEDGER.md` for the full proof path, infrastructure prerequisites
 - [x] Define exactly when the binding row lifecycle begins and ends.
 - [x] Keep `session` as the primary persistent object.
 - [x] Keep `run` as a work period belonging to a `session`.
-- [x] Remove reliance on inferred joins between `sessions.id`, `sessions.mcp_session_id`, and `otel_events.session_id`.
+- [x] Remove reliance on inferred joins between `sessions.id` and `otel_events.session_id`.
 
 ### 2. Persist The Run Record
 
 - [x] Add or finalize the persisted record that represents one run.
-- [x] Store both `mcp_session_id` and `otel_session_id` on that record.
+- [x] Store `otel_session_id` on the run record (`sessions.id` IS the MCP session ID).
 - [x] Store the session linkage for that run without reversing the ontology.
 - [x] Store workspace ownership and start/end timestamps.
 - [x] Make the run record the primary lookup unit for the demo path.

@@ -18,7 +18,7 @@ One real Claude Code work period must create one canonical `runs` binding row th
 What must exist:
 - Thoughtbox can create a persistent `session`.
 - That session can create a `run` row immediately.
-- The `run` row must carry at least `session_id`, `workspace_id`, `mcp_session_id`, and lifecycle timestamps.
+- The `run` row must carry at least `session_id`, `workspace_id`, `otel_session_id`, and lifecycle timestamps.
 
 What is now implemented:
 - Session creation creates a `runs` row.
@@ -59,7 +59,7 @@ What must exist:
 What is now implemented:
 - OTEL rows still store raw OTEL `session.id`.
 - `thoughtbox.run_binding` can reconcile the canonical `runs` row.
-- Reconciliation now prefers exact `mcp_session_id` match and only falls back to a session-scoped null-`mcp_session_id` run.
+- Reconciliation matches on `session_id` and null-or-matching `otel_session_id`.
 
 What was removed:
 - Route-level `mcp-session-id` header binding assumption.
@@ -83,7 +83,7 @@ Operational prerequisite:
 
 What must exist:
 - Audit and observability reads must go through `runs`.
-- Query code must no longer assume Thoughtbox `session.id`, `mcp_session_id`, and OTEL `session.id` are directly interchangeable.
+- Query code must no longer assume Thoughtbox `session.id` and OTEL `session.id` are directly interchangeable. `sessions.id` IS the MCP session ID.
 
 What is now implemented:
 - session timeline reads resolve OTEL through `runs.otel_session_id`.

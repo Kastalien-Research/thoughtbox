@@ -391,7 +391,12 @@ export class SupabaseStorage implements ThoughtboxStorage {
       .select()
       .eq('workspace_id', this.workspaceId)
       .eq('session_id', sessionId)
-      .or(`otel_session_id.is.null,otel_session_id.eq.${otelSessionId}`)
+      .or(`otel_session_id.is.null,otel_session_id.eq.${
+        otelSessionId
+          .replace(/\\/g, '\\\\')
+          .replace(/,/g, '\\,')
+          .replace(/\./g, '\\.')
+      }`)
       .order('started_at', { ascending: false })
       .limit(1)
       .maybeSingle();

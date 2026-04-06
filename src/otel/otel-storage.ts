@@ -76,7 +76,14 @@ export class OtelEventStorage {
       );
     }
 
-    await this.reconcileRunBindings(rows);
+    try {
+      await this.reconcileRunBindings(rows);
+    } catch (err) {
+      console.error(
+        'Run binding reconciliation failed (events already committed):',
+        err,
+      );
+    }
 
     return { inserted: rows.length };
   }
@@ -97,7 +104,12 @@ export class OtelEventStorage {
         .select('id, otel_session_id')
         .eq('workspace_id', row.workspace_id)
         .eq('session_id', sessionId)
-        .or(`otel_session_id.is.null,otel_session_id.eq.${row.session_id}`)
+        .or(`otel_session_id.is.null,otel_session_id.eq.${
+          row.session_id
+            .replace(/\\/g, '\\\\')
+            .replace(/,/g, '\\,')
+            .replace(/\./g, '\\.')
+        }`)
         .order('started_at', { ascending: false })
         .limit(1)
         .maybeSingle();

@@ -82,7 +82,7 @@ send_otlp_binding_async() {
     if [[ -n "$headers_env" ]]; then
       while IFS= read -r header; do
         [[ -n "$header" ]] && curl_args+=("-H" "$header")
-      done < <(printf '%s' "$headers_env" | tr ',' '\n' | sed 's/^ *//;s/ *$//')
+      done < <(printf '%s' "$headers_env" | tr ',' '\n' | sed 's/^ *//;s/ *$//' | sed 's/=/: /')
     fi
 
     curl "${curl_args[@]}" >/dev/null 2>&1 &
