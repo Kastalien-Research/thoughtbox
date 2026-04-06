@@ -9,67 +9,6 @@ mkdir -p "$state_dir"
 
 input_json=$(cat)
 tool_name=$(echo "$input_json" | jq -r '.tool_name // ""')
-claude_session_id=$(echo "$input_json" | jq -r '.session_id // empty' 2>/dev/null || true)
-active_thoughtbox_session=$(cat "$state_dir/active_thoughtbox_session" 2>/dev/null || true)
-
-emit_hook_otlp_async() {
-  local endpoint="${OTEL_EXPORTER_OTLP_ENDPOINT:-}"
-  local headers_env="${OTEL_EXPORTER_OTLP_HEADERS:-}"
-  [[ -z "$endpoint" || -z "$claude_session_id" ]] && return 0
-
-  local tool_input tool_result tool_timestamp file_path payload logs_endpoint
-  tool_input=$(echo "$input_json" | jq -c '.tool_input // {}')
-  tool_result=$(echo "$input_json" | jq -c '.tool_response // .tool_result // {}')
-  tool_timestamp=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-  file_path=$(echo "$input_json" | jq -r '.tool_input.file_path // empty')
-
-  payload=$(jq -n \
-    --arg session_id "$claude_session_id" \
-    --arg tool_name "$tool_name" \
-    --arg tool_input "$tool_input" \
-    --arg tool_result "$tool_result" \
-    --arg tool_timestamp "$tool_timestamp" \
-    --arg file_path "$file_path" \
-    --arg tb_session "$active_thoughtbox_session" '
-    {
-      resourceLogs: [{
-        resource: {
-          attributes: [
-            { key: "session.id", value: { stringValue: $session_id } },
-            { key: "service.name", value: { stringValue: "thoughtbox-hook" } }
-          ]
-        },
-        scopeLogs: [{
-          logRecords: [{
-            body: { stringValue: "claude_code.hook_tool_result" },
-            severityText: "INFO",
-            attributes: (
-              [
-                { key: "event.name", value: { stringValue: "claude_code.hook_tool_result" } },
-                { key: "tool.name", value: { stringValue: $tool_name } },
-                { key: "tool.input", value: { stringValue: $tool_input } },
-                { key: "tool.result", value: { stringValue: ($tool_result[0:4096]) } },
-                { key: "tool.timestamp", value: { stringValue: $tool_timestamp } },
-                { key: "connection_id", value: { stringValue: $session_id } }
-              ]
-              + (if $file_path != "" then [{ key: "file.path", value: { stringValue: $file_path } }] else [] end)
-              + (if $tb_session != "" then [{ key: "thoughtbox.session_id", value: { stringValue: $tb_session } }] else [] end)
-            )
-          }]
-        }]
-      }]
-    }')
-
-  logs_endpoint="${endpoint%/}/v1/logs"
-  local -a curl_args=("-sS" "-X" "POST" "$logs_endpoint" "-H" "Content-Type: application/json" "-d" "$payload")
-  if [[ -n "$headers_env" ]]; then
-    while IFS= read -r header || [[ -n "$header" ]]; do
-      [[ -n "$header" ]] && curl_args+=("-H" "$header")
-    done < <(printf '%s\n' "$headers_env" | tr ',' '\n' | sed 's/^ *//;s/ *$//' | sed 's/=/: /')
-  fi
-
-  curl "${curl_args[@]}" >/dev/null 2>&1 &
-}
 
 # ── FILE ACCESS TRACKING ──────────────────────────────────────────
 case "$tool_name" in
@@ -91,8 +30,6 @@ case "$tool_name" in
     fi
     ;;
 esac
-
-emit_hook_otlp_async
 
 # ── RECEIPT WRITING ───────────────────────────────────────────────
 case "$tool_name" in
