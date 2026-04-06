@@ -5,7 +5,7 @@
 # Used by pattern detector to identify coverage gaps
 ###
 
-set -euo pipefail
+set -uo pipefail
 
 # Read JSON input
 input_json="$(cat)"

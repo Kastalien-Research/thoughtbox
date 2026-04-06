@@ -28,8 +28,8 @@ export interface BaseEvent {
   timestamp: string;
   /** Event type identifier */
   type: ThoughtboxEventType;
-  /** MCP session ID (for client isolation) */
-  mcpSessionId?: string;
+  /** Session ID (= MCP session ID) */
+  sessionId?: string;
 }
 
 // =============================================================================

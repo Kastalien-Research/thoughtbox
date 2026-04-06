@@ -129,7 +129,6 @@ export class SupabaseStorage implements ThoughtboxStorage {
       id: row.id,
       title: row.title,
       description: row.description || undefined,
-      mcpSessionId: row.mcp_session_id || undefined,
       tags: row.tags || [],
       thoughtCount: row.thought_count,
       branchCount: row.branch_count,
@@ -147,7 +146,6 @@ export class SupabaseStorage implements ThoughtboxStorage {
       workspace_id: this.workspaceId,
       title: params.title,
       description: params.description || null,
-      mcp_session_id: params.mcpSessionId || null,
       tags: params.tags || [],
       thought_count: 0,
       branch_count: 0,
@@ -160,7 +158,6 @@ export class SupabaseStorage implements ThoughtboxStorage {
       id: row.id,
       workspaceId: row.workspace_id,
       sessionId: row.session_id,
-      mcpSessionId: row.mcp_session_id || undefined,
       otelSessionId: row.otel_session_id || undefined,
       startedAt: new Date(row.started_at),
       endedAt: row.ended_at ? new Date(row.ended_at) : undefined,
@@ -172,7 +169,6 @@ export class SupabaseStorage implements ThoughtboxStorage {
       id: params.id || randomUUID(),
       workspace_id: this.workspaceId,
       session_id: params.sessionId,
-      mcp_session_id: params.mcpSessionId || null,
       otel_session_id: params.otelSessionId || null,
       started_at: (params.startedAt || new Date()).toISOString(),
       ended_at: null,
@@ -284,7 +280,6 @@ export class SupabaseStorage implements ThoughtboxStorage {
     if (attrs.tags !== undefined) updateData.tags = attrs.tags;
     if (attrs.thoughtCount !== undefined) updateData.thought_count = attrs.thoughtCount;
     if (attrs.branchCount !== undefined) updateData.branch_count = attrs.branchCount;
-    if (attrs.mcpSessionId !== undefined) updateData.mcp_session_id = attrs.mcpSessionId;
     if (attrs.status !== undefined) {
       updateData.status = attrs.status;
       if (attrs.status === 'completed') {
@@ -386,7 +381,7 @@ export class SupabaseStorage implements ThoughtboxStorage {
   }
 
   async bindRunOtelSession(
-    mcpSessionId: string,
+    sessionId: string,
     otelSessionId: string,
     attrs?: { endedAt?: Date },
   ): Promise<Run | null> {
@@ -395,7 +390,7 @@ export class SupabaseStorage implements ThoughtboxStorage {
       .from('runs')
       .select()
       .eq('workspace_id', this.workspaceId)
-      .eq('mcp_session_id', mcpSessionId)
+      .eq('session_id', sessionId)
       .or(`otel_session_id.is.null,otel_session_id.eq.${otelSessionId}`)
       .order('started_at', { ascending: false })
       .limit(1)

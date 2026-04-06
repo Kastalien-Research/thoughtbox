@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # User prompt submit hook - logs and validates user prompts
 
-set -euo pipefail
+set -uo pipefail
 
 # Parse command line arguments
 validate=false

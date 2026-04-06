@@ -4,7 +4,7 @@
 # Sends Claude Code traces to LangSmith after each response.
 ###
 
-set -e
+set -uo pipefail
 
 # Load selected values from project .env when runtime env is missing.
 project_dir="${CLAUDE_PROJECT_DIR:-$(pwd)}"

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Session start hook - logs session start and optionally loads development context
 
-set -euo pipefail
+set -uo pipefail
 
 # Parse command line arguments
 load_context=false

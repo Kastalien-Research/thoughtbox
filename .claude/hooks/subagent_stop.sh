@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Subagent stop hook - logs subagent stop events
 
-set -euo pipefail
+set -uo pipefail
 
 # Parse command line arguments
 chat=false

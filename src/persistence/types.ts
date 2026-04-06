@@ -48,7 +48,6 @@ export interface Session {
   title: string;
   description?: string;
   tags: string[];
-  mcpSessionId?: string;
   thoughtCount: number;
   branchCount: number;
   status: SessionStatus;
@@ -73,14 +72,12 @@ export interface CreateSessionParams {
   title: string;
   description?: string;
   tags?: string[];
-  mcpSessionId?: string;
 }
 
 export interface Run {
   id: string;
   workspaceId?: string;
   sessionId: string;
-  mcpSessionId?: string;
   otelSessionId?: string;
   startedAt: Date;
   endedAt?: Date;
@@ -89,7 +86,6 @@ export interface Run {
 export interface CreateRunParams {
   id?: string;
   sessionId: string;
-  mcpSessionId?: string;
   otelSessionId?: string;
   startedAt?: Date;
 }
@@ -352,7 +348,6 @@ export interface SessionManifest {
   runs?: Array<{
     id: string;
     sessionId: string;
-    mcpSessionId?: string;
     otelSessionId?: string;
     startedAt: string;
     endedAt?: string;
@@ -361,7 +356,6 @@ export interface SessionManifest {
     title: string;
     description?: string;
     tags: string[];
-    mcpSessionId?: string;
     createdAt: string; // ISO 8601
     updatedAt: string; // ISO 8601
   };
@@ -630,10 +624,10 @@ export interface ThoughtboxStorage {
   listRunsForSession(sessionId: string): Promise<Run[]>;
 
   /**
-   * Attach an OTEL session ID to the latest matching MCP-bound run.
+   * Attach an OTEL session ID to the latest run for a session.
    */
   bindRunOtelSession(
-    mcpSessionId: string,
+    sessionId: string,
     otelSessionId: string,
     attrs?: { endedAt?: Date }
   ): Promise<Run | null>;

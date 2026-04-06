@@ -4,7 +4,7 @@
 # Prompts agent to capture learnings and calibrate memory system
 ###
 
-set -euo pipefail
+set -uo pipefail
 
 # Read JSON input from stdin
 input_json=$(cat)

@@ -1323,7 +1323,7 @@ mcp__thoughtbox__thoughtbox({
 
         // Record usage for analytics (async, non-blocking)
         const loopUri = `${category}/${name}`;
-        claudeFolder.recordLoopAccess(loopUri, 'active-session', sessionId).catch(err =>
+        claudeFolder.recordLoopAccess(loopUri, sessionId || 'unknown').catch(err =>
           logger.debug('Failed to record loop access:', err)
         );
 

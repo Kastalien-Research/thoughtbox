@@ -619,7 +619,6 @@ export class InMemoryStorage implements ThoughtboxStorage {
       id,
       title: params.title,
       description: params.description,
-      mcpSessionId: params.mcpSessionId,
       tags: params.tags || [],
       thoughtCount: 0,
       branchCount: 0,
@@ -718,7 +717,6 @@ export class InMemoryStorage implements ThoughtboxStorage {
     const run: Run = {
       id: params.id || randomUUID(),
       sessionId: params.sessionId,
-      mcpSessionId: params.mcpSessionId,
       otelSessionId: params.otelSessionId,
       startedAt: params.startedAt || new Date(),
     };
@@ -733,17 +731,19 @@ export class InMemoryStorage implements ThoughtboxStorage {
   }
 
   async bindRunOtelSession(
-    mcpSessionId: string,
+    sessionId: string,
     otelSessionId: string,
+    attrs?: { endedAt?: Date },
   ): Promise<Run | null> {
     const candidates = Array.from(this.runs.values())
-      .filter((run) => run.mcpSessionId === mcpSessionId && (!run.otelSessionId || run.otelSessionId === otelSessionId))
+      .filter((run) => run.sessionId === sessionId && (!run.otelSessionId || run.otelSessionId === otelSessionId))
       .sort((a, b) => b.startedAt.getTime() - a.startedAt.getTime());
 
     const run = candidates[0];
     if (!run) return null;
 
     run.otelSessionId = otelSessionId;
+    if (attrs?.endedAt) run.endedAt = attrs.endedAt;
     this.runs.set(run.id, run);
     return run;
   }

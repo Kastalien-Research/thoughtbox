@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # PreToolUse: safety guards plus Thoughtbox-backed protocol enforcement.
-set -euo pipefail
+set -uo pipefail
 
 project_dir="${CLAUDE_PROJECT_DIR:-$(pwd)}"
 input_json=$(cat)

@@ -36,18 +36,18 @@ import { DEFAULT_EVENT_STREAM_CONFIG } from './types.js';
  */
 export class ThoughtboxEventEmitter {
   private config: EventStreamConfig;
-  private mcpSessionId?: string;
+  private sessionId?: string;
 
-  constructor(config?: Partial<EventStreamConfig>, mcpSessionId?: string) {
+  constructor(config?: Partial<EventStreamConfig>, sessionId?: string) {
     this.config = { ...DEFAULT_EVENT_STREAM_CONFIG, ...config };
-    this.mcpSessionId = mcpSessionId;
+    this.sessionId = sessionId;
   }
 
   /**
-   * Set the MCP session ID (can be set after construction)
+   * Set the session ID (= MCP session ID)
    */
-  setMcpSessionId(sessionId: string): void {
-    this.mcpSessionId = sessionId;
+  setSessionId(sessionId: string): void {
+    this.sessionId = sessionId;
   }
 
   /**
@@ -137,16 +137,15 @@ export class ThoughtboxEventEmitter {
   /**
    * Emit an event to the configured destination
    */
-  private emit(event: Omit<ThoughtboxEvent, 'mcpSessionId'>): void {
+  private emit(event: Omit<ThoughtboxEvent, 'sessionId'>): void {
     if (!this.config.enabled) {
       return;
     }
 
-    // Build full event with optional MCP session ID
     const fullEvent: ThoughtboxEvent = {
       ...event,
-      ...(this.config.includeMcpSessionId && this.mcpSessionId
-        ? { mcpSessionId: this.mcpSessionId }
+      ...(this.config.includeMcpSessionId && this.sessionId
+        ? { sessionId: this.sessionId }
         : {}),
     } as ThoughtboxEvent;
 

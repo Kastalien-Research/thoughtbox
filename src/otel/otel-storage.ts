@@ -86,73 +86,34 @@ export class OtelEventStorage {
       if (!row.session_id) continue;
 
       const eventAttrs = row.event_attrs as Record<string, unknown>;
-      const thoughtboxSessionId = typeof eventAttrs['thoughtbox.session_id'] === 'string'
+      const sessionId = typeof eventAttrs['thoughtbox.session_id'] === 'string'
         ? eventAttrs['thoughtbox.session_id']
         : null;
-      const mcpSessionId = typeof eventAttrs['mcp.session_id'] === 'string'
-        ? eventAttrs['mcp.session_id']
-        : (typeof eventAttrs['connection_id'] === 'string' ? eventAttrs['connection_id'] : null);
 
-      if (!thoughtboxSessionId || !mcpSessionId) continue;
+      if (!sessionId) continue;
 
-      const { data: existingByMcp, error: mcpLookupError } = await this.supabase
+      const { data: run, error } = await this.supabase
         .from('runs')
-        .select('id, mcp_session_id, otel_session_id')
+        .select('id, otel_session_id')
         .eq('workspace_id', row.workspace_id)
-        .eq('mcp_session_id', mcpSessionId)
+        .eq('session_id', sessionId)
+        .or(`otel_session_id.is.null,otel_session_id.eq.${row.session_id}`)
+        .order('started_at', { ascending: false })
         .limit(1)
         .maybeSingle();
 
-      if (mcpLookupError) {
-        throw new Error(`Run binding MCP lookup failed: ${mcpLookupError.message}`);
+      if (error) {
+        throw new Error(`Run binding lookup failed: ${error.message}`);
       }
+      if (!run || run.otel_session_id === row.session_id) continue;
 
-      const existing = existingByMcp
-        ? existingByMcp
-        : await (async () => {
-          const { data: fallbackRun, error: fallbackLookupError } = await this.supabase
-            .from('runs')
-            .select('id, mcp_session_id, otel_session_id')
-            .eq('workspace_id', row.workspace_id)
-            .eq('session_id', thoughtboxSessionId)
-            .is('mcp_session_id', null)
-            .order('started_at', { ascending: false })
-            .limit(1)
-            .maybeSingle();
+      const { error: updateError } = await this.supabase
+        .from('runs')
+        .update({ otel_session_id: row.session_id })
+        .eq('id', run.id);
 
-          if (fallbackLookupError) {
-            throw new Error(`Run binding fallback lookup failed: ${fallbackLookupError.message}`);
-          }
-
-          return fallbackRun;
-        })();
-
-      if (existing) {
-        const { error: updateError } = await this.supabase
-          .from('runs')
-          .update({
-            mcp_session_id: existing.mcp_session_id || mcpSessionId,
-            otel_session_id: existing.otel_session_id || row.session_id,
-          })
-          .eq('id', existing.id);
-
-        if (updateError) {
-          throw new Error(`Run binding update failed: ${updateError.message}`);
-        }
-      } else {
-        const { error: insertError } = await this.supabase
-          .from('runs')
-          .insert({
-            workspace_id: row.workspace_id,
-            session_id: thoughtboxSessionId,
-            mcp_session_id: mcpSessionId,
-            otel_session_id: row.session_id,
-            started_at: row.timestamp_at,
-          });
-
-        if (insertError) {
-          throw new Error(`Run binding insert failed: ${insertError.message}`);
-        }
+      if (updateError) {
+        throw new Error(`Run binding update failed: ${updateError.message}`);
       }
     }
   }

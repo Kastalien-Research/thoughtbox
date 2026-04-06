@@ -75,30 +75,19 @@ describe('SupabaseStorage (ThoughtboxStorage)', () => {
       expect(retrieved!.title).toBe('Test Session');
     });
 
-    it('persists mcpSessionId in session create/get/list operations', async ({ skip }) => {
+    it('uses provided id as session ID', async ({ skip }) => {
       if (!available) skip();
       const session = await storage.createSession({
+        id: 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
         title: 'Run-key Session',
-        description: 'MCP session ID should persist',
+        description: 'Session ID should be the provided ID',
         tags: ['run-key'],
-        mcpSessionId: 'mcp-test-123',
       });
 
+      expect(session.id).toBe('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11');
       const fetched = await storage.getSession(session.id);
       expect(fetched).not.toBeNull();
-      expect(fetched!.mcpSessionId).toBe('mcp-test-123');
-
-      const listed = await storage.listSessions({ search: 'Run-key' });
-      expect(listed).toHaveLength(1);
-      expect(listed[0].mcpSessionId).toBe('mcp-test-123');
-    });
-
-    it('omits mcpSessionId when createSession does not provide it', async ({ skip }) => {
-      if (!available) skip();
-      const session = await storage.createSession({ title: 'No Run Key' });
-      const fetched = await storage.getSession(session.id);
-      expect(fetched).not.toBeNull();
-      expect(fetched!.mcpSessionId).toBeUndefined();
+      expect(fetched!.id).toBe('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11');
     });
 
     it('returns null for nonexistent session', async ({ skip }) => {

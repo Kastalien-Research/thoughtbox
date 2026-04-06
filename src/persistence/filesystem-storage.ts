@@ -364,7 +364,6 @@ export class FileSystemStorage implements ThoughtboxStorage {
         id: manifest.id,
         title: manifest.metadata.title,
         description: manifest.metadata.description,
-        mcpSessionId: manifest.metadata.mcpSessionId,
         tags: manifest.metadata.tags,
         thoughtCount: manifest.thoughtFiles.length,
         branchCount: Object.keys(manifest.branchFiles).length,
@@ -380,7 +379,6 @@ export class FileSystemStorage implements ThoughtboxStorage {
         this.runs.set(run.id, {
           id: run.id,
           sessionId: run.sessionId,
-          mcpSessionId: run.mcpSessionId,
           otelSessionId: run.otelSessionId,
           startedAt: new Date(run.startedAt),
           endedAt: run.endedAt ? new Date(run.endedAt) : undefined,
@@ -462,7 +460,6 @@ export class FileSystemStorage implements ThoughtboxStorage {
       id,
       title: params.title,
       description: params.description,
-      mcpSessionId: params.mcpSessionId,
       tags: params.tags || [],
       thoughtCount: 0,
       branchCount: 0,
@@ -489,7 +486,6 @@ export class FileSystemStorage implements ThoughtboxStorage {
         title: params.title,
         description: params.description,
         tags: params.tags || [],
-        mcpSessionId: params.mcpSessionId,
         createdAt: now.toISOString(),
         updatedAt: now.toISOString(),
       },
@@ -525,7 +521,6 @@ export class FileSystemStorage implements ThoughtboxStorage {
       manifest.metadata.title = updated.title;
       manifest.metadata.description = updated.description;
       manifest.metadata.tags = updated.tags;
-      manifest.metadata.mcpSessionId = updated.mcpSessionId;
       manifest.metadata.updatedAt = updated.updatedAt.toISOString();
 
       await this.atomicWriteJson(manifestPath, manifest);
@@ -618,7 +613,6 @@ export class FileSystemStorage implements ThoughtboxStorage {
     const run: Run = {
       id: params.id || randomUUID(),
       sessionId: params.sessionId,
-      mcpSessionId: params.mcpSessionId,
       otelSessionId: params.otelSessionId,
       startedAt: params.startedAt || new Date(),
     };
@@ -632,7 +626,6 @@ export class FileSystemStorage implements ThoughtboxStorage {
     manifest.runs.push({
       id: run.id,
       sessionId: run.sessionId,
-      mcpSessionId: run.mcpSessionId,
       otelSessionId: run.otelSessionId,
       startedAt: run.startedAt.toISOString(),
       endedAt: run.endedAt?.toISOString(),
@@ -649,15 +642,17 @@ export class FileSystemStorage implements ThoughtboxStorage {
   }
 
   async bindRunOtelSession(
-    mcpSessionId: string,
+    sessionId: string,
     otelSessionId: string,
+    attrs?: { endedAt?: Date },
   ): Promise<Run | null> {
     const run = Array.from(this.runs.values())
-      .filter((candidate) => candidate.mcpSessionId === mcpSessionId && (!candidate.otelSessionId || candidate.otelSessionId === otelSessionId))
+      .filter((candidate) => candidate.sessionId === sessionId && (!candidate.otelSessionId || candidate.otelSessionId === otelSessionId))
       .sort((a, b) => b.startedAt.getTime() - a.startedAt.getTime())[0];
 
     if (!run) return null;
     run.otelSessionId = otelSessionId;
+    if (attrs?.endedAt) run.endedAt = attrs.endedAt;
     this.runs.set(run.id, run);
     await this.persistRun(run);
     return run;
@@ -685,7 +680,6 @@ export class FileSystemStorage implements ThoughtboxStorage {
     const serialized = {
       id: run.id,
       sessionId: run.sessionId,
-      mcpSessionId: run.mcpSessionId,
       otelSessionId: run.otelSessionId,
       startedAt: run.startedAt.toISOString(),
       endedAt: run.endedAt?.toISOString(),

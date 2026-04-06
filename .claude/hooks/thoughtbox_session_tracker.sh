@@ -4,7 +4,7 @@
 # and sends a non-blocking OTLP binding event containing both external IDs.
 # Must never block the agent — always exits 0.
 
-set -euo pipefail
+set -uo pipefail
 
 input_json=$(cat)
 state_dir="${CLAUDE_PROJECT_DIR:-.}/.claude/state"

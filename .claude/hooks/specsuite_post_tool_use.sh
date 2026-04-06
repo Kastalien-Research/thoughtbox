@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # SpecSuite PostToolUse hook: append audit entries for spec edits.
 
-set -euo pipefail
+set -uo pipefail
 
 input_json="$(cat)"
 

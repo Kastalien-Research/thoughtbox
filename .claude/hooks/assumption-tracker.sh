@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # PostToolUse hook: detect assumption-laden tool calls and record candidates
-set -euo pipefail
+set -uo pipefail
 
 input_json=$(cat)
 tool_name=$(echo "$input_json" | jq -r '.tool_name // ""')

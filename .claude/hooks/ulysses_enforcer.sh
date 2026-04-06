@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # PreToolUse: BLOCK when Ulysses REFLECT is required.
-set -euo pipefail
+set -uo pipefail
 
 ulysses_state_dir="${CLAUDE_PROJECT_DIR:-.}/.claude/state/ulysses"
 

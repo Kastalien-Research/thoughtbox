@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Notification hook - logs notification events
 
-set -euo pipefail
+set -uo pipefail
 
 # Parse command line arguments
 notify=false

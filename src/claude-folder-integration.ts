@@ -14,7 +14,6 @@ export interface LoopAccessRecord {
   timestamp: string;
   loop: string;
   session: string;
-  mcp_session?: string;
 }
 
 export interface LoopStats {
@@ -99,10 +98,8 @@ export class ClaudeFolderIntegration {
   async recordLoopAccess(
     loopUri: string,
     sessionId: string,
-    mcpSessionId?: string
   ): Promise<void> {
     if (!this.claudePath) {
-      // Graceful degradation - no recording if .claude/ not available
       return;
     }
 
@@ -110,7 +107,6 @@ export class ClaudeFolderIntegration {
       timestamp: new Date().toISOString(),
       loop: loopUri,
       session: sessionId,
-      mcp_session: mcpSessionId,
     };
 
     try {

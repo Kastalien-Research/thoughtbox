@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # SpecSuite Stop hook: block stopping when suite state incomplete.
 
-set -euo pipefail
+set -uo pipefail
 
 hook_input="$(cat)"
 

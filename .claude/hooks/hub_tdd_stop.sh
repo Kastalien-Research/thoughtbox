@@ -2,7 +2,7 @@
 # Hub TDD Stop hook: block stopping when TDD workflow is active but incomplete.
 # Mirrors specsuite_stop.sh pattern.
 
-set -euo pipefail
+set -uo pipefail
 
 hook_input="$(cat)"
 

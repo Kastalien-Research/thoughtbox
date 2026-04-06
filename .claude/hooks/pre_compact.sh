@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Pre-compact hook - logs compaction events and optionally backs up transcripts
 
-set -euo pipefail
+set -uo pipefail
 
 # Parse command line arguments
 backup=false

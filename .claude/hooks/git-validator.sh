@@ -2,7 +2,7 @@
 # Git command validator for Claude Code hooks
 # Validates Git commands and returns JSON decision
 
-set -euo pipefail
+set -uo pipefail
 
 # Read JSON input from stdin
 input_json=$(cat)
