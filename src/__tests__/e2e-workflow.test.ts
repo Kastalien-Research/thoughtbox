@@ -609,18 +609,17 @@ describe("Protocol knowledge bridge", () => {
   // entity. Smoke tests, placeholder text, junk summaries all become
   // permanent Insight entities that pollute the graph. No delete exists.
   it.fails("complete does not create junk knowledge entities from placeholder summaries", async () => {
+    const { FileSystemKnowledgeStorage } = await import("../knowledge/storage.js");
+    const { mkdtemp } = await import("node:fs/promises");
+    const { tmpdir } = await import("node:os");
+    const { join } = await import("node:path");
+    const tmpDir = await mkdtemp(join(tmpdir(), "tb-kg-test-"));
+    const knowledgeStorage = new FileSystemKnowledgeStorage(tmpDir);
+    await knowledgeStorage.init();
+
     const protocolHandler = new InMemoryProtocolHandler();
     const thoughtHandler = new ThoughtHandler(true);
-    // Use a mock that tracks creates
-    const created: Array<Record<string, unknown>> = [];
-    const fakeKnowledge = {
-      createEntity: async (args: Record<string, unknown>) => {
-        created.push(args);
-        return { id: "fake-id", name: args.name, type: args.type };
-      },
-      addObservation: async () => ({}),
-    };
-    const tool = new UlyssesTool(protocolHandler, thoughtHandler, fakeKnowledge as any);
+    const tool = new UlyssesTool(protocolHandler, thoughtHandler, knowledgeStorage);
 
     const call = async (input: Record<string, unknown>) => {
       const raw = await tool.handle(input as any);
@@ -635,7 +634,8 @@ describe("Protocol knowledge bridge", () => {
     });
 
     // Protocol should NOT auto-create knowledge entities
-    expect(created.length).toBe(0);
+    const entities = await knowledgeStorage.listEntities({});
+    expect(entities.length).toBe(0);
   });
 });
 
