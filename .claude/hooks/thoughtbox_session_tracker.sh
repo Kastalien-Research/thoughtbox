@@ -80,9 +80,9 @@ send_otlp_binding_async() {
     local -a curl_args=("-sS" "-X" "POST" "$logs_endpoint" "-H" "Content-Type: application/json" "-d" "$payload")
 
     if [[ -n "$headers_env" ]]; then
-      while IFS= read -r header; do
+      while IFS= read -r header || [[ -n "$header" ]]; do
         [[ -n "$header" ]] && curl_args+=("-H" "$header")
-      done < <(printf '%s' "$headers_env" | tr ',' '\n' | sed 's/^ *//;s/ *$//' | sed 's/=/: /')
+      done < <(printf '%s\n' "$headers_env" | tr ',' '\n' | sed 's/^ *//;s/ *$//' | sed 's/=/: /')
     fi
 
     curl "${curl_args[@]}" >/dev/null 2>&1 &
