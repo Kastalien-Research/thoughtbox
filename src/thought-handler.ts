@@ -711,9 +711,12 @@ export class ThoughtHandler {
           sessionId: session.id,
         });
         this.currentSessionId = session.id;
-        // Clear in-memory state for new or resumed session
-        this.thoughtHistory = [];
-        this.branches = {};
+        if (isNewSession) {
+          this.thoughtHistory = [];
+          this.branches = {};
+        } else {
+          await this.loadSession(session.id);
+        }
 
         if (isNewSession) {
           // Observatory: Emit session started event
