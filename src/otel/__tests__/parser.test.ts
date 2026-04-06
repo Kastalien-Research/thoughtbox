@@ -155,6 +155,26 @@ describe('parseLogsPayload', () => {
     expect(rows.map((r) => r.event_name)).toEqual(['event_a', 'event_b', 'event_c']);
   });
 
+  it('falls back to event attribute session.id when resource session.id is missing', () => {
+    const payload: OtlpLogsPayload = {
+      resourceLogs: [{
+        scopeLogs: [{
+          logRecords: [{
+            timeUnixNano: '1000000000',
+            body: { stringValue: 'tool_result' },
+            attributes: [
+              { key: 'session.id', value: { stringValue: 'event-session-123' } },
+            ],
+          }],
+        }],
+      }],
+    };
+
+    const rows = parseLogsPayload(payload, workspaceId);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].session_id).toBe('event-session-123');
+  });
+
   it('handles missing resource attributes', () => {
     const payload: OtlpLogsPayload = {
       resourceLogs: [{
@@ -241,6 +261,31 @@ describe('parseMetricsPayload', () => {
     const rows = parseMetricsPayload(payload, workspaceId);
     expect(rows).toHaveLength(1);
     expect(rows[0].metric_value).toBe(3);
+  });
+
+  it('falls back to data point attribute session.id when resource session.id is missing', () => {
+    const payload: OtlpMetricsPayload = {
+      resourceMetrics: [{
+        scopeMetrics: [{
+          metrics: [{
+            name: 'claude_code.token.usage',
+            sum: {
+              dataPoints: [{
+                timeUnixNano: '1000000000',
+                asDouble: 42,
+                attributes: [
+                  { key: 'session.id', value: { stringValue: 'metric-session-456' } },
+                ],
+              }],
+            },
+          }],
+        }],
+      }],
+    };
+
+    const rows = parseMetricsPayload(payload, workspaceId);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].session_id).toBe('metric-session-456');
   });
 
   it('handles multiple data points per metric', () => {

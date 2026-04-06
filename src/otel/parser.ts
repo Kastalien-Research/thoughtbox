@@ -26,6 +26,14 @@ function getSessionId(
   return typeof value === 'string' ? value : null;
 }
 
+function getSessionIdFromAttributes(
+  attrs: Record<string, string | number | boolean> | undefined,
+): string | null {
+  if (!attrs) return null;
+  const value = attrs['session.id'];
+  return typeof value === 'string' ? value : null;
+}
+
 export function parseLogsPayload(
   payload: OtlpLogsPayload,
   workspaceId: string,
@@ -45,6 +53,7 @@ export function parseLogsPayload(
           ? extractValue(record.body)
           : null;
         const eventAttrs = flattenAttributes(record.attributes);
+        const sessionIdFromEvent = getSessionIdFromAttributes(eventAttrs);
 
         // Claude Code puts the canonical event name in event.name attribute
         // (e.g. "claude_code.tool_result"), body may duplicate or differ
@@ -54,7 +63,7 @@ export function parseLogsPayload(
 
         rows.push({
           workspace_id: workspaceId,
-          session_id: sessionId,
+          session_id: sessionId ?? sessionIdFromEvent,
           event_type: 'log',
           event_name: eventName,
           severity: record.severityText ?? null,
@@ -92,17 +101,19 @@ export function parseMetricsPayload(
         for (const dp of dataPoints) {
           const ts = nanosToIso(dp.timeUnixNano);
           const value = dp.asDouble ?? (dp.asInt ? Number(dp.asInt) : null);
+          const eventAttrs = flattenAttributes(dp.attributes);
+          const sessionIdFromEvent = getSessionIdFromAttributes(eventAttrs);
 
           rows.push({
             workspace_id: workspaceId,
-            session_id: sessionId,
+            session_id: sessionId ?? sessionIdFromEvent,
             event_type: 'metric',
             event_name: metric.name,
             severity: null,
             timestamp_ns: ts.timestamp_ns,
             timestamp_at: ts.timestamp_at,
             resource_attrs: resourceAttrs,
-            event_attrs: flattenAttributes(dp.attributes),
+            event_attrs: eventAttrs,
             body: null,
             metric_value: value,
           });
