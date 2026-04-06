@@ -1104,22 +1104,54 @@ export class ThoughtHandler {
 
       // SIL-101: Minimal response mode (default)
       // When verbose is false, return only essential fields for token efficiency
+      // but still embed the guide at thought 1, final thought, or on-demand
       if (!isVerbose) {
-        return {
-          content: [
-            {
-              type: "text",
-              text: JSON.stringify(
-                {
-                  thoughtNumber: validatedInput.thoughtNumber,
-                  sessionId: this.currentSessionId,
-                },
-                null,
-                2
-              ),
+        const minimalContent: Array<any> = [
+          {
+            type: "text",
+            text: JSON.stringify(
+              {
+                thoughtNumber: validatedInput.thoughtNumber,
+                sessionId: this.currentSessionId,
+              },
+              null,
+              2
+            ),
+          },
+        ];
+
+        const shouldEmbed =
+          validatedInput.thoughtNumber === 1 ||
+          validatedInput.thoughtNumber === validatedInput.totalThoughts ||
+          validatedInput.includeGuide === true;
+
+        if (shouldEmbed) {
+          minimalContent.push({
+            type: "resource",
+            resource: {
+              uri: "thoughtbox://patterns-cookbook",
+              title: "Structured Thought Types Reference",
+              mimeType: "text/markdown",
+              text: this.patternsCookbook,
+              annotations: {
+                audience: ["assistant"],
+                priority: 0.9,
+              },
             },
-          ],
-        };
+          });
+        }
+
+        if (isNewBranch) {
+          minimalContent.push({
+            type: "resource_link",
+            uri: "thoughtbox://guidance/parallel-verification",
+            name: "Parallel Verification Guide",
+            description: "Workflow for exploring multiple hypotheses through branching",
+            mimeType: "text/markdown",
+          });
+        }
+
+        return { content: minimalContent };
       }
 
       // SIL-101: Verbose response mode - full response with all fields

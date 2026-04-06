@@ -329,10 +329,7 @@ describe("Embedded resources in thought responses", () => {
     handler = new ThoughtHandler(true, storage);
   });
 
-  // BUG: non-verbose mode (default) skips all embedded resources.
-  // The guide embedding at thought 1 / final thought / includeGuide
-  // only runs in the verbose code path.
-  it.fails("thought 1 includes embedded resource", async () => {
+  it("thought 1 includes embedded resource", async () => {
     const raw = await handler.processThought({
       thought: "first thought",
       thoughtType: "reasoning",
@@ -348,8 +345,7 @@ describe("Embedded resources in thought responses", () => {
     expect(resourceItems.length).toBeGreaterThan(0);
   });
 
-  // BUG: same as above — includeGuide is only checked in verbose path
-  it.fails("includeGuide=true includes embedded resource", async () => {
+  it("includeGuide=true includes embedded resource", async () => {
     await handler.processThought({
       thought: "first",
       thoughtType: "reasoning",
