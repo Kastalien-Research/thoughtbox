@@ -64,6 +64,30 @@ async function resolveOtlpAuth(
   }
 }
 
+/**
+ * Forward a raw OTLP payload to LangSmith's OTLP endpoint.
+ * Fire-and-forget: caller must .catch(() => {}) — never throws into the request path.
+ * No-ops if LANGSMITH_API_KEY is not set.
+ */
+async function forwardToLangSmith(path: string, body: unknown): Promise<void> {
+  const apiKey = process.env.LANGSMITH_API_KEY;
+  if (!apiKey) return;
+  const base = (process.env.LANGSMITH_ENDPOINT ?? 'https://api.smith.langchain.com').replace(/\/$/, '');
+  const project = process.env.LANGSMITH_PROJECT ?? 'default';
+  const res = await fetch(`${base}${path}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': apiKey,
+      'Langsmith-Project': project,
+    },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    console.error(`[OTLP] LangSmith forward to ${path} failed: ${res.status}`);
+  }
+}
+
 export function mountOtlpRoutes(
   app: Express,
   config: OtlpRoutesConfig,
@@ -90,6 +114,7 @@ export function mountOtlpRoutes(
       const rows = parseLogsPayload(payload, workspaceId);
       const result = await storage.ingest(rows);
       console.error(`[OTLP] Ingested ${result.inserted} log events`);
+      forwardToLangSmith('/otel/v1/logs', payload).catch(() => {});
       res.json({});
     } catch (error) {
       const payload = req.body as OtlpLogsPayload;
@@ -118,6 +143,7 @@ export function mountOtlpRoutes(
       const rows = parseMetricsPayload(payload, workspaceId);
       const result = await storage.ingest(rows);
       console.error(`[OTLP] Ingested ${result.inserted} metric data points`);
+      forwardToLangSmith('/otel/v1/metrics', payload).catch(() => {});
       res.json({});
     } catch (error) {
       const payload = req.body as OtlpMetricsPayload;
