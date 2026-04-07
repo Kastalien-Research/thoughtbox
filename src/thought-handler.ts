@@ -8,10 +8,6 @@ import {
   type SessionFilter,
   type ThoughtData as PersistentThoughtData,
 } from "./persistence/index.js";
-import {
-  thoughtEmitter,
-  type Thought as ObservatoryThought,
-} from "./observatory/index.js";
 import { SamplingHandler } from "./sampling/index.js";
 // SIL-104: Event stream for external consumers
 import type { ThoughtboxEventEmitter } from "./events/index.js";
@@ -717,23 +713,6 @@ export class ThoughtHandler {
         }
 
         if (isNewSession) {
-          // Observatory: Emit session started event
-          if (thoughtEmitter.hasListeners()) {
-            try {
-              thoughtEmitter.emitSessionStarted({
-                session: {
-                  id: session.id,
-                  title: session.title,
-                  tags: session.tags || [],
-                  createdAt: session.createdAt.toISOString(),
-                  status: 'active',
-                },
-              });
-            } catch (e) {
-              console.warn('[Observatory] Session start emit failed:', e instanceof Error ? e.message : e);
-            }
-          }
-
           // SIL-104: Emit session_created event
           if (this.eventEmitter?.isEnabled()) {
             this.eventEmitter.emitSessionCreated({
@@ -858,67 +837,6 @@ export class ThoughtHandler {
           this.branches[validatedInput.branchId].push(validatedInput);
         }
 
-        // Observatory: Fire-and-forget event emission
-        // This block NEVER throws - failures are logged and swallowed
-        if (thoughtEmitter.hasListeners()) {
-          // Generate unique ID - include branchId for branch thoughts to prevent collisions
-          const thoughtId = validatedInput.branchId
-            ? `${this.currentSessionId}-${validatedInput.branchId}-${validatedInput.thoughtNumber}`
-            : `${this.currentSessionId}-${validatedInput.thoughtNumber}`;
-
-          const observatoryThought: ObservatoryThought = {
-            id: thoughtId,
-            thoughtNumber: validatedInput.thoughtNumber,
-            totalThoughts: validatedInput.totalThoughts,
-            thought: validatedInput.thought,
-            nextThoughtNeeded: validatedInput.nextThoughtNeeded,
-            timestamp: thoughtData.timestamp,
-            isRevision: validatedInput.isRevision,
-            revisesThought: validatedInput.revisesThought,
-            branchId: validatedInput.branchId,
-            branchFromThought: validatedInput.branchFromThought,
-            thoughtType: validatedInput.thoughtType,
-            confidence: validatedInput.confidence,
-            options: validatedInput.options,
-            actionResult: validatedInput.actionResult,
-            beliefs: validatedInput.beliefs,
-            assumptionChange: validatedInput.assumptionChange,
-            contextData: validatedInput.contextData,
-          };
-
-          const parentId = validatedInput.thoughtNumber > 1
-            ? `${this.currentSessionId}-${validatedInput.thoughtNumber - 1}`
-            : null;
-
-          try {
-            if (validatedInput.isRevision && validatedInput.revisesThought) {
-              thoughtEmitter.emitThoughtRevised({
-                sessionId: this.currentSessionId,
-                thought: observatoryThought,
-                parentId,
-                originalThoughtNumber: validatedInput.revisesThought,
-              });
-            } else if (validatedInput.branchFromThought && validatedInput.branchId) {
-              thoughtEmitter.emitThoughtBranched({
-                sessionId: this.currentSessionId,
-                thought: observatoryThought,
-                parentId,
-                branchId: validatedInput.branchId,
-                fromThoughtNumber: validatedInput.branchFromThought,
-              });
-            } else {
-              thoughtEmitter.emitThoughtAdded({
-                sessionId: this.currentSessionId,
-                thought: observatoryThought,
-                parentId,
-              });
-            }
-          } catch (e) {
-            // Swallow any errors - observatory must never affect reasoning
-            console.warn('[Observatory] Emit failed:', e instanceof Error ? e.message : e);
-          }
-        }
-
         // SIL-104: Emit thought_added and branch_created events
         if (this.eventEmitter?.isEnabled()) {
           // Track if thoughtNumber was auto-assigned (SIL-102)
@@ -1009,19 +927,6 @@ export class ThoughtHandler {
           auditManifest = toAuditManifest(auditData);
         } catch (err) {
           console.warn('[AUDIT-003] Manifest generation failed:', (err as Error).message);
-        }
-
-        // Observatory: Emit session ended event
-        if (thoughtEmitter.hasListeners()) {
-          try {
-            thoughtEmitter.emitSessionEnded({
-              sessionId: this.currentSessionId,
-              finalThoughtCount: this.thoughtHistory.length,
-              auditManifest,
-            });
-          } catch (e) {
-            console.warn('[Observatory] Session end emit failed:', e instanceof Error ? e.message : e);
-          }
         }
 
         // SIL-104: Emit session_completed event to external event stream

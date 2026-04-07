@@ -59,7 +59,7 @@ The server consists of several interconnected components:
 │  └──────────┘ └──────────┘ └──────────┘ └──────────┘ └──────────┘│
 │                              ↓                                     │
 │  ┌──────────────────────────────────────────────────────────────┐ │
-│  │   Persistence (FileSystemStorage) + Observatory (WebSocket)  │ │
+│  │   Persistence (FileSystemStorage / SupabaseStorage)           │ │
 │  └──────────────────────────────────────────────────────────────┘ │
 └────────────────────────────────────────────────────────────────────┘
 \`\`\`
@@ -198,82 +198,6 @@ export interface ThoughtNode {
 - **Branch**: \`\${sessionId}:\${branchId}:\${thoughtNumber}\`
 
 This ensures branch thoughts with the same thought number but different branch IDs remain unique.
-
-## Observatory System
-
-Real-time WebSocket monitoring for reasoning processes.
-
-### Components
-
-\`\`\`typescript
-// observatory/index.ts exports
-export { ThoughtEmitter, thoughtEmitter } from "./emitter.js";
-export { WebSocketServer } from "./ws-server.js";
-export { Channel } from "./channel.js";
-export { createObservatoryServer } from "./server.js";
-\`\`\`
-
-### ThoughtEmitter
-
-Fire-and-forget event emission that doesn't affect reasoning:
-
-\`\`\`typescript
-// Usage in thought-handler.ts
-if (thoughtEmitter.hasListeners()) {
-  thoughtEmitter.emitThoughtAdded({
-    sessionId,
-    thought,
-    parentId: previousThought?.id ?? null
-  });
-}
-\`\`\`
-
-### Event Types
-
-| Event | Payload | Description |
-|-------|---------|-------------|
-| \`thought:added\` | ThoughtAddedPayload | New thought in chain |
-| \`thought:revised\` | ThoughtRevisedPayload | Thought revised |
-| \`thought:branched\` | ThoughtBranchedPayload | Branch created |
-| \`session:started\` | SessionStartedPayload | Session began |
-| \`session:ended\` | SessionEndedPayload | Session completed |
-| \`session:snapshot\` | SessionSnapshotPayload | Full session state |
-
-### Channel-Based WebSocket Server
-
-Clients subscribe to topics:
-
-\`\`\`typescript
-// Client subscribes to a session's events
-ws.send(JSON.stringify({
-  type: 'subscribe',
-  topic: 'session:abc-123'
-}));
-
-// Server sends events for that session
-{
-  type: 'thought:added',
-  topic: 'session:abc-123',
-  data: { thoughtNumber: 5, thought: '...' }
-}
-\`\`\`
-
-### Configuration
-
-Observatory is configured via environment variables:
-
-\`\`\`typescript
-// observatory/config.ts
-export const ObservatoryConfigSchema = z.object({
-  enabled: z.boolean().default(false),
-  port: z.number().default(8080),
-  host: z.string().default('localhost'),
-});
-
-// Load from environment
-const config = loadObservatoryConfig();
-// Uses: OBSERVATORY_ENABLED, OBSERVATORY_PORT, OBSERVATORY_HOST
-\`\`\`
 
 ###### mcp-protocol-flow.ts
 
@@ -510,11 +434,7 @@ Project scope is resolved automatically from MCP roots or \`THOUGHTBOX_PROJECT\`
 
 The doubly-linked list with Map indexes provides O(1) lookups while maintaining chain structure for branching and revisions.
 
-### 4. Observatory Enables Real-Time Monitoring
-
-Fire-and-forget event emission with channel-based WebSocket delivery lets external tools observe reasoning without affecting it.
-
-### 5. MCP Enables Structured Cognition
+### 4. MCP Enables Structured Cognition
 
 The Model Context Protocol isn't just about API calls - it's about giving LLMs structured ways to think, document, and organize knowledge.
 
@@ -526,7 +446,6 @@ The Model Context Protocol isn't just about API calls - it's about giving LLMs s
 |------|---------|
 | \`src/server-factory.ts\` | Server creation, tool registration, transport |
 | \`src/persistence/storage.ts\` | Storage and LinkedThoughtStore |
-| \`src/observatory/index.ts\` | Real-time monitoring |
 | \`src/sessions/index.ts\` | Session tool handler |
 | \`src/thought-handler.ts\` | Thought processing and reasoning chains |
 
