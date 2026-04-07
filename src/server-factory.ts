@@ -134,6 +134,8 @@ export interface CreateMcpServerArgs {
   onProtocolHandlerReady?: (
     handler: ProtocolHandler | InMemoryProtocolHandler,
   ) => void;
+  /** Optional callback for protocol lifecycle events (unified event stream) */
+  onProtocolEvent?: import('./events/types.js').OnThoughtboxEvent;
 }
 
 const defaultLogger: Logger = {
@@ -380,10 +382,10 @@ Use \`console.log()\` for debugging — output captured in response logs.`;
       protocolSupabaseUrl,
       protocolServiceKey,
     );
-    protocolHandler = new ProtocolHandler(protocolClient);
+    protocolHandler = new ProtocolHandler(protocolClient, args.onProtocolEvent);
     logger.info('Protocol tools using Supabase backend');
   } else {
-    protocolHandler = new InMemoryProtocolHandler();
+    protocolHandler = new InMemoryProtocolHandler(args.onProtocolEvent);
     logger.info('Protocol tools using in-memory backend');
   }
 

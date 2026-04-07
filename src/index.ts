@@ -29,7 +29,9 @@ import { createFileSystemHubStorage } from "./hub/hub-storage-fs.js";
 import type { HubStorage } from "./hub/hub-types.js";
 import { initEvaluation, initMonitoring } from "./evaluation/index.js";
 import { createHubHandler, type HubEvent } from "./hub/hub-handler.js";
-import { createHubHttpSurface, shouldWarnOnExposedLocalMode } from "./http/hub-http.js";
+import { createHubApiSurface, shouldWarnOnExposedLocalMode } from "./http/hub-http.js";
+import { createEventStreamSurface } from "./http/event-stream.js";
+import type { ThoughtboxEvent } from "./events/types.js";
 import {
   createProtocolHttpSurface,
   type ProtocolEnforcementHandler,
@@ -425,6 +427,7 @@ async function startHttpServer() {
         knowledgeStorage,
         workspaceId: localWorkspaceId,
         onProtocolHandlerReady: (handler) => { localProtocolHandler = handler; },
+        onProtocolEvent: (event) => eventStream.broadcast(event),
         config: {
           disableThoughtLogging:
             (process.env.DISABLE_THOUGHT_LOGGING || "").toLowerCase() === "true",
@@ -510,17 +513,24 @@ async function startHttpServer() {
     async getBranch(_sessionId: string, _branchId: string) { return []; },
   };
 
-  const hubHttpSurface = createHubHttpSurface(
-    createHubHandler(
-      hubStorage,
-      sharedThoughtStore,
-      (event: HubEvent) => hubHttpSurface.broadcastHubEvent(event),
-    ),
+  // Unified event stream — carries both Hub and Protocol events via SSE
+  const eventStream = createEventStreamSurface();
+
+  const hubHandler = createHubHandler(
+    hubStorage,
+    sharedThoughtStore,
+    (event: HubEvent) => {
+      eventStream.broadcast({
+        source: 'hub',
+        type: event.type,
+        workspaceId: event.workspaceId,
+        timestamp: new Date().toISOString(),
+        data: event.data,
+      });
+    },
   );
 
-  if (!isMultiTenant) {
-    hubHttpSurface.mount(app);
-  }
+  const hubApiSurface = createHubApiSurface(hubHandler);
 
   const protocolHttpSurface = createProtocolHttpSurface(() => {
     for (const entry of sessions.values()) {
@@ -530,6 +540,8 @@ async function startHttpServer() {
   });
 
   if (!isMultiTenant) {
+    eventStream.mount(app);
+    hubApiSurface.mount(app);
     protocolHttpSurface.mount(app);
   }
 

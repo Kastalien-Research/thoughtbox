@@ -29,8 +29,7 @@
   "module": "src/index.ts",
   "types": "./dist/index.d.ts",
   "bin": {
-    "thoughtbox": "./dist/index.js",
-    "thoughtbox-hub-channel": "./dist/channel/hub-channel.js"
+    "thoughtbox": "./dist/index.js"
   },
   "files": [
     "dist",

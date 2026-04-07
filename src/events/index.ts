@@ -1,6 +1,8 @@
 /**
- * @fileoverview Events module exports for SIL-104 Event Stream
- * @module src/events
+ * Events module exports.
+ *
+ * Unified ThoughtboxEvent types for SSE stream (types.ts)
+ * + SIL-104 trace emitter types (sil104-types.ts)
  */
 
 export {
@@ -9,15 +11,21 @@ export {
 } from './event-emitter.js';
 
 export type {
-  ThoughtboxEventType,
-  BaseEvent,
+  ThoughtboxEvent,
+  HubEventType,
+  ProtocolEventType,
+  OnThoughtboxEvent,
+} from './types.js';
+
+export type {
+  Sil104EventType,
+  Sil104Event,
   SessionCreatedEvent,
   ThoughtAddedEvent,
   BranchCreatedEvent,
   SessionCompletedEvent,
   ExportRequestedEvent,
-  ThoughtboxEvent,
   EventStreamConfig,
-} from './types.js';
+} from './sil104-types.js';
 
-export { DEFAULT_EVENT_STREAM_CONFIG } from './types.js';
+export { DEFAULT_EVENT_STREAM_CONFIG } from './sil104-types.js';

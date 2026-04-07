@@ -1,6 +1,6 @@
 import express from "express";
 import { describe, expect, it, vi } from "vitest";
-import { createHubHttpSurface, shouldWarnOnExposedLocalMode } from "../hub-http.js";
+import { createHubApiSurface, shouldWarnOnExposedLocalMode } from "../hub-http.js";
 import type { HubHandler } from "../../hub/hub-handler.js";
 
 function listRoutes(app: express.Express): string[] {
@@ -13,8 +13,8 @@ function listRoutes(app: express.Express): string[] {
     .filter((path): path is string => typeof path === "string");
 }
 
-describe("hub HTTP surface", () => {
-  it("mounts hub routes for local fs/memory mode", () => {
+describe("hub API surface", () => {
+  it("mounts /hub/api route for local mode", () => {
     const app = express();
     app.use(express.json());
 
@@ -22,17 +22,16 @@ describe("hub HTTP surface", () => {
       handle: vi.fn(async () => ({ ok: true })),
     };
 
-    createHubHttpSurface(handler).mount(app);
+    createHubApiSurface(handler).mount(app);
 
-    expect(listRoutes(app)).toContain("/hub/events");
     expect(listRoutes(app)).toContain("/hub/api");
+    expect(listRoutes(app)).not.toContain("/hub/events");
   });
 
-  it("leaves hub routes absent when not mounted for supabase mode", () => {
+  it("leaves hub routes absent when not mounted", () => {
     const app = express();
     app.use(express.json());
 
-    expect(listRoutes(app)).not.toContain("/hub/events");
     expect(listRoutes(app)).not.toContain("/hub/api");
   });
 });

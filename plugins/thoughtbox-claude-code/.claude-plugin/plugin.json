@@ -1,0 +1,20 @@
+{
+  "name": "thoughtbox-claude-code",
+  "version": "0.1.0",
+  "description": "Thoughtbox observability hooks, protocol enforcement, and channel server for Claude Code",
+  "author": {
+    "name": "Kastalien Research"
+  },
+  "repository": "https://github.com/kastalien-research/thoughtbox",
+  "license": "MIT",
+  "keywords": ["thoughtbox", "observability", "otlp", "tracing", "protocols"],
+  "hooks": "./hooks/hooks.json",
+  "channels": [
+    {
+      "id": "thoughtbox-channel",
+      "transport": "stdio",
+      "command": "node",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/dist/thoughtbox-channel.js"]
+    }
+  ]
+}

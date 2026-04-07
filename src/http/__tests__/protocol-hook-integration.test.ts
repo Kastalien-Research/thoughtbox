@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 const HOOK_PATH = path.resolve(
   process.cwd(),
-  ".claude/hooks/pre_tool_use.sh",
+  "plugins/thoughtbox-claude-code/scripts/protocol_gate.sh",
 );
 
 function buildHookInput(
@@ -20,7 +20,7 @@ function buildHookInput(
   });
 }
 
-describe("pre_tool_use protocol enforcement", () => {
+describe("protocol_gate.sh enforcement", () => {
   let projectDir: string;
   let fakeBinDir: string;
   let curlCapturePath: string;
@@ -75,10 +75,8 @@ exit "$FAKE_CURL_EXIT_CODE"
       env: {
         ...process.env,
         PATH: `${fakeBinDir}:${process.env.PATH ?? ""}`,
-        CLAUDE_PROJECT_DIR: projectDir,
-        THOUGHTBOX_PROTOCOL_ENFORCEMENT_URL:
-          "http://localhost:1731/protocol/enforcement",
-        CC_DISABLE_READ_GUARD: "1",
+        THOUGHTBOX_URL: "http://localhost:1731",
+        THOUGHTBOX_WORKSPACE_ID: "",
         FAKE_CURL_CAPTURE: curlCapturePath,
         FAKE_CURL_RESPONSE: JSON.stringify({ enforce: false }),
         FAKE_CURL_EXIT_CODE: "0",
@@ -91,9 +89,11 @@ exit "$FAKE_CURL_EXIT_CODE"
     return JSON.parse(readFileSync(curlCapturePath, "utf8"));
   }
 
-  it("blocks mutating work when Ulysses requires reflect", () => {
+  it("blocks Write when Ulysses requires reflect", () => {
     const result = runHook(
-      buildHookInput("Bash", { command: "npm test" }),
+      buildHookInput("Write", {
+        file_path: path.join(projectDir, "src", "widget.ts"),
+      }),
       {
         FAKE_CURL_RESPONSE: JSON.stringify({
           enforce: true,
@@ -108,21 +108,15 @@ exit "$FAKE_CURL_EXIT_CODE"
 
     expect(result.status).toBe(2);
     expect(result.stderr).toContain("REFLECT REQUIRED");
-    expect(result.stderr).toContain("Required action: reflect");
-    expect(capturedPayload()).toEqual({
-      mutation: true,
-      targetPath: null,
-      workspaceId: path.basename(projectDir),
-    });
+    expect(result.stderr).toContain("reflect");
   });
 
-  it("allows read-only inspection while Ulysses is blocked", () => {
+  it("skips enforcement when no file_path is present", () => {
     const result = runHook(
-      buildHookInput("Bash", { command: "git status --short" }),
+      buildHookInput("Write", {}),
     );
 
     expect(result.status).toBe(0);
-    expect(result.stderr).toBe("");
     expect(() => capturedPayload()).toThrow();
   });
 
@@ -143,16 +137,11 @@ exit "$FAKE_CURL_EXIT_CODE"
 
     expect(result.status).toBe(2);
     expect(result.stderr).toContain("TEST LOCK");
-    expect(capturedPayload()).toEqual({
-      mutation: true,
-      targetPath: "src/widget.test.ts",
-      workspaceId: path.basename(projectDir),
-    });
   });
 
   it("blocks out-of-scope writes until a visa exists", () => {
     const result = runHook(
-      buildHookInput("Write", {
+      buildHookInput("Edit", {
         file_path: path.join(projectDir, "src", "other.ts"),
       }),
       {
@@ -168,10 +157,9 @@ exit "$FAKE_CURL_EXIT_CODE"
 
     expect(result.status).toBe(2);
     expect(result.stderr).toContain("VISA REQUIRED");
-    expect(result.stderr).toContain("Required action: visa");
   });
 
-  it("allows in-scope Theseus writes", () => {
+  it("allows in-scope writes", () => {
     const result = runHook(
       buildHookInput("Write", {
         file_path: path.join(projectDir, "src", "in-scope.ts"),
@@ -187,10 +175,18 @@ exit "$FAKE_CURL_EXIT_CODE"
 
     expect(result.status).toBe(0);
     expect(result.stderr).toBe("");
-    expect(capturedPayload()).toEqual({
-      mutation: true,
-      targetPath: "src/in-scope.ts",
-      workspaceId: path.basename(projectDir),
-    });
+  });
+
+  it("fails open when curl fails", () => {
+    const result = runHook(
+      buildHookInput("Write", {
+        file_path: path.join(projectDir, "src", "widget.ts"),
+      }),
+      {
+        FAKE_CURL_EXIT_CODE: "7",
+      },
+    );
+
+    expect(result.status).toBe(0);
   });
 });

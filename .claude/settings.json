@@ -1,31 +1,12 @@
 {
-  "env": {
-    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "true",
-    "ENABLE_CLAUDEAI_MCP_SERVERS": "false",
-    "CLAUDE_CODE_ENABLE_TELEMETRY": "1",
-    "OTEL_EXPORTER_OTLP_PROTOCOL": "http/json",
-    "OTEL_EXPORTER_OTLP_ENDPOINT": "https://mcp.kastalienresearch.ai",
-    "OTEL_METRICS_EXPORTER": "otlp",
-    "OTEL_LOGS_EXPORTER": "otlp"
-  },
   "hooks": {
-    "SessionStart": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "\"$CLAUDE_PROJECT_DIR/.claude/hooks/session_start.sh\" --load-context"
-          }
-        ]
-      }
-    ],
     "PreToolUse": [
       {
         "matcher": "",
         "hooks": [
           {
             "type": "command",
-            "command": "\"$CLAUDE_PROJECT_DIR/.claude/hooks/pre_tool_use.sh\""
+            "command": "\"$CLAUDE_PROJECT_DIR/.claude/hooks/read_before_write_guard.sh\""
           }
         ]
       }
@@ -36,68 +17,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"$CLAUDE_PROJECT_DIR/.claude/hooks/post_tool_use.sh\""
-          }
-        ]
-      },
-      {
-        "matcher": "mcp__thoughtbox-cloud-run__thoughtbox_execute",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "\"$CLAUDE_PROJECT_DIR/.claude/hooks/thoughtbox_session_tracker.sh\""
-          }
-        ]
-      }
-    ],
-    "PostCompact": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "\"$CLAUDE_PROJECT_DIR/.claude/hooks/post_compact_context.sh\""
-          }
-        ]
-      }
-    ],
-    "SubagentStart": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "\"$CLAUDE_PROJECT_DIR/.claude/hooks/subagent_start_inject.sh\""
-          }
-        ]
-      }
-    ],
-    "Stop": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "\"$CLAUDE_PROJECT_DIR/.claude/hooks/stop_landing.sh\""
-          },
-          {
-            "type": "command",
-            "command": "\"$CLAUDE_PROJECT_DIR/.claude/hooks/stop.sh\" &"
-          }
-        ]
-      }
-    ],
-    "TaskCompleted": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "\"$CLAUDE_PROJECT_DIR/.claude/hooks/task_completed_gate.sh\"",
-            "statusMessage": "Checking test gate..."
-          },
-          {
-            "type": "agent",
-            "prompt": "You are the Verification Judge. A task is being marked complete. Validate it independently:\n\n1. Run `git diff --stat` to see recent changes\n2. Check if tests pass for changed files (use `npx vitest run --reporter=verbose` if vitest is configured)\n3. Run `tsc --noEmit` if TypeScript files were changed\n4. Read the task description to understand acceptance criteria\n5. Verify the implementation matches the criteria\n\nYou MUST use deterministic checks (tests, tsc) as first pass. Only use judgment for criteria that cannot be automated.\n\nIf validation fails, respond {\"ok\": false, \"reason\": \"<specific failures with file:line references>\"}.\nIf the SPECIFICATION is the problem (not the implementation), say so explicitly in the reason.\nIf validation passes, respond {\"ok\": true}.",
-            "model": "sonnet",
-            "timeout": 120,
-            "statusMessage": "Verification Judge reviewing..."
+            "command": "\"$CLAUDE_PROJECT_DIR/.claude/hooks/file_access_logger.sh\""
           }
         ]
       }

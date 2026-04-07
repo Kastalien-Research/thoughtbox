@@ -1,8 +1,6 @@
 /**
- * Unified Thoughtbox event types.
- *
- * Carries both Hub coordination events and Protocol lifecycle events
- * through a single SSE stream at /events.
+ * Unified Thoughtbox event types (standalone copy for plugin runtime).
+ * Must stay in sync with src/events/types.ts in the main package.
  */
 
 export type HubEventType =
@@ -32,5 +30,3 @@ export interface ThoughtboxEvent {
   timestamp: string;
   data: Record<string, unknown>;
 }
-
-export type OnThoughtboxEvent = (event: ThoughtboxEvent) => void;

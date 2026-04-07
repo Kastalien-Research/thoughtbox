@@ -12,16 +12,16 @@
 import { appendFileSync, existsSync, mkdirSync } from 'fs';
 import { dirname } from 'path';
 import type {
-  ThoughtboxEvent,
-  ThoughtboxEventType,
+  Sil104Event,
+  Sil104EventType,
   EventStreamConfig,
   SessionCreatedEvent,
   ThoughtAddedEvent,
   BranchCreatedEvent,
   SessionCompletedEvent,
   ExportRequestedEvent,
-} from './types.js';
-import { DEFAULT_EVENT_STREAM_CONFIG } from './types.js';
+} from './sil104-types.js';
+import { DEFAULT_EVENT_STREAM_CONFIG } from './sil104-types.js';
 
 // =============================================================================
 // Event Emitter Class
@@ -137,17 +137,17 @@ export class ThoughtboxEventEmitter {
   /**
    * Emit an event to the configured destination
    */
-  private emit(event: Omit<ThoughtboxEvent, 'sessionId'>): void {
+  private emit(event: Omit<Sil104Event, 'sessionId'>): void {
     if (!this.config.enabled) {
       return;
     }
 
-    const fullEvent: ThoughtboxEvent = {
+    const fullEvent: Sil104Event = {
       ...event,
       ...(this.config.includeMcpSessionId && this.sessionId
         ? { sessionId: this.sessionId }
         : {}),
-    } as ThoughtboxEvent;
+    } as Sil104Event;
 
     const line = JSON.stringify(fullEvent) + '\n';
 

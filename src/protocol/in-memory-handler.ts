@@ -4,6 +4,7 @@
  */
 
 import { randomUUID } from 'node:crypto';
+import type { ThoughtboxEvent, OnThoughtboxEvent } from '../events/types.js';
 import {
   isTestFile,
   ULYSSES_STATE_NEEDS_REFLECT,
@@ -32,6 +33,23 @@ export class InMemoryProtocolHandler {
   private visas: ProtocolVisa[] = [];
   private audits: ProtocolAudit[] = [];
   private history: ProtocolHistoryEvent[] = [];
+
+  constructor(private onEvent?: OnThoughtboxEvent) {}
+
+  private emit(
+    type: ThoughtboxEvent['type'],
+    sessionId: string,
+    data: Record<string, unknown>,
+  ): void {
+    if (!this.onEvent) return;
+    this.onEvent({
+      source: 'protocol',
+      type,
+      workspaceId: this.workspaceId ?? '',
+      timestamp: new Date().toISOString(),
+      data: { session_id: sessionId, ...data },
+    });
+  }
 
   setProject(project: string): void {
     this.workspaceId = project;
@@ -96,6 +114,8 @@ export class InMemoryProtocolHandler {
       });
     }
 
+    this.emit('theseus_init', session.id, { scope, description });
+
     const result: Record<string, unknown> = {
       session_id: session.id,
       protocol: 'theseus',
@@ -138,6 +158,8 @@ export class InMemoryProtocolHandler {
         created_at: new Date().toISOString(),
       });
     }
+
+    this.emit('theseus_visa', session.id, { filePath: visa.filePath, justification: visa.justification });
 
     return {
       session_id: session.id,
@@ -185,6 +207,11 @@ export class InMemoryProtocolHandler {
       session.state_json = { ...state, B: 0, test_fail_count: 0 };
     }
 
+    this.emit('theseus_checkpoint', session.id, {
+      approved: audit.approved,
+      B: audit.approved ? 0 : (session.state_json as { B: number }).B,
+    });
+
     return {
       session_id: session.id,
       checkpoint_accepted: audit.approved,
@@ -218,6 +245,7 @@ export class InMemoryProtocolHandler {
 
     if (result.testsPassed) {
       session.state_json = { ...state, B: 0, test_fail_count: 0 };
+      this.emit('theseus_outcome', session.id, { testsPassed: true, B: 0 });
       return { session_id: session.id, testsPassed: true, B: 0, test_fail_count: 0 };
     }
 
@@ -225,6 +253,7 @@ export class InMemoryProtocolHandler {
 
     if (newCount >= 2) {
       session.state_json = { ...state, B: 0, test_fail_count: 0 };
+      this.emit('theseus_outcome', session.id, { testsPassed: false, B: 0 });
       return {
         session_id: session.id,
         testsPassed: false,
@@ -236,6 +265,7 @@ export class InMemoryProtocolHandler {
     }
 
     session.state_json = { ...state, B: 1, test_fail_count: newCount };
+    this.emit('theseus_outcome', session.id, { testsPassed: false, B: 1 });
     return {
       session_id: session.id,
       testsPassed: false,
@@ -282,6 +312,7 @@ export class InMemoryProtocolHandler {
     }
     session.status = terminalState;
     session.completed_at = new Date().toISOString();
+    this.emit('theseus_complete', session.id, { status: terminalState });
     const result: Record<string, unknown> = { session_id: session.id, status: terminalState };
     if (summary) result.summary = summary;
     return result;
@@ -312,6 +343,8 @@ export class InMemoryProtocolHandler {
       completed_at: null,
     };
     this.sessions.push(session);
+
+    this.emit('ulysses_init', session.id, { problem });
 
     const result: Record<string, unknown> = {
       session_id: session.id,
@@ -434,6 +467,8 @@ export class InMemoryProtocolHandler {
 
     session.state_json = newState;
 
+    this.emit('ulysses_outcome', session.id, { assessment: outcome.assessment, S: newState.S });
+
     return {
       session_id: session.id,
       assessment: outcome.assessment,
@@ -478,6 +513,8 @@ export class InMemoryProtocolHandler {
       event_json: hypothesis,
       created_at: new Date().toISOString(),
     });
+
+    this.emit('ulysses_reflect', session.id, { hypothesis: reflection.hypothesis });
 
     return {
       session_id: session.id,
@@ -531,6 +568,7 @@ export class InMemoryProtocolHandler {
     }
     session.status = terminalState;
     session.completed_at = new Date().toISOString();
+    this.emit('ulysses_complete', session.id, { status: terminalState });
     const result: Record<string, unknown> = { session_id: session.id, status: terminalState };
     if (summary) result.summary = summary;
     return result;

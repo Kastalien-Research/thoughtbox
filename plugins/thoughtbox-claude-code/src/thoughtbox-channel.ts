@@ -1,19 +1,15 @@
 #!/usr/bin/env node
 /**
- * Thoughtbox Hub Channel — Claude Code Channel Server
+ * Thoughtbox Channel — Claude Code Channel Server
  *
- * A Claude Code Channel that pushes Hub events into a running session
- * so agents can react to coordination state changes in real time.
- *
- * Spawned as a stdio subprocess by Claude Code.
- * Connects to the Thoughtbox HTTP server via SSE for event streaming
- * and HTTP for reply tool operations.
+ * Pushes Hub coordination events and Protocol lifecycle events into a
+ * running Claude Code session via the unified /events SSE stream.
  *
  * Configuration via environment variables:
- *   THOUGHTBOX_URL          - Thoughtbox HTTP server URL (default: http://localhost:1731)
- *   THOUGHTBOX_AGENT_NAME   - Agent display name (required)
+ *   THOUGHTBOX_URL           - Thoughtbox HTTP server URL (default: http://localhost:1731)
+ *   THOUGHTBOX_AGENT_NAME    - Agent display name (required)
  *   THOUGHTBOX_AGENT_PROFILE - Agent profile: MANAGER|ARCHITECT|DEBUGGER|SECURITY|RESEARCHER|REVIEWER
- *   THOUGHTBOX_WORKSPACE_ID - Workspace to join (required)
+ *   THOUGHTBOX_WORKSPACE_ID  - Workspace to join (required)
  */
 
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
@@ -25,9 +21,9 @@ import {
 import { z } from "zod";
 import { getChannelInstructions } from "./profile-instructions.js";
 import { EventFilter } from "./event-filter.js";
-import { HubEventClient } from "./hub-event-client.js";
+import { EventClient } from "./event-client.js";
 import { HubApiClient } from "./hub-api-client.js";
-import type { HubEvent } from "../hub/hub-handler.js";
+import type { ThoughtboxEvent } from "./event-types.js";
 
 // ---------------------------------------------------------------------------
 // Configuration
@@ -48,17 +44,13 @@ if (!WORKSPACE_ID) {
 }
 
 // ---------------------------------------------------------------------------
-// Channel Instructions (profile-specific)
+// MCP Server (Channel)
 // ---------------------------------------------------------------------------
 
 const instructions = getChannelInstructions(AGENT_PROFILE);
 
-// ---------------------------------------------------------------------------
-// MCP Server (Channel)
-// ---------------------------------------------------------------------------
-
 const mcp = new Server(
-  { name: "thoughtbox-hub", version: "0.1.0" },
+  { name: "thoughtbox-channel", version: "0.1.0" },
   {
     capabilities: {
       experimental: {
@@ -92,12 +84,13 @@ const filter = new EventFilter({
 });
 
 // ---------------------------------------------------------------------------
-// Format Hub Event → Channel Notification
+// Format Event → Channel Notification
 // ---------------------------------------------------------------------------
 
-function formatEventContent(event: HubEvent): string {
+function formatEventContent(event: ThoughtboxEvent): string {
   const d = event.data;
   switch (event.type) {
+    // Hub events
     case "workspace_created":
       return `Workspace '${d.name}' created by agent ${d.createdBy}`;
     case "problem_created":
@@ -112,19 +105,50 @@ function formatEventContent(event: HubEvent): string {
       return `Proposal '${d.title}' merged by ${d.mergedBy}`;
     case "consensus_marked":
       return `Consensus '${d.name}': ${d.description ?? ""}`;
+
+    // Protocol events — Ulysses
+    case "ulysses_init":
+      return `Ulysses session started: ${d.problem}`;
+    case "ulysses_outcome":
+      return `Outcome: ${d.assessment} (S=${d.S})${Number(d.S) >= 2 ? ". REFLECT required before further mutations." : ""}`;
+    case "ulysses_reflect":
+      return `Reflection recorded. S reset to 0. Hypothesis: ${d.hypothesis}`;
+    case "ulysses_complete":
+      return `Ulysses session ${d.status}`;
+
+    // Protocol events — Theseus
+    case "theseus_init":
+      return `Theseus refactoring session started. Scope: ${Array.isArray(d.scope) ? (d.scope as string[]).join(", ") : d.scope}`;
+    case "theseus_visa":
+      return `Visa granted for ${d.filePath}: ${d.justification}`;
+    case "theseus_checkpoint":
+      return `Checkpoint ${d.approved ? "approved" : "needs review"} (B=${d.B})`;
+    case "theseus_outcome":
+      return `Tests ${d.testsPassed ? "passed" : "failed"} (B=${d.B})`;
+    case "theseus_complete":
+      return `Theseus session ${d.status}`;
+
     default:
       return JSON.stringify(d);
   }
 }
 
-function formatEventMeta(event: HubEvent): Record<string, string> {
+function formatEventMeta(event: ThoughtboxEvent): Record<string, string> {
   const meta: Record<string, string> = {
     event: event.type,
+    source: event.source,
     workspace_id: event.workspaceId,
   };
 
+  // High severity for actionable protocol states
+  if (event.type === "ulysses_outcome" && Number(event.data.S) >= 2) {
+    meta.severity = "high";
+  }
+  if (event.type === "theseus_outcome" && !event.data.testsPassed) {
+    meta.severity = "high";
+  }
+
   const d = event.data;
-  // Add type-specific meta keys (only string values; Channel meta must be Record<string, string>)
   for (const [key, val] of Object.entries(d)) {
     if (typeof val === "string" || typeof val === "number") {
       meta[key] = String(val);
@@ -134,7 +158,7 @@ function formatEventMeta(event: HubEvent): Record<string, string> {
   return meta;
 }
 
-async function pushEvent(event: HubEvent): Promise<void> {
+async function pushEvent(event: ThoughtboxEvent): Promise<void> {
   if (!filter.shouldForward(event)) return;
 
   try {
@@ -146,7 +170,7 @@ async function pushEvent(event: HubEvent): Promise<void> {
       },
     });
   } catch (err) {
-    console.error("[Hub Channel] Failed to push event:", err);
+    console.error("[Channel] Failed to push event:", err);
   }
 }
 
@@ -158,7 +182,7 @@ mcp.setRequestHandler(ListToolsRequestSchema, async () => ({
   tools: [
     {
       name: "hub_reply",
-      description: "Post a message to a problem's discussion channel in the Hub",
+      description: "Post a message to a problem's discussion channel",
       inputSchema: {
         type: "object" as const,
         properties: {
@@ -171,7 +195,7 @@ mcp.setRequestHandler(ListToolsRequestSchema, async () => ({
     },
     {
       name: "hub_action",
-      description: "Execute a quick Hub action: claim a problem, update status, endorse consensus, or review a proposal",
+      description: "Execute a Hub action: claim problem, update status, endorse consensus, or review proposal",
       inputSchema: {
         type: "object" as const,
         properties: {
@@ -255,14 +279,7 @@ const PermissionRequestSchema = z.object({
   }),
 });
 
-const PERMISSION_REPLY_RE = /^\s*(y|yes|n|no)\s+([a-km-z]{5})\s*$/i;
-
-// Track pending permission requests so we can match verdict replies
-const pendingPermissions = new Map<string, string>();  // request_id → problem_id
-
 mcp.setNotificationHandler(PermissionRequestSchema, async ({ params }) => {
-  // Post the permission request to the Hub as a message
-  // Use a well-known problem ID for approvals, or post to the workspace's first problem
   const content = [
     `Permission request [${params.request_id}]:`,
     `Tool: ${params.tool_name}`,
@@ -271,11 +288,8 @@ mcp.setNotificationHandler(PermissionRequestSchema, async ({ params }) => {
     `Reply "yes ${params.request_id}" or "no ${params.request_id}"`,
   ].join("\n");
 
-  // Post to hub — we'd need a designated approval channel/problem.
-  // For MVP, log to stderr (the human sees it in their terminal).
   console.error(`\n[Permission Relay] ${content}\n`);
 
-  // Also push as a channel notification so the agent knows it's waiting
   await mcp.notification({
     method: "notifications/claude/channel",
     params: {
@@ -293,12 +307,12 @@ mcp.setNotificationHandler(PermissionRequestSchema, async ({ params }) => {
 // SSE Event Client
 // ---------------------------------------------------------------------------
 
-const eventClient = new HubEventClient({
+const eventClient = new EventClient({
   baseUrl: THOUGHTBOX_URL,
   workspaceId: WORKSPACE_ID,
   onEvent: (event) => void pushEvent(event),
-  onError: (err) => console.error("[Hub Channel] SSE error:", err.message),
-  onConnect: () => console.error("[Hub Channel] Connected to Hub event stream"),
+  onError: (err) => console.error("[Channel] SSE error:", err.message),
+  onConnect: () => console.error("[Channel] Connected to event stream"),
 });
 
 // ---------------------------------------------------------------------------
@@ -306,29 +320,26 @@ const eventClient = new HubEventClient({
 // ---------------------------------------------------------------------------
 
 async function start(): Promise<void> {
-  console.error(`[Hub Channel] Starting for agent '${AGENT_NAME}' (${AGENT_PROFILE || "generic"}) in workspace ${WORKSPACE_ID}`);
-  console.error(`[Hub Channel] Connecting to ${THOUGHTBOX_URL}`);
+  console.error(`[Channel] Starting for '${AGENT_NAME}' (${AGENT_PROFILE || "generic"}) in workspace ${WORKSPACE_ID}`);
+  console.error(`[Channel] Connecting to ${THOUGHTBOX_URL}`);
 
-  // Connect stdio transport to Claude Code
   await mcp.connect(new StdioServerTransport());
-  console.error("[Hub Channel] MCP stdio transport connected");
+  console.error("[Channel] MCP stdio transport connected");
 
-  // Register agent and join workspace via API
   try {
     const agentId = await apiClient.initialize();
     filter.setAgentId(agentId);
-    console.error(`[Hub Channel] Registered as agent ${agentId}`);
+    console.error(`[Channel] Registered as agent ${agentId}`);
   } catch (err) {
-    console.error("[Hub Channel] Failed to register agent (will retry on first tool call):", err);
+    console.error("[Channel] Failed to register agent (will retry on first tool call):", err);
   }
 
-  // Start SSE event stream
   eventClient.connect().catch((err) => {
-    console.error("[Hub Channel] Failed to connect event stream:", err);
+    console.error("[Channel] Failed to connect event stream:", err);
   });
 }
 
 start().catch((err) => {
-  console.error("[Hub Channel] Fatal error:", err);
+  console.error("[Channel] Fatal error:", err);
   process.exit(1);
 });

@@ -5,6 +5,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database, Json } from '../database.types.js';
+import type { ThoughtboxEvent, OnThoughtboxEvent } from '../events/types.js';
 import {
   isTestFile,
   ULYSSES_STATE_NEEDS_REFLECT,
@@ -25,7 +26,25 @@ import {
 export class ProtocolHandler {
   private workspaceId: string | null = null;
 
-  constructor(private client: SupabaseClient<Database>) {}
+  constructor(
+    private client: SupabaseClient<Database>,
+    private onEvent?: OnThoughtboxEvent,
+  ) {}
+
+  private emit(
+    type: ThoughtboxEvent['type'],
+    sessionId: string,
+    data: Record<string, unknown>,
+  ): void {
+    if (!this.onEvent) return;
+    this.onEvent({
+      source: 'protocol',
+      type,
+      workspaceId: this.workspaceId ?? '',
+      timestamp: new Date().toISOString(),
+      data: { session_id: sessionId, ...data },
+    });
+  }
 
   /** ADR-013: project scoping */
   setProject(project: string): void {
@@ -143,6 +162,8 @@ export class ProtocolHandler {
       throw new Error(`Failed to insert scope: ${scopeErr.message}`);
     }
 
+    this.emit('theseus_init', session.id, { scope, description });
+
     const result: Record<string, unknown> = {
       session_id: session.id,
       protocol: 'theseus',
@@ -199,6 +220,8 @@ export class ProtocolHandler {
     if (scopeErr) {
       throw new Error(`Failed to add file to scope: ${scopeErr.message}`);
     }
+
+    this.emit('theseus_visa', session.id, { filePath: visa.filePath, justification: visa.justification });
 
     return {
       session_id: session.id,
@@ -272,6 +295,11 @@ export class ProtocolHandler {
       }
     }
 
+    this.emit('theseus_checkpoint', session.id, {
+      approved: audit.approved,
+      B: audit.approved ? 0 : (session.state_json as { B: number }).B,
+    });
+
     return {
       session_id: session.id,
       checkpoint_accepted: audit.approved,
@@ -325,6 +353,8 @@ export class ProtocolHandler {
         throw new Error(`Failed to update state: ${error.message}`);
       }
 
+      this.emit('theseus_outcome', session.id, { testsPassed: true, B: 0 });
+
       return {
         session_id: session.id,
         testsPassed: true,
@@ -347,6 +377,8 @@ export class ProtocolHandler {
         throw new Error(`Failed to update state: ${error.message}`);
       }
 
+      this.emit('theseus_outcome', session.id, { testsPassed: false, B: 0 });
+
       return {
         session_id: session.id,
         testsPassed: false,
@@ -367,6 +399,8 @@ export class ProtocolHandler {
     if (error) {
       throw new Error(`Failed to update state: ${error.message}`);
     }
+
+    this.emit('theseus_outcome', session.id, { testsPassed: false, B: 1 });
 
     return {
       session_id: session.id,
@@ -441,6 +475,8 @@ export class ProtocolHandler {
       throw new Error(`Failed to complete session: ${error.message}`);
     }
 
+    this.emit('theseus_complete', session.id, { status: terminalState });
+
     const result: Record<string, unknown> = {
       session_id: session.id,
       status: terminalState,
@@ -487,6 +523,8 @@ export class ProtocolHandler {
     if (error) {
       throw new Error(`Failed to create ulysses session: ${error.message}`);
     }
+
+    this.emit('ulysses_init', session.id, { problem });
 
     const result: Record<string, unknown> = {
       session_id: session.id,
@@ -656,6 +694,8 @@ export class ProtocolHandler {
       throw new Error(`Failed to update state: ${stateErr.message}`);
     }
 
+    this.emit('ulysses_outcome', session.id, { assessment: outcome.assessment, S: newState.S });
+
     return {
       session_id: session.id,
       assessment: outcome.assessment,
@@ -721,6 +761,8 @@ export class ProtocolHandler {
         `Failed to record reflect event: ${histErr.message}`,
       );
     }
+
+    this.emit('ulysses_reflect', session.id, { hypothesis: reflection.hypothesis });
 
     return {
       session_id: session.id,
@@ -791,6 +833,8 @@ export class ProtocolHandler {
     if (error) {
       throw new Error(`Failed to complete session: ${error.message}`);
     }
+
+    this.emit('ulysses_complete', session.id, { status: terminalState });
 
     const result: Record<string, unknown> = {
       session_id: session.id,
