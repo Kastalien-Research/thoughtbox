@@ -272,19 +272,6 @@ export function buildSearchCatalog(): SearchCatalog {
           "Behavioral tests for the thoughtbox_knowledge tool (12 tests covering entities, observations, relations, graph traversal, stats)",
         mimeType: "text/markdown",
       },
-      {
-        name: "OODA Loops Catalog",
-        uri: "thoughtbox://loops/catalog",
-        description:
-          "Complete catalog of OODA loop building blocks with metadata, classification, and composition rules",
-        mimeType: "application/json",
-      },
-      {
-        name: "Loop Analytics Refresh",
-        uri: "thoughtbox://loops/analytics/refresh",
-        description: "Trigger immediate aggregation of loop usage metrics and return updated statistics",
-        mimeType: "application/json",
-      },
     ],
 
     resourceTemplates: [
@@ -310,13 +297,6 @@ export function buildSearchCatalog(): SearchCatalog {
         name: "Interleaved Thinking Guides",
         uriTemplate: "thoughtbox://interleaved/{guide}",
         description: "Interleaved thinking guides",
-        mimeType: "text/markdown",
-      },
-      {
-        name: "OODA Loop",
-        uriTemplate: "thoughtbox://loops/{category}/{name}",
-        description:
-          "OODA loop building blocks for workflow composition. Access specific loops by category and name.",
         mimeType: "text/markdown",
       },
       {

@@ -68,12 +68,6 @@ import {
 import { SUBAGENT_SUMMARIZE_CONTENT } from "./resources/subagent-summarize-content.js";
 import { EVOLUTION_CHECK_CONTENT } from "./resources/evolution-check-content.js";
 import { BEHAVIORAL_TESTS } from "./resources/behavioral-tests-content.js";
-import {
-  getCategories,
-  getLoopsInCategory,
-  getLoop,
-} from "./resources/loops-content.js";
-import { ClaudeFolderIntegration } from "./claude-folder-integration.js";
 import { SKILL_DEFINITIONS, getSkillCatalog, getSkill } from "./resources/skills/index.js";
 import { getOperationsCatalog as getInitOperationsCatalog, getOperation as getInitOp } from "./init/operations.js";
 import { getOperationsCatalog as getSessionOperationsCatalog, getOperation as getSessOp } from "./sessions/operations.js";
@@ -188,14 +182,6 @@ Use \`console.log()\` for debugging — output captured in response logs.`;
   // Shared storage instance for this MCP server instance (used by thought + session tooling)
   // Use provided storage or default to InMemoryStorage
   const storage: ThoughtboxStorage = args.storage ?? new InMemoryStorage();
-
-  // Initialize .claude/ folder integration for usage analytics
-  const claudeFolder = new ClaudeFolderIntegration(process.cwd(), logger);
-
-  // Run startup aggregation (synchronous to ensure hot-loops.json is current)
-  claudeFolder.initialize().catch(err =>
-    logger.error('Failed to initialize .claude/ folder integration:', err)
-  );
 
   // Create server instances with MCP session ID for client isolation
   const thoughtHandler = new ThoughtHandler(
@@ -1335,182 +1321,6 @@ mcp__thoughtbox__thoughtbox({
     })
   );
 
-  // OODA Loops resource templates
-  server.registerResource(
-    "loops",
-    new ResourceTemplate("thoughtbox://loops/{category}/{name}", {
-      list: undefined,
-    }),
-    {
-      description: "OODA loop building blocks for workflow composition. Access specific loops by category and name.",
-      mimeType: "text/markdown",
-    },
-    async (uri, params) => {
-      const category = str(params.category);
-      const name = str(params.name);
-
-      if (!category || !name) {
-        return {
-          contents: [
-            {
-              uri: uri.toString(),
-              mimeType: "text/markdown",
-              text: `# Invalid Loop URI\n\nBoth category and name are required.\n\nFormat: \`thoughtbox://loops/{category}/{name}\`\n\nAvailable categories: ${getCategories().join(', ')}`,
-            },
-          ],
-        };
-      }
-
-      try {
-        const loop = getLoop(category, name);
-
-        // Record usage for analytics (async, non-blocking)
-        const loopUri = `${category}/${name}`;
-        claudeFolder.recordLoopAccess(loopUri, sessionId || 'unknown').catch(err =>
-          logger.debug('Failed to record loop access:', err)
-        );
-
-        return {
-          contents: [
-            {
-              uri: uri.toString(),
-              mimeType: "text/markdown",
-              text: loop.content,
-            },
-          ],
-        };
-      } catch (error) {
-        const categories = getCategories();
-        const errorMsg = error instanceof Error ? error.message : String(error);
-
-        // Return helpful error with available options
-        return {
-          contents: [
-            {
-              uri: uri.toString(),
-              mimeType: "text/markdown",
-              text: `# Loop Not Found\n\n**Error**: ${errorMsg}\n\n**Available categories**: ${categories.join(', ')}\n\nUse \`thoughtbox://loops/catalog\` to see all available loops.`,
-            },
-          ],
-        };
-      }
-    }
-  );
-
-  // Loops catalog resource (static, no template)
-  server.registerResource(
-    "loops-catalog",
-    "thoughtbox://loops/catalog",
-    {
-      description: "Complete catalog of OODA loop building blocks with metadata, classification, and composition rules",
-      mimeType: "application/json",
-    },
-    async (uri) => {
-      // Get hot loops for sorting (if available)
-      const hotLoops = await claudeFolder.getHotLoops();
-
-      // Build catalog JSON with metadata
-      const catalog: Record<string, unknown> = {
-        version: "1.0",
-        updated: new Date().toISOString(),
-        categories: {},
-      };
-
-      for (const category of getCategories()) {
-        const loops = getLoopsInCategory(category);
-        const categoryData: Record<string, unknown> = {
-          description: `${category.charAt(0).toUpperCase() + category.slice(1)} loops`,
-          loops: {},
-        };
-
-        // Build loop data array for sorting
-        const loopDataArray = loops.map(loopName => {
-          const loop = getLoop(category, loopName);
-          const loopUri = `${category}/${loopName}`;
-          const rank = hotLoops?.ranks[loopUri] || 999;
-
-          return {
-            name: loopName,
-            rank,
-            data: {
-              uri: `thoughtbox://loops/${category}/${loopName}`,
-              ...loop.metadata,
-              content_preview: loop.content.slice(0, 200) + (loop.content.length > 200 ? '...' : ''),
-              usage_rank: rank === 999 ? undefined : rank,
-            },
-          };
-        });
-
-        // Sort by usage rank (lower is better, 999 = not in top 10)
-        loopDataArray.sort((a, b) => a.rank - b.rank);
-
-        // Convert back to object
-        for (const item of loopDataArray) {
-          (categoryData.loops as Record<string, unknown>)[item.name] = item.data;
-        }
-
-        (catalog.categories as Record<string, unknown>)[category] = categoryData;
-      }
-
-      return {
-        contents: [
-          {
-            uri: uri.toString(),
-            mimeType: "application/json",
-            text: JSON.stringify(catalog, null, 2),
-          },
-        ],
-      };
-    }
-  );
-
-  // Loops analytics refresh resource
-  server.registerResource(
-    "loops-analytics-refresh",
-    "thoughtbox://loops/analytics/refresh",
-    {
-      description: "Trigger immediate aggregation of loop usage metrics. Returns updated hot loops and statistics.",
-      mimeType: "application/json",
-    },
-    async (uri) => {
-      const metrics = await claudeFolder.aggregateMetrics();
-
-      if (!metrics) {
-        return {
-          contents: [
-            {
-              uri: uri.toString(),
-              mimeType: "application/json",
-              text: JSON.stringify({
-                status: "unavailable",
-                reason: ".claude/ folder not found or no usage data",
-              }, null, 2),
-            },
-          ],
-        };
-      }
-
-      const hotLoops = await claudeFolder.getHotLoops();
-
-      return {
-        contents: [
-          {
-            uri: uri.toString(),
-            mimeType: "application/json",
-            text: JSON.stringify({
-              status: "refreshed",
-              metrics: {
-                totalAccesses: metrics.totalAccesses,
-                uniqueLoops: metrics.loopStats.size,
-                lastAggregated: metrics.lastAggregated,
-              },
-              hotLoops: hotLoops?.top_10 || [],
-            }, null, 2),
-          },
-        ],
-      };
-    }
-  );
 
   // Skills catalog resource (static)
   server.registerResource(
@@ -1799,18 +1609,6 @@ mcp__thoughtbox__thoughtbox({
         mimeType: "text/markdown",
       },
 
-      {
-        uri: "thoughtbox://loops/catalog",
-        name: "OODA Loops Catalog",
-        description: "Complete catalog of OODA loop building blocks with metadata, classification, and composition rules",
-        mimeType: "application/json",
-      },
-      {
-        uri: "thoughtbox://loops/analytics/refresh",
-        name: "Loop Analytics Refresh",
-        description: "Trigger immediate aggregation of loop usage metrics and return updated statistics",
-        mimeType: "application/json",
-      },
 
     ],
   }));

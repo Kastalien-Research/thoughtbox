@@ -40,8 +40,7 @@
   ],
   "scripts": {
     "embed-templates": "tsx scripts/embed-templates.ts",
-    "embed-loops": "tsx scripts/embed-loops.ts",
-    "embed": "pnpm embed-templates && pnpm embed-loops",
+    "embed": "pnpm embed-templates",
     "dev": "pnpm embed && tsx src/index.ts",
     "build": "pnpm check:cycles && pnpm build:local",
     "build:local": "pnpm embed && tsc && shx cp -r src/resources dist/ && shx cp -r templates dist/ && shx cp src/observatory/ui/*.html dist/observatory/ui/ && shx chmod +x dist/*.js",
