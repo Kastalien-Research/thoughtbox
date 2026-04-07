@@ -47,7 +47,6 @@ export function getListMcpAssetsContent(): string {
 
 ## Overview
 
-**Package:** \`@kastalien-research/thoughtbox\`
 **MCP Name:** \`io.github.Kastalien-Research/thoughtbox\`
 
 Thoughtbox provides cognitive enhancement tools for LLM agents - infrastructure for structured reasoning, not intelligence.

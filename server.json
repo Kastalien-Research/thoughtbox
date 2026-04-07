@@ -7,14 +7,5 @@
     "source": "github"
   },
   "version": "1.2.0",
-  "packages": [
-    {
-      "registryType": "npm",
-      "identifier": "@kastalien-research/thoughtbox",
-      "version": "1.2.0",
-      "transport": {
-        "type": "http"
-      }
-    }
-  ]
+  "packages": []
 }

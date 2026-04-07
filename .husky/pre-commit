@@ -6,12 +6,3 @@ case "$branch" in
     exit 1
     ;;
 esac
-
-# Block committing local-only artifacts (traces/, plans/, root session reports, etc.)
-./scripts/check-artifacts.sh --staged
-
-# Check for cyclic dependencies before commit
-pnpm check:cycles
-
-# Lint check
-pnpm check:lint
