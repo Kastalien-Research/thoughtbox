@@ -1,8 +1,9 @@
 /**
  * Knowledge Graph Memory System - Type Definitions
  *
- * Phase 1 MVP: Basic entity/relation/observation storage
- * No embeddings, no semantic search, no auto-extraction
+ * Structural graph: entities, relations, observations.
+ * Embedding column exists on entities/observations (migration 20260408) but is not populated yet.
+ * Semantic search deferred until a real embedding provider is wired.
  *
  * @see dgm-specs/SPEC-KNOWLEDGE-MEMORY.md
  */
