@@ -41,6 +41,18 @@ const BranchReadInput = z.object({
   offset: z.number().default(0),
 });
 
+const BranchTokenPayload = z.object({
+  session_id: z.string().uuid(),
+  branch_id: z.string().min(1),
+  workspace_id: z.string().uuid(),
+  branch_from_thought: z.number().int().positive(),
+  expires_at: z.string().datetime(),
+});
+
+const THOUGHT_INSERT_MAX_ATTEMPTS = 5;
+const textEncoder = new TextEncoder();
+const textDecoder = new TextDecoder();
+
 // --- Branch context from URL params ---
 
 type BranchContext = {
@@ -50,48 +62,102 @@ type BranchContext = {
   branchFrom: number | null;
 };
 
-function parseBranchContext(url: URL): BranchContext {
-  const sessionId = url.searchParams.get("session_id");
-  const branchId = url.searchParams.get("branch_id");
-  const workspaceId = url.searchParams.get("workspace_id");
-  const branchFromRaw = url.searchParams.get("branch_from");
+class HttpError extends Error {
+  constructor(
+    public status: number,
+    message: string,
+  ) {
+    super(message);
+    this.name = "HttpError";
+  }
+}
 
-  if (!sessionId || !branchId || !workspaceId) {
-    throw new McpError(
-      -32602,
-      "Missing required query params: session_id, branch_id, workspace_id",
-    );
+function encodeBase64Url(bytes: Uint8Array): string {
+  let binary = "";
+  for (const byte of bytes) {
+    binary += String.fromCharCode(byte);
+  }
+  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+}
+
+function decodeBase64Url(value: string): Uint8Array {
+  const base64 = value.replace(/-/g, "+").replace(/_/g, "/");
+  const padded = base64.padEnd(Math.ceil(base64.length / 4) * 4, "=");
+  const binary = atob(padded);
+  return Uint8Array.from(binary, (char) => char.charCodeAt(0));
+}
+
+function timingSafeEqual(left: string, right: string): boolean {
+  if (left.length !== right.length) return false;
+
+  let diff = 0;
+  for (let index = 0; index < left.length; index += 1) {
+    diff |= left.charCodeAt(index) ^ right.charCodeAt(index);
+  }
+
+  return diff === 0;
+}
+
+async function signTokenSegment(segment: string, secret: string): Promise<string> {
+  const key = await crypto.subtle.importKey(
+    "raw",
+    textEncoder.encode(secret),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
+  const signature = await crypto.subtle.sign("HMAC", key, textEncoder.encode(segment));
+  return encodeBase64Url(new Uint8Array(signature));
+}
+
+async function parseBranchContext(url: URL): Promise<BranchContext> {
+  const token = url.searchParams.get("token");
+  if (!token) {
+    throw new HttpError(401, "Missing token");
+  }
+
+  const [payloadSegment, signatureSegment, ...rest] = token.split(".");
+  if (!payloadSegment || !signatureSegment || rest.length > 0) {
+    throw new HttpError(401, "Invalid token");
+  }
+
+  const secret = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  if (!secret) {
+    throw new HttpError(500, "Missing SUPABASE_SERVICE_ROLE_KEY");
+  }
+
+  const expectedSignature = await signTokenSegment(payloadSegment, secret);
+  if (!timingSafeEqual(signatureSegment, expectedSignature)) {
+    throw new HttpError(401, "Invalid token signature");
+  }
+
+  let payload: z.infer<typeof BranchTokenPayload>;
+  try {
+    const decodedPayload = textDecoder.decode(decodeBase64Url(payloadSegment));
+    payload = BranchTokenPayload.parse(JSON.parse(decodedPayload));
+  } catch {
+    throw new HttpError(401, "Invalid token payload");
+  }
+
+  if (Date.parse(payload.expires_at) <= Date.now()) {
+    throw new HttpError(401, "Token expired");
   }
 
   return {
-    sessionId,
-    branchId,
-    workspaceId,
-    branchFrom: branchFromRaw ? Number(branchFromRaw) : null,
+    sessionId: payload.session_id,
+    branchId: payload.branch_id,
+    workspaceId: payload.workspace_id,
+    branchFrom: payload.branch_from_thought,
   };
 }
 
 // --- Thought numbering (branch-scoped) ---
-
-let cachedNextNumber: Map<string, number> = new Map();
-
-function cacheKey(sessionId: string, branchId: string): string {
-  return `${sessionId}::${branchId}`;
-}
 
 async function getNextThoughtNumber(
   supabase: SupabaseClient,
   sessionId: string,
   branchId: string,
 ): Promise<number> {
-  const key = cacheKey(sessionId, branchId);
-  const cached = cachedNextNumber.get(key);
-  if (cached !== undefined) {
-    const next = cached + 1;
-    cachedNextNumber.set(key, next);
-    return next;
-  }
-
   const { data, error } = await supabase
     .from("thoughts")
     .select("thought_number")
@@ -106,9 +172,15 @@ async function getNextThoughtNumber(
   }
 
   const maxNum = data?.thought_number ?? 0;
-  const next = maxNum + 1;
-  cachedNextNumber.set(key, next);
-  return next;
+  return maxNum + 1;
+}
+
+function isThoughtNumberConflict(error: { code?: string; message?: string } | null): boolean {
+  if (!error) return false;
+  return (
+    error.code === "23505" ||
+    error.message?.includes("thoughts_branch_unique") === true
+  );
 }
 
 // --- Content hashing ---
@@ -215,51 +287,60 @@ async function handleBranchThought(
   args: Record<string, unknown>,
 ): Promise<unknown> {
   const input = BranchThoughtInput.parse(args);
-  const thoughtNumber = await getNextThoughtNumber(
-    supabase,
-    ctx.sessionId,
-    ctx.branchId,
-  );
   const contentHash = await hashContent(input.thought);
 
-  const row = {
-    session_id: ctx.sessionId,
-    workspace_id: ctx.workspaceId,
-    thought_number: thoughtNumber,
-    thought: input.thought,
-    total_thoughts: input.totalThoughts ?? thoughtNumber,
-    next_thought_needed: input.nextThoughtNeeded,
-    thought_type: input.thoughtType,
-    is_revision: input.isRevision,
-    revises_thought: input.revisesThought ?? null,
-    branch_from_thought: ctx.branchFrom,
-    branch_id: ctx.branchId,
-    needs_more_thoughts: input.needsMoreThoughts ?? null,
-    confidence: input.confidence ?? null,
-    options: input.options ?? null,
-    action_result: input.actionResult ?? null,
-    beliefs: input.beliefs ?? null,
-    assumption_change: input.assumptionChange ?? null,
-    context_data: input.contextData ?? null,
-    progress_data: input.progressData ?? null,
-    agent_id: input.agentId ?? null,
-    agent_name: input.agentName ?? null,
-    content_hash: contentHash,
-    parent_hash: null,
-    critique: input.critique ?? null,
-  };
+  for (let attempt = 1; attempt <= THOUGHT_INSERT_MAX_ATTEMPTS; attempt += 1) {
+    const thoughtNumber = await getNextThoughtNumber(
+      supabase,
+      ctx.sessionId,
+      ctx.branchId,
+    );
 
-  const { error } = await supabase.from("thoughts").insert(row);
-  if (error) {
+    const row = {
+      session_id: ctx.sessionId,
+      workspace_id: ctx.workspaceId,
+      thought_number: thoughtNumber,
+      thought: input.thought,
+      total_thoughts: input.totalThoughts ?? thoughtNumber,
+      next_thought_needed: input.nextThoughtNeeded,
+      thought_type: input.thoughtType,
+      is_revision: input.isRevision,
+      revises_thought: input.revisesThought ?? null,
+      branch_from_thought: ctx.branchFrom,
+      branch_id: ctx.branchId,
+      needs_more_thoughts: input.needsMoreThoughts ?? null,
+      confidence: input.confidence ?? null,
+      options: input.options ?? null,
+      action_result: input.actionResult ?? null,
+      beliefs: input.beliefs ?? null,
+      assumption_change: input.assumptionChange ?? null,
+      context_data: input.contextData ?? null,
+      progress_data: input.progressData ?? null,
+      agent_id: input.agentId ?? null,
+      agent_name: input.agentName ?? null,
+      content_hash: contentHash,
+      parent_hash: null,
+      critique: input.critique ?? null,
+    };
+
+    const { error } = await supabase.from("thoughts").insert(row);
+    if (!error) {
+      return {
+        thoughtNumber,
+        branchId: ctx.branchId,
+        sessionId: ctx.sessionId,
+        contentHash,
+      };
+    }
+
+    if (isThoughtNumberConflict(error) && attempt < THOUGHT_INSERT_MAX_ATTEMPTS) {
+      continue;
+    }
+
     throw new McpError(-32603, `Insert failed: ${error.message}`);
   }
 
-  return {
-    thoughtNumber,
-    branchId: ctx.branchId,
-    sessionId: ctx.sessionId,
-    contentHash,
-  };
+  throw new McpError(-32603, "Insert failed after retrying thought number allocation");
 }
 
 async function handleBranchStatus(
@@ -431,16 +512,16 @@ mcpApp.post("/mcp", async (c) => {
 
   let ctx: BranchContext;
   try {
-    ctx = parseBranchContext(url);
+    ctx = await parseBranchContext(url);
   } catch (e) {
-    if (e instanceof McpError) {
+    if (e instanceof HttpError) {
       return c.json(
         {
           jsonrpc: "2.0",
           id: null,
-          error: { code: e.code, message: e.message },
+          error: { code: -32001, message: e.message },
         },
-        400,
+        { status: e.status as 400 | 401 | 500 },
       );
     }
     throw e;
@@ -452,7 +533,16 @@ mcpApp.post("/mcp", async (c) => {
   return c.json(response);
 });
 
-mcpApp.get("/mcp", (c) => {
+mcpApp.get("/mcp", async (c) => {
+  try {
+    await parseBranchContext(new URL(c.req.url));
+  } catch (e) {
+    if (e instanceof HttpError) {
+      return c.json({ error: e.message }, { status: e.status as 400 | 401 | 500 });
+    }
+    throw e;
+  }
+
   return c.json({
     name: "tb-branch",
     version: "0.1.0",

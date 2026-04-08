@@ -5,7 +5,30 @@
  * Uses Supabase client directly (service_role, no session persistence).
  */
 
+import { createHmac } from "node:crypto";
+
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+
+const BRANCH_WORKER_TOKEN_TTL_MS = 60 * 60 * 1000;
+
+type BranchWorkerTokenPayload = {
+  session_id: string;
+  branch_id: string;
+  workspace_id: string;
+  branch_from_thought: number;
+  expires_at: string;
+};
+
+function encodeBranchWorkerToken(
+  payload: BranchWorkerTokenPayload,
+  secret: string
+): string {
+  const encodedPayload = Buffer.from(JSON.stringify(payload)).toString("base64url");
+  const signature = createHmac("sha256", secret)
+    .update(encodedPayload)
+    .digest("base64url");
+  return `${encodedPayload}.${signature}`;
+}
 
 export interface BranchHandlerDeps {
   supabaseUrl: string;
@@ -16,9 +39,11 @@ export interface BranchHandlerDeps {
 export class BranchHandlers {
   private client: SupabaseClient;
   private workspaceId: string;
+  private serviceRoleKey: string;
 
   constructor(deps: BranchHandlerDeps) {
     this.workspaceId = deps.workspaceId;
+    this.serviceRoleKey = deps.serviceRoleKey;
     this.client = createClient(deps.supabaseUrl, deps.serviceRoleKey, {
       auth: { persistSession: false, autoRefreshToken: false },
     });
@@ -77,12 +102,19 @@ export class BranchHandlers {
     }
 
     const supabaseUrl = process.env.SUPABASE_URL ?? "";
+    const token = encodeBranchWorkerToken(
+      {
+        session_id: sessionId,
+        branch_id: branchId,
+        workspace_id: workspaceId,
+        branch_from_thought: branchFromThought,
+        expires_at: new Date(Date.now() + BRANCH_WORKER_TOKEN_TTL_MS).toISOString(),
+      },
+      this.serviceRoleKey
+    );
     const workerUrl =
       `${supabaseUrl}/functions/v1/tb-branch/mcp` +
-      `?session_id=${sessionId}` +
-      `&branch_id=${branchId}` +
-      `&workspace_id=${workspaceId}` +
-      `&branch_from=${branchFromThought}`;
+      `?token=${encodeURIComponent(token)}`;
 
     return { branchId, workerUrl, status: "active", sessionId };
   }
@@ -97,6 +129,7 @@ export class BranchHandlers {
     updatedBranches: Array<{ branchId: string; status: string }>;
   }> {
     const { sessionId, synthesis, selectedBranchId, resolution } = args;
+    const workspaceId = await this.getSessionWorkspaceId(sessionId);
 
     const { data: branches, error: brErr } = await this.client
       .from("branches")
@@ -108,7 +141,7 @@ export class BranchHandlers {
     }
 
     const mergeThoughtNumber = await this.insertMainTrackThought(
-      sessionId, synthesis
+      sessionId, workspaceId, synthesis
     );
 
     const updatedBranches = await this.resolveBranches(
@@ -131,33 +164,46 @@ export class BranchHandlers {
   }> {
     const { data: branches, error } = await this.client
       .from("branches")
-      .select("branch_id, description, status, branch_from_thought, created_at, completed_at")
+      .select("branch_id, description, status, branch_from_thought, spawned_at, completed_at")
       .eq("session_id", args.sessionId)
-      .order("created_at", { ascending: true });
+      .order("spawned_at", { ascending: true });
 
     if (error) {
       throw new Error(`Failed to list branches: ${error.message}`);
     }
 
-    const result = await Promise.all(
-      (branches ?? []).map(async (b) => {
-        const { count } = await this.client
-          .from("thoughts")
-          .select("id", { count: "exact", head: true })
-          .eq("session_id", args.sessionId)
-          .eq("branch_id", b.branch_id);
+    const branchIds = (branches ?? [])
+      .map((branch) => branch.branch_id as string | null)
+      .filter((branchId): branchId is string => branchId !== null);
+    const thoughtCounts = new Map<string, number>();
 
-        return {
-          branchId: b.branch_id as string,
-          description: b.description as string | null,
-          status: b.status as string,
-          thoughtCount: count ?? 0,
-          branchFromThought: b.branch_from_thought as number,
-          spawnedAt: b.created_at as string,
-          completedAt: b.completed_at as string | null,
-        };
-      })
-    );
+    if (branchIds.length > 0) {
+      const { data: branchThoughts, error: thoughtError } = await this.client
+        .from("thoughts")
+        .select("branch_id")
+        .eq("session_id", args.sessionId)
+        .in("branch_id", branchIds);
+
+      if (thoughtError) {
+        throw new Error(`Failed to list branch thoughts: ${thoughtError.message}`);
+      }
+
+      for (const thought of branchThoughts ?? []) {
+        const branchId = thought.branch_id as string | null;
+        if (!branchId) continue;
+        thoughtCounts.set(branchId, (thoughtCounts.get(branchId) ?? 0) + 1);
+      }
+    }
+
+    const result = (branches ?? []).map((b) => ({
+      branchId: b.branch_id as string,
+      description: b.description as string | null,
+      status: b.status as string,
+      thoughtCount: thoughtCounts.get(b.branch_id as string) ?? 0,
+      branchFromThought: b.branch_from_thought as number,
+      spawnedAt: b.spawned_at as string,
+      completedAt: b.completed_at as string | null,
+    }));
 
     return { branches: result };
   }
@@ -201,6 +247,7 @@ export class BranchHandlers {
    */
   private async insertMainTrackThought(
     sessionId: string,
+    workspaceId: string,
     synthesis: string
   ): Promise<number> {
     const { data: maxRow } = await this.client
@@ -216,6 +263,7 @@ export class BranchHandlers {
 
     const { error } = await this.client.from("thoughts").insert({
       session_id: sessionId,
+      workspace_id: workspaceId,
       thought_number: nextNumber,
       thought: synthesis,
       thought_type: "reasoning",
@@ -263,15 +311,33 @@ export class BranchHandlers {
         updatePayload.merge_thought_number = mergeThoughtNumber;
       }
 
-      await this.client
+      const { error: updateError } = await this.client
         .from("branches")
         .update(updatePayload)
         .eq("session_id", sessionId)
         .eq("branch_id", bid);
 
+      if (updateError) {
+        throw new Error(`Failed to update branch ${bid}: ${updateError.message}`);
+      }
+
       updated.push({ branchId: bid, status: newStatus });
     }
 
     return updated;
+  }
+
+  private async getSessionWorkspaceId(sessionId: string): Promise<string> {
+    const { data: session, error } = await this.client
+      .from("sessions")
+      .select("id, workspace_id")
+      .eq("id", sessionId)
+      .single();
+
+    if (error || !session?.workspace_id) {
+      throw new Error(`Session ${sessionId} not found`);
+    }
+
+    return session.workspace_id as string;
   }
 }

@@ -27,6 +27,9 @@ ALTER TABLE public.branches ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "service_role_full_access" ON public.branches
   FOR ALL TO service_role USING (true) WITH CHECK (true);
 
+COMMENT ON TABLE public.branches IS
+  'Branch metadata is currently service-role-only; authenticated clients read branch state through the backend API.';
+
 -- 3. Partial unique indexes on thoughts for branch-scoped numbering
 -- Main track: unique thought number per session (where no branch)
 CREATE UNIQUE INDEX IF NOT EXISTS thoughts_main_track_unique
