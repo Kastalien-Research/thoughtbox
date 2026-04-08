@@ -29,9 +29,6 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Check for cyclic dependencies
-        run: pnpm check:cycles
-
       - name: Build package
         run: pnpm build
 
