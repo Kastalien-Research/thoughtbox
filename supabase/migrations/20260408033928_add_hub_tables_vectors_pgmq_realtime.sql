@@ -229,8 +229,10 @@ CREATE POLICY "tenant_member_read" ON public.hub_workspaces
     SELECT workspace_id FROM public.workspace_memberships WHERE user_id = auth.uid()
   ));
 
--- Repeat similar policies for other hub tables (abbreviated for brevity - expand in full implementation)
--- ... (similar policies for hub_problems, hub_proposals, etc.)
+-- NOTE: tenant_member_read policies for hub_problems, hub_proposals,
+-- hub_consensus_markers, hub_channels, hub_channel_messages are NOT yet defined.
+-- These tables are service-role-only until Hub frontend/authenticated access ships.
+-- Track as follow-up before exposing Hub data to non-service-role clients.
 
 -- 7. Realtime publication (thoughts already in publication per 20260407020000_thoughts_postgres_changes.sql)
 ALTER PUBLICATION supabase_realtime ADD TABLE hub_agents, hub_workspaces, hub_problems,

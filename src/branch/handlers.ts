@@ -9,7 +9,7 @@ import { createHmac } from "node:crypto";
 
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
-const BRANCH_WORKER_TOKEN_TTL_MS = 60 * 60 * 1000;
+const BRANCH_WORKER_TOKEN_TTL_MS = 4 * 60 * 60 * 1000; // 4 hours
 
 type BranchWorkerTokenPayload = {
   session_id: string;
@@ -38,10 +38,12 @@ export interface BranchHandlerDeps {
 
 export class BranchHandlers {
   private client: SupabaseClient;
+  private supabaseUrl: string;
   private workspaceId: string;
   private serviceRoleKey: string;
 
   constructor(deps: BranchHandlerDeps) {
+    this.supabaseUrl = deps.supabaseUrl;
     this.workspaceId = deps.workspaceId;
     this.serviceRoleKey = deps.serviceRoleKey;
     this.client = createClient(deps.supabaseUrl, deps.serviceRoleKey, {
@@ -101,7 +103,7 @@ export class BranchHandlers {
       throw new Error(`Failed to create branch: ${insErr.message}`);
     }
 
-    const supabaseUrl = process.env.SUPABASE_URL ?? "";
+    const supabaseUrl = this.supabaseUrl;
     const token = encodeBranchWorkerToken(
       {
         session_id: sessionId,
