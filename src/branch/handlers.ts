@@ -134,10 +134,11 @@ export class BranchHandlers {
     const { data: branches, error: brErr } = await this.client
       .from("branches")
       .select("branch_id, status")
-      .eq("session_id", sessionId);
+      .eq("session_id", sessionId)
+      .in("status", ["active", "completed"]);
 
     if (brErr || !branches?.length) {
-      throw new Error(`No branches found for session ${sessionId}`);
+      throw new Error(`No resolvable branches for session ${sessionId}`);
     }
 
     const mergeThoughtNumber = await this.insertMainTrackThought(
@@ -250,33 +251,39 @@ export class BranchHandlers {
     workspaceId: string,
     synthesis: string
   ): Promise<number> {
-    const { data: maxRow } = await this.client
-      .from("thoughts")
-      .select("thought_number")
-      .eq("session_id", sessionId)
-      .is("branch_id", null)
-      .order("thought_number", { ascending: false })
-      .limit(1)
-      .single();
+    const maxAttempts = 5;
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      const { data: maxRow } = await this.client
+        .from("thoughts")
+        .select("thought_number")
+        .eq("session_id", sessionId)
+        .is("branch_id", null)
+        .order("thought_number", { ascending: false })
+        .limit(1)
+        .single();
 
-    const nextNumber = ((maxRow?.thought_number as number) ?? 0) + 1;
+      const nextNumber = ((maxRow?.thought_number as number) ?? 0) + 1;
 
-    const { error } = await this.client.from("thoughts").insert({
-      session_id: sessionId,
-      workspace_id: workspaceId,
-      thought_number: nextNumber,
-      thought: synthesis,
-      thought_type: "reasoning",
-      branch_id: null,
-      next_thought_needed: false,
-      total_thoughts: nextNumber,
-    });
+      const { error } = await this.client.from("thoughts").insert({
+        session_id: sessionId,
+        workspace_id: workspaceId,
+        thought_number: nextNumber,
+        thought: synthesis,
+        thought_type: "reasoning",
+        branch_id: null,
+        next_thought_needed: false,
+        total_thoughts: nextNumber,
+      });
 
-    if (error) {
-      throw new Error(`Failed to insert merge thought: ${error.message}`);
+      if (!error) return nextNumber;
+      if (!error.message.includes("thoughts_main_track_unique")) {
+        throw new Error(`Failed to insert merge thought: ${error.message}`);
+      }
+      // Unique constraint conflict — retry with fresh MAX
     }
-
-    return nextNumber;
+    throw new Error(
+      `Failed to insert merge thought after ${maxAttempts} attempts`
+    );
   }
 
   /**

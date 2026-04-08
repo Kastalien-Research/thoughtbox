@@ -242,6 +242,13 @@ ALTER PUBLICATION supabase_realtime ADD TABLE hub_agents, hub_workspaces, hub_pr
 --   SELECT vault.create_secret('<anon-or-publishable-key>', 'anon_key');
 -- Then schedule with:
 --   SELECT public.schedule_process_thought_queue();
+--
+-- IMPORTANT: if CRON_SECRET is set on the process-thought-queue function,
+-- store that secret in Vault under a separate name and pass it here:
+--   SELECT public.schedule_process_thought_queue(
+--     function_bearer_secret_name := 'cron_secret'
+--   );
+-- The default 'anon_key' only satisfies Supabase gateway auth, not CRON_SECRET.
 
 CREATE OR REPLACE FUNCTION public.invoke_process_thought_queue_from_vault(
   project_url_secret_name text DEFAULT 'project_url',
