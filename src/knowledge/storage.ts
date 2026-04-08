@@ -418,7 +418,7 @@ export class FileSystemKnowledgeStorage implements KnowledgeStorage {
 
     if (filter?.name_pattern) {
       sql += ` AND name LIKE ?`;
-      params.push(filter.name_pattern);
+      params.push(`%${filter.name_pattern}%`);
     }
 
     if (filter?.created_after) {

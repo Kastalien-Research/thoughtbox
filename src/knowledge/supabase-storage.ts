@@ -209,7 +209,7 @@ export class SupabaseKnowledgeStorage implements KnowledgeStorage {
     }
 
     if (filter?.name_pattern) {
-      query = query.ilike('name', filter.name_pattern);
+      query = query.ilike('name', `%${filter.name_pattern}%`);
     }
 
     if (filter?.created_after) {

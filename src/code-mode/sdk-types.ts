@@ -73,9 +73,9 @@ interface TB {
     addCell(args: { notebookId: string; cellType: "title" | "markdown" | "code"; content: string; filename?: string; position?: number }): Promise<unknown>;
     updateCell(args: { notebookId: string; cellId: string; content: string }): Promise<unknown>;
     runCell(args: { notebookId: string; cellId: string }): Promise<unknown>;
-    listCells(notebookId: string): Promise<unknown>;
-    getCell(notebookId: string, cellId: string): Promise<unknown>;
-    installDeps(notebookId: string): Promise<unknown>;
+    listCells(args: { notebookId: string }): Promise<unknown>;
+    getCell(args: { notebookId: string; cellId: string }): Promise<unknown>;
+    installDeps(args: { notebookId: string }): Promise<unknown>;
     export(args: { notebookId: string; path?: string }): Promise<unknown>;
   };
 

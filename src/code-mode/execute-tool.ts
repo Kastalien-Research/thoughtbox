@@ -189,17 +189,17 @@ function buildTbObject(deps: ExecuteToolDeps, ctx: TbContext): Record<string, un
         unwrapToolResult(await notebookTool.handle({
           operation: "notebook_run_cell", ...args,
         } as NotebookToolInput)),
-      listCells: async (notebookId: string) =>
+      listCells: async (args: Record<string, unknown>) =>
         unwrapToolResult(await notebookTool.handle({
-          operation: "notebook_list_cells", notebookId,
+          operation: "notebook_list_cells", ...args,
         } as NotebookToolInput)),
-      getCell: async (notebookId: string, cellId: string) =>
+      getCell: async (args: Record<string, unknown>) =>
         unwrapToolResult(await notebookTool.handle({
-          operation: "notebook_get_cell", notebookId, cellId,
+          operation: "notebook_get_cell", ...args,
         } as NotebookToolInput)),
-      installDeps: async (notebookId: string) =>
+      installDeps: async (args: Record<string, unknown>) =>
         unwrapToolResult(await notebookTool.handle({
-          operation: "notebook_install_deps", notebookId,
+          operation: "notebook_install_deps", ...args,
         } as NotebookToolInput)),
       export: async (args: Record<string, unknown>) =>
         unwrapToolResult(await notebookTool.handle({
