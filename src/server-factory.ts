@@ -65,6 +65,7 @@ import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import {
   ObservabilityGatewayHandler,
 } from "./observability/index.js";
+import { BranchHandler } from "./branch/index.js";
 import { SUBAGENT_SUMMARIZE_CONTENT } from "./resources/subagent-summarize-content.js";
 import { EVOLUTION_CHECK_CONTENT } from "./resources/evolution-check-content.js";
 import { BEHAVIORAL_TESTS } from "./resources/behavioral-tests-content.js";
@@ -401,6 +402,15 @@ Use \`console.log()\` for debugging — output captured in response logs.`;
     serviceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY,
   });
 
+  // Branch handler — requires Supabase credentials
+  const branchSupabaseUrl = process.env.SUPABASE_URL ?? "";
+  const branchServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY ?? "";
+  const branchHandler = new BranchHandler({
+    supabaseUrl: branchSupabaseUrl,
+    serviceRoleKey: branchServiceKey,
+    workspaceId: args.workspaceId ?? "default",
+  });
+
   // =============================================================================
   // Code Mode Tools (replaces individual tool registrations)
   // =============================================================================
@@ -415,6 +425,7 @@ Use \`console.log()\` for debugging — output captured in response logs.`;
     theseusTool,
     ulyssesTool,
     observabilityHandler,
+    branchHandler,
   });
 
   registerTool(SEARCH_TOOL, searchTool);

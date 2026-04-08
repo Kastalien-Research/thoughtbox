@@ -1,0 +1,277 @@
+/**
+ * Branch Handlers
+ *
+ * Business logic for branch spawn, merge, list, and get operations.
+ * Uses Supabase client directly (service_role, no session persistence).
+ */
+
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+
+export interface BranchHandlerDeps {
+  supabaseUrl: string;
+  serviceRoleKey: string;
+  workspaceId: string;
+}
+
+export class BranchHandlers {
+  private client: SupabaseClient;
+  private workspaceId: string;
+
+  constructor(deps: BranchHandlerDeps) {
+    this.workspaceId = deps.workspaceId;
+    this.client = createClient(deps.supabaseUrl, deps.serviceRoleKey, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+  }
+
+  async handleSpawn(args: {
+    sessionId: string;
+    branchId: string;
+    description?: string;
+    branchFromThought: number;
+  }): Promise<{
+    branchId: string;
+    workerUrl: string;
+    status: string;
+    sessionId: string;
+  }> {
+    const { sessionId, branchId, description, branchFromThought } = args;
+
+    const { data: session, error: sessErr } = await this.client
+      .from("sessions")
+      .select("id, workspace_id")
+      .eq("id", sessionId)
+      .single();
+
+    if (sessErr || !session) {
+      throw new Error(`Session ${sessionId} not found`);
+    }
+
+    const { data: thought, error: thErr } = await this.client
+      .from("thoughts")
+      .select("id")
+      .eq("session_id", sessionId)
+      .eq("thought_number", branchFromThought)
+      .is("branch_id", null)
+      .single();
+
+    if (thErr || !thought) {
+      throw new Error(
+        `Main-track thought ${branchFromThought} not found in session ${sessionId}`
+      );
+    }
+
+    const workspaceId = session.workspace_id ?? this.workspaceId;
+
+    const { error: insErr } = await this.client.from("branches").insert({
+      session_id: sessionId,
+      workspace_id: workspaceId,
+      branch_id: branchId,
+      description: description ?? null,
+      branch_from_thought: branchFromThought,
+      status: "active",
+    });
+
+    if (insErr) {
+      throw new Error(`Failed to create branch: ${insErr.message}`);
+    }
+
+    const supabaseUrl = process.env.SUPABASE_URL ?? "";
+    const workerUrl =
+      `${supabaseUrl}/functions/v1/tb-branch/mcp` +
+      `?session_id=${sessionId}` +
+      `&branch_id=${branchId}` +
+      `&workspace_id=${workspaceId}` +
+      `&branch_from=${branchFromThought}`;
+
+    return { branchId, workerUrl, status: "active", sessionId };
+  }
+
+  async handleMerge(args: {
+    sessionId: string;
+    synthesis: string;
+    selectedBranchId?: string;
+    resolution: "selected" | "synthesized" | "abandoned";
+  }): Promise<{
+    mergeThoughtNumber: number;
+    updatedBranches: Array<{ branchId: string; status: string }>;
+  }> {
+    const { sessionId, synthesis, selectedBranchId, resolution } = args;
+
+    const { data: branches, error: brErr } = await this.client
+      .from("branches")
+      .select("branch_id, status")
+      .eq("session_id", sessionId);
+
+    if (brErr || !branches?.length) {
+      throw new Error(`No branches found for session ${sessionId}`);
+    }
+
+    const mergeThoughtNumber = await this.insertMainTrackThought(
+      sessionId, synthesis
+    );
+
+    const updatedBranches = await this.resolveBranches(
+      sessionId, branches, resolution, selectedBranchId, mergeThoughtNumber
+    );
+
+    return { mergeThoughtNumber, updatedBranches };
+  }
+
+  async handleList(args: { sessionId: string }): Promise<{
+    branches: Array<{
+      branchId: string;
+      description: string | null;
+      status: string;
+      thoughtCount: number;
+      branchFromThought: number;
+      spawnedAt: string;
+      completedAt: string | null;
+    }>;
+  }> {
+    const { data: branches, error } = await this.client
+      .from("branches")
+      .select("branch_id, description, status, branch_from_thought, created_at, completed_at")
+      .eq("session_id", args.sessionId)
+      .order("created_at", { ascending: true });
+
+    if (error) {
+      throw new Error(`Failed to list branches: ${error.message}`);
+    }
+
+    const result = await Promise.all(
+      (branches ?? []).map(async (b) => {
+        const { count } = await this.client
+          .from("thoughts")
+          .select("id", { count: "exact", head: true })
+          .eq("session_id", args.sessionId)
+          .eq("branch_id", b.branch_id);
+
+        return {
+          branchId: b.branch_id as string,
+          description: b.description as string | null,
+          status: b.status as string,
+          thoughtCount: count ?? 0,
+          branchFromThought: b.branch_from_thought as number,
+          spawnedAt: b.created_at as string,
+          completedAt: b.completed_at as string | null,
+        };
+      })
+    );
+
+    return { branches: result };
+  }
+
+  async handleGet(args: {
+    sessionId: string;
+    branchId: string;
+  }): Promise<{
+    branch: Record<string, unknown>;
+    thoughts: Array<Record<string, unknown>>;
+  }> {
+    const { data: branch, error: brErr } = await this.client
+      .from("branches")
+      .select("*")
+      .eq("session_id", args.sessionId)
+      .eq("branch_id", args.branchId)
+      .single();
+
+    if (brErr || !branch) {
+      throw new Error(
+        `Branch ${args.branchId} not found in session ${args.sessionId}`
+      );
+    }
+
+    const { data: thoughts, error: thErr } = await this.client
+      .from("thoughts")
+      .select("*")
+      .eq("session_id", args.sessionId)
+      .eq("branch_id", args.branchId)
+      .order("thought_number", { ascending: true });
+
+    if (thErr) {
+      throw new Error(`Failed to fetch branch thoughts: ${thErr.message}`);
+    }
+
+    return { branch, thoughts: thoughts ?? [] };
+  }
+
+  /**
+   * Insert a main-track synthesis thought and return its thought_number.
+   */
+  private async insertMainTrackThought(
+    sessionId: string,
+    synthesis: string
+  ): Promise<number> {
+    const { data: maxRow } = await this.client
+      .from("thoughts")
+      .select("thought_number")
+      .eq("session_id", sessionId)
+      .is("branch_id", null)
+      .order("thought_number", { ascending: false })
+      .limit(1)
+      .single();
+
+    const nextNumber = ((maxRow?.thought_number as number) ?? 0) + 1;
+
+    const { error } = await this.client.from("thoughts").insert({
+      session_id: sessionId,
+      thought_number: nextNumber,
+      thought: synthesis,
+      thought_type: "reasoning",
+      branch_id: null,
+      next_thought_needed: false,
+      total_thoughts: nextNumber,
+    });
+
+    if (error) {
+      throw new Error(`Failed to insert merge thought: ${error.message}`);
+    }
+
+    return nextNumber;
+  }
+
+  /**
+   * Update branch statuses based on the chosen resolution strategy.
+   */
+  private async resolveBranches(
+    sessionId: string,
+    branches: Array<{ branch_id: string | null; status: string | null }>,
+    resolution: "selected" | "synthesized" | "abandoned",
+    selectedBranchId: string | undefined,
+    mergeThoughtNumber: number
+  ): Promise<Array<{ branchId: string; status: string }>> {
+    const updated: Array<{ branchId: string; status: string }> = [];
+
+    for (const b of branches) {
+      const bid = b.branch_id as string;
+      let newStatus: string;
+
+      if (resolution === "abandoned") {
+        newStatus = "abandoned";
+      } else if (resolution === "selected") {
+        newStatus = bid === selectedBranchId ? "merged" : "rejected";
+      } else {
+        newStatus = "merged";
+      }
+
+      const updatePayload: Record<string, unknown> = {
+        status: newStatus,
+        completed_at: new Date().toISOString(),
+      };
+      if (newStatus === "merged") {
+        updatePayload.merge_thought_number = mergeThoughtNumber;
+      }
+
+      await this.client
+        .from("branches")
+        .update(updatePayload)
+        .eq("session_id", sessionId)
+        .eq("branch_id", bid);
+
+      updated.push({ branchId: bid, status: newStatus });
+    }
+
+    return updated;
+  }
+}

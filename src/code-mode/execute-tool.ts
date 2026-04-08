@@ -19,6 +19,7 @@ import type { NotebookTool, NotebookToolInput } from "../notebook/tool.js";
 import type { TheseusTool, TheseusToolInput } from "../protocol/theseus-tool.js";
 import type { UlyssesTool, UlyssesToolInput } from "../protocol/ulysses-tool.js";
 import type { ObservabilityGatewayHandler, ObservabilityInput } from "../observability/gateway-handler.js";
+import type { BranchHandler } from "../branch/index.js";
 
 const MAX_LOGS = 100;
 const TIMEOUT_MS = 30_000;
@@ -41,6 +42,7 @@ export interface ExecuteToolDeps {
   theseusTool: TheseusTool;
   ulyssesTool: UlyssesTool;
   observabilityHandler: ObservabilityGatewayHandler;
+  branchHandler: BranchHandler;
 }
 
 export const EXECUTE_TOOL = {
@@ -99,7 +101,7 @@ interface TbContext {
 
 function buildTbObject(deps: ExecuteToolDeps, ctx: TbContext): Record<string, unknown> {
   const { thoughtTool, sessionTool, knowledgeTool, notebookTool,
-          theseusTool, ulyssesTool, observabilityHandler } = deps;
+          theseusTool, ulyssesTool, observabilityHandler, branchHandler } = deps;
 
   return {
     thought: async (input: ThoughtToolInput) => {
@@ -215,6 +217,17 @@ function buildTbObject(deps: ExecuteToolDeps, ctx: TbContext): Record<string, un
 
     observability: async (input: ObservabilityInput) =>
       unwrapToolResult(await observabilityHandler.handle(input)),
+
+    branch: {
+      spawn: async (args: Record<string, unknown>) =>
+        unwrapToolResult(await branchHandler.processTool("spawn", args)),
+      merge: async (args: Record<string, unknown>) =>
+        unwrapToolResult(await branchHandler.processTool("merge", args)),
+      list: async (args: Record<string, unknown>) =>
+        unwrapToolResult(await branchHandler.processTool("list", args)),
+      get: async (args: Record<string, unknown>) =>
+        unwrapToolResult(await branchHandler.processTool("get", args)),
+    },
   };
 }
 

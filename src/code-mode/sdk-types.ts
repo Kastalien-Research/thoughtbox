@@ -125,5 +125,13 @@ interface TB {
       model?: string;
     };
   }): Promise<unknown>;
+
+  /** Branch management. Source: src/branch/index.ts */
+  branch: {
+    spawn(args: { sessionId: string; branchId: string; description?: string; branchFromThought: number }): Promise<unknown>;
+    merge(args: { sessionId: string; synthesis: string; selectedBranchId?: string; resolution: "selected" | "synthesized" | "abandoned" }): Promise<unknown>;
+    list(args: { sessionId: string }): Promise<unknown>;
+    get(args: { sessionId: string; branchId: string }): Promise<unknown>;
+  };
 }
 \`\`\``;
