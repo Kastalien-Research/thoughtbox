@@ -58,6 +58,14 @@ interface SamplingResult {
 }
 
 /**
+ * Critique result from a sampling request
+ */
+interface CritiqueResult {
+  text: string;
+  model: string;
+}
+
+/**
  * Handles autonomous sampling requests for thought critique
  */
 export class SamplingHandler {
@@ -70,13 +78,13 @@ export class SamplingHandler {
    *
    * @param thought - The current thought to critique
    * @param context - Previous thoughts for context (last 5 recommended)
-   * @returns The critique text from the sampled model
+   * @returns The critique text and model name from the sampled model
    * @throws Error if sampling fails or is not supported
    */
   async requestCritique(
     thought: string,
     context: ThoughtData[]
-  ): Promise<string> {
+  ): Promise<CritiqueResult> {
     const messages = this.buildMessages(context, thought);
 
     try {
@@ -87,7 +95,7 @@ export class SamplingHandler {
             messages,
             systemPrompt: CRITIC_SYSTEM_PROMPT,
             modelPreferences: {
-              hints: [{ name: "claude-sonnet-4-5-20250929" }],
+              hints: [{ name: "claude-sonnet" }],
               intelligencePriority: 0.9,
               costPriority: 0.3,
             },
@@ -98,7 +106,10 @@ export class SamplingHandler {
         null as any
       )) as SamplingResult;
 
-      return result.content.text;
+      return {
+        text: result.content.text,
+        model: result.model ?? 'unknown',
+      };
     } catch (error: any) {
       // Re-throw with consistent error code for graceful degradation
       if (error.code === -32601) {

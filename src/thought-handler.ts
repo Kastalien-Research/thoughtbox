@@ -872,14 +872,15 @@ export class ThoughtHandler {
                 timestamp: new Date().toISOString(),
               })) as PersistentThoughtData[];
 
-            const critiqueText = await this.samplingHandler.requestCritique(
+
+            const critique = await this.samplingHandler.requestCritique(
               validatedInput.thought,
               context
             );
 
             critiqueResult = {
-              text: critiqueText,
-              model: 'claude-sonnet-4-5-20250929',
+              text: critique.text,
+              model: critique.model,
               timestamp: new Date().toISOString(),
             };
 
