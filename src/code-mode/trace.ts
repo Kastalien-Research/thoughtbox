@@ -2,15 +2,48 @@
  * Code Mode LangSmith Instrumentation
  *
  * Fire-and-forget tracing for search and execute tools.
- * Follows the same pattern as src/evaluation/trace-listener.ts:
- * - Uses shared LangSmith client singleton
- * - Circuit breaker (5 failures → 60s cooldown)
- * - No-op if LANGSMITH_API_KEY not set
+ * Inlined LangSmith client setup (evaluation/ tree not shipped in this repo cut).
  */
 
-import { loadLangSmithConfig } from "../evaluation/langsmith-config.js";
-import { getSharedClient } from "../evaluation/client.js";
+import { Client } from "langsmith";
 import type { CodeModeResult } from "./types.js";
+
+type LangSmithConfig = {
+  apiKey: string;
+  apiUrl: string;
+  project: string;
+  workspaceId?: string;
+};
+
+function loadLangSmithConfig(): LangSmithConfig | null {
+  const apiKey = process.env.LANGSMITH_API_KEY;
+  if (!apiKey) return null;
+  return {
+    apiKey,
+    apiUrl: process.env.LANGSMITH_ENDPOINT || "https://api.smith.langchain.com",
+    project: process.env.LANGSMITH_PROJECT || "default",
+    workspaceId: process.env.LANGSMITH_WORKSPACE_ID,
+  };
+}
+
+let sharedClient: Client | null = null;
+let sharedCfg: LangSmithConfig | null = null;
+
+function getSharedClient(config: LangSmithConfig): Client {
+  if (
+    sharedClient &&
+    sharedCfg?.apiKey === config.apiKey &&
+    sharedCfg?.apiUrl === config.apiUrl
+  ) {
+    return sharedClient;
+  }
+  sharedClient = new Client({
+    apiKey: config.apiKey,
+    apiUrl: config.apiUrl,
+  });
+  sharedCfg = config;
+  return sharedClient;
+}
 
 // Circuit breaker state (module-level, shared across search and execute)
 let failureCount = 0;
