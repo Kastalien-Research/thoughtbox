@@ -1,6 +1,8 @@
 # Supabase
 .branches
 .temp
+# Deno v2 lockfiles break local `supabase functions serve` (edge runtime expects older format)
+functions/**/deno.lock
 
 # dotenvx
 .env.keys
