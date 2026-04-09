@@ -71,25 +71,6 @@ export async function checkHealth(
   };
 }
 
-async function checkThoughtbox(url: string): Promise<ServiceHealth> {
-  try {
-    const response = await fetch(`${url}/health`, {
-      signal: AbortSignal.timeout(5000),
-    });
-
-    if (response.ok) {
-      const data = await response.json().catch(() => ({}));
-      return {
-        status: 'healthy',
-        version: data.version ?? 'unknown',
-      };
-    }
-    return { status: 'unhealthy', error: `HTTP ${response.status}` };
-  } catch (err) {
-    return { status: 'unhealthy', error: err instanceof Error ? err.message : 'Connection failed' };
-  }
-}
-
 async function checkOtelStorage(
   storage: OtelEventStorage | null,
 ): Promise<ServiceHealth> {

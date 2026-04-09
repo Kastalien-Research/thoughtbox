@@ -70,14 +70,19 @@ export class ThoughtQueryHandler {
    *  assumption_update, context_snapshot, progress).
    */
   private async queryByType(sessionId: string, type: string): Promise<QueryResult> {
-    const cipherType = this.normalizeToCipher(type);
-
+    const isCipherChar = type.length === 1 && /^[HECQRPOAX]$/.test(type);
     const linkedExport = await this.storage.toLinkedExport(sessionId);
 
+    // When the caller supplies a full type name, match only on thoughtType
+    // to avoid cipher collisions (action_report and assumption_update both
+    // map to "A"). When a cipher char is supplied, match on cipher prefix.
+    const cipherPattern = isCipherChar
+      ? new RegExp(`^S\\d+\\|${type}\\|`)
+      : null;
+
     const matchingNodes = linkedExport.nodes.filter((node) => {
-      const cipherPattern = new RegExp(`^S\\d+\\|${cipherType}\\|`);
-      if (cipherPattern.test(node.data.thought)) return true;
-      if (node.data.thoughtType === type) return true;
+      if (cipherPattern && cipherPattern.test(node.data.thought)) return true;
+      if (!isCipherChar && node.data.thoughtType === type) return true;
       return false;
     });
 
@@ -279,24 +284,4 @@ export class ThoughtQueryHandler {
     return match ? match[1] : undefined;
   }
 
-  private static readonly TYPE_NAME_TO_CIPHER: Record<string, string> = {
-    reasoning: "H",
-    decision_frame: "C",
-    action_report: "A",
-    belief_snapshot: "E",
-    assumption_update: "A",
-    context_snapshot: "O",
-    progress: "P",
-  };
-
-  /**
-   * Normalize a type input to its cipher character.
-   * Accepts both cipher chars (H, E, C) and full names (reasoning, decision_frame).
-   */
-  private normalizeToCipher(type: string): string {
-    if (type.length === 1 && /^[HECQRPOAX]$/.test(type)) {
-      return type;
-    }
-    return ThoughtQueryHandler.TYPE_NAME_TO_CIPHER[type] ?? type;
-  }
 }
