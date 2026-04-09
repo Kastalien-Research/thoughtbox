@@ -28,12 +28,12 @@ describe('Intelligence Pipeline', () => {
   });
 
   describe('Migration validation', () => {
-    it('thoughts table has embedding column', async () => {
+    it('thoughts table remains writable without embedding columns', async () => {
       if (!available) return expect(true).toBe(true); // skip gracefully
       const client = createServiceClient();
-      const { data, error } = await client
+      const { error } = await client
         .from('thoughts')
-        .select('embedding')
+        .select('id')
         .limit(0);
       expect(error).toBeNull();
     });

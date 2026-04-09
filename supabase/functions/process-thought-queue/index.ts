@@ -4,13 +4,11 @@
  * NOT an MCP surface — invoke only from cron, pg_net, or internal automation (see SUPABASE-INTELLIGENCE.md).
  *
  * Prerequisites:
- * - Migration 20260408033928_add_hub_tables_vectors_pgmq_realtime.sql applied (queue + thoughts.embedding).
+ * - Migration 20260408033928_add_hub_tables_vectors_pgmq_realtime.sql applied (queue + trigger + RPC wrappers).
  * - RPC wrappers in same migration: pgmq_read_queue, pgmq_archive_queue_message.
  *
- * Embeddings: NOT generated here. The embedding column exists on thoughts but is populated
- * only when a real embedding provider is wired (external API or Cloud Run worker).
  * This worker processes the queue, broadcasts a Realtime event, and archives the message.
- * Embedding generation can be added as a step in processOneMessage when ready.
+ * Embedding generation can be added later as a separate step when the ship scope expands.
  *
  * Env:
  * - SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY (auto in hosted Edge)
@@ -36,7 +34,6 @@ type ThoughtRow = {
   workspace_id: string;
   session_id: string;
   thought: string;
-  embedding: string | null;
 };
 
 function assertAuthorized(req: Request): void {
@@ -122,7 +119,7 @@ async function processOneMessage(
 
   const { data: thought, error: fetchErr } = await supabase
     .from("thoughts")
-    .select("id, workspace_id, session_id, thought, embedding")
+    .select("id, workspace_id, session_id, thought")
     .eq("id", thoughtId)
     .maybeSingle();
 
@@ -141,15 +138,9 @@ async function processOneMessage(
   const t = thought as ThoughtRow;
 
   try {
-    // TODO: Wire real embedding provider here.
-    // When ready, generate embedding and write to thoughts.embedding:
-    //   const vec = await generateEmbedding(t.thought);
-    //   await supabase.from("thoughts").update({ embedding: vec }).eq("id", t.id);
-
     await broadcastProcessingEvent(supabase, t.workspace_id, {
       thought_id: t.id,
       session_id: t.session_id,
-      has_embedding: t.embedding != null,
       msg_id: msgId,
     });
 
