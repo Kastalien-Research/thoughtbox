@@ -64,23 +64,22 @@ export class ThoughtQueryHandler {
   }
 
   /**
-   * Query thoughts by type (H/E/C/Q/R/P/O/A/X)
+   * Query thoughts by type.
+   * Accepts cipher chars (H/E/C/Q/R/P/O/A/X) or full thoughtType names
+   * (reasoning, decision_frame, action_report, belief_snapshot,
+   *  assumption_update, context_snapshot, progress).
    */
   private async queryByType(sessionId: string, type: string): Promise<QueryResult> {
-    // Validate type
-    const validTypes = ["H", "E", "C", "Q", "R", "P", "O", "A", "X"];
-    if (!validTypes.includes(type)) {
-      throw new Error(
-        `Invalid type '${type}'. Valid types: ${validTypes.join(", ")}`
-      );
-    }
+    const cipherType = this.normalizeToCipher(type);
 
     const linkedExport = await this.storage.toLinkedExport(sessionId);
-    const typePattern = new RegExp(`^S\\d+\\|${type}\\|`);
 
-    const matchingNodes = linkedExport.nodes.filter((node) =>
-      typePattern.test(node.data.thought)
-    );
+    const matchingNodes = linkedExport.nodes.filter((node) => {
+      const cipherPattern = new RegExp(`^S\\d+\\|${cipherType}\\|`);
+      if (cipherPattern.test(node.data.thought)) return true;
+      if (node.data.thoughtType === type) return true;
+      return false;
+    });
 
     return {
       sessionId,
@@ -200,7 +199,7 @@ export class ThoughtQueryHandler {
     params: Record<string, any>;
   } {
     const patterns: Record<string, RegExp> = {
-      "thoughts-by-type": /^thoughtbox:\/\/thoughts\/([^\/]+)\/([HECQRPOAX])$/,
+      "thoughts-by-type": /^thoughtbox:\/\/thoughts\/([^\/]+)\/([A-Za-z_]+)$/,
       "thought-range": /^thoughtbox:\/\/thoughts\/([^\/]+)\/range\/(\d+)-(\d+)$/,
       "thought-references": /^thoughtbox:\/\/references\/([^\/]+)\/(\d+)$/,
       "revision-history": /^thoughtbox:\/\/revisions\/([^\/]+)\/(\d+)$/,
@@ -253,25 +252,24 @@ export class ThoughtQueryHandler {
   }
 
   /**
-   * Convert ThoughtNode to simplified thought data
+   * Convert ThoughtNode to simplified thought data.
+   * Arrow function to preserve `this` when used as .map() callback.
    */
-  private nodeToThought(node: ThoughtNode): {
+  private nodeToThought = (node: ThoughtNode): {
     thoughtNumber: number;
     thought: string;
     timestamp: string;
     type?: string;
     isRevision: boolean;
     branchId?: string | null;
-  } {
-    return {
-      thoughtNumber: node.data.thoughtNumber,
-      thought: node.data.thought,
-      timestamp: node.data.timestamp,
-      type: this.extractType(node.data.thought),
-      isRevision: node.data.isRevision || false,
-      branchId: node.branchId || null,
-    };
-  }
+  } => ({
+    thoughtNumber: node.data.thoughtNumber,
+    thought: node.data.thought,
+    timestamp: node.data.timestamp,
+    type: this.extractType(node.data.thought),
+    isRevision: node.data.isRevision || false,
+    branchId: node.branchId || null,
+  });
 
   /**
    * Extract thought type from cipher notation
@@ -279,5 +277,26 @@ export class ThoughtQueryHandler {
   private extractType(thought: string): string | undefined {
     const match = thought.match(/^S\d+\|([HECQRPOAX])\|/);
     return match ? match[1] : undefined;
+  }
+
+  private static readonly TYPE_NAME_TO_CIPHER: Record<string, string> = {
+    reasoning: "H",
+    decision_frame: "C",
+    action_report: "A",
+    belief_snapshot: "E",
+    assumption_update: "A",
+    context_snapshot: "O",
+    progress: "P",
+  };
+
+  /**
+   * Normalize a type input to its cipher character.
+   * Accepts both cipher chars (H, E, C) and full names (reasoning, decision_frame).
+   */
+  private normalizeToCipher(type: string): string {
+    if (type.length === 1 && /^[HECQRPOAX]$/.test(type)) {
+      return type;
+    }
+    return ThoughtQueryHandler.TYPE_NAME_TO_CIPHER[type] ?? type;
   }
 }

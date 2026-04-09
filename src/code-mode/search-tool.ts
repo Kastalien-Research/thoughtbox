@@ -97,30 +97,36 @@ export class SearchTool {
 
     let output: CodeModeResult;
     try {
+      // Serialize the result inside the vm to avoid cross-realm object
+      // issues where host JSON.stringify silently returns undefined for
+      // complex objects created inside the sandbox.
       const script = new vm.Script(`
         const catalog = Object.freeze(JSON.parse(__catalogJson));
-        (${input.code})()
+        Promise.resolve((${input.code})()).then(
+          r => JSON.stringify(r),
+          e => { throw e; }
+        )
       `, {
         filename: "codemode-search.js",
       });
       const rawResult = script.runInContext(context, { timeout: TIMEOUT_MS });
-      const result = await Promise.race([
+      const serialized: string = await Promise.race([
         rawResult,
-        new Promise((_, reject) =>
+        new Promise<string>((_, reject) =>
           setTimeout(() => reject(new Error("Search execution timed out")), TIMEOUT_MS)
         ),
-      ]);
+      ]) as string;
 
       const durationMs = Date.now() - start;
-      let serialized = JSON.stringify(result, null, 2);
+      let resultJson = serialized ?? "null";
       let truncated = false;
-      if (serialized && serialized.length > MAX_RESULT_BYTES) {
-        serialized = serialized.slice(0, MAX_RESULT_BYTES) + "\n... [truncated]";
+      if (resultJson.length > MAX_RESULT_BYTES) {
+        resultJson = resultJson.slice(0, MAX_RESULT_BYTES) + "\n... [truncated]";
         truncated = true;
       }
 
       output = {
-        result: truncated ? serialized : JSON.parse(serialized ?? "null"),
+        result: truncated ? resultJson : JSON.parse(resultJson),
         logs,
         truncated: truncated || undefined,
         durationMs,

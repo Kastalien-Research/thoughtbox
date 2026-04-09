@@ -33,12 +33,26 @@ export const ObservabilityArgsSchema = z.object({
   model: z.string().optional(),
 }).optional();
 
+/**
+ * Accept both nested `{ operation, args: { sessionId } }` and flat
+ * `{ operation, sessionId }` calling conventions. Flat params are
+ * merged into args so handlers always receive a consistent shape.
+ */
 export const ObservabilityInputSchema = z.object({
   operation: ObservabilityOperationSchema,
   args: ObservabilityArgsSchema,
+  sessionId: z.string().optional(),
+  limit: z.number().optional(),
+  status: z.enum(['active', 'idle', 'all']).optional(),
+  services: z.array(z.string()).optional(),
+  model: z.string().optional(),
+}).transform((val) => {
+  const { operation, args, ...flatParams } = val;
+  const merged = { ...flatParams, ...args };
+  return { operation, args: Object.keys(merged).length > 0 ? merged : undefined };
 });
 
-export type ObservabilityInput = z.infer<typeof ObservabilityInputSchema>;
+export type ObservabilityInput = z.input<typeof ObservabilityInputSchema>;
 
 export const observabilityToolInputSchema = {
   operation: {

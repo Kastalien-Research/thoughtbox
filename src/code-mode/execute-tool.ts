@@ -95,6 +95,36 @@ function unwrapToolResult(raw: unknown): unknown {
   }
 }
 
+/**
+ * Flatten notebook handler responses.
+ * Handlers return { success, notebook/cell/cells/content/execution: ... }.
+ * SDK consumers expect the inner value directly with `id` at top level.
+ */
+function flattenNotebookResult(raw: unknown): unknown {
+  if (!raw || typeof raw !== "object") return raw;
+  const obj = raw as Record<string, unknown>;
+  if (obj.notebook && typeof obj.notebook === "object") {
+    return obj.notebook;
+  }
+  if (obj.cell && typeof obj.cell === "object") {
+    return obj.cell;
+  }
+  return raw;
+}
+
+/**
+ * Normalize knowledge entity responses so `id` is always present.
+ * Handlers return `entity_id`; SDK consumers expect `id`.
+ */
+function normalizeEntityResult(raw: unknown): unknown {
+  if (!raw || typeof raw !== "object") return raw;
+  const obj = raw as Record<string, unknown>;
+  if (obj.entity_id && !obj.id) {
+    return { id: obj.entity_id, ...obj };
+  }
+  return raw;
+}
+
 interface TbContext {
   sessionId?: string;
 }
@@ -137,13 +167,13 @@ function buildTbObject(deps: ExecuteToolDeps, ctx: TbContext): Record<string, un
 
     knowledge: {
       createEntity: async (args: Record<string, unknown>) =>
-        unwrapToolResult(await knowledgeTool.handle({
+        normalizeEntityResult(unwrapToolResult(await knowledgeTool.handle({
           operation: "knowledge_create_entity", ...args,
-        } as KnowledgeToolInput)),
+        } as KnowledgeToolInput))),
       getEntity: async (entityId: string) =>
-        unwrapToolResult(await knowledgeTool.handle({
+        normalizeEntityResult(unwrapToolResult(await knowledgeTool.handle({
           operation: "knowledge_get_entity", entity_id: entityId,
-        } as KnowledgeToolInput)),
+        } as KnowledgeToolInput))),
       listEntities: async (args?: Record<string, unknown>) =>
         unwrapToolResult(await knowledgeTool.handle({
           operation: "knowledge_list_entities", ...args,
@@ -168,25 +198,25 @@ function buildTbObject(deps: ExecuteToolDeps, ctx: TbContext): Record<string, un
 
     notebook: {
       create: async (args: Record<string, unknown>) =>
-        unwrapToolResult(await notebookTool.handle({
+        flattenNotebookResult(unwrapToolResult(await notebookTool.handle({
           operation: "notebook_create", ...args,
-        } as NotebookToolInput)),
+        } as NotebookToolInput))),
       list: async () =>
         unwrapToolResult(await notebookTool.handle({
           operation: "notebook_list",
         } as NotebookToolInput)),
       load: async (args: Record<string, unknown>) =>
-        unwrapToolResult(await notebookTool.handle({
+        flattenNotebookResult(unwrapToolResult(await notebookTool.handle({
           operation: "notebook_load", ...args,
-        } as NotebookToolInput)),
+        } as NotebookToolInput))),
       addCell: async (args: Record<string, unknown>) =>
-        unwrapToolResult(await notebookTool.handle({
+        flattenNotebookResult(unwrapToolResult(await notebookTool.handle({
           operation: "notebook_add_cell", ...args,
-        } as NotebookToolInput)),
+        } as NotebookToolInput))),
       updateCell: async (args: Record<string, unknown>) =>
-        unwrapToolResult(await notebookTool.handle({
+        flattenNotebookResult(unwrapToolResult(await notebookTool.handle({
           operation: "notebook_update_cell", ...args,
-        } as NotebookToolInput)),
+        } as NotebookToolInput))),
       runCell: async (args: Record<string, unknown>) =>
         unwrapToolResult(await notebookTool.handle({
           operation: "notebook_run_cell", ...args,
@@ -277,30 +307,38 @@ export class ExecuteTool {
 
     let output: CodeModeResult;
     try {
-      const script = new vm.Script(`(${input.code})()`, {
+      // Serialize the result inside the vm to avoid cross-realm object
+      // issues where host JSON.stringify can silently return undefined
+      // for complex objects created inside the sandbox.
+      const script = new vm.Script(`
+        Promise.resolve((${input.code})()).then(
+          r => JSON.stringify(r),
+          e => { throw e; }
+        )
+      `, {
         filename: "codemode-exec.js",
       });
 
       // vm.Script timeout only covers synchronous execution.
       // Promise.race adds a wall-clock timeout for async operations.
       const rawResult = script.runInContext(context, { timeout: TIMEOUT_MS });
-      const result = await Promise.race([
+      const serialized: string = await Promise.race([
         rawResult,
-        new Promise((_, reject) =>
+        new Promise<string>((_, reject) =>
           setTimeout(() => reject(new Error("Execution timed out")), TIMEOUT_MS)
         ),
-      ]);
+      ]) as string;
 
       const durationMs = Date.now() - start;
-      let serialized = JSON.stringify(result, null, 2) ?? "null";
+      let resultJson = serialized ?? "null";
       let truncated = false;
-      if (serialized.length > MAX_RESULT_BYTES) {
-        serialized = serialized.slice(0, MAX_RESULT_BYTES) + "\n... [truncated]";
+      if (resultJson.length > MAX_RESULT_BYTES) {
+        resultJson = resultJson.slice(0, MAX_RESULT_BYTES) + "\n... [truncated]";
         truncated = true;
       }
 
       output = {
-        result: truncated ? serialized : JSON.parse(serialized),
+        result: truncated ? resultJson : JSON.parse(resultJson),
         logs,
         truncated: truncated || undefined,
         durationMs,

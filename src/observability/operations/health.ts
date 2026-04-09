@@ -35,7 +35,9 @@ export async function checkHealth(
     requestedServices.map(async (service) => {
       switch (service) {
         case 'thoughtbox':
-          return { name: service, health: await checkThoughtbox(thoughtboxUrl) };
+          // If responding to this request, the server is healthy.
+          // External URL checks fail from Cloud Run (no loopback route).
+          return { name: service, health: { status: 'healthy' as const } };
         case 'supabase':
           return { name: service, health: await checkOtelStorage(otelStorage) };
         default:
