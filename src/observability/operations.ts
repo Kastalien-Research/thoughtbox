@@ -96,8 +96,10 @@ export const OBSERVABILITY_OPERATIONS: OperationDefinition[] = [
       required: ["sessionId"],
     },
     example: {
-      sessionId: "abc-123-def-456",
-      limit: 100,
+      args: {
+        sessionId: "abc-123-def-456",
+        limit: 100,
+      },
     },
   },
   {

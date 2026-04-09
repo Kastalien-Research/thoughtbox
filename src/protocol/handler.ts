@@ -776,7 +776,21 @@ export class ProtocolHandler {
   async ulyssesStatus(): Promise<Record<string, unknown>> {
     const session = await this.getActiveSession('ulysses');
     if (!session) {
-      return { active: false, protocol: 'ulysses' };
+      // Fetch most recent completed session for context
+      const { data: last } = await this.client
+        .from('protocol_sessions')
+        .select('id, status, completed_at')
+        .eq('protocol', 'ulysses')
+        .neq('status', 'active')
+        .order('completed_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      return {
+        active: false,
+        protocol: 'ulysses',
+        ...(last ? { last_session: { session_id: last.id, status: last.status, completed_at: last.completed_at } } : {}),
+      };
     }
 
     const state = session.state_json as {

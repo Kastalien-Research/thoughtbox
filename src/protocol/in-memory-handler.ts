@@ -528,7 +528,14 @@ export class InMemoryProtocolHandler {
   async ulyssesStatus(): Promise<Record<string, unknown>> {
     const session = this.getActiveSession('ulysses');
     if (!session) {
-      return { active: false, protocol: 'ulysses' };
+      const last = this.sessions
+        .filter(s => s.protocol === 'ulysses' && s.status !== 'active')
+        .sort((a, b) => (b.completed_at ?? '').localeCompare(a.completed_at ?? ''))[0];
+      return {
+        active: false,
+        protocol: 'ulysses',
+        ...(last ? { last_session: { session_id: last.id, status: last.status, completed_at: last.completed_at } } : {}),
+      };
     }
     const state = session.state_json as {
       S: number;

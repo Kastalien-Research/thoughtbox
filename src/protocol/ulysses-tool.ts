@@ -112,9 +112,6 @@ export class UlyssesTool {
       }
       case "status": {
         result = await this.handler.ulyssesStatus();
-        if (result.session_id) {
-          this.activeSessionId = result.session_id as string;
-        }
         break;
       }
       case "complete": {

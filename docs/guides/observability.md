@@ -81,8 +81,10 @@ async () => tb.observability({
 // Chronological event timeline
 async () => tb.observability({
   operation: "session_timeline",
-  sessionId: "session-uuid",
-  limit: 50
+  args: {
+    sessionId: "session-uuid",
+    limit: 50
+  }
 })
 ```
 
