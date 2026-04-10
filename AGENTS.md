@@ -163,3 +163,46 @@ Use these only when relevant to the task; do not bulk-load them by default:
 - Local state: `.claude/state/*`
 
 The intent is to inherit the project's accumulated operating context without pretending the Claude/Gemini runtime integrations are literally active in Codex.
+
+## Cursor Cloud specific instructions
+
+### Environment
+
+- **Node.js ≥22** (`.nvmrc` pins 22.21.1; any 22.x works).
+- **pnpm 9.15.4** — declared in `packageManager` field; already available after `corepack enable`.
+- Dependencies: `pnpm install` at repo root (builds native `better-sqlite3`).
+- Build for dev: `pnpm build:local` (embeds templates → compiles TS → copies assets).
+
+### Running the dev server
+
+```bash
+THOUGHTBOX_OBSERVATORY_ENABLED=true pnpm dev
+```
+
+- MCP server on `:1731`, Observatory UI on `:1729`.
+- Health check: `GET http://localhost:1731/health`.
+- Hub HTTP API: `POST http://localhost:1731/hub/api` with JSON body `{ "operation": "...", ... }`.
+
+**Known issue (pre-existing):** MCP session creation (`POST /mcp`) crashes with `supabaseUrl is required` because `BranchHandler` in `src/branch/handlers.ts` unconditionally calls `createClient()` with an empty URL when `SUPABASE_URL` is not set. The HTTP server starts fine and the Hub API works — only the MCP protocol endpoint fails per-session. Do **not** set `SUPABASE_URL` to a placeholder — `ensureStaticWorkspace` in `src/auth/static-workspace.ts` will then try to connect and crash the whole server.
+
+### Lint / Type-check / Test
+
+| Command | What it does |
+|---------|-------------|
+| `pnpm check:lint` | oxlint over `src/` |
+| `pnpm check:types` | `tsc --noEmit` |
+| `npx vitest run` | Unit tests (474 pass, 3 pre-existing Supabase failures, 54 skipped) |
+| `pnpm test` | Build + vitest (full suite) |
+
+### Storage modes
+
+- Default (`THOUGHTBOX_STORAGE=fs`): filesystem at `~/.thoughtbox/`.
+- Memory (`THOUGHTBOX_STORAGE=memory`): volatile, no external deps.
+- Supabase (`THOUGHTBOX_STORAGE=supabase`): requires `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY`.
+
+### Sub-packages (independently managed)
+
+- `plugins/thoughtbox-claude-code/` — Claude Code plugin (own `pnpm-lock.yaml`).
+- `observability/mcp-sidecar-observability/` — MCP observability proxy (own `pnpm-lock.yaml`).
+
+These have separate `pnpm install` steps; root install does not cover them.
