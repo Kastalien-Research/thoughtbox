@@ -28,6 +28,7 @@ export interface TimelineEvent {
 export interface SessionTimelineResult {
   session_id: string;
   run_ids: string[];
+  correlation_status: 'healthy' | 'binding_missing';
   events: TimelineEvent[];
   count: number;
 }
@@ -41,6 +42,7 @@ export interface CostEntry {
 export interface SessionCostResult {
   session_id: string | null;
   run_ids: string[];
+  correlation_status: 'healthy' | 'binding_missing';
   costs: CostEntry[];
   total: number;
 }
@@ -127,6 +129,28 @@ export class OtelEventStorage {
       if (updateError) {
         throw new Error(`Run binding update failed: ${updateError.message}`);
       }
+
+      const { error: statusError } = await this.supabase
+        .from('run_correlation_statuses')
+        .upsert(
+          {
+            run_id: run.id,
+            workspace_id: row.workspace_id,
+            session_id: sessionId,
+            status: 'healthy',
+            evidence: {
+              otel_session_id: row.session_id,
+              binding_event: row.event_name,
+              timestamp_at: row.timestamp_at,
+            },
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: 'run_id' },
+        );
+
+      if (statusError) {
+        throw new Error(`Run status update failed: ${statusError.message}`);
+      }
     }
   }
 
@@ -154,6 +178,7 @@ export class OtelEventStorage {
       return {
         session_id: sessionId,
         run_ids: (runs ?? []).map((run) => run.id),
+        correlation_status: 'binding_missing',
         events: [],
         count: 0,
       };
@@ -174,6 +199,7 @@ export class OtelEventStorage {
     return {
       session_id: sessionId,
       run_ids: (runs ?? []).map((run) => run.id),
+      correlation_status: 'healthy',
       events: (data ?? []) as TimelineEvent[],
       count: data?.length ?? 0,
     };
@@ -207,7 +233,13 @@ export class OtelEventStorage {
         ),
       );
       if (otelSessionIds.length === 0) {
-        return { session_id: sessionId, run_ids: runIds, costs: [], total: 0 };
+        return {
+          session_id: sessionId,
+          run_ids: runIds,
+          correlation_status: 'binding_missing',
+          costs: [],
+          total: 0,
+        };
       }
     }
 
@@ -245,6 +277,7 @@ export class OtelEventStorage {
     return {
       session_id: sessionId ?? null,
       run_ids: runIds,
+      correlation_status: otelSessionIds ? 'healthy' : 'binding_missing',
       costs,
       total,
     };

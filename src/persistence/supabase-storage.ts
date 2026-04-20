@@ -8,7 +8,9 @@
 
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '../database.types.js';
+import type { Json } from '../database.types.js';
 import { randomUUID } from 'node:crypto';
+import type { RunCorrelationStatus } from '../health/types.js';
 import type {
   ThoughtboxStorage,
   Config,
@@ -364,6 +366,11 @@ export class SupabaseStorage implements ThoughtboxStorage {
       .single();
 
     if (error) throw new Error(`Failed to create run: ${error.message}`);
+    await this.upsertRunCorrelationState(data.id, data.session_id, 'session_created', {
+      run_id: data.id,
+      session_id: data.session_id,
+      started_at: data.started_at,
+    });
     return this.rowToRun(data);
   }
 
@@ -418,6 +425,12 @@ export class SupabaseStorage implements ThoughtboxStorage {
       .single();
 
     if (updateError) throw new Error(`Failed to bind OTEL session to run: ${updateError.message}`);
+    await this.upsertRunCorrelationState(updated.id, updated.session_id, 'healthy', {
+      run_id: updated.id,
+      session_id: updated.session_id,
+      otel_session_id: updated.otel_session_id,
+      ended_at: updated.ended_at,
+    });
     return this.rowToRun(updated);
   }
 
@@ -447,6 +460,7 @@ export class SupabaseStorage implements ThoughtboxStorage {
 
     const { error } = await client.from('thoughts').insert(row);
     if (error) throw new Error(`Failed to save thought: ${error.message}`);
+    await this.markLatestRunReasoningSeen(sessionId, enriched);
   }
 
   async getThoughts(sessionId: string): Promise<ThoughtData[]> {
@@ -555,6 +569,67 @@ export class SupabaseStorage implements ThoughtboxStorage {
       .is('branch_id', null);
 
     if (error) throw new Error(`Failed to update critique: ${error.message}`);
+  }
+
+  private async markLatestRunReasoningSeen(
+    sessionId: string,
+    thought: ThoughtData,
+  ): Promise<void> {
+    const client = this.ensureClient();
+    const { data, error } = await client
+      .from('runs')
+      .select('id, session_id, otel_session_id')
+      .eq('workspace_id', this.workspaceId)
+      .eq('session_id', sessionId)
+      .order('started_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (error) {
+      throw new Error(`Failed to read latest run for reasoning status: ${error.message}`);
+    }
+
+    if (!data) return;
+
+    await this.upsertRunCorrelationState(
+      data.id,
+      data.session_id,
+      data.otel_session_id ? 'healthy' : 'reasoning_seen',
+      {
+        run_id: data.id,
+        session_id: data.session_id,
+        thought_number: thought.thoughtNumber,
+        thought_type: thought.thoughtType,
+        timestamp: thought.timestamp,
+        otel_session_id: data.otel_session_id,
+      },
+    );
+  }
+
+  private async upsertRunCorrelationState(
+    runId: string,
+    sessionId: string,
+    status: RunCorrelationStatus,
+    evidence: Record<string, unknown>,
+  ): Promise<void> {
+    const client = this.ensureClient();
+    const { error } = await client
+      .from('run_correlation_statuses')
+      .upsert(
+        {
+          run_id: runId,
+          workspace_id: this.workspaceId,
+          session_id: sessionId,
+          status,
+          evidence: evidence as Json,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: 'run_id' },
+      );
+
+    if (error) {
+      throw new Error(`Failed to upsert run correlation state: ${error.message}`);
+    }
   }
 
   // ===========================================================================
