@@ -59,6 +59,21 @@ export function SignUpForm() {
       </div>
 
       <div>
+        <label htmlFor="inviteCode" className="block text-sm font-medium text-foreground">
+          Invite code
+        </label>
+        <input
+          id="inviteCode"
+          name="inviteCode"
+          type="text"
+          required
+          placeholder="Enter your invite code"
+          autoComplete="off"
+          className="mt-1.5 block w-full rounded-none border border-foreground bg-background px-3.5 py-2.5 text-sm text-foreground placeholder-slate-400 focus:border-foreground focus:outline-none focus:ring-2 focus:ring-foreground/20 font-mono tracking-wider"
+        />
+      </div>
+
+      <div>
         <label htmlFor="email" className="block text-sm font-medium text-foreground">
           Work email
         </label>

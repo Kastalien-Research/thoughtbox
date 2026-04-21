@@ -52,10 +52,19 @@ export async function signUpAction(
   _prevState: AuthFormState,
   formData: FormData,
 ): Promise<AuthFormState> {
+  const inviteCode = (formData.get('inviteCode') as string | null)?.trim() ?? ''
   const email = formData.get('email') as string
   const password = formData.get('password') as string
   const firstName = (formData.get('firstName') as string | null)?.trim() ?? ''
   const lastName = (formData.get('lastName') as string | null)?.trim() ?? ''
+
+  const validCodes = new Set([
+    'DEDALUS25',
+  ])
+
+  if (!validCodes.has(inviteCode.toUpperCase())) {
+    return { error: 'Invalid invite code.' }
+  }
 
   if (password.length < 12) {
     return { error: 'Password must be at least 12 characters.' }
