@@ -1,0 +1,12 @@
+{
+  "image": "mcr.microsoft.com/devcontainers/universal:2",
+  "features": {
+    "ghcr.io/siri404/devcontainer-ai-features/claude-code:1": {
+      "version": "latest"
+    },
+    "ghcr.io/devcontainers-extra/features/supabase-cli:1": {},
+    "ghcr.io/siri404/devcontainer-ai-features/vercel-cli:1": {
+      "version": "latest"
+    }
+  }
+}
