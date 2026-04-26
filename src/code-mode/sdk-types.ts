@@ -103,15 +103,19 @@ interface TB {
     summary?: string;
   }): Promise<unknown>;
 
-  /** Ulysses Protocol: state-step-gated debugging. S tracks position in plan→execute→evaluate cycle. S=0 at checkpoint, S=1 after plan submitted (primary executing), S=2 after primary fails (backup executing) or both fail (reflect required). Source: src/protocol/ulysses-tool.ts */
+  /** Ulysses Protocol: state-step-gated debugging with notebook-cell validators. plan binds primaryValidator + recoveryValidator (notebook code cells); outcome takes observed JSON and the bound validator decides the assessment; bind_final_validator pins a predicate that hard-gates complete(resolved). Source: src/protocol/ulysses-tool.ts */
   ulysses(input: {
-    operation: "init" | "plan" | "outcome" | "reflect" | "status" | "complete";
+    operation: "init" | "plan" | "outcome" | "reflect" | "status" | "complete" | "bind_final_validator";
     problem?: string;
     constraints?: string[];
     primary?: string;
     recovery?: string;
     irreversible?: boolean;
-    assessment?: "expected" | "unexpected-favorable" | "unexpected-unfavorable";
+    primaryValidator?: { notebookId: string; cellId: string };
+    recoveryValidator?: { notebookId: string; cellId: string };
+    observed?: unknown;
+    notebookId?: string;
+    cellId?: string;
     details?: string;
     hypothesis?: string;
     falsification?: string;

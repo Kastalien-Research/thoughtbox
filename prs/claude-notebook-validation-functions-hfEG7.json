@@ -1,0 +1,63 @@
+{
+  "branch": "claude/notebook-validation-functions-hfEG7",
+  "adrs": [],
+  "summary": "Replaces the agent's self-reported assessment in Ulysses Protocol with notebook code cells acting as deterministic predicates. plan now requires primaryValidator and recoveryValidator { notebookId, cellId } refs; outcome takes observed JSON and the bound validator decides assessment; bind_final_validator pins a predicate that hard-gates complete(resolved). Predicates are frozen at plan time (snapshot of cell source + package.json + tsconfig, sha256-hashed) and run in disposable temp dirs, so post-bind notebook edits cannot influence verdicts. The same notebook_validate op is exposed as a standalone primitive any flow can use to pin and run hypothesis predicates. No Supabase migration: bindings live inside protocol_sessions.state_json and protocol_history.event_json.",
+  "claims": [
+    {
+      "id": "c1",
+      "adr_claim_id": "__none__",
+      "statement": "ValidatorService snapshots a code cell at bind time (source + package.json + tsconfig) and hashes the snapshot with sha256; running with a mismatching expectedSnapshotHash refuses execution and returns hashMatched=false, reason=snapshot_hash_mismatch.",
+      "evidence_type": "unit_test",
+      "evidence_path": "src/notebook/__tests__/validator.test.ts",
+      "evidence_description": "Tests cover pass/fail verdict via sidecar file, malformed verdict, cell crash, hash mismatch refusing to run, and post-bind cell edits proven inert against the original frozen binding. Validator.test.ts was run locally and all 6 cases pass."
+    },
+    {
+      "id": "c2",
+      "adr_claim_id": "__none__",
+      "statement": "ulyssesPlan rejects calls without primaryValidator and recoveryValidator; ulyssesOutcome runs the phase validator before the protocol_history insert and derives assessment ('expected' or 'unexpected-unfavorable') from the verdict, recording observed/snapshotHash/verdict in event_json.",
+      "evidence_type": "unit_test",
+      "evidence_path": "src/protocol/__tests__/ulysses-validator.test.ts",
+      "evidence_description": "Tests assert that plan throws when ValidatorService is not configured, that pass verdicts drive S→0 and fail verdicts drive S→2, and that the outcome event_json carries derivedAssessment, observed, validator.snapshotHash, and verdict.pass. All 9 cases pass locally."
+    },
+    {
+      "id": "c3",
+      "adr_claim_id": "__none__",
+      "statement": "A snapshot hash mismatch on outcome is recorded as a validator_tampering history event and forces S=2 with active_step cleared, reusing the existing checkEnforcement REFLECT gate.",
+      "evidence_type": "unit_test",
+      "evidence_path": "src/protocol/__tests__/ulysses-validator.test.ts",
+      "evidence_description": "Test 'validator hash mismatch forces S=2 and records validator_tampering' simulates a corrupted binding snapshot and asserts assessment='unexpected-unfavorable', S=2, validatorTampering=true. The existing enforcement.test.ts case still passes against the new gate."
+    },
+    {
+      "id": "c4",
+      "adr_claim_id": "__none__",
+      "statement": "complete(terminalState='resolved') is hard-gated by the final validator: rejected when no validator is bound, when observed is missing, when the validator returns fail, or when the snapshot hash mismatches. Other terminals (insufficient_information, environment_compromised) do not run the validator.",
+      "evidence_type": "unit_test",
+      "evidence_path": "src/protocol/__tests__/ulysses-validator.test.ts",
+      "evidence_description": "Four dedicated tests cover each rejection path plus the success case (validator passes → status='resolved' with finalValidation.pass=true) and the bypass for non-resolved terminals. All pass locally."
+    },
+    {
+      "id": "c5",
+      "adr_claim_id": "__none__",
+      "statement": "Verdicts travel through a sidecar JSON file (TB_VERDICT_PATH), not stdout parsing; missing or malformed verdict files yield pass=false with reason='malformed_verdict' and stdout/stderr captured for audit.",
+      "evidence_type": "implementation",
+      "evidence_path": "src/notebook/validator.ts",
+      "evidence_description": "ValidatorService.run writes observed.json under the disposable temp dir, sets TB_OBSERVED_PATH and TB_VERDICT_PATH env vars, executes the cell via existing executeJavaScript/executeTypeScript helpers, and parses the sidecar file post-exit. readVerdict() returns null on missing/unparseable files; the run() method maps that to {pass:false, reason:'malformed_verdict'}. Auto-emits tb-validate.{js,ts} into the sandbox so cells can import { observed, pass, fail }."
+    },
+    {
+      "id": "c6",
+      "adr_claim_id": "__none__",
+      "statement": "No Supabase schema migration is introduced. New fields fit inside protocol_sessions.state_json and the existing protocol_history.event_json blob; protocol_history.event_type is widened to include 'final_validator_bound' and 'validator_tampering'.",
+      "evidence_type": "implementation",
+      "evidence_path": "src/protocol/types.ts",
+      "evidence_description": "ProtocolHistoryEvent.event_type union grows by two values; PlanInput grows by primaryValidator/recoveryValidator; UlyssesOutcomeInput now takes observed; new BindFinalValidatorInput; UlyssesCompleteInput grows by optional observed. No new tables, columns, or indexes. supabase/migrations/ is untouched in this PR (the supabase[bot] CI check confirmed the supabase/ directory is unchanged)."
+    },
+    {
+      "id": "c7",
+      "adr_claim_id": "__none__",
+      "statement": "The notebook_validate operation is exposed both as a standalone MCP op via thoughtbox_notebook and as tb.notebook.validate in the Code Mode SDK; NotebookHandler exposes a getValidatorService() so the protocol handler dispatches validators in-process rather than via an MCP roundtrip.",
+      "evidence_type": "implementation",
+      "evidence_path": "src/server-factory.ts",
+      "evidence_description": "server-factory.ts:428 calls protocolHandler.setValidatorService(notebookHandler.getValidatorService()) right after both handlers are constructed. src/notebook/operations.ts adds the notebook_validate operation, src/notebook/tool.ts widens the dispatcher enum, and src/code-mode/execute-tool.ts:241 plus src/code-mode/sdk-types.ts add the SDK entry. search-index.ts picks up the op automatically because it indexes NOTEBOOK_OPERATIONS."
+    }
+  ]
+}

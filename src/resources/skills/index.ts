@@ -401,16 +401,30 @@ async () => {
 
 ## Phase 2: Plan-Act-Assess Loop
 
-**Plan** with pre-committed backup:
+**Author validator cells** in a Thoughtbox notebook before planning. Each cell reads observed data via \`process.env.TB_OBSERVED_PATH\` and writes a verdict to \`process.env.TB_VERDICT_PATH\`. Use the auto-materialised helper:
+
 \`\`\`javascript
-async () => tb.ulysses({ operation: "plan", primary: "Check CI env vars vs local", recovery: "If same, check node version" })
+import { observed, pass, fail } from "./tb-validate.js";
+const d = observed();
+d.envVarsMatch ? fail("env vars identical, hypothesis was wrong", d) : pass("env vars differ", d);
+\`\`\`
+
+**Plan** with pre-committed backup and bound validator cells:
+\`\`\`javascript
+async () => tb.ulysses({
+  operation: "plan",
+  primary: "Check CI env vars vs local",
+  recovery: "If same, check node version",
+  primaryValidator: { notebookId: "<id>", cellId: "<primary-check-cell>" },
+  recoveryValidator: { notebookId: "<id>", cellId: "<recovery-check-cell>" },
+})
 \`\`\`
 
 **Execute** the primary action using whatever tools are needed.
 
-**Assess** the outcome:
+**Assess** by piping observed data into the bound validator — its verdict (not your claim) drives the state machine:
 \`\`\`javascript
-async () => tb.ulysses({ operation: "outcome", assessment: "unexpected-unfavorable", details: "Env vars identical" })
+async () => tb.ulysses({ operation: "outcome", observed: { envVarsMatch: true }, details: "Env vars identical" })
 \`\`\`
 
 ## Phase 3: Forced Reflection (S=2)
@@ -428,11 +442,19 @@ Resets S to 0. Those two moves are now forbidden. Generate new primary + backup.
 
 ## Phase 4: Resolution
 
+Pin a final-validator cell (one that asserts the issue is gone), then complete with observed evidence. terminalState='resolved' is hard-gated by that validator:
+
 \`\`\`javascript
-async () => tb.ulysses({ operation: "complete", terminalState: "resolved", summary: "Root cause: async db seeding not awaited" })
+async () => tb.ulysses({ operation: "bind_final_validator", notebookId: "<id>", cellId: "<final-check-cell>" });
+async () => tb.ulysses({
+  operation: "complete",
+  terminalState: "resolved",
+  observed: { ciStatus: "green", testsPassed: 42 },
+  summary: "Root cause: async db seeding not awaited"
+})
 \`\`\`
 
-Terminal states: resolved, insufficient_information, environment_compromised.
+Terminal states: resolved (validator-gated), insufficient_information, environment_compromised.
 
 ## When to Use
 
