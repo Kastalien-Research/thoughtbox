@@ -6,6 +6,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database, Json } from '../database.types.js';
 import type { ThoughtboxEvent, OnThoughtboxEvent } from '../events/types.js';
+import type { ValidatorService } from '../notebook/validator.js';
+import type { ValidatorBinding, ValidationResult } from '../notebook/types.js';
 import {
   isTestFile,
   ULYSSES_STATE_NEEDS_REFLECT,
@@ -18,6 +20,7 @@ import {
   type TheseusOutcomeInput,
   type PlanInput,
   type UlyssesOutcomeInput,
+  type BindFinalValidatorInput,
   type ReflectInput,
   type ProtocolEnforcementInput,
   type ProtocolEnforcementResult,
@@ -25,11 +28,26 @@ import {
 
 export class ProtocolHandler {
   private workspaceId: string | null = null;
+  private validatorService: ValidatorService | null = null;
 
   constructor(
     private client: SupabaseClient<Database>,
     private onEvent?: OnThoughtboxEvent,
   ) {}
+
+  /** Inject the notebook ValidatorService used by Ulysses validator bindings. */
+  setValidatorService(service: ValidatorService): void {
+    this.validatorService = service;
+  }
+
+  private requireValidator(): ValidatorService {
+    if (!this.validatorService) {
+      throw new Error(
+        'ValidatorService not configured. Notebook validator bindings are required for Ulysses operations.',
+      );
+    }
+    return this.validatorService;
+  }
 
   private emit(
     type: ThoughtboxEvent['type'],
@@ -562,17 +580,29 @@ export class ProtocolHandler {
       throw new Error('REFLECT phase (S=2). Run reflect first.');
     }
 
+    const validator = this.requireValidator();
+    const primaryBinding = await validator.bind(
+      plan.primaryValidator.notebookId,
+      plan.primaryValidator.cellId,
+    );
+    const recoveryBinding = await validator.bind(
+      plan.recoveryValidator.notebookId,
+      plan.recoveryValidator.cellId,
+    );
+
     const step = {
       primary: plan.primary,
       recovery: plan.recovery,
       irreversible: plan.irreversible,
       timestamp: new Date().toISOString(),
+      primaryValidator: primaryBinding,
+      recoveryValidator: recoveryBinding,
     };
 
     const newState = { ...state, S: 1, active_step: step };
     const { error: stateErr } = await this.client
       .from('protocol_sessions')
-      .update({ state_json: newState })
+      .update({ state_json: newState as unknown as Json })
       .eq('id', session.id);
 
     if (stateErr) {
@@ -584,7 +614,7 @@ export class ProtocolHandler {
       .insert({
         session_id: session.id,
         event_type: 'plan',
-        event_json: step,
+        event_json: step as unknown as Json,
       });
 
     if (histErr) {
@@ -597,6 +627,16 @@ export class ProtocolHandler {
       primary: plan.primary,
       recovery: plan.recovery,
       irreversible: plan.irreversible,
+      primaryValidator: {
+        notebookId: primaryBinding.notebookId,
+        cellId: primaryBinding.cellId,
+        snapshotHash: primaryBinding.snapshotHash,
+      },
+      recoveryValidator: {
+        notebookId: recoveryBinding.notebookId,
+        cellId: recoveryBinding.cellId,
+        snapshotHash: recoveryBinding.snapshotHash,
+      },
     };
   }
 
@@ -612,7 +652,14 @@ export class ProtocolHandler {
     }
     const state = session.state_json as {
       S: number;
-      active_step: Json | null;
+      active_step:
+        | (Record<string, unknown> & {
+            primary?: string;
+            recovery?: string;
+            primaryValidator?: ValidatorBinding;
+            recoveryValidator?: ValidatorBinding;
+          })
+        | null;
       checkpoints: string[];
       forbidden_moves: string[];
     };
@@ -621,12 +668,134 @@ export class ProtocolHandler {
       throw new Error('No active step. Run plan first.');
     }
 
+    const activeStep = state.active_step;
+    const phaseValidator =
+      state.S === 1
+        ? activeStep.primaryValidator
+        : activeStep.recoveryValidator;
+
+    if (!phaseValidator) {
+      throw new Error(
+        `No ${state.S === 1 ? 'primary' : 'recovery'} validator bound on active step.`,
+      );
+    }
+
+    const validator = this.requireValidator();
+    const validation: ValidationResult = await validator.run(
+      phaseValidator,
+      outcome.observed,
+      { expectedSnapshotHash: phaseValidator.snapshotHash },
+    );
+
+    // Tampering: refuse the assessment, force S=2, clear active_step so the
+    // existing REFLECT gate fires.
+    if (!validation.hashMatched) {
+      const tamperedState = {
+        ...state,
+        S: 2,
+        active_step: null,
+      };
+      await this.client
+        .from('protocol_sessions')
+        .update({ state_json: tamperedState as unknown as Json })
+        .eq('id', session.id);
+
+      await this.client.from('protocol_history').insert({
+        session_id: session.id,
+        event_type: 'validator_tampering',
+        event_json: {
+          phase: state.S === 1 ? 'primary' : 'recovery',
+          binding: {
+            notebookId: phaseValidator.notebookId,
+            cellId: phaseValidator.cellId,
+            expectedSnapshotHash: phaseValidator.snapshotHash,
+            actualSnapshotHash: validation.snapshotHash,
+          },
+          observed: outcome.observed,
+          details: outcome.details ?? '',
+          timestamp: new Date().toISOString(),
+        } as unknown as Json,
+      });
+
+      this.emit('ulysses_outcome', session.id, {
+        assessment: 'unexpected-unfavorable',
+        S: 2,
+        validatorTampering: true,
+      });
+
+      return {
+        session_id: session.id,
+        assessment: 'unexpected-unfavorable',
+        S: 2,
+        validatorTampering: true,
+        validation,
+        message:
+          'Validator snapshot mismatch — predicate has been tampered with. S→2. REFLECT required.',
+      };
+    }
+
+    const derivedAssessment: 'expected' | 'unexpected-unfavorable' =
+      validation.pass ? 'expected' : 'unexpected-unfavorable';
+
+    let newState: typeof state;
+    let resultMsg: string;
+
+    if (derivedAssessment === 'expected') {
+      newState = {
+        ...state,
+        S: 0,
+        active_step: null,
+        checkpoints: [
+          ...state.checkpoints,
+          `checkpoint_${state.checkpoints.length}`,
+        ],
+      };
+      resultMsg = 'Validator pass. S→0. Checkpoint created.';
+    } else if (state.S === 1) {
+      newState = {
+        ...state,
+        S: 2,
+      };
+      resultMsg =
+        'Primary validator failed. S→2. Execute the recovery move and report observed.';
+    } else {
+      const forbidden = [...(state.forbidden_moves ?? [])];
+      if (activeStep.primary) forbidden.push(activeStep.primary);
+      if (activeStep.recovery) forbidden.push(activeStep.recovery);
+      newState = {
+        ...state,
+        S: 2,
+        active_step: null,
+        forbidden_moves: forbidden,
+      };
+      resultMsg =
+        'Recovery validator also failed. Both moves are now forbidden. S=2. REFLECT required.';
+    }
+
     const outcomeEvent: Json = {
-      step: state.active_step,
-      assessment: outcome.assessment,
+      step: {
+        primary: activeStep.primary,
+        recovery: activeStep.recovery,
+        irreversible: activeStep.irreversible,
+        timestamp: activeStep.timestamp,
+      },
+      derivedAssessment,
+      observed: outcome.observed,
+      validator: {
+        phase: state.S === 1 ? 'primary' : 'recovery',
+        notebookId: phaseValidator.notebookId,
+        cellId: phaseValidator.cellId,
+        snapshotHash: phaseValidator.snapshotHash,
+      },
+      verdict: {
+        pass: validation.pass,
+        reason: validation.reason,
+        evidence: validation.evidence ?? null,
+        exitCode: validation.exitCode,
+      },
       details: outcome.details ?? '',
       timestamp: new Date().toISOString(),
-    };
+    } as unknown as Json;
 
     const { error: histErr } = await this.client
       .from('protocol_history')
@@ -640,60 +809,73 @@ export class ProtocolHandler {
       throw new Error(`Failed to record outcome: ${histErr.message}`);
     }
 
-    const activeStep = state.active_step as { primary?: string; recovery?: string };
-    let newState: typeof state;
-    let resultMsg: string;
-
-    if (outcome.assessment === 'expected') {
-      // Expected outcome at any S level → back to checkpoint, clear active step
-      newState = {
-        ...state,
-        S: 0,
-        active_step: null,
-        checkpoints: [
-          ...state.checkpoints,
-          `checkpoint_${state.checkpoints.length}`,
-        ],
-      };
-      resultMsg = 'Expected outcome. S→0. Checkpoint created.';
-    } else if (state.S === 1) {
-      // Primary move failed → S=2, execute backup (keep active_step for backup outcome)
-      newState = {
-        ...state,
-        S: 2,
-      };
-      resultMsg = 'Primary move produced unexpected outcome. S→2. Execute backup move.';
-    } else {
-      // S=2 and backup also failed → both moves failed, reflect required, clear active step
-      const forbidden = [...(state.forbidden_moves ?? [])];
-      if (activeStep?.primary) forbidden.push(activeStep.primary);
-      if (activeStep?.recovery) forbidden.push(activeStep.recovery);
-      newState = {
-        ...state,
-        S: 2,
-        active_step: null,
-        forbidden_moves: forbidden,
-      };
-      resultMsg = 'Both primary and backup moves produced unexpected outcomes. S=2. REFLECT required. Those moves are now forbidden.';
-    }
-
     const { error: stateErr } = await this.client
       .from('protocol_sessions')
-      .update({ state_json: newState as Json })
+      .update({ state_json: newState as unknown as Json })
       .eq('id', session.id);
 
     if (stateErr) {
       throw new Error(`Failed to update state: ${stateErr.message}`);
     }
 
-    this.emit('ulysses_outcome', session.id, { assessment: outcome.assessment, S: newState.S });
+    this.emit('ulysses_outcome', session.id, {
+      assessment: derivedAssessment,
+      S: newState.S,
+    });
 
     return {
       session_id: session.id,
-      assessment: outcome.assessment,
+      assessment: derivedAssessment,
       S: newState.S,
       forbidden_moves: newState.forbidden_moves,
+      validation,
       message: resultMsg,
+    };
+  }
+
+  async ulyssesBindFinalValidator(
+    sessionId: string,
+    input: BindFinalValidatorInput,
+  ): Promise<Record<string, unknown>> {
+    const session = await this.requireActiveSession('ulysses');
+    if (session.id !== sessionId) {
+      throw new Error(
+        `Session ${sessionId} is not the active ulysses session`,
+      );
+    }
+    const validator = this.requireValidator();
+    const binding = await validator.bind(input.notebookId, input.cellId);
+
+    const state = session.state_json as Record<string, unknown>;
+    const newState = { ...state, finalValidator: binding };
+    const { error: stateErr } = await this.client
+      .from('protocol_sessions')
+      .update({ state_json: newState as unknown as Json })
+      .eq('id', session.id);
+
+    if (stateErr) {
+      throw new Error(`Failed to update state: ${stateErr.message}`);
+    }
+
+    await this.client.from('protocol_history').insert({
+      session_id: session.id,
+      event_type: 'final_validator_bound',
+      event_json: {
+        notebookId: binding.notebookId,
+        cellId: binding.cellId,
+        snapshotHash: binding.snapshotHash,
+        boundAt: binding.boundAt,
+      } as unknown as Json,
+    });
+
+    return {
+      session_id: session.id,
+      finalValidator: {
+        notebookId: binding.notebookId,
+        cellId: binding.cellId,
+        snapshotHash: binding.snapshotHash,
+        boundAt: binding.boundAt,
+      },
     };
   }
 
@@ -822,12 +1004,49 @@ export class ProtocolHandler {
     sessionId: string,
     terminalState: UlyssesTerminal,
     summary?: string,
+    observed?: unknown,
   ): Promise<Record<string, unknown>> {
     const session = await this.requireActiveSession('ulysses');
     if (session.id !== sessionId) {
       throw new Error(
         `Session ${sessionId} is not the active ulysses session`,
       );
+    }
+
+    let finalValidation: ValidationResult | null = null;
+
+    if (terminalState === 'resolved') {
+      const state = session.state_json as {
+        finalValidator?: ValidatorBinding;
+      };
+      const finalBinding = state.finalValidator;
+      if (!finalBinding) {
+        throw new Error(
+          "Cannot complete with terminalState='resolved' until a final validator is bound. " +
+            'Call ulyssesBindFinalValidator first, or choose a different terminal.',
+        );
+      }
+      if (observed === undefined) {
+        throw new Error(
+          "complete with terminalState='resolved' requires 'observed' to be supplied for the final validator.",
+        );
+      }
+      const validator = this.requireValidator();
+      finalValidation = await validator.run(finalBinding, observed, {
+        expectedSnapshotHash: finalBinding.snapshotHash,
+      });
+
+      if (!finalValidation.hashMatched) {
+        throw new Error(
+          'Final validator snapshot mismatch — predicate has been tampered with. Refusing to complete with resolved.',
+        );
+      }
+      if (!finalValidation.pass) {
+        throw new Error(
+          `Final validator rejected resolution: ${finalValidation.reason}. ` +
+            'Continue work, or pick a different terminalState (e.g., insufficient_information).',
+        );
+      }
     }
 
     const { error } = await this.client
@@ -850,6 +1069,9 @@ export class ProtocolHandler {
     };
     if (summary) {
       result.summary = summary;
+    }
+    if (finalValidation) {
+      result.finalValidation = finalValidation;
     }
     return result;
   }

@@ -66,9 +66,24 @@ export interface ProtocolAudit {
 export interface ProtocolHistoryEvent {
   id: string;
   session_id: string;
-  event_type: 'plan' | 'outcome' | 'reflect' | 'checkpoint';
+  event_type:
+    | 'plan'
+    | 'outcome'
+    | 'reflect'
+    | 'checkpoint'
+    | 'final_validator_bound'
+    | 'validator_tampering';
   event_json: Record<string, unknown>;
   created_at: string;
+}
+
+/**
+ * Reference an agent supplies at PLAN time to bind a notebook code cell as
+ * the predicate that determines a step's outcome.
+ */
+export interface ValidatorRef {
+  notebookId: string;
+  cellId: string;
 }
 
 /** Input types for handler methods */
@@ -95,11 +110,32 @@ export interface PlanInput {
   primary: string;
   recovery: string;
   irreversible: boolean;
+  /** Validator cell that decides the primary step's outcome. */
+  primaryValidator: ValidatorRef;
+  /** Validator cell that decides the recovery step's outcome. */
+  recoveryValidator: ValidatorRef;
 }
 
 export interface UlyssesOutcomeInput {
-  assessment: 'expected' | 'unexpected-favorable' | 'unexpected-unfavorable';
+  /**
+   * JSON-serialisable observed value piped into the validator cell bound
+   * for the current S phase. The cell's verdict — not any agent claim —
+   * drives the state transition.
+   */
+  observed: unknown;
   details?: string;
+}
+
+export interface BindFinalValidatorInput {
+  notebookId: string;
+  cellId: string;
+}
+
+export interface UlyssesCompleteInput {
+  terminalState: UlyssesTerminal;
+  summary?: string;
+  /** Required when terminalState is 'resolved' and a final validator is bound. */
+  observed?: unknown;
 }
 
 export interface ReflectInput {

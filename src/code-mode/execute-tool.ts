@@ -239,6 +239,10 @@ function buildTbObject(deps: ExecuteToolDeps, ctx: TbContext): Record<string, un
         unwrapToolResult(await notebookTool.handle({
           operation: "notebook_export", ...args,
         } as NotebookToolInput)),
+      validate: async (args: Record<string, unknown>) =>
+        unwrapToolResult(await notebookTool.handle({
+          operation: "notebook_validate", ...args,
+        } as NotebookToolInput)),
     },
 
     theseus: async (input: TheseusToolInput) =>

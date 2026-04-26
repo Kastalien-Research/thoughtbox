@@ -77,6 +77,12 @@ interface TB {
     getCell(args: { notebookId: string; cellId: string }): Promise<unknown>;
     installDeps(args: { notebookId: string }): Promise<unknown>;
     export(args: { notebookId: string; path?: string }): Promise<unknown>;
+    /**
+     * Run a code cell as a deterministic predicate over JSON-serialisable observed data.
+     * The cell reads observed via process.env.TB_OBSERVED_PATH and writes its verdict
+     * to process.env.TB_VERDICT_PATH (use the auto-materialised tb-validate helper).
+     */
+    validate(args: { notebookId: string; cellId: string; observed: unknown; expectedSnapshotHash?: string }): Promise<unknown>;
   };
 
   /** Theseus Protocol: friction-gated refactoring. Source: src/protocol/theseus-tool.ts */

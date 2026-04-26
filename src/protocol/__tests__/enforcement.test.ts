@@ -1,9 +1,15 @@
 import { describe, expect, it } from "vitest";
 import { InMemoryProtocolHandler } from "../index.js";
+import {
+  FAIL_OBSERVED,
+  makeUlyssesTestEnv,
+} from "./ulysses-test-helpers.js";
 
 describe("InMemoryProtocolHandler enforcement", () => {
   it("blocks mutating work when Ulysses reaches S=2", async () => {
+    const env = await makeUlyssesTestEnv();
     const handler = new InMemoryProtocolHandler();
+    handler.setValidatorService(env.notebookHandler.getValidatorService());
     const init = await handler.ulyssesInit("Investigate failing health check");
     const sessionId = init.session_id as string;
 
@@ -12,16 +18,18 @@ describe("InMemoryProtocolHandler enforcement", () => {
       primary: "Run the first diagnostic",
       recovery: "Revert the change",
       irreversible: false,
+      primaryValidator: env.decider,
+      recoveryValidator: env.decider,
     });
     // Primary failed → S=2 (now executing backup)
     await handler.ulyssesOutcome(sessionId, {
-      assessment: "unexpected-unfavorable",
+      observed: FAIL_OBSERVED,
       details: "Primary move failed",
     });
 
     // Backup also failed → S=2 (reflect required)
     await handler.ulyssesOutcome(sessionId, {
-      assessment: "unexpected-unfavorable",
+      observed: FAIL_OBSERVED,
       details: "Backup move also failed",
     });
 
@@ -37,7 +45,7 @@ describe("InMemoryProtocolHandler enforcement", () => {
       protocol: "ulysses",
       required_action: "reflect",
     });
-  });
+  }, 30_000);
 
   it("blocks test-file writes during Theseus", async () => {
     const handler = new InMemoryProtocolHandler();

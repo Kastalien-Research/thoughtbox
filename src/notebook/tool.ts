@@ -6,7 +6,7 @@ export const notebookToolInputSchema = z.object({
     "notebook_create", "notebook_list", "notebook_load",
     "notebook_add_cell", "notebook_update_cell", "notebook_run_cell",
     "notebook_install_deps", "notebook_list_cells", "notebook_get_cell",
-    "notebook_export",
+    "notebook_export", "notebook_validate",
   ]),
   notebookId: z.string().optional().describe("Notebook ID"),
   cellId: z.string().optional().describe("Cell ID"),
@@ -18,6 +18,8 @@ export const notebookToolInputSchema = z.object({
   cellType: z.enum(["title", "markdown", "code"]).optional().describe("Cell type for add_cell"),
   filename: z.string().optional().describe("Filename for code cells"),
   position: z.number().int().optional().describe("Insert position for add_cell (0-indexed)"),
+  observed: z.unknown().optional().describe("JSON-serialisable value piped into a validator cell (notebook_validate)"),
+  expectedSnapshotHash: z.string().optional().describe("Optional integrity hash for notebook_validate; refuses to run on mismatch"),
 });
 
 export type NotebookToolInput = z.infer<typeof notebookToolInputSchema>;

@@ -227,31 +227,33 @@ describe('Ulysses schema parsing (H4)', () => {
     expect(result.irreversible).toBe(true);
   });
 
-  it('parses outcome with expected assessment', () => {
+  it('parses outcome with observed payload', () => {
     const result = ulyssesToolInputSchema.parse({
       operation: 'outcome',
-      assessment: 'expected',
+      observed: { errorCount: 0 },
     });
-    expect(result.assessment).toBe('expected');
+    expect(result.observed).toEqual({ errorCount: 0 });
   });
 
-  it('parses outcome with unexpected assessment', () => {
+  it('parses outcome with details and arbitrary observed shape', () => {
     const result = ulyssesToolInputSchema.parse({
       operation: 'outcome',
-      assessment: 'unexpected-unfavorable',
+      observed: 'raw string is fine',
       details: 'Server crashed',
     });
-    expect(result.assessment).toBe('unexpected-unfavorable');
+    expect(result.observed).toBe('raw string is fine');
     expect(result.details).toBe('Server crashed');
   });
 
-  it('rejects invalid assessment value', () => {
-    expect(() =>
-      ulyssesToolInputSchema.parse({
-        operation: 'outcome',
-        assessment: 'good',
-      }),
-    ).toThrow();
+  it('parses bind_final_validator', () => {
+    const result = ulyssesToolInputSchema.parse({
+      operation: 'bind_final_validator',
+      notebookId: 'nb_x',
+      cellId: 'cell_y',
+    });
+    expect(result.operation).toBe('bind_final_validator');
+    expect(result.notebookId).toBe('nb_x');
+    expect(result.cellId).toBe('cell_y');
   });
 
   it('parses reflect with hypothesis and falsification', () => {
@@ -389,6 +391,8 @@ describe('ProtocolHandler structure', () => {
       'ulyssesReflect',
       'ulyssesStatus',
       'ulyssesComplete',
+      'ulyssesBindFinalValidator',
+      'setValidatorService',
     ];
     for (const method of methods) {
       expect(typeof (ProtocolHandler.prototype as any)[method]).toBe(

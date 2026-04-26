@@ -397,9 +397,16 @@ describe("Embedded resources in thought responses", () => {
 describe("Ulysses protocol e2e through tool layer", () => {
   let thoughtHandler: ThoughtHandler;
   let tool: UlyssesTool;
+  let decider: { notebookId: string; cellId: string };
 
-  beforeEach(() => {
+  beforeEach(async () => {
+    const { makeUlyssesTestEnv } = await import(
+      "../protocol/__tests__/ulysses-test-helpers.js"
+    );
+    const env = await makeUlyssesTestEnv();
+    decider = env.decider;
     const protocolHandler = new InMemoryProtocolHandler();
+    protocolHandler.setValidatorService(env.notebookHandler.getValidatorService());
     thoughtHandler = new ThoughtHandler(true);
     tool = new UlyssesTool(protocolHandler, thoughtHandler);
   });
@@ -413,17 +420,29 @@ describe("Ulysses protocol e2e through tool layer", () => {
     await call({ operation: "init", problem: "test" });
 
     // plan sets S=1 (executing primary)
-    await call({ operation: "plan", primary: "a1", recovery: "r1" });
+    await call({
+      operation: "plan",
+      primary: "a1",
+      recovery: "r1",
+      primaryValidator: decider,
+      recoveryValidator: decider,
+    });
     // Primary failed → S=2 (now executing backup)
-    const s1 = await call({ operation: "outcome", assessment: "unexpected-unfavorable" });
+    const s1 = await call({ operation: "outcome", observed: { outcome: "fail" } });
     expect(s1.S).toBe(2);
 
     // Backup also failed → S=2 (reflect required)
-    const s2 = await call({ operation: "outcome", assessment: "unexpected-unfavorable" });
+    const s2 = await call({ operation: "outcome", observed: { outcome: "fail" } });
     expect(s2.S).toBe(2);
 
     await expect(
-      call({ operation: "plan", primary: "blocked", recovery: "n/a" })
+      call({
+        operation: "plan",
+        primary: "blocked",
+        recovery: "n/a",
+        primaryValidator: decider,
+        recoveryValidator: decider,
+      })
     ).rejects.toThrow(/REFLECT/);
 
     const r = await call({
@@ -433,9 +452,15 @@ describe("Ulysses protocol e2e through tool layer", () => {
     });
     expect(r.S).toBe(0);
 
-    const p3 = await call({ operation: "plan", primary: "a3", recovery: "r3" });
+    const p3 = await call({
+      operation: "plan",
+      primary: "a3",
+      recovery: "r3",
+      primaryValidator: decider,
+      recoveryValidator: decider,
+    });
     expect(p3.S).toBe(1);
-  });
+  }, 60_000);
 
   // BUG: bridge silently returns when no session exists.
   // bridgeThought checks getCurrentSessionId() → null → return.
@@ -448,17 +473,23 @@ describe("Ulysses protocol e2e through tool layer", () => {
     expect(thoughtHandler.getCurrentSessionId()).not.toBeNull();
   });
 
-  it("expected outcome resets S to 0", async () => {
+  it("validator pass after a fail resets S to 0", async () => {
     await call({ operation: "init", problem: "test" });
-    await call({ operation: "plan", primary: "a", recovery: "r" });
+    await call({
+      operation: "plan",
+      primary: "a",
+      recovery: "r",
+      primaryValidator: decider,
+      recoveryValidator: decider,
+    });
     // Primary failed → S=2
-    const surprise = await call({ operation: "outcome", assessment: "unexpected-unfavorable" });
+    const surprise = await call({ operation: "outcome", observed: { outcome: "fail" } });
     expect(surprise.S).toBe(2);
 
     // Backup succeeded → S=0, checkpoint
-    const expected = await call({ operation: "outcome", assessment: "expected" });
+    const expected = await call({ operation: "outcome", observed: { outcome: "pass" } });
     expect(expected.S).toBe(0);
-  });
+  }, 60_000);
 });
 
 // =============================================================================

@@ -195,9 +195,9 @@ export const ULYSSES_OPERATIONS: OperationDefinition[] = [
   },
   {
     name: "plan",
-    title: "Record Action Plan",
+    title: "Record Action Plan with Validator Cells",
     description:
-      "Record a primary action step with a pre-committed recovery step. The recovery step executes automatically if the primary fails.",
+      "Record a primary action step with a pre-committed recovery step. Each move must be paired with a notebook code cell that will deterministically decide that move's outcome from observed data. Cells are snapshotted (source + package.json + tsconfig) at plan time and pinned by sha256; later edits to the notebook cannot influence the verdict.",
     category: "investigation",
     inputSchema: {
       type: "object",
@@ -214,44 +214,84 @@ export const ULYSSES_OPERATIONS: OperationDefinition[] = [
           type: "boolean",
           description: "Whether the primary step is irreversible",
         },
+        primaryValidator: {
+          type: "object",
+          description:
+            "Notebook code cell that decides the primary step's outcome.",
+          properties: {
+            notebookId: { type: "string" },
+            cellId: { type: "string" },
+          },
+          required: ["notebookId", "cellId"],
+        },
+        recoveryValidator: {
+          type: "object",
+          description:
+            "Notebook code cell that decides the recovery step's outcome.",
+          properties: {
+            notebookId: { type: "string" },
+            cellId: { type: "string" },
+          },
+          required: ["notebookId", "cellId"],
+        },
       },
-      required: ["primary", "recovery"],
+      required: [
+        "primary",
+        "recovery",
+        "primaryValidator",
+        "recoveryValidator",
+      ],
     },
     example: {
       primary: "Add debug logging to session-resume handler",
       recovery: "Revert logging commit and check existing logs",
       irreversible: false,
+      primaryValidator: { notebookId: "nb_abc", cellId: "cell_primary_check" },
+      recoveryValidator: { notebookId: "nb_abc", cellId: "cell_recovery_check" },
     },
   },
   {
     name: "outcome",
-    title: "Assess Step Outcome",
+    title: "Run Bound Validator Against Observed Data",
     description:
-      "Assess the result of a plan step. Expected outcome → S→0, log checkpoint. Unexpected outcome → advance state step. At S=2 (both primary and backup failed), reflection is required before further action.",
+      "Pipe observed data into the validator cell bound for the current S phase. The cell's pass/fail verdict — not any agent claim — drives the state transition. Validator pass → S→0, checkpoint. Validator fail at S=1 → S=2 (recovery pending). Validator fail at S=2 → both moves forbidden, REFLECT required. Snapshot hash mismatch (cell tampered after bind) forces S=2 immediately.",
     category: "investigation",
     inputSchema: {
       type: "object",
       properties: {
-        assessment: {
-          type: "string",
-          enum: [
-            "expected",
-            "unexpected-favorable",
-            "unexpected-unfavorable",
-          ],
-          description: "How the outcome compared to expectations",
+        observed: {
+          description:
+            "JSON-serialisable value piped into the bound validator cell.",
         },
         details: {
           type: "string",
-          description: "Details about the outcome",
+          description: "Free-form notes attached to the outcome event",
         },
       },
-      required: ["assessment"],
+      required: ["observed"],
     },
     example: {
-      assessment: "unexpected-unfavorable",
-      details:
-        "Logs show the handler is never reached — request rejected at auth middleware",
+      observed: { handlerReached: false, statusCode: 401 },
+      details: "Auth middleware blocked the request",
+    },
+  },
+  {
+    name: "bind_final_validator",
+    title: "Pin Final Validator Cell",
+    description:
+      "Pin a notebook code cell as the predicate that gates terminalState='resolved'. The cell is snapshotted and pinned by sha256 at bind time. complete(resolved) will refuse the terminal unless the validator passes against supplied observed data.",
+    category: "session-lifecycle",
+    inputSchema: {
+      type: "object",
+      properties: {
+        notebookId: { type: "string", description: "Notebook id" },
+        cellId: { type: "string", description: "Code cell id" },
+      },
+      required: ["notebookId", "cellId"],
+    },
+    example: {
+      notebookId: "nb_abc",
+      cellId: "cell_final_check",
     },
   },
   {
@@ -298,7 +338,7 @@ export const ULYSSES_OPERATIONS: OperationDefinition[] = [
     name: "complete",
     title: "Complete Debugging Session",
     description:
-      "End the Ulysses session with a terminal state. Bridges a knowledge entry if a summary is provided.",
+      "End the Ulysses session with a terminal state. terminalState='resolved' is HARD-GATED by the final validator if one is bound — observed data must be supplied and the validator must pass. Other terminals (insufficient_information, environment_compromised) ignore the final validator. Bridges a knowledge entry if a summary is provided.",
     category: "session-lifecycle",
     inputSchema: {
       type: "object",
@@ -316,11 +356,16 @@ export const ULYSSES_OPERATIONS: OperationDefinition[] = [
           type: "string",
           description: "Summary of the debugging outcome",
         },
+        observed: {
+          description:
+            "Required when terminalState='resolved' and a final validator is bound; piped into the final validator.",
+        },
       },
       required: ["terminalState"],
     },
     example: {
       terminalState: "resolved",
+      observed: { errorCount: 0, sessionResumes: 100 },
       summary:
         "Root cause: auth token scope. Fix: add session:write to resume flow token generation.",
     },
