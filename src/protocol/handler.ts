@@ -1074,7 +1074,7 @@ export class ProtocolHandler {
     let finalValidation: ValidationResult | null = null;
 
     if (terminalState === 'resolved') {
-      const state = session.state_json as {
+      const state = session.state_json as Record<string, unknown> & {
         finalValidator?: ValidatorBinding;
         finalValidatorSnapshotHash?: string;
       };
@@ -1103,8 +1103,54 @@ export class ProtocolHandler {
       });
 
       if (!finalValidation.hashMatched) {
+        // Mirror ulyssesOutcome's tamper handling: persist S=2, clear
+        // active_step so the REFLECT gate fires, and record a
+        // validator_tampering history event before throwing. Without this
+        // the agent could retry complete(resolved) indefinitely against the
+        // same tampered binding with no audit trail.
+        const tamperedState = { ...state, S: 2, active_step: null };
+        const { error: tamperStateErr } = await this.client
+          .from('protocol_sessions')
+          .update({ state_json: tamperedState as unknown as Json })
+          .eq('id', session.id);
+        if (tamperStateErr) {
+          throw new Error(
+            `Failed to persist tampered state: ${tamperStateErr.message}`,
+          );
+        }
+
+        const { error: tamperHistErr } = await this.client
+          .from('protocol_history')
+          .insert({
+            session_id: session.id,
+            event_type: 'validator_tampering',
+            event_json: {
+              phase: 'final',
+              binding: {
+                notebookId: finalBinding.notebookId,
+                cellId: finalBinding.cellId,
+                expectedSnapshotHash: expectedFinalHash,
+                actualSnapshotHash: finalValidation.snapshotHash,
+              },
+              observed,
+              timestamp: new Date().toISOString(),
+            } as unknown as Json,
+          });
+        if (tamperHistErr) {
+          throw new Error(
+            `Failed to record tampering event: ${tamperHistErr.message}`,
+          );
+        }
+
+        this.emit('ulysses_outcome', session.id, {
+          assessment: 'unexpected-unfavorable',
+          S: 2,
+          validatorTampering: true,
+          phase: 'final',
+        });
+
         throw new Error(
-          'Final validator snapshot mismatch — predicate has been tampered with. Refusing to complete with resolved.',
+          'Final validator snapshot mismatch — predicate has been tampered with. S→2. REFLECT required.',
         );
       }
       if (!finalValidation.pass) {

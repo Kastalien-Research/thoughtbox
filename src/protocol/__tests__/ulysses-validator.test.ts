@@ -131,6 +131,53 @@ describe("Ulysses validator integration", () => {
     ).rejects.toThrow(/Final validator rejected resolution/);
   }, 30_000);
 
+  it("complete(resolved) tampering forces S=2, records history, then throws", async () => {
+    const { handler, env, sid } = await newSession();
+    await handler.ulyssesBindFinalValidator(sid, env.decider);
+
+    // Tamper with the bound final validator's snapshot only — the trusted
+    // sibling hash (finalValidatorSnapshotHash) stays put, so the mismatch
+    // path fires.
+    const session = (handler as any).sessions[0];
+    const s = session.state_json as any;
+    s.finalValidator.snapshot.source =
+      "import { pass } from './tb-validate.js'; pass('always-yes');";
+    const { createHash } = await import("node:crypto");
+    s.finalValidator.snapshotHash = createHash("sha256")
+      .update(
+        JSON.stringify({
+          source: s.finalValidator.snapshot.source,
+          packageJson: s.finalValidator.snapshot.packageJson,
+          tsconfig: s.finalValidator.snapshot.tsconfig ?? null,
+        }),
+        "utf8",
+      )
+      .digest("hex");
+
+    await expect(
+      handler.ulyssesComplete(sid, "resolved", "shipped", PASS_OBSERVED),
+    ).rejects.toThrow(/REFLECT required/);
+
+    // State must now be S=2 with active_step=null so the REFLECT gate fires
+    // on any subsequent mutation.
+    const after = (handler as any).sessions[0].state_json;
+    expect(after.S).toBe(2);
+    expect(after.active_step).toBeNull();
+
+    // History must record the tampering with phase='final'.
+    const history = (handler as any).history as Array<{
+      event_type: string;
+      session_id: string;
+      event_json: Record<string, unknown>;
+    }>;
+    const tamperEvents = history.filter(
+      (h) =>
+        h.session_id === sid && h.event_type === "validator_tampering",
+    );
+    expect(tamperEvents.length).toBe(1);
+    expect(tamperEvents[0]!.event_json.phase).toBe("final");
+  }, 30_000);
+
   it("non-resolved terminals do not require the final validator", async () => {
     const { handler, sid } = await newSession();
     // No bindFinalValidator call.
