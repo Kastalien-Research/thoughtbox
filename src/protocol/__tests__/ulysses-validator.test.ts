@@ -49,26 +49,31 @@ describe("Ulysses validator integration", () => {
       recoveryValidator: env.decider,
     });
 
-    // Tamper with the cell after binding.
-    await env.notebookHandler.handleUpdateCell({
-      notebookId: env.decider.notebookId,
-      cellId: env.decider.cellId,
-      content:
-        "import { pass } from './tb-validate.js'; pass('always-yes');",
-    });
-
-    // Hack: directly mutate the bound snapshot inside the active step so the
-    // server thinks the snapshot changed. We simulate this by calling outcome
-    // — the run-time hash will match the binding (we never re-fetch from the
-    // notebook), so we instead corrupt the binding to force a mismatch path.
-    // Easiest: corrupt via private state surgery for the test.
-    // (In production, hash mismatch happens when state_json is rehydrated from
-    // a cold session and the binding hash no longer matches the snapshot it
-    // was serialised with — e.g. due to manual state_json edits.)
+    // Simulate state_json tampering: rewrite the bound snapshot payload to
+    // an "always pass" predicate. The trusted hash is stored as a SIBLING
+    // field (primaryValidatorSnapshotHash) — not inside the binding payload
+    // — so mutating only the binding's snapshot triggers the mismatch path
+    // exactly as it would in production if state_json were edited out of
+    // band.
     const session = (handler as any).sessions[0];
     const step = (session.state_json as any).active_step;
-    step.primaryValidator.snapshot.source = "// edited";
-    // expectedSnapshotHash on the binding still points at the original hash.
+    step.primaryValidator.snapshot.source =
+      "import { pass } from './tb-validate.js'; pass('always-yes');";
+    // We also rewrite the in-payload snapshotHash to the new content's hash
+    // to prove the check doesn't depend on the binding's own hash field —
+    // it depends on the sibling primaryValidatorSnapshotHash, which we
+    // leave alone.
+    const { createHash } = await import("node:crypto");
+    step.primaryValidator.snapshotHash = createHash("sha256")
+      .update(
+        JSON.stringify({
+          source: step.primaryValidator.snapshot.source,
+          packageJson: step.primaryValidator.snapshot.packageJson,
+          tsconfig: step.primaryValidator.snapshot.tsconfig ?? null,
+        }),
+        "utf8",
+      )
+      .digest("hex");
 
     const result = await handler.ulyssesOutcome(sid, {
       observed: PASS_OBSERVED,
@@ -78,6 +83,14 @@ describe("Ulysses validator integration", () => {
     expect(result.S).toBe(2);
     expect(result.validatorTampering).toBe(true);
   }, 30_000);
+
+  it("bindFinalValidator rejects re-binding to prevent gaming complete(resolved)", async () => {
+    const { handler, env, sid } = await newSession();
+    await handler.ulyssesBindFinalValidator(sid, env.decider);
+    await expect(
+      handler.ulyssesBindFinalValidator(sid, env.decider),
+    ).rejects.toThrow(/Final validator already bound/);
+  });
 
   it("complete(resolved) is rejected when no final validator is bound", async () => {
     const { handler, sid } = await newSession();

@@ -398,6 +398,8 @@ export class InMemoryProtocolHandler {
       plan.recoveryValidator.cellId,
     );
 
+    // Hashes are persisted as siblings of the bindings (not nested inside
+    // them) so post-bind tampering with the snapshot payload is detectable.
     const step = {
       primary: plan.primary,
       recovery: plan.recovery,
@@ -405,6 +407,8 @@ export class InMemoryProtocolHandler {
       timestamp: new Date().toISOString(),
       primaryValidator: primaryBinding,
       recoveryValidator: recoveryBinding,
+      primaryValidatorSnapshotHash: primaryBinding.snapshotHash,
+      recoveryValidatorSnapshotHash: recoveryBinding.snapshotHash,
     };
 
     session.state_json = {
@@ -456,6 +460,8 @@ export class InMemoryProtocolHandler {
             recovery?: string;
             primaryValidator?: ValidatorBinding;
             recoveryValidator?: ValidatorBinding;
+            primaryValidatorSnapshotHash?: string;
+            recoveryValidatorSnapshotHash?: string;
           })
         | null;
       checkpoints: string[];
@@ -475,11 +481,25 @@ export class InMemoryProtocolHandler {
       );
     }
 
+    // Trust the hash stored as a sibling of the binding (set at plan time),
+    // not the hash inside the binding payload — the binding payload is
+    // exactly what could have been tampered with.
+    const expectedSnapshotHash =
+      state.S === 1
+        ? activeStep.primaryValidatorSnapshotHash
+        : activeStep.recoveryValidatorSnapshotHash;
+    if (!expectedSnapshotHash) {
+      throw new Error(
+        `Missing ${state.S === 1 ? 'primary' : 'recovery'}ValidatorSnapshotHash on active step. ` +
+          'State was created by a pre-tamper-fix version; rerun plan.',
+      );
+    }
+
     const validator = this.requireValidator();
     const validation: ValidationResult = await validator.run(
       phaseValidator,
       outcome.observed,
-      { expectedSnapshotHash: phaseValidator.snapshotHash },
+      { expectedSnapshotHash },
     );
 
     if (!validation.hashMatched) {
@@ -498,7 +518,7 @@ export class InMemoryProtocolHandler {
           binding: {
             notebookId: phaseValidator.notebookId,
             cellId: phaseValidator.cellId,
-            expectedSnapshotHash: phaseValidator.snapshotHash,
+            expectedSnapshotHash,
             actualSnapshotHash: validation.snapshotHash,
           },
           observed: outcome.observed,
@@ -617,13 +637,26 @@ export class InMemoryProtocolHandler {
     if (session.id !== sessionId) {
       throw new Error(`Session ${sessionId} is not the active ulysses session`);
     }
+    const state = session.state_json as Record<string, unknown> & {
+      finalValidator?: ValidatorBinding;
+      finalValidatorSnapshotHash?: string;
+    };
+    if (state.finalValidator) {
+      throw new Error(
+        'Final validator already bound for this session. Re-binding is rejected to prevent gaming the complete(resolved) gate. ' +
+          'Start a new session if a different predicate is needed.',
+      );
+    }
 
     const validator = this.requireValidator();
     const binding = await validator.bind(input.notebookId, input.cellId);
 
+    // Sibling hash field (see ulyssesPlan rationale): tampering with the
+    // binding payload alone won't slip past complete(resolved).
     session.state_json = {
-      ...(session.state_json as object),
+      ...state,
       finalValidator: binding,
+      finalValidatorSnapshotHash: binding.snapshotHash,
     };
 
     this.history.push({
@@ -751,12 +784,22 @@ export class InMemoryProtocolHandler {
     let finalValidation: ValidationResult | null = null;
 
     if (terminalState === 'resolved') {
-      const state = session.state_json as { finalValidator?: ValidatorBinding };
+      const state = session.state_json as {
+        finalValidator?: ValidatorBinding;
+        finalValidatorSnapshotHash?: string;
+      };
       const finalBinding = state.finalValidator;
       if (!finalBinding) {
         throw new Error(
           "Cannot complete with terminalState='resolved' until a final validator is bound. " +
             'Call ulyssesBindFinalValidator first, or choose a different terminal.',
+        );
+      }
+      const expectedFinalHash = state.finalValidatorSnapshotHash;
+      if (!expectedFinalHash) {
+        throw new Error(
+          'Missing finalValidatorSnapshotHash on session state. ' +
+            'State was created by a pre-tamper-fix version; rebind the final validator.',
         );
       }
       if (observed === undefined) {
@@ -766,7 +809,7 @@ export class InMemoryProtocolHandler {
       }
       const validator = this.requireValidator();
       finalValidation = await validator.run(finalBinding, observed, {
-        expectedSnapshotHash: finalBinding.snapshotHash,
+        expectedSnapshotHash: expectedFinalHash,
       });
 
       if (!finalValidation.hashMatched) {
