@@ -86,7 +86,7 @@ describe("notebook ValidatorService", () => {
     expect(out.validation.hashMatched).toBe(true);
   }, 30_000);
 
-  it("captures stderr and reports failure when the cell crashes", async () => {
+  it("captures stderr and reports validator_crash when the cell crashes", async () => {
     const { handler, notebookId } = await setup();
     const cellId = await addCell(handler, notebookId, CRASH_CELL, "crash.js");
 
@@ -97,6 +97,7 @@ describe("notebook ValidatorService", () => {
     });
 
     expect(out.validation.pass).toBe(false);
+    expect(out.validation.reason).toBe("validator_crash");
     expect(out.validation.stderr).toContain("validator blew up");
     expect(out.validation.exitCode).not.toBe(0);
   }, 30_000);

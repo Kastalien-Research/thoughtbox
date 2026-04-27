@@ -695,27 +695,39 @@ export class ProtocolHandler {
         S: 2,
         active_step: null,
       };
-      await this.client
+      const { error: tamperStateErr } = await this.client
         .from('protocol_sessions')
         .update({ state_json: tamperedState as unknown as Json })
         .eq('id', session.id);
+      if (tamperStateErr) {
+        throw new Error(
+          `Failed to persist tampered state: ${tamperStateErr.message}`,
+        );
+      }
 
-      await this.client.from('protocol_history').insert({
-        session_id: session.id,
-        event_type: 'validator_tampering',
-        event_json: {
-          phase: state.S === 1 ? 'primary' : 'recovery',
-          binding: {
-            notebookId: phaseValidator.notebookId,
-            cellId: phaseValidator.cellId,
-            expectedSnapshotHash: phaseValidator.snapshotHash,
-            actualSnapshotHash: validation.snapshotHash,
-          },
-          observed: outcome.observed,
-          details: outcome.details ?? '',
-          timestamp: new Date().toISOString(),
-        } as unknown as Json,
-      });
+      const { error: tamperHistErr } = await this.client
+        .from('protocol_history')
+        .insert({
+          session_id: session.id,
+          event_type: 'validator_tampering',
+          event_json: {
+            phase: state.S === 1 ? 'primary' : 'recovery',
+            binding: {
+              notebookId: phaseValidator.notebookId,
+              cellId: phaseValidator.cellId,
+              expectedSnapshotHash: phaseValidator.snapshotHash,
+              actualSnapshotHash: validation.snapshotHash,
+            },
+            observed: outcome.observed,
+            details: outcome.details ?? '',
+            timestamp: new Date().toISOString(),
+          } as unknown as Json,
+        });
+      if (tamperHistErr) {
+        throw new Error(
+          `Failed to record tampering event: ${tamperHistErr.message}`,
+        );
+      }
 
       this.emit('ulysses_outcome', session.id, {
         assessment: 'unexpected-unfavorable',
@@ -857,7 +869,9 @@ export class ProtocolHandler {
       throw new Error(`Failed to update state: ${stateErr.message}`);
     }
 
-    await this.client.from('protocol_history').insert({
+    const { error: bindHistErr } = await this.client
+      .from('protocol_history')
+      .insert({
       session_id: session.id,
       event_type: 'final_validator_bound',
       event_json: {
@@ -867,6 +881,11 @@ export class ProtocolHandler {
         boundAt: binding.boundAt,
       } as unknown as Json,
     });
+    if (bindHistErr) {
+      throw new Error(
+        `Failed to record final_validator_bound event: ${bindHistErr.message}`,
+      );
+    }
 
     return {
       session_id: session.id,

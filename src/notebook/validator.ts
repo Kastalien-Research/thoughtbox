@@ -217,12 +217,19 @@ export class ValidatorService {
       const verdict = await readVerdict(verdictPath);
 
       if (!verdict) {
+        // Distinguish three failure modes:
+        //   exitCode === -1  → killed by timeout (or fatal spawn error)
+        //   exitCode  > 0    → cell threw / process crashed before writing verdict
+        //   exitCode === 0   → cell ran to completion but no/bad verdict file
+        const reason =
+          result.exitCode === -1
+            ? "validator_timeout_or_crash"
+            : result.exitCode !== 0 && result.exitCode !== null
+              ? "validator_crash"
+              : "malformed_verdict";
         return {
           pass: false,
-          reason:
-            result.exitCode === -1
-              ? "validator_timeout_or_crash"
-              : "malformed_verdict",
+          reason,
           snapshotHash: liveHash,
           hashMatched: true,
           exitCode: result.exitCode,
