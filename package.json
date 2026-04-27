@@ -61,7 +61,8 @@
     "test:behavioral": "tsx scripts/agents/test-behavioral-contracts.ts",
     "test:behavioral:variance": "tsx scripts/agents/test-behavioral-contracts.ts --variance-only",
     "check:lint": "oxlint -c oxlint.json src/",
-    "check:types": "tsc --noEmit"
+    "check:types": "tsc --noEmit",
+    "tsd": "tsd --files 'src/**/*.test-d.ts'"
   },
   "engines": {
     "node": ">=22.0.0"
@@ -104,6 +105,7 @@
     "madge": "^8.0.0",
     "oxlint": "^1.56.0",
     "shx": "^0.3.4",
+    "tsd": "^0.33.0",
     "tsx": "^4.20.6",
     "typescript": "^5.3.3",
     "vitest": "^4.0.18"
