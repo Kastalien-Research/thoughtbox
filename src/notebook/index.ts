@@ -2,6 +2,7 @@ import type { Tool } from "@modelcontextprotocol/sdk/types.js";
 import { NotebookStateManager } from "./state.js";
 import type { Cell, CodeLanguage } from "./types.js";
 import { randomid } from "./types.js";
+import { ValidatorService } from "./validator.js";
 import {
   NOTEBOOK_OPERATIONS,
   getOperation,
@@ -19,9 +20,19 @@ import { AVAILABLE_TEMPLATES } from "./templates.generated.js";
  */
 export class NotebookHandler {
   private stateManager: NotebookStateManager;
+  private validatorService: ValidatorService;
 
   constructor(tempDir?: string) {
     this.stateManager = new NotebookStateManager(tempDir);
+    this.validatorService = new ValidatorService(this.stateManager);
+  }
+
+  /**
+   * Expose the ValidatorService so in-process callers (e.g. the Ulysses
+   * handler) can bind/run validators without a MCP roundtrip.
+   */
+  getValidatorService(): ValidatorService {
+    return this.validatorService;
   }
 
   async init(): Promise<void> {
@@ -381,6 +392,56 @@ export class NotebookHandler {
   }
 
   /**
+   * Handle notebook_validate tool call.
+   *
+   * Snapshots the cell at call time and runs it against `observed` in a
+   * disposable temp dir. The cell's verdict (sidecar JSON file) drives the
+   * result — stdout is captured for audit only.
+   */
+  async handleValidate(args: any): Promise<any> {
+    const { notebookId, cellId, observed, expectedSnapshotHash } = args;
+
+    if (!notebookId || typeof notebookId !== "string") {
+      throw new Error("notebookId is required and must be a string");
+    }
+    if (!cellId || typeof cellId !== "string") {
+      throw new Error("cellId is required and must be a string");
+    }
+    if (!("observed" in args)) {
+      throw new Error("observed is required");
+    }
+    if (
+      expectedSnapshotHash !== undefined &&
+      typeof expectedSnapshotHash !== "string"
+    ) {
+      throw new Error("expectedSnapshotHash must be a string if provided");
+    }
+
+    const binding = await this.validatorService.bind(notebookId, cellId);
+    const result = await this.validatorService.run(binding, observed, {
+      expectedSnapshotHash,
+    });
+
+    // Flatten to match the published schema in NOTEBOOK_OPERATIONS:
+    // top-level pass/reason/evidence/snapshotHash/hashMatched/exitCode/stdout/stderr.
+    return {
+      pass: result.pass,
+      reason: result.reason,
+      ...(result.evidence !== undefined ? { evidence: result.evidence } : {}),
+      snapshotHash: result.snapshotHash,
+      hashMatched: result.hashMatched,
+      exitCode: result.exitCode,
+      stdout: result.stdout,
+      stderr: result.stderr,
+      binding: {
+        notebookId: binding.notebookId,
+        cellId: binding.cellId,
+        snapshotHash: binding.snapshotHash,
+      },
+    };
+  }
+
+  /**
    * Handle notebook_export tool call
    */
   async handleExportNotebook(args: any): Promise<any> {
@@ -451,6 +512,9 @@ export class NotebookHandler {
           break;
         case "export":
           result = await this.handleExportNotebook(args);
+          break;
+        case "validate":
+          result = await this.handleValidate(args);
           break;
         default:
           throw new Error(`Unknown notebook operation: ${operation}`);

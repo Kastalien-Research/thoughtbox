@@ -241,6 +241,43 @@ Both approaches create an identical in-memory notebook.`,
     },
   },
   {
+    name: "notebook_validate",
+    title: "Validate Cell Against Observed Data",
+    description: `Run a code cell as a deterministic predicate over JSON-serialisable observed data.
+
+The cell receives the observed value as a JSON file pointed to by process.env.TB_OBSERVED_PATH and must write its verdict to process.env.TB_VERDICT_PATH as { "verdict": "pass" | "fail", "reason": string, "evidence"?: any }.
+
+A small helper module is auto-materialised next to the cell:
+  import { observed, pass, fail } from "./tb-validate.js";
+
+Returns { pass, reason, evidence?, snapshotHash, hashMatched, exitCode, stdout, stderr }.
+
+When 'expectedSnapshotHash' is provided, the operation refuses to run if the cell's current snapshot hash differs (anti-tampering for callers that pin the predicate).`,
+    category: "execution",
+    inputSchema: {
+      type: "object",
+      properties: {
+        notebookId: { type: "string", description: "Notebook ID" },
+        cellId: { type: "string", description: "Code cell ID to use as a validator" },
+        observed: {
+          description:
+            "JSON-serialisable observed value piped into the validator cell.",
+        },
+        expectedSnapshotHash: {
+          type: "string",
+          description:
+            "Optional sha256 hex hash that the cell snapshot must match for the run to proceed.",
+        },
+      },
+      required: ["notebookId", "cellId", "observed"],
+    },
+    example: {
+      notebookId: "abc123",
+      cellId: "cell456",
+      observed: { errorCount: 0 },
+    },
+  },
+  {
     name: "notebook_export",
     title: "Export Notebook",
     description: `Export a notebook to .src.md format.

@@ -4,15 +4,36 @@ import type { InMemoryProtocolHandler } from "./in-memory-handler.js";
 import type { ThoughtHandler } from "../thought-handler.js";
 import type { KnowledgeStorage } from "../knowledge/types.js";
 
+const validatorRefSchema = z.object({
+  notebookId: z.string(),
+  cellId: z.string(),
+});
+
 export const ulyssesToolInputSchema = z.object({
-  operation: z.enum(["init", "plan", "outcome", "reflect", "status", "complete"]),
+  operation: z.enum([
+    "init",
+    "plan",
+    "outcome",
+    "reflect",
+    "status",
+    "complete",
+    "bind_final_validator",
+  ]),
   problem: z.string().optional().describe("Problem description for init"),
   constraints: z.array(z.string()).optional().describe("Known constraints for init"),
   primary: z.string().optional().describe("Primary action step for plan"),
   recovery: z.string().optional().describe("Pre-committed recovery step for plan"),
   irreversible: z.boolean().optional().describe("Whether primary step is irreversible for plan"),
-  assessment: z.enum(["expected", "unexpected-favorable", "unexpected-unfavorable"]).optional()
-    .describe("Outcome assessment"),
+  primaryValidator: validatorRefSchema.optional()
+    .describe("Notebook code cell that decides the primary step's outcome (required on plan)"),
+  recoveryValidator: validatorRefSchema.optional()
+    .describe("Notebook code cell that decides the recovery step's outcome (required on plan)"),
+  observed: z.unknown().optional()
+    .describe("JSON-serialisable observed value piped into the bound validator on outcome / complete(resolved)"),
+  notebookId: z.string().optional()
+    .describe("Notebook id for bind_final_validator"),
+  cellId: z.string().optional()
+    .describe("Cell id for bind_final_validator"),
   details: z.string().optional().describe("Details for outcome"),
   hypothesis: z.string().optional().describe("Falsifiable hypothesis for reflect"),
   falsification: z.string().optional().describe("Disproof criteria for reflect"),
@@ -40,11 +61,17 @@ Full cycle:
 
 Operations:
 - init: Start a debugging session (args: { problem, constraints? })
-- plan: Record primary move + pre-committed backup move (args: { primary, recovery, irreversible? })
-- outcome: Report whether the move produced the expected outcome (args: { assessment: "expected"|"unexpected-favorable"|"unexpected-unfavorable", details? })
+- plan: Record primary move + pre-committed backup move with validator cells (args: { primary, recovery, irreversible?, primaryValidator: { notebookId, cellId }, recoveryValidator: { notebookId, cellId } })
+- outcome: Report observed data; the bound validator runs and its verdict drives the state machine (args: { observed: <any JSON>, details? })
 - reflect: Form falsifiable hypothesis when S=2 — both moves failed (args: { hypothesis, falsification })
+- bind_final_validator: Pin a final validator cell that gates complete(resolved) (args: { notebookId, cellId })
 - status: Show current session state (S state step, active move, checkpoint history)
-- complete: End session with terminal status (args: { terminalState: "resolved"|"insufficient_information"|"environment_compromised", summary? })`,
+- complete: End session. terminalState='resolved' is hard-gated by the final validator if bound (args: { terminalState, summary?, observed? })
+
+Validator cell contract: read process.env.TB_OBSERVED_PATH and write a verdict to process.env.TB_VERDICT_PATH. Use the auto-materialised helper:
+  import { observed, pass, fail } from "./tb-validate.js";
+  const d = observed<{ errors: number }>();
+  d.errors === 0 ? pass("clean run") : fail(\`\${d.errors} errors\`, d);`,
   inputSchema: ulyssesToolInputSchema,
   annotations: {
     readOnlyHint: false,
@@ -80,26 +107,57 @@ export class UlyssesTool {
       }
       case "plan": {
         const sid = this.requireSession();
+        if (!input.primaryValidator || !input.recoveryValidator) {
+          throw new Error(
+            'plan requires both primaryValidator and recoveryValidator { notebookId, cellId }.',
+          );
+        }
         result = await this.handler.ulyssesPlan(sid, {
           primary: input.primary!,
           recovery: input.recovery!,
           irreversible: input.irreversible ?? false,
+          primaryValidator: input.primaryValidator,
+          recoveryValidator: input.recoveryValidator,
         });
         await this.bridgeThought(
-          `[Ulysses:plan] Primary: ${input.primary}. Recovery: ${input.recovery}${input.irreversible ? ' (IRREVERSIBLE)' : ''}`,
+          `[Ulysses:plan] Primary: ${input.primary}. Recovery: ${input.recovery}${input.irreversible ? ' (IRREVERSIBLE)' : ''}. ` +
+            `Validators: primary=${input.primaryValidator.cellId}, recovery=${input.recoveryValidator.cellId}.`,
           'decision_frame',
         );
         break;
       }
       case "outcome": {
         const sid = this.requireSession();
+        if (!('observed' in input)) {
+          throw new Error(
+            'outcome requires observed (any JSON-serialisable value) — the bound validator decides the assessment.',
+          );
+        }
         result = await this.handler.ulyssesOutcome(sid, {
-          assessment: input.assessment!,
+          observed: input.observed,
           details: input.details,
         });
+        const derived = result.assessment as string | undefined;
         await this.bridgeThought(
-          `[Ulysses:outcome] Assessment: ${input.assessment}${input.details ? `. ${input.details}` : ''}`,
-          input.assessment === 'expected' ? 'action_report' : 'reasoning',
+          `[Ulysses:outcome] Validator verdict: ${derived ?? 'unknown'}${input.details ? `. ${input.details}` : ''}`,
+          derived === 'expected' ? 'action_report' : 'reasoning',
+        );
+        break;
+      }
+      case "bind_final_validator": {
+        const sid = this.requireSession();
+        if (!input.notebookId || !input.cellId) {
+          throw new Error(
+            'bind_final_validator requires notebookId and cellId.',
+          );
+        }
+        result = await this.handler.ulyssesBindFinalValidator(sid, {
+          notebookId: input.notebookId,
+          cellId: input.cellId,
+        });
+        await this.bridgeThought(
+          `[Ulysses:bind_final_validator] Final validator pinned: notebook ${input.notebookId} cell ${input.cellId}.`,
+          'decision_frame',
         );
         break;
       }
@@ -129,6 +187,7 @@ export class UlyssesTool {
           sid,
           input.terminalState!,
           input.summary,
+          input.observed,
         );
         await this.bridgeThought(
           `[Ulysses:complete] Session ended: ${input.terminalState}${input.summary ? `. ${input.summary}` : ''}`,

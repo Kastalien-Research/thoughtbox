@@ -116,3 +116,45 @@ export function buildDefaultPackageJson(language: CodeLanguage): string {
     2
   );
 }
+
+// ---------------------------------------------------------------------------
+// Validator schemas — frozen-snapshot predicates for hypothesis testing.
+// ---------------------------------------------------------------------------
+
+export const ValidatorSnapshotSchema = z.object({
+  source: z.string(),
+  packageJson: z.string(),
+  tsconfig: z.string().optional(),
+});
+
+export const ValidatorBindingSchema = z.object({
+  notebookId: z.string(),
+  cellId: z.string(),
+  language: z.union([z.literal("javascript"), z.literal("typescript")]),
+  filename: z.string(),
+  snapshot: ValidatorSnapshotSchema,
+  snapshotHash: z.string(),
+  boundAt: z.string(),
+});
+
+export const ValidatorVerdictSchema = z.object({
+  verdict: z.union([z.literal("pass"), z.literal("fail")]),
+  reason: z.string(),
+  evidence: z.unknown().optional(),
+});
+
+export const ValidationResultSchema = z.object({
+  pass: z.boolean(),
+  reason: z.string(),
+  evidence: z.unknown().optional(),
+  snapshotHash: z.string(),
+  hashMatched: z.boolean(),
+  exitCode: z.number().nullable(),
+  stdout: z.string(),
+  stderr: z.string(),
+});
+
+export type ValidatorSnapshot = z.infer<typeof ValidatorSnapshotSchema>;
+export type ValidatorBinding = z.infer<typeof ValidatorBindingSchema>;
+export type ValidatorVerdict = z.infer<typeof ValidatorVerdictSchema>;
+export type ValidationResult = z.infer<typeof ValidationResultSchema>;

@@ -1,6 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 import { InMemoryProtocolHandler } from "../in-memory-handler.js";
 import type { ThoughtboxEvent } from "../../events/types.js";
+import {
+  FAIL_OBSERVED,
+  makeUlyssesTestEnv,
+} from "./ulysses-test-helpers.js";
 
 describe("protocol event emission", () => {
   it("emits ulysses_init on session creation", async () => {
@@ -21,8 +25,10 @@ describe("protocol event emission", () => {
   });
 
   it("emits ulysses_outcome with S value on surprise", async () => {
+    const env = await makeUlyssesTestEnv();
     const onEvent = vi.fn();
     const handler = new InMemoryProtocolHandler(onEvent);
+    handler.setValidatorService(env.notebookHandler.getValidatorService());
     handler.setProject("test-ws");
 
     const initResult = await handler.ulyssesInit("bug", []);
@@ -32,12 +38,14 @@ describe("protocol event emission", () => {
       primary: "check logs",
       recovery: "check metrics",
       irreversible: false,
+      primaryValidator: env.decider,
+      recoveryValidator: env.decider,
     });
 
     onEvent.mockClear();
 
     await handler.ulyssesOutcome(sessionId, {
-      assessment: "unexpected-unfavorable",
+      observed: FAIL_OBSERVED,
       details: "logs were empty",
     });
 
@@ -50,20 +58,28 @@ describe("protocol event emission", () => {
         }),
       }),
     );
-  });
+  }, 30_000);
 
   it("emits ulysses_reflect when S=2 and reflect called", async () => {
+    const env = await makeUlyssesTestEnv();
     const onEvent = vi.fn();
     const handler = new InMemoryProtocolHandler(onEvent);
+    handler.setValidatorService(env.notebookHandler.getValidatorService());
     handler.setProject("test-ws");
 
     const initResult = await handler.ulyssesInit("bug", []);
     const sessionId = initResult.session_id as string;
 
     // Drive S to 2: plan → S=1, primary fails → S=2, backup fails → S=2 reflect required
-    await handler.ulyssesPlan(sessionId, { primary: "a", recovery: "b", irreversible: false });
-    await handler.ulyssesOutcome(sessionId, { assessment: "unexpected-unfavorable", details: "x" });
-    await handler.ulyssesOutcome(sessionId, { assessment: "unexpected-unfavorable", details: "y" });
+    await handler.ulyssesPlan(sessionId, {
+      primary: "a",
+      recovery: "b",
+      irreversible: false,
+      primaryValidator: env.decider,
+      recoveryValidator: env.decider,
+    });
+    await handler.ulyssesOutcome(sessionId, { observed: FAIL_OBSERVED, details: "x" });
+    await handler.ulyssesOutcome(sessionId, { observed: FAIL_OBSERVED, details: "y" });
 
     onEvent.mockClear();
 

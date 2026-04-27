@@ -424,6 +424,11 @@ Use \`console.log()\` for debugging — output captured in response logs.`;
 
   args.onProtocolHandlerReady?.(protocolHandler);
 
+  // Wire the notebook ValidatorService into the protocol handler so Ulysses
+  // plan/outcome/bind_final_validator/complete can dispatch validator runs
+  // without an MCP roundtrip.
+  protocolHandler.setValidatorService(notebookHandler.getValidatorService());
+
   const theseusTool = new TheseusTool(protocolHandler, thoughtHandler, knowledgeStorage);
   const ulyssesTool = new UlyssesTool(protocolHandler, thoughtHandler, knowledgeStorage);
 
