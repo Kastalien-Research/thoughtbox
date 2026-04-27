@@ -422,9 +422,17 @@ export class NotebookHandler {
       expectedSnapshotHash,
     });
 
+    // Flatten to match the published schema in NOTEBOOK_OPERATIONS:
+    // top-level pass/reason/evidence/snapshotHash/hashMatched/exitCode/stdout/stderr.
     return {
-      success: result.pass,
-      validation: result,
+      pass: result.pass,
+      reason: result.reason,
+      ...(result.evidence !== undefined ? { evidence: result.evidence } : {}),
+      snapshotHash: result.snapshotHash,
+      hashMatched: result.hashMatched,
+      exitCode: result.exitCode,
+      stdout: result.stdout,
+      stderr: result.stderr,
       binding: {
         notebookId: binding.notebookId,
         cellId: binding.cellId,

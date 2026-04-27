@@ -46,12 +46,12 @@ describe("notebook ValidatorService", () => {
       observed: { errors: 0 },
     });
 
-    expect(out.success).toBe(true);
-    expect(out.validation.pass).toBe(true);
-    expect(out.validation.reason).toBe("clean");
-    expect(out.validation.evidence).toEqual({ errors: 0 });
-    expect(out.validation.hashMatched).toBe(true);
-    expect(out.validation.snapshotHash).toMatch(/^[a-f0-9]{64}$/);
+    expect(out.pass).toBe(true);
+    expect(out.reason).toBe("clean");
+    expect(out.evidence).toEqual({ errors: 0 });
+    expect(out.hashMatched).toBe(true);
+    expect(out.snapshotHash).toMatch(/^[a-f0-9]{64}$/);
+    expect(out.binding).toMatchObject({ notebookId, cellId });
   }, 30_000);
 
   it("returns pass=false when the cell writes a fail verdict", async () => {
@@ -64,11 +64,10 @@ describe("notebook ValidatorService", () => {
       observed: { errors: 3 },
     });
 
-    expect(out.success).toBe(false);
-    expect(out.validation.pass).toBe(false);
-    expect(out.validation.reason).toBe("dirty");
-    expect(out.validation.evidence).toEqual({ errors: 3 });
-    expect(out.validation.hashMatched).toBe(true);
+    expect(out.pass).toBe(false);
+    expect(out.reason).toBe("dirty");
+    expect(out.evidence).toEqual({ errors: 3 });
+    expect(out.hashMatched).toBe(true);
   }, 30_000);
 
   it("treats a missing verdict file as malformed_verdict (pass=false)", async () => {
@@ -81,9 +80,9 @@ describe("notebook ValidatorService", () => {
       observed: { anything: true },
     });
 
-    expect(out.validation.pass).toBe(false);
-    expect(out.validation.reason).toBe("malformed_verdict");
-    expect(out.validation.hashMatched).toBe(true);
+    expect(out.pass).toBe(false);
+    expect(out.reason).toBe("malformed_verdict");
+    expect(out.hashMatched).toBe(true);
   }, 30_000);
 
   it("captures stderr and reports validator_crash when the cell crashes", async () => {
@@ -96,10 +95,10 @@ describe("notebook ValidatorService", () => {
       observed: null,
     });
 
-    expect(out.validation.pass).toBe(false);
-    expect(out.validation.reason).toBe("validator_crash");
-    expect(out.validation.stderr).toContain("validator blew up");
-    expect(out.validation.exitCode).not.toBe(0);
+    expect(out.pass).toBe(false);
+    expect(out.reason).toBe("validator_crash");
+    expect(out.stderr).toContain("validator blew up");
+    expect(out.exitCode).not.toBe(0);
   }, 30_000);
 
   it("refuses to run when expectedSnapshotHash mismatches", async () => {
@@ -114,12 +113,12 @@ describe("notebook ValidatorService", () => {
         "0000000000000000000000000000000000000000000000000000000000000000",
     });
 
-    expect(out.validation.pass).toBe(false);
-    expect(out.validation.hashMatched).toBe(false);
-    expect(out.validation.reason).toBe("snapshot_hash_mismatch");
+    expect(out.pass).toBe(false);
+    expect(out.hashMatched).toBe(false);
+    expect(out.reason).toBe("snapshot_hash_mismatch");
     // Cell never ran → no stdout/stderr produced.
-    expect(out.validation.stdout).toBe("");
-    expect(out.validation.stderr).toBe("");
+    expect(out.stdout).toBe("");
+    expect(out.stderr).toBe("");
   }, 30_000);
 
   it("produces a stable snapshot hash that detects post-bind cell edits", async () => {
