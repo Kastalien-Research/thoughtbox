@@ -10,6 +10,8 @@
 - ADR: [ADR-022 Brokered MCP Peer Notebook Control Plane](../../.adr/staging/ADR-022.json)
 - Spec: [SPEC-CONTROL-PLANE.md](./SPEC-CONTROL-PLANE.md)
 - Diagrams: [DIAGRAMS.md](./DIAGRAMS.md)
+- Current handoff: [NEXT-IMPLEMENTATION-HANDOFF.md](./NEXT-IMPLEMENTATION-HANDOFF.md)
+- Part 1 kickoff prompt: [PROMPT-PART-1-DURABLE-CONTROL-PLANE.md](./PROMPT-PART-1-DURABLE-CONTROL-PLANE.md)
 - Tracking issue: `thoughtbox-pnf`
 
 ## Summary
@@ -24,6 +26,49 @@ auditable work without requiring the primary agent to drive every internal
 reasoning step through Thoughtbox. Thoughtbox becomes the control substrate:
 workspace auth, peer registry, capability enforcement, invocation routing,
 trace persistence, artifact metadata, and web app inspection.
+
+## Current Status After MCP Pilot Merge
+
+Merged on `main`:
+
+- `thoughtbox_peer_notebook` public MCP tool.
+- In-memory `claim-extractor` pilot with artifact seed, peer invoke,
+  invocation read, trace list, and artifact read operations.
+- Mock-only runtime provider.
+- Broker proxy allow/deny trace coverage.
+- MCP client integration coverage through `createMcpServer` and
+  `InMemoryTransport`.
+- Discovery through Code Mode search metadata and
+  `thoughtbox://peer-notebook/pilot`.
+
+The pilot proves broker shape and MCP reachability. It does not complete the
+production control plane because peer notebooks, manifests, invocations, trace
+events, and artifacts are still in-memory.
+
+Future work must use `.claude/skills/peer-notebook-delivery-guard/SKILL.md`.
+Its hard rule is: mocks are contract fixtures, not final substitutes.
+
+## Remaining Delivery Units
+
+1. **Durable Control Plane** (`thoughtbox-y4x`)
+   - Supabase-backed peers, manifests, invocations, trace events, and artifact
+     metadata while the runtime remains mock-capable.
+
+2. **Manifest Lifecycle And Notebook Graduation** (`thoughtbox-g5t`)
+   - Compile, approve, activate, retire, and enforce notebook-derived manifests.
+
+3. **Web App Inspection Surface** (`thoughtbox-2ot`)
+   - Peer registry/detail, invocation detail, denied-call trace timeline, and
+     artifact preview from durable rows.
+
+4. **Real Runtime Provider Path** (`thoughtbox-s7f`)
+   - Development-only `local-process` provider behind the runtime contract.
+
+5. **Production Isolation And Policy Hardening** (`thoughtbox-vdw`)
+   - smolvm or equivalent isolated provider plus enforced network, filesystem,
+     secrets, outbound budget, and denial policy.
+
+Next implementation prompt: [PROMPT-PART-1-DURABLE-CONTROL-PLANE.md](./PROMPT-PART-1-DURABLE-CONTROL-PLANE.md).
 
 ## Current Repo Reality
 
