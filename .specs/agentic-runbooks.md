@@ -1,23 +1,72 @@
-# SPEC: Agentic Runbooks — Notebook Evolution
+# SPEC: Notebook Evidence Engine — Agentic Runbooks and Executable Evidence
 
 **ADR**: ADR-014-agentic-runbooks
 **Status**: Draft
 **Date**: 2026-03-16
+**Amended**: 2026-04-30
 
 ## Overview
 
-Evolve the notebook subsystem (`src/notebook/`) from ephemeral scratchpads into agentic runbooks: sandboxed design/test environments that produce declarative manifests describing codebase changes, support long-running execution via Effect-TS and `@effect/workflow`, persist in Supabase, and graduate into reusable templates and MCP tool surfaces. The execution kernel employs Effect for scopes, layers, schema validation, and durable coordination.
+Evolve the notebook subsystem (`src/notebook/`) from ephemeral scratchpads into a **Notebook Evidence Engine**: executable `.src.md` artifacts that combine prose, code, deterministic validators, structured outputs, and replayable runs.
+
+Agentic runbooks remain one supported mode. The broader substrate also supports simulations, eval workbooks, failure capsules, ADR evidence packs, skill certification harnesses, scenario factories, and system audits.
+
+Effect is introduced as a bounded domain/runtime core for new notebook-engine code. Do not rewrite the existing notebook module wholesale. Do not rely on `@effect/workflow` for v1 durable orchestration; Supabase run records are the durable state machine and Cloud Run runner compute is a follow-on infrastructure slice.
+
+Observatory integration is out of scope. Outputs remain local-first notebook exports and run artifacts.
+
+## Modes
+
+The supported notebook modes are:
+
+| Mode | Purpose |
+|---|---|
+| `runbook` | Reusable agent workflows with ordered steps and deterministic validators |
+| `simulation` | Seeded Monte Carlo or parameterized simulation notebooks |
+| `eval` | Executable evaluation workbooks with datasets, graders, and scorecards |
+| `failure_capsule` | Replayable debugging labs for bugs, incidents, and agent failures |
+| `adr_evidence` | Executable evidence packs for ADR hypotheses and predictions |
+| `skill_certification` | Positive, adversarial, and negative-control harnesses for reusable skills |
+| `scenario_factory` | Parameterized generation of tests, eval datasets, or regression scenarios |
+| `system_audit` | Recurring repo, protocol, or infrastructure invariant checks |
+
+## Effect-Backed Domain Core
+
+New notebook-engine domain types must be represented with `effect/Schema` tagged unions so invalid states are unrepresentable at public boundaries:
+
+- `NotebookDocument` is discriminated by `mode`
+- `NotebookCell` is discriminated by `type` and `role`
+- `NotebookRun` is discriminated by `status`
+- `NotebookOutput` is discriminated by mode-specific output kind
+- `ValidatorRef` and `BoundValidator` are distinct types
+- `EphemeralNotebook` and `PersistedNotebook` are distinct persistence states
+
+Handlers remain Promise-shaped at the MCP boundary. They parse inputs, invoke bounded Effect programs, and translate typed failures into stable MCP errors.
+
+## Model Visibility
+
+The model using Thoughtbox must be able to discover these capabilities without reading source code:
+
+- `thoughtbox://notebook/operations` lists run/artifact operations and links to capabilities
+- `thoughtbox://notebook/capabilities` summarizes modes, templates, required inputs, expected outputs, and example operation sequences
+- `list_mcp_assets` describes notebooks as an evidence engine, not only a scratchpad
+- Code Mode SDK types include `tb.notebook.persist`, `startRun`, `getRun`, `listRuns`, `cancelRun`, and `getArtifact`
+
+## Legacy Section Note
+
+Sections below this amendment predate the Notebook Evidence Engine framing. Where they mention `@effect/workflow`, manifest-only runbooks, or Observatory-facing behavior, this amendment supersedes them for v1: use Supabase run records plus the Cloud Run runner boundary, and keep Observatory out of scope.
 
 ## Scope
 
 ### In scope (ADR-014)
 
-- Notebook lifecycle: author, finalize, graduate
-- Manifest as output protocol (structural format based on Effect Schema, not full application engine)
-- Code interaction graph as input protocol (schema, not derivation tooling)
-- Effect-TS Integration (`@effect/workflow`) for async durable notebook execution mapped to MCP Tasks
-- Supabase persistence schema for notebooks
-- New tool operations on `thoughtbox_notebook`
+- Notebook Evidence Engine modes and templates
+- Structured output protocol based on Effect Schema
+- Stable cell metadata: `id`, `role`, `tags`, `dependsOn`, `validatorFor`, `outputName`
+- Supabase persistence schema for notebooks and runs
+- Cloud Run runner boundary for long JS/TS execution
+- Model visibility through capability resources, operation catalogs, and Code Mode SDK examples
+- New run/artifact operations on `thoughtbox_notebook`
 
 ### Deferred to follow-on ADRs
 

@@ -5,6 +5,304 @@
  */
 
 export const TEMPLATES = {
+  'evidence-adr-pack': `<!-- srcbook:{"language":"typescript"} -->
+
+# [TOPIC] ADR Evidence Pack
+
+Executable evidence bundle for an architectural hypothesis.
+
+###### package.json
+
+\`\`\`json
+{
+  "type": "module",
+  "dependencies": {}
+}
+\`\`\`
+
+## Hypothesis
+
+We believe ...
+
+## Prediction
+
+If correct, we should observe ...
+
+###### validation.ts
+
+\`\`\`typescript
+console.log(JSON.stringify({ outcome: "inconclusive", evidence: {} }));
+\`\`\`
+
+###### validator.ts
+
+\`\`\`typescript
+import { observed, pass, fail } from "./tb-validate.js";
+
+const data = observed<{ outcome?: string }>();
+["validated", "rejected", "inconclusive"].includes(String(data.outcome))
+  ? pass("ADR evidence has a valid outcome", data)
+  : fail("ADR evidence outcome is invalid", data);
+\`\`\`
+`,
+  'evidence-eval-workbook': `<!-- srcbook:{"language":"typescript"} -->
+
+# [TOPIC] Evaluation Workbook
+
+Executable eval workbook for scoring a model, tool, claim, or workflow.
+
+###### package.json
+
+\`\`\`json
+{
+  "type": "module",
+  "dependencies": {}
+}
+\`\`\`
+
+## Dataset
+
+Define examples and expected outcomes.
+
+###### grader.ts
+
+\`\`\`typescript
+const examples = [{ expected: "pass", actual: "pass" }];
+const passed = examples.filter((e) => e.expected === e.actual).length;
+console.log(JSON.stringify({ score: passed / examples.length, passed, total: examples.length }));
+\`\`\`
+
+###### validator.ts
+
+\`\`\`typescript
+import { observed, pass, fail } from "./tb-validate.js";
+
+const data = observed<{ score?: number }>();
+typeof data.score === "number" && data.score >= 0.8
+  ? pass("score meets threshold", data)
+  : fail("score below threshold", data);
+\`\`\`
+`,
+  'evidence-failure-capsule': `<!-- srcbook:{"language":"typescript"} -->
+
+# [TOPIC] Failure Capsule
+
+Replayable debugging lab for a bug, production incident, or agent failure.
+
+###### package.json
+
+\`\`\`json
+{
+  "type": "module",
+  "dependencies": {}
+}
+\`\`\`
+
+## Symptom
+
+Describe the observed failure and reproduction conditions.
+
+###### reproduce.ts
+
+\`\`\`typescript
+console.log(JSON.stringify({ reproduced: false, notes: "replace with failing reproduction" }));
+\`\`\`
+
+###### fix-validator.ts
+
+\`\`\`typescript
+import { observed, pass, fail } from "./tb-validate.js";
+
+const data = observed<{ fixed?: boolean }>();
+data.fixed === true ? pass("fix validated", data) : fail("fix not validated", data);
+\`\`\`
+`,
+  'evidence-runbook': `<!-- srcbook:{"language":"typescript"} -->
+
+# [TOPIC] Runbook
+
+Executable runbook for a reusable agent workflow. Keep prose steps close to deterministic validators.
+
+###### package.json
+
+\`\`\`json
+{
+  "type": "module",
+  "dependencies": {}
+}
+\`\`\`
+
+## Inputs
+
+- Task:
+- Success criteria:
+- Evidence required:
+
+###### step.ts
+
+\`\`\`typescript
+console.log(JSON.stringify({ step: "replace with runbook step", status: "ready" }));
+\`\`\`
+
+###### validator.ts
+
+\`\`\`typescript
+import { observed, pass, fail } from "./tb-validate.js";
+
+const data = observed<{ status?: string }>();
+data.status === "ready"
+  ? pass("runbook step is ready", data)
+  : fail("runbook step is not ready", data);
+\`\`\`
+`,
+  'evidence-scenario-factory': `<!-- srcbook:{"language":"typescript"} -->
+
+# [TOPIC] Scenario Factory
+
+Parameterized generator for eval datasets, synthetic bug reports, adversarial prompts, or regression examples.
+
+###### package.json
+
+\`\`\`json
+{
+  "type": "module",
+  "dependencies": {}
+}
+\`\`\`
+
+## Schema
+
+Describe the generated scenario schema.
+
+###### generate.ts
+
+\`\`\`typescript
+const scenarios = [{ id: "scenario-1", prompt: "replace with generated case" }];
+console.log(JSON.stringify({ generated: scenarios.length, scenarios }));
+\`\`\`
+
+###### validate-schema.ts
+
+\`\`\`typescript
+import { observed, pass, fail } from "./tb-validate.js";
+
+const data = observed<{ generated?: number }>();
+typeof data.generated === "number" && data.generated > 0
+  ? pass("scenarios generated", data)
+  : fail("no scenarios generated", data);
+\`\`\`
+`,
+  'evidence-simulation': `<!-- srcbook:{"language":"typescript"} -->
+
+# [TOPIC] Simulation
+
+Seeded Monte Carlo or parameterized simulation notebook. Record assumptions before interpreting results.
+
+###### package.json
+
+\`\`\`json
+{
+  "type": "module",
+  "dependencies": {}
+}
+\`\`\`
+
+## Parameters
+
+- seed:
+- runs:
+- parameter grid:
+
+###### simulation.ts
+
+\`\`\`typescript
+const runs = 100;
+const wins = Array.from({ length: runs }, (_, i) => i % 2 === 0).filter(Boolean).length;
+console.log(JSON.stringify({ runs, wins, rate: wins / runs }));
+\`\`\`
+
+###### analysis.ts
+
+\`\`\`typescript
+console.log("Interpret simulation output here.");
+\`\`\`
+`,
+  'evidence-skill-certification': `<!-- srcbook:{"language":"typescript"} -->
+
+# [TOPIC] Skill Certification
+
+Certification harness for reusable skills, including positive, adversarial, and negative-control cases.
+
+###### package.json
+
+\`\`\`json
+{
+  "type": "module",
+  "dependencies": {}
+}
+\`\`\`
+
+## Case Matrix
+
+- Positive:
+- Adversarial:
+- Negative control:
+
+###### cases.ts
+
+\`\`\`typescript
+const cases = [{ name: "positive", pass: true }];
+console.log(JSON.stringify({ certified: cases.every((c) => c.pass), cases }));
+\`\`\`
+
+###### validator.ts
+
+\`\`\`typescript
+import { observed, pass, fail } from "./tb-validate.js";
+
+const data = observed<{ certified?: boolean }>();
+data.certified === true ? pass("skill certified", data) : fail("skill not certified", data);
+\`\`\`
+`,
+  'evidence-system-audit': `<!-- srcbook:{"language":"typescript"} -->
+
+# [TOPIC] System Audit
+
+Living audit notebook for recurring repo, protocol, or infrastructure invariants.
+
+###### package.json
+
+\`\`\`json
+{
+  "type": "module",
+  "dependencies": {}
+}
+\`\`\`
+
+## Invariants
+
+- Invariant:
+- Evidence source:
+- Failure report format:
+
+###### audit.ts
+
+\`\`\`typescript
+const findings: Array<{ severity: string; message: string }> = [];
+console.log(JSON.stringify({ findings }));
+\`\`\`
+
+###### validator.ts
+
+\`\`\`typescript
+import { observed, pass, fail } from "./tb-validate.js";
+
+const data = observed<{ findings?: Array<{ severity?: string }> }>();
+Array.isArray(data.findings)
+  ? pass("audit findings are structured", data)
+  : fail("audit findings are not structured", data);
+\`\`\`
+`,
   'sequential-feynman': `<!-- srcbook:{"language":"[LANGUAGE]"} -->
 
 # 🧠 Sequential Feynman Learning: [TOPIC]
@@ -654,6 +952,14 @@ If all boxes are checked: **Understanding validated ✅**`,
 export type TemplateName = keyof typeof TEMPLATES;
 
 export const AVAILABLE_TEMPLATES: readonly TemplateName[] = [
+  'evidence-adr-pack',
+  'evidence-eval-workbook',
+  'evidence-failure-capsule',
+  'evidence-runbook',
+  'evidence-scenario-factory',
+  'evidence-simulation',
+  'evidence-skill-certification',
+  'evidence-system-audit',
   'sequential-feynman',
 ] as const;
 
