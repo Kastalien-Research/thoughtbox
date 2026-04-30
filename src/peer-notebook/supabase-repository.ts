@@ -244,47 +244,30 @@ export class SupabasePeerNotebookRepository implements PeerNotebookRepository {
     if (error) {
       throw new Error(`Failed to list peer invocations: ${error.message}`);
     }
-    return Promise.all((data ?? []).map(row => this.rowToInvocation(row as PeerInvocationRow)));
+    const rows = (data ?? []) as PeerInvocationRow[];
+    const peerSlugs = await this.getPeerSlugsByRecordId(
+      workspaceId,
+      [...new Set(rows.map(row => row.peer_id))],
+    );
+    return rows.map(row => this.rowToInvocation(row, peerSlugs));
   }
 
   async appendTraceEvent(
     event: Omit<PeerTraceEventRecord, "id" | "seq" | "timestampAt">,
   ): Promise<PeerTraceEventRecord> {
-    const client = this.ensureClient();
-    const { data: latest, error: latestError } = await client
-      .from("peer_trace_events")
-      .select("seq")
-      .eq("workspace_id", event.workspaceId)
-      .eq("invocation_id", event.invocationId)
-      .order("seq", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    if (latestError) {
-      throw new Error(`Failed to allocate peer trace event seq: ${latestError.message}`);
-    }
-
-    const row = {
-      id: randomUUID(),
-      workspace_id: event.workspaceId,
-      invocation_id: event.invocationId,
-      seq: Number((latest as { seq?: number } | null)?.seq ?? 0) + 1,
-      event_type: event.eventType,
-      severity: event.severity,
-      timestamp_at: new Date().toISOString(),
-      body: event.body ?? null,
-      attrs: event.attrs,
-    };
-    const { data, error } = await client
-      .from("peer_trace_events")
-      .insert(row)
-      .select()
-      .single();
+    const { data, error } = await this.ensureClient().rpc("append_peer_trace_event", {
+      p_workspace_id: event.workspaceId,
+      p_invocation_id: event.invocationId,
+      p_event_type: event.eventType,
+      p_severity: event.severity,
+      p_body: event.body ?? null,
+      p_attrs: event.attrs,
+    });
 
     if (error) {
       throw new Error(`Failed to append peer trace event: ${error.message}`);
     }
-    return this.rowToTraceEvent(data as PeerTraceEventRow);
+    return this.rowToTraceEvent(data as unknown as PeerTraceEventRow);
   }
 
   async listTraceEvents(workspaceId: string, invocationId: string): Promise<PeerTraceEventRecord[]> {
@@ -352,7 +335,7 @@ export class SupabasePeerNotebookRepository implements PeerNotebookRepository {
       throw new Error(`Failed to save peer artifact metadata ${id}: ${error.message}`);
     }
 
-    return this.rowToArtifact(data as PeerArtifactRow);
+    return this.rowToArtifact(data as PeerArtifactRow, { includeContent: true });
   }
 
   async getArtifact(workspaceId: string, artifactId: string): Promise<PeerArtifactRecord | null> {
@@ -366,7 +349,7 @@ export class SupabasePeerNotebookRepository implements PeerNotebookRepository {
     if (error) {
       throw new Error(`Failed to get peer artifact ${artifactId}: ${error.message}`);
     }
-    return data ? this.rowToArtifact(data as PeerArtifactRow) : null;
+    return data ? this.rowToArtifact(data as PeerArtifactRow, { includeContent: true }) : null;
   }
 
   async listArtifacts(workspaceId: string, invocationId: string): Promise<PeerArtifactRecord[]> {
@@ -380,7 +363,7 @@ export class SupabasePeerNotebookRepository implements PeerNotebookRepository {
     if (error) {
       throw new Error(`Failed to list peer artifacts: ${error.message}`);
     }
-    return Promise.all((data ?? []).map(row => this.rowToArtifact(row as PeerArtifactRow)));
+    return (data ?? []).map(row => this.rowToArtifact(row as PeerArtifactRow, { includeContent: false }));
   }
 
   private ensureClient(): SupabaseClient {
@@ -423,13 +406,12 @@ export class SupabasePeerNotebookRepository implements PeerNotebookRepository {
     };
   }
 
-  private async rowToInvocation(row: PeerInvocationRow): Promise<PeerInvocationRecord> {
-    const peer = await this.getPeerByRecordId(row.workspace_id, row.peer_id);
+  private rowToInvocation(row: PeerInvocationRow, peerSlugs?: Map<string, string>): PeerInvocationRecord {
     return {
       id: row.id,
       workspaceId: row.workspace_id,
       peerRecordId: row.peer_id,
-      peerId: peer?.peerId ?? row.peer_id,
+      peerId: peerSlugs?.get(row.peer_id) ?? row.peer_id,
       manifestId: row.manifest_id,
       manifestHash: row.manifest_hash,
       toolName: row.tool_name,
@@ -459,7 +441,43 @@ export class SupabasePeerNotebookRepository implements PeerNotebookRepository {
     };
   }
 
-  private async rowToArtifact(row: PeerArtifactRow): Promise<PeerArtifactRecord> {
+  private async rowToArtifact(
+    row: PeerArtifactRow,
+    options: { includeContent: true },
+  ): Promise<PeerArtifactRecord>;
+  private rowToArtifact(
+    row: PeerArtifactRow,
+    options: { includeContent: false },
+  ): PeerArtifactRecord;
+  private rowToArtifact(
+    row: PeerArtifactRow,
+    options: { includeContent: boolean },
+  ): PeerArtifactRecord | Promise<PeerArtifactRecord> {
+    if (options.includeContent) {
+      return this.rowToArtifactWithContent(row);
+    }
+
+    return {
+      id: row.id,
+      workspaceId: row.workspace_id,
+      invocationId: row.invocation_id,
+      peerRecordId: row.peer_id,
+      peerId: row.peer_id,
+      kind: row.kind as ArtifactKind,
+      name: row.name,
+      mimeType: row.mime_type,
+      byteSize: Number(row.byte_size),
+      sha256: row.sha256,
+      storageBackend: "supabase_storage",
+      storageBucket: row.storage_bucket,
+      storagePath: row.storage_path,
+      preview: row.preview ?? undefined,
+      content: row.preview ?? null,
+      createdAt: row.created_at,
+    };
+  }
+
+  private async rowToArtifactWithContent(row: PeerArtifactRow): Promise<PeerArtifactRecord> {
     const download = await this.ensureClient().storage
       .from(row.storage_bucket)
       .download(row.storage_path);
@@ -470,22 +488,9 @@ export class SupabasePeerNotebookRepository implements PeerNotebookRepository {
 
     const payloadText = await download.data.text();
     return {
-      id: row.id,
-      workspaceId: row.workspace_id,
-      invocationId: row.invocation_id,
-      peerRecordId: row.peer_id,
+      ...this.rowToArtifact(row, { includeContent: false }),
       peerId: row.peer_id ? (await this.getPeerByRecordId(row.workspace_id, row.peer_id))?.peerId ?? row.peer_id : null,
-      kind: row.kind as ArtifactKind,
-      name: row.name,
-      mimeType: row.mime_type,
-      byteSize: Number(row.byte_size),
-      sha256: row.sha256,
-      storageBackend: "supabase_storage",
-      storageBucket: row.storage_bucket,
-      storagePath: row.storage_path,
-      preview: row.preview ?? undefined,
       content: JSON.parse(payloadText) as JsonValue,
-      createdAt: row.created_at,
     };
   }
 
@@ -523,6 +528,26 @@ export class SupabasePeerNotebookRepository implements PeerNotebookRepository {
       throw new Error(`Failed to get peer notebook record ${peerRecordId}: ${error.message}`);
     }
     return data ? this.rowToPeer(data as PeerNotebookRow) : null;
+  }
+
+  private async getPeerSlugsByRecordId(workspaceId: string, peerRecordIds: string[]): Promise<Map<string, string>> {
+    if (peerRecordIds.length === 0) {
+      return new Map();
+    }
+
+    const { data, error } = await this.ensureClient()
+      .from("peer_notebooks")
+      .select("id, slug")
+      .eq("workspace_id", workspaceId)
+      .in("id", peerRecordIds);
+
+    if (error) {
+      throw new Error(`Failed to get peer notebook slugs: ${error.message}`);
+    }
+
+    return new Map(
+      ((data ?? []) as Array<{ id: string; slug: string }>).map(row => [row.id, row.slug]),
+    );
   }
 }
 

@@ -111,6 +111,64 @@ CREATE INDEX IF NOT EXISTS idx_peer_artifacts_workspace_invocation
 CREATE INDEX IF NOT EXISTS idx_peer_artifacts_workspace_peer
   ON public.peer_artifacts(workspace_id, peer_id, created_at DESC);
 
+CREATE OR REPLACE FUNCTION public.append_peer_trace_event(
+  p_workspace_id uuid,
+  p_invocation_id uuid,
+  p_event_type text,
+  p_severity text,
+  p_body text DEFAULT NULL,
+  p_attrs jsonb DEFAULT '{}'::jsonb
+)
+RETURNS public.peer_trace_events
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  inserted public.peer_trace_events;
+BEGIN
+  PERFORM 1
+  FROM public.peer_invocations
+  WHERE workspace_id = p_workspace_id
+    AND id = p_invocation_id
+  FOR UPDATE;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Invocation % does not exist in workspace %', p_invocation_id, p_workspace_id
+      USING ERRCODE = 'P0002';
+  END IF;
+
+  INSERT INTO public.peer_trace_events (
+    workspace_id,
+    invocation_id,
+    seq,
+    event_type,
+    severity,
+    body,
+    attrs
+  )
+  SELECT
+    p_workspace_id,
+    p_invocation_id,
+    COALESCE(MAX(seq), 0) + 1,
+    p_event_type,
+    p_severity,
+    p_body,
+    COALESCE(p_attrs, '{}'::jsonb)
+  FROM public.peer_trace_events
+  WHERE workspace_id = p_workspace_id
+    AND invocation_id = p_invocation_id
+  RETURNING * INTO inserted;
+
+  RETURN inserted;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.append_peer_trace_event(uuid, uuid, text, text, text, jsonb)
+  FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.append_peer_trace_event(uuid, uuid, text, text, text, jsonb)
+  TO service_role;
+
 ALTER TABLE public.peer_notebooks ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.peer_manifests ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.peer_invocations ENABLE ROW LEVEL SECURITY;

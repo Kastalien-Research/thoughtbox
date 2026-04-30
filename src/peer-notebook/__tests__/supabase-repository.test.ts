@@ -173,6 +173,40 @@ describe("SupabasePeerNotebookRepository", () => {
     ]));
   });
 
+  it("allocates trace seq values atomically under concurrent appends", async ({ skip }) => {
+    if (!available) skip();
+    const repository = new SupabasePeerNotebookRepository(getTestSupabaseConfig());
+    const handler = new PeerNotebookHandler({
+      repository,
+      workspaceId: TEST_WORKSPACE_ID,
+    });
+    const seeded = await handler.seedArtifact({
+      text: "First claim.",
+    });
+    const invoked = await handler.invoke({
+      peerId: "claim-extractor",
+      tool: "extract_claims",
+      args: { textArtifactId: seeded.artifact.id },
+    });
+
+    const appended = await Promise.all(
+      Array.from({ length: 10 }, (_, index) =>
+        repository.appendTraceEvent({
+          workspaceId: TEST_WORKSPACE_ID,
+          invocationId: invoked.invocationId,
+          eventType: "concurrent_probe",
+          severity: "info",
+          attrs: { index },
+        }),
+      ),
+    );
+
+    expect(new Set(appended.map(event => event.seq)).size).toBe(appended.length);
+    const events = await repository.listTraceEvents(TEST_WORKSPACE_ID, invoked.invocationId);
+    expect(events.map(event => event.seq)).toEqual([...events.map(event => event.seq)].sort((a, b) => a - b));
+    expect(events.filter(event => event.eventType === "concurrent_probe")).toHaveLength(10);
+  });
+
   it("returns invocation_not_found for unknown trace invocation reads", async ({ skip }) => {
     if (!available) skip();
     const repository = new SupabasePeerNotebookRepository(getTestSupabaseConfig());
@@ -202,6 +236,8 @@ async function isPeerNotebookSchemaAvailable(): Promise<boolean> {
 
 async function truncatePeerNotebookTables(): Promise<void> {
   const client = createServiceClient();
+  await removeStorageObjectsForWorkspace(TEST_WORKSPACE_ID);
+  await removeStorageObjectsForWorkspace(SECOND_WORKSPACE_ID);
   await client.from("peer_artifacts").delete().neq("id", "00000000-0000-0000-0000-000000000000");
   await client.from("peer_trace_events").delete().neq("id", "00000000-0000-0000-0000-000000000000");
   await client.from("peer_invocations").delete().neq("id", "00000000-0000-0000-0000-000000000000");
@@ -233,4 +269,39 @@ async function ensureWorkspace(workspaceId: string): Promise<void> {
   if (error) {
     throw new Error(`Failed to create second workspace: ${error.message}`);
   }
+}
+
+async function removeStorageObjectsForWorkspace(workspaceId: string): Promise<void> {
+  const client = createServiceClient();
+  const bucket = client.storage.from("peer-artifacts");
+  const paths = await listStorageObjectPaths(workspaceId);
+
+  if (paths.length > 0) {
+    const { error } = await bucket.remove(paths);
+    if (error) {
+      throw new Error(`Failed to remove peer artifact test objects: ${error.message}`);
+    }
+  }
+}
+
+async function listStorageObjectPaths(prefix: string): Promise<string[]> {
+  const client = createServiceClient();
+  const { data, error } = await client.storage
+    .from("peer-artifacts")
+    .list(prefix, { limit: 1000 });
+
+  if (error) {
+    throw new Error(`Failed to list peer artifact test objects: ${error.message}`);
+  }
+
+  const paths: string[] = [];
+  for (const object of data ?? []) {
+    const path = `${prefix}/${object.name}`;
+    if (object.id) {
+      paths.push(path);
+    } else {
+      paths.push(...await listStorageObjectPaths(path));
+    }
+  }
+  return paths;
 }
