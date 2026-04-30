@@ -26,7 +26,8 @@ or public/direct runtime MCP scope.
 Implementation note: the `thoughtbox-y4x` durable control-plane slice adds the
 Supabase migration and `SupabasePeerNotebookRepository` behind the existing
 repository contract. Hosted workspace-scoped server construction selects this
-repository when `workspaceId`, `SUPABASE_URL`, and
+repository when an effective non-default workspace id is available from
+`workspaceId` or `THOUGHTBOX_PROJECT`, and `SUPABASE_URL` plus
 `SUPABASE_SERVICE_ROLE_KEY` are present; local tests keep the in-memory
 repository. The runtime provider remains the mock contract fixture for this
 slice.

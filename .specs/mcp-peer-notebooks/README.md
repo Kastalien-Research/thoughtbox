@@ -50,7 +50,8 @@ Baseline after this slice:
   `peer-artifacts` Storage bucket.
 - `SupabasePeerNotebookRepository` behind the existing repository contract.
 - Hosted workspace-scoped server construction uses Supabase peer notebook
-  persistence when `workspaceId`, `SUPABASE_URL`, and
+  persistence when a non-default workspace is resolved from `workspaceId` or
+  `THOUGHTBOX_PROJECT`, and `SUPABASE_URL` plus
   `SUPABASE_SERVICE_ROLE_KEY` are available.
 
 The pilot now proves broker shape and MCP reachability with a durable

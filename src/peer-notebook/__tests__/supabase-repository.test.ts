@@ -68,6 +68,7 @@ describe("SupabasePeerNotebookRepository", () => {
     expect(provider.invocations).toHaveLength(1);
     expect(invocationRead.invocation.status).toBe("completed");
     expect(invocationRead.invocation.workspaceId).toBe(TEST_WORKSPACE_ID);
+    expect(invocationRead.invocation.peerId).toBe("claim-extractor");
     expect(traced.events.map(event => event.eventType)).toEqual(expect.arrayContaining([
       "peer_invocation_created",
       "outbound_call_allowed",
@@ -90,6 +91,14 @@ describe("SupabasePeerNotebookRepository", () => {
         { id: "claim_2", text: "Second claim" },
       ],
     });
+    const listedArtifacts = await repository.listArtifacts(TEST_WORKSPACE_ID, invoked.invocationId);
+    expect(listedArtifacts).toEqual([
+      expect.objectContaining({
+        id: outputArtifactId,
+        peerId: "claim-extractor",
+        name: "claims.json",
+      }),
+    ]);
   });
 
   it("keeps artifacts workspace-scoped", async ({ skip }) => {
@@ -205,6 +214,48 @@ describe("SupabasePeerNotebookRepository", () => {
     const events = await repository.listTraceEvents(TEST_WORKSPACE_ID, invoked.invocationId);
     expect(events.map(event => event.seq)).toEqual([...events.map(event => event.seq)].sort((a, b) => a - b));
     expect(events.filter(event => event.eventType === "concurrent_probe")).toHaveLength(10);
+  });
+
+  it("rejects cross-workspace artifact writes before uploading storage payloads", async ({ skip }) => {
+    if (!available) skip();
+    const repository = new SupabasePeerNotebookRepository(getTestSupabaseConfig());
+    const handler = new PeerNotebookHandler({
+      repository,
+      workspaceId: TEST_WORKSPACE_ID,
+    });
+    const seeded = await handler.seedArtifact({
+      text: "First claim.",
+    });
+    const invoked = await handler.invoke({
+      peerId: "claim-extractor",
+      tool: "extract_claims",
+      args: { textArtifactId: seeded.artifact.id },
+    });
+    const invocation = await repository.getInvocation(TEST_WORKSPACE_ID, invoked.invocationId);
+    if (!invocation) {
+      throw new Error("Expected durable invocation to exist");
+    }
+
+    const artifactId = "44444444-4444-4444-8444-444444444444";
+    await expect(repository.saveArtifactInput({
+      id: artifactId,
+      workspaceId: SECOND_WORKSPACE_ID,
+      invocationId: invoked.invocationId,
+      peerRecordId: invocation.peerRecordId,
+      peerId: "claim-extractor",
+      kind: "json",
+      name: "cross-workspace.json",
+      mimeType: "application/json",
+      content: { ok: false },
+    })).rejects.toMatchObject({ code: "invocation_not_found" });
+
+    const attemptedStoragePrefix = [
+      SECOND_WORKSPACE_ID,
+      invocation.peerRecordId,
+      invoked.invocationId,
+      artifactId,
+    ].join("/");
+    expect(await listStorageObjectPaths(attemptedStoragePrefix)).toEqual([]);
   });
 
   it("returns invocation_not_found for unknown trace invocation reads", async ({ skip }) => {

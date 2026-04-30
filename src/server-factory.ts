@@ -314,7 +314,9 @@ Use \`console.log()\` for debugging — output captured in response logs.`;
 
   const notebookHandler = new NotebookHandler();
   let resolvedWorkspaceId = args.workspaceId || process.env.THOUGHTBOX_PROJECT || "default";
-  const peerNotebookRepository = args.peerNotebookRepository ?? createDefaultPeerNotebookRepository(args.workspaceId, logger);
+  const durablePeerWorkspaceId = resolvedWorkspaceId === "default" ? undefined : resolvedWorkspaceId;
+  const peerNotebookRepository =
+    args.peerNotebookRepository ?? createDefaultPeerNotebookRepository(durablePeerWorkspaceId, logger);
   const peerNotebookHandler = new PeerNotebookHandler({
     getWorkspaceId: () => resolvedWorkspaceId,
     repository: peerNotebookRepository,

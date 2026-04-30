@@ -231,7 +231,12 @@ export class SupabasePeerNotebookRepository implements PeerNotebookRepository {
     if (error) {
       throw new Error(`Failed to get peer invocation ${invocationId}: ${error.message}`);
     }
-    return data ? this.rowToInvocation(data as PeerInvocationRow) : null;
+    if (!data) {
+      return null;
+    }
+    const row = data as PeerInvocationRow;
+    const peerSlugs = await this.getPeerSlugsByRecordId(workspaceId, [row.peer_id]);
+    return this.rowToInvocation(row, peerSlugs);
   }
 
   async listInvocations(workspaceId: string): Promise<PeerInvocationRecord[]> {
@@ -296,6 +301,8 @@ export class SupabasePeerNotebookRepository implements PeerNotebookRepository {
       artifactId: id,
       name: input.name,
     });
+
+    await this.assertArtifactInvocationScope(input);
 
     const upload = await client.storage
       .from(this.artifactBucket)
@@ -363,7 +370,12 @@ export class SupabasePeerNotebookRepository implements PeerNotebookRepository {
     if (error) {
       throw new Error(`Failed to list peer artifacts: ${error.message}`);
     }
-    return (data ?? []).map(row => this.rowToArtifact(row as PeerArtifactRow, { includeContent: false }));
+    const rows = (data ?? []) as PeerArtifactRow[];
+    const peerSlugs = await this.getPeerSlugsByRecordId(
+      workspaceId,
+      [...new Set(rows.flatMap(row => row.peer_id ? [row.peer_id] : []))],
+    );
+    return rows.map(row => this.rowToArtifact(row, { includeContent: false, peerSlugs }));
   }
 
   private ensureClient(): SupabaseClient {
@@ -447,11 +459,11 @@ export class SupabasePeerNotebookRepository implements PeerNotebookRepository {
   ): Promise<PeerArtifactRecord>;
   private rowToArtifact(
     row: PeerArtifactRow,
-    options: { includeContent: false },
+    options: { includeContent: false; peerSlugs?: Map<string, string> },
   ): PeerArtifactRecord;
   private rowToArtifact(
     row: PeerArtifactRow,
-    options: { includeContent: boolean },
+    options: { includeContent: boolean; peerSlugs?: Map<string, string> },
   ): PeerArtifactRecord | Promise<PeerArtifactRecord> {
     if (options.includeContent) {
       return this.rowToArtifactWithContent(row);
@@ -462,7 +474,7 @@ export class SupabasePeerNotebookRepository implements PeerNotebookRepository {
       workspaceId: row.workspace_id,
       invocationId: row.invocation_id,
       peerRecordId: row.peer_id,
-      peerId: row.peer_id,
+      peerId: row.peer_id ? options.peerSlugs?.get(row.peer_id) ?? row.peer_id : null,
       kind: row.kind as ArtifactKind,
       name: row.name,
       mimeType: row.mime_type,
@@ -528,6 +540,29 @@ export class SupabasePeerNotebookRepository implements PeerNotebookRepository {
       throw new Error(`Failed to get peer notebook record ${peerRecordId}: ${error.message}`);
     }
     return data ? this.rowToPeer(data as PeerNotebookRow) : null;
+  }
+
+  private async assertArtifactInvocationScope(input: SaveArtifactInput): Promise<void> {
+    if (!input.invocationId) {
+      return;
+    }
+
+    const { data, error } = await this.ensureClient()
+      .from("peer_invocations")
+      .select("id, peer_id")
+      .eq("workspace_id", input.workspaceId)
+      .eq("id", input.invocationId)
+      .maybeSingle();
+
+    if (error) {
+      throw new Error(`Failed to validate peer artifact invocation scope ${input.invocationId}: ${error.message}`);
+    }
+    if (!data) {
+      throw new PeerNotebookError("invocation_not_found", `Invocation ${input.invocationId} does not exist`);
+    }
+    if (input.peerRecordId && (data as Pick<PeerInvocationRow, "peer_id">).peer_id !== input.peerRecordId) {
+      throw new PeerNotebookError("peer_not_found", `Peer ${input.peerId ?? input.peerRecordId} does not own invocation ${input.invocationId}`);
+    }
   }
 
   private async getPeerSlugsByRecordId(workspaceId: string, peerRecordIds: string[]): Promise<Map<string, string>> {

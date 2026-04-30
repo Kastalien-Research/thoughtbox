@@ -36,8 +36,10 @@ The baseline includes the MCP-facing peer notebook surface:
 - Trace listing now rejects unknown invocation ids with `invocation_not_found`.
 - Workspace bootstrap is serialized per workspace.
 - Hosted `createMcpServer` construction selects `SupabasePeerNotebookRepository`
-  when `workspaceId`, `SUPABASE_URL`, and `SUPABASE_SERVICE_ROLE_KEY` are
-  present; otherwise it preserves in-memory behavior.
+  when a non-default workspace is resolved from `workspaceId` or
+  `THOUGHTBOX_PROJECT`, and `SUPABASE_URL` plus
+  `SUPABASE_SERVICE_ROLE_KEY` are present; otherwise it preserves in-memory
+  behavior.
 
 ## Delivery Guard
 
