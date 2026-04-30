@@ -55,6 +55,7 @@ import { KnowledgeTool } from "./knowledge/tool.js";
 import { SessionTool } from "./sessions/tool.js";
 import { ThoughtTool } from "./thought/tool.js";
 import { NotebookTool } from "./notebook/tool.js";
+import { PEER_NOTEBOOK_TOOL, PeerNotebookHandler, PeerNotebookTool } from "./peer-notebook/index.js";
 import {
   TheseusTool,
   UlyssesTool,
@@ -159,9 +160,10 @@ export async function createMcpServer(args: CreateMcpServerArgs = {}): Promise<M
 
   const THOUGHTBOX_INSTRUCTIONS = `Thoughtbox is a structured reasoning server using Code Mode.
 
-Two tools:
+Three tools:
 - \`thoughtbox_search\`: Write JavaScript to query the operation/prompt/resource catalog
 - \`thoughtbox_execute\`: Write JavaScript using the \`tb\` SDK to chain operations
+- \`thoughtbox_peer_notebook\`: Seed artifacts and invoke the mock brokered claim-extractor peer
 
 Workflow: search to discover available operations, then execute code against them.
 Use \`console.log()\` for debugging — output captured in response logs.`;
@@ -211,6 +213,10 @@ Use \`console.log()\` for debugging — output captured in response logs.`;
   thoughtHandler.setEventEmitter(eventEmitter);
 
   const notebookHandler = new NotebookHandler();
+  let resolvedWorkspaceId = args.workspaceId || process.env.THOUGHTBOX_PROJECT || "default";
+  const peerNotebookHandler = new PeerNotebookHandler({
+    getWorkspaceId: () => resolvedWorkspaceId,
+  });
 
   const sessionHandler = new SessionHandler({
     storage,
@@ -304,6 +310,7 @@ Use \`console.log()\` for debugging — output captured in response logs.`;
   const sessionTool = new SessionTool(sessionHandler);
   const thoughtTool = new ThoughtTool(thoughtHandler);
   const notebookTool = new NotebookTool(notebookHandler);
+  const peerNotebookTool = new PeerNotebookTool(peerNotebookHandler);
 
   // Resolve project scope.
   //
@@ -327,6 +334,7 @@ Use \`console.log()\` for debugging — output captured in response logs.`;
 
     const project = args.workspaceId || process.env.THOUGHTBOX_PROJECT;
     if (project) {
+      resolvedWorkspaceId = project;
       try {
         await storage.setProject(project);
         if (knowledgeStorage) await knowledgeStorage.setProject(project);
@@ -362,6 +370,7 @@ Use \`console.log()\` for debugging — output captured in response logs.`;
         const name = root.name
           || root.uri.split('/').filter(Boolean).pop()
           || 'default';
+        resolvedWorkspaceId = name;
         await storage.setProject(name);
         if (knowledgeStorage) await knowledgeStorage.setProject(name);
         if (protocolHandler) protocolHandler.setProject(name);
@@ -467,8 +476,9 @@ Use \`console.log()\` for debugging — output captured in response logs.`;
 
   registerTool(SEARCH_TOOL, searchTool);
   registerTool(EXECUTE_TOOL, executeTool);
+  registerTool(PEER_NOTEBOOK_TOOL, peerNotebookTool);
 
-  logger.info('Code Mode tools registered (search + execute)');
+  logger.info('Code Mode tools registered (search + execute) and peer notebook tool registered');
 
   // Register prompts using McpServer's registerPrompt API
   server.registerPrompt(

@@ -15,6 +15,12 @@ Peer execution runs elsewhere through a runtime provider.
 This spec is documentation-only. It does not add runtime code, migrations, or
 web app routes.
 
+Implementation note: the `thoughtbox-39o` follow-on slice adds the first
+MCP-facing pilot surface, `thoughtbox_peer_notebook`, for the existing in-memory
+mock `claim-extractor` broker. It proves broker reachability through the MCP
+server without changing the deferred Supabase, web app, local-process, smolvm,
+or public/direct runtime MCP scope.
+
 ## Non-Goals
 
 - Do not implement peer runtime code.
