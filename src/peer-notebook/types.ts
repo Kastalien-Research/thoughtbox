@@ -161,7 +161,8 @@ export interface PeerArtifactRecord {
   mimeType: string;
   byteSize: number;
   sha256: string;
-  storageBackend: "memory";
+  storageBackend: "memory" | "supabase_storage";
+  storageBucket?: string;
   storagePath: string;
   preview?: JsonValue;
   content: JsonValue;

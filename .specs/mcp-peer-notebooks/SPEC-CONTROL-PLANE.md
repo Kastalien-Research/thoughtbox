@@ -12,8 +12,10 @@ control plane lives in the Cloud Run MCP API, owns peer authority, persists
 state in Supabase, and presents inspection data through the Next.js web app.
 Peer execution runs elsewhere through a runtime provider.
 
-This spec is documentation-only. It does not add runtime code, migrations, or
-web app routes.
+This spec started as the decision-complete ADR-022 staging spec and now also
+records implementation notes for delivered slices. It still governs the
+control-plane contract; code, migrations, and web app routes land in separate
+implementation units.
 
 Implementation note: the `thoughtbox-39o` follow-on slice adds the first
 MCP-facing pilot surface, `thoughtbox_peer_notebook`, for the existing in-memory
@@ -21,10 +23,18 @@ mock `claim-extractor` broker. It proves broker reachability through the MCP
 server without changing the deferred Supabase, web app, local-process, smolvm,
 or public/direct runtime MCP scope.
 
+Implementation note: the `thoughtbox-y4x` durable control-plane slice adds the
+Supabase migration and `SupabasePeerNotebookRepository` behind the existing
+repository contract. Hosted workspace-scoped server construction selects this
+repository when `workspaceId`, `SUPABASE_URL`, and
+`SUPABASE_SERVICE_ROLE_KEY` are present; local tests keep the in-memory
+repository. The runtime provider remains the mock contract fixture for this
+slice.
+
 ## Non-Goals
 
-- Do not implement peer runtime code.
-- Do not add Supabase migrations.
+- Do not implement peer runtime code in this control-plane persistence slice.
+- Do not add Supabase migrations outside the ADR-022 peer control-plane schema.
 - Do not build web app screens.
 - Do not make Cloud Run host KVM, smolvm, or other privileged execution.
 - Do not require the v0 runtime to expose public direct MCP.
@@ -282,6 +292,8 @@ decision targets, not an implementation in this docs unit.
 - `workspace_id uuid not null`
 - `peer_id uuid not null`
 - `manifest_id uuid not null`
+- `manifest_hash text not null`: denormalized active manifest hash for the
+  MCP read model
 - `caller_type text not null`: `agent|scheduler|peer|user|system`
 - `caller_id text null`
 - `parent_invocation_id uuid null`
@@ -316,9 +328,10 @@ decision targets, not an implementation in this docs unit.
 
 - `id uuid primary key`
 - `workspace_id uuid not null`
-- `invocation_id uuid not null`
-- `peer_id uuid not null`
-- `kind text not null`: `notebook_export|json|log|dataset|report|binary`
+- `invocation_id uuid null`: nullable for seeded/imported input artifacts that
+  exist before a peer invocation
+- `peer_id uuid null`: nullable for unowned seeded input artifacts
+- `kind text not null`: `notebook_export|json|text|log|dataset|report|binary`
 - `name text not null`
 - `mime_type text not null`
 - `byte_size bigint not null`
@@ -352,6 +365,13 @@ Storage path shape:
 
 ```text
 peer-artifacts/{workspace_id}/{peer_id}/{invocation_id}/{artifact_id}/{name}
+```
+
+Supabase convention adjustment: the storage bucket is named `peer-artifacts`.
+`peer_artifacts.storage_path` stores the object path inside that bucket:
+
+```text
+{workspace_id}/{peer_id|unowned}/{invocation_id|seeded}/{artifact_id}/{name}
 ```
 
 Recommended preview cap for the migration spec: store a bounded JSON/text

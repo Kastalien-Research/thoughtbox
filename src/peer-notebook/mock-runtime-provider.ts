@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import type {
   RuntimeInvocationInput,
   RuntimeInvocationResult,
@@ -7,6 +8,8 @@ import type {
 import type { JsonObject } from "./types.js";
 import { PeerNotebookError } from "./types.js";
 
+// Contract fixture for the brokered claim-extractor pilot. This provider is
+// intentionally not a production runtime or isolation boundary.
 export class MockPeerRuntimeProvider implements RuntimeProvider {
   readonly invocations: RuntimeInvocationInput[] = [];
 
@@ -41,7 +44,7 @@ export class MockPeerRuntimeProvider implements RuntimeProvider {
     const artifactContent = read.result as { artifact?: { content?: unknown } };
     const text = extractText(artifactContent.artifact?.content);
     const claims = extractClaims(text);
-    const claimsArtifactId = `${input.invocationId}-claims`;
+    const claimsArtifactId = randomUUID();
     const claimsJson: JsonObject = { claims };
 
     return {

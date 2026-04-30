@@ -40,6 +40,8 @@ export interface SaveArtifactInput {
   preview?: JsonValue;
 }
 
+// Local/test repository. Hosted workspace mode uses SupabasePeerNotebookRepository
+// for durable control-plane state.
 export class InMemoryPeerNotebookRepository implements PeerNotebookRepository {
   private peers = new Map<string, PeerNotebookRecord>();
   private manifests = new Map<string, PeerManifestRecord>();

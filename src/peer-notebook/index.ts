@@ -7,6 +7,8 @@ export { validateJsonSchemaSubset } from "./json-schema.js";
 export { MockPeerRuntimeProvider } from "./mock-runtime-provider.js";
 export { InMemoryPeerNotebookRepository } from "./repositories.js";
 export type { PeerNotebookRepository, SaveArtifactInput } from "./repositories.js";
+export { SupabasePeerNotebookRepository } from "./supabase-repository.js";
+export type { SupabasePeerNotebookRepositoryConfig } from "./supabase-repository.js";
 export { PeerNotebookHandler } from "./handler.js";
 export type { PeerNotebookHandlerOptions, PeerArtifactSeedInput, PeerInvokeToolInput } from "./handler.js";
 export { PEER_NOTEBOOK_TOOL, PeerNotebookTool, peerNotebookToolInputSchema } from "./tool.js";
