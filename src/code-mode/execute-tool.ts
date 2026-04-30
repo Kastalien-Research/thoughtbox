@@ -243,6 +243,30 @@ function buildTbObject(deps: ExecuteToolDeps, ctx: TbContext): Record<string, un
         unwrapToolResult(await notebookTool.handle({
           operation: "notebook_validate", ...args,
         } as NotebookToolInput)),
+      persist: async (args: Record<string, unknown>) =>
+        unwrapToolResult(await notebookTool.handle({
+          operation: "notebook_persist", ...args,
+        } as NotebookToolInput)),
+      startRun: async (args: Record<string, unknown>) =>
+        unwrapToolResult(await notebookTool.handle({
+          operation: "notebook_start_run", ...args,
+        } as NotebookToolInput)),
+      getRun: async (args: Record<string, unknown>) =>
+        unwrapToolResult(await notebookTool.handle({
+          operation: "notebook_get_run", ...args,
+        } as NotebookToolInput)),
+      listRuns: async (args: Record<string, unknown> = {}) =>
+        unwrapToolResult(await notebookTool.handle({
+          operation: "notebook_list_runs", ...args,
+        } as NotebookToolInput)),
+      cancelRun: async (args: Record<string, unknown>) =>
+        unwrapToolResult(await notebookTool.handle({
+          operation: "notebook_cancel_run", ...args,
+        } as NotebookToolInput)),
+      getArtifact: async (args: Record<string, unknown>) =>
+        unwrapToolResult(await notebookTool.handle({
+          operation: "notebook_get_artifact", ...args,
+        } as NotebookToolInput)),
     },
 
     theseus: async (input: TheseusToolInput) =>

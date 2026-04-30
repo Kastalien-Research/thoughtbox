@@ -1,9 +1,34 @@
-# ADR-014: Agentic Runbooks — Notebook Evolution with Effect-TS Execution Kernel
+# ADR-014: Notebook Evidence Engine — Agentic Runbooks, Evals, Failure Capsules, and Audits
 
 **Status**: Proposed
 **Date**: 2026-03-16
+**Amended**: 2026-04-30
 **Deciders**: Thoughtbox development team
 **Spec**: `.specs/agentic-runbooks.md`
+
+## 2026-04-30 Amendment
+
+This ADR now frames notebooks as a broader **Notebook Evidence Engine**, not only agentic runbooks. The original runbook design remains valid as one mode, but the substrate must also support:
+
+1. functional skill runbooks
+2. Monte Carlo simulation notebooks
+3. executable evaluation workbooks
+4. failure capsules / debugging labs
+5. executable ADR evidence packs
+6. skill certification harnesses
+7. dataset and scenario factories
+8. living system audits
+
+The implementation strategy is also narrowed:
+
+- Use Effect as a bounded domain/runtime core for new notebook-engine code.
+- Do not rewrite the existing notebook module wholesale.
+- Use `effect/Schema` tagged unions for notebook modes, cells, runs, outputs, validator bindings, and persistence state so illegal state combinations are rejected at the boundary.
+- Do not depend on `@effect/workflow` for v1 durable orchestration. Supabase run records are the durable state machine; Cloud Run runner compute is a follow-on infrastructure slice.
+- Make capabilities visible to the model through `thoughtbox://notebook/capabilities`, the notebook operations catalog, `list_mcp_assets`, and Code Mode SDK examples.
+- Observatory integration is out of scope; outputs remain local-first notebook exports and run artifacts.
+
+Where later legacy text in this ADR still discusses `@effect/workflow` as the chosen v1 durable engine, this amendment supersedes it.
 
 ## Context
 
@@ -44,15 +69,16 @@ Evolve the notebook subsystem into agentic runbooks by cleanly separating the **
 - **Domain (Thoughtbox)**: Notebook grammar (`.src.md`), manifest format, code-interaction graph schema, and lifecycle semantics (`authoring` -> `finalized`).
 - **Execution Kernel (Effect)**: Schema validation, retries, cancellation, resource cleanup, concurrency limits, service wiring, observability, and durable run orchestration.
 
-### 2. @effect/workflow for Durable Run Orchestration
-A notebook run is modeled as a workflow instance with a stable identity and explicitly managed state, rather than using ad-hoc async plumbing. 
-- `@effect/workflow` provides durable deferred signals (`DurableDeferred`), allowing notebooks to pause execution when human or LLM input is required (`input_required`), and resume later.
-- It provides named workflows, activities, retries, compensation handlers, and durable sleep, perfectly mapping to per-cell progress, timeouts, and completion/failure.
-- *Caution*: `@effect/workflow` is currently in alpha status. We will hide the workflow engine behind a Thoughtbox-owned interface (`TaskStore`/`NotebookStore`) so the rest of the codebase does not depend on it directly.
+### 2. Supabase Run Records for Durable Run Orchestration
+A notebook run is modeled as a stable run record with explicitly managed state, rather than using ad-hoc async plumbing.
+- Supabase run records are the v1 durable state machine.
+- Cloud Run runner compute is a separate execution plane for long JS/TS workloads.
+- Effect core provides schema validation, typed errors, resource cleanup, concurrency, and cancellation inside the runtime boundary.
+- `@effect/workflow` is not adopted for v1 because its workflow subsystem is alpha and would make the first slice depend on a larger rewrite than needed.
 
 #### Required Abstraction Interfaces
 
-To mitigate the risk of `@effect/workflow` alpha status, the following interfaces are established:
+To keep the durable orchestration boundary swappable, the following interfaces are established:
 
 ```typescript
 /** Manages durable asynchronous execution of notebooks */

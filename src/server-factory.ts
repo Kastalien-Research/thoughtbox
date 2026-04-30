@@ -927,6 +927,24 @@ mcp__thoughtbox__thoughtbox({
   );
 
   server.registerResource(
+    "notebook-capabilities",
+    "thoughtbox://notebook/capabilities",
+    {
+      description: "Notebook Evidence Engine modes, templates, outputs, and recommended use cases",
+      mimeType: "application/json",
+    },
+    async (uri) => ({
+      contents: [
+        {
+          uri: uri.toString(),
+          mimeType: "application/json",
+          text: notebookHandler.getCapabilitiesCatalog(),
+        },
+      ],
+    })
+  );
+
+  server.registerResource(
     "patterns-cookbook",
     "thoughtbox://patterns-cookbook",
     {
@@ -1543,6 +1561,12 @@ mcp__thoughtbox__thoughtbox({
         uri: "thoughtbox://notebook/operations",
         name: "Notebook Operations Catalog",
         description: "Complete catalog of notebook operations with schemas and examples",
+        mimeType: "application/json",
+      },
+      {
+        uri: "thoughtbox://notebook/capabilities",
+        name: "Notebook Evidence Engine Capabilities",
+        description: "Notebook modes, templates, outputs, and recommended use cases",
         mimeType: "application/json",
       },
       {

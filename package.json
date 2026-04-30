@@ -74,6 +74,7 @@
     "chalk": "^5.6.0",
     "cheerio": "^1.2.0",
     "cors": "^2.8.5",
+    "effect": "^3.21.2",
     "express": "^5.1.0",
     "fast-xml-parser": "^4.5.3",
     "gray-matter": "^4.0.3",

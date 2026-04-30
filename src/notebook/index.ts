@@ -3,6 +3,8 @@ import { NotebookStateManager } from "./state.js";
 import type { Cell, CodeLanguage } from "./types.js";
 import { randomid } from "./types.js";
 import { ValidatorService } from "./validator.js";
+import { InMemoryNotebookEngineRuntime } from "./engine/runtime.js";
+import { getNotebookCapabilitiesJson } from "./engine/registry.js";
 import {
   NOTEBOOK_OPERATIONS,
   getOperation,
@@ -21,10 +23,12 @@ import { AVAILABLE_TEMPLATES } from "./templates.generated.js";
 export class NotebookHandler {
   private stateManager: NotebookStateManager;
   private validatorService: ValidatorService;
+  private engineRuntime: InMemoryNotebookEngineRuntime;
 
   constructor(tempDir?: string) {
     this.stateManager = new NotebookStateManager(tempDir);
     this.validatorService = new ValidatorService(this.stateManager);
+    this.engineRuntime = new InMemoryNotebookEngineRuntime();
   }
 
   /**
@@ -442,6 +446,108 @@ export class NotebookHandler {
   }
 
   /**
+   * Handle notebook_persist tool call.
+   *
+   * First slice persistence stores the exported notebook as an in-process
+   * artifact. Supabase-backed persistence will implement the same public
+   * operation through the NotebookStore boundary.
+   */
+  async handlePersist(args: any): Promise<any> {
+    const { notebookId } = args;
+    if (!notebookId || typeof notebookId !== "string") {
+      throw new Error("notebookId is required and must be a string");
+    }
+    const content = await this.stateManager.exportNotebook(notebookId);
+    return await import("effect").then(({ Effect }) =>
+      Effect.runPromise(this.engineRuntime.persistNotebook(notebookId, content)),
+    );
+  }
+
+  /**
+   * Handle notebook_start_run tool call.
+   */
+  async handleStartRun(args: any): Promise<any> {
+    const { notebookId, mode, executionMode, inputs } = args;
+    if (!notebookId || typeof notebookId !== "string") {
+      throw new Error("notebookId is required and must be a string");
+    }
+    if (!mode || typeof mode !== "string") {
+      throw new Error("mode is required and must be a string");
+    }
+    if (
+      executionMode !== undefined &&
+      executionMode !== "sync" &&
+      executionMode !== "async"
+    ) {
+      throw new Error('executionMode must be "sync" or "async" if provided');
+    }
+    if (inputs !== undefined && (typeof inputs !== "object" || inputs === null || Array.isArray(inputs))) {
+      throw new Error("inputs must be an object if provided");
+    }
+    if (!this.stateManager.getNotebook(notebookId)) {
+      throw new Error(`Notebook ${notebookId} not found`);
+    }
+
+    return await import("effect").then(({ Effect }) =>
+      Effect.runPromise(
+        this.engineRuntime.startRun({
+          notebookId,
+          mode: mode as any,
+          executionMode,
+          inputs,
+        }),
+      ),
+    );
+  }
+
+  async handleGetRun(args: any): Promise<any> {
+    const { runId } = args;
+    if (!runId || typeof runId !== "string") {
+      throw new Error("runId is required and must be a string");
+    }
+    const run = this.engineRuntime.getRun(runId);
+    if (!run) {
+      throw new Error(`Notebook run ${runId} not found`);
+    }
+    return { success: true, run };
+  }
+
+  async handleListRuns(args: any): Promise<any> {
+    const { notebookId } = args;
+    if (notebookId !== undefined && typeof notebookId !== "string") {
+      throw new Error("notebookId must be a string if provided");
+    }
+    return { success: true, runs: this.engineRuntime.listRuns(notebookId) };
+  }
+
+  async handleCancelRun(args: any): Promise<any> {
+    const { runId, reason } = args;
+    if (!runId || typeof runId !== "string") {
+      throw new Error("runId is required and must be a string");
+    }
+    if (reason !== undefined && typeof reason !== "string") {
+      throw new Error("reason must be a string if provided");
+    }
+    const run = this.engineRuntime.cancelRun(runId, reason);
+    if (!run) {
+      throw new Error(`Notebook run ${runId} not found`);
+    }
+    return { success: true, run };
+  }
+
+  async handleGetArtifact(args: any): Promise<any> {
+    const { artifactId } = args;
+    if (!artifactId || typeof artifactId !== "string") {
+      throw new Error("artifactId is required and must be a string");
+    }
+    const artifact = this.engineRuntime.getArtifact(artifactId);
+    if (!artifact) {
+      throw new Error(`Notebook artifact ${artifactId} not found`);
+    }
+    return { success: true, artifact: artifact.ref, content: artifact.content };
+  }
+
+  /**
    * Handle notebook_export tool call
    */
   async handleExportNotebook(args: any): Promise<any> {
@@ -516,6 +622,24 @@ export class NotebookHandler {
         case "validate":
           result = await this.handleValidate(args);
           break;
+        case "persist":
+          result = await this.handlePersist(args);
+          break;
+        case "start_run":
+          result = await this.handleStartRun(args);
+          break;
+        case "get_run":
+          result = await this.handleGetRun(args);
+          break;
+        case "list_runs":
+          result = await this.handleListRuns(args);
+          break;
+        case "cancel_run":
+          result = await this.handleCancelRun(args);
+          break;
+        case "get_artifact":
+          result = await this.handleGetArtifact(args);
+          break;
         default:
           throw new Error(`Unknown notebook operation: ${operation}`);
       }
@@ -576,6 +700,10 @@ export class NotebookHandler {
     return getOperationsCatalog();
   }
 
+  getCapabilitiesCatalog(): string {
+    return getNotebookCapabilitiesJson();
+  }
+
   /**
    * Get server status
    */
@@ -597,13 +725,16 @@ export class NotebookHandler {
  */
 export const NOTEBOOK_TOOL: Tool = {
   name: "notebook",
-  description: `Notebook toolhost for literate programming with JavaScript/TypeScript.
+  description: `Notebook toolhost and Notebook Evidence Engine for JavaScript/TypeScript.
 
 Create, manage, and execute interactive notebooks with markdown documentation and executable code cells.
 Each notebook runs in an isolated environment with its own package.json and workspace.
+Use thoughtbox://notebook/capabilities to discover evidence modes, templates, required inputs, expected outputs, and example operation sequences.
+Use notebook_validate as the low-level deterministic predicate primitive for validator cells.
 
 ✨ NEW: Pre-structured templates for guided workflows
 - Use template: "sequential-feynman" for deep learning with Feynman Technique
+- Use evidence templates for runbooks, simulations, eval workbooks, failure capsules, ADR evidence packs, skill certification, scenario factories, and system audits
 - Templates provide scaffolded cells, metacognitive prompts, and progress tracking
 - Perfect for complex topics requiring validated understanding
 
@@ -618,6 +749,7 @@ Available operations:
 - list_cells: List all cells in notebook
 - get_cell: Get cell details
 - export: Export notebook to .src.md
+- persist/start_run/get_run/list_runs/cancel_run/get_artifact: Notebook Evidence Engine run and artifact operations
 
 Common operation examples:
 

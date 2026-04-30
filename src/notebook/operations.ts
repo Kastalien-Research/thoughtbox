@@ -5,6 +5,8 @@
  * descriptions, categories, and examples.
  */
 
+import { listNotebookModes } from "./engine/registry.js";
+
 export interface OperationDefinition {
   name: string;
   title: string;
@@ -18,7 +20,7 @@ export const NOTEBOOK_OPERATIONS: OperationDefinition[] = [
   {
     name: "notebook_create",
     title: "Create Notebook",
-    description: "Create a new headless notebook for literate programming with JavaScript or TypeScript support. Optionally use a pre-structured template for guided workflows.",
+    description: "Create a new headless notebook for literate programming or Notebook Evidence Engine workflows with JavaScript/TypeScript support. See thoughtbox://notebook/capabilities for evidence modes and templates.",
     category: "notebook-management",
     inputSchema: {
       type: "object",
@@ -34,8 +36,18 @@ export const NOTEBOOK_OPERATIONS: OperationDefinition[] = [
         },
         template: {
           type: "string",
-          enum: ["sequential-feynman"],
-          description: "Optional: Load a pre-structured template. 'sequential-feynman' provides guided structure for deep learning workflows with Feynman Technique.",
+          enum: [
+            "sequential-feynman",
+            "evidence-runbook",
+            "evidence-simulation",
+            "evidence-eval-workbook",
+            "evidence-failure-capsule",
+            "evidence-adr-pack",
+            "evidence-skill-certification",
+            "evidence-scenario-factory",
+            "evidence-system-audit",
+          ],
+          description: "Optional: Load a pre-structured template. Evidence templates are documented at thoughtbox://notebook/capabilities.",
         },
       },
       required: ["title", "language"],
@@ -278,6 +290,109 @@ When 'expectedSnapshotHash' is provided, the operation refuses to run if the cel
     },
   },
   {
+    name: "notebook_persist",
+    title: "Persist Notebook Artifact",
+    description: "Persist the current notebook document as an in-process artifact for replay/export. Supabase persistence is the durable production follow-up; this operation establishes the public contract.",
+    category: "evidence-engine",
+    inputSchema: {
+      type: "object",
+      properties: {
+        notebookId: { type: "string", description: "Notebook ID" },
+      },
+      required: ["notebookId"],
+    },
+    example: { notebookId: "abc123" },
+  },
+  {
+    name: "notebook_start_run",
+    title: "Start Notebook Evidence Run",
+    description: "Start a Notebook Evidence Engine run for one of the supported modes. Short sync runs complete in-process; async runs create a queued run record for the Cloud Run runner boundary.",
+    category: "evidence-engine",
+    inputSchema: {
+      type: "object",
+      properties: {
+        notebookId: { type: "string", description: "Notebook ID" },
+        mode: {
+          type: "string",
+          enum: listNotebookModes().map((mode) => mode.mode),
+          description: "Evidence engine mode. See thoughtbox://notebook/capabilities.",
+        },
+        executionMode: {
+          type: "string",
+          enum: ["sync", "async"],
+          description: "sync for short local/server checks; async for long Cloud Run runner work",
+        },
+        inputs: {
+          type: "object",
+          description: "Mode-specific JSON inputs",
+        },
+      },
+      required: ["notebookId", "mode"],
+    },
+    example: {
+      notebookId: "abc123",
+      mode: "eval",
+      executionMode: "sync",
+      inputs: { datasetName: "thoughtbox_notebook_verification" },
+    },
+  },
+  {
+    name: "notebook_get_run",
+    title: "Get Notebook Evidence Run",
+    description: "Retrieve a run record, including its typed status, outputs, and artifact references.",
+    category: "evidence-engine",
+    inputSchema: {
+      type: "object",
+      properties: {
+        runId: { type: "string", description: "Notebook run ID" },
+      },
+      required: ["runId"],
+    },
+    example: { runId: "nbr_abc123" },
+  },
+  {
+    name: "notebook_list_runs",
+    title: "List Notebook Evidence Runs",
+    description: "List notebook evidence runs, optionally filtered by notebookId.",
+    category: "evidence-engine",
+    inputSchema: {
+      type: "object",
+      properties: {
+        notebookId: { type: "string", description: "Optional notebook ID filter" },
+      },
+    },
+    example: { notebookId: "abc123" },
+  },
+  {
+    name: "notebook_cancel_run",
+    title: "Cancel Notebook Evidence Run",
+    description: "Cancel a queued/running notebook evidence run.",
+    category: "evidence-engine",
+    inputSchema: {
+      type: "object",
+      properties: {
+        runId: { type: "string", description: "Notebook run ID" },
+        reason: { type: "string", description: "Optional cancellation reason" },
+      },
+      required: ["runId"],
+    },
+    example: { runId: "nbr_abc123", reason: "superseded" },
+  },
+  {
+    name: "notebook_get_artifact",
+    title: "Get Notebook Artifact",
+    description: "Retrieve a Notebook Evidence Engine artifact by artifactId.",
+    category: "evidence-engine",
+    inputSchema: {
+      type: "object",
+      properties: {
+        artifactId: { type: "string", description: "Notebook artifact ID" },
+      },
+      required: ["artifactId"],
+    },
+    example: { artifactId: "nba_abc123" },
+  },
+  {
     name: "notebook_export",
     title: "Export Notebook",
     description: `Export a notebook to .src.md format.
@@ -353,7 +468,16 @@ export function getOperationsCatalog(): string {
           name: "execution",
           description: "Run code cells and install dependencies",
         },
+        {
+          name: "evidence-engine",
+          description:
+            "Persist, run, inspect, cancel, and retrieve artifacts for Notebook Evidence Engine modes",
+        },
       ],
+      evidenceEngine: {
+        capabilities: "thoughtbox://notebook/capabilities",
+        modes: listNotebookModes(),
+      },
     },
     null,
     2

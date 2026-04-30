@@ -7,6 +7,7 @@
 
 import { NOTEBOOK_OPERATIONS } from "../notebook/operations.js";
 import { AVAILABLE_TEMPLATES } from "../notebook/templates.generated.js";
+import { listNotebookModes } from "../notebook/engine/registry.js";
 
 
 // Inline the interleaved thinking description to avoid circular import
@@ -69,9 +70,13 @@ Step-by-step thinking tool for complex problem-solving.
 |-----------|------|----------|-------------|
 ${THOUGHTBOX_PARAMS.map(p => `| \`${p.name}\` | ${p.type} | ${p.required ? "Yes" : "No"} | ${p.description} |`).join("\n")}
 
-### 2. \`notebook\` — Literate Programming
+### 2. \`notebook\` — Notebook Evidence Engine
 
-Toolhost for interactive notebooks with JavaScript/TypeScript.
+Toolhost for interactive notebooks with JavaScript/TypeScript. Notebooks are also a visible evidence engine: executable Markdown artifacts with prose, code, deterministic validators, structured outputs, and replayable runs.
+
+Use \`notebook_validate\` as the low-level predicate primitive when a single code cell should decide pass/fail from observed JSON. Use \`notebook_start_run\` for full evidence workflows.
+
+**Evidence modes:** ${listNotebookModes().map(m => `\`${m.mode}\``).join(", ")}
 
 **Operations (${NOTEBOOK_OPERATIONS.length}):**
 
@@ -80,6 +85,8 @@ Toolhost for interactive notebooks with JavaScript/TypeScript.
 ${NOTEBOOK_OPERATIONS.map(op => `| \`${op.name}\` | ${op.category} | ${op.description.split("\n")[0]} |`).join("\n")}
 
 **Templates:** ${AVAILABLE_TEMPLATES.map(t => `\`${t}\``).join(", ")}
+
+**Capability resource:** \`thoughtbox://notebook/capabilities\`
 
 
 
@@ -100,6 +107,7 @@ ${NOTEBOOK_OPERATIONS.map(op => `| \`${op.name}\` | ${op.category} | ${op.descri
 |-----|-------------|
 | \`system://status\` | Notebook server health snapshot |
 | \`thoughtbox://notebook/operations\` | Notebook operations catalog (JSON) |
+| \`thoughtbox://notebook/capabilities\` | Notebook Evidence Engine modes, templates, outputs, and recommended use cases |
 | \`thoughtbox://patterns-cookbook\` | Thoughtbox reasoning patterns guide |
 | \`thoughtbox://architecture\` | Server architecture and implementation guide |
 
@@ -170,9 +178,14 @@ notebook({
 
 
 ### Notebooks for Exploration
-1. Use \`notebook\` for executable documentation
-2. Combine with \`thoughtbox\` for reasoning about results
-3. Export with \`export\` operation for persistence
+1. Use eval workbooks when a claim needs scoring.
+2. Use failure capsules when debugging should become replayable.
+3. Use ADR evidence packs when an architectural hypothesis needs executable validation.
+4. Use skill certification when a reusable workflow needs proof obligations.
+5. Use scenario factories when test/eval data needs generation.
+6. Use system audits when repo invariants need recurring checks.
+7. Combine with \`thoughtbox\` for reasoning about results.
+8. Export with \`export\` or persist with \`notebook_persist\` for local-first artifacts.
 
 ---
 

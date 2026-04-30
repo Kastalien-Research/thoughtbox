@@ -65,9 +65,9 @@ interface TB {
     stats(): Promise<unknown>;
   };
 
-  /** Literate programming notebooks. Source: src/notebook/tool.ts */
+  /** Notebook Evidence Engine. Source: src/notebook/tool.ts */
   notebook: {
-    create(args: { title: string; language: "javascript" | "typescript"; template?: "sequential-feynman" }): Promise<unknown>;
+    create(args: { title: string; language: "javascript" | "typescript"; template?: "sequential-feynman" | "evidence-runbook" | "evidence-simulation" | "evidence-eval-workbook" | "evidence-failure-capsule" | "evidence-adr-pack" | "evidence-skill-certification" | "evidence-scenario-factory" | "evidence-system-audit" }): Promise<unknown>;
     list(): Promise<unknown>;
     load(args: { path?: string; content?: string }): Promise<unknown>;
     addCell(args: { notebookId: string; cellType: "title" | "markdown" | "code"; content: string; filename?: string; position?: number }): Promise<unknown>;
@@ -83,6 +83,14 @@ interface TB {
      * to process.env.TB_VERDICT_PATH (use the auto-materialised tb-validate helper).
      */
     validate(args: { notebookId: string; cellId: string; observed: unknown; expectedSnapshotHash?: string }): Promise<unknown>;
+    /** Persist the current notebook as a replayable artifact. */
+    persist(args: { notebookId: string }): Promise<unknown>;
+    /** Start an evidence run; use sync for short checks and async for Cloud Run runner work. */
+    startRun(args: { notebookId: string; mode: "runbook" | "simulation" | "eval" | "failure_capsule" | "adr_evidence" | "skill_certification" | "scenario_factory" | "system_audit"; executionMode?: "sync" | "async"; inputs?: Record<string, unknown> }): Promise<unknown>;
+    getRun(args: { runId: string }): Promise<unknown>;
+    listRuns(args?: { notebookId?: string }): Promise<unknown>;
+    cancelRun(args: { runId: string; reason?: string }): Promise<unknown>;
+    getArtifact(args: { artifactId: string }): Promise<unknown>;
   };
 
   /** Theseus Protocol: friction-gated refactoring. Source: src/protocol/theseus-tool.ts */
