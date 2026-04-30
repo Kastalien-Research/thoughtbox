@@ -42,6 +42,7 @@ export class PeerNotebookHandler {
   private readonly repository: PeerNotebookRepository;
   private readonly mockRuntimeProvider: MockPeerRuntimeProvider;
   private readonly bootstrappedWorkspaces = new Set<string>();
+  private readonly bootstrapPromises = new Map<string, Promise<void>>();
 
   constructor(private readonly options: PeerNotebookHandlerOptions = {}) {
     this.repository = options.repository ?? new InMemoryPeerNotebookRepository();
@@ -108,6 +109,11 @@ export class PeerNotebookHandler {
     const workspaceId = this.resolveWorkspaceId();
     await this.bootstrapWorkspace(workspaceId);
 
+    const invocation = await this.repository.getInvocation(workspaceId, invocationId);
+    if (!invocation) {
+      throw new PeerNotebookError("invocation_not_found", `Invocation ${invocationId} does not exist`);
+    }
+
     return {
       events: await this.repository.listTraceEvents(workspaceId, invocationId),
     };
@@ -134,6 +140,20 @@ export class PeerNotebookHandler {
       return;
     }
 
+    const existingPromise = this.bootstrapPromises.get(workspaceId);
+    if (existingPromise) {
+      await existingPromise;
+      return;
+    }
+
+    const bootstrapPromise = this.performBootstrapWorkspace(workspaceId).finally(() => {
+      this.bootstrapPromises.delete(workspaceId);
+    });
+    this.bootstrapPromises.set(workspaceId, bootstrapPromise);
+    await bootstrapPromise;
+  }
+
+  private async performBootstrapWorkspace(workspaceId: string): Promise<void> {
     const existing = await this.repository.getPeerByPeerId(workspaceId, CLAIM_EXTRACTOR_PEER_ID);
     if (existing?.activeManifestId) {
       this.bootstrappedWorkspaces.add(workspaceId);

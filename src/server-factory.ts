@@ -147,6 +147,26 @@ const defaultLogger: Logger = {
   error(message: string, ...args: unknown[]) { console.error(`[ERROR] ${message}`, ...args); },
 };
 
+function serializeToolError(err: unknown): Record<string, unknown> {
+  const payload: Record<string, unknown> = {
+    error: err instanceof Error ? err.message : String(err),
+  };
+
+  if (err && typeof err === "object") {
+    if ("code" in err && typeof err.code === "string") {
+      payload.code = err.code;
+    }
+    if ("details" in err && err.details !== undefined) {
+      payload.details = err.details;
+    }
+    if ("data" in err && err.data !== undefined) {
+      payload.data = err.data;
+    }
+  }
+
+  return payload;
+}
+
 function getPeerNotebookPilotResourceContent(): string {
   return JSON.stringify({
     tool: PEER_NOTEBOOK_TOOL.name,
@@ -459,7 +479,7 @@ Use \`console.log()\` for debugging — output captured in response logs.`;
           };
         } catch (err: any) {
           return {
-            content: [{ type: "text" as const, text: JSON.stringify({ error: err.message }, null, 2) }],
+            content: [{ type: "text" as const, text: JSON.stringify(serializeToolError(err), null, 2) }],
             isError: true,
           };
         }

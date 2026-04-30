@@ -4,6 +4,8 @@ import {
   MockPeerRuntimeProvider,
   PeerNotebookHandler,
   PeerNotebookTool,
+  type PeerManifestRecord,
+  type PeerNotebookRecord,
 } from "../index.js";
 
 describe("thoughtbox_peer_notebook", () => {
@@ -92,6 +94,15 @@ describe("thoughtbox_peer_notebook", () => {
     );
   });
 
+  it("rejects trace event reads for unknown invocations", async () => {
+    const { tool } = setupTool();
+
+    await expect(tool.handle({
+      operation: "peer_list_trace_events",
+      invocationId: "missing_invocation",
+    })).rejects.toMatchObject({ code: "invocation_not_found" });
+  });
+
   it("uses only the mock runtime provider", async () => {
     const { tool, handler } = setupTool();
     const seeded = await tool.handle({
@@ -128,6 +139,29 @@ describe("thoughtbox_peer_notebook", () => {
     expect(inputArtifact.artifact.storageBackend).toBe("memory");
     expect(inputArtifact.artifact.content).toBe("First claim.");
   });
+
+  it("serializes concurrent first-call bootstrap per workspace", async () => {
+    const repository = new CountingPeerNotebookRepository();
+    const handler = new PeerNotebookHandler({
+      repository,
+      workspaceId: "workspace_test",
+    });
+    const tool = new PeerNotebookTool(handler);
+
+    await Promise.all([
+      tool.handle({
+        operation: "peer_artifact_seed",
+        text: "First claim.",
+      }),
+      tool.handle({
+        operation: "peer_artifact_seed",
+        text: "Second claim.",
+      }),
+    ]);
+
+    expect(repository.peerSaves).toBe(1);
+    expect(repository.manifestSaves).toBe(1);
+  });
 });
 
 function setupTool() {
@@ -144,4 +178,21 @@ function setupTool() {
     provider,
     tool: new PeerNotebookTool(handler),
   };
+}
+
+class CountingPeerNotebookRepository extends InMemoryPeerNotebookRepository {
+  peerSaves = 0;
+  manifestSaves = 0;
+
+  override async savePeer(peer: PeerNotebookRecord): Promise<void> {
+    this.peerSaves += 1;
+    await Promise.resolve();
+    return super.savePeer(peer);
+  }
+
+  override async saveManifest(manifest: PeerManifestRecord): Promise<void> {
+    this.manifestSaves += 1;
+    await Promise.resolve();
+    return super.saveManifest(manifest);
+  }
 }

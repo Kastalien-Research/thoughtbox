@@ -133,6 +133,25 @@ describe("createMcpServer tool surface", () => {
           }),
         ]),
       );
+
+      const invalid = await client.callTool({
+        name: "thoughtbox_peer_notebook",
+        arguments: {
+          operation: "peer_invoke",
+          peerId: "claim-extractor",
+          tool: "extract_claims",
+          args: {},
+        },
+      });
+      const invalidPayload = parseToolJson<{
+        error: string;
+        code: string;
+        details: { errors: string[] };
+      }>(invalid);
+
+      expect(invalid.isError).toBe(true);
+      expect(invalidPayload.code).toBe("invalid_args");
+      expect(invalidPayload.details.errors).toEqual(expect.any(Array));
     } finally {
       await Promise.allSettled([client.close(), server.close()]);
       restoreEnv("SUPABASE_URL", previousSupabaseUrl);
