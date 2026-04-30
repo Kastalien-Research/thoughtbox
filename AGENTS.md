@@ -107,6 +107,7 @@ If the user invokes one of these names, or the task clearly matches one, open th
 - **Mandatory workflow**: `hdd` (architectural decisions and new features)
 - **Conditional protocols**: `ulysses-protocol` (2+ consecutive surprises), `theseus-protocol` (refactoring tasks)
 - **Implementation**: `implement`
+- **Peer notebook delivery**: `peer-notebook-delivery-guard` (ADR-022 large-unit boundaries, mock accountability, acceptance gates)
 - **Research and knowledge**: `research-task`, `knowledge`, `synthesize`, `distill`, `capture-learning`, `session-review`, `assumptions`, `eval`, `taste`, `diagram`
 - **Coordination and autonomy**: `team`, `hub-collab`, `deploy-team-hub`, `experiment`, `ulc-loop`, `loop-status`, `status`, `escalate`, `claude-prompt`
 
