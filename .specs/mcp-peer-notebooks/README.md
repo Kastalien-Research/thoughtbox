@@ -2,6 +2,8 @@
 
 **Status**: Research note / ADR-022 index
 **Created**: 2026-04-30
+**Current implementation**: Mock control-plane and MCP-facing pilot under
+`src/peer-notebook/`
 
 ## HDD Artifacts
 
@@ -51,6 +53,13 @@ Confirmed current capabilities:
   commands with `child_process.spawn`: `node`, `npx tsx`, or `pnpm install`.
 - Code Mode uses Node `vm` for JavaScript orchestration and explicitly treats it
   as defense-in-depth, not a true security boundary.
+- `src/peer-notebook/` contains the mock-only control-plane pilot: manifest
+  draft compilation from `peer.manifest.json`, canonical manifest hashing,
+  in-memory peer/manifest/invocation/trace/artifact repositories,
+  `peer.invoke({ peerId, tool, args })`, a runtime provider interface, a mock
+  `claim-extractor` provider, broker-proxy allow/deny policy tests, and the
+  MCP-facing `thoughtbox_peer_notebook` surface for in-memory seed/invoke/read
+  operations.
 - Existing specs already point toward related directions:
   - `.specs/thoughtbox-v1-finalstretch/SPEC-NOTEBOOK-RLM.md`
   - `.specs/SPEC-SRC-002-preview-lifecycle.md`
@@ -60,14 +69,14 @@ Confirmed current capabilities:
 
 Important non-capabilities today:
 
-- No peer notebook manifest.
-- No peer registry.
+- No durable Supabase peer notebook manifest, registry, invocation, trace, or
+  artifact tables yet.
 - No brokered notebook-to-notebook MCP routing.
-- No runtime lifecycle manager for notebook workers.
-- No durable artifact table/model specific to notebook outputs.
+- No runtime lifecycle manager for notebook workers beyond the mock provider
+  contract.
 - No web app view for peer invocations, peer traces, or peer artifacts.
 - No secure isolated execution boundary for notebook code.
-- No smolvm integration.
+- No local-process or smolvm provider integration.
 
 ## Product Concept
 

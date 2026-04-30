@@ -55,6 +55,7 @@ import { KnowledgeTool } from "./knowledge/tool.js";
 import { SessionTool } from "./sessions/tool.js";
 import { ThoughtTool } from "./thought/tool.js";
 import { NotebookTool } from "./notebook/tool.js";
+import { PEER_NOTEBOOK_TOOL, PeerNotebookHandler, PeerNotebookTool } from "./peer-notebook/index.js";
 import {
   TheseusTool,
   UlyssesTool,
@@ -146,6 +147,79 @@ const defaultLogger: Logger = {
   error(message: string, ...args: unknown[]) { console.error(`[ERROR] ${message}`, ...args); },
 };
 
+function serializeToolError(err: unknown): Record<string, unknown> {
+  const payload: Record<string, unknown> = {
+    error: err instanceof Error ? err.message : String(err),
+  };
+
+  if (err && typeof err === "object") {
+    if ("code" in err && typeof err.code === "string") {
+      payload.code = err.code;
+    }
+    if ("details" in err && err.details !== undefined) {
+      payload.details = err.details;
+    }
+    if ("data" in err && err.data !== undefined) {
+      payload.data = err.data;
+    }
+  }
+
+  return payload;
+}
+
+function getPeerNotebookPilotResourceContent(): string {
+  return JSON.stringify({
+    tool: PEER_NOTEBOOK_TOOL.name,
+    description: PEER_NOTEBOOK_TOOL.description,
+    scope: {
+      persistence: "in-memory",
+      runtimeProviders: ["mock"],
+      deferred: [
+        "Supabase persistence",
+        "web app peer views",
+        "local-process provider",
+        "smolvm provider",
+        "public direct runtime MCP",
+      ],
+    },
+    pilotPeer: {
+      peerId: "claim-extractor",
+      exposedTool: "extract_claims",
+      args: { textArtifactId: "artifact id returned by peer_artifact_seed" },
+      result: { claimsArtifactId: "produced claims.json artifact id", claimCount: "number" },
+      deniedProbe: "thoughtbox.knowledge.queryGraph",
+    },
+    operations: [
+      {
+        operation: "peer_artifact_seed",
+        purpose: "Seed an in-memory text artifact for the current workspace",
+        requiredFields: ["text"],
+        optionalFields: ["name"],
+      },
+      {
+        operation: "peer_invoke",
+        purpose: "Invoke claim-extractor.extract_claims through the broker facade",
+        requiredFields: ["peerId", "tool", "args"],
+      },
+      {
+        operation: "peer_get_invocation",
+        purpose: "Read invocation metadata by invocationId",
+        requiredFields: ["invocationId"],
+      },
+      {
+        operation: "peer_list_trace_events",
+        purpose: "Read trace events, including denied outbound broker-proxy calls",
+        requiredFields: ["invocationId"],
+      },
+      {
+        operation: "peer_get_artifact",
+        purpose: "Read seeded or produced in-memory artifacts by artifactId",
+        requiredFields: ["artifactId"],
+      },
+    ],
+  }, null, 2);
+}
+
 /**
  * Side-effect-free server factory.
  * - No transport binding
@@ -159,9 +233,10 @@ export async function createMcpServer(args: CreateMcpServerArgs = {}): Promise<M
 
   const THOUGHTBOX_INSTRUCTIONS = `Thoughtbox is a structured reasoning server using Code Mode.
 
-Two tools:
+Three tools:
 - \`thoughtbox_search\`: Write JavaScript to query the operation/prompt/resource catalog
 - \`thoughtbox_execute\`: Write JavaScript using the \`tb\` SDK to chain operations
+- \`thoughtbox_peer_notebook\`: Seed artifacts and invoke the mock brokered claim-extractor peer
 
 Workflow: search to discover available operations, then execute code against them.
 Use \`console.log()\` for debugging — output captured in response logs.`;
@@ -211,6 +286,10 @@ Use \`console.log()\` for debugging — output captured in response logs.`;
   thoughtHandler.setEventEmitter(eventEmitter);
 
   const notebookHandler = new NotebookHandler();
+  let resolvedWorkspaceId = args.workspaceId || process.env.THOUGHTBOX_PROJECT || "default";
+  const peerNotebookHandler = new PeerNotebookHandler({
+    getWorkspaceId: () => resolvedWorkspaceId,
+  });
 
   const sessionHandler = new SessionHandler({
     storage,
@@ -304,6 +383,7 @@ Use \`console.log()\` for debugging — output captured in response logs.`;
   const sessionTool = new SessionTool(sessionHandler);
   const thoughtTool = new ThoughtTool(thoughtHandler);
   const notebookTool = new NotebookTool(notebookHandler);
+  const peerNotebookTool = new PeerNotebookTool(peerNotebookHandler);
 
   // Resolve project scope.
   //
@@ -327,6 +407,7 @@ Use \`console.log()\` for debugging — output captured in response logs.`;
 
     const project = args.workspaceId || process.env.THOUGHTBOX_PROJECT;
     if (project) {
+      resolvedWorkspaceId = project;
       try {
         await storage.setProject(project);
         if (knowledgeStorage) await knowledgeStorage.setProject(project);
@@ -362,6 +443,7 @@ Use \`console.log()\` for debugging — output captured in response logs.`;
         const name = root.name
           || root.uri.split('/').filter(Boolean).pop()
           || 'default';
+        resolvedWorkspaceId = name;
         await storage.setProject(name);
         if (knowledgeStorage) await knowledgeStorage.setProject(name);
         if (protocolHandler) protocolHandler.setProject(name);
@@ -397,7 +479,7 @@ Use \`console.log()\` for debugging — output captured in response logs.`;
           };
         } catch (err: any) {
           return {
-            content: [{ type: "text" as const, text: JSON.stringify({ error: err.message }, null, 2) }],
+            content: [{ type: "text" as const, text: JSON.stringify(serializeToolError(err), null, 2) }],
             isError: true,
           };
         }
@@ -467,8 +549,9 @@ Use \`console.log()\` for debugging — output captured in response logs.`;
 
   registerTool(SEARCH_TOOL, searchTool);
   registerTool(EXECUTE_TOOL, executeTool);
+  registerTool(PEER_NOTEBOOK_TOOL, peerNotebookTool);
 
-  logger.info('Code Mode tools registered (search + execute)');
+  logger.info('Code Mode tools registered (search + execute) and peer notebook tool registered');
 
   // Register prompts using McpServer's registerPrompt API
   server.registerPrompt(
@@ -939,6 +1022,24 @@ mcp__thoughtbox__thoughtbox({
           uri: uri.toString(),
           mimeType: "application/json",
           text: notebookHandler.getCapabilitiesCatalog(),
+        },
+      ],
+    })
+  );
+
+  server.registerResource(
+    "peer-notebook-pilot",
+    "thoughtbox://peer-notebook/pilot",
+    {
+      description: "Mock peer notebook pilot surface: artifact seed, claim-extractor invocation, invocation/trace/artifact reads",
+      mimeType: "application/json",
+    },
+    async (uri) => ({
+      contents: [
+        {
+          uri: uri.toString(),
+          mimeType: "application/json",
+          text: getPeerNotebookPilotResourceContent(),
         },
       ],
     })
@@ -1567,6 +1668,12 @@ mcp__thoughtbox__thoughtbox({
         uri: "thoughtbox://notebook/capabilities",
         name: "Notebook Evidence Engine Capabilities",
         description: "Notebook modes, templates, outputs, and recommended use cases",
+        mimeType: "application/json",
+      },
+      {
+        uri: "thoughtbox://peer-notebook/pilot",
+        name: "Peer Notebook Pilot",
+        description: "Mock peer notebook pilot surface: artifact seed, claim-extractor invocation, invocation/trace/artifact reads",
         mimeType: "application/json",
       },
       {

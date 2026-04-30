@@ -19,8 +19,14 @@ import {
   OBSERVABILITY_OPERATIONS,
 } from "../observability/operations.js";
 import { BRANCH_OPERATIONS } from "../branch/operations.js";
+import { PEER_NOTEBOOK_TOOL } from "../peer-notebook/tool.js";
 
 export interface SearchCatalog {
+  publicTools: Array<{
+    name: string;
+    description: string;
+    operations?: string[];
+  }>;
   operations: Record<string, Record<string, {
     title: string;
     description: string;
@@ -203,6 +209,28 @@ function indexOperations(
 
 export function buildSearchCatalog(): SearchCatalog {
   const catalog: SearchCatalog = {
+    publicTools: [
+      {
+        name: "thoughtbox_search",
+        description: "Discover Thoughtbox operations, prompts, resources, and public tool surfaces by querying this catalog with JavaScript.",
+      },
+      {
+        name: "thoughtbox_execute",
+        description: "Run JavaScript against the tb SDK for Thoughtbox operation modules.",
+      },
+      {
+        name: PEER_NOTEBOOK_TOOL.name,
+        description: PEER_NOTEBOOK_TOOL.description,
+        operations: [
+          "peer_artifact_seed",
+          "peer_invoke",
+          "peer_get_invocation",
+          "peer_list_trace_events",
+          "peer_get_artifact",
+        ],
+      },
+    ],
+
     operations: {
       session: indexOperations(SESSION_OPERATIONS),
       notebook: indexOperations(NOTEBOOK_OPERATIONS),
@@ -307,6 +335,12 @@ export function buildSearchCatalog(): SearchCatalog {
         name: "Notebook Operations Catalog",
         uri: "thoughtbox://notebook/operations",
         description: "Complete catalog of notebook operations with schemas and examples",
+        mimeType: "application/json",
+      },
+      {
+        name: "Peer Notebook Pilot",
+        uri: "thoughtbox://peer-notebook/pilot",
+        description: "Mock peer notebook pilot surface and operation quick reference",
         mimeType: "application/json",
       },
       {

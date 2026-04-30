@@ -23,24 +23,6 @@ export const LIST_MCP_ASSETS_PROMPT = {
 };
 
 /**
- * Thoughtbox tool schema (mirrored from index.ts)
- */
-const THOUGHTBOX_PARAMS = [
-  { name: "thought", type: "string", required: true, description: "Your current thinking step" },
-  { name: "nextThoughtNeeded", type: "boolean", required: true, description: "Whether another thought step is needed" },
-  { name: "thoughtNumber", type: "integer", required: true, description: "Current thought number (1→N forward, N→1 backward)" },
-  { name: "totalThoughts", type: "integer", required: true, description: "Estimated total thoughts needed" },
-  { name: "isRevision", type: "boolean", required: false, description: "Whether this revises previous thinking" },
-  { name: "revisesThought", type: "integer", required: false, description: "Which thought is being reconsidered" },
-  { name: "branchFromThought", type: "integer", required: false, description: "Branching point thought number" },
-  { name: "branchId", type: "string", required: false, description: "Branch identifier" },
-  { name: "needsMoreThoughts", type: "boolean", required: false, description: "If more thoughts are needed" },
-  { name: "includeGuide", type: "boolean", required: false, description: "Request the patterns cookbook guide" },
-  { name: "sessionTitle", type: "string", required: false, description: "Title for the reasoning session" },
-  { name: "sessionTags", type: "array", required: false, description: "Tags for cross-chat discovery" },
-];
-
-/**
  * Generates the list_mcp_assets prompt content dynamically
  */
 export function getListMcpAssetsContent(): string {
@@ -55,22 +37,31 @@ Thoughtbox provides cognitive enhancement tools for LLM agents - infrastructure 
 
 ---
 
-## Tools
+## Public Tools
 
-### 1. \`thoughtbox\` — Step-by-Step Reasoning
+### 1. \`thoughtbox_search\` — Catalog Search
 
-Step-by-step thinking tool for complex problem-solving.
-- Supports forward thinking (1→N), backward thinking (N→1), branching, and revision
-- Automatic patterns cookbook at thought 1 and final thought
-- Use for multi-step analysis, planning, hypothesis generation, system design
+Discover Thoughtbox operation modules, prompts, resources, and public tool surfaces by querying the server catalog with JavaScript.
 
-**Parameters:**
+### 2. \`thoughtbox_execute\` — Code Mode Operation Runner
 
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-${THOUGHTBOX_PARAMS.map(p => `| \`${p.name}\` | ${p.type} | ${p.required ? "Yes" : "No"} | ${p.description} |`).join("\n")}
+Run JavaScript against the \`tb\` SDK to use Thoughtbox operation modules such as session, thought, knowledge, notebook, protocol, observability, and branch operations.
 
-### 2. \`notebook\` — Notebook Evidence Engine
+### 3. \`thoughtbox_peer_notebook\` — Mock Peer Notebook Pilot
+
+Brokered MCP peer notebook pilot surface for the deterministic in-memory \`claim-extractor\` peer.
+
+Supported operations:
+
+| Operation | Purpose |
+|-----------|---------|
+| \`peer_artifact_seed\` | Seed an in-memory text artifact |
+| \`peer_invoke\` | Invoke \`claim-extractor.extract_claims\` |
+| \`peer_get_invocation\` | Read invocation metadata |
+| \`peer_list_trace_events\` | Read broker/runtime trace events, including denied outbound calls |
+| \`peer_get_artifact\` | Read seeded or produced artifacts |
+
+### Notebook Evidence Engine
 
 Toolhost for interactive notebooks with JavaScript/TypeScript. Notebooks are also a visible evidence engine: executable Markdown artifacts with prose, code, deterministic validators, structured outputs, and replayable runs.
 
@@ -108,6 +99,7 @@ ${NOTEBOOK_OPERATIONS.map(op => `| \`${op.name}\` | ${op.category} | ${op.descri
 | \`system://status\` | Notebook server health snapshot |
 | \`thoughtbox://notebook/operations\` | Notebook operations catalog (JSON) |
 | \`thoughtbox://notebook/capabilities\` | Notebook Evidence Engine modes, templates, outputs, and recommended use cases |
+| \`thoughtbox://peer-notebook/pilot\` | Mock peer notebook pilot surface and operation quick reference |
 | \`thoughtbox://patterns-cookbook\` | Thoughtbox reasoning patterns guide |
 | \`thoughtbox://architecture\` | Server architecture and implementation guide |
 
@@ -125,53 +117,35 @@ ${NOTEBOOK_OPERATIONS.map(op => `| \`${op.name}\` | ${op.category} | ${op.descri
 
 ## Quick Start
 
-### Thoughtbox Reasoning
+### Code Mode And Peer Notebook Pilot
 
 \`\`\`javascript
-// Start a reasoning session
-thoughtbox({
-  thought: "Breaking down the problem into key decision areas...",
-  thoughtNumber: 1,
-  totalThoughts: 10,
-  nextThoughtNeeded: true,
-  sessionTitle: "Architecture Decision",
-  sessionTags: ["architecture", "planning"]
+// Discover operations and public tool surfaces
+thoughtbox_search({
+  code: "async () => ({ modules: Object.keys(catalog.operations), publicTools: catalog.publicTools })"
 })
 
-// Branch to explore alternatives
-thoughtbox({
-  thought: "Exploring approach A: Use SQL database...",
-  thoughtNumber: 5,
-  totalThoughts: 10,
-  branchFromThought: 4,
-  branchId: "sql-approach",
-  nextThoughtNeeded: true
-})
-\`\`\`
-
-### Notebooks
-
-\`\`\`javascript
-// Create notebook
-notebook({
-  operation: "create",
-  args: { title: "Data Analysis", language: "typescript" }
+// Start a reasoning session through Code Mode
+thoughtbox_execute({
+  code: "async () => tb.thought({ thought: 'Breaking down the problem into key decision areas...', thoughtNumber: 1, totalThoughts: 10, nextThoughtNeeded: true, sessionTitle: 'Architecture Decision', sessionTags: ['architecture', 'planning'] })"
 })
 
-// Add and run code
-notebook({
-  operation: "add_cell",
-  args: {
-    notebookId: "abc123",
-    cellType: "code",
-    content: "console.log('Hello!');",
-    filename: "hello.ts"
-  }
+// Seed a peer artifact, invoke claim extraction, then inspect traces
+const seeded = await thoughtbox_peer_notebook({
+  operation: "peer_artifact_seed",
+  text: "First claim. Second claim."
 })
 
-notebook({
-  operation: "run_cell",
-  args: { notebookId: "abc123", cellId: "cell456" }
+const invoked = await thoughtbox_peer_notebook({
+  operation: "peer_invoke",
+  peerId: "claim-extractor",
+  tool: "extract_claims",
+  args: { textArtifactId: seeded.artifact.id }
+})
+
+await thoughtbox_peer_notebook({
+  operation: "peer_list_trace_events",
+  invocationId: invoked.invocationId
 })
 \`\`\`
 
@@ -191,10 +165,10 @@ notebook({
 
 ## Summary Statistics
 
-- **Tools:** 2 (thoughtbox, notebook)
+- **Public Tools:** 3 (thoughtbox_search, thoughtbox_execute, thoughtbox_peer_notebook)
 - **Notebook Operations:** ${NOTEBOOK_OPERATIONS.length}
 - **Prompts:** 2
-- **Static Resources:** 6+
+- **Static Resources:** 7+
 - **Resource Templates:** 3
 
 `;

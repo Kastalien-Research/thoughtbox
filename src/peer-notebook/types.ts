@@ -14,7 +14,7 @@ export type PeerInvocationStatus =
   | "cancelled";
 
 export type RuntimeProviderName = "mock" | "local-process" | "smolvm";
-export type ArtifactKind = "notebook_export" | "json" | "log" | "dataset" | "report" | "binary";
+export type ArtifactKind = "notebook_export" | "json" | "text" | "log" | "dataset" | "report" | "binary";
 
 export interface JsonSchemaSubset {
   type?: "object" | "array" | "string" | "number" | "boolean" | "null";
