@@ -15,8 +15,8 @@ import type {
 } from "./types.js";
 
 const CLAIM_EXTRACTOR_PEER_ID = "claim-extractor";
-const CLAIM_EXTRACTOR_PEER_RECORD_ID = "peer_record_claim_extractor";
-const CLAIM_EXTRACTOR_MANIFEST_ID = "manifest_claim_extractor_active";
+const CLAIM_EXTRACTOR_PEER_RECORD_ID = "7b54fe91-31df-43dd-ae25-b95bc2cf6406";
+const CLAIM_EXTRACTOR_MANIFEST_ID = "b6d03683-6566-46c8-9424-b9b1344f5f32";
 const CLAIM_EXTRACTOR_NOTEBOOK_ID = "nb_claim_extractor";
 const BOOTSTRAP_TIMESTAMP = "2026-04-30T00:00:00.000Z";
 

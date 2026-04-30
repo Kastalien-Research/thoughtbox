@@ -108,14 +108,15 @@ describe("claim-extractor peer pilot", () => {
     });
 
     expect(result.result).toMatchObject({
-      claimsArtifactId: `${result.invocationId}-claims`,
+      claimsArtifactId: expect.any(String),
       claimCount: 2,
     });
 
+    const claimsArtifactId = (result.result as { claimsArtifactId: string }).claimsArtifactId;
     const artifacts = await repository.listArtifacts(workspaceId, result.invocationId);
     expect(artifacts).toHaveLength(1);
     expect(artifacts[0]).toMatchObject({
-      id: `${result.invocationId}-claims`,
+      id: claimsArtifactId,
       name: "claims.json",
       mimeType: "application/json",
     });
@@ -226,17 +227,17 @@ async function setupHarness(options: {
 
   const now = "2026-04-30T00:00:00.000Z";
   const peer: PeerNotebookRecord = {
-    id: "peer_record_claim_extractor",
+    id: "7b54fe91-31df-43dd-ae25-b95bc2cf6406",
     workspaceId,
     peerId: "claim-extractor",
     displayName: "Claim extractor",
     status: options.peerStatus ?? "active",
-    activeManifestId: "manifest_active",
+    activeManifestId: "b6d03683-6566-46c8-9424-b9b1344f5f32",
     createdAt: now,
     updatedAt: now,
   };
   const manifest: PeerManifestRecord = {
-    id: "manifest_active",
+    id: "b6d03683-6566-46c8-9424-b9b1344f5f32",
     workspaceId,
     peerRecordId: peer.id,
     peerId: peer.peerId,

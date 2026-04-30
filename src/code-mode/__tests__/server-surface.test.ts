@@ -5,6 +5,7 @@ import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 
 import { createMcpServer } from "../../server-factory.js";
 import { InMemoryStorage } from "../../persistence/index.js";
+import { InMemoryPeerNotebookRepository } from "../../peer-notebook/index.js";
 
 const silentLogger = {
   debug: () => {},
@@ -65,6 +66,7 @@ describe("createMcpServer tool surface", () => {
       storage: new InMemoryStorage(),
       logger: silentLogger,
       workspaceId: "workspace_peer_e2e",
+      peerNotebookRepository: new InMemoryPeerNotebookRepository(),
     });
     const client = new Client(
       { name: "peer-notebook-e2e-client", version: "1.0.0" },
@@ -105,12 +107,13 @@ describe("createMcpServer tool surface", () => {
       }));
 
       expect(invoked.result).toEqual({
-        claimsArtifactId: `${invoked.invocationId}-claims`,
+        claimsArtifactId: expect.any(String),
         claimCount: 2,
       });
+      const claimsArtifactId = invoked.result.claimsArtifactId;
       expect(invoked.artifactRefs).toEqual([
         expect.objectContaining({
-          artifactId: `${invoked.invocationId}-claims`,
+          artifactId: claimsArtifactId,
           name: "claims.json",
         }),
       ]);
@@ -154,6 +157,37 @@ describe("createMcpServer tool surface", () => {
       expect(invalidPayload.details.errors).toEqual(expect.any(Array));
     } finally {
       await Promise.allSettled([client.close(), server.close()]);
+      restoreEnv("SUPABASE_URL", previousSupabaseUrl);
+      restoreEnv("SUPABASE_SERVICE_ROLE_KEY", previousSupabaseServiceKey);
+    }
+  });
+
+  it("uses Supabase peer storage when the workspace is resolved from THOUGHTBOX_PROJECT", async () => {
+    const previousProject = process.env.THOUGHTBOX_PROJECT;
+    const previousSupabaseUrl = process.env.SUPABASE_URL;
+    const previousSupabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    const messages: string[] = [];
+    const logger = {
+      ...silentLogger,
+      info: (...args: unknown[]) => {
+        messages.push(args.join(" "));
+      },
+    };
+
+    process.env.THOUGHTBOX_PROJECT = "11111111-1111-4111-8111-111111111111";
+    process.env.SUPABASE_URL = "https://example.supabase.co";
+    process.env.SUPABASE_SERVICE_ROLE_KEY = "test-service-role-key";
+
+    const server = await createMcpServer({
+      storage: new InMemoryStorage(),
+      logger,
+    });
+
+    try {
+      expect(messages).toContain("Peer notebook tool using Supabase-backed repository");
+    } finally {
+      await server.close();
+      restoreEnv("THOUGHTBOX_PROJECT", previousProject);
       restoreEnv("SUPABASE_URL", previousSupabaseUrl);
       restoreEnv("SUPABASE_SERVICE_ROLE_KEY", previousSupabaseServiceKey);
     }

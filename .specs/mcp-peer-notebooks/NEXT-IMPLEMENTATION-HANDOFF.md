@@ -1,16 +1,15 @@
 # MCP Peer Notebooks Implementation Handoff
 
-**Status**: Post-merge handoff for ADR-022 remaining implementation
+**Status**: Durable control-plane implementation handoff for ADR-022 remaining implementation
 **Date**: 2026-04-30
 **Governing ADR/spec**: ADR-022 and `SPEC-CONTROL-PLANE.md`
 **Merged pilot branch**: `feat/peer-notebook-mcp-surface`
-**Next unit**: ADR-022 Part 1/5 Durable Control Plane (`thoughtbox-y4x`)
-**Kickoff prompt**: `PROMPT-PART-1-DURABLE-CONTROL-PLANE.md`
+**Implemented unit**: ADR-022 Part 1/5 Durable Control Plane (`thoughtbox-y4x`)
+**Next unit**: ADR-022 Part 2/5 Manifest Lifecycle And Notebook Graduation (`thoughtbox-g5t`)
 
 ## Merged Baseline
 
-The merged baseline on `main` includes the first MCP-facing mock peer notebook
-surface:
+The baseline includes the MCP-facing peer notebook surface:
 
 - Public MCP tool: `thoughtbox_peer_notebook`.
 - Supported operations:
@@ -21,8 +20,13 @@ surface:
   - `peer_get_artifact`
 - Deterministic active `claim-extractor` peer per workspace.
 - Manifest compilation/hashing from a static `peer.manifest.json` source.
-- In-memory peer, manifest, invocation, trace, and artifact repository.
-- Mock-only runtime through `MockPeerRuntimeProvider`.
+- In-memory peer, manifest, invocation, trace, and artifact repository for
+  local/test use.
+- Supabase peer, manifest, invocation, trace, and artifact repository for
+  hosted workspace-scoped mode.
+- Private `peer-artifacts` Supabase Storage bucket for artifact payloads.
+- Mock-only runtime through `MockPeerRuntimeProvider`, retained as a contract
+  fixture rather than a production runtime.
 - Broker proxy allow/deny behavior, including denied outbound trace events.
 - MCP client coverage through `createMcpServer` and `InMemoryTransport`.
 - Discovery surface through `thoughtbox://peer-notebook/pilot` and Code Mode
@@ -31,6 +35,11 @@ surface:
   `details`.
 - Trace listing now rejects unknown invocation ids with `invocation_not_found`.
 - Workspace bootstrap is serialized per workspace.
+- Hosted `createMcpServer` construction selects `SupabasePeerNotebookRepository`
+  when a non-default workspace is resolved from `workspaceId` or
+  `THOUGHTBOX_PROJECT`, and `SUPABASE_URL` plus
+  `SUPABASE_SERVICE_ROLE_KEY` are present; otherwise it preserves in-memory
+  behavior.
 
 ## Delivery Guard
 
@@ -46,63 +55,70 @@ narrowed to test/non-production use, or deferred with a Beads follow-up.
 
 ## Remaining Large Units
 
-1. **Durable Control Plane** (`thoughtbox-y4x`)
-   - Supabase migrations and repository implementation.
-   - Durable peer notebooks, manifests, invocations, trace events, and artifacts.
-   - Supabase Storage payload path or explicit bounded payload strategy.
-   - Workspace-scoped durable seed -> invoke -> trace -> artifact acceptance.
-   - Runtime may remain mock-only, but persistence cannot remain in-memory.
-
-2. **Manifest Lifecycle And Notebook Graduation** (`thoughtbox-g5t`)
+1. **Manifest Lifecycle And Notebook Graduation** (`thoughtbox-g5t`)
    - Compile `peer.manifest.json` from actual notebook sources.
    - Store drafts, approve/activate/retire manifests, and enforce active hash.
    - Prove notebook edits do not silently change active capabilities.
 
-3. **Web App Inspection Surface** (`thoughtbox-2ot`)
+2. **Web App Inspection Surface** (`thoughtbox-2ot`)
    - Peer registry/detail.
    - Invocation list/detail.
    - Trace timeline with denied outbound calls.
    - Artifact preview from durable rows, not mock/local state.
 
-4. **Real Runtime Provider Path** (`thoughtbox-s7f`)
+3. **Real Runtime Provider Path** (`thoughtbox-s7f`)
    - Development-only `local-process` provider behind the runtime contract.
    - Contract parity with mock provider.
    - Explicit non-production isolation labeling.
 
-5. **Production Isolation And Policy Hardening** (`thoughtbox-vdw`)
+4. **Production Isolation And Policy Hardening** (`thoughtbox-vdw`)
    - smolvm or equivalent isolated provider.
    - Enforced network, filesystem, secrets, outbound budget, and denial policy.
    - Mock/local-process cannot satisfy production acceptance.
 
-## Part 1/5 Scope Lock
+## Part 1/5 Durable Control Plane Outcome
 
-The next implementation unit is **Durable Control Plane**.
+Implemented:
+
+- Migration `supabase/migrations/20260430010000_create_peer_notebook_control_plane.sql`.
+- `SupabasePeerNotebookRepository` behind the existing repository contract.
+- Artifact metadata in `peer_artifacts`; payloads in private Supabase Storage
+  bucket `peer-artifacts`.
+- Workspace-scoped hosted wiring in `createMcpServer`.
+- Supabase integration tests for durable seed -> invoke -> trace -> artifact
+  readback, workspace isolation, invalid args before dispatch, denied outbound
+  trace persistence, and unknown trace invocation handling. These tests skip
+  when local Supabase does not have the new peer schema applied.
+- Follow-up Beads issues filed:
+  - `thoughtbox-kyc`: Add peer artifact retention enforcement.
+  - `thoughtbox-a9f`: Add authenticated RLS coverage for peer notebook
+    control-plane tables.
+
+Spec-convention adjustments made in `SPEC-CONTROL-PLANE.md`:
+
+- `peer_artifacts.invocation_id` and `peer_artifacts.peer_id` are nullable for
+  seeded input artifacts.
+- Artifact kind includes `text` for `peer_artifact_seed`.
+- `peer_invocations.manifest_hash` is denormalized for the MCP read model.
+- `storage_bucket='peer-artifacts'`; `storage_path` stores the object path
+  inside that bucket.
+
+## Next Scope Lock
+
+The next implementation unit is **Manifest Lifecycle And Notebook Graduation**.
 
 Do:
 
-- Add Supabase-backed persistence behind the peer notebook repository contract.
-- Add migrations for the ADR-022 table contract, adjusted only where current
-  repo conventions require it.
-- Preserve the broker facade and runtime provider boundary.
-- Keep the mock runtime provider as a test/pilot fixture.
-- Prove durable seed -> invoke -> trace -> artifact state.
+- Compile `peer.manifest.json` from actual notebook sources without executing
+  notebook code.
+- Store draft manifests durably.
+- Add explicit approval/activation/retirement flow.
+- Enforce active manifest hash at invocation.
+- Prove notebook edits do not silently change active capabilities.
 
 Do not:
 
-- Build web app pages.
+- Build full web app inspection pages.
 - Implement `local-process`.
 - Implement smolvm or production isolation.
 - Add direct/public runtime MCP.
-- Treat in-memory repository or mock runtime as final production behavior.
-
-## Open Risks For Part 1/5
-
-- Supabase table contract names may need small adaptation to match existing
-  workspace scoping conventions.
-- Artifact payload storage needs a bounded v0 choice: full Supabase Storage
-  write if practical, or explicit metadata/preview-first behavior with a
-  follow-up issue for full payload persistence.
-- Repository tests must not pass solely against in-memory fixtures.
-- The broker currently bootstraps a static `claim-extractor` manifest; Part 1
-  should persist that active pilot state durably without claiming full notebook
-  graduation.

@@ -40,12 +40,12 @@ describe("thoughtbox_peer_notebook", () => {
     });
 
     expect(result.result).toEqual({
-      claimsArtifactId: `${result.invocationId}-claims`,
+      claimsArtifactId: expect.any(String),
       claimCount: 2,
     });
     expect(result.artifactRefs).toEqual([
       expect.objectContaining({
-        artifactId: `${result.invocationId}-claims`,
+        artifactId: (result.result as { claimsArtifactId: string }).claimsArtifactId,
         name: "claims.json",
         kind: "json",
         mimeType: "application/json",

@@ -55,7 +55,14 @@ import { KnowledgeTool } from "./knowledge/tool.js";
 import { SessionTool } from "./sessions/tool.js";
 import { ThoughtTool } from "./thought/tool.js";
 import { NotebookTool } from "./notebook/tool.js";
-import { PEER_NOTEBOOK_TOOL, PeerNotebookHandler, PeerNotebookTool } from "./peer-notebook/index.js";
+import {
+  PEER_NOTEBOOK_TOOL,
+  InMemoryPeerNotebookRepository,
+  PeerNotebookHandler,
+  PeerNotebookTool,
+  SupabasePeerNotebookRepository,
+  type PeerNotebookRepository,
+} from "./peer-notebook/index.js";
 import {
   TheseusTool,
   UlyssesTool,
@@ -132,6 +139,8 @@ export interface CreateMcpServerArgs {
   knowledgeStorage?: import('./knowledge/types.js').KnowledgeStorage;
   /** Workspace ID for multi-tenant OTEL queries */
   workspaceId?: string;
+  /** Optional peer notebook repository override for tests/local composition */
+  peerNotebookRepository?: PeerNotebookRepository;
   /** Optional callback to expose the shared protocol handler */
   onProtocolHandlerReady?: (
     handler: ProtocolHandler | InMemoryProtocolHandler,
@@ -172,10 +181,9 @@ function getPeerNotebookPilotResourceContent(): string {
     tool: PEER_NOTEBOOK_TOOL.name,
     description: PEER_NOTEBOOK_TOOL.description,
     scope: {
-      persistence: "in-memory",
+      persistence: "in-memory by default; Supabase-backed in hosted workspace mode",
       runtimeProviders: ["mock"],
       deferred: [
-        "Supabase persistence",
         "web app peer views",
         "local-process provider",
         "smolvm provider",
@@ -192,7 +200,7 @@ function getPeerNotebookPilotResourceContent(): string {
     operations: [
       {
         operation: "peer_artifact_seed",
-        purpose: "Seed an in-memory text artifact for the current workspace",
+        purpose: "Seed a text artifact for the current workspace",
         requiredFields: ["text"],
         optionalFields: ["name"],
       },
@@ -213,11 +221,30 @@ function getPeerNotebookPilotResourceContent(): string {
       },
       {
         operation: "peer_get_artifact",
-        purpose: "Read seeded or produced in-memory artifacts by artifactId",
+        purpose: "Read seeded or produced artifacts by artifactId",
         requiredFields: ["artifactId"],
       },
     ],
   }, null, 2);
+}
+
+function createDefaultPeerNotebookRepository(
+  workspaceId: string | undefined,
+  logger: Logger,
+): PeerNotebookRepository {
+  const supabaseUrl = process.env.SUPABASE_URL;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (workspaceId && supabaseUrl && serviceRoleKey) {
+    logger.info("Peer notebook tool using Supabase-backed repository");
+    return new SupabasePeerNotebookRepository({
+      supabaseUrl,
+      serviceRoleKey,
+    });
+  }
+
+  logger.info("Peer notebook tool using in-memory repository");
+  return new InMemoryPeerNotebookRepository();
 }
 
 /**
@@ -236,7 +263,7 @@ export async function createMcpServer(args: CreateMcpServerArgs = {}): Promise<M
 Three tools:
 - \`thoughtbox_search\`: Write JavaScript to query the operation/prompt/resource catalog
 - \`thoughtbox_execute\`: Write JavaScript using the \`tb\` SDK to chain operations
-- \`thoughtbox_peer_notebook\`: Seed artifacts and invoke the mock brokered claim-extractor peer
+- \`thoughtbox_peer_notebook\`: Seed artifacts and invoke the brokered claim-extractor peer
 
 Workflow: search to discover available operations, then execute code against them.
 Use \`console.log()\` for debugging — output captured in response logs.`;
@@ -287,8 +314,12 @@ Use \`console.log()\` for debugging — output captured in response logs.`;
 
   const notebookHandler = new NotebookHandler();
   let resolvedWorkspaceId = args.workspaceId || process.env.THOUGHTBOX_PROJECT || "default";
+  const durablePeerWorkspaceId = resolvedWorkspaceId === "default" ? undefined : resolvedWorkspaceId;
+  const peerNotebookRepository =
+    args.peerNotebookRepository ?? createDefaultPeerNotebookRepository(durablePeerWorkspaceId, logger);
   const peerNotebookHandler = new PeerNotebookHandler({
     getWorkspaceId: () => resolvedWorkspaceId,
+    repository: peerNotebookRepository,
   });
 
   const sessionHandler = new SessionHandler({

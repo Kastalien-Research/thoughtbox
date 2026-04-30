@@ -2,8 +2,9 @@
 
 **Status**: Research note / ADR-022 index
 **Created**: 2026-04-30
-**Current implementation**: Mock control-plane and MCP-facing pilot under
-`src/peer-notebook/`
+**Current implementation**: MCP-facing pilot under `src/peer-notebook/`, with
+in-memory local/test persistence and Supabase-backed durable control-plane
+persistence in hosted workspace mode
 
 ## HDD Artifacts
 
@@ -27,9 +28,9 @@ reasoning step through Thoughtbox. Thoughtbox becomes the control substrate:
 workspace auth, peer registry, capability enforcement, invocation routing,
 trace persistence, artifact metadata, and web app inspection.
 
-## Current Status After MCP Pilot Merge
+## Current Status After Durable Control-Plane Slice
 
-Merged on `main`:
+Baseline after this slice:
 
 - `thoughtbox_peer_notebook` public MCP tool.
 - In-memory `claim-extractor` pilot with artifact seed, peer invoke,
@@ -40,31 +41,40 @@ Merged on `main`:
   `InMemoryTransport`.
 - Discovery through Code Mode search metadata and
   `thoughtbox://peer-notebook/pilot`.
+- Structured MCP error payloads preserving `PeerNotebookError.code` and
+  `details`.
+- Trace listing rejects unknown invocation ids with `invocation_not_found`.
+- Workspace bootstrap is serialized per workspace.
+- Supabase migration for `peer_notebooks`, `peer_manifests`,
+  `peer_invocations`, `peer_trace_events`, `peer_artifacts`, and the private
+  `peer-artifacts` Storage bucket.
+- `SupabasePeerNotebookRepository` behind the existing repository contract.
+- Hosted workspace-scoped server construction uses Supabase peer notebook
+  persistence when a non-default workspace is resolved from `workspaceId` or
+  `THOUGHTBOX_PROJECT`, and `SUPABASE_URL` plus
+  `SUPABASE_SERVICE_ROLE_KEY` are available.
 
-The pilot proves broker shape and MCP reachability. It does not complete the
-production control plane because peer notebooks, manifests, invocations, trace
-events, and artifacts are still in-memory.
+The pilot now proves broker shape and MCP reachability with a durable
+repository path for peer notebooks, manifests, invocations, trace events, and
+artifacts. `MockPeerRuntimeProvider` remains a contract fixture only; it is not
+a production runtime implementation.
 
 Future work must use `.claude/skills/peer-notebook-delivery-guard/SKILL.md`.
 Its hard rule is: mocks are contract fixtures, not final substitutes.
 
 ## Remaining Delivery Units
 
-1. **Durable Control Plane** (`thoughtbox-y4x`)
-   - Supabase-backed peers, manifests, invocations, trace events, and artifact
-     metadata while the runtime remains mock-capable.
-
-2. **Manifest Lifecycle And Notebook Graduation** (`thoughtbox-g5t`)
+1. **Manifest Lifecycle And Notebook Graduation** (`thoughtbox-g5t`)
    - Compile, approve, activate, retire, and enforce notebook-derived manifests.
 
-3. **Web App Inspection Surface** (`thoughtbox-2ot`)
+2. **Web App Inspection Surface** (`thoughtbox-2ot`)
    - Peer registry/detail, invocation detail, denied-call trace timeline, and
      artifact preview from durable rows.
 
-4. **Real Runtime Provider Path** (`thoughtbox-s7f`)
+3. **Real Runtime Provider Path** (`thoughtbox-s7f`)
    - Development-only `local-process` provider behind the runtime contract.
 
-5. **Production Isolation And Policy Hardening** (`thoughtbox-vdw`)
+4. **Production Isolation And Policy Hardening** (`thoughtbox-vdw`)
    - smolvm or equivalent isolated provider plus enforced network, filesystem,
      secrets, outbound budget, and denial policy.
 
@@ -98,12 +108,13 @@ Confirmed current capabilities:
   commands with `child_process.spawn`: `node`, `npx tsx`, or `pnpm install`.
 - Code Mode uses Node `vm` for JavaScript orchestration and explicitly treats it
   as defense-in-depth, not a true security boundary.
-- `src/peer-notebook/` contains the mock-only control-plane pilot: manifest
+- `src/peer-notebook/` contains the control-plane pilot: manifest
   draft compilation from `peer.manifest.json`, canonical manifest hashing,
   in-memory peer/manifest/invocation/trace/artifact repositories,
+  Supabase peer/manifest/invocation/trace/artifact repository,
   `peer.invoke({ peerId, tool, args })`, a runtime provider interface, a mock
   `claim-extractor` provider, broker-proxy allow/deny policy tests, and the
-  MCP-facing `thoughtbox_peer_notebook` surface for in-memory seed/invoke/read
+  MCP-facing `thoughtbox_peer_notebook` surface for seed/invoke/read
   operations.
 - Existing specs already point toward related directions:
   - `.specs/thoughtbox-v1-finalstretch/SPEC-NOTEBOOK-RLM.md`
@@ -114,8 +125,6 @@ Confirmed current capabilities:
 
 Important non-capabilities today:
 
-- No durable Supabase peer notebook manifest, registry, invocation, trace, or
-  artifact tables yet.
 - No brokered notebook-to-notebook MCP routing.
 - No runtime lifecycle manager for notebook workers beyond the mock provider
   contract.
