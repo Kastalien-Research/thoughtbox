@@ -2,13 +2,16 @@
 
 **Status**: Research note / ADR-022 index
 **Created**: 2026-04-30
+**Current implementation**: Mock control-plane pilot merged in `src/peer-notebook/`
 
 ## HDD Artifacts
 
 - ADR: [ADR-022 Brokered MCP Peer Notebook Control Plane](../../.adr/staging/ADR-022.json)
 - Spec: [SPEC-CONTROL-PLANE.md](./SPEC-CONTROL-PLANE.md)
 - Diagrams: [DIAGRAMS.md](./DIAGRAMS.md)
+- Implementation handoff: [NEXT-IMPLEMENTATION-HANDOFF.md](./NEXT-IMPLEMENTATION-HANDOFF.md)
 - Tracking issue: `thoughtbox-pnf`
+- Mock pilot issue: `thoughtbox-nb5`
 
 ## Summary
 
@@ -51,6 +54,11 @@ Confirmed current capabilities:
   commands with `child_process.spawn`: `node`, `npx tsx`, or `pnpm install`.
 - Code Mode uses Node `vm` for JavaScript orchestration and explicitly treats it
   as defense-in-depth, not a true security boundary.
+- `src/peer-notebook/` now contains the first mock-only control-plane slice:
+  manifest draft compilation from `peer.manifest.json`, canonical manifest
+  hashing, in-memory peer/manifest/invocation/trace/artifact repositories,
+  `peer.invoke({ peerId, tool, args })`, a runtime provider interface, a mock
+  `claim-extractor` provider, and broker-proxy allow/deny policy tests.
 - Existing specs already point toward related directions:
   - `.specs/thoughtbox-v1-finalstretch/SPEC-NOTEBOOK-RLM.md`
   - `.specs/SPEC-SRC-002-preview-lifecycle.md`
@@ -60,14 +68,15 @@ Confirmed current capabilities:
 
 Important non-capabilities today:
 
-- No peer notebook manifest.
-- No peer registry.
-- No brokered notebook-to-notebook MCP routing.
-- No runtime lifecycle manager for notebook workers.
-- No durable artifact table/model specific to notebook outputs.
-- No web app view for peer invocations, peer traces, or peer artifacts.
-- No secure isolated execution boundary for notebook code.
-- No smolvm integration.
+- The peer broker is not yet exposed through the Thoughtbox MCP server, so
+  external callers cannot invoke `claim-extractor` through a real MCP tool.
+- Peer notebook state is still in-memory only; there are no Supabase
+  migrations or durable peer/artifact tables yet.
+- There is no web app view for peer invocations, peer traces, or peer
+  artifacts.
+- There is no local-process provider, secure isolated execution boundary, or
+  smolvm integration.
+- There is no public/direct runtime MCP surface.
 
 ## Product Concept
 
