@@ -1,0 +1,44 @@
+# Wire check:control-plane into CI so manifest drift is caught.
+#
+# Run with:
+#   npx tsx scripts/sdk-implement.ts automation-self-improvement/control-plane/implement-ci-gate.yaml --budget 5
+#
+# Current state:
+# - npm run check:control-plane exists in package.json
+# - It currently FAILS (stale generated artifacts)
+# - .github/workflows/ci.yml does not run it
+# - So drift between manifest.yaml and generated/ goes undetected forever
+
+task: |
+  Wire the existing "check:control-plane" npm script into CI so drift between
+  automation-self-improvement/control-plane/manifest.yaml and the
+  generated/ artifacts is caught on every PR.
+
+  Two things need to be true after your work:
+
+  1. .github/workflows/ci.yml runs `npm run check:control-plane` (or the
+     equivalent pnpm command — match whatever the rest of the workflow uses).
+     Place it in the existing test job, not a new job.
+
+  2. The check passes on the current main. If the generated/ artifacts are
+     stale, run `npm run generate:control-plane` to regenerate them and
+     commit the result.
+
+  Do NOT modify scripts/check-control-plane.ts or scripts/generate-control-plane.ts
+  unless they have a real bug. Fix the inputs (manifest.yaml or generated/) first.
+
+constraints:
+  - "Match the package manager already used in .github/workflows/ci.yml — do not introduce a different one"
+  - "Place the check in the existing test/lint job; do not create a new CI job"
+  - "Do not hand-edit files under automation-self-improvement/control-plane/generated/ — regenerate them via the npm script"
+  - "Do not modify scripts/check-control-plane.ts or scripts/generate-control-plane.ts unless fixing a real bug"
+  - "Do not modify automation-self-improvement/control-plane/manifest.yaml unless the task explicitly requires it"
+
+verify:
+  - "npm run check:control-plane"
+  - "grep -qE 'check:control-plane|check-control-plane' .github/workflows/ci.yml"
+
+artifacts:
+  - automation-self-improvement/control-plane/generated/control-plane.json
+  - automation-self-improvement/control-plane/generated/test-truth.json
+  - .github/workflows/ci.yml

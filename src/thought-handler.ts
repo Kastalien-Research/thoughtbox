@@ -670,6 +670,12 @@ export class ThoughtHandler {
     try {
       const validatedInput = this.validateThoughtData(input);
 
+      // ADR-EPI-01 / M1-stripped: captured session title for the goal-echo
+      // field on every thought response. Populated when the session is fetched
+      // for persistence below; remains undefined for the (rare) caller path
+      // that bypasses persistence.
+      let goalForResponse: string | undefined;
+
       if (validatedInput.thoughtNumber > validatedInput.totalThoughts) {
         validatedInput.totalThoughts = validatedInput.thoughtNumber;
       }
@@ -768,6 +774,10 @@ export class ThoughtHandler {
       if (this.currentSessionId) {
         // Validate session exists before persisting
         const sessionExists = await this.storage.getSession(this.currentSessionId);
+        // ADR-EPI-01 / M1-stripped: capture title for goal echo on the response.
+        if (sessionExists?.title) {
+          goalForResponse = sessionExists.title;
+        }
         if (!sessionExists) {
           return {
             content: [
@@ -1103,20 +1113,21 @@ export class ThoughtHandler {
       const isVerbose = validatedInput.verbose === true;
 
       // SIL-101: Minimal response mode (default)
-      // When verbose is false, return only essential fields for token efficiency
+      // When verbose is false, return only essential fields for token efficiency.
+      // ADR-EPI-01 / M1-stripped: include the session title as `goal` so every
+      // thought response echoes the working goal back to the agent. Adds <30
+      // tokens; closes the working-memory + goal-stability bottlenecks (B1, B5).
       if (!isVerbose) {
+        const minimalPayload: Record<string, unknown> = {
+          thoughtNumber: validatedInput.thoughtNumber,
+          sessionId: this.currentSessionId,
+        };
+        if (goalForResponse) minimalPayload.goal = goalForResponse;
         return {
           content: [
             {
               type: "text",
-              text: JSON.stringify(
-                {
-                  thoughtNumber: validatedInput.thoughtNumber,
-                  sessionId: this.currentSessionId,
-                },
-                null,
-                2
-              ),
+              text: JSON.stringify(minimalPayload, null, 2),
             },
           ],
         };
@@ -1133,6 +1144,7 @@ export class ThoughtHandler {
         thoughtHistoryLength: this.thoughtHistory.length,
         sessionId: this.currentSessionId,
       };
+      if (goalForResponse) verbosePayload.goal = goalForResponse;
       if (validatedInput.confidence) verbosePayload.confidence = validatedInput.confidence;
       if (validatedInput.options) verbosePayload.options = validatedInput.options;
       if (validatedInput.actionResult) verbosePayload.actionResult = validatedInput.actionResult;
