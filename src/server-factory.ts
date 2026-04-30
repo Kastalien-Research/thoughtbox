@@ -147,6 +147,59 @@ const defaultLogger: Logger = {
   error(message: string, ...args: unknown[]) { console.error(`[ERROR] ${message}`, ...args); },
 };
 
+function getPeerNotebookPilotResourceContent(): string {
+  return JSON.stringify({
+    tool: PEER_NOTEBOOK_TOOL.name,
+    description: PEER_NOTEBOOK_TOOL.description,
+    scope: {
+      persistence: "in-memory",
+      runtimeProviders: ["mock"],
+      deferred: [
+        "Supabase persistence",
+        "web app peer views",
+        "local-process provider",
+        "smolvm provider",
+        "public direct runtime MCP",
+      ],
+    },
+    pilotPeer: {
+      peerId: "claim-extractor",
+      exposedTool: "extract_claims",
+      args: { textArtifactId: "artifact id returned by peer_artifact_seed" },
+      result: { claimsArtifactId: "produced claims.json artifact id", claimCount: "number" },
+      deniedProbe: "thoughtbox.knowledge.queryGraph",
+    },
+    operations: [
+      {
+        operation: "peer_artifact_seed",
+        purpose: "Seed an in-memory text artifact for the current workspace",
+        requiredFields: ["text"],
+        optionalFields: ["name"],
+      },
+      {
+        operation: "peer_invoke",
+        purpose: "Invoke claim-extractor.extract_claims through the broker facade",
+        requiredFields: ["peerId", "tool", "args"],
+      },
+      {
+        operation: "peer_get_invocation",
+        purpose: "Read invocation metadata by invocationId",
+        requiredFields: ["invocationId"],
+      },
+      {
+        operation: "peer_list_trace_events",
+        purpose: "Read trace events, including denied outbound broker-proxy calls",
+        requiredFields: ["invocationId"],
+      },
+      {
+        operation: "peer_get_artifact",
+        purpose: "Read seeded or produced in-memory artifacts by artifactId",
+        requiredFields: ["artifactId"],
+      },
+    ],
+  }, null, 2);
+}
+
 /**
  * Side-effect-free server factory.
  * - No transport binding
@@ -955,6 +1008,24 @@ mcp__thoughtbox__thoughtbox({
   );
 
   server.registerResource(
+    "peer-notebook-pilot",
+    "thoughtbox://peer-notebook/pilot",
+    {
+      description: "Mock peer notebook pilot surface: artifact seed, claim-extractor invocation, invocation/trace/artifact reads",
+      mimeType: "application/json",
+    },
+    async (uri) => ({
+      contents: [
+        {
+          uri: uri.toString(),
+          mimeType: "application/json",
+          text: getPeerNotebookPilotResourceContent(),
+        },
+      ],
+    })
+  );
+
+  server.registerResource(
     "patterns-cookbook",
     "thoughtbox://patterns-cookbook",
     {
@@ -1577,6 +1648,12 @@ mcp__thoughtbox__thoughtbox({
         uri: "thoughtbox://notebook/capabilities",
         name: "Notebook Evidence Engine Capabilities",
         description: "Notebook modes, templates, outputs, and recommended use cases",
+        mimeType: "application/json",
+      },
+      {
+        uri: "thoughtbox://peer-notebook/pilot",
+        name: "Peer Notebook Pilot",
+        description: "Mock peer notebook pilot surface: artifact seed, claim-extractor invocation, invocation/trace/artifact reads",
         mimeType: "application/json",
       },
       {

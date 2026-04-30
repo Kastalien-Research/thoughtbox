@@ -33,6 +33,7 @@ export const SEARCH_TOOL = {
 The \`catalog\` object is available in scope:
 
 interface SearchCatalog {
+  publicTools: Array<{ name: string; description: string; operations?: string[] }>;
   operations: Record<string, Record<string, {
     title: string;
     description: string;
@@ -44,11 +45,13 @@ interface SearchCatalog {
   resourceTemplates: Array<{ name: string; uriTemplate: string; description: string; mimeType: string }>;
 }
 
-Modules in catalog.operations: session, thought, knowledge, notebook, theseus, ulysses, observability
+Modules in catalog.operations: session, thought, knowledge, notebook, theseus, ulysses, observability, branch
+Public MCP tools in catalog.publicTools: thoughtbox_search, thoughtbox_execute, thoughtbox_peer_notebook
 Legacy entrypoints like init and hub are intentionally absent from the Code Mode catalog.
 
 Examples:
 - List all modules: \`async () => Object.keys(catalog.operations)\`
+- List public tools: \`async () => catalog.publicTools\`
 - Find session operations: \`async () => catalog.operations.session\`
 - Search by keyword: \`async () => { const q = "entity"; return Object.entries(catalog.operations).flatMap(([mod, ops]) => Object.entries(ops).filter(([_, op]) => op.description.toLowerCase().includes(q)).map(([name, op]) => ({ module: mod, name, title: op.title }))) }\`
 - Find prompts: \`async () => catalog.prompts.filter(p => p.name.includes('spec'))\`
