@@ -18,6 +18,9 @@ interactions.jsonl
 # Push state (runtime, per-machine)
 push-state.json
 
+# Local credential material
+.beads-credential-key
+
 # Lock files (various runtime locks)
 *.lock
 
