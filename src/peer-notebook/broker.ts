@@ -100,22 +100,27 @@ export class PeerBroker {
       repository: this.options.repository,
       manifest,
       scopedToken,
+      traceInvocationId: invocation.id,
+      traceWorkspaceId: this.options.workspaceId,
       targets: this.options.proxyTargets,
     }).createClient(invocation.id, this.options.workspaceId, manifest.manifestHash);
 
     try {
-      const runtimeResult = await provider.invoke({
-        invocationId: invocation.id,
-        workspaceId: this.options.workspaceId,
-        peerId: input.peerId,
-        manifestHash: manifest.manifestHash,
-        tool: input.tool,
-        args: input.args,
-        brokerProxyUrl: "memory://broker-proxy",
-        scopedToken,
-        budgets: manifest.manifest.budgets,
-        brokerProxy: proxy,
-      });
+      const runtimeResult = await withTimeout(
+        provider.invoke({
+          invocationId: invocation.id,
+          workspaceId: this.options.workspaceId,
+          peerId: input.peerId,
+          manifestHash: manifest.manifestHash,
+          tool: input.tool,
+          args: input.args,
+          brokerProxyUrl: "memory://broker-proxy",
+          scopedToken,
+          budgets: manifest.manifest.budgets,
+          brokerProxy: proxy,
+        }),
+        resolveTimeoutMs(manifest.manifest.runtime.timeoutMs, manifest.manifest.budgets.maxDurationMs),
+      );
 
       const resultValidation = validateJsonSchemaSubset(runtimeResult.result, tool.outputSchema);
       if (!resultValidation.valid) {
@@ -170,7 +175,11 @@ export class PeerBroker {
         result: runtimeResult.result,
       };
     } catch (error) {
-      invocation.status = error instanceof PeerNotebookError && error.code === "outbound_denied" ? "denied" : "failed";
+      invocation.status = error instanceof PeerNotebookError && error.code === "outbound_denied"
+        ? "denied"
+        : error instanceof PeerNotebookError && error.code === "timeout"
+          ? "timeout"
+          : "failed";
       invocation.error = {
         message: error instanceof Error ? error.message : String(error),
       };
@@ -211,4 +220,23 @@ export class PeerBroker {
 
 export function createPeerBroker(options: PeerBrokerOptions): PeerBroker {
   return new PeerBroker(options);
+}
+
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
+  let timeout: NodeJS.Timeout | null = null;
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timeout = setTimeout(() => {
+      reject(new PeerNotebookError("timeout", `Peer runtime exceeded maxDurationMs=${timeoutMs}`));
+    }, timeoutMs);
+  });
+
+  return Promise.race([promise, timeoutPromise]).finally(() => {
+    if (timeout) {
+      clearTimeout(timeout);
+    }
+  });
+}
+
+function resolveTimeoutMs(runtimeTimeoutMs: number | undefined, budgetTimeoutMs: number): number {
+  return Math.min(runtimeTimeoutMs ?? budgetTimeoutMs, budgetTimeoutMs);
 }

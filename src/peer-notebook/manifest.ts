@@ -124,23 +124,30 @@ export function compilePeerManifestDraft(sources: ManifestDraftSource[]): Compil
 }
 
 export function canonicalizeJson(value: unknown): string {
-  return JSON.stringify(sortJson(value));
+  const canonical = JSON.stringify(sortJson(value));
+  if (canonical === undefined) {
+    throw new TypeError("Cannot canonicalize top-level undefined or non-JSON value");
+  }
+  return canonical;
 }
 
 export function hashJson(value: unknown): string {
   return `sha256:${createHash("sha256").update(canonicalizeJson(value), "utf8").digest("hex")}`;
 }
 
-function sortJson(value: unknown): JsonValue {
+function sortJson(value: unknown, inArray = false): JsonValue | undefined {
   if (Array.isArray(value)) {
-    return value.map(item => sortJson(item));
+    return value.map(item => sortJson(item, true) ?? null);
   }
 
   if (value && typeof value === "object") {
     return Object.fromEntries(
       Object.entries(value as Record<string, unknown>)
         .sort(([left], [right]) => left.localeCompare(right))
-        .map(([key, nested]) => [key, sortJson(nested)]),
+        .flatMap(([key, nested]) => {
+          const sorted = sortJson(nested);
+          return sorted === undefined ? [] : [[key, sorted]];
+        }),
     );
   }
 
@@ -148,5 +155,5 @@ function sortJson(value: unknown): JsonValue {
     return value;
   }
 
-  return null;
+  return inArray ? null : undefined;
 }

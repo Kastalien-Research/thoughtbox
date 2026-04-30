@@ -1,13 +1,15 @@
 import { describe, expect, it } from "vitest";
 import {
+  BrokerProxy,
   InMemoryPeerNotebookRepository,
   MockPeerRuntimeProvider,
-  PeerNotebookError,
+  canonicalizeJson,
   compilePeerManifestDraft,
   createPeerBroker,
   type PeerManifestRecord,
   type PeerManifestStatus,
   type PeerNotebookRecord,
+  type RuntimeProvider,
 } from "../index.js";
 
 const workspaceId = "workspace_test";
@@ -118,11 +120,99 @@ describe("claim-extractor peer pilot", () => {
       mimeType: "application/json",
     });
   });
+
+  it("uses invocation_not_found for missing invocation updates", async () => {
+    const repository = new InMemoryPeerNotebookRepository();
+
+    await expect(
+      repository.updateInvocation({
+        id: "missing",
+        workspaceId,
+        peerRecordId: "peer",
+        peerId: "claim-extractor",
+        manifestId: "manifest",
+        manifestHash: "sha256:missing",
+        toolName: "extract_claims",
+        argsHash: "sha256:args",
+        resultHash: null,
+        status: "running",
+        runtimeProvider: "mock",
+        result: null,
+        error: null,
+        createdAt: "2026-04-30T00:00:00.000Z",
+        startedAt: null,
+        completedAt: null,
+      }),
+    ).rejects.toMatchObject({ code: "invocation_not_found" });
+  });
+
+  it("records auth-mismatch denies on trusted trace scope", async () => {
+    const { repository, manifest } = await setupHarness();
+    const proxy = new BrokerProxy({
+      repository,
+      manifest,
+      scopedToken: "trusted-token",
+      traceWorkspaceId: workspaceId,
+      traceInvocationId: "trusted_invocation",
+    });
+
+    await proxy.call({
+      invocationId: "attacker_invocation",
+      workspaceId: "attacker_workspace",
+      scopedToken: "wrong-token",
+      manifestHash: "sha256:wrong",
+      target: "artifact.get",
+      args: { artifactId: "input_text" },
+    });
+
+    const trustedEvents = await repository.listTraceEvents(workspaceId, "trusted_invocation");
+    const attackerEvents = await repository.listTraceEvents("attacker_workspace", "attacker_invocation");
+    expect(trustedEvents.some(event => event.eventType === "denied_outbound_call")).toBe(true);
+    expect(attackerEvents).toHaveLength(0);
+  });
+
+  it("marks invocations timeout when runtime exceeds maxDurationMs", async () => {
+    const provider: RuntimeProvider = {
+      describe: () => ({
+        provider: "mock",
+        isolation: "mock",
+        supportsCancel: false,
+        supportsSnapshots: false,
+      }),
+      invoke: () => new Promise(() => {}),
+      cancel: async () => {},
+      "snapshot/export": async () => null,
+      heartbeat: async () => {},
+    };
+    const { broker, repository } = await setupHarness({
+      provider,
+      budgets: { maxDurationMs: 1, maxToolCalls: 10, maxArtifactBytes: 10_000_000 },
+    });
+
+    await expect(
+      broker.peer.invoke({
+        peerId: "claim-extractor",
+        tool: "extract_claims",
+        args: { textArtifactId: "input_text" },
+      }),
+    ).rejects.toMatchObject({ code: "timeout" });
+
+    const invocations = await repository.listInvocations(workspaceId);
+    expect(invocations).toHaveLength(1);
+    expect(invocations[0].status).toBe("timeout");
+  });
+
+  it("omits undefined object properties during canonicalization", () => {
+    expect(canonicalizeJson({ b: 2, a: undefined })).toBe("{\"b\":2}");
+    expect(canonicalizeJson([undefined, "x"])).toBe("[null,\"x\"]");
+  });
 });
 
 async function setupHarness(options: {
   manifestStatus?: PeerManifestStatus;
   peerStatus?: PeerNotebookRecord["status"];
+  provider?: RuntimeProvider;
+  budgets?: ReturnType<typeof claimExtractorManifest>["budgets"];
   proxyTargets?: Parameters<typeof createPeerBroker>[0]["proxyTargets"];
 } = {}) {
   const repository = new InMemoryPeerNotebookRepository();
@@ -130,7 +220,7 @@ async function setupHarness(options: {
   const compiled = compilePeerManifestDraft([
     {
       name: "peer.manifest.json",
-      content: JSON.stringify(claimExtractorManifest()),
+      content: JSON.stringify(claimExtractorManifest(options.budgets)),
     },
   ]);
 
@@ -177,7 +267,7 @@ async function setupHarness(options: {
     broker: createPeerBroker({
       workspaceId,
       repository,
-      runtimeProviders: { mock: provider },
+      runtimeProviders: { mock: options.provider ?? provider },
       proxyTargets: options.proxyTargets,
     }),
     repository,
@@ -186,7 +276,11 @@ async function setupHarness(options: {
   };
 }
 
-function claimExtractorManifest() {
+function claimExtractorManifest(budgets = {
+  maxDurationMs: 120_000,
+  maxToolCalls: 10,
+  maxArtifactBytes: 10_000_000,
+}) {
   return {
     schemaVersion: "peer-notebook.v0",
     peerId: "claim-extractor",
@@ -240,10 +334,6 @@ function claimExtractorManifest() {
       exportNotebookOnInvoke: true,
       retainArtifactsDays: 30,
     },
-    budgets: {
-      maxDurationMs: 120_000,
-      maxToolCalls: 10,
-      maxArtifactBytes: 10_000_000,
-    },
+    budgets,
   };
 }

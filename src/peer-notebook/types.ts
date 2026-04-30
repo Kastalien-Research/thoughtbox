@@ -172,6 +172,7 @@ export class PeerNotebookError extends Error {
   constructor(
     public readonly code:
       | "manifest_compile_error"
+      | "invocation_not_found"
       | "peer_not_found"
       | "peer_not_active"
       | "manifest_not_active"
@@ -180,7 +181,8 @@ export class PeerNotebookError extends Error {
       | "invalid_result"
       | "runtime_provider_not_found"
       | "artifact_not_found"
-      | "outbound_denied",
+      | "outbound_denied"
+      | "timeout",
     message: string,
     public readonly details?: JsonValue,
   ) {

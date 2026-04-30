@@ -19,6 +19,7 @@ export interface PeerNotebookRepository {
   saveInvocation(invocation: PeerInvocationRecord): Promise<void>;
   updateInvocation(invocation: PeerInvocationRecord): Promise<void>;
   getInvocation(workspaceId: string, invocationId: string): Promise<PeerInvocationRecord | null>;
+  listInvocations(workspaceId: string): Promise<PeerInvocationRecord[]>;
   appendTraceEvent(event: Omit<PeerTraceEventRecord, "id" | "seq" | "timestampAt">): Promise<PeerTraceEventRecord>;
   listTraceEvents(workspaceId: string, invocationId: string): Promise<PeerTraceEventRecord[]>;
   saveArtifactInput(input: SaveArtifactInput): Promise<PeerArtifactRecord>;
@@ -68,13 +69,17 @@ export class InMemoryPeerNotebookRepository implements PeerNotebookRepository {
 
   async updateInvocation(invocation: PeerInvocationRecord): Promise<void> {
     if (!this.invocations.has(invocationKey(invocation.workspaceId, invocation.id))) {
-      throw new PeerNotebookError("peer_not_found", `Invocation ${invocation.id} does not exist`);
+      throw new PeerNotebookError("invocation_not_found", `Invocation ${invocation.id} does not exist`);
     }
     await this.saveInvocation(invocation);
   }
 
   async getInvocation(workspaceId: string, invocationId: string): Promise<PeerInvocationRecord | null> {
     return this.invocations.get(invocationKey(workspaceId, invocationId)) ?? null;
+  }
+
+  async listInvocations(workspaceId: string): Promise<PeerInvocationRecord[]> {
+    return [...this.invocations.values()].filter(invocation => invocation.workspaceId === workspaceId);
   }
 
   async appendTraceEvent(

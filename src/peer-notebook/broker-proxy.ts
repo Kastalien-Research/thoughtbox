@@ -21,37 +21,51 @@ export interface BrokerProxyOptions {
   repository: PeerNotebookRepository;
   manifest: PeerManifestRecord;
   scopedToken: string;
+  traceInvocationId: string;
+  traceWorkspaceId: string;
   targets?: Record<string, BrokerProxyTarget>;
+}
+
+interface TrustedTraceScope {
+  workspaceId: string;
+  invocationId: string;
 }
 
 export class BrokerProxy {
   constructor(private readonly options: BrokerProxyOptions) {}
 
   createClient(invocationId: string, workspaceId: string, manifestHash: string): BrokerProxyClient {
+    const traceScope = {
+      workspaceId,
+      invocationId,
+    };
     return {
       callTool: (target, args) =>
-        this.call({
-          invocationId,
-          workspaceId,
-          scopedToken: this.options.scopedToken,
-          manifestHash,
-          target,
-          args,
-        }),
+        this.call(
+          {
+            invocationId,
+            workspaceId,
+            scopedToken: this.options.scopedToken,
+            manifestHash,
+            target,
+            args,
+          },
+          traceScope,
+        ),
     };
   }
 
-  async call(request: BrokerProxyCall): Promise<BrokerProxyResult> {
+  async call(request: BrokerProxyCall, traceScope?: TrustedTraceScope): Promise<BrokerProxyResult> {
     if (
       request.scopedToken !== this.options.scopedToken ||
       request.workspaceId !== this.options.manifest.workspaceId ||
       request.manifestHash !== this.options.manifest.manifestHash
     ) {
-      return this.deny(request, "Broker proxy credentials do not match invocation scope");
+      return this.deny(request, "Broker proxy credentials do not match invocation scope", traceScope);
     }
 
     if (!this.options.manifest.manifest.mayCall.mcpTools.includes(request.target)) {
-      return this.deny(request, `Outbound call to ${request.target} is not allowed by active manifest`);
+      return this.deny(request, `Outbound call to ${request.target} is not allowed by active manifest`, traceScope);
     }
 
     const result = await this.forward(request);
@@ -96,10 +110,14 @@ export class BrokerProxy {
     return target(request.args);
   }
 
-  private async deny(request: BrokerProxyCall, message: string): Promise<BrokerProxyResult> {
+  private async deny(
+    request: BrokerProxyCall,
+    message: string,
+    traceScope?: TrustedTraceScope,
+  ): Promise<BrokerProxyResult> {
     await this.options.repository.appendTraceEvent({
-      workspaceId: request.workspaceId,
-      invocationId: request.invocationId,
+      workspaceId: traceScope?.workspaceId ?? this.options.traceWorkspaceId,
+      invocationId: traceScope?.invocationId ?? this.options.traceInvocationId,
       eventType: "denied_outbound_call",
       severity: "warn",
       body: message,
