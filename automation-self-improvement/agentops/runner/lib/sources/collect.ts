@@ -11,7 +11,6 @@ import { collectRepoSignals } from './repo.js';
 import { collectArxivSignals } from './arxiv.js';
 import { collectRSSSignals } from './rss.js';
 import { collectHTMLSignals } from './html.js';
-import { collectBeadsSignals } from './beads.js';
 import { collectAssumptionsSignals } from './assumptions.js';
 import { collectSessionHandoffSignals } from './session-handoff.js';
 
@@ -148,32 +147,7 @@ export async function collectSignals(): Promise<SignalCollection> {
     }
   }
 
-  // === 5. Beads Signals ===
-  if (sourcesConfig.beads?.enabled) {
-    const beadsStart = Date.now();
-    sourcesAttempted.push('beads');
-    try {
-      const signals = await collectBeadsSignals({
-        closedLookbackHours:
-          sourcesConfig.beads.closed_lookback_hours || 24,
-        readyMaxPriority:
-          sourcesConfig.beads.ready_max_priority ?? 2,
-      });
-
-      allSignals.push(...signals);
-      sourcesSucceeded.push('beads');
-      signalsBySource['beads'] = signals.length;
-      elapsedMsBySource['beads'] = Date.now() - beadsStart;
-      console.log(`  ✓ beads: ${signals.length} signals`);
-    } catch (error) {
-      const msg = error instanceof Error ? error.message : String(error);
-      sourcesFailed.push({ source: 'beads', error: msg });
-      elapsedMsBySource['beads'] = Date.now() - beadsStart;
-      console.warn(`  ✗ beads: ${msg}`);
-    }
-  }
-
-  // === 6. Assumptions Signals ===
+  // === 5. Assumptions Signals ===
   if (sourcesConfig.assumptions?.enabled) {
     const assumptionsStart = Date.now();
     sourcesAttempted.push('assumptions');

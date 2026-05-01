@@ -1,6 +1,6 @@
 ---
 name: knowledge
-description: Unified cross-store knowledge query. Searches MEMORY.md, Thoughtbox knowledge graph, Beads issues, git history, and assumption registry in parallel, returning results with provenance.
+description: Unified cross-store knowledge query. Searches MEMORY.md, Thoughtbox knowledge graph, the selected tracker issues, git history, and assumption registry in parallel, returning results with provenance.
 argument-hint: <search query>
 user-invocable: true
 allowed-tools: Read, Glob, Grep, Bash, ToolSearch
@@ -16,7 +16,7 @@ Execute all searches in parallel:
 
 1. **MEMORY.md**: Search the auto memory file at `.claude/projects/*/memory/MEMORY.md` for the query terms using Grep
 2. **Thoughtbox Knowledge Graph**: Use ToolSearch to load `mcp__thoughtbox_gateway` tools, then search entities and observations matching the query
-3. **Beads Issues**: Run `bd search "$ARGUMENTS"` to find matching issues
+3. **the selected tracker Issues**: Run `tracker search "$ARGUMENTS"` to find matching issues
 4. **Git History**: Run `git log --all --oneline --grep="$ARGUMENTS" -20` for commit history
 5. **Assumption Registry**: Search `.assumptions/*.jsonl` for matching assumption records using Grep
 6. **DGM Patterns**: Search `.dgm/fitness.json` for patterns matching the query using Grep
@@ -42,14 +42,14 @@ Present results grouped by relevance, with provenance:
 - [Thoughtbox] Entity: {name} — {observation} (created {date})
 
 ### Medium Relevance
-- [Beads] {issue-id}: {title} ({status})
+- [the selected tracker] {issue-id}: {title} ({status})
 - [Git] {commit-hash}: {message} ({date})
 
 ### Low Relevance
 - [Assumptions] {assumption} (confidence: {N}%, last verified: {date})
 
 ### Cross-References
-- MEMORY.md line {N} references Beads issue {id}
+- MEMORY.md line {N} references the selected tracker issue {id}
 - Thoughtbox entity "{name}" relates to git commit {hash}
 
 ### Gaps

@@ -101,7 +101,7 @@ fi
 # ===================================================================
 
 ulysses_state_dir="${CLAUDE_PROJECT_DIR:-.}/.claude/state/ulysses"
-workflow_state_dir="${CLAUDE_PROJECT_DIR:-.}/.claude/state/bead-workflow"
+workflow_state_dir="${CLAUDE_PROJECT_DIR:-.}/.claude/state/task-workflow"
 
 if [[ -f "$ulysses_state_dir/reflect-required" ]]; then
   if [[ "$tool_name" == "Read" || "$tool_name" == "Glob" || "$tool_name" == "Grep" \
@@ -111,7 +111,6 @@ if [[ -f "$ulysses_state_dir/reflect-required" ]]; then
   if [[ "$tool_name" == "Bash" ]]; then
     if [[ "$command" == *"ulysses"* && "$command" == *"reflect"* ]] \
        || [[ "$command" == *"thoughtbox_gateway"* && "$command" == *"reflect"* ]] \
-       || [[ "$command" == *"bd show"* || "$command" == *"bd update"*"--notes"* ]] \
        || [[ "$command" == *"git status"* || "$command" == *"git diff"* ]]; then
       exit 0
     fi
@@ -122,9 +121,9 @@ if [[ -f "$ulysses_state_dir/reflect-required" ]]; then
 
   task_id="unknown"
   count=0
-  if [[ -f "$workflow_state_dir/current-bead.json" ]]; then
-    task_id=$(jq -r '.bead_id // "unknown"' "$workflow_state_dir/current-bead.json")
-    count=$(jq -r '.surprise_count // 0' "$workflow_state_dir/current-bead.json")
+  if [[ -f "$workflow_state_dir/current-task.json" ]]; then
+    task_id=$(jq -r '.task_id // "unknown"' "$workflow_state_dir/current-task.json")
+    count=$(jq -r '.surprise_count // 0' "$workflow_state_dir/current-task.json")
   fi
   echo "BLOCKED: REFLECT REQUIRED (${count} consecutive surprises on ${task_id})." >&2
   echo "You MUST run Ulysses REFLECT before any further work." >&2
@@ -137,7 +136,7 @@ fi
 
 # Pending validation blocks new work
 if [[ -f "$workflow_state_dir/pending-validation.json" ]]; then
-  task_ids=$(jq -r '.bead_ids // ""' "$workflow_state_dir/pending-validation.json")
+  task_ids=$(jq -r '.task_ids // ""' "$workflow_state_dir/pending-validation.json")
   if [[ "$tool_name" == "Read" || "$tool_name" == "Glob" || "$tool_name" == "Grep" \
      || "$tool_name" == "AskUserQuestion" ]]; then
     exit 0
@@ -147,46 +146,28 @@ if [[ -f "$workflow_state_dir/pending-validation.json" ]]; then
        || "$command" == *"test"* || "$command" == *"supabase"*"query"* \
        || "$command" == *"supabase"*"migration list"* \
        || "$command" == *"git status"* || "$command" == *"git diff"* \
-       || "$command" == *"bd "* \
        || "$command" == *"validation-confirmed"* ]]; then
       exit 0
     fi
   fi
   echo "BLOCKED: Validation pending for closed task(s): ${task_ids}" >&2
   echo "Run tests, state validation result, wait for user go-ahead." >&2
-  echo "Clear: touch .claude/state/bead-workflow/validation-confirmed" >&2
+  echo "Clear: touch .claude/state/task-workflow/validation-confirmed" >&2
   exit 1
 fi
 
 # No code changes without hypothesis
 if [[ "$tool_name" == "Edit" || "$tool_name" == "Write" ]]; then
   if [[ "$file_path" == */src/* || "$file_path" == */supabase/migrations/* ]]; then
-    if [[ -f "$workflow_state_dir/current-bead.json" ]]; then
-      hyp=$(jq -r '.hypothesis_stated // false' "$workflow_state_dir/current-bead.json")
+    if [[ -f "$workflow_state_dir/current-task.json" ]]; then
+      hyp=$(jq -r '.hypothesis_stated // false' "$workflow_state_dir/current-task.json")
       if [[ "$hyp" != "true" ]]; then
-        task_id=$(jq -r '.bead_id // "unknown"' "$workflow_state_dir/current-bead.json")
+        task_id=$(jq -r '.task_id // "unknown"' "$workflow_state_dir/current-task.json")
         echo "BLOCKED: No code changes until hypothesis is recorded for ${task_id}." >&2
         echo "Record hypothesis before making code changes. --notes=\"Hypothesis: <your hypothesis>\"" >&2
         exit 1
       fi
     fi
-  fi
-fi
-
-# No batch closes
-if [[ "$tool_name" == "Bash" && "$command" == *"bd close"* ]]; then
-  match_count=$(echo "$command" | grep -oEc 'thoughtbox-[a-z0-9.]+')
-  if [[ "$match_count" -gt 1 ]]; then
-    echo "BLOCKED: Cannot close multiple issues in one command." >&2
-    exit 1
-  fi
-fi
-
-# No closing without tests
-if [[ "$tool_name" == "Bash" && "$command" == *"bd close"* ]]; then
-  if [[ ! -f "$workflow_state_dir/tests-passed-since-edit" ]]; then
-    echo "BLOCKED: Cannot close — tests have not passed since last code change." >&2
-    exit 1
   fi
 fi
 

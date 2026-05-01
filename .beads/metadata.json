@@ -1,7 +1,0 @@
-{
-  "database": "dolt",
-  "backend": "dolt",
-  "dolt_mode": "server",
-  "dolt_database": "thoughtbox_staging",
-  "project_id": "2ed87afb-ea23-4829-b1cd-6ebe06540280"
-}

@@ -4,13 +4,13 @@
 # The baseline workflow state writer is separate.
 #
 # State files (in workflow state dir — shared with baseline):
-#   current-bead.json  — reads surprise_count, writes updates (file name is historical)
+#   current-task.json  — reads surprise_count, writes updates (file name is historical)
 #
 # State files (in ulysses dir — escalation only):
 #   reflect-required   — sentinel: 2+ surprises, must REFLECT
 set -uo pipefail
 
-workflow_state_dir="${CLAUDE_PROJECT_DIR:-.}/.claude/state/bead-workflow"
+workflow_state_dir="${CLAUDE_PROJECT_DIR:-.}/.claude/state/task-workflow"
 ulysses_state_dir="${CLAUDE_PROJECT_DIR:-.}/.claude/state/ulysses"
 mkdir -p "$ulysses_state_dir"
 
@@ -24,12 +24,12 @@ exit_code=$(echo "$input_json" | jq -r '.tool_response.exit_code // 0' 2>/dev/nu
 # Event: command failure while task is in_progress
 # Counts as a surprise (unexpected outcome).
 # -------------------------------------------------------
-if [[ "$tool_name" == "Bash" && -f "$workflow_state_dir/current-bead.json" ]]; then
+if [[ "$tool_name" == "Bash" && -f "$workflow_state_dir/current-task.json" ]]; then
   is_failure=false
 
   # Explicit non-zero exit (exclude info commands)
   if [[ "$exit_code" != "0" ]]; then
-    if [[ "$command" != *"bd "* && "$command" != *"git status"* \
+    if [[ "$command" != *"git status"* \
        && "$command" != *"git diff"* && "$command" != *"git log"* \
        && "$command" != *"--help"* && "$command" != *"trash "* ]]; then
       is_failure=true
@@ -48,11 +48,11 @@ if [[ "$tool_name" == "Bash" && -f "$workflow_state_dir/current-bead.json" ]]; t
 
   if [[ "$is_failure" == "true" ]]; then
     tmp=$(mktemp)
-    old_count=$(jq -r '.surprise_count // 0' "$workflow_state_dir/current-bead.json")
+    old_count=$(jq -r '.surprise_count // 0' "$workflow_state_dir/current-task.json")
     new_count=$((old_count + 1))
     jq --argjson c "$new_count" '.surprise_count = $c' \
-      "$workflow_state_dir/current-bead.json" > "$tmp"
-    mv "$tmp" "$workflow_state_dir/current-bead.json"
+      "$workflow_state_dir/current-task.json" > "$tmp"
+    mv "$tmp" "$workflow_state_dir/current-task.json"
 
     if [[ "$new_count" -ge 2 ]]; then
       touch "$ulysses_state_dir/reflect-required"
@@ -67,10 +67,10 @@ if [[ "$tool_name" == "Bash" ]]; then
   if [[ "$command" == *"ulysses"* && "$command" == *"reflect"* ]] \
      || [[ "$command" == *"thoughtbox_gateway"* && "$command" == *"reflect"* ]]; then
     rm -f "$ulysses_state_dir/reflect-required"
-    if [[ -f "$workflow_state_dir/current-bead.json" ]]; then
+    if [[ -f "$workflow_state_dir/current-task.json" ]]; then
       tmp=$(mktemp)
-      jq '.surprise_count = 0' "$workflow_state_dir/current-bead.json" > "$tmp"
-      mv "$tmp" "$workflow_state_dir/current-bead.json"
+      jq '.surprise_count = 0' "$workflow_state_dir/current-task.json" > "$tmp"
+      mv "$tmp" "$workflow_state_dir/current-task.json"
     fi
   fi
 fi

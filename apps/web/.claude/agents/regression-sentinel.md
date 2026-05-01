@@ -28,8 +28,8 @@ Read all files in `.eval/metrics/session-*.json`. Each contains:
     "commits": 0,
     "tests_total": 0,
     "tests_passing": 0,
-    "beads_closed": 0,
-    "beads_open": 0,
+    "the selected tracker_closed": 0,
+    "the selected tracker_open": 0,
     "files_changed": 0,
     "patterns_referenced": 0,
     "escalations": 0,
@@ -148,9 +148,4 @@ Data quality: GOOD | DEGRADED (explain if degraded)
 
 ## Issue Tracking
 
-Use `bd` for all task tracking:
-- `bd show <id>` to review the monitoring task
-- `bd update <id> --status=in_progress` when starting
-- `bd close <id>` when report is complete
-- `bd create --title="..." --type=bug --priority=1` for CRITICAL regressions
-- `bd create --title="..." --type=task --priority=2` for WARNING-level investigation
+Use the tracker explicitly selected by the user for the current work. Do not use an unverified tracker CLI or legacy issue-storage remotes. If no tracker is settled or tracker writes are unavailable, report the needed follow-up in the session handoff instead of creating a fallback tracker.

@@ -145,8 +145,4 @@ Include the recommended workflow archetype(s) in the "Recommended next step" sec
 
 ## Issue Tracking
 
-Use `bd` for all task tracking:
-- `bd show <id>` to review the research proposal
-- `bd update <id> --status=in_progress` when starting evaluation
-- `bd close <id>` when evaluation is complete
-- `bd create --title="..." --type=task` for follow-up research if verdict is "proceed"
+Use the tracker explicitly selected by the user for the current work. If no tracker is settled or tracker writes are unavailable, report the needed follow-up in the session handoff instead of creating a fallback tracker.

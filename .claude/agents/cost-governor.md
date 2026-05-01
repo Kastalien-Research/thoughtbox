@@ -139,8 +139,4 @@ Total spend: $[amount] / $80.00 weekly budget ([percentage]%)
 
 ## Issue Tracking
 
-Use `bd` for all task tracking:
-- `bd show <id>` to review the cost tracking task
-- `bd update <id> --status=in_progress` when starting
-- `bd close <id>` when report is complete
-- `bd create --title="..." --type=task --priority=2` for budget optimization follow-ups
+Use the tracker explicitly selected by the user for the current work. If no tracker is settled or tracker writes are unavailable, report the needed follow-up in the session handoff instead of creating a fallback tracker.

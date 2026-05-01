@@ -44,7 +44,7 @@ For each task in dependency order:
 
 4. **Persist the summary** immediately upon receipt:
    ```
-   .adr/staging/<NNN>-<name>-summary-<bead-id>.md
+   .adr/staging/<NNN>-<name>-summary-<task-id>.md
    ```
 
 5. **Verify acceptance criteria**: Check each criterion from the plan against the sub-agent's summary. If any fail, note them for review.

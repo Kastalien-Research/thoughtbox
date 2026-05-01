@@ -5,7 +5,7 @@
 set -euo pipefail
 
 ulysses_state_dir="${CLAUDE_PROJECT_DIR:-.}/.claude/state/ulysses"
-workflow_state_dir="${CLAUDE_PROJECT_DIR:-.}/.claude/state/bead-workflow"
+workflow_state_dir="${CLAUDE_PROJECT_DIR:-.}/.claude/state/task-workflow"
 
 # If no reflect-required sentinel, pass through
 [[ -f "$ulysses_state_dir/reflect-required" ]] || exit 0
@@ -20,11 +20,10 @@ if [[ "$tool_name" == "Read" || "$tool_name" == "Glob" || "$tool_name" == "Grep"
   exit 0
 fi
 
-# Allow: reflect commands, bd show/notes, git status
+# Allow: reflect commands and basic git inspection
 if [[ "$tool_name" == "Bash" ]]; then
   if [[ "$command" == *"ulysses"* && "$command" == *"reflect"* ]] \
      || [[ "$command" == *"thoughtbox_gateway"* && "$command" == *"reflect"* ]] \
-     || [[ "$command" == *"bd show"* || "$command" == *"bd update"*"--notes"* ]] \
      || [[ "$command" == *"git status"* || "$command" == *"git diff"* ]]; then
     exit 0
   fi
@@ -37,9 +36,9 @@ fi
 
 task_id="unknown"
 count=0
-if [[ -f "$workflow_state_dir/current-bead.json" ]]; then
-  task_id=$(jq -r '.bead_id // "unknown"' "$workflow_state_dir/current-bead.json")
-  count=$(jq -r '.surprise_count // 0' "$workflow_state_dir/current-bead.json")
+if [[ -f "$workflow_state_dir/current-task.json" ]]; then
+  task_id=$(jq -r '.task_id // "unknown"' "$workflow_state_dir/current-task.json")
+  count=$(jq -r '.surprise_count // 0' "$workflow_state_dir/current-task.json")
 fi
 
 echo "BLOCKED: REFLECT REQUIRED (${count} consecutive surprises on ${task_id})." >&2

@@ -28,7 +28,7 @@ Before asking the questions, gather existing context that might already contain 
 
 3. **Check open issues** for related work:
    ```bash
-   bd list --status=open
+   <use the equivalent operation in the user-selected tracker>
    ```
 
 Present a brief summary of what you found before proceeding to the questions.
@@ -98,7 +98,7 @@ If the user confirms proceeding:
 
 If the user decides NOT to proceed:
 1. Update workflow state with status `"completed"` and notes explaining why
-2. Close the workflow bead with the reason
+2. Close the workflow tracker item with the reason
 3. The workflow ends here
 
 ## Prior Art Check

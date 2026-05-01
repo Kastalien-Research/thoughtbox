@@ -89,7 +89,6 @@ function main() {
   delete handoff.failedApproaches;
   delete handoff.recommendedNextAction;
   delete handoff.mcpToolsUsed;
-  delete handoff.beads;
 
   // Ensure .claude/ directory exists
   try {

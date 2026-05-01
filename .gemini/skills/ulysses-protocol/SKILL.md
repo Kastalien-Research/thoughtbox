@@ -185,7 +185,7 @@ thoughtbox_hub { operation: "quick_join", args: { name: "Debugger", workspaceId:
 
 ### Terminal states
 - **RESOLVED**: Close with session reflection. Record transferable priors as knowledge entities.
-- **INSUFFICIENT_INFORMATION**: Articulate what's missing. Create beads issue for the gap.
+- **INSUFFICIENT_INFORMATION**: Articulate what's missing. Create the selected tracker issue for the gap.
 - **ENVIRONMENT_COMPROMISED**: Flag environment state. Rollback attempt log in session.
 
 ## Resource Reference

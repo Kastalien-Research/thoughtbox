@@ -43,7 +43,9 @@ async function main() {
   if (json.version !== "1.0.0") errors.push("version must be 1.0.0");
   if (!json.timestamp) errors.push("timestamp missing");
   if (!isObject(json.git)) errors.push("git missing");
-  if (!isObject(json.beads)) errors.push("beads missing");
+  if (json.task_progress !== undefined && !isObject(json.task_progress)) {
+    errors.push("task_progress must be an object when present");
+  }
 
   const sha = json?.git?.lastCommit?.sha;
   if (sha && !(await isCommitAncestor(sha))) {

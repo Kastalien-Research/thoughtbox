@@ -121,14 +121,7 @@ Wait for user approval before proceeding.
 
 After user approves:
 
-1. **Create beads** for each task:
-   ```bash
-   bd create --title="<task title>" --type=task --priority=2
-   ```
-   Set up dependencies between them:
-   ```bash
-   bd dep add <child-bead> <parent-bead>
-   ```
+1. **Record task tracking references only if a user-selected tracker is explicitly in scope.** Do not invent a tracker command or fallback task system.
 
 2. **Update workflow state** (`.workflow/state.json`):
    - Set `stages.planning.status` to `"completed"`
@@ -143,7 +136,7 @@ After user approves:
    ==================
 
    Plan: .workflow/plan.md
-   Tasks: N (beads created)
+   Tasks: N
    Dependencies: [summary]
 
    Next: Stage 4 - Implementation (/workflows-work)

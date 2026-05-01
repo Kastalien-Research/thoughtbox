@@ -1,6 +1,6 @@
 ---
 name: status
-description: Generate a status report across all workstreams using beads issue tracking. Shows active work, blockers, and available tasks.
+description: Generate a status report across all workstreams using the selected tracker issue tracking. Shows active work, blockers, and available tasks.
 argument-hint: ''
 user-invocable: true
 allowed-tools: Bash
@@ -8,13 +8,13 @@ allowed-tools: Bash
 
 Generate a comprehensive status report by running these commands:
 
-!`bd stats 2>/dev/null || echo "No beads stats available"`
+!the selected issue stats view
 
-!`bd list --status=in_progress 2>/dev/null || echo "No in-progress issues"`
+!the selected issue list
 
-!`bd blocked 2>/dev/null || echo "No blocked issues"`
+!the selected blocked-work view
 
-!`bd ready 2>/dev/null || echo "No ready issues"`
+!the selected tracker readiness view
 
 Summarize findings in this format:
 

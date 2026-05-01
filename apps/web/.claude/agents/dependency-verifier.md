@@ -75,8 +75,4 @@ Maintain a living registry in your project memory. Structure:
 
 ## Issue Tracking
 
-Use `bd` for all task tracking:
-- `bd show <id>` to review the issue
-- `bd update <id> --status=in_progress` when starting
-- `bd close <id>` when research is complete
-- `bd create --title="..." --type=task` for follow-up investigations
+Use the tracker explicitly selected by the user for the current work. Do not use an unverified tracker CLI or legacy issue-storage remotes. If no tracker is settled or tracker writes are unavailable, report the needed follow-up in the session handoff instead of creating a fallback tracker.

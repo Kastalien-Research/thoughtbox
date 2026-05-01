@@ -3,7 +3,7 @@
 # Block pushes to protected branches
 branch=$(git branch --show-current)
 case "$branch" in
-  main|master|production|beads-sync)
+  main|master|production)
     echo ""
     echo "BLOCKED: Direct push to protected branch '$branch'."
     echo "Use a feature branch and PR."

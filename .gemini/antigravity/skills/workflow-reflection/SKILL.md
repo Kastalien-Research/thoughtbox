@@ -97,16 +97,16 @@ Based on the workflow outcome:
 
 ### Step 4: Close Tracking Issues
 
-1. Close the main workflow bead:
+1. Close the main workflow tracker item:
    ```bash
-   bd close <beadId> --reason="Workflow completed: <1-line summary>"
+   <use the equivalent operation in the user-selected tracker>
    ```
-2. Close any sub-beads created during implementation and revision:
+2. Close any subtasks during implementation and revision:
    ```bash
-   bd list --status=in_progress
+   <use the equivalent operation in the user-selected tracker>
    ```
    Close each one that was part of this workflow.
-3. Create follow-up beads for any known gaps or deferred items discovered during the workflow.
+3. Create follow-up the selected tracker for any known gaps or deferred items discovered during the workflow.
 
 ### Step 5: Prepare for Merge
 
@@ -174,7 +174,7 @@ WORKFLOW COMPLETE
 
 <title>
 Branch: <branch>
-Bead: <beadId> (closed)
+Tracker item: <tracker itemId> (closed)
 ADR: <final location>
 
 Stages:
@@ -194,7 +194,7 @@ PR: <url or "merged">
 ## Anti-Patterns
 
 - Do NOT skip the ADR move — artifacts left in staging rot and confuse future workflows
-- Do NOT close beads without a reason — the reason is the archaeological record
+- Do NOT close the selected tracker without a reason — the reason is the archaeological record
 - Do NOT merge without pushing first — local-only merges are invisible to the team
 - Do NOT skip the learning capture — the whole point of reflection is to compound
 - Do NOT fabricate reflection — base it on actual evidence from the workflow state and summaries

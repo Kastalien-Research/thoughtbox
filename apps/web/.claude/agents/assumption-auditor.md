@@ -139,8 +139,4 @@ Budget used: [cost if available]
 
 ## Issue Tracking
 
-Use `bd` for all task tracking:
-- `bd show <id>` to review the audit task
-- `bd update <id> --status=in_progress` when starting
-- `bd close <id>` when audit is complete
-- `bd create --title="..." --type=bug --priority=1` for failed HIGH-criticality assumptions
+Use the tracker explicitly selected by the user for the current work. Do not use an unverified tracker CLI or legacy issue-storage remotes. If no tracker is settled or tracker writes are unavailable, report the needed follow-up in the session handoff instead of creating a fallback tracker.

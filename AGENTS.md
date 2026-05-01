@@ -68,7 +68,6 @@ Committing unrelated work to an existing branch pollutes PRs, makes reverts dang
 4. **PUSH TO REMOTE** - This is MANDATORY:
    ```bash
    git pull --rebase
-   bd dolt push
    git push
    git status  # MUST show "up to date with origin"
    ```
@@ -83,20 +82,26 @@ Committing unrelated work to an existing branch pollutes PRs, makes reverts dang
 - If push fails, resolve and retry until it succeeds
 
 
-## Local Agent Asset Bridge (`.claude/` and `.gemini/`)
+## Local Agent Asset Bridge (`.codex/`, `.claude/`, and `.gemini/`)
 
-These directories contain project-local agent instructions. Codex cannot natively install Claude/Gemini hooks or slash commands from them, so treat them as **manual operating instructions** for this repo.
+These directories contain project-local agent instructions. Codex may not
+automatically discover project-local `.codex/` skills unless the user config
+loads this repo path as a skill root. Claude/Gemini hooks and slash commands
+also cannot be natively installed by Codex. Treat these assets as **manual
+operating instructions** for this repo when they match the task.
 
 ### Resolution Order
 
 When these sources disagree, use this order:
 
 1. `AGENTS.md`
-2. `.claude/skills/` and `.claude/commands/`
-3. `.gemini/skills/` and `.gemini/commands/`
-4. `.claude/rules/`, `.claude/agents/`, `.claude/team-prompts/`, and hook docs as supporting context
+2. `.codex/skills/`
+3. `.claude/skills/` and `.claude/commands/`
+4. `.gemini/skills/` and `.gemini/commands/`
+5. `.claude/rules/`, `.claude/agents/`, `.claude/team-prompts/`, and hook docs as supporting context
 
 Notes:
+- Prefer `.codex/skills/` for Codex-specific project procedures.
 - Prefer `.claude/` over `.gemini/`. The inventories are nearly mirrored, but `.claude/` is the primary source in this repo.
 - Treat older references to `specs/` or legacy ADR paths inside local skill docs as historical if they conflict with the rules above. The current canonical locations remain `.specs/` and `.adr/`.
 
@@ -105,6 +110,7 @@ Notes:
 If the user invokes one of these names, or the task clearly matches one, open the matching local file and follow it directly:
 
 - **Mandatory workflow**: `hdd` (architectural decisions and new features)
+- **Preflight**: `source-of-truth-preflight` (canonical model inventory, illegal-state audit, and acceptance-to-enforcement mapping before domain/lifecycle/runtime work)
 - **Conditional protocols**: `ulysses-protocol` (2+ consecutive surprises), `theseus-protocol` (refactoring tasks)
 - **Implementation**: `implement`
 - **Peer notebook delivery**: `peer-notebook-delivery-guard` (ADR-022 large-unit boundaries, mock accountability, acceptance gates)
@@ -112,6 +118,7 @@ If the user invokes one of these names, or the task clearly matches one, open th
 - **Coordination and autonomy**: `team`, `hub-collab`, `deploy-team-hub`, `experiment`, `ulc-loop`, `loop-status`, `status`, `escalate`, `claude-prompt`
 
 Primary path pattern:
+- `.codex/skills/<skill-name>/SKILL.md`
 - `.claude/skills/<skill-name>/SKILL.md`
 
 Fallback path pattern:
@@ -170,93 +177,24 @@ Use these only when relevant to the task; do not bulk-load them by default:
 
 The intent is to inherit the project's accumulated operating context without pretending the Claude/Gemini runtime integrations are literally active in Codex.
 
-<!-- BEGIN BEADS INTEGRATION v:1 profile:full hash:d4f96305 -->
-## Issue Tracking with bd (beads)
+## Issue Tracking
 
-**IMPORTANT**: This project uses **bd (beads)** for ALL issue tracking. Do NOT use markdown TODOs, task lists, or other tracking methods.
+Use the tracker explicitly selected by the user for the current work. If no
+tracker is settled or the available integration cannot create/update issues,
+state that clearly and capture follow-ups in the session handoff or relevant
+spec artifact. Do not create a shadow tracker or fallback task system without
+explicit user approval.
 
-### Why bd?
+Before starting implementation work:
 
-- Dependency-aware: Track blockers and relationships between issues
-- Git-friendly: Dolt-powered version control with native sync
-- Agent-optimized: JSON output, ready work detection, discovered-from links
-- Prevents duplicate tracking systems and confusion
+1. Verify the branch and unit of work.
+2. Verify whether a tracker is in scope for this session.
+3. If tracker writes are required but unavailable, pause or ask for the exact
+   handoff/update format instead of silently falling back.
 
-### Quick Start
+Before ending implementation work:
 
-**Check for ready work:**
-
-```bash
-bd ready --json
-```
-
-**Create new issues:**
-
-```bash
-bd create "Issue title" --description="Detailed context" -t bug|feature|task -p 0-4 --json
-bd create "Issue title" --description="What this issue is about" -p 1 --deps discovered-from:bd-123 --json
-```
-
-**Claim and update:**
-
-```bash
-bd update <id> --claim --json
-bd update bd-42 --priority 1 --json
-```
-
-**Complete work:**
-
-```bash
-bd close bd-42 --reason "Completed" --json
-```
-
-### Issue Types
-
-- `bug` - Something broken
-- `feature` - New functionality
-- `task` - Work item (tests, docs, refactoring)
-- `epic` - Large feature with subtasks
-- `chore` - Maintenance (dependencies, tooling)
-
-### Priorities
-
-- `0` - Critical (security, data loss, broken builds)
-- `1` - High (major features, important bugs)
-- `2` - Medium (default, nice-to-have)
-- `3` - Low (polish, optimization)
-- `4` - Backlog (future ideas)
-
-### Workflow for AI Agents
-
-1. **Check ready work**: `bd ready` shows unblocked issues
-2. **Claim your task atomically**: `bd update <id> --claim`
-3. **Work on it**: Implement, test, document
-4. **Discover new work?** Create linked issue:
-   - `bd create "Found bug" --description="Details about what was found" -p 1 --deps discovered-from:<parent-id>`
-5. **Complete**: `bd close <id> --reason "Done"`
-
-### Auto-Sync
-
-bd automatically syncs via Dolt:
-
-- Each write auto-commits to Dolt history
-- Use `bd dolt push`/`bd dolt pull` for remote sync
-- No manual export/import needed!
-
-### Important Rules
-
-- ✅ Use bd for ALL task tracking
-- ✅ Always use `--json` flag for programmatic use
-- ✅ Link discovered work with `discovered-from` dependencies
-- ✅ Check `bd ready` before asking "what should I work on?"
-- ❌ Do NOT create markdown TODO lists
-- ❌ Do NOT use external issue trackers
-- ❌ Do NOT duplicate tracking systems
-
-For more details, see README.md and docs/QUICKSTART.md.
-
-Session completion is governed by the canonical "Landing the Plane" section
-above. It includes `bd dolt push` before `git push` so Git and Dolt state are
-both remote-synced.
-
-<!-- END BEADS INTEGRATION -->
+1. List any remaining follow-ups in the agreed tracker or handoff artifact.
+2. Update the relevant spec/handoff when code changes affect documented
+   behavior.
+3. Complete the canonical "Landing the Plane" workflow above.

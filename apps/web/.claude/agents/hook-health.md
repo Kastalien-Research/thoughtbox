@@ -48,7 +48,7 @@ Cross-reference: if the fitness tracker log shows pattern references but `fitnes
 Read the hook scripts themselves to identify potential failure modes:
 
 - Check for hardcoded paths that may not exist
-- Check for commands assumed to be available (`jq`, `bd`, etc.)
+- Check for commands assumed to be available (`jq`, the selected tracker, etc.)
 - Check for data sources referenced that may not exist
 - Check for race conditions (two hooks writing the same file)
 - Check timeout settings against actual execution time
@@ -67,7 +67,7 @@ Produce:
 | **Silent corruption** | Hook runs, produces wrong data | `eval_collector.sh` always returning `memory_usefulness: 5` |
 | **Silent skip** | Hook exits early without logging | Missing fitness file causes early `exit 0` |
 | **Data source drift** | Hook reads a file that changed format | Log file switched from JSON to plain text |
-| **Missing dependency** | Hook uses a command not installed | `bd` not available, `jq` not found |
+| **Missing dependency** | Hook uses a command not installed | the selected tracker not available, `jq` not found |
 | **Schema mismatch** | Hook output doesn't match consumer schema | fitness.json missing a field the DGM expects |
 
 ## Boundary Conditions
@@ -106,8 +106,4 @@ Downstream Repair:
 
 ## Issue Tracking
 
-Use `bd` for all task tracking:
-- `bd show <id>` to review the issue
-- `bd update <id> --status=in_progress` when starting
-- `bd close <id>` when diagnosis is complete
-- `bd create --title="..." --type=bug` for downstream state corruption that needs separate repair
+Use the tracker explicitly selected by the user for the current work. Do not use an unverified tracker CLI or legacy issue-storage remotes. If no tracker is settled or tracker writes are unavailable, report the needed follow-up in the session handoff instead of creating a fallback tracker.

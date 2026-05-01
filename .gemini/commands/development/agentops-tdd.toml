@@ -258,7 +258,7 @@ MODULE ORDER: state, trace, sources/rss, sources/repo, sources/collect,
 For each MODULE in order:
 
   1. READ: Read the relevant source file(s)
-     - agentops/runner/lib/{module}.ts (or subdirectory)
+     - agentops/runner/lib/{module}.ts (or sutrackerirectory)
      - Any types it imports from runner/types.ts or lib/sources/types.ts
 
   2. HYPOTHESIZE: Form testable hypotheses from specs + code analysis
