@@ -65,9 +65,6 @@ REASONING_PATTERNS_REPORT.md
 AGENT-EXPERIENCE-REPORT.md
 STATUS-*.md
 
-# Beads daemon logs
-.beads/daemon-*.log.gz
-
 # Srcbook development/testing files
 srcbook/
 *.src.md
@@ -144,8 +141,6 @@ dgm-specs/history/runs/*.json
 thoughtbox-web-two/
 .worktrees/
 
-# Dolt database files (added by bd init)
-.dolt/
 *.db
 
 

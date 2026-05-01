@@ -5,7 +5,7 @@ Use this prompt to start the next implementation session.
 ```markdown
 We are in the Thoughtbox repo on `main`.
 
-Goal: implement ADR-022 Part 1/5, **Durable Control Plane**, tracked by Beads
+Goal: implement ADR-022 Part 1/5, **Durable Control Plane**, tracked by user-selected tracker
 issue `thoughtbox-y4x`.
 
 First read:
@@ -36,7 +36,7 @@ Use the `peer-notebook-delivery-guard` skill. Classification:
   `MockPeerRuntimeProvider`.
 - Explicit non-goals: web app pages, manifest graduation from real notebooks,
   `local-process`, smolvm, direct/public runtime MCP.
-- Beads issue: `thoughtbox-y4x`.
+- Tracker reference: `thoughtbox-y4x`.
 
 Scope:
 
@@ -120,7 +120,7 @@ Before finishing:
 - Update `.specs/mcp-peer-notebooks/NEXT-IMPLEMENTATION-HANDOFF.md`.
 - Update README/spec/ADR if implementation changes the documented contract.
 - Complete the peer-notebook-delivery-guard report.
-- File Beads issues for any deferred artifact payload, RLS, retention, or web
+- File Tracker references for any deferred artifact payload, RLS, retention, or web
   app follow-up discovered during implementation.
 - Close `thoughtbox-y4x` only if durable control-plane acceptance is genuinely
   met.

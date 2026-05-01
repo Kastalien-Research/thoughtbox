@@ -121,19 +121,14 @@ Wait for user approval before proceeding.
 
 After user approves:
 
-   Set up dependencies between them:
-   ```bash
-   bd dep add <child-bead> <parent-bead>
-   ```
-
-2. **Update workflow state** (`.workflow/state.json`):
+1. **Update workflow state** (`.workflow/state.json`):
    - Set `stages.planning.status` to `"completed"`
    - Set `stages.planning.completedAt` to current ISO timestamp
    - Set `stages.planning.artifacts.plan` to `.workflow/plan.md`
    - Set `currentStage` to `"implementation"`
    - Update `updatedAt`
 
-3. **Present the handoff**:
+2. **Present the handoff**:
    ```
    PLANNING COMPLETE
    ==================

@@ -51,7 +51,7 @@ Hard rule:
 
 Every remaining unit must list each mock, in-memory store, stubbed provider, or
 local-only stand-in it touches and state whether that component was replaced,
-narrowed to test/non-production use, or deferred with a Beads follow-up.
+narrowed to test/non-production use, or deferred with a tracker follow-up.
 
 ## Remaining Large Units
 
@@ -89,7 +89,7 @@ Implemented:
   readback, workspace isolation, invalid args before dispatch, denied outbound
   trace persistence, and unknown trace invocation handling. These tests skip
   when local Supabase does not have the new peer schema applied.
-- Follow-up Beads issues filed:
+- Follow-up Tracker references filed:
   - `thoughtbox-kyc`: Add peer artifact retention enforcement.
   - `thoughtbox-a9f`: Add authenticated RLS coverage for peer notebook
     control-plane tables.

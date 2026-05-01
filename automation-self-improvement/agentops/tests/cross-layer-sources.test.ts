@@ -1,6 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { promises as fs } from 'fs';
-import { collectBeadsSignals } from '../runner/lib/sources/beads.js';
 import { collectAssumptionsSignals } from '../runner/lib/sources/assumptions.js';
 import { collectSessionHandoffSignals } from '../runner/lib/sources/session-handoff.js';
 import { parseJsonlSafe } from '../runner/lib/sources/jsonl.js';
@@ -41,105 +40,6 @@ describe('parseJsonlSafe', () => {
 
   it('returns empty array for empty input', () => {
     expect(parseJsonlSafe('')).toEqual([]);
-  });
-});
-
-// === Beads ===
-
-describe('collectBeadsSignals', () => {
-  const recentClose = new Date(
-    Date.now() - 2 * 60 * 60 * 1000
-  ).toISOString(); // 2h ago
-  const oldClose = new Date(
-    Date.now() - 48 * 60 * 60 * 1000
-  ).toISOString(); // 48h ago
-
-  const issuesJsonl = [
-    JSON.stringify({
-      id: 'tb-1',
-      title: 'Fix gateway timeout',
-      status: 'closed',
-      priority: 1,
-      issue_type: 'bug',
-      closed_at: recentClose,
-      close_reason: 'Fixed in PR #201',
-    }),
-    JSON.stringify({
-      id: 'tb-2',
-      title: 'Old closed issue',
-      status: 'closed',
-      priority: 2,
-      issue_type: 'task',
-      closed_at: oldClose,
-      close_reason: 'Done',
-    }),
-    JSON.stringify({
-      id: 'tb-3',
-      title: 'High priority open',
-      status: 'open',
-      priority: 1,
-      issue_type: 'feature',
-    }),
-    JSON.stringify({
-      id: 'tb-4',
-      title: 'Low priority open',
-      status: 'open',
-      priority: 4,
-      issue_type: 'chore',
-    }),
-  ].join('\n');
-
-  it('returns recently closed issues within lookback', async () => {
-    mockReadFile.mockResolvedValue(issuesJsonl);
-    const signals = await collectBeadsSignals({
-      closedLookbackHours: 24,
-      readyMaxPriority: 2,
-    });
-    const closed = signals.filter((s) => s.source === 'beads_closed');
-    expect(closed).toHaveLength(1);
-    expect(closed[0].title).toBe('Fix gateway timeout');
-  });
-
-  it('excludes closed issues outside lookback window', async () => {
-    mockReadFile.mockResolvedValue(issuesJsonl);
-    const signals = await collectBeadsSignals({
-      closedLookbackHours: 24,
-      readyMaxPriority: 2,
-    });
-    const titles = signals.map((s) => s.title);
-    expect(titles).not.toContain('Old closed issue');
-  });
-
-  it('returns open issues at or below priority threshold', async () => {
-    mockReadFile.mockResolvedValue(issuesJsonl);
-    const signals = await collectBeadsSignals({
-      closedLookbackHours: 24,
-      readyMaxPriority: 2,
-    });
-    const ready = signals.filter((s) => s.source === 'beads_ready');
-    expect(ready).toHaveLength(1);
-    expect(ready[0].title).toBe('High priority open');
-  });
-
-  it('excludes open issues above priority threshold', async () => {
-    mockReadFile.mockResolvedValue(issuesJsonl);
-    const signals = await collectBeadsSignals({
-      closedLookbackHours: 24,
-      readyMaxPriority: 2,
-    });
-    const titles = signals.map((s) => s.title);
-    expect(titles).not.toContain('Low priority open');
-  });
-
-  it('returns empty array when file missing', async () => {
-    mockReadFile.mockRejectedValue(
-      new Error('ENOENT: no such file')
-    );
-    const signals = await collectBeadsSignals({
-      closedLookbackHours: 24,
-      readyMaxPriority: 2,
-    });
-    expect(signals).toEqual([]);
   });
 });
 

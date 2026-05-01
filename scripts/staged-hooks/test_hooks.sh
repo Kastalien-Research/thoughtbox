@@ -59,51 +59,8 @@ assert_json_field() {
   fi
 }
 
-echo "=== Testing workflow_state_writer.sh ==="
-echo ""
-
-# Test 1: Claim creates state file
-echo "Test 1: Claim creates state file"
 export CLAUDE_PROJECT_DIR="$TEST_STATE_DIR"
-mkdir -p "$TEST_STATE_DIR/.claude/state/bead-workflow"
-make_json "Bash" "bd update thoughtbox-abc --claim" "✓ Updated issue: thoughtbox-abc" \
-  | "$SCRIPT_DIR/bead_workflow_state_writer.sh"
-assert_file_exists "$TEST_STATE_DIR/.claude/state/bead-workflow/current-bead.json" "state file created"
-assert_json_field "$TEST_STATE_DIR/.claude/state/bead-workflow/current-bead.json" ".bead_id" "thoughtbox-abc" "task_id correct"
-assert_json_field "$TEST_STATE_DIR/.claude/state/bead-workflow/current-bead.json" ".hypothesis_stated" "false" "hypothesis_stated is false"
-
-# Test 2: Notes sets hypothesis_stated
-echo "Test 2: Notes sets hypothesis_stated"
-make_json "Bash" "bd update thoughtbox-abc --notes=\"Hypothesis: test\"" "✓ Updated" \
-  | "$SCRIPT_DIR/bead_workflow_state_writer.sh"
-assert_json_field "$TEST_STATE_DIR/.claude/state/bead-workflow/current-bead.json" ".hypothesis_stated" "true" "hypothesis_stated is true"
-
-# Test 3: Edit to src/ clears test sentinel
-echo "Test 3: Edit clears test sentinel"
-touch "$TEST_STATE_DIR/.claude/state/bead-workflow/tests-passed-since-edit"
-make_json "Edit" "" "" "/project/src/foo.ts" \
-  | "$SCRIPT_DIR/bead_workflow_state_writer.sh"
-assert_file_missing "$TEST_STATE_DIR/.claude/state/bead-workflow/tests-passed-since-edit" "sentinel cleared"
-
-# Test 4: Passing vitest creates test sentinel
-echo "Test 4: Passing vitest creates sentinel"
-make_json "Bash" "npx vitest run" "43 passed" \
-  | "$SCRIPT_DIR/bead_workflow_state_writer.sh"
-assert_file_exists "$TEST_STATE_DIR/.claude/state/bead-workflow/tests-passed-since-edit" "sentinel created"
-
-# Test 5: Failing vitest does NOT create sentinel
-echo "Test 5: Failing vitest does not create sentinel"
-rm -f "$TEST_STATE_DIR/.claude/state/bead-workflow/tests-passed-since-edit"
-make_json "Bash" "npx vitest run" "2 FAIL 41 passed" \
-  | "$SCRIPT_DIR/bead_workflow_state_writer.sh"
-assert_file_missing "$TEST_STATE_DIR/.claude/state/bead-workflow/tests-passed-since-edit" "sentinel not created on FAIL"
-
-# Test 6: Close creates pending-validation
-echo "Test 6: Close creates pending-validation"
-make_json "Bash" "bd close thoughtbox-abc --reason=done" "✓ Closed thoughtbox-abc" \
-  | "$SCRIPT_DIR/bead_workflow_state_writer.sh"
-assert_file_exists "$TEST_STATE_DIR/.claude/state/bead-workflow/pending-validation.json" "pending-validation created"
-assert_file_missing "$TEST_STATE_DIR/.claude/state/bead-workflow/current-bead.json" "current-bead cleared"
+mkdir -p "$TEST_STATE_DIR/.claude/state/task-workflow"
 
 echo ""
 echo "=== Testing ulysses_state_writer.sh ==="
@@ -111,25 +68,25 @@ echo ""
 
 # Reset state for ulysses tests
 rm -rf "$TEST_STATE_DIR/.claude/state"
-mkdir -p "$TEST_STATE_DIR/.claude/state/bead-workflow"
+mkdir -p "$TEST_STATE_DIR/.claude/state/task-workflow"
 mkdir -p "$TEST_STATE_DIR/.claude/state/ulysses"
 
 # Create state with surprise_count
-jq -n '{bead_id: "thoughtbox-xyz", hypothesis_stated: true, surprise_count: 0}' \
-  > "$TEST_STATE_DIR/.claude/state/bead-workflow/current-bead.json"
+jq -n '{task_id: "thoughtbox-xyz", hypothesis_stated: true, surprise_count: 0}' \
+  > "$TEST_STATE_DIR/.claude/state/task-workflow/current-task.json"
 
 # Test 7: Command failure increments surprise_count
 echo "Test 7: Command failure increments surprise_count"
 jq -n '{tool_name: "Bash", tool_input: {command: "npx supabase db reset"}, tool_response: {stdout: "ERROR", stderr: "fail", exit_code: 1}}' \
   | "$SCRIPT_DIR/ulysses_state_writer.sh"
-assert_json_field "$TEST_STATE_DIR/.claude/state/bead-workflow/current-bead.json" ".surprise_count" "1" "surprise_count is 1"
+assert_json_field "$TEST_STATE_DIR/.claude/state/task-workflow/current-task.json" ".surprise_count" "1" "surprise_count is 1"
 assert_file_missing "$TEST_STATE_DIR/.claude/state/ulysses/reflect-required" "no reflect yet"
 
 # Test 8: Second failure creates reflect-required
 echo "Test 8: Second failure creates reflect-required"
 jq -n '{tool_name: "Bash", tool_input: {command: "npx supabase db reset"}, tool_response: {stdout: "ERROR again", stderr: "fail", exit_code: 1}}' \
   | "$SCRIPT_DIR/ulysses_state_writer.sh"
-assert_json_field "$TEST_STATE_DIR/.claude/state/bead-workflow/current-bead.json" ".surprise_count" "2" "surprise_count is 2"
+assert_json_field "$TEST_STATE_DIR/.claude/state/task-workflow/current-task.json" ".surprise_count" "2" "surprise_count is 2"
 assert_file_exists "$TEST_STATE_DIR/.claude/state/ulysses/reflect-required" "reflect-required created"
 
 # Test 9: REFLECT clears sentinel and resets count
@@ -137,7 +94,7 @@ echo "Test 9: REFLECT clears sentinel"
 make_json "Bash" "ulysses reflect --hypothesis test" "Reflected" \
   | "$SCRIPT_DIR/ulysses_state_writer.sh"
 assert_file_missing "$TEST_STATE_DIR/.claude/state/ulysses/reflect-required" "sentinel cleared"
-assert_json_field "$TEST_STATE_DIR/.claude/state/bead-workflow/current-bead.json" ".surprise_count" "0" "surprise_count reset"
+assert_json_field "$TEST_STATE_DIR/.claude/state/task-workflow/current-task.json" ".surprise_count" "0" "surprise_count reset"
 
 echo ""
 echo "=== Results: $PASS passed, $FAIL failed ==="

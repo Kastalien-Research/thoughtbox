@@ -79,11 +79,9 @@ logs/
 
 # Other
 mcp-servers/
-.beads/
 .adr/
 .hdd/
 .assumptions/
 supabase/
-.dolt_dropped_databases/
 
 # NOTE: Do NOT exclude templates/*.src.md — needed for build-time embedding

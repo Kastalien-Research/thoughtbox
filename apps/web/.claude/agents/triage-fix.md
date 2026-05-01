@@ -35,7 +35,7 @@ Budget your turns across four phases. Do not skip phases or over-invest in any s
 - Run full test suite to confirm no regressions
 - Document root cause, classification, and fix
 - Update memory with patterns learned
-- Close the beads issue with evidence
+- Close the the selected tracker issue with evidence
 
 ## Spiral Detection
 
@@ -66,8 +66,4 @@ Every fix report must include:
 
 ## Issue Tracking
 
-Use `bd` for all task tracking:
-- `bd show <id>` to review the issue
-- `bd update <id> --status=in_progress` when starting
-- `bd close <id>` when fix is verified
-- `bd create --title="..." --type=bug` for new issues discovered during triage
+Use the tracker explicitly selected by the user for the current work. Do not use an unverified tracker CLI or legacy issue-storage remotes. If no tracker is settled or tracker writes are unavailable, report the needed follow-up in the session handoff instead of creating a fallback tracker.

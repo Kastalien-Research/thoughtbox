@@ -17,7 +17,7 @@ Check each execution layer:
 **Interactive Layer**:
 1. Current session info from `.claude/state/` files
 2. Recent session handoffs from `.sessions/handoff-*.json` (last 3)
-3. Active beads: `bd list --status=in_progress`
+3. Active the selected tracker: the selected issue list
 
 **AgentOps (Daily) Layer**:
 1. Check for recent AgentOps runs: look for `agentops/runs/` artifacts
@@ -50,7 +50,7 @@ For each layer, determine:
 - Phase: {Observe|Orient|Decide|Act}
 - Active session: {session_id or "none"}
 - Recent handoffs: {N} in last 7 days
-- Active beads: {N}
+- Active the selected tracker: {N}
 - Knowledge produced: {N} new patterns/observations
 
 ### AgentOps Layer (Daily Loop)

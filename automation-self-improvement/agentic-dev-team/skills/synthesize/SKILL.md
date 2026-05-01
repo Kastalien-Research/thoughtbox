@@ -20,7 +20,7 @@ Identify relevant knowledge sources across these categories:
 | **Documentation** | Specs, READMEs, ADRs, API docs in the repo |
 | **Memory** | `.claude/` project memory, agent memory, previous learnings |
 | **External research** | WebSearch, Exa for papers, blog posts, community discussion |
-| **Issue history** | `bd list`, closed issues, decision rationale |
+| **Issue history** | `tracker list`, closed issues, decision rationale |
 
 Scan at least 3 source types. Don't rely on a single category.
 

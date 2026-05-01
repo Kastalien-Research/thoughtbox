@@ -28,8 +28,8 @@ See @loops/README.md for the full loop library.
 1. Run `git log --oneline -20` to see recent commits this session
 2. Run `git status` to see uncommitted work
 3. Run `git diff --stat` to see scope of changes
-4. Run `bd list --status=in_progress` to see active work items
-5. Run `bd list --status=open` to see remaining work
+4. Run the selected issue list to see active work items
+5. Run the selected issue list to see remaining work
 6. Check `.claude/state/memory-calibration.json` for pattern detection state
 7. Read MEMORY.md for any updates made this session
 
@@ -51,7 +51,7 @@ Write the session summary to `.claude/session-handoff.json` (single file, overwr
 ```json
 {
   "version": "1.0.0",
-  "session_id": "<from git or beads>",
+  "session_id": "<from git or the selected tracker>",
   "timestamp": "<ISO 8601>",
   "branch": "<current git branch>",
   "duration_estimate": "<approximate session duration>",
@@ -77,12 +77,12 @@ Write the session summary to `.claude/session-handoff.json` (single file, overwr
       "description": "<what was started>",
       "status": "<how far along>",
       "resume_from": "<specific file:line or commit to resume from>",
-      "beads_id": "<if tracked in beads>"
+      "the selected tracker_id": "<if tracked in the selected tracker>"
     }
   ],
   "knowledge_references": [
     {
-      "store": "<MEMORY.md | Thoughtbox | Beads | git>",
+      "store": "<MEMORY.md | Thoughtbox | the selected tracker | git>",
       "reference": "<specific entity/issue/commit>",
       "relevance": "<why the next session needs this>"
     }
@@ -111,7 +111,7 @@ Write the session summary to `.claude/session-handoff.json` (single file, overwr
 1. Verify the handoff file was written successfully
 2. Print a human-readable summary to the console
 3. If there are uncommitted changes, warn about them
-4. Suggest `bd sync --from-main` if on an ephemeral branch
+4. Suggest the selected issue sync operation if on an ephemeral branch
 
 ## Output
 
@@ -123,7 +123,7 @@ Present a concise summary:
 File: .claude/session-handoff.json
 Branch: {branch}
 Commits this session: {N}
-Active beads: {N}
+Active the selected tracker: {N}
 Open hypotheses: {N}
 Partial work items: {N}
 

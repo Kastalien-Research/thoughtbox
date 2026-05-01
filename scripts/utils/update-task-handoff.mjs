@@ -1,18 +1,18 @@
 #!/usr/bin/env node
 /**
- * update-bead-handoff.mjs
+ * update-task-handoff.mjs
  *
- * Updates .claude/session-handoff.json with bead progress.
- * Called after each bead close to maintain cross-session continuity.
+ * Updates .claude/session-handoff.json with task progress.
+ * Called after each task close to maintain cross-session continuity.
  *
- * Usage: node update-bead-handoff.mjs --closed="thoughtbox-0ya.1,thoughtbox-0ya.2"
+ * Usage: node update-task-handoff.mjs --closed="thoughtbox-0ya.1,thoughtbox-0ya.2"
  *
  * Preserves all existing handoff fields. Only updates:
- * - bead_progress.completed (appends)
- * - bead_progress.remaining (from bd ready)
- * - bead_progress.blocked (from bd blocked)
- * - bead_progress.surprise_counts (per-bead failure tracking)
- * - bead_progress.last_updated
+ * - task_progress.completed (appends)
+ * - task_progress.remaining (left unchanged unless already present)
+ * - task_progress.blocked (left unchanged unless already present)
+ * - task_progress.surprise_counts (per-task failure tracking)
+ * - task_progress.last_updated
  * - git (automatic capture)
  */
 
@@ -76,47 +76,6 @@ function captureGitState() {
   }
 }
 
-function getBeadState() {
-  const ready = [];
-  const blocked = [];
-
-  const readyOutput = exec("bd ready --json 2>/dev/null") || "[]";
-  try {
-    const items = JSON.parse(readyOutput);
-    if (Array.isArray(items)) {
-      for (const item of items) {
-        ready.push({
-          id: item.id,
-          title: item.title,
-          priority: item.priority,
-        });
-      }
-    }
-  } catch {
-    // parse failure — leave empty
-  }
-
-  const blockedOutput = exec("bd blocked --json 2>/dev/null") || "[]";
-  try {
-    const items = JSON.parse(blockedOutput);
-    if (Array.isArray(items)) {
-      for (const item of items) {
-        blocked.push({
-          id: item.id,
-          title: item.title,
-          blocked_by: item.dependencies
-            ?.filter((d) => d.type === "blocks")
-            ?.map((d) => d.target) || [],
-        });
-      }
-    }
-  } catch {
-    // parse failure — leave empty
-  }
-
-  return { ready, blocked };
-}
-
 function main() {
   const { closed } = parseArgs();
 
@@ -127,7 +86,7 @@ function main() {
     // start fresh
   }
 
-  const prev = existing.bead_progress || {};
+  const prev = existing.task_progress || {};
   const prevCompleted = prev.completed || [];
   const prevSurprises = prev.surprise_counts || {};
 
@@ -136,7 +95,8 @@ function main() {
     ...closed.filter((id) => !prevCompleted.includes(id)),
   ];
 
-  const { ready, blocked } = getBeadState();
+  const ready = Array.isArray(prev.remaining) ? prev.remaining : [];
+  const blocked = Array.isArray(prev.blocked) ? prev.blocked : [];
 
   const handoff = {
     ...existing,
@@ -144,7 +104,7 @@ function main() {
     timestamp: new Date().toISOString(),
     session_id: process.env.CLAUDE_SESSION_ID || "unknown",
     git: captureGitState(),
-    bead_progress: {
+    task_progress: {
       epic: "thoughtbox-0ya",
       completed: newCompleted,
       remaining: ready,
@@ -169,13 +129,13 @@ function main() {
   const total =
     newCompleted.length + ready.length + blocked.length;
   console.log(
-    `[handoff] Updated: ${newCompleted.length}/${total} beads complete. ${blocked.length} blocked. ${ready.length} ready.`
+    `[handoff] Updated: ${newCompleted.length}/${total} tasks complete. ${blocked.length} blocked. ${ready.length} ready.`
   );
 }
 
 try {
   main();
 } catch (e) {
-  console.error("[update-bead-handoff]", e?.message || e);
+  console.error("[update-task-handoff]", e?.message || e);
   process.exit(0);
 }

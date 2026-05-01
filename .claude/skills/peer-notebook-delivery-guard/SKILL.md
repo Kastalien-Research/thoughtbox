@@ -54,7 +54,7 @@ be either:
 
 1. replaced by a real implementation behind the same contract,
 2. narrowed to test-only/non-production use by code and docs, or
-3. explicitly deferred with a Beads issue that names the real replacement.
+3. explicitly deferred in the user-selected tracker or handoff artifact with the real replacement named.
 
 If a mock fulfills the function of the thing it mocks in a final acceptance
 claim, the unit is not complete.
@@ -72,8 +72,7 @@ combined effort.
 | Real Runtime Provider Path | `local-process` integration provider behind runtime contract, marked development-only | Production isolation claims |
 | Production Isolation And Policy Hardening | Isolated execution provider, enforced network/filesystem/secrets/budget policy, adversarial acceptance | Treating local-process or mock as production |
 
-If work crosses a unit boundary, stop and create/link Beads issues for the
-extra unit before proceeding.
+If work crosses a unit boundary, stop and record/link follow-up work in the user-selected tracker or handoff artifact before proceeding.
 
 ## Workflow
 
@@ -88,11 +87,10 @@ Spec sections touched:
 Production capability expected:
 Mocks/in-memory components involved:
 Explicit non-goals:
-Beads issue:
+Tracker/handoff reference:
 ```
 
-If there is no Beads issue, create one with `bd create ... --json`, claim it,
-and link discovered follow-ups with `discovered-from`.
+If there is no tracker reference and tracker writes are in scope, create or request one. If tracker writes are unavailable, record the gap in the handoff and do not create a fallback tracker.
 
 ### 2. Define Acceptance Before Code
 
@@ -111,7 +109,7 @@ Avoid acceptance phrased only as "implemented support for X."
 
 Before code review or completion, produce this table:
 
-| Component | Real Capability It Stands In For | Current Scope | Replaced/Narrowed/Deferred | Beads Follow-Up |
+| Component | Real Capability It Stands In For | Current Scope | Replaced/Narrowed/Deferred | Tracker/Handoff Follow-Up |
 | --- | --- | --- | --- | --- |
 | `MockPeerRuntimeProvider` | Runtime execution provider | test/pilot | deferred | `thoughtbox-...` |
 
@@ -224,7 +222,7 @@ End with:
 Peer Notebook Delivery Guard Report
 
 Unit:
-Beads issue:
+Tracker/handoff reference:
 ADR/spec alignment:
 Mocks touched:
 Mock accountability:

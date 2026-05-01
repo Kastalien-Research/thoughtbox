@@ -8,8 +8,8 @@
   _fp=$(echo "$tool_input" | jq -r '.file_path // ""')
   echo "_fp=$_fp"
   echo "matches_src=$([[ "$_fp" == */src/* ]] && echo YES || echo NO)"
-  echo "state_file_exists=$(test -f "${PROJECT_DIR}/.claude/state/bead-workflow/current-bead.json" && echo YES || echo NO)"
-  if [[ -f "${PROJECT_DIR}/.claude/state/bead-workflow/current-bead.json" ]]; then
-    echo "hypothesis=$(jq -r '.hypothesis_stated' "${PROJECT_DIR}/.claude/state/bead-workflow/current-bead.json")"
+  echo "state_file_exists=$(test -f "${PROJECT_DIR}/.claude/state/task-workflow/current-task.json" && echo YES || echo NO)"
+  if [[ -f "${PROJECT_DIR}/.claude/state/task-workflow/current-task.json" ]]; then
+    echo "hypothesis=$(jq -r '.hypothesis_stated' "${PROJECT_DIR}/.claude/state/task-workflow/current-task.json")"
   fi
 } >> /tmp/hypothesis-debug.txt
