@@ -1,11 +1,15 @@
 # MCP Peer Notebooks Implementation Handoff
 
-**Status**: Durable control-plane implementation handoff for ADR-022 remaining implementation
+**Status**: ADR-022 Part 2/5 implementation handoff
 **Date**: 2026-04-30
 **Governing ADR/spec**: ADR-022 and `SPEC-CONTROL-PLANE.md`
 **Merged pilot branch**: `feat/peer-notebook-mcp-surface`
-**Implemented unit**: ADR-022 Part 1/5 Durable Control Plane (`thoughtbox-y4x`)
-**Next unit**: ADR-022 Part 2/5 Manifest Lifecycle And Notebook Graduation (`thoughtbox-g5t`)
+**Implemented units**:
+
+- ADR-022 Part 1/5 Durable Control Plane (`thoughtbox-y4x`)
+- ADR-022 Part 2/5 Manifest Lifecycle And Notebook Graduation (`thoughtbox-g5t`)
+
+**Next unit**: ADR-022 Part 3/5 Web App Inspection Surface (`thoughtbox-2ot`)
 
 ## Merged Baseline
 
@@ -40,6 +44,10 @@ The baseline includes the MCP-facing peer notebook surface:
   `THOUGHTBOX_PROJECT`, and `SUPABASE_URL` plus
   `SUPABASE_SERVICE_ROLE_KEY` are present; otherwise it preserves in-memory
   behavior.
+- Durable artifact list/read paths return repository-contract peer slugs rather
+  than Supabase UUID foreign keys.
+- Supabase artifact writes validate invocation workspace/peer ownership before
+  uploading payloads to Storage.
 
 ## Delivery Guard
 
@@ -87,8 +95,10 @@ Implemented:
 - Workspace-scoped hosted wiring in `createMcpServer`.
 - Supabase integration tests for durable seed -> invoke -> trace -> artifact
   readback, workspace isolation, invalid args before dispatch, denied outbound
-  trace persistence, and unknown trace invocation handling. These tests skip
-  when local Supabase does not have the new peer schema applied.
+  trace persistence, unknown trace invocation handling, atomic concurrent trace
+  sequence allocation, hosted env-derived Supabase activation, peer slug
+  read-model consistency, and pre-upload artifact scope validation. These tests
+  skip when local Supabase does not have the new peer schema applied.
 - Follow-up Beads issues filed:
   - `thoughtbox-kyc`: Add peer artifact retention enforcement.
   - `thoughtbox-a9f`: Add authenticated RLS coverage for peer notebook
@@ -103,22 +113,58 @@ Spec-convention adjustments made in `SPEC-CONTROL-PLANE.md`:
 - `storage_bucket='peer-artifacts'`; `storage_path` stores the object path
   inside that bucket.
 
+## Part 2/5 Manifest Lifecycle Outcome
+
+Implemented:
+
+- Internal `PeerManifestLifecycleService` for notebook-derived manifest
+  compilation and approval/activation. The public `thoughtbox_peer_notebook`
+  MCP operation set is unchanged.
+- v0 filename-cell adapter that extracts cells/files named
+  `peer.manifest.json` into neutral `ManifestDraftSource` records without
+  executing notebook code. This adapter is intentionally replaceable by a future
+  first-class manifest cell type.
+- Draft persistence through the existing peer notebook repository contract.
+- Repository lifecycle methods for listing peer manifests and explicit
+  approve+activate.
+- Supabase migration
+  `supabase/migrations/20260430020000_add_peer_manifest_activation_rpc.sql`
+  with `approve_and_activate_peer_manifest(...)` to retire the prior active
+  manifest, mark the target active with `approved_by`/`approved_at`, and update
+  `peer_notebooks.active_manifest_id` atomically.
+- In-memory lifecycle parity for local/test use.
+- Tests proving malformed JSON rejection, duplicate source rejection, stable
+  canonical hashes, draft invocation denial, explicit activation, active hash
+  persistence on invocation, draft capability expansion denial, and prior active
+  retirement.
+
+Important decisions:
+
+- Approval authority is modeled as workspace-admin/control-plane authority. The
+  internal API requires a concrete `approvedBy` actor string and persists it for
+  audit; it does not add a web UI or end-user permission model.
+- The static `claim-extractor` bootstrap remains a pilot fallback only and does
+  not satisfy notebook-derived lifecycle acceptance.
+
 ## Next Scope Lock
 
-The next implementation unit is **Manifest Lifecycle And Notebook Graduation**.
+The next implementation unit is **Web App Inspection Surface**.
 
 Do:
 
-- Compile `peer.manifest.json` from actual notebook sources without executing
-  notebook code.
-- Store draft manifests durably.
-- Add explicit approval/activation/retirement flow.
-- Enforce active manifest hash at invocation.
-- Prove notebook edits do not silently change active capabilities.
+- Build peer registry/detail and invocation inspection views in the Next.js web
+  app.
+- Read peer, manifest, invocation, trace, and artifact state from durable
+  Supabase rows.
+- Show denied outbound calls in the trace timeline.
+- Use artifact metadata/previews for list/detail views without unbounded payload
+  downloads.
+- Preserve the broker/runtime/lifecycle contracts unless ADR/spec changes are
+  explicit.
 
 Do not:
 
-- Build full web app inspection pages.
 - Implement `local-process`.
 - Implement smolvm or production isolation.
 - Add direct/public runtime MCP.
+- Read mock/local peer state for production web acceptance.

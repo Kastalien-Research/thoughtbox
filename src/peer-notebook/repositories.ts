@@ -16,6 +16,8 @@ export interface PeerNotebookRepository {
   getPeerByPeerId(workspaceId: string, peerId: string): Promise<PeerNotebookRecord | null>;
   saveManifest(manifest: PeerManifestRecord): Promise<void>;
   getManifest(workspaceId: string, manifestId: string): Promise<PeerManifestRecord | null>;
+  listManifestsForPeer(workspaceId: string, peerRecordId: string): Promise<PeerManifestRecord[]>;
+  approveAndActivateManifest(input: ApproveAndActivateManifestInput): Promise<void>;
   saveInvocation(invocation: PeerInvocationRecord): Promise<void>;
   updateInvocation(invocation: PeerInvocationRecord): Promise<void>;
   getInvocation(workspaceId: string, invocationId: string): Promise<PeerInvocationRecord | null>;
@@ -38,6 +40,14 @@ export interface SaveArtifactInput {
   mimeType: string;
   content: JsonValue;
   preview?: JsonValue;
+}
+
+export interface ApproveAndActivateManifestInput {
+  workspaceId: string;
+  peerId: string;
+  manifestId: string;
+  approvedBy: string;
+  approvedAt?: string;
 }
 
 // Local/test repository. Hosted workspace mode uses SupabasePeerNotebookRepository
@@ -63,6 +73,57 @@ export class InMemoryPeerNotebookRepository implements PeerNotebookRepository {
 
   async getManifest(workspaceId: string, manifestId: string): Promise<PeerManifestRecord | null> {
     return this.manifests.get(manifestKey(workspaceId, manifestId)) ?? null;
+  }
+
+  async listManifestsForPeer(workspaceId: string, peerRecordId: string): Promise<PeerManifestRecord[]> {
+    return [...this.manifests.values()]
+      .filter(manifest => manifest.workspaceId === workspaceId && manifest.peerRecordId === peerRecordId)
+      .sort((left, right) => left.version - right.version);
+  }
+
+  async approveAndActivateManifest(input: ApproveAndActivateManifestInput): Promise<void> {
+    const approvedBy = input.approvedBy.trim();
+    if (!approvedBy) {
+      throw new PeerNotebookError("invalid_args", "approveAndActivateManifest requires approvedBy");
+    }
+
+    const peer = await this.getPeerByPeerId(input.workspaceId, input.peerId);
+    if (!peer) {
+      throw new PeerNotebookError("peer_not_found", `Peer ${input.peerId} does not exist`);
+    }
+
+    const manifest = await this.getManifest(input.workspaceId, input.manifestId);
+    if (!manifest || manifest.peerRecordId !== peer.id) {
+      throw new PeerNotebookError("manifest_not_active", `Manifest ${input.manifestId} does not belong to ${input.peerId}`);
+    }
+    if (!["draft", "approved", "active"].includes(manifest.status)) {
+      throw new PeerNotebookError("manifest_not_active", `Manifest ${input.manifestId} is ${manifest.status}`);
+    }
+
+    const approvedAt = input.approvedAt ?? new Date().toISOString();
+    const currentActiveId = peer.activeManifestId;
+    if (currentActiveId && currentActiveId !== manifest.id) {
+      const currentActive = await this.getManifest(input.workspaceId, currentActiveId);
+      if (currentActive?.status === "active") {
+        await this.saveManifest({
+          ...currentActive,
+          status: "retired",
+        });
+      }
+    }
+
+    await this.saveManifest({
+      ...manifest,
+      status: "active",
+      approvedBy,
+      approvedAt,
+    });
+    await this.savePeer({
+      ...peer,
+      status: "active",
+      activeManifestId: manifest.id,
+      updatedAt: approvedAt,
+    });
   }
 
   async saveInvocation(invocation: PeerInvocationRecord): Promise<void> {

@@ -99,6 +99,8 @@ export interface PeerNotebookRecord {
   peerId: string;
   displayName: string;
   description?: string;
+  sourceNotebookRef?: JsonValue;
+  createdBy?: string | null;
   status: PeerNotebookStatus;
   activeManifestId: string | null;
   createdAt: string;
@@ -116,6 +118,9 @@ export interface PeerManifestRecord {
   manifestHash: string;
   status: PeerManifestStatus;
   compiledFrom: CompiledPeerManifest["compiledFrom"];
+  createdBy?: string | null;
+  approvedBy?: string | null;
+  approvedAt?: string | null;
   createdAt: string;
 }
 

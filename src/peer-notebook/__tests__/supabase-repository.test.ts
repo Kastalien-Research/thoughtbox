@@ -2,10 +2,13 @@ import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import {
   createPeerBroker,
   MockPeerRuntimeProvider,
+  PeerManifestLifecycleService,
   PeerNotebookHandler,
   PeerNotebookTool,
+  type PeerManifest,
   SupabasePeerNotebookRepository,
 } from "../index.js";
+import type { Notebook } from "../../notebook/types.js";
 import {
   createServiceClient,
   ensureTestWorkspace,
@@ -17,21 +20,24 @@ import {
 const SECOND_WORKSPACE_ID = "22222222-2222-4222-8222-222222222222";
 
 describe("SupabasePeerNotebookRepository", () => {
-  let available = false;
+  let availability: SupabasePeerNotebookAvailability = {
+    available: false,
+    reason: "not checked",
+  };
 
   beforeAll(async () => {
-    available = await isSupabaseAvailable() && await isPeerNotebookSchemaAvailable();
+    availability = await getSupabasePeerNotebookAvailability();
   });
 
   beforeEach(async () => {
-    if (!available) return;
+    if (!availability.available) return;
     await ensureTestWorkspace();
     await ensureWorkspace(SECOND_WORKSPACE_ID);
     await truncatePeerNotebookTables();
   });
 
   it("persists the durable seed -> invoke -> trace -> artifact MCP flow", async ({ skip }) => {
-    if (!available) skip();
+    if (skipIfSupabaseUnavailable(skip, availability)) return;
     const provider = new MockPeerRuntimeProvider();
     const repository = new SupabasePeerNotebookRepository(getTestSupabaseConfig());
     const tool = new PeerNotebookTool(new PeerNotebookHandler({
@@ -102,7 +108,7 @@ describe("SupabasePeerNotebookRepository", () => {
   });
 
   it("keeps artifacts workspace-scoped", async ({ skip }) => {
-    if (!available) skip();
+    if (skipIfSupabaseUnavailable(skip, availability)) return;
     const repository = new SupabasePeerNotebookRepository(getTestSupabaseConfig());
     const tool = new PeerNotebookTool(new PeerNotebookHandler({
       repository,
@@ -124,7 +130,7 @@ describe("SupabasePeerNotebookRepository", () => {
   });
 
   it("rejects invalid args before runtime dispatch in Supabase mode", async ({ skip }) => {
-    if (!available) skip();
+    if (skipIfSupabaseUnavailable(skip, availability)) return;
     const provider = new MockPeerRuntimeProvider();
     const repository = new SupabasePeerNotebookRepository(getTestSupabaseConfig());
     const tool = new PeerNotebookTool(new PeerNotebookHandler({
@@ -143,7 +149,7 @@ describe("SupabasePeerNotebookRepository", () => {
   });
 
   it("does not forward denied outbound calls and stores the denial durably", async ({ skip }) => {
-    if (!available) skip();
+    if (skipIfSupabaseUnavailable(skip, availability)) return;
     const provider = new MockPeerRuntimeProvider();
     const repository = new SupabasePeerNotebookRepository(getTestSupabaseConfig());
     const handler = new PeerNotebookHandler({
@@ -183,7 +189,7 @@ describe("SupabasePeerNotebookRepository", () => {
   });
 
   it("allocates trace seq values atomically under concurrent appends", async ({ skip }) => {
-    if (!available) skip();
+    if (skipIfSupabaseUnavailable(skip, availability)) return;
     const repository = new SupabasePeerNotebookRepository(getTestSupabaseConfig());
     const handler = new PeerNotebookHandler({
       repository,
@@ -217,7 +223,7 @@ describe("SupabasePeerNotebookRepository", () => {
   });
 
   it("rejects cross-workspace artifact writes before uploading storage payloads", async ({ skip }) => {
-    if (!available) skip();
+    if (skipIfSupabaseUnavailable(skip, availability)) return;
     const repository = new SupabasePeerNotebookRepository(getTestSupabaseConfig());
     const handler = new PeerNotebookHandler({
       repository,
@@ -258,8 +264,117 @@ describe("SupabasePeerNotebookRepository", () => {
     expect(await listStorageObjectPaths(attemptedStoragePrefix)).toEqual([]);
   });
 
+  it("persists notebook-derived manifest drafts and activates them atomically", async ({ skip }) => {
+    if (skipIfSupabaseUnavailable(skip, availability)) return;
+    const repository = new SupabasePeerNotebookRepository(getTestSupabaseConfig());
+    const provider = new MockPeerRuntimeProvider();
+    const service = new PeerManifestLifecycleService({
+      repository,
+      idGenerator: createIdGenerator([
+        "55555555-5555-4555-8555-555555555555",
+        "66666666-6666-4666-8666-666666666666",
+        "77777777-7777-4777-8777-777777777777",
+      ]),
+      now: () => new Date("2026-04-30T12:00:00.000Z"),
+    });
+
+    const v1 = await service.compileDraftFromNotebook({
+      workspaceId: TEST_WORKSPACE_ID,
+      notebook: notebookWithManifest(baseNotebookManifest()),
+      createdBy: "test:manifest-compiler",
+    });
+
+    await expect(createPeerBroker({
+      workspaceId: TEST_WORKSPACE_ID,
+      repository,
+      runtimeProviders: { mock: provider },
+    }).peer.invoke({
+      peerId: "supabase-notebook-claim-extractor",
+      tool: "extract_claims",
+      args: { textArtifactId: "88888888-8888-4888-8888-888888888888" },
+    })).rejects.toMatchObject({ code: "peer_not_active" });
+    expect(provider.invocations).toHaveLength(0);
+
+    await service.approveAndActivateManifest({
+      workspaceId: TEST_WORKSPACE_ID,
+      peerId: "supabase-notebook-claim-extractor",
+      manifestId: v1.manifest.id,
+      approvedBy: "user:workspace-admin",
+      approvedAt: "2026-04-30T12:01:00.000Z",
+    });
+
+    const activePeer = await repository.getPeerByPeerId(TEST_WORKSPACE_ID, "supabase-notebook-claim-extractor");
+    const activeManifest = await repository.getManifest(TEST_WORKSPACE_ID, v1.manifest.id);
+    expect(activePeer).toMatchObject({
+      status: "active",
+      activeManifestId: v1.manifest.id,
+      sourceNotebookRef: {
+        kind: "notebook",
+        adapter: "filename-cell-v0",
+        notebookId: "nb_supabase_notebook_claim_extractor",
+        sourceName: "peer.manifest.json",
+      },
+    });
+    expect(activeManifest).toMatchObject({
+      status: "active",
+      approvedBy: "user:workspace-admin",
+      approvedAt: "2026-04-30T12:01:00+00:00",
+    });
+
+    await repository.saveArtifactInput({
+      id: "88888888-8888-4888-8888-888888888888",
+      workspaceId: TEST_WORKSPACE_ID,
+      invocationId: null,
+      peerRecordId: null,
+      peerId: null,
+      kind: "json",
+      name: "input.txt",
+      mimeType: "text/plain",
+      content: { text: "First claim. Second claim." },
+    });
+
+    const invoked = await createPeerBroker({
+      workspaceId: TEST_WORKSPACE_ID,
+      repository,
+      runtimeProviders: { mock: provider },
+    }).peer.invoke({
+      peerId: "supabase-notebook-claim-extractor",
+      tool: "extract_claims",
+      args: { textArtifactId: "88888888-8888-4888-8888-888888888888" },
+    });
+    const invocation = await repository.getInvocation(TEST_WORKSPACE_ID, invoked.invocationId);
+    expect(invoked.manifestHash).toBe(v1.manifest.manifestHash);
+    expect(invocation?.manifestHash).toBe(v1.manifest.manifestHash);
+
+    const v2 = await service.compileDraftFromNotebook({
+      workspaceId: TEST_WORKSPACE_ID,
+      notebook: notebookWithManifest(baseNotebookManifest({
+        extraTools: [{
+          name: "expanded_tool",
+          description: "Unapproved expansion",
+          inputSchema: { type: "object", additionalProperties: false },
+          outputSchema: { type: "object", additionalProperties: false },
+        }],
+      })),
+    });
+    expect((await repository.getManifest(TEST_WORKSPACE_ID, v2.manifest.id))?.status).toBe("draft");
+
+    await service.approveAndActivateManifest({
+      workspaceId: TEST_WORKSPACE_ID,
+      peerId: "supabase-notebook-claim-extractor",
+      manifestId: v2.manifest.id,
+      approvedBy: "user:workspace-admin",
+      approvedAt: "2026-04-30T12:02:00.000Z",
+    });
+
+    expect((await repository.getManifest(TEST_WORKSPACE_ID, v1.manifest.id))?.status).toBe("retired");
+    expect((await repository.getManifest(TEST_WORKSPACE_ID, v2.manifest.id))?.status).toBe("active");
+    expect((await repository.getPeerByPeerId(TEST_WORKSPACE_ID, "supabase-notebook-claim-extractor"))?.activeManifestId)
+      .toBe(v2.manifest.id);
+  });
+
   it("returns invocation_not_found for unknown trace invocation reads", async ({ skip }) => {
-    if (!available) skip();
+    if (skipIfSupabaseUnavailable(skip, availability)) return;
     const repository = new SupabasePeerNotebookRepository(getTestSupabaseConfig());
     const tool = new PeerNotebookTool(new PeerNotebookHandler({
       repository,
@@ -273,6 +388,36 @@ describe("SupabasePeerNotebookRepository", () => {
   });
 });
 
+type SupabasePeerNotebookAvailability =
+  | { available: true; reason: null }
+  | { available: false; reason: string };
+
+async function getSupabasePeerNotebookAvailability(): Promise<SupabasePeerNotebookAvailability> {
+  if (!await isSupabaseAvailable()) {
+    return { available: false, reason: "local Supabase REST API is unavailable" };
+  }
+  if (!await isPeerNotebookSchemaAvailable()) {
+    return { available: false, reason: "peer notebook tables are not migrated locally" };
+  }
+  if (!await isPeerNotebookActivationRpcAvailable()) {
+    return { available: false, reason: "approve_and_activate_peer_manifest RPC is not migrated or PostgREST cache is stale" };
+  }
+  return { available: true, reason: null };
+}
+
+function skipIfSupabaseUnavailable(
+  skip: () => void,
+  availability: SupabasePeerNotebookAvailability,
+): availability is { available: false; reason: string } {
+  if (availability.available) {
+    return false;
+  }
+
+  console.warn(`Skipping SupabasePeerNotebookRepository tests: ${availability.reason}`);
+  skip();
+  return true;
+}
+
 async function isPeerNotebookSchemaAvailable(): Promise<boolean> {
   try {
     const { error } = await createServiceClient()
@@ -280,6 +425,21 @@ async function isPeerNotebookSchemaAvailable(): Promise<boolean> {
       .select("id")
       .limit(1);
     return !error;
+  } catch {
+    return false;
+  }
+}
+
+async function isPeerNotebookActivationRpcAvailable(): Promise<boolean> {
+  try {
+    const { error } = await createServiceClient().rpc("approve_and_activate_peer_manifest", {
+      p_workspace_id: TEST_WORKSPACE_ID,
+      p_peer_slug: "missing",
+      p_manifest_id: "00000000-0000-4000-8000-000000000000",
+      p_approved_by: "test:schema-probe",
+      p_approved_at: null,
+    });
+    return error?.code === "P0002";
   } catch {
     return false;
   }
@@ -355,4 +515,96 @@ async function listStorageObjectPaths(prefix: string): Promise<string[]> {
     }
   }
   return paths;
+}
+
+function createIdGenerator(ids: string[]): () => string {
+  return () => {
+    const id = ids.shift();
+    if (!id) {
+      throw new Error("Test id generator exhausted");
+    }
+    return id;
+  };
+}
+
+function notebookWithManifest(manifest: PeerManifest): Notebook {
+  return {
+    id: manifest.notebookId,
+    language: "typescript",
+    cells: [{
+      id: "manifest",
+      type: "code",
+      language: "typescript",
+      filename: "peer.manifest.json",
+      source: JSON.stringify(manifest),
+      status: "idle",
+    }],
+    createdAt: 1,
+    updatedAt: 1,
+  };
+}
+
+function baseNotebookManifest(options: {
+  extraTools?: PeerManifest["exposes"]["tools"];
+} = {}): PeerManifest {
+  return {
+    schemaVersion: "peer-notebook.v0",
+    peerId: "supabase-notebook-claim-extractor",
+    notebookId: "nb_supabase_notebook_claim_extractor",
+    runtime: {
+      provider: "mock",
+      timeoutMs: 120_000,
+    },
+    exposes: {
+      tools: [
+        {
+          name: "extract_claims",
+          description: "Extract atomic claims from a text artifact",
+          inputSchema: {
+            type: "object",
+            properties: {
+              textArtifactId: { type: "string" },
+            },
+            required: ["textArtifactId"],
+            additionalProperties: false,
+          },
+          outputSchema: {
+            type: "object",
+            properties: {
+              claimsArtifactId: { type: "string" },
+              claimCount: { type: "number" },
+            },
+            required: ["claimsArtifactId", "claimCount"],
+            additionalProperties: false,
+          },
+        },
+        ...(options.extraTools ?? []),
+      ],
+      resources: [],
+      prompts: [],
+    },
+    mayCall: {
+      mcpTools: ["artifact.get"],
+    },
+    network: {
+      enabled: false,
+      allowHosts: [],
+    },
+    filesystem: {
+      mounts: [],
+    },
+    secrets: {
+      bindings: [],
+    },
+    persistence: {
+      snapshot: "manual",
+      exportNotebookOnInvoke: true,
+      retainArtifactsDays: 30,
+    },
+    budgets: {
+      maxDurationMs: 120_000,
+      maxToolCalls: 10,
+      maxArtifactBytes: 10_000_000,
+    },
+  };
 }

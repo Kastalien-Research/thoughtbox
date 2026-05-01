@@ -13,6 +13,7 @@ persistence in hosted workspace mode
 - Diagrams: [DIAGRAMS.md](./DIAGRAMS.md)
 - Current handoff: [NEXT-IMPLEMENTATION-HANDOFF.md](./NEXT-IMPLEMENTATION-HANDOFF.md)
 - Part 1 kickoff prompt: [PROMPT-PART-1-DURABLE-CONTROL-PLANE.md](./PROMPT-PART-1-DURABLE-CONTROL-PLANE.md)
+- Part 2 kickoff prompt: [PROMPT-PART-2-MANIFEST-LIFECYCLE.md](./PROMPT-PART-2-MANIFEST-LIFECYCLE.md)
 - Tracking issue: `thoughtbox-pnf`
 
 ## Summary
@@ -53,6 +54,10 @@ Baseline after this slice:
   persistence when a non-default workspace is resolved from `workspaceId` or
   `THOUGHTBOX_PROJECT`, and `SUPABASE_URL` plus
   `SUPABASE_SERVICE_ROLE_KEY` are available.
+- Durable artifact read models normalize Supabase UUID foreign keys back to
+  repository-contract peer slugs.
+- Artifact payload writes validate invocation workspace/peer ownership before
+  writing to Supabase Storage.
 
 The pilot now proves broker shape and MCP reachability with a durable
 repository path for peer notebooks, manifests, invocations, trace events, and
@@ -62,23 +67,32 @@ a production runtime implementation.
 Future work must use `.claude/skills/peer-notebook-delivery-guard/SKILL.md`.
 Its hard rule is: mocks are contract fixtures, not final substitutes.
 
-## Remaining Delivery Units
+## Delivery Progress
 
-1. **Manifest Lifecycle And Notebook Graduation** (`thoughtbox-g5t`)
-   - Compile, approve, activate, retire, and enforce notebook-derived manifests.
+1. **Durable Control Plane** (`thoughtbox-y4x`) - implemented.
+   - Supabase-backed peers, manifests, invocations, traces, and artifact
+     metadata/payload handling for the brokered mock peer pilot.
 
-2. **Web App Inspection Surface** (`thoughtbox-2ot`)
+2. **Manifest Lifecycle And Notebook Graduation** (`thoughtbox-g5t`) - in
+   implementation on `feat/peer-manifest-lifecycle`.
+   - Internal lifecycle APIs compile filename-cell `peer.manifest.json` drafts
+     from notebook source, persist drafts, approve+activate with audit metadata,
+     retire previous active manifests, and enforce active manifest hashes.
+   - The v0 filename-cell adapter is documented as replaceable; a first-class
+     manifest cell type remains future work.
+
+3. **Web App Inspection Surface** (`thoughtbox-2ot`)
    - Peer registry/detail, invocation detail, denied-call trace timeline, and
      artifact preview from durable rows.
 
-3. **Real Runtime Provider Path** (`thoughtbox-s7f`)
+4. **Real Runtime Provider Path** (`thoughtbox-s7f`)
    - Development-only `local-process` provider behind the runtime contract.
 
-4. **Production Isolation And Policy Hardening** (`thoughtbox-vdw`)
+5. **Production Isolation And Policy Hardening** (`thoughtbox-vdw`)
    - smolvm or equivalent isolated provider plus enforced network, filesystem,
      secrets, outbound budget, and denial policy.
 
-Next implementation prompt: [PROMPT-PART-1-DURABLE-CONTROL-PLANE.md](./PROMPT-PART-1-DURABLE-CONTROL-PLANE.md).
+Next implementation prompt: [PROMPT-PART-2-MANIFEST-LIFECYCLE.md](./PROMPT-PART-2-MANIFEST-LIFECYCLE.md).
 
 ## Current Repo Reality
 
@@ -109,8 +123,9 @@ Confirmed current capabilities:
 - Code Mode uses Node `vm` for JavaScript orchestration and explicitly treats it
   as defense-in-depth, not a true security boundary.
 - `src/peer-notebook/` contains the control-plane pilot: manifest
-  draft compilation from `peer.manifest.json`, canonical manifest hashing,
-  in-memory peer/manifest/invocation/trace/artifact repositories,
+  draft compilation from `peer.manifest.json`, canonical manifest hashing, a
+  v0 filename-cell adapter for notebook-derived manifest sources, an internal
+  approve+activate lifecycle service, in-memory peer/manifest/invocation/trace/artifact repositories,
   Supabase peer/manifest/invocation/trace/artifact repository,
   `peer.invoke({ peerId, tool, args })`, a runtime provider interface, a mock
   `claim-extractor` provider, broker-proxy allow/deny policy tests, and the
@@ -685,6 +700,10 @@ pair with hypotheses like:
 - Manifest authoring: resolved for v0 by ADR-022. Authors may embed a
   `peer.manifest.json` draft in the notebook; the control plane parses it as
   data, stores a draft manifest, and requires explicit approval before use.
+  The current implementation recognizes cells/files named `peer.manifest.json`
+  through a filename-cell adapter that produces neutral manifest draft sources.
+  This adapter is intentionally narrow so a dedicated manifest cell type can be
+  added later without changing lifecycle persistence or broker enforcement.
 - Fork inheritance: deferred. Equal-or-lesser capability inheritance needs a
   separate HDD decision before implementation.
 - Notebook version versus manifest version: partially resolved. The active

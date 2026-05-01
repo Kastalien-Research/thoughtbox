@@ -17,7 +17,11 @@ import type {
   RuntimeProviderName,
 } from "./types.js";
 import { PeerNotebookError } from "./types.js";
-import type { PeerNotebookRepository, SaveArtifactInput } from "./repositories.js";
+import type {
+  ApproveAndActivateManifestInput,
+  PeerNotebookRepository,
+  SaveArtifactInput,
+} from "./repositories.js";
 
 export interface SupabasePeerNotebookRepositoryConfig {
   supabaseUrl: string;
@@ -31,8 +35,10 @@ type PeerNotebookRow = {
   slug: string;
   display_name: string;
   description: string | null;
+  source_notebook_ref: JsonValue | null;
   status: string;
   active_manifest_id: string | null;
+  created_by: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -47,6 +53,9 @@ type PeerManifestRow = {
   manifest_hash: string;
   status: string;
   compiled_from: JsonValue;
+  created_by: string | null;
+  approved_by: string | null;
+  approved_at: string | null;
   created_at: string;
 };
 
@@ -120,10 +129,11 @@ export class SupabasePeerNotebookRepository implements PeerNotebookRepository {
         slug: peer.peerId,
         display_name: peer.displayName,
         description: peer.description ?? null,
-        source_notebook_ref: {
+        source_notebook_ref: peer.sourceNotebookRef ?? {
           kind: "static-pilot",
           peerId: peer.peerId,
         },
+        created_by: peer.createdBy ?? null,
         status: peer.status,
         active_manifest_id: peer.activeManifestId,
         created_at: peer.createdAt,
@@ -162,6 +172,9 @@ export class SupabasePeerNotebookRepository implements PeerNotebookRepository {
         manifest_hash: manifest.manifestHash,
         status: manifest.status,
         compiled_from: manifest.compiledFrom,
+        created_by: manifest.createdBy ?? null,
+        approved_by: manifest.approvedBy ?? null,
+        approved_at: manifest.approvedAt ?? null,
         created_at: manifest.createdAt,
       }, { onConflict: "id" });
 
@@ -182,6 +195,39 @@ export class SupabasePeerNotebookRepository implements PeerNotebookRepository {
       throw new Error(`Failed to get peer manifest ${manifestId}: ${error.message}`);
     }
     return data ? this.rowToManifest(data as PeerManifestRow) : null;
+  }
+
+  async listManifestsForPeer(workspaceId: string, peerRecordId: string): Promise<PeerManifestRecord[]> {
+    const { data, error } = await this.ensureClient()
+      .from("peer_manifests")
+      .select("*")
+      .eq("workspace_id", workspaceId)
+      .eq("peer_id", peerRecordId)
+      .order("version", { ascending: true });
+
+    if (error) {
+      throw new Error(`Failed to list peer manifests for ${peerRecordId}: ${error.message}`);
+    }
+    return (data ?? []).map(row => this.rowToManifest(row as PeerManifestRow));
+  }
+
+  async approveAndActivateManifest(input: ApproveAndActivateManifestInput): Promise<void> {
+    const approvedBy = input.approvedBy.trim();
+    if (!approvedBy) {
+      throw new PeerNotebookError("invalid_args", "approveAndActivateManifest requires approvedBy");
+    }
+
+    const { error } = await this.ensureClient().rpc("approve_and_activate_peer_manifest", {
+      p_workspace_id: input.workspaceId,
+      p_peer_slug: input.peerId,
+      p_manifest_id: input.manifestId,
+      p_approved_by: approvedBy,
+      p_approved_at: input.approvedAt ?? null,
+    });
+
+    if (error) {
+      throw new Error(`Failed to approve and activate peer manifest ${input.manifestId}: ${error.message}`);
+    }
   }
 
   async saveInvocation(invocation: PeerInvocationRecord): Promise<void> {
@@ -394,6 +440,8 @@ export class SupabasePeerNotebookRepository implements PeerNotebookRepository {
       peerId: row.slug,
       displayName: row.display_name,
       description: row.description ?? undefined,
+      sourceNotebookRef: row.source_notebook_ref ?? undefined,
+      createdBy: row.created_by,
       status: row.status as PeerNotebookStatus,
       activeManifestId: row.active_manifest_id,
       createdAt: row.created_at,
@@ -414,6 +462,9 @@ export class SupabasePeerNotebookRepository implements PeerNotebookRepository {
       manifestHash: row.manifest_hash,
       status: row.status as PeerManifestStatus,
       compiledFrom: row.compiled_from as PeerManifestRecord["compiledFrom"],
+      createdBy: row.created_by,
+      approvedBy: row.approved_by,
+      approvedAt: row.approved_at,
       createdAt: row.created_at,
     };
   }

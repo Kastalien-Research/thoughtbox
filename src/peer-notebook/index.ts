@@ -3,10 +3,24 @@ export type { PeerBrokerOptions, PeerInvokeInput, PeerInvokeResult } from "./bro
 export { BrokerProxy } from "./broker-proxy.js";
 export type { BrokerProxyCall, BrokerProxyClient, BrokerProxyResult, BrokerProxyTarget } from "./broker-proxy.js";
 export { compilePeerManifestDraft, canonicalizeJson, hashJson } from "./manifest.js";
+export {
+  extractManifestDraftSourcesFromNotebook,
+  PeerManifestLifecycleService,
+} from "./manifest-lifecycle.js";
+export type {
+  ApproveAndActivateNotebookManifestInput,
+  CompileDraftFromNotebookInput,
+  CompileDraftFromNotebookResult,
+  PeerManifestLifecycleServiceOptions,
+} from "./manifest-lifecycle.js";
 export { validateJsonSchemaSubset } from "./json-schema.js";
 export { MockPeerRuntimeProvider } from "./mock-runtime-provider.js";
 export { InMemoryPeerNotebookRepository } from "./repositories.js";
-export type { PeerNotebookRepository, SaveArtifactInput } from "./repositories.js";
+export type {
+  ApproveAndActivateManifestInput,
+  PeerNotebookRepository,
+  SaveArtifactInput,
+} from "./repositories.js";
 export { SupabasePeerNotebookRepository } from "./supabase-repository.js";
 export type { SupabasePeerNotebookRepositoryConfig } from "./supabase-repository.js";
 export { PeerNotebookHandler } from "./handler.js";

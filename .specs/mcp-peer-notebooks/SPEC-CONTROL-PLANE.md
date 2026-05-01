@@ -114,6 +114,13 @@ peer.manifest.json
 The compiler treats `peer.manifest.json` as data. It parses JSON and never
 executes notebook code while extracting, validating, or hashing the manifest.
 
+Part 2 implements this through a v0 filename-cell source adapter. The adapter
+extracts neutral `ManifestDraftSource` records from notebook cells/files whose
+`filename` is exactly `peer.manifest.json`; the lifecycle compiler consumes
+those neutral sources rather than depending on the notebook cell shape. This is
+intentionally replaceable so a first-class manifest cell type can be added later
+without changing manifest hashing, persistence, approval, or broker dispatch.
+
 Rules:
 
 - A notebook may have zero or one `peer.manifest.json` draft source.
@@ -123,7 +130,11 @@ Rules:
 - The compiler canonicalizes validated JSON and computes `manifest_hash`.
 - The compiled manifest is written to `peer_manifests` with `status='draft'`.
 - Draft manifests cannot be used for invocation.
-- Explicit approval transitions a draft to an approved/active manifest.
+- Explicit control-plane approval by a workspace-admin/trusted service actor
+  transitions a draft to the active manifest.
+- Approval/activation records `approved_by` and `approved_at`, retires the
+  previous active manifest for that peer, and updates
+  `peer_notebooks.active_manifest_id` atomically in Supabase mode.
 - The broker only dispatches against the active manifest hash.
 - Notebook edits after activation do not change capabilities until the control
   plane compiles a new draft and it is explicitly approved.
@@ -136,6 +147,7 @@ notebook draft block
   -> peer_manifests.status = 'draft'
   -> explicit approval
   -> peer_manifests.status = 'active'
+  -> previous active peer_manifests.status = 'retired'
   -> peer_notebooks.active_manifest_id updated
   -> active manifest hash used by broker
 ```
