@@ -6,6 +6,13 @@
 #
 # Or add these to your shell profile (~/.zshrc, ~/.bashrc)
 
+# Where the OTEL collector should drop file-exported logs/metrics on the
+# HOST. docker-compose interpolates this; if unset, falls back to the
+# project-local ./otel-collector/data directory. Honors any project- or
+# user-level override of CLAUDE_CODE_TMPDIR already in the shell env.
+: "${CLAUDE_CODE_TMPDIR:=$(cd "$(dirname "${BASH_SOURCE[0]}")/data" && pwd)}"
+export CLAUDE_CODE_TMPDIR
+
 # Required: Enable telemetry
 export CLAUDE_CODE_ENABLE_TELEMETRY=1
 
