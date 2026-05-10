@@ -31,13 +31,15 @@ exporters:
     namespace: mcp
   debug:
     verbosity: basic
+  # OTEL_FILE_EXPORT_DIR resolves inside the container; the host backing
+  # is set in docker-compose.yml and honors CLAUDE_CODE_TMPDIR when present.
   file/logs:
-    path: /tmp/claude-code-events.jsonl
+    path: ${env:OTEL_FILE_EXPORT_DIR}/claude-code-events.jsonl
     rotation:
       max_megabytes: 100
       max_days: 7
   file/metrics:
-    path: /tmp/claude-code-metrics.jsonl
+    path: ${env:OTEL_FILE_EXPORT_DIR}/claude-code-metrics.jsonl
     rotation:
       max_megabytes: 50
       max_days: 7

@@ -15,16 +15,19 @@ exporters:
   debug:
     verbosity: detailed
 
-  # File exporter for persistent logs
+  # File exporter for persistent logs.
+  # Path is configurable via OTEL_FILE_EXPORT_DIR (in-container); the host
+  # backing of that directory is set in docker-compose.yml and honors
+  # CLAUDE_CODE_TMPDIR when present.
   file/logs:
-    path: /tmp/claude-code-events.jsonl
+    path: ${env:OTEL_FILE_EXPORT_DIR}/claude-code-events.jsonl
     rotation:
       max_megabytes: 100
       max_days: 7
       max_backups: 5
 
   file/metrics:
-    path: /tmp/claude-code-metrics.jsonl
+    path: ${env:OTEL_FILE_EXPORT_DIR}/claude-code-metrics.jsonl
     rotation:
       max_megabytes: 50
       max_days: 7

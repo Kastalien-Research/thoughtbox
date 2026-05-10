@@ -66,8 +66,20 @@ services:
   otel-collector:
     image: otel/opentelemetry-collector-contrib:0.113.0
     command: ["--config=/etc/otelcol/config.yaml"]
+    # Run as root so the container can write to the mounted host path
+    # regardless of who owns it. Avoids uid 10001 / macOS perm friction.
+    user: "0:0"
+    environment:
+      # In-container directory the file exporter writes to. Fixed — it's
+      # the mount point. The HOST backing is the volume below, which
+      # honors CLAUDE_CODE_TMPDIR when set in the shell that runs compose.
+      OTEL_FILE_EXPORT_DIR: /var/log/otel
     volumes:
       - ./otel-collector/config-with-prometheus.yaml:/etc/otelcol/config.yaml:ro
+      # Sub-namespace under CLAUDE_CODE_TMPDIR so collector output doesn't
+      # share a directory with Claude Code's per-uid runtime tmpdir
+      # (claude-<uid>/). Files land at $CLAUDE_CODE_TMPDIR/otel/ on host.
+      - ${CLAUDE_CODE_TMPDIR:-./otel-collector/data}/otel:/var/log/otel
     ports:
       - "4318:4318"
       - "8889:8889"

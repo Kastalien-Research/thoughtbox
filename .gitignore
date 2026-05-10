@@ -146,3 +146,6 @@ thoughtbox-web-two/
 
 .specs/channel-daemon/chatgpt01.md
 rlm-code/
+
+# OTEL collector file-exporter output (host backing for /var/log/otel)
+otel-collector/data/
