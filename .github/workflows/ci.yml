@@ -94,6 +94,9 @@ jobs:
       - name: Run test suite
         run: pnpm test
 
+      - name: Check control plane drift
+        run: pnpm check:control-plane
+
   schema-check:
     name: Schema Drift Check
     runs-on: ubuntu-latest
