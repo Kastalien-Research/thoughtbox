@@ -3,28 +3,54 @@ name: ulysses-protocol
 description: Thoughtbox-first Ulysses workflow for surprise-gated debugging. Use this when debugging gets uncertain and you need explicit plan, outcome, and reflection discipline without relying on local shell state.
 argument-hint: <init|plan|outcome|reflect|status|complete> [args]
 user-invocable: true
-allowed-tools: Read, Glob, Grep, Task, Agent, mcp__thoughtbox__thoughtbox_gateway, mcp__thoughtbox__thoughtbox_ulysses
+allowed-tools: Read, Glob, Grep, Task, Agent, mcp__thoughtbox-cloud-run__thoughtbox_search, mcp__thoughtbox-cloud-run__thoughtbox_execute
 ---
 
 # Ulysses Protocol
 
 Ulysses is a Thoughtbox-owned debugging protocol.
 
-The invariants live in `thoughtbox_ulysses`.
+The invariants live in the server-side Ulysses implementation behind
+`tb.ulysses(...)`.
 The durable trace lives in Thoughtbox thoughts and knowledge.
 Claude Code hooks only enforce the current server state.
 
 Do not use `.ulysses/` files or `scripts/ulysses.sh` as authoritative state.
+Do not use legacy direct handles like `thoughtbox_gateway` or `thoughtbox_ulysses`
+as the interaction surface when Code Mode is available.
+
+## API Surface
+
+The current public Thoughtbox MCP surface is Code Mode:
+
+- Discovery: `thoughtbox_search`
+- Execution: `thoughtbox_execute`
+- Ulysses operations: `tb.ulysses({ ... })`
+- Validator notebook setup: `tb.notebook.create(...)` and `tb.notebook.addCell(...)`
+
+Each `thoughtbox_execute` call should contain at most one state-mutating
+Ulysses operation. Read-only confirmation calls such as
+`tb.ulysses({ operation: "status" })` are safe to use for state checks.
+
+Example execution wrapper:
+
+```ts
+async () => {
+  return await tb.ulysses({
+    operation: "status",
+  });
+}
+```
 
 ## Runtime Contract
 
 1. Protocol entry is explicit-only in v1.
-2. Before the first protocol tool call, ensure Thoughtbox session context exists:
-   - `thoughtbox_gateway { operation: "start_new", args: { task: "<debug task>", aspect: "ulysses-protocol" } }`
-   - `thoughtbox_gateway { operation: "cipher" }`
-3. Then call `thoughtbox_ulysses` for every protocol transition.
+2. If you need schema or example confirmation, call `thoughtbox_search` before
+   executing.
+3. Use `thoughtbox_execute` and call `tb.ulysses({ operation: ... })` for every
+   protocol transition.
 4. Hooks may block mutating work when the server reports `S=2`; read-only inspection remains allowed.
-5. Helper agents may gather evidence after `reflect`, but only the coordinator calls `thoughtbox_ulysses`.
+5. Helper agents may gather evidence after `reflect`, but only the coordinator calls `tb.ulysses`.
 
 ## Commands
 
@@ -35,11 +61,13 @@ Required inputs:
 - Optional constraints
 
 Call:
-```json
-thoughtbox_ulysses {
-  "operation": "init",
-  "problem": "<problem>",
-  "constraints": ["<optional constraint>"]
+```ts
+async () => {
+  return await tb.ulysses({
+    operation: "init",
+    problem: "<problem>",
+    constraints: ["<optional constraint>"],
+  });
 }
 ```
 
@@ -65,14 +93,16 @@ d.errors === 0 ? pass("clean run") : fail(`${d.errors} errors`, d);
 Cells are snapshotted at plan time (source + package.json + tsconfig hashed with sha256). Later edits to the notebook cannot influence the verdict.
 
 Call:
-```json
-thoughtbox_ulysses {
-  "operation": "plan",
-  "primary": "<primary action>",
-  "recovery": "<recovery action>",
-  "irreversible": false,
-  "primaryValidator": { "notebookId": "<id>", "cellId": "<id>" },
-  "recoveryValidator": { "notebookId": "<id>", "cellId": "<id>" }
+```ts
+async () => {
+  return await tb.ulysses({
+    operation: "plan",
+    primary: "<primary action>",
+    recovery: "<recovery action>",
+    irreversible: false,
+    primaryValidator: { notebookId: "<id>", cellId: "<id>" },
+    recoveryValidator: { notebookId: "<id>", cellId: "<id>" },
+  });
 }
 ```
 
@@ -85,11 +115,13 @@ Required inputs:
 - Optional `details` (free-form notes attached to the history event)
 
 Call:
-```json
-thoughtbox_ulysses {
-  "operation": "outcome",
-  "observed": { "errorCount": 3, "lastLog": "..." },
-  "details": "<what happened>"
+```ts
+async () => {
+  return await tb.ulysses({
+    operation: "outcome",
+    observed: { errorCount: 3, lastLog: "..." },
+    details: "<what happened>",
+  });
 }
 ```
 
@@ -106,11 +138,13 @@ If the returned state reaches `S=2` with no `active_step`, stop mutating work an
 Pin a notebook code cell as the predicate that gates `complete(resolved)`. The cell is snapshotted and pinned at bind time.
 
 Call:
-```json
-thoughtbox_ulysses {
-  "operation": "bind_final_validator",
-  "notebookId": "<id>",
-  "cellId": "<id>"
+```ts
+async () => {
+  return await tb.ulysses({
+    operation: "bind_final_validator",
+    notebookId: "<id>",
+    cellId: "<id>",
+  });
 }
 ```
 
@@ -121,11 +155,13 @@ Required inputs:
 - Falsification criteria
 
 Call:
-```json
-thoughtbox_ulysses {
-  "operation": "reflect",
-  "hypothesis": "<hypothesis>",
-  "falsification": "<what would disprove it>"
+```ts
+async () => {
+  return await tb.ulysses({
+    operation: "reflect",
+    hypothesis: "<hypothesis>",
+    falsification: "<what would disprove it>",
+  });
 }
 ```
 
@@ -134,9 +170,11 @@ After `reflect`, you may optionally launch debugger or researcher agents to test
 ### `status`
 
 Call:
-```json
-thoughtbox_ulysses {
-  "operation": "status"
+```ts
+async () => {
+  return await tb.ulysses({
+    operation: "status",
+  });
 }
 ```
 
@@ -147,12 +185,14 @@ Use the returned server state as the only source of truth.
 `terminalState='resolved'` is **hard-gated** by the final validator if one is bound. The agent must supply `observed` data; the validator runs against the pinned snapshot, and the terminal is rejected if the validator returns fail or its hash does not match.
 
 Call:
-```json
-thoughtbox_ulysses {
-  "operation": "complete",
-  "terminalState": "resolved",
-  "observed": { "errorCount": 0, "passingTests": 42 },
-  "summary": "<transferable learning>"
+```ts
+async () => {
+  return await tb.ulysses({
+    operation: "complete",
+    terminalState: "resolved",
+    observed: { errorCount: 0, passingTests: 42 },
+    summary: "<transferable learning>",
+  });
 }
 ```
 
@@ -208,13 +248,15 @@ Good uses:
 - Gather targeted code or log evidence
 
 Bad uses:
-- Letting a subagent call `thoughtbox_ulysses`
+- Letting a subagent call `tb.ulysses`
 - Letting a hook spawn subagents automatically
 - Treating subagents as owners of protocol state
 
 ## References
 
-- Authoritative MCP tool: `thoughtbox_ulysses`
-- Durable context and thought trace: `thoughtbox_gateway`
+- Public MCP surface: `thoughtbox_search`, `thoughtbox_execute`
+- Ulysses SDK call: `tb.ulysses({ operation: ... })`
+- Durable context and thought trace: Thoughtbox session, thought, and knowledge
+  operations through Code Mode
 - Protocol implementation: `src/protocol/ulysses-tool.ts`
 - Specification reference: `references/protocol-spec.md`
