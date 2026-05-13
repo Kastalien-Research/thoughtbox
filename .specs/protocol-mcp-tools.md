@@ -123,7 +123,9 @@ export const ulyssesToolInputSchema = z.discriminatedUnion("operation", [
 
 ## Supabase Tables
 
-All tables are defined in the existing migration at `supabase/migrations/20260319100319_protocol_enforcement.sql`. No new migration is needed.
+Tables are created in the remote schema migration. Ulysses validator history
+events are allowed by
+`supabase/migrations/20260513090000_allow_ulysses_validator_history_events.sql`.
 
 | Table | Purpose |
 |-------|---------|
@@ -131,7 +133,7 @@ All tables are defined in the existing migration at `supabase/migrations/2026031
 | `protocol_scope` | Theseus-only. Files in scope for the refactoring session. Source is `init` or `visa`. UNIQUE on `(session_id, file_path)`. |
 | `protocol_visas` | Theseus-only. Epistemic visa applications for out-of-scope file access. |
 | `protocol_audits` | Theseus-only. Cassandra audit results (diff hash, commit message, approved/rejected). |
-| `protocol_history` | Both protocols. Step history as JSONB events (`plan`, `outcome`, `reflect`, `checkpoint`). |
+| `protocol_history` | Both protocols. Step history as JSONB events (`plan`, `outcome`, `reflect`, `checkpoint`, `final_validator_bound`, `validator_tampering`). |
 
 **RPC**: `check_protocol_enforcement(target_path text)` -- single-roundtrip function for hook enforcement. Returns JSON with `enforce`, `blocked`, `reason`, `session_id`, `protocol` fields. Covers 5 scenarios: no active session, Theseus test file blocked, Theseus out-of-scope blocked, Theseus in-scope allowed, Ulysses active.
 

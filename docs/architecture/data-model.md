@@ -200,7 +200,8 @@ These support the Theseus (refactoring) and Ulysses (debugging) protocols. Serve
 
 **protocol_audits**: Cassandra audit results — diff hash, commit message, approved/rejected, feedback.
 
-**protocol_history**: Event log with types: `plan`, `outcome`, `reflect`, `checkpoint`.
+**protocol_history**: Event log with types: `plan`, `outcome`, `reflect`,
+`checkpoint`, `final_validator_bound`, `validator_tampering`.
 
 ## Triggers
 
