@@ -19,6 +19,7 @@ export interface SignalCollection {
     sources_attempted: string[];
     sources_succeeded: string[];
     sources_failed: Array<{ source: string; error: string }>;
+    sources_empty: Array<{ source: string; reason: string }>;
     total_signals: number;
     // NEW: Per-source observability
     signals_by_source: Record<string, number>;

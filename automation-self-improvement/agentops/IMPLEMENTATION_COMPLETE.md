@@ -1,210 +1,93 @@
-# AgentOps Day-0 Bootstrap - Implementation Complete ✅
+# AgentOps Daily Brief Current Status
 
-**Date:** 2026-01-28
-**Status:** READY FOR TESTING
+**Updated:** 2026-05-16 UTC (2026-05-15 America/Chicago)
+**Status:** local daily brief wiring implemented; broader AgentOps automation is
+not complete.
 
-## Summary
+## What Is Implemented
 
-Successfully implemented complete AgentOps Day-0 bootstrap system with:
-- Daily dev brief workflow that generates proposals
-- Label-triggered implementation with SMOKE and REAL modes
-- Full GitHub Actions integration
-- Template rendering and JSON extraction
-- LangSmith tracing integration (optional)
-- Complete test coverage
+- `pnpm agentops:daily -- [options]` runs
+  `automation-self-improvement/agentops/runner/cli.ts daily-dev-brief`.
+- `pnpm agentops:daily:fixtures -- [options]` runs the same command in explicit
+  fixture mode.
+- Runner paths resolve from `automation-self-improvement/agentops/` through
+  `runner/lib/paths.ts`.
+- Real daily mode collects live signals, requires LLM configuration, synthesizes
+  proposals through the configured LLM, and validates evidence provenance against
+  collected signals.
+- Real daily mode hard fails for missing LLM configuration, insufficient signals,
+  synthesis/repair failure, and failed proposal/evidence validation.
+- Fixture mode can load `fixtures/proposals.example.json`, reports zero LLM cost,
+  and marks output as fixture/test-only.
+- `run_summary.json` reports `execution_mode`, source successes, source failures,
+  empty sources, status, artifacts, and LLM cost.
 
-## Files Created (13 new files)
+## What Is Not Implemented
 
-### Core Runner (8 files)
-- [x] `agentops/runner/types.ts` - Shared TypeScript interfaces
-- [x] `agentops/runner/lib/state.ts` - Bootstrap state persistence
-- [x] `agentops/runner/lib/template.ts` - Template rendering + JSON extraction
-- [x] `agentops/runner/lib/github.ts` - GitHub API wrapper (Octokit)
-- [x] `agentops/runner/lib/trace.ts` - LangSmith tracing integration
-- [x] `agentops/runner/daily-dev-brief.ts` - Daily digest command
-- [x] `agentops/runner/implement.ts` - Implementation command
-- [x] `agentops/runner/cli.ts` - CLI entry point
+- No AgentOps GitHub Actions workflows are wired in this slice.
+- No non-dry-run GitHub issue creation was validated in this slice.
+- No real approval-label implementation loop was wired in this slice.
+- No broader `self-improvement` loop or benchmark repair was attempted.
+- Historical root `agentops/` paths in older phase reports are not the current
+  runner location.
 
-### Tests (2 files)
-- [x] `agentops/tests/template.test.ts` - Template rendering tests (10 tests, all pass)
-- [x] `agentops/tests/extract.test.ts` - JSON extraction tests (5 tests, all pass)
+## Current Validation
 
-### Workflows (2 files)
-- [x] `.github/workflows/agentops_daily_thoughtbox_dev.yml` - Daily scheduled workflow
-- [x] `.github/workflows/agentops_on_approval_label.yml` - Label-triggered implementation
+Fixture path validation:
 
-### Documentation (1 file)
-- [x] `agentops/SETUP.md` - Complete setup and usage guide
-
-## Files Modified (2 files)
-- [x] `package.json` - Added scripts and @octokit/rest dependency
-- [x] `agentops/templates/daily_thoughtbox_dev_brief_issue.md` - Fixed template structure
-
-## Validation Results
-
-### ✅ Local Tests Pass
 ```bash
-npm run test:agentops
-# ✅ All 10 tests passed
+pnpm agentops:daily:fixtures -- --output-dir /private/tmp/agentops-fixture-run
 ```
 
-### ✅ CLI Works (Dry Run)
+Expected result:
+
+- exit `0`
+- writes `digest.md`, `proposals.json`, `issue_body.md`, and `run_summary.json`
+- `run_summary.json.execution_mode` is `fixture`
+- `run_summary.json.metrics.llm_cost_usd` is `0`
+
+Real dry-run validation:
+
 ```bash
-npm run agentops:daily -- --dry-run
-# ✅ Generated artifacts in agentops/runs/
-# ✅ Created: digest.md, proposals.json, issue_body.md, run_summary.json
+pnpm agentops:daily -- --dry-run --output-dir /private/tmp/agentops-real-run
 ```
 
-### ✅ Template Rendering
-- All placeholders replaced correctly
-- JSON extraction works
-- Proposals formatted properly
+Expected result:
 
-## What Works End-to-End
+- exit `0` when an LLM key is exported
+- writes `signals.json`
+- `run_summary.json.metrics.llm_cost_usd` is greater than `0`
+- at least one signal source succeeds
+- `proposals.json` is not byte-identical to `fixtures/proposals.example.json`
+- every proposal has evidence from collected signals
+- `issue_body.md` does not contain `FIXTURE MODE`
 
-### SMOKE Mode (Workflow Validation)
-- Triggered by `smoke:proposal-N` label
-- Validates orchestration without code changes
-- No branch creation (avoids pollution)
-- Evidence comment marked "SMOKE"
-- Artifacts uploaded
+Missing-key validation:
 
-### REAL Mode (Actual Implementation)
-- Triggered by `approved:proposal-N` label
-- Creates branch `agent/proposal-{id}/{run_id}`
-- Makes real changes (currently marker file for Day-0)
-- Hard guardrail enforces touching src/** or agentops/evals/**
-- Opens draft PR if tests pass
-- Evidence comment marked "REAL"
-
-### Both Modes
-- GitHub integration (issues, comments, labels)
-- Template rendering and JSON extraction
-- Artifact upload
-- LangSmith tracing (optional - works with or without API key)
-
-## What's Stubbed (Clear Upgrade Path)
-
-1. **Proposal Generation**: Uses fixtures (upgrade: add LLM scanning)
-2. **Implementation**: Marker file only (upgrade: Claude Code/Cursor integration)
-3. **Evaluation**: Stubbed report (upgrade: run benchmarks)
-4. **Digest**: Hardcoded bullets (upgrade: scan git log)
-
-## API Keys - Configuration
-
-### Required (Auto-provided by GitHub Actions)
-- `GITHUB_TOKEN` - Automatically provided by Actions, no configuration needed
-
-### Optional (Enables Additional Features)
-- `LANGSMITH_API_KEY` - Enables tracing (system works without it)
-- `LANGSMITH_ORG` - Your LangSmith organization slug
-
-### Future (Not Needed for Day-0)
-- `ANTHROPIC_API_KEY` - For real proposal generation (Week 2+)
-- `OPENAI_API_KEY` - Alternative LLM provider
-
-**Important**: For local testing with `--dry-run`, no API keys are needed. The system gracefully degrades:
-- Without LANGSMITH_API_KEY: Shows "(tracing disabled)" in output
-- Without GITHUB_TOKEN: Only works in dry run mode
-
-## Next Steps
-
-### 1. Local Validation (Done ✅)
 ```bash
-npm install
-npm run test:agentops
-npm run agentops:daily -- --dry-run
+env -u ANTHROPIC_API_KEY -u OPENAI_API_KEY \
+  pnpm agentops:daily -- --dry-run --output-dir /private/tmp/agentops-no-key
 ```
 
-### 2. Create GitHub Labels
+Expected result:
+
+- exits nonzero
+- error says real mode requires LLM configuration
+- no successful proposal bundle is written
+
+Targeted checks:
+
 ```bash
-gh label create agentops --color 0e8a16
-gh label create dev-brief --color 1d76db
-gh label create smoke:proposal-1 --color fef2c0
-gh label create approved:proposal-1 --color 2cbe4e
+pnpm exec vitest run automation-self-improvement/agentops/tests
+pnpm check:control-plane
 ```
 
-### 3. Test Daily Workflow (GitHub Actions)
-```bash
-gh workflow run agentops_daily_thoughtbox_dev.yml
-```
+## Remaining Gaps
 
-### 4. Test SMOKE Mode
-```bash
-# After daily issue is created
-gh issue edit <number> --add-label smoke:proposal-1
-```
-
-### 5. Test REAL Mode
-```bash
-gh issue edit <number> --add-label approved:proposal-1
-```
-
-## Architecture Decisions
-
-### Runner Location: `/agentops/runner/`
-- Clear separation from existing codebase
-- Easy to extend with new commands
-- Follows TypeScript module structure
-
-### Two Modes: SMOKE and REAL
-- SMOKE validates workflow without touching code
-- REAL actually implements (with guardrails)
-- Clear separation prevents accidents
-
-### Hard Guardrails
-- REAL mode MUST touch `src/**` or `agentops/evals/**`
-- Fails if only `agentops/runs/**` changed
-- Prevents pollution from stub implementations
-
-### Graceful Degradation
-- Works without LangSmith (tracing disabled)
-- Works in dry-run mode without GitHub token
-- Clear error messages for missing config
-
-## Success Metrics (Day-0)
-
-All criteria met:
-
-1. ✅ Daily workflow runs without errors
-2. ✅ Issue created with correct format and embedded JSON
-3. ✅ Approval label triggers implementation workflow
-4. ✅ Implementation creates branch (REAL mode)
-5. ✅ Evidence comment generated with all sections
-6. ✅ Artifacts complete (run_summary.json, logs.txt)
-7. ✅ LangSmith traces supported (optional)
-8. ✅ State is resumable (.agentops-bootstrap/state.json)
-9. ✅ No safety violations (no external comms except GitHub + LangSmith)
-10. ✅ All unit tests pass (10/10)
-
-## Known Limitations
-
-1. Proposal generation uses fixtures (not real LLM)
-2. Implementation creates marker only (not real changes)
-3. No self-hosted runner (needed for Claude Code integration)
-4. Evaluation harness stubbed
-5. No automatic PR merge (requires human review)
-
-## Timeline Estimate
-
-- **Day-0 (Today)**: Bootstrap complete ✅
-- **Week 1**: Manual testing and validation
-- **Week 2**: Real proposal generation (LLM scanning)
-- **Week 3-4**: Real implementation (Claude Code)
-- **Week 5**: Evaluation integration
-- **Week 6+**: Advanced orchestration
-
-## Support
-
-See `agentops/SETUP.md` for:
-- Complete setup instructions
-- Troubleshooting guide
-- Usage examples
-- Verification checklist
-
-## Files to Review
-
-1. **Setup**: `agentops/SETUP.md`
-2. **CLI**: `agentops/runner/cli.ts`
-3. **Tests**: `agentops/tests/*.test.ts`
-4. **Workflows**: `.github/workflows/agentops_*.yml`
+- `implement.ts` still represents a separate approval/implementation workflow
+  and was not converted into a real proposal implementation engine here.
+- GitHub issue creation should be validated separately before enabling a
+  scheduled or non-dry-run workflow.
+- Excluded AgentOps tests remain follow-up work:
+  - `automation-self-improvement/agentops/tests/integration.test.ts`
+  - `automation-self-improvement/agentops/tests/phase1.2.test.ts`

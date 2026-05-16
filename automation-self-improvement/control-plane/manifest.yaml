@@ -367,13 +367,10 @@ tests:
   - suite_id: automation_agentops_suite
     glob: automation-self-improvement/agentops/tests/**/*.ts
     runner: vitest
-    execution_profile: local-integration
+    execution_profile: ci-executed
     real_dependencies:
       - mocks
-      - network
-      - supabase
-      - subprocess
-      - docker
+      - local state
     coverage:
       components:
         - agentops
@@ -381,8 +378,7 @@ tests:
         - integration
         - workflow
     gaps:
-      - automation-self-improvement/agentops/tests/*.ts is out-of-band relative to current Vitest include config
-      - moved tests use local and external dependencies
+      - phase1.2 and integration AgentOps tests remain excluded from the current Vitest include surface
 
   - suite_id: observability_sidecar_suite
     glob: observability/mcp-sidecar-observability/test/**/*.test.ts

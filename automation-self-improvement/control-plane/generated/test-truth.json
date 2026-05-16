@@ -4,13 +4,13 @@
   "generator": "scripts/generate-control-plane.ts",
   "vitest": {
     "include": [
-      "agentops/tests/**/*.test.ts",
+      "automation-self-improvement/agentops/tests/**/*.test.ts",
       "demo/**/*.ts",
       "src/**/__tests__/**/*.test.ts"
     ],
     "exclude": [
-      "agentops/tests/integration.test.ts",
-      "agentops/tests/phase1.2.test.ts"
+      "automation-self-improvement/agentops/tests/integration.test.ts",
+      "automation-self-improvement/agentops/tests/phase1.2.test.ts"
     ]
   },
   "suites": [
@@ -18,8 +18,8 @@
       "suite_id": "automation_agentops_suite",
       "glob": "automation-self-improvement/agentops/tests/**/*.ts",
       "runner": "vitest",
-      "execution_profile": "local-integration",
-      "manifest_classification": "local-integration",
+      "execution_profile": "ci-executed",
+      "manifest_classification": "ci-executed",
       "files": [
         "automation-self-improvement/agentops/tests/cross-layer-sources.test.ts",
         "automation-self-improvement/agentops/tests/extract.test.ts",
@@ -30,13 +30,17 @@
         "automation-self-improvement/agentops/tests/template.test.ts",
         "automation-self-improvement/agentops/tests/xml-parsing.test.ts"
       ],
-      "ci_files": [],
+      "ci_files": [
+        "automation-self-improvement/agentops/tests/cross-layer-sources.test.ts",
+        "automation-self-improvement/agentops/tests/extract.test.ts",
+        "automation-self-improvement/agentops/tests/sources.test.ts",
+        "automation-self-improvement/agentops/tests/synthesis.test.ts",
+        "automation-self-improvement/agentops/tests/template.test.ts",
+        "automation-self-improvement/agentops/tests/xml-parsing.test.ts"
+      ],
       "real_dependencies": [
-        "docker",
-        "mocks",
-        "network",
-        "subprocess",
-        "supabase"
+        "local state",
+        "mocks"
       ],
       "coverage_components": [
         "agentops",
@@ -45,24 +49,20 @@
         "workflow"
       ],
       "gaps": [
-        "automation-self-improvement/agentops/tests/*.ts is out-of-band relative to current Vitest include config",
-        "moved tests use local and external dependencies"
+        "phase1.2 and integration AgentOps tests remain excluded from the current Vitest include surface"
       ],
-      "dependencies_real_services": true,
+      "dependencies_real_services": false,
       "file_records": [
         {
           "file": "automation-self-improvement/agentops/tests/cross-layer-sources.test.ts",
-          "ci_executed": false,
+          "ci_executed": true,
           "runner": "vitest",
           "runner_include_glob": "automation-self-improvement/agentops/tests/**/*.ts",
           "real_dependencies": [
-            "docker",
-            "mocks",
-            "network",
-            "subprocess",
-            "supabase"
+            "local state",
+            "mocks"
           ],
-          "uses_real_services": true,
+          "uses_real_services": false,
           "covered_components": [
             "agentops",
             "integration",
@@ -73,17 +73,14 @@
         },
         {
           "file": "automation-self-improvement/agentops/tests/extract.test.ts",
-          "ci_executed": false,
+          "ci_executed": true,
           "runner": "vitest",
           "runner_include_glob": "automation-self-improvement/agentops/tests/**/*.ts",
           "real_dependencies": [
-            "docker",
-            "mocks",
-            "network",
-            "subprocess",
-            "supabase"
+            "local state",
+            "mocks"
           ],
-          "uses_real_services": true,
+          "uses_real_services": false,
           "covered_components": [
             "agentops",
             "integration",
@@ -98,13 +95,10 @@
           "runner": "vitest",
           "runner_include_glob": "automation-self-improvement/agentops/tests/**/*.ts",
           "real_dependencies": [
-            "docker",
-            "mocks",
-            "network",
-            "subprocess",
-            "supabase"
+            "local state",
+            "mocks"
           ],
-          "uses_real_services": true,
+          "uses_real_services": false,
           "covered_components": [
             "agentops",
             "integration",
@@ -119,13 +113,10 @@
           "runner": "vitest",
           "runner_include_glob": "automation-self-improvement/agentops/tests/**/*.ts",
           "real_dependencies": [
-            "docker",
-            "mocks",
-            "network",
-            "subprocess",
-            "supabase"
+            "local state",
+            "mocks"
           ],
-          "uses_real_services": true,
+          "uses_real_services": false,
           "covered_components": [
             "agentops",
             "integration",
@@ -136,17 +127,14 @@
         },
         {
           "file": "automation-self-improvement/agentops/tests/sources.test.ts",
-          "ci_executed": false,
+          "ci_executed": true,
           "runner": "vitest",
           "runner_include_glob": "automation-self-improvement/agentops/tests/**/*.ts",
           "real_dependencies": [
-            "docker",
-            "mocks",
-            "network",
-            "subprocess",
-            "supabase"
+            "local state",
+            "mocks"
           ],
-          "uses_real_services": true,
+          "uses_real_services": false,
           "covered_components": [
             "agentops",
             "integration",
@@ -157,17 +145,14 @@
         },
         {
           "file": "automation-self-improvement/agentops/tests/synthesis.test.ts",
-          "ci_executed": false,
+          "ci_executed": true,
           "runner": "vitest",
           "runner_include_glob": "automation-self-improvement/agentops/tests/**/*.ts",
           "real_dependencies": [
-            "docker",
-            "mocks",
-            "network",
-            "subprocess",
-            "supabase"
+            "local state",
+            "mocks"
           ],
-          "uses_real_services": true,
+          "uses_real_services": false,
           "covered_components": [
             "agentops",
             "integration",
@@ -178,17 +163,14 @@
         },
         {
           "file": "automation-self-improvement/agentops/tests/template.test.ts",
-          "ci_executed": false,
+          "ci_executed": true,
           "runner": "vitest",
           "runner_include_glob": "automation-self-improvement/agentops/tests/**/*.ts",
           "real_dependencies": [
-            "docker",
-            "mocks",
-            "network",
-            "subprocess",
-            "supabase"
+            "local state",
+            "mocks"
           ],
-          "uses_real_services": true,
+          "uses_real_services": false,
           "covered_components": [
             "agentops",
             "integration",
@@ -199,17 +181,14 @@
         },
         {
           "file": "automation-self-improvement/agentops/tests/xml-parsing.test.ts",
-          "ci_executed": false,
+          "ci_executed": true,
           "runner": "vitest",
           "runner_include_glob": "automation-self-improvement/agentops/tests/**/*.ts",
           "real_dependencies": [
-            "docker",
-            "mocks",
-            "network",
-            "subprocess",
-            "supabase"
+            "local state",
+            "mocks"
           ],
-          "uses_real_services": true,
+          "uses_real_services": false,
           "covered_components": [
             "agentops",
             "integration",
@@ -315,13 +294,19 @@
       "files": [
         "src/__tests__/api-key-auth.test.ts",
         "src/__tests__/architecture.test.ts",
+        "src/__tests__/branch-workers.test.ts",
+        "src/__tests__/e2e-workflow.test.ts",
+        "src/__tests__/intelligence-pipeline.test.ts",
         "src/__tests__/persistence-roundtrip.test.ts",
         "src/__tests__/supabase-test-helpers.ts",
         "src/__tests__/supabase-wiring.test.ts",
         "src/audit/__tests__/manifest-generator.test.ts",
+        "src/branch/__tests__/handlers.test.ts",
+        "src/branch/__tests__/schemas.test.ts",
         "src/code-mode/__tests__/execute-tool.test.ts",
         "src/code-mode/__tests__/search-tool.test.ts",
         "src/code-mode/__tests__/server-surface.test.ts",
+        "src/http/__tests__/event-stream.test.ts",
         "src/http/__tests__/hub-http.test.ts",
         "src/http/__tests__/protocol-hook-integration.test.ts",
         "src/http/__tests__/protocol-http.test.ts",
@@ -373,25 +358,40 @@
         "src/multi-agent/__tests__/test-helpers.ts",
         "src/multi-agent/__tests__/thought-attribution.test.ts",
         "src/multi-agent/__tests__/thought-diff.test.ts",
+        "src/notebook/__tests__/engine.test.ts",
+        "src/notebook/__tests__/validator.test.ts",
         "src/observatory/__tests__/server-historical.test.ts",
         "src/observatory/__tests__/storage-adapter.test.ts",
         "src/operations-tool/__tests__/handler.test.ts",
         "src/otel/__tests__/otel-storage.test.ts",
         "src/otel/__tests__/parser.test.ts",
         "src/otel/__tests__/routes.test.ts",
+        "src/peer-notebook/__tests__/broker.test.ts",
+        "src/peer-notebook/__tests__/supabase-repository.test.ts",
+        "src/peer-notebook/__tests__/tool.test.ts",
         "src/persistence/__tests__/supabase-storage.test.ts",
         "src/protocol/__tests__/enforcement.test.ts",
-        "src/protocol/__tests__/handler.test.ts"
+        "src/protocol/__tests__/handler.test.ts",
+        "src/protocol/__tests__/protocol-events.test.ts",
+        "src/protocol/__tests__/ulysses-state-machine.test.ts",
+        "src/protocol/__tests__/ulysses-test-helpers.ts",
+        "src/protocol/__tests__/ulysses-validator.test.ts"
       ],
       "ci_files": [
         "src/__tests__/api-key-auth.test.ts",
         "src/__tests__/architecture.test.ts",
+        "src/__tests__/branch-workers.test.ts",
+        "src/__tests__/e2e-workflow.test.ts",
+        "src/__tests__/intelligence-pipeline.test.ts",
         "src/__tests__/persistence-roundtrip.test.ts",
         "src/__tests__/supabase-wiring.test.ts",
         "src/audit/__tests__/manifest-generator.test.ts",
+        "src/branch/__tests__/handlers.test.ts",
+        "src/branch/__tests__/schemas.test.ts",
         "src/code-mode/__tests__/execute-tool.test.ts",
         "src/code-mode/__tests__/search-tool.test.ts",
         "src/code-mode/__tests__/server-surface.test.ts",
+        "src/http/__tests__/event-stream.test.ts",
         "src/http/__tests__/hub-http.test.ts",
         "src/http/__tests__/protocol-hook-integration.test.ts",
         "src/http/__tests__/protocol-http.test.ts",
@@ -441,15 +441,23 @@
         "src/multi-agent/__tests__/runtime-wiring.test.ts",
         "src/multi-agent/__tests__/thought-attribution.test.ts",
         "src/multi-agent/__tests__/thought-diff.test.ts",
+        "src/notebook/__tests__/engine.test.ts",
+        "src/notebook/__tests__/validator.test.ts",
         "src/observatory/__tests__/server-historical.test.ts",
         "src/observatory/__tests__/storage-adapter.test.ts",
         "src/operations-tool/__tests__/handler.test.ts",
         "src/otel/__tests__/otel-storage.test.ts",
         "src/otel/__tests__/parser.test.ts",
         "src/otel/__tests__/routes.test.ts",
+        "src/peer-notebook/__tests__/broker.test.ts",
+        "src/peer-notebook/__tests__/supabase-repository.test.ts",
+        "src/peer-notebook/__tests__/tool.test.ts",
         "src/persistence/__tests__/supabase-storage.test.ts",
         "src/protocol/__tests__/enforcement.test.ts",
-        "src/protocol/__tests__/handler.test.ts"
+        "src/protocol/__tests__/handler.test.ts",
+        "src/protocol/__tests__/protocol-events.test.ts",
+        "src/protocol/__tests__/ulysses-state-machine.test.ts",
+        "src/protocol/__tests__/ulysses-validator.test.ts"
       ],
       "real_dependencies": [
         "mocks",
@@ -493,6 +501,69 @@
         },
         {
           "file": "src/__tests__/architecture.test.ts",
+          "ci_executed": true,
+          "runner": "vitest",
+          "runner_include_glob": "src/**/__tests__/**/*.ts",
+          "real_dependencies": [
+            "mocks",
+            "network",
+            "subprocess",
+            "supabase"
+          ],
+          "uses_real_services": true,
+          "covered_components": [
+            "knowledge",
+            "observability",
+            "persistence",
+            "runtime",
+            "server"
+          ],
+          "missing_integration_or_e2e": true
+        },
+        {
+          "file": "src/__tests__/branch-workers.test.ts",
+          "ci_executed": true,
+          "runner": "vitest",
+          "runner_include_glob": "src/**/__tests__/**/*.ts",
+          "real_dependencies": [
+            "mocks",
+            "network",
+            "subprocess",
+            "supabase"
+          ],
+          "uses_real_services": true,
+          "covered_components": [
+            "knowledge",
+            "observability",
+            "persistence",
+            "runtime",
+            "server"
+          ],
+          "missing_integration_or_e2e": true
+        },
+        {
+          "file": "src/__tests__/e2e-workflow.test.ts",
+          "ci_executed": true,
+          "runner": "vitest",
+          "runner_include_glob": "src/**/__tests__/**/*.ts",
+          "real_dependencies": [
+            "mocks",
+            "network",
+            "subprocess",
+            "supabase"
+          ],
+          "uses_real_services": true,
+          "covered_components": [
+            "knowledge",
+            "observability",
+            "persistence",
+            "runtime",
+            "server"
+          ],
+          "missing_integration_or_e2e": true
+        },
+        {
+          "file": "src/__tests__/intelligence-pipeline.test.ts",
           "ci_executed": true,
           "runner": "vitest",
           "runner_include_glob": "src/**/__tests__/**/*.ts",
@@ -597,6 +668,48 @@
           "missing_integration_or_e2e": true
         },
         {
+          "file": "src/branch/__tests__/handlers.test.ts",
+          "ci_executed": true,
+          "runner": "vitest",
+          "runner_include_glob": "src/**/__tests__/**/*.ts",
+          "real_dependencies": [
+            "mocks",
+            "network",
+            "subprocess",
+            "supabase"
+          ],
+          "uses_real_services": true,
+          "covered_components": [
+            "knowledge",
+            "observability",
+            "persistence",
+            "runtime",
+            "server"
+          ],
+          "missing_integration_or_e2e": true
+        },
+        {
+          "file": "src/branch/__tests__/schemas.test.ts",
+          "ci_executed": true,
+          "runner": "vitest",
+          "runner_include_glob": "src/**/__tests__/**/*.ts",
+          "real_dependencies": [
+            "mocks",
+            "network",
+            "subprocess",
+            "supabase"
+          ],
+          "uses_real_services": true,
+          "covered_components": [
+            "knowledge",
+            "observability",
+            "persistence",
+            "runtime",
+            "server"
+          ],
+          "missing_integration_or_e2e": true
+        },
+        {
           "file": "src/code-mode/__tests__/execute-tool.test.ts",
           "ci_executed": true,
           "runner": "vitest",
@@ -640,6 +753,27 @@
         },
         {
           "file": "src/code-mode/__tests__/server-surface.test.ts",
+          "ci_executed": true,
+          "runner": "vitest",
+          "runner_include_glob": "src/**/__tests__/**/*.ts",
+          "real_dependencies": [
+            "mocks",
+            "network",
+            "subprocess",
+            "supabase"
+          ],
+          "uses_real_services": true,
+          "covered_components": [
+            "knowledge",
+            "observability",
+            "persistence",
+            "runtime",
+            "server"
+          ],
+          "missing_integration_or_e2e": true
+        },
+        {
+          "file": "src/http/__tests__/event-stream.test.ts",
           "ci_executed": true,
           "runner": "vitest",
           "runner_include_glob": "src/**/__tests__/**/*.ts",
@@ -1731,6 +1865,48 @@
           "missing_integration_or_e2e": true
         },
         {
+          "file": "src/notebook/__tests__/engine.test.ts",
+          "ci_executed": true,
+          "runner": "vitest",
+          "runner_include_glob": "src/**/__tests__/**/*.ts",
+          "real_dependencies": [
+            "mocks",
+            "network",
+            "subprocess",
+            "supabase"
+          ],
+          "uses_real_services": true,
+          "covered_components": [
+            "knowledge",
+            "observability",
+            "persistence",
+            "runtime",
+            "server"
+          ],
+          "missing_integration_or_e2e": true
+        },
+        {
+          "file": "src/notebook/__tests__/validator.test.ts",
+          "ci_executed": true,
+          "runner": "vitest",
+          "runner_include_glob": "src/**/__tests__/**/*.ts",
+          "real_dependencies": [
+            "mocks",
+            "network",
+            "subprocess",
+            "supabase"
+          ],
+          "uses_real_services": true,
+          "covered_components": [
+            "knowledge",
+            "observability",
+            "persistence",
+            "runtime",
+            "server"
+          ],
+          "missing_integration_or_e2e": true
+        },
+        {
           "file": "src/observatory/__tests__/server-historical.test.ts",
           "ci_executed": true,
           "runner": "vitest",
@@ -1857,6 +2033,69 @@
           "missing_integration_or_e2e": true
         },
         {
+          "file": "src/peer-notebook/__tests__/broker.test.ts",
+          "ci_executed": true,
+          "runner": "vitest",
+          "runner_include_glob": "src/**/__tests__/**/*.ts",
+          "real_dependencies": [
+            "mocks",
+            "network",
+            "subprocess",
+            "supabase"
+          ],
+          "uses_real_services": true,
+          "covered_components": [
+            "knowledge",
+            "observability",
+            "persistence",
+            "runtime",
+            "server"
+          ],
+          "missing_integration_or_e2e": true
+        },
+        {
+          "file": "src/peer-notebook/__tests__/supabase-repository.test.ts",
+          "ci_executed": true,
+          "runner": "vitest",
+          "runner_include_glob": "src/**/__tests__/**/*.ts",
+          "real_dependencies": [
+            "mocks",
+            "network",
+            "subprocess",
+            "supabase"
+          ],
+          "uses_real_services": true,
+          "covered_components": [
+            "knowledge",
+            "observability",
+            "persistence",
+            "runtime",
+            "server"
+          ],
+          "missing_integration_or_e2e": true
+        },
+        {
+          "file": "src/peer-notebook/__tests__/tool.test.ts",
+          "ci_executed": true,
+          "runner": "vitest",
+          "runner_include_glob": "src/**/__tests__/**/*.ts",
+          "real_dependencies": [
+            "mocks",
+            "network",
+            "subprocess",
+            "supabase"
+          ],
+          "uses_real_services": true,
+          "covered_components": [
+            "knowledge",
+            "observability",
+            "persistence",
+            "runtime",
+            "server"
+          ],
+          "missing_integration_or_e2e": true
+        },
+        {
           "file": "src/persistence/__tests__/supabase-storage.test.ts",
           "ci_executed": true,
           "runner": "vitest",
@@ -1900,6 +2139,90 @@
         },
         {
           "file": "src/protocol/__tests__/handler.test.ts",
+          "ci_executed": true,
+          "runner": "vitest",
+          "runner_include_glob": "src/**/__tests__/**/*.ts",
+          "real_dependencies": [
+            "mocks",
+            "network",
+            "subprocess",
+            "supabase"
+          ],
+          "uses_real_services": true,
+          "covered_components": [
+            "knowledge",
+            "observability",
+            "persistence",
+            "runtime",
+            "server"
+          ],
+          "missing_integration_or_e2e": true
+        },
+        {
+          "file": "src/protocol/__tests__/protocol-events.test.ts",
+          "ci_executed": true,
+          "runner": "vitest",
+          "runner_include_glob": "src/**/__tests__/**/*.ts",
+          "real_dependencies": [
+            "mocks",
+            "network",
+            "subprocess",
+            "supabase"
+          ],
+          "uses_real_services": true,
+          "covered_components": [
+            "knowledge",
+            "observability",
+            "persistence",
+            "runtime",
+            "server"
+          ],
+          "missing_integration_or_e2e": true
+        },
+        {
+          "file": "src/protocol/__tests__/ulysses-state-machine.test.ts",
+          "ci_executed": true,
+          "runner": "vitest",
+          "runner_include_glob": "src/**/__tests__/**/*.ts",
+          "real_dependencies": [
+            "mocks",
+            "network",
+            "subprocess",
+            "supabase"
+          ],
+          "uses_real_services": true,
+          "covered_components": [
+            "knowledge",
+            "observability",
+            "persistence",
+            "runtime",
+            "server"
+          ],
+          "missing_integration_or_e2e": true
+        },
+        {
+          "file": "src/protocol/__tests__/ulysses-test-helpers.ts",
+          "ci_executed": false,
+          "runner": "vitest",
+          "runner_include_glob": "src/**/__tests__/**/*.ts",
+          "real_dependencies": [
+            "mocks",
+            "network",
+            "subprocess",
+            "supabase"
+          ],
+          "uses_real_services": true,
+          "covered_components": [
+            "knowledge",
+            "observability",
+            "persistence",
+            "runtime",
+            "server"
+          ],
+          "missing_integration_or_e2e": true
+        },
+        {
+          "file": "src/protocol/__tests__/ulysses-validator.test.ts",
           "ci_executed": true,
           "runner": "vitest",
           "runner_include_glob": "src/**/__tests__/**/*.ts",
@@ -2211,13 +2534,19 @@
     "observability/mcp-sidecar-observability/test/integration.test.ts",
     "src/__tests__/api-key-auth.test.ts",
     "src/__tests__/architecture.test.ts",
+    "src/__tests__/branch-workers.test.ts",
+    "src/__tests__/e2e-workflow.test.ts",
+    "src/__tests__/intelligence-pipeline.test.ts",
     "src/__tests__/persistence-roundtrip.test.ts",
     "src/__tests__/supabase-test-helpers.ts",
     "src/__tests__/supabase-wiring.test.ts",
     "src/audit/__tests__/manifest-generator.test.ts",
+    "src/branch/__tests__/handlers.test.ts",
+    "src/branch/__tests__/schemas.test.ts",
     "src/code-mode/__tests__/execute-tool.test.ts",
     "src/code-mode/__tests__/search-tool.test.ts",
     "src/code-mode/__tests__/server-surface.test.ts",
+    "src/http/__tests__/event-stream.test.ts",
     "src/http/__tests__/hub-http.test.ts",
     "src/http/__tests__/protocol-hook-integration.test.ts",
     "src/http/__tests__/protocol-http.test.ts",
@@ -2269,15 +2598,24 @@
     "src/multi-agent/__tests__/test-helpers.ts",
     "src/multi-agent/__tests__/thought-attribution.test.ts",
     "src/multi-agent/__tests__/thought-diff.test.ts",
+    "src/notebook/__tests__/engine.test.ts",
+    "src/notebook/__tests__/validator.test.ts",
     "src/observatory/__tests__/server-historical.test.ts",
     "src/observatory/__tests__/storage-adapter.test.ts",
     "src/operations-tool/__tests__/handler.test.ts",
     "src/otel/__tests__/otel-storage.test.ts",
     "src/otel/__tests__/parser.test.ts",
     "src/otel/__tests__/routes.test.ts",
+    "src/peer-notebook/__tests__/broker.test.ts",
+    "src/peer-notebook/__tests__/supabase-repository.test.ts",
+    "src/peer-notebook/__tests__/tool.test.ts",
     "src/persistence/__tests__/supabase-storage.test.ts",
     "src/protocol/__tests__/enforcement.test.ts",
     "src/protocol/__tests__/handler.test.ts",
+    "src/protocol/__tests__/protocol-events.test.ts",
+    "src/protocol/__tests__/ulysses-state-machine.test.ts",
+    "src/protocol/__tests__/ulysses-test-helpers.ts",
+    "src/protocol/__tests__/ulysses-validator.test.ts",
     "tests/mental-models.test.ts",
     "tests/unit/config-loader.test.ts",
     "tests/unit/contamination.test.ts",
@@ -2306,13 +2644,19 @@
     "observability/mcp-sidecar-observability/test/integration.test.ts",
     "src/__tests__/api-key-auth.test.ts",
     "src/__tests__/architecture.test.ts",
+    "src/__tests__/branch-workers.test.ts",
+    "src/__tests__/e2e-workflow.test.ts",
+    "src/__tests__/intelligence-pipeline.test.ts",
     "src/__tests__/persistence-roundtrip.test.ts",
     "src/__tests__/supabase-test-helpers.ts",
     "src/__tests__/supabase-wiring.test.ts",
     "src/audit/__tests__/manifest-generator.test.ts",
+    "src/branch/__tests__/handlers.test.ts",
+    "src/branch/__tests__/schemas.test.ts",
     "src/code-mode/__tests__/execute-tool.test.ts",
     "src/code-mode/__tests__/search-tool.test.ts",
     "src/code-mode/__tests__/server-surface.test.ts",
+    "src/http/__tests__/event-stream.test.ts",
     "src/http/__tests__/hub-http.test.ts",
     "src/http/__tests__/protocol-hook-integration.test.ts",
     "src/http/__tests__/protocol-http.test.ts",
@@ -2364,15 +2708,24 @@
     "src/multi-agent/__tests__/test-helpers.ts",
     "src/multi-agent/__tests__/thought-attribution.test.ts",
     "src/multi-agent/__tests__/thought-diff.test.ts",
+    "src/notebook/__tests__/engine.test.ts",
+    "src/notebook/__tests__/validator.test.ts",
     "src/observatory/__tests__/server-historical.test.ts",
     "src/observatory/__tests__/storage-adapter.test.ts",
     "src/operations-tool/__tests__/handler.test.ts",
     "src/otel/__tests__/otel-storage.test.ts",
     "src/otel/__tests__/parser.test.ts",
     "src/otel/__tests__/routes.test.ts",
+    "src/peer-notebook/__tests__/broker.test.ts",
+    "src/peer-notebook/__tests__/supabase-repository.test.ts",
+    "src/peer-notebook/__tests__/tool.test.ts",
     "src/persistence/__tests__/supabase-storage.test.ts",
     "src/protocol/__tests__/enforcement.test.ts",
     "src/protocol/__tests__/handler.test.ts",
+    "src/protocol/__tests__/protocol-events.test.ts",
+    "src/protocol/__tests__/ulysses-state-machine.test.ts",
+    "src/protocol/__tests__/ulysses-test-helpers.ts",
+    "src/protocol/__tests__/ulysses-validator.test.ts",
     "tests/mental-models.test.ts",
     "tests/unit/config-loader.test.ts",
     "tests/unit/contamination.test.ts",
@@ -2411,20 +2764,18 @@
   "classification": {
     "total_suites": 5,
     "by_classification": {
-      "ci-executed": 1,
+      "ci-executed": 2,
       "ci-declared-but-empty": 0,
-      "local-integration": 2,
+      "local-integration": 1,
       "local-only": 2,
       "stale-or-unreferenced": 0
     }
   },
   "explicit_gaps": [
     "tests/unit/*.ts is out-of-band relative to current Vitest include config",
-    "automation-self-improvement/agentops/tests/**/*.ts is out-of-band relative to current Vitest include config",
     "local Supabase integration tests skip when Supabase is unavailable, so they are not reliable CI coverage",
     "there is no end-to-end suite spanning workflow trigger -> runtime/persistence -> evaluation/integration",
-    "automation-self-improvement/agentops/tests/*.ts is out-of-band relative to current Vitest include config",
-    "moved tests use local and external dependencies",
+    "phase1.2 and integration AgentOps tests remain excluded from the current Vitest include surface",
     "not part of current CI include list",
     "local-only in CI because no legacy sidecar compose path in this config",
     "local Supabase integration tests may skip when Supabase is unavailable",

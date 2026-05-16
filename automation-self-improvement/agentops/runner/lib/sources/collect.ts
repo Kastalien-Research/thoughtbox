@@ -4,7 +4,6 @@
  */
 
 import { promises as fs } from 'fs';
-import * as path from 'path';
 import * as yaml from 'yaml';
 import type { SignalCollection, SignalItem } from './types.js';
 import { collectRepoSignals } from './repo.js';
@@ -13,6 +12,7 @@ import { collectRSSSignals } from './rss.js';
 import { collectHTMLSignals } from './html.js';
 import { collectAssumptionsSignals } from './assumptions.js';
 import { collectSessionHandoffSignals } from './session-handoff.js';
+import { agentopsPath } from '../paths.js';
 
 /**
  * Collect signals from all enabled sources
@@ -22,13 +22,14 @@ export async function collectSignals(): Promise<SignalCollection> {
   const sourcesAttempted: string[] = [];
   const sourcesSucceeded: string[] = [];
   const sourcesFailed: Array<{ source: string; error: string }> = [];
+  const sourcesEmpty: Array<{ source: string; reason: string }> = [];
   const allSignals: SignalItem[] = [];
   const signalsBySource: Record<string, number> = {};
   const elapsedMsBySource: Record<string, number> = {};
 
   // Load config files
-  const sourcesPath = path.join(process.cwd(), 'agentops/config/dev_sources.yaml');
-  const policyPath = path.join(process.cwd(), 'agentops/config/dev_brief_policy.yaml');
+  const sourcesPath = agentopsPath('config/dev_sources.yaml');
+  const policyPath = agentopsPath('config/dev_brief_policy.yaml');
 
   let sourcesConfig: any;
   let policyConfig: any;
@@ -58,9 +59,13 @@ export async function collectSignals(): Promise<SignalCollection> {
         lookbackHours: sourcesConfig.repo.lookback_hours || 24,
       });
 
-      allSignals.push(...signals);
-      sourcesSucceeded.push('repo');
       signalsBySource['repo'] = signals.length;
+      if (signals.length > 0) {
+        allSignals.push(...signals);
+        sourcesSucceeded.push('repo');
+      } else {
+        sourcesEmpty.push({ source: 'repo', reason: 'collector returned no signals' });
+      }
       elapsedMsBySource['repo'] = Date.now() - repoStart;
       console.log(`  ✓ repo: ${signals.length} signals`);
     } catch (error) {
@@ -81,9 +86,13 @@ export async function collectSignals(): Promise<SignalCollection> {
         maxResults: sourcesConfig.arxiv.max_results || 10,
       });
 
-      allSignals.push(...signals);
-      sourcesSucceeded.push('arxiv');
       signalsBySource['arxiv'] = signals.length;
+      if (signals.length > 0) {
+        allSignals.push(...signals);
+        sourcesSucceeded.push('arxiv');
+      } else {
+        sourcesEmpty.push({ source: 'arxiv', reason: 'collector returned no signals' });
+      }
       elapsedMsBySource['arxiv'] = Date.now() - arxivStart;
       console.log(`  ✓ arxiv: ${signals.length} signals`);
     } catch (error) {
@@ -105,9 +114,13 @@ export async function collectSignals(): Promise<SignalCollection> {
         maxItemsPerFeed: 5,
       });
 
-      allSignals.push(...signals);
-      sourcesSucceeded.push('rss');
       signalsBySource['rss'] = signals.length;
+      if (signals.length > 0) {
+        allSignals.push(...signals);
+        sourcesSucceeded.push('rss');
+      } else {
+        sourcesEmpty.push({ source: 'rss', reason: 'collector returned no signals' });
+      }
       elapsedMsBySource['rss'] = Date.now() - rssStart;
       console.log(`  ✓ rss: ${signals.length} signals`);
     } catch (error) {
@@ -134,9 +147,13 @@ export async function collectSignals(): Promise<SignalCollection> {
         maxItemsPerPage: 10,
       });
 
-      allSignals.push(...signals);
-      sourcesSucceeded.push('html');
       signalsBySource['html'] = signals.length;
+      if (signals.length > 0) {
+        allSignals.push(...signals);
+        sourcesSucceeded.push('html');
+      } else {
+        sourcesEmpty.push({ source: 'html', reason: 'collector returned no signals' });
+      }
       elapsedMsBySource['html'] = Date.now() - htmlStart;
       console.log(`  ✓ html: ${signals.length} signals`);
     } catch (error) {
@@ -156,9 +173,13 @@ export async function collectSignals(): Promise<SignalCollection> {
         staleDays: sourcesConfig.assumptions.stale_days || 14,
       });
 
-      allSignals.push(...signals);
-      sourcesSucceeded.push('assumptions');
       signalsBySource['assumptions'] = signals.length;
+      if (signals.length > 0) {
+        allSignals.push(...signals);
+        sourcesSucceeded.push('assumptions');
+      } else {
+        sourcesEmpty.push({ source: 'assumptions', reason: 'collector returned no signals' });
+      }
       elapsedMsBySource['assumptions'] = Date.now() - assumptionsStart;
       console.log(`  ✓ assumptions: ${signals.length} signals`);
     } catch (error) {
@@ -179,9 +200,13 @@ export async function collectSignals(): Promise<SignalCollection> {
           sourcesConfig.session_handoff.max_age_hours || 48,
       });
 
-      allSignals.push(...signals);
-      sourcesSucceeded.push('session_handoff');
       signalsBySource['session_handoff'] = signals.length;
+      if (signals.length > 0) {
+        allSignals.push(...signals);
+        sourcesSucceeded.push('session_handoff');
+      } else {
+        sourcesEmpty.push({ source: 'session_handoff', reason: 'collector returned no signals' });
+      }
       elapsedMsBySource['session_handoff'] = Date.now() - handoffStart;
       console.log(`  ✓ session_handoff: ${signals.length} signals`);
     } catch (error) {
@@ -211,6 +236,7 @@ export async function collectSignals(): Promise<SignalCollection> {
       sources_attempted: sourcesAttempted,
       sources_succeeded: sourcesSucceeded,
       sources_failed: sourcesFailed,
+      sources_empty: sourcesEmpty,
       total_signals: cappedSignals.length,
       signals_by_source: signalsBySource,
       elapsed_ms_by_source: elapsedMsBySource,
