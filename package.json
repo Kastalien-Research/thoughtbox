@@ -82,7 +82,7 @@
     "gray-matter": "^4.0.3",
     "jose": "6.2.1",
     "jsonwebtoken": "^9.0.3",
-    "langsmith": "^0.5.2",
+    "langsmith": "^0.7.1",
     "openai": "^4.104.0",
     "rss-parser": "^3.13.0",
     "ws": "^8.18.3",
