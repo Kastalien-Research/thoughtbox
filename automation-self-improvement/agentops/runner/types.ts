@@ -38,6 +38,7 @@ export interface RunSummary {
   run_id: string;
   job_name: string;
   job_version: string;
+  execution_mode: 'real' | 'fixture';
   status: 'SUCCEEDED' | 'FAILED' | 'PARTIAL';
   trigger: {
     type: 'schedule' | 'manual' | 'label';
@@ -67,6 +68,7 @@ export interface RunSummary {
     sources_attempted: string[];
     sources_succeeded: string[];
     sources_failed: Array<{ source: string; error: string }>;
+    sources_empty: Array<{ source: string; reason: string }>;
   };
   artifact_index: Array<{
     name: string;

@@ -455,6 +455,10 @@ function componentsNeedIntegration(components: string[]): boolean {
 
 async function buildTestTruth(manifest: Manifest, vitestConfig: { include: string[]; exclude: string[] }): Promise<TestTruth> {
   const vitestIncludeSet = new Set(await matchSetFromGlobs(vitestConfig.include));
+  const vitestExcludeSet = new Set(await matchSetFromGlobs(vitestConfig.exclude));
+  for (const excludedFile of vitestExcludeSet) {
+    vitestIncludeSet.delete(excludedFile);
+  }
   const candidateFiles = sort(dedupe((await matchSetFromGlobs(DISCOVER_GLOBS)).filter((value) => !value.includes('/dist/') )));
 
   const discoveredFilesSet = new Set(candidateFiles);
@@ -541,7 +545,6 @@ async function buildTestTruth(manifest: Manifest, vitestConfig: { include: strin
 
   const explicitGaps = dedupe([
     'tests/unit/*.ts is out-of-band relative to current Vitest include config',
-    'automation-self-improvement/agentops/tests/**/*.ts is out-of-band relative to current Vitest include config',
     'local Supabase integration tests skip when Supabase is unavailable, so they are not reliable CI coverage',
     'there is no end-to-end suite spanning workflow trigger -> runtime/persistence -> evaluation/integration',
     ...suites.flatMap((suite) => suite.gaps || []),

@@ -10,6 +10,7 @@ import type { SignalCollection } from './sources/types.js';
 import type { SynthesisResult } from './llm/types.js';
 import { getLLMConfig, callLLM } from './llm/provider.js';
 import { validateProposalsPayload } from './template.js';
+import { agentopsPath } from './paths.js';
 
 export interface RepoContext {
   owner: string;
@@ -38,7 +39,7 @@ export async function synthesizeProposals(
   // Return fixture data immediately if in fixtures mode
   if (options?.fixturesMode) {
     console.log('  ⚙️  Using FIXTURE MODE (no LLM call, zero cost)');
-    const fixturesPath = path.join(process.cwd(), 'agentops/fixtures/proposals.example.json');
+    const fixturesPath = agentopsPath('fixtures/proposals.example.json');
     const fixtureData = JSON.parse(await fs.readFile(fixturesPath, 'utf-8'));
 
     // Create a fake digest from signals
@@ -65,7 +66,7 @@ export async function synthesizeProposals(
   }
 
   // Load prompts
-  const promptsDir = path.join(process.cwd(), 'agentops/prompts');
+  const promptsDir = agentopsPath('prompts');
   const synthesizerPrompt = await fs.readFile(
     path.join(promptsDir, 'dev_brief_synthesizer.md'),
     'utf-8'

@@ -16,12 +16,38 @@ import { createTracingClient } from './lib/trace.js';
 import { getLLMConfig } from './lib/llm/provider.js';
 import { collectSignals } from './lib/sources/collect.js';
 import { synthesizeProposals } from './lib/synthesis.js';
+import { agentopsPath } from './lib/paths.js';
 import type { ProposalsPayload, RunSummary, TemplateContext } from './types.js';
+import type { SignalCollection } from './lib/sources/types.js';
 
 export interface DailyBriefOptions {
   dryRun?: boolean;
   fixturesMode?: boolean;
   outputDir?: string;
+}
+
+const MIN_REAL_SIGNALS = 1;
+
+function requireRealSignals(signals: SignalCollection): void {
+  if (signals.metadata.sources_succeeded.length === 0) {
+    throw new Error('Real daily brief requires at least one signal source to return data');
+  }
+  if (signals.signals.length < MIN_REAL_SIGNALS) {
+    throw new Error(
+      `Real daily brief requires at least ${MIN_REAL_SIGNALS} collected signal(s); got ${signals.signals.length}`
+    );
+  }
+}
+
+function runStatusForSignals(signals: SignalCollection | null): RunSummary['status'] {
+  if (!signals) return 'SUCCEEDED';
+  if (
+    signals.metadata.sources_failed.length > 0 ||
+    signals.metadata.sources_empty.length > 0
+  ) {
+    return 'PARTIAL';
+  }
+  return 'SUCCEEDED';
 }
 
 export async function runDailyDevBrief(
@@ -45,94 +71,85 @@ export async function runDailyDevBrief(
     tracer.startSpan('load-proposals');
     console.log('📥 Loading proposals...');
 
-    let llmConfig = getLLMConfig();  // Changed from const to let for fallback
     let proposalsData: ProposalsPayload;
     let digestBullets: string;
     let llmCost = 0;
-    let signalMetadata: any = null;
-    let collectedSignalsData: any = null;
+    let collectedSignalsData: SignalCollection | null = null;
+    const executionMode = options.fixturesMode ? 'fixture' : 'real';
 
     if (options.fixturesMode) {
-      // Fixtures mode: skip ALL external calls (signals + LLM) for true zero-cost
       console.log('⚙️  FIXTURE MODE: Skipping signal collection and LLM calls');
-      const fixturesPath = path.join(process.cwd(), 'agentops/fixtures/proposals.example.json');
+      const fixturesPath = agentopsPath('fixtures/proposals.example.json');
       proposalsData = JSON.parse(await fs.readFile(fixturesPath, 'utf-8'));
+      proposalsData.run_id = runId;
+      proposalsData.generated_at = new Date().toISOString();
 
       digestBullets = [
+        'Fixture mode: path and template wiring validation only',
         'RLM sampling implementation in progress',
         'Benchmarking context documents added',
         'AgentOps specs ready for bootstrap',
       ].map(item => `- ${item}`).join('\n');
-    } else if (llmConfig) {
-      try {
-        // Collect signals
-        tracer.startSpan('collect_signals');
-        console.log('📡 Collecting signals...');
-        const signals = await collectSignals();
-        signalMetadata = signals.metadata;
-        collectedSignalsData = signals;  // Store full signals for artifact
-        console.log(`✅ Collected ${signals.signals.length} signals`);
-        tracer.endSpan('collect_signals', 'ok');
-
-        // Synthesize
-        tracer.startSpan('synthesize');
-        console.log('🤖 Synthesizing proposals...');
-
-        // Get GitHub context for repo info
-        const ghContext = options.dryRun
-          ? { sha: 'dry-run-sha', ref: 'main', runId: 'dry-run-id', runNumber: '0', token: '' }
-          : getGitHubContext();
-
-        const synthesis = await synthesizeProposals(
-          signals,
-          {
-            owner: process.env.GITHUB_REPOSITORY?.split('/')[0] || 'org',
-            repo: process.env.GITHUB_REPOSITORY?.split('/')[1] || 'repo',
-            ref: ghContext.ref.replace('refs/heads/', ''),
-            sha: ghContext.sha,
-          },
-          { fixturesMode: false }
+    } else {
+      const llmConfig = getLLMConfig();
+      if (!llmConfig) {
+        throw new Error(
+          'Real AgentOps daily brief requires LLM configuration: set ANTHROPIC_API_KEY or OPENAI_API_KEY'
         );
-        tracer.endSpan('synthesize', 'ok');
-
-        llmCost = synthesis.llmCost;
-
-        proposalsData = {
-          run_id: runId,
-          repo_ref: ghContext.ref.replace('refs/heads/', ''),
-          git_sha: ghContext.sha,
-          generated_at: new Date().toISOString(),
-          proposals: synthesis.result.proposals,
-        };
-
-        digestBullets = synthesis.result.digest
-          .map(item => `- [${item.title}](${item.url}) — ${item.why_it_matters}`)
-          .join('\n');
-
-        console.log(`✅ Generated ${proposalsData.proposals.length} proposals (est. cost: $${llmCost.toFixed(4)})`);
-      } catch (error) {
-        console.warn('⚠️  Synthesis failed, using FIXTURE MODE');
-        console.warn(`   Error: ${error instanceof Error ? error.message : String(error)}`);
-        llmConfig = null as any; // Trigger fixture fallback
       }
-    }
 
-    // FIXTURE MODE fallback (no API key or synthesis failure)
-    if (!options.fixturesMode && !llmConfig) {
-      console.log('⚠️  FIXTURE MODE (fallback): Using example data');
-      const fixturesPath = path.join(process.cwd(), 'agentops/fixtures/proposals.example.json');
-      proposalsData = JSON.parse(await fs.readFile(fixturesPath, 'utf-8'));
+      tracer.startSpan('collect_signals');
+      console.log('📡 Collecting signals...');
+      const signals = await collectSignals();
+      requireRealSignals(signals);
+      collectedSignalsData = signals;
+      console.log(`✅ Collected ${signals.signals.length} signals`);
+      tracer.endSpan('collect_signals', 'ok');
 
-      digestBullets = [
-        'RLM sampling implementation in progress',
-        'Benchmarking context documents added',
-        'AgentOps specs ready for bootstrap',
-      ].map(item => `- ${item}`).join('\n');
+      tracer.startSpan('synthesize');
+      console.log('🤖 Synthesizing proposals...');
+
+      const ghContext = options.dryRun
+        ? { sha: 'dry-run-sha', ref: 'main', runId: 'dry-run-id', runNumber: '0', token: '' }
+        : getGitHubContext();
+      const [owner = 'Kastalien-Research', repo = 'thoughtbox'] =
+        (process.env.GITHUB_REPOSITORY || 'Kastalien-Research/thoughtbox').split('/');
+
+      const synthesis = await synthesizeProposals(
+        signals,
+        {
+          owner,
+          repo,
+          ref: ghContext.ref.replace('refs/heads/', ''),
+          sha: ghContext.sha,
+        },
+        { fixturesMode: false }
+      );
+      tracer.endSpan('synthesize', 'ok');
+
+      llmCost = synthesis.llmCost;
+
+      proposalsData = {
+        run_id: runId,
+        repo_ref: ghContext.ref.replace('refs/heads/', ''),
+        git_sha: ghContext.sha,
+        generated_at: new Date().toISOString(),
+        proposals: synthesis.result.proposals,
+      };
+
+      digestBullets = synthesis.result.digest
+        .map(item => `- [${item.title}](${item.url}) — ${item.why_it_matters}`)
+        .join('\n');
+
+      console.log(`✅ Generated ${proposalsData.proposals.length} proposals (est. cost: $${llmCost.toFixed(4)})`);
     }
 
     // Validate
     tracer.startSpan('validate');
-    const errors = validateProposalsPayload(proposalsData);
+    const errors = validateProposalsPayload(
+      proposalsData,
+      collectedSignalsData?.signals
+    );
     if (errors.length > 0) {
       throw new Error(`Invalid proposals:\n${errors.join('\n')}`);
     }
@@ -145,10 +162,7 @@ export async function runDailyDevBrief(
     tracer.startSpan('render-template');
     console.log('🎨 Rendering issue template...');
 
-    const templatePath = path.join(
-      process.cwd(),
-      'agentops/templates/daily_thoughtbox_dev_brief_issue.md'
-    );
+    const templatePath = agentopsPath('templates/daily_thoughtbox_dev_brief_issue.md');
     const template = await loadTemplate(templatePath);
 
     // Get GitHub context
@@ -191,8 +205,8 @@ export async function runDailyDevBrief(
 
     let issueBody = renderTemplate(template, context);
 
-    if (!llmConfig) {
-      issueBody = `> **⚠️ FIXTURE MODE**: Generated with example data (no API key). Set ANTHROPIC_API_KEY or OPENAI_API_KEY.\n\n` + issueBody;
+    if (options.fixturesMode) {
+      issueBody = `> **FIXTURE MODE**: Generated with example data for path and template validation only.\n\n` + issueBody;
     }
 
     console.log('✅ Issue body rendered');
@@ -202,7 +216,7 @@ export async function runDailyDevBrief(
     tracer.startSpan('save-artifacts');
     console.log('💾 Saving artifacts...');
 
-    const outputDir = options.outputDir || path.join(process.cwd(), 'agentops/runs', runId);
+    const outputDir = options.outputDir || agentopsPath('runs', runId);
     await fs.mkdir(outputDir, { recursive: true });
 
     await fs.writeFile(
@@ -244,7 +258,8 @@ export async function runDailyDevBrief(
       run_id: runId,
       job_name: 'thoughtbox_daily_proposals',
       job_version: '0.1.0',
-      status: 'SUCCEEDED',
+      execution_mode: executionMode,
+      status: runStatusForSignals(collectedSignalsData),
       trigger: {
         type: options.dryRun ? 'manual' : 'schedule',
         source: 'github_actions',
@@ -265,27 +280,41 @@ export async function runDailyDevBrief(
       metrics: {
         llm_cost_usd: llmCost,
         wall_clock_seconds: Math.floor((endTime - startTime) / 1000),
-        sources_scanned: signalMetadata?.total_signals || 0,
-        items_shortlisted: signalMetadata?.total_signals || 0,
+        sources_scanned: collectedSignalsData?.metadata.total_signals || 0,
+        items_shortlisted: collectedSignalsData?.metadata.total_signals || 0,
         proposals_emitted: proposalsData.proposals.length,
       },
-      signal_collection: signalMetadata ? {
-        sources_attempted: signalMetadata.sources_attempted,
-        sources_succeeded: signalMetadata.sources_succeeded,
-        sources_failed: signalMetadata.sources_failed,
+      signal_collection: collectedSignalsData ? {
+        sources_attempted: collectedSignalsData.metadata.sources_attempted,
+        sources_succeeded: collectedSignalsData.metadata.sources_succeeded,
+        sources_failed: collectedSignalsData.metadata.sources_failed,
+        sources_empty: collectedSignalsData.metadata.sources_empty,
       } : undefined,
       artifact_index: [
         { name: 'digest_md', path: 'digest.md' },
         { name: 'proposals_json', path: 'proposals.json' },
         { name: 'issue_body_md', path: 'issue_body.md' },
-        { name: 'signals_json', path: 'signals.json' },
+        ...(collectedSignalsData ? [{ name: 'signals_json', path: 'signals.json' }] : []),
         { name: 'run_summary_json', path: 'run_summary.json' },
       ],
       links: {
         trace: tracer.getTraceUrl(runId),
         workflow_run: context.ARTIFACT_INDEX_URL,
       },
-      errors: [],
+      errors: collectedSignalsData
+        ? [
+            ...collectedSignalsData.metadata.sources_failed.map((failure) => ({
+              phase: 'collect_signals',
+              message: `${failure.source}: ${failure.error}`,
+              timestamp: new Date(endTime).toISOString(),
+            })),
+            ...collectedSignalsData.metadata.sources_empty.map((empty) => ({
+              phase: 'collect_signals',
+              message: `${empty.source}: ${empty.reason}`,
+              timestamp: new Date(endTime).toISOString(),
+            })),
+          ]
+        : [],
     };
 
     await fs.writeFile(

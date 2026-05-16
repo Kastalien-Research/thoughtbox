@@ -117,7 +117,9 @@ function printHelp(): void {
 AgentOps CLI - Autonomous development workflow runner
 
 USAGE:
-  tsx agentops/runner/cli.ts <command> [options]
+  pnpm agentops:daily -- [options]
+  pnpm agentops:daily:fixtures -- [options]
+  tsx automation-self-improvement/agentops/runner/cli.ts <command> [options]
 
 COMMANDS:
   daily-dev-brief     Generate daily digest and create GitHub issue
@@ -125,7 +127,7 @@ COMMANDS:
 
 OPTIONS (daily-dev-brief):
   --dry-run          Don't create GitHub issue (default: false)
-  --fixtures         Use fixture data, no LLM call, zero cost (default: false)
+  --fixtures         Explicit fixture mode, no signal collection or LLM calls
   --output-dir PATH  Save artifacts to specific directory
 
 OPTIONS (implement):
@@ -136,8 +138,11 @@ OPTIONS (implement):
   --output-dir PATH  Save artifacts to specific directory
 
 EXAMPLES:
-  # Generate daily digest (dry run)
-  tsx agentops/runner/cli.ts daily-dev-brief --dry-run
+  # Generate real daily digest artifacts without creating a GitHub issue
+  pnpm agentops:daily -- --dry-run --output-dir /tmp/agentops-real-run
+
+  # Validate fixture-only path wiring
+  pnpm agentops:daily:fixtures -- --output-dir /tmp/agentops-fixture-run
 
   # Implement proposal (REAL mode)
   tsx agentops/runner/cli.ts implement \\
@@ -152,8 +157,12 @@ EXAMPLES:
     --mode SMOKE
 
 ENVIRONMENT VARIABLES:
-  GITHUB_TOKEN           GitHub API token (required)
-  GITHUB_REPOSITORY      Repository in owner/repo format (required)
+  ANTHROPIC_API_KEY      Anthropic API key for real daily mode
+  OPENAI_API_KEY         OpenAI API key if AGENTOPS_LLM_PROVIDER=openai
+  AGENTOPS_LLM_PROVIDER  LLM provider: anthropic or openai (default: anthropic)
+  AGENTOPS_LLM_MODEL     Optional model override
+  GITHUB_TOKEN           GitHub API token (required only for live issue creation)
+  GITHUB_REPOSITORY      Repository in owner/repo format
   GITHUB_SHA             Current commit SHA
   GITHUB_REF             Current git ref
   GITHUB_RUN_ID          GitHub Actions run ID
