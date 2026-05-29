@@ -537,7 +537,6 @@ Hypothesis doc for Hub + Agent Teams coordination proof on `fix/sub-agent-stage-
 
 | Script | Why orphaned |
 |--------|-------------|
-| `staged-hooks/` (entire dir, 11 files) | Hook staging area; all superseded by live `.claude/hooks/` |
 | `db-migrate.sh` | References SQLite/Drizzle; superseded by Supabase |
 | `utils/spec-index.mjs` | Targets `specs/` (old path), not `.specs/` |
 | `utils/capture-handoff.mjs` | Intended for PreCompact/Stop hooks but never wired |
