@@ -614,10 +614,6 @@ schedule: Mon 9am UTC
 | `verify-assumptions.yml` | `if: false` — schedule trigger exists but job never runs |
 | `log-issue-events.yml` | Errors if `STATSIG_API_KEY` missing |
 
-### Broken npm Script
-
-`start:stateful` → `node dist/http-stateful.js` — source file `src/http-stateful.ts` does not exist. Always fails.
-
 ---
 
 ## Cross-System Connection Map
