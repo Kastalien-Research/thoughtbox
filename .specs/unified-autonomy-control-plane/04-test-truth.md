@@ -17,7 +17,7 @@ Source of truth: `automation-self-improvement/control-plane/manifest.yaml`
 | --- | --- |
 | ci-executed | 2 |
 | ci-declared-but-empty | 0 |
-| local-integration | 1 |
+| local-integration | 0 |
 | local-only | 2 |
 | stale-or-unreferenced | 0 |
 
@@ -27,7 +27,6 @@ Source of truth: `automation-self-improvement/control-plane/manifest.yaml`
 | --- | --- | --- | --- | --- | --- | --- |
 | automation_agentops_suite | vitest | ci-executed | ci-executed | 8 | 6 | no |
 | mental_models_smoke_suite | vitest | local-only | local-only | 1 | 0 | no |
-| observability_sidecar_suite | vitest | local-integration | local-integration | 1 | 0 | yes |
 | src_unit_suite | vitest | ci-executed | ci-executed | 84 | 80 | yes |
 | tests_unit_suite | vitest | local-only | local-only | 14 | 0 | no |
 
@@ -38,7 +37,6 @@ Source of truth: `automation-self-improvement/control-plane/manifest.yaml`
 - there is no end-to-end suite spanning workflow trigger -> runtime/persistence -> evaluation/integration
 - phase1.2 and integration AgentOps tests remain excluded from the current Vitest include surface
 - not part of current CI include list
-- local-only in CI because no legacy sidecar compose path in this config
 - local Supabase integration tests may skip when Supabase is unavailable
 - no guarantee of full end-to-end chain coverage
 
@@ -55,7 +53,6 @@ Source of truth: `automation-self-improvement/control-plane/manifest.yaml`
 | automation_agentops_suite | automation-self-improvement/agentops/tests/template.test.ts | yes | no | agentops, integration, proposal, workflow |
 | automation_agentops_suite | automation-self-improvement/agentops/tests/xml-parsing.test.ts | yes | no | agentops, integration, proposal, workflow |
 | mental_models_smoke_suite | tests/mental-models.test.ts | no | no | behavior, mental models, session contracts |
-| observability_sidecar_suite | observability/mcp-sidecar-observability/test/integration.test.ts | no | yes | observability, runtime, runtime integration |
 | src_unit_suite | src/__tests__/api-key-auth.test.ts | yes | yes | knowledge, observability, persistence, runtime, server |
 | src_unit_suite | src/__tests__/architecture.test.ts | yes | yes | knowledge, observability, persistence, runtime, server |
 | src_unit_suite | src/__tests__/branch-workers.test.ts | yes | yes | knowledge, observability, persistence, runtime, server |

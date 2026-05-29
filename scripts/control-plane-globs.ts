@@ -11,7 +11,6 @@ export const DISCOVER_GLOBS = [
   'tests/**/*.ts',
   'agentops/tests/**/*.ts',
   'automation-self-improvement/agentops/tests/**/*.ts',
-  'observability/**/*/test/**/*.ts',
 ];
 
 export const IGNORE_GLOBS = [

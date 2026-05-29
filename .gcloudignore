@@ -48,7 +48,6 @@ improvement-recs/
 .claude/
 .claude-plugin/
 .claude-flow/
-.gemini/
 .swarm/
 .roo/
 .roomodes

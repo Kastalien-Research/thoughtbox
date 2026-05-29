@@ -463,7 +463,7 @@ SQLite database serving two functions: (1) MAP-Elites quality-diversity library 
 ULC QD exploration query uses wrong column names:
 - Query says: `coord_domain`, `coord_evidence`, `coord_horizon`
 - Actual columns: `coord_domain_structure`, `coord_evidence_type`, `coord_time_horizon`
-- Present in both `.claude/skills/ulc-loop/ulc-prompt.md` and `.gemini/skills/ulc-loop/ulc-prompt.md`
+- Present in `.claude/skills/ulc-loop/ulc-prompt.md`
 
 ### REINIT-PLEASE Gap
 
