@@ -9,7 +9,6 @@
 export const DISCOVER_GLOBS = [
   'src/**/__tests__/**/*.ts',
   'tests/**/*.ts',
-  'agentops/tests/**/*.ts',
   'automation-self-improvement/agentops/tests/**/*.ts',
 ];
 
