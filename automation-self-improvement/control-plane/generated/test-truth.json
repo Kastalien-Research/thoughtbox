@@ -243,49 +243,6 @@
       ]
     },
     {
-      "suite_id": "observability_sidecar_suite",
-      "glob": "observability/mcp-sidecar-observability/test/**/*.test.ts",
-      "runner": "vitest",
-      "execution_profile": "local-integration",
-      "manifest_classification": "local-integration",
-      "files": [
-        "observability/mcp-sidecar-observability/test/integration.test.ts"
-      ],
-      "ci_files": [],
-      "real_dependencies": [
-        "network",
-        "subprocess"
-      ],
-      "coverage_components": [
-        "observability",
-        "runtime",
-        "runtime integration"
-      ],
-      "gaps": [
-        "local-only in CI because no legacy sidecar compose path in this config"
-      ],
-      "dependencies_real_services": true,
-      "file_records": [
-        {
-          "file": "observability/mcp-sidecar-observability/test/integration.test.ts",
-          "ci_executed": false,
-          "runner": "vitest",
-          "runner_include_glob": "observability/mcp-sidecar-observability/test/**/*.test.ts",
-          "real_dependencies": [
-            "network",
-            "subprocess"
-          ],
-          "uses_real_services": true,
-          "covered_components": [
-            "observability",
-            "runtime",
-            "runtime integration"
-          ],
-          "missing_integration_or_e2e": true
-        }
-      ]
-    },
-    {
       "suite_id": "src_unit_suite",
       "glob": "src/**/__tests__/**/*.ts",
       "runner": "vitest",
@@ -2531,7 +2488,6 @@
     "automation-self-improvement/agentops/tests/synthesis.test.ts",
     "automation-self-improvement/agentops/tests/template.test.ts",
     "automation-self-improvement/agentops/tests/xml-parsing.test.ts",
-    "observability/mcp-sidecar-observability/test/integration.test.ts",
     "src/__tests__/api-key-auth.test.ts",
     "src/__tests__/architecture.test.ts",
     "src/__tests__/branch-workers.test.ts",
@@ -2641,7 +2597,6 @@
     "automation-self-improvement/agentops/tests/synthesis.test.ts",
     "automation-self-improvement/agentops/tests/template.test.ts",
     "automation-self-improvement/agentops/tests/xml-parsing.test.ts",
-    "observability/mcp-sidecar-observability/test/integration.test.ts",
     "src/__tests__/api-key-auth.test.ts",
     "src/__tests__/architecture.test.ts",
     "src/__tests__/branch-workers.test.ts",
@@ -2755,18 +2710,17 @@
     "persistence",
     "proposal",
     "runtime",
-    "runtime integration",
     "server",
     "session contracts",
     "tooling",
     "workflow"
   ],
   "classification": {
-    "total_suites": 5,
+    "total_suites": 4,
     "by_classification": {
       "ci-executed": 2,
       "ci-declared-but-empty": 0,
-      "local-integration": 1,
+      "local-integration": 0,
       "local-only": 2,
       "stale-or-unreferenced": 0
     }
@@ -2777,7 +2731,6 @@
     "there is no end-to-end suite spanning workflow trigger -> runtime/persistence -> evaluation/integration",
     "phase1.2 and integration AgentOps tests remain excluded from the current Vitest include surface",
     "not part of current CI include list",
-    "local-only in CI because no legacy sidecar compose path in this config",
     "local Supabase integration tests may skip when Supabase is unavailable",
     "no guarantee of full end-to-end chain coverage"
   ]

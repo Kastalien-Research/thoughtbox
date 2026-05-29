@@ -457,26 +457,6 @@
         ]
       },
       {
-        "suite_id": "observability_sidecar_suite",
-        "glob": "observability/mcp-sidecar-observability/test/**/*.test.ts",
-        "runner": "vitest",
-        "execution_profile": "local-integration",
-        "real_dependencies": [
-          "network",
-          "subprocess"
-        ],
-        "coverage": {
-          "components": [
-            "observability",
-            "runtime",
-            "runtime integration"
-          ]
-        },
-        "gaps": [
-          "local-only in CI because no legacy sidecar compose path in this config"
-        ]
-      },
-      {
         "suite_id": "src_unit_suite",
         "glob": "src/**/__tests__/**/*.ts",
         "runner": "vitest",
@@ -565,7 +545,6 @@
       "automation-self-improvement/agentops/tests/synthesis.test.ts",
       "automation-self-improvement/agentops/tests/template.test.ts",
       "automation-self-improvement/agentops/tests/xml-parsing.test.ts",
-      "observability/mcp-sidecar-observability/test/integration.test.ts",
       "src/__tests__/api-key-auth.test.ts",
       "src/__tests__/architecture.test.ts",
       "src/__tests__/branch-workers.test.ts",
@@ -675,7 +654,6 @@
       "automation-self-improvement/agentops/tests/synthesis.test.ts",
       "automation-self-improvement/agentops/tests/template.test.ts",
       "automation-self-improvement/agentops/tests/xml-parsing.test.ts",
-      "observability/mcp-sidecar-observability/test/integration.test.ts",
       "src/__tests__/api-key-auth.test.ts",
       "src/__tests__/architecture.test.ts",
       "src/__tests__/branch-workers.test.ts",
