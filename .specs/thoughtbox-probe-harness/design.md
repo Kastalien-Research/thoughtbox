@@ -140,6 +140,16 @@ Exports:
 Each probe is a standalone file importing the harness, calling `runProbe`, and
 printing the result. Run with `tsx scripts/probes/<name>.probe.ts`.
 
+### `scripts/probes/monitor.ts`
+
+Live tail of Thoughtbox writes (sessions + thoughts) straight from Supabase, so
+the agent's output is visible while a probe runs. Connects with
+`SUPABASE_URL`/`SUPABASE_SERVICE_ROLE_KEY` from `.env` (the project the live
+server writes to — `akjccuoncxlvrrtkvtno`, confirmed via the round-trip session),
+polls every `--interval` seconds, and prints new `sessions`/`thoughts` rows.
+Flags: `--since <min>` (backfill), `--once` (single snapshot), `--interval <sec>`.
+Typical use: run it in one terminal, a probe in another.
+
 ### Result persistence (optional)
 
 `runProbe` may write `ProbeResult` to `scripts/probes/runs/<name>.json` (gitignored)
@@ -170,6 +180,7 @@ Supabase — runs appear in the web app's Runs view.
 ```
 scripts/probes/
   harness.ts            # connection + runProbe
+  monitor.ts            # live Supabase tail of sessions/thoughts
   surface.probe.ts      # seed probe 1
   thought-roundtrip.probe.ts  # seed probe 2
   runs/                 # gitignored probe-result output
