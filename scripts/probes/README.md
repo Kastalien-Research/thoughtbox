@@ -34,6 +34,26 @@ npx tsx scripts/probes/thought-roundtrip.probe.ts # verify a thought persists in
 Each probe exits non-zero if its assertion fails, so they compose into scripts.
 Runs create real data visible in the web app's Runs view.
 
+## Watch writes live (Supabase monitor)
+
+`monitor.ts` tails Thoughtbox writes (sessions + thoughts) straight from Supabase,
+so you can see what an agent produces while a probe runs. It connects with the
+`SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` from `.env` (the project the live
+server writes to) and polls for new rows.
+
+Run it in one terminal, a probe in another:
+
+```bash
+# terminal 1 — tail new activity
+npx tsx scripts/probes/monitor.ts
+
+# terminal 2 — run any probe; rows stream into terminal 1
+npx tsx scripts/probes/thought-roundtrip.probe.ts
+```
+
+Flags: `--since <min>` backfills recent activity, `--once` prints one snapshot
+and exits, `--interval <sec>` sets the poll cadence (default 2s).
+
 ## Write a new probe
 
 Create `scripts/probes/<name>.probe.ts`:
