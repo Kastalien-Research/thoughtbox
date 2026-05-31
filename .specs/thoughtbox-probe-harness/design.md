@@ -48,26 +48,47 @@ and then removed (tracked as a follow-up; relates to the repo cleanup effort).
 
 ## Dependencies
 
-Already installed — no new deps:
-- `@anthropic-ai/claude-agent-sdk` (`^0.1.76`)
-- `dotenv` (used by existing scripts)
+- `@anthropic-ai/claude-agent-sdk` — **bumped `^0.1.76` → `0.3.159`** (pinned).
+  The 0.1.x bundled CLI (Claude Code 2.0.77, Jan 2026) crashed on startup in
+  this repo (see Findings) and is five months stale. The bump is repo-wide; the
+  fleet (`scripts/agents/*`) uses only the stable `query()` core API, which is
+  unchanged. Peer-dep warnings remain (`zod@4`, `@anthropic-ai/sdk@>=0.93`) —
+  see Follow-ups.
+- `dotenv` — already present.
 
 ## Connection & configuration
 
+> **Design change (validated against the live SDK).** The original plan passed
+> an isolated, env-configured http MCP server to the SDK. In headless runs the
+> Agent SDK CLI leaves a programmatically-passed http server **`disabled`** (no
+> interactive approval path), so the agent gets no Thoughtbox tools. The harness
+> therefore drives the repo's **already-approved `thoughtbox-cloud-run`** server
+> from `.mcp.json`, which the current CLI auto-loads. See Findings.
+
 The live server is HTTP MCP at `https://mcp.kastalienresearch.ai/mcp`, authed by a
-`tbx_` API key (currently passed as a `?key=` query param in `.mcp.json`; the
-plugin channel passes it as `THOUGHTBOX_API_KEY`).
+`tbx_` API key, defined and approved as `thoughtbox-cloud-run` in `.mcp.json`
+(gitignored; the key never enters git).
 
-The harness reads connection details from the environment (via `dotenv`), never
-hardcoding secrets:
+Consequences:
+- Probes **must run from the repo root**, where the CLI auto-loads `.mcp.json`.
+- A `dotenv` `config()` still loads `.env`, but the harness then **strips the
+  repo's OpenTelemetry env vars** from the child CLI's environment (they point at
+  a removed local collector and crash telemetry init — see Findings).
+- Tool names are `mcp__thoughtbox-cloud-run__*`.
+- Local-instance targeting is deferred (would require adding/approving a local
+  server entry in `.mcp.json`).
 
-| Env var | Meaning | Default |
-|---|---|---|
-| `THOUGHTBOX_URL` | MCP server base URL | `https://mcp.kastalienresearch.ai/mcp` |
-| `THOUGHTBOX_API_KEY` | `tbx_` API key | required (fail fast if missing) |
+## Findings (from live validation)
 
-A local instance is targeted by setting `THOUGHTBOX_URL=http://localhost:<port>/mcp`
-(and a local key if the local server requires one).
+1. **Telemetry crash.** The spawned CLI inherits this repo's `OTEL_*_EXPORTER=otlp`
+   without a valid `OTEL_EXPORTER_OTLP_PROTOCOL`, throwing
+   `Unknown protocol ... undefined` and exiting 1. Fix: strip the OTEL/telemetry
+   vars in the harness before spawning.
+2. **Disabled isolated server.** A programmatically-passed `mcpServers` http
+   entry stays `status: "disabled"` with no connection error — even with
+   `strictMcpConfig`, `enableAllProjectMcpServers`, and `enabledMcpjsonServers`
+   set. Those flags govern `.mcp.json`/enterprise servers, not SDK-passed ones.
+   The approved `.mcp.json` `thoughtbox-cloud-run` connects fine.
 
 ## Components
 
@@ -75,18 +96,20 @@ A local instance is targeted by setting `THOUGHTBOX_URL=http://localhost:<port>/
 
 Exports:
 
-- `thoughtboxMcpConfig(): McpServerConfig`
-  Builds the SDK `mcpServers` entry from env. The API key rides as a `?key=`
-  query param appended to `THOUGHTBOX_URL` — matching the proven-working
-  `thoughtbox-cloud-run` entry in `.mcp.json` — yielding
-  `{ type: 'http', url: "${THOUGHTBOX_URL}?key=${THOUGHTBOX_API_KEY}" }`.
-  Throws a clear error if `THOUGHTBOX_API_KEY` is missing.
+- `assertThoughtboxAvailable(): void`
+  Fails fast if `.mcp.json` (in cwd) doesn't define the `thoughtbox-cloud-run`
+  server, with an actionable message — instead of a confused agent that silently
+  lacks its tools.
 
 - `runProbe(opts): Promise<ProbeResult>`
   Wraps the SDK `query()`:
-  - Spawns an agent with `mcpServers: { thoughtbox: thoughtboxMcpConfig() }`.
-  - Pre-allowlists the Thoughtbox tools so the run is unattended:
-    `mcp__thoughtbox__thoughtbox_search`, `..._execute`, `..._peer_notebook`.
+  - Calls `assertThoughtboxAvailable()` first.
+  - Does **not** pass `mcpServers`/`strictMcpConfig`; relies on the CLI
+    auto-loading the approved `thoughtbox-cloud-run` server from `.mcp.json`.
+  - Allowlists `ToolSearch` (needed to load the deferred MCP tools) plus the
+    Thoughtbox tools (`mcp__thoughtbox-cloud-run__thoughtbox_{search,execute,peer_notebook}`)
+    and any `allowedTools` extras, and runs in `bypassPermissions` so it's
+    unattended.
   - Streams the agent turns, capturing assistant text and tool-call events.
   - Enforces `maxTurns` so a confused agent cannot loop forever.
   - Optionally runs `assert(result)` for pass/fail probes.
@@ -172,7 +195,14 @@ not in tight loops, and `maxTurns` bounds per-probe spend.
 
 ## Follow-ups (out of scope here, track separately)
 
+- **Verify the agent fleet under the bumped SDK.** `@anthropic-ai/claude-agent-sdk@0.3.159`
+  has unmet peer deps in this repo (`zod@4`, `@anthropic-ai/sdk@>=0.93`; repo has
+  zod 3 / sdk 0.39). `query()` is API-stable and `tsc` passes, but the
+  `scripts/agents/*` fleet should be smoke-run to confirm no runtime regression.
 - Remove/replace the stale `scripts/agentic-test.ts` (relates to repo cleanup).
+- Restore isolated/portable connection if the SDK gains a headless approval path
+  for programmatically-passed MCP servers (would re-enable local-instance and
+  out-of-repo use).
 - Optional: a `run-all` that globs `*.probe.ts` once there are enough probes.
 - Optional later modes: behavioral suite (assert-heavy) and value-evals
   (with/without Thoughtbox comparison), layered on the same `assert()` seam.

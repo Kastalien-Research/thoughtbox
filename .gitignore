@@ -25,6 +25,9 @@ logs/
 .refactoring-game/
 .interleaved-thinking/
 
+# Probe harness run output
+scripts/probes/runs/
+
 # ULC / Ralph loop runtime state
 .claude/ulc-state.local.json
 .claude/ralph-loop.local.md
