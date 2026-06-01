@@ -463,7 +463,7 @@ SQLite database serving two functions: (1) MAP-Elites quality-diversity library 
 ULC QD exploration query uses wrong column names:
 - Query says: `coord_domain`, `coord_evidence`, `coord_horizon`
 - Actual columns: `coord_domain_structure`, `coord_evidence_type`, `coord_time_horizon`
-- Present in both `.claude/skills/ulc-loop/ulc-prompt.md` and `.gemini/skills/ulc-loop/ulc-prompt.md`
+- Present in `.claude/skills/ulc-loop/ulc-prompt.md`
 
 ### REINIT-PLEASE Gap
 
@@ -537,7 +537,6 @@ Hypothesis doc for Hub + Agent Teams coordination proof on `fix/sub-agent-stage-
 
 | Script | Why orphaned |
 |--------|-------------|
-| `staged-hooks/` (entire dir, 11 files) | Hook staging area; all superseded by live `.claude/hooks/` |
 | `db-migrate.sh` | References SQLite/Drizzle; superseded by Supabase |
 | `utils/spec-index.mjs` | Targets `specs/` (old path), not `.specs/` |
 | `utils/capture-handoff.mjs` | Intended for PreCompact/Stop hooks but never wired |
@@ -613,10 +612,6 @@ schedule: Mon 9am UTC
 | `issue-opened-dispatch.yml` | Silences own failure via `\|\| { exit 0; }` |
 | `verify-assumptions.yml` | `if: false` — schedule trigger exists but job never runs |
 | `log-issue-events.yml` | Errors if `STATSIG_API_KEY` missing |
-
-### Broken npm Script
-
-`start:stateful` → `node dist/http-stateful.js` — source file `src/http-stateful.ts` does not exist. Always fails.
 
 ---
 

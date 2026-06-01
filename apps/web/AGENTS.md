@@ -85,9 +85,9 @@ spec artifact. Do not create a shadow tracker or fallback task system without
 explicit user approval.
 
 
-## Local Agent Asset Bridge (`.claude/` and `.gemini/`)
+## Local Agent Asset Bridge (`.claude/`)
 
-These directories contain project-local agent instructions. Codex cannot natively install Claude/Gemini hooks or slash commands from them, so treat them as **manual operating instructions** for this repo.
+This directory contains project-local agent instructions. Codex cannot natively install Claude hooks or slash commands from it, so treat them as **manual operating instructions** for this repo.
 
 ### Resolution Order
 
@@ -95,11 +95,9 @@ When these sources disagree, use this order:
 
 1. `AGENTS.md`
 2. `.claude/skills/` and `.claude/commands/`
-3. `.gemini/skills/` and `.gemini/commands/`
-4. `.claude/rules/`, `.claude/agents/`, `.claude/team-prompts/`, and hook docs as supporting context
+3. `.claude/rules/`, `.claude/agents/`, `.claude/team-prompts/`, and hook docs as supporting context
 
 Notes:
-- Prefer `.claude/` over `.gemini/`. The inventories are nearly mirrored, but `.claude/` is the primary source in this repo.
 - Treat older references to `specs/` or legacy ADR paths inside local skill docs as historical if they conflict with the rules above. The current canonical locations remain `.specs/` and `.adr/`.
 
 ### Local Skills to Honor Manually
@@ -111,11 +109,8 @@ If the user invokes one of these names, or the task clearly matches one, open th
 - Research and knowledge: `research-task`, `knowledge`, `synthesize`, `distill`, `capture-learning`, `session-review`, `assumptions`, `eval`, `taste`, `diagram`
 - Coordination and autonomy: `team`, `hub-collab`, `deploy-team-hub`, `experiment`, `ulc-loop`, `loop-status`, `status`, `escalate`, `claude-prompt`
 
-Primary path pattern:
+Path pattern:
 - `.claude/skills/<skill-name>/SKILL.md`
-
-Fallback path pattern:
-- `.gemini/skills/<skill-name>/SKILL.md`
 
 ### Local Commands to Treat as Project Procedures
 
@@ -123,7 +118,6 @@ The following command docs are not executable slash commands in Codex, but they 
 
 - HDD command set: `.claude/commands/hdd/*.md`
 - Development TDD profiles: `.claude/commands/development/*.md`
-- Gemini mirrors of the same procedures: `.gemini/commands/**/*.toml`
 
 If a user references `/hdd`, HDD phases, or the development TDD profiles, read the corresponding local command or skill doc first and then execute the procedure manually.
 
@@ -138,7 +132,7 @@ These files define the repo's preferred agent roles for architecture, debugging,
 
 ### Hook-Derived Guardrails to Follow Manually
 
-Codex cannot auto-register `.claude/settings.json`, `.gemini/settings.json`, or their shell hooks here. Still, emulate the intent of the configured hook stack during normal work.
+Codex cannot auto-register `.claude/settings.json` or its shell hooks here. Still, emulate the intent of the configured hook stack during normal work.
 
 Hook intent by event:
 

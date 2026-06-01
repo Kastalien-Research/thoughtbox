@@ -18,9 +18,6 @@ services:
       THOUGHTBOX_OBSERVATORY_ENABLED: "true"
       THOUGHTBOX_OBSERVATORY_PORT: 1729
       THOUGHTBOX_OBSERVATORY_CORS: "*"
-      # Observability gateway endpoints (Docker internal network)
-      PROMETHEUS_URL: http://prometheus:9090
-      GRAFANA_URL: http://grafana:3000
     volumes:
       - ./.thoughtbox:/data/thoughtbox
     networks:
@@ -32,87 +29,9 @@ services:
       timeout: 5s
       retries: 3
 
-  # MCP Observability Sidecar (public MCP endpoint)
-  mcp-sidecar:
-    build:
-      context: ./observability/mcp-sidecar-observability
-      dockerfile: Dockerfile
-    image: mcp-sidecar:local
-    environment:
-      MCP_UPSTREAM_URL: http://thoughtbox:1731/mcp
-      MCP_UPSTREAM_NAME: thoughtbox
-      MCP_UPSTREAM_TIMEOUT_MS: 60000
-      PORT: 4000
-      HOST: 0.0.0.0
-      OTEL_SERVICE_NAME: thoughtbox-sidecar
-      SERVICE_VERSION: 0.2.0
-      OTEL_ENV: dev
-      OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
-      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
-      OTEL_METRIC_EXPORT_INTERVAL: 10000
-      LOG_LEVEL: info
-    ports:
-      - "4000:4000"
-    networks:
-      - mcp-network
-    depends_on:
-      thoughtbox:
-        condition: service_healthy
-      otel-collector:
-        condition: service_started
-    restart: unless-stopped
-
-  # OpenTelemetry Collector
-  otel-collector:
-    image: otel/opentelemetry-collector-contrib:0.113.0
-    command: ["--config=/etc/otelcol/config.yaml"]
-    volumes:
-      - ./otel-collector/config-with-prometheus.yaml:/etc/otelcol/config.yaml:ro
-    ports:
-      - "4318:4318"
-      - "8889:8889"
-    networks:
-      - mcp-network
-    restart: unless-stopped
-
-  # Prometheus
-  prometheus:
-    image: prom/prometheus:v2.52.0
-    volumes:
-      - ./observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
-      - ./observability/alerts.yml:/etc/prometheus/alerts.yml:ro
-      - prometheus-data:/prometheus
-    ports:
-      - "9090:9090"
-    networks:
-      - mcp-network
-    depends_on:
-      - otel-collector
-    restart: unless-stopped
-
-  # Grafana
-  grafana:
-    image: grafana/grafana:11.0.0
-    environment:
-      GF_SECURITY_ADMIN_PASSWORD: admin
-      GF_SECURITY_ADMIN_USER: admin
-    ports:
-      - "3001:3000"
-    volumes:
-      - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
-      - ./observability/grafana/dashboards:/var/lib/grafana/dashboards:ro
-      - grafana-data:/var/lib/grafana
-    networks:
-      - mcp-network
-    depends_on:
-      - prometheus
-    restart: unless-stopped
-
 networks:
   mcp-network:
     driver: bridge
 
 volumes:
   thoughtbox-data:
-  prometheus-data:
-  grafana-data:
