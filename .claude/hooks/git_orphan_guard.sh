@@ -36,21 +36,55 @@ work="${work//;/$'\n'}"
 work="${work//|/$'\n'}"
 
 # Per-segment: is it a `git branch` deletion, and what branches does it name?
-# awk prints tokens after the first standalone `branch` word, so branch names
-# that themselves contain "branch" (e.g. feature-branch) are handled.
+# Resolve the subcommand structurally by token position rather than by the
+# adjacency of "git branch": this tolerates global options in between
+# (`git -C <path> branch ...`, `git -c k=v ...`, `git --no-pager ...`) and
+# distinguishes a real deletion from "branch" merely appearing in a message
+# (`git commit -m '... branch ...'`). git refs cannot contain whitespace, so
+# splitting each segment on whitespace is a safe tokenization.
 detected_delete=0
 candidates=""
 while IFS= read -r seg; do
-  echo "$seg" | grep -qE 'git[[:space:]]+branch([[:space:]]|$)' || continue
-  echo "$seg" | grep -qE '(-D|-d|--delete)([[:space:]]|$)' || continue
+  read -ra toks <<< "$seg"
+  n=${#toks[@]}
+
+  # Locate the git invocation: a bare `git` token or a path ending in /git.
+  i=0
+  while [[ $i -lt $n ]]; do
+    case "${toks[$i]}" in git | */git) break ;; esac
+    i=$((i + 1))
+  done
+  [[ $i -lt $n ]] || continue
+  i=$((i + 1)) # step past git
+
+  # Skip git global options so the real subcommand is reached. The options
+  # listed take a separate argument (e.g. `-C <path>`); any other dashed
+  # token is a self-contained global flag.
+  while [[ $i -lt $n ]]; do
+    case "${toks[$i]}" in
+      -C | -c | --git-dir | --work-tree | --namespace | --super-prefix) i=$((i + 2)) ;;
+      -*) i=$((i + 1)) ;;
+      *) break ;;
+    esac
+  done
+
+  # The first non-option token is the subcommand.
+  [[ "${toks[$i]:-}" == "branch" ]] || continue
+  i=$((i + 1))
+
+  # A deletion flag among the remaining tokens, including bundled short forms
+  # like -Df / -df / -fd where -d/-D is not whitespace-delimited.
+  rest=" ${toks[*]:$i} "
+  echo "$rest" | grep -qE '(^|[[:space:]])(--delete|-[A-Za-z]*[dD][A-Za-z]*)([[:space:]]|$)' || continue
   detected_delete=1
-  names=$(echo "$seg" \
-    | tr -s '[:space:]' '\n' \
-    | awk 'found {print} $0 == "branch" {found=1}' \
-    | grep -vE '^-' \
-    | grep -vE '^(--delete|--force)$' \
-    | grep -vE '^$' || true)
-  candidates="$candidates $names"
+
+  # Branch names are the remaining non-option tokens.
+  for ((j = i; j < n; j++)); do
+    case "${toks[$j]}" in
+      -*) ;;
+      *) candidates="$candidates ${toks[$j]}" ;;
+    esac
+  done
 done <<< "$work"
 
 # Not a branch deletion at all — nothing to guard.
