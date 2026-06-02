@@ -1,0 +1,33 @@
+title = "thoughtbox gitleaks config"
+
+# Start from gitleaks' built-in rule set (covers ~150 providers incl. generic
+# high-entropy keys), then add repo-specific allowlists below.
+[extend]
+useDefault = true
+
+[[rules]]
+# Thoughtbox API keys (tbx_...) are not in the default rule set — GitHub's
+# scanner misses them too. Catch them explicitly.
+id = "thoughtbox-api-key"
+description = "Thoughtbox API key"
+regex = '''tbx_[A-Za-z0-9_-]{20,}'''
+keywords = ["tbx_"]
+
+[[rules]]
+# Context7 keys (ctx7sk-<uuid>) sit in an args array where the keyword is not
+# adjacent to the value, so the default generic-api-key rule misses them.
+id = "context7-api-key"
+description = "Context7 API key"
+regex = '''ctx7sk-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}'''
+keywords = ["ctx7sk-"]
+
+[allowlist]
+description = "Sanitized templates and placeholder tokens"
+# *.example files document config shape with placeholders, never real keys.
+paths = [
+  '''\.example$''',
+]
+# Placeholder tokens like <LINEAR_API_KEY> are not secrets.
+regexes = [
+  '''<[A-Z0-9_]+>''',
+]
