@@ -192,3 +192,24 @@ Before ending implementation work:
 2. Update the relevant spec/handoff when code changes affect documented
    behavior.
 3. Complete the canonical "Landing the Plane" workflow above.
+
+## Learned User Preferences
+
+- Prefer tightly scoped answers on the named blocker; avoid extra theory or further decomposition once the issue is clear.
+- Do not claim work has started until execution actually begins.
+- When asked what code is misplaced, cite specific files, routes, or functions — not structural drift essays.
+- Verify plugin and architecture claims against repo docs and manifests, not code inference alone.
+- Identify the concrete unit of work quickly; avoid long meta sessions before stating what is being worked on.
+- Project-local setup and `doctor` belong on the plugin/local side, not as synthetic server routes or mocks.
+- Do not treat ADRs as trustworthy authority for implementation boundaries unless the user reopens them.
+- Supabase schema or migration changes go through branch/PR flow, not direct hosted `db push` from a local `main` checkout.
+
+## Learned Workspace Facts
+
+- Thoughtbox server deploys via Docker; there is no published standalone server binary.
+- Local Claude Code plugin artifact: `plugins/thoughtbox-claude-code/` (manifest, hooks, `thoughtbox-channel`).
+- Local project inspection reads `.claude/settings.json`, `.claude/settings.local.json`, and `.gitignore` from the user's project cwd.
+- Deployed server handles remote auth validation and setup-status persistence; it should not run local project checklists.
+- `src/cli/` lives in the server repo but represents a collapsed CLI/server artifact boundary the user wants separated.
+- Default Supabase investigation target is the linked Supabase project unless the user specifies otherwise.
+- Local docker-compose may omit Supabase env vars, causing MCP session setup to fail when branch handlers require `SUPABASE_URL`.
