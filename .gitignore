@@ -1,6 +1,7 @@
 # MCP config with API keys
 cc_mcp_config.json
 .mcp.json
+.codex/config.toml
 
 # Dependencies
 node_modules/
