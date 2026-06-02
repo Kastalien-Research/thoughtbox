@@ -104,6 +104,28 @@ if [[ -z "${candidates// /}" ]]; then
   exit 2
 fi
 
+# Fail closed: a target that is not a literal name. We see the command before
+# the shell expands it, so a token like $br, "$br", ${br} or $(cat name)
+# reaches here verbatim. Verifying it as a literal ref finds nothing and would
+# wave the deletion through, yet the real command still expands to and deletes
+# a live branch. We cannot resolve it (that would mean executing arbitrary
+# substitutions), so we refuse. Real branch names use only [A-Za-z0-9._/+-];
+# any other character means the token carries expansion syntax we can't verify.
+for br in $candidates; do
+  case "$br" in
+    *[!A-Za-z0-9._/+-]*)
+      {
+        echo "BLOCKED: branch-deletion target '$br' is not a literal name."
+        echo "It expands at runtime (variable, command substitution, or glob),"
+        echo "so this guard cannot check whether the real branch would orphan"
+        echo "commits. Re-run with the literal branch name, or add an orphan-ok"
+        echo "marker if the deletion is intentional and reviewed."
+      } >&2
+      exit 2
+      ;;
+  esac
+done
+
 orphans_for() {
   # commits reachable from $1 but from no OTHER branch/tag/remote.
   # Feed refs via --stdin (^ = exclude) rather than --exclude/--branches,
