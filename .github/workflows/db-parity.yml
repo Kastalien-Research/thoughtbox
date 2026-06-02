@@ -1,21 +1,31 @@
-name: DB Parity (prod ↔ staging)
+name: DB Parity (staging ↔ migrations)
 
-# Scheduled/manual deterministic schema parity check between production and
-# staging Supabase projects. Fails if any controlled surface (tables, columns,
-# constraints, indexes, RLS policies, application functions) diverges.
+# Verifies the staging Supabase project's live schema matches what the
+# migrations in supabase/migrations/ define — i.e. the deploy pipeline left
+# staging in exactly the state the migrations describe, with no drift.
 #
-# Platform-managed deltas (Supabase-injected extensions and event triggers)
-# are filtered out by supabase/snippets/parity-fingerprint.sql.
+# The reference ("expected") schema is built by applying every migration to a
+# fresh local Supabase stack, then fingerprinting it with
+# supabase/snippets/parity-fingerprint.sql. The same fingerprint is taken from
+# staging (live) via the Management API and compared. Production is NOT
+# involved, so staging running one PR ahead of prod is irrelevant.
 #
-# NOT triggered on migration PRs: staging-deploy.yml intentionally pushes a
-# PR's migrations to staging before merge (staging runs one PR ahead of prod),
-# so on those PRs staging is expected to differ from prod and a parity check
-# would fail by design. Run on schedule (steady state) or manually instead.
+# Known window: on a `schedule` run while a migration has been deployed to
+# staging but not yet merged to main, staging will be ahead of this ref's
+# migrations and a difference is reported — that means "staging is ahead of
+# <ref>", not necessarily drift. The push-to-main run is the aligned signal:
+# after a migration PR merges, main and staging hold the same migrations.
 #
 # Required secrets:
-#   SUPABASE_ACCESS_TOKEN   - personal access token
+#   SUPABASE_ACCESS_TOKEN  - personal access token (Management API, staging fingerprint)
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - 'supabase/migrations/**'
+      - 'supabase/snippets/parity-fingerprint.sql'
+      - '.github/workflows/db-parity.yml'
   schedule:
     - cron: '0 8 * * *'  # daily at 08:00 UTC
   workflow_dispatch:
@@ -24,70 +34,86 @@ permissions:
   contents: read
 
 jobs:
-  fingerprint-diff:
-    name: Fingerprint diff
+  staging-matches-migrations:
+    name: staging schema ↔ migrations
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 15
     env:
       SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-      PROD_REF: akjccuoncxlvrrtkvtno
       STAGING_REF: pyyabzaitqvdbaneanip
+      FINGERPRINT_SQL: supabase/snippets/parity-fingerprint.sql
     steps:
       - name: Checkout code
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4.3.1
         with:
           persist-credentials: false
 
-      - name: Install jq
-        run: sudo apt-get install -y jq
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@b60b5899c73b63a2d2d651b1e90db8d4c9392f51  # v1.6.0
+        with:
+          version: 2.84.2
 
-      - name: Run parity fingerprint on prod and staging
+      - name: Start local stack (applies migrations)
+        run: supabase start
+
+      - name: Fingerprint expected schema (migrations applied to local stack)
         run: |
           set -euo pipefail
+          db_url="$(supabase status --output json | jq -r '.DB_URL')"
+          # Wrap the single-statement fingerprint query so psql emits one JSON
+          # array of rows — the same shape the Management API returns.
+          {
+            echo "SELECT json_agg(t) FROM ("
+            sed 's/;[[:space:]]*$//' "$FINGERPRINT_SQL"
+            echo ") t;"
+          } > wrap.sql
+          psql "$db_url" -tA -f wrap.sql > expected_raw.json
 
-          SQL=$(jq -Rs . < supabase/snippets/parity-fingerprint.sql)
+      - name: Fingerprint staging (live, Management API)
+        run: |
+          set -euo pipefail
+          sql="$(jq -Rs . < "$FINGERPRINT_SQL")"
+          curl -sS -f \
+            -X POST "https://api.supabase.com/v1/projects/${STAGING_REF}/database/query" \
+            -H "Authorization: Bearer ${SUPABASE_ACCESS_TOKEN}" \
+            -H "Content-Type: application/json" \
+            -d "{\"query\": ${sql}}" > staging_raw.json
 
-          fingerprint() {
-            local ref="$1"
-            curl -sS -f \
-              -X POST "https://api.supabase.com/v1/projects/${ref}/database/query" \
-              -H "Authorization: Bearer ${SUPABASE_ACCESS_TOKEN}" \
-              -H "Content-Type: application/json" \
-              -d "{\"query\": ${SQL}}"
-          }
-
-          fingerprint "${PROD_REF}"    > prod_raw.json
-          fingerprint "${STAGING_REF}" > staging_raw.json
-
-          # The database/query endpoint returns either a bare row array [ {...} ]
-          # or a wrapped object { "result": [ {...} ] } depending on API version.
+      - name: Compare staging against expected (migrations)
+        run: |
+          set -euo pipefail
+          # database/query returns either a bare row array [ {...} ] or a
+          # wrapped object { "result": [ {...} ] }; psql emits the bare array.
           # Normalize both to the first row object before reading hashes.
           normalize() { jq 'if type == "array" then .[0] else .result[0] end' "$1"; }
-          normalize prod_raw.json    > prod.json
-          normalize staging_raw.json > staging.json
+          normalize expected_raw.json > expected.json
+          normalize staging_raw.json  > staging.json
 
-          echo "Prod fingerprint:"
-          jq . prod.json
-          echo "Staging fingerprint:"
+          echo "Expected (migrations applied):"
+          jq . expected.json
+          echo "Staging (live):"
           jq . staging.json
 
-          # Compare each controlled surface independently for clearer failure output.
           DIFF_FOUND=0
           for key in tables_md5 columns_md5 constraints_md5 indexes_md5 policies_md5 functions_md5 rls_md5; do
-            PROD_HASH=$(jq -r ".${key}" prod.json)
-            STG_HASH=$(jq -r ".${key}" staging.json)
-            if [ "${PROD_HASH}" != "${STG_HASH}" ]; then
-              echo "::error::DRIFT in ${key}: prod=${PROD_HASH} staging=${STG_HASH}"
+            exp="$(jq -r ".${key}" expected.json)"
+            stg="$(jq -r ".${key}" staging.json)"
+            if [ "${exp}" != "${stg}" ]; then
+              echo "::error::DRIFT in ${key}: expected(migrations)=${exp} staging=${stg}"
               DIFF_FOUND=1
             else
-              echo "OK ${key}: ${PROD_HASH}"
+              echo "OK ${key}: ${exp}"
             fi
           done
 
           if [ "${DIFF_FOUND}" -ne 0 ]; then
-            echo "::error::Schema drift detected between prod and staging in controlled surfaces."
-            echo "Run supabase/snippets/parity-fingerprint.sql against both projects to diagnose."
+            echo "::error::Staging schema does not match the migrations on this ref."
+            echo "Either staging has drifted (manual DDL bypassing migrations) or it"
+            echo "is ahead/behind this ref's migrations (see the 'Known window' note)."
             exit 1
           fi
+          echo "Staging schema matches the migrations on this ref."
 
-          echo "All controlled surfaces match between prod and staging."
+      - name: Stop local stack
+        if: always()
+        run: supabase stop
