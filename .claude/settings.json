@@ -9,6 +9,15 @@
             "command": "\"$CLAUDE_PROJECT_DIR/.claude/hooks/read_before_write_guard.sh\""
           }
         ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR/.claude/hooks/git_orphan_guard.sh\""
+          }
+        ]
       }
     ],
     "PostToolUse": [
