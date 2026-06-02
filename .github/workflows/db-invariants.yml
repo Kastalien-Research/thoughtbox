@@ -1,0 +1,55 @@
+name: DB Invariants
+
+# Deterministic code ↔ database invariant checks. These guard against
+# regressions of the class that caused the validator history events bug
+# (commit d764ae6): source code emits a value that the live CHECK
+# constraint forbids.
+#
+# Triggers on changes to protocol code or migrations, so a missed
+# constraint update on a new event_type fails CI before merge.
+#
+# Required secrets:
+#   SUPABASE_ACCESS_TOKEN - personal access token
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/protocol/**'
+      - 'supabase/migrations/**'
+      - 'scripts/check-event-type-parity.ts'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  event-type-parity:
+    name: protocol_history.event_type code ↔ constraint
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_PROJECT_REF: akjccuoncxlvrrtkvtno
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4.3.1
+        with:
+          persist-credentials: false
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@a7487c7e89a18df4991f7f222e4898a00d66ddda  # v4.1.0
+        with:
+          version: 9.15.4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
+        with:
+          node-version: '22'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Verify emitted event_type literals are allowed by constraint
+        run: pnpm tsx scripts/check-event-type-parity.ts
