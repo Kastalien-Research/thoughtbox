@@ -7,6 +7,23 @@ case "$branch" in
     ;;
 esac
 
+# Scan staged content for secrets before they can enter history.
+# Catches arbitrary key formats by regex/entropy, independent of filename —
+# unlike .gitignore (filename denylist) or GitHub push protection (partial,
+# server-side, after the secret is already committed).
+if command -v gitleaks >/dev/null 2>&1; then
+  gitleaks git --staged --no-banner --redact --config .gitleaks.toml || {
+    echo ""
+    echo "BLOCKED: gitleaks found a secret in staged changes (see above)."
+    echo "Remove it from the staged content before committing."
+    echo "If it is a false positive, allowlist it in .gitleaks.toml."
+    exit 1
+  }
+else
+  echo "WARNING: gitleaks not installed — staged content NOT scanned for secrets."
+  echo "  Install: brew install gitleaks   (https://github.com/gitleaks/gitleaks)"
+fi
+
 # Block committing local-only artifacts (traces/, plans/, root session reports, etc.)
 ./scripts/check-artifacts.sh --staged
 
