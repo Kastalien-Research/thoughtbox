@@ -1,0 +1,87 @@
+name: DB Parity (prod ↔ staging)
+
+# Nightly deterministic schema parity check between production and staging
+# Supabase projects. Fails if any controlled surface (tables, columns,
+# constraints, indexes, RLS policies, application functions) diverges.
+#
+# Platform-managed deltas (Supabase-injected extensions and event triggers)
+# are filtered out by supabase/snippets/parity-fingerprint.sql.
+#
+# Required secrets:
+#   SUPABASE_ACCESS_TOKEN   - personal access token
+
+on:
+  schedule:
+    - cron: '0 8 * * *'  # daily at 08:00 UTC
+  workflow_dispatch:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'supabase/migrations/**'
+      - 'supabase/snippets/parity-fingerprint.sql'
+      - '.github/workflows/db-parity.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  fingerprint-diff:
+    name: Fingerprint diff
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      PROD_REF: akjccuoncxlvrrtkvtno
+      STAGING_REF: pyyabzaitqvdbaneanip
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4.3.1
+        with:
+          persist-credentials: false
+
+      - name: Install jq
+        run: sudo apt-get install -y jq
+
+      - name: Run parity fingerprint on prod and staging
+        run: |
+          set -euo pipefail
+
+          SQL=$(jq -Rs . < supabase/snippets/parity-fingerprint.sql)
+
+          fingerprint() {
+            local ref="$1"
+            curl -sS -f \
+              -X POST "https://api.supabase.com/v1/projects/${ref}/database/query" \
+              -H "Authorization: Bearer ${SUPABASE_ACCESS_TOKEN}" \
+              -H "Content-Type: application/json" \
+              -d "{\"query\": ${SQL}}"
+          }
+
+          fingerprint "${PROD_REF}"    > prod.json
+          fingerprint "${STAGING_REF}" > staging.json
+
+          echo "Prod fingerprint:"
+          jq . prod.json
+          echo "Staging fingerprint:"
+          jq . staging.json
+
+          # Compare each controlled surface independently for clearer failure output.
+          DIFF_FOUND=0
+          for key in tables_md5 columns_md5 constraints_md5 indexes_md5 policies_md5 functions_md5 rls_md5; do
+            PROD_HASH=$(jq -r ".[0].${key}" prod.json)
+            STG_HASH=$(jq -r ".[0].${key}" staging.json)
+            if [ "${PROD_HASH}" != "${STG_HASH}" ]; then
+              echo "::error::DRIFT in ${key}: prod=${PROD_HASH} staging=${STG_HASH}"
+              DIFF_FOUND=1
+            else
+              echo "OK ${key}: ${PROD_HASH}"
+            fi
+          done
+
+          if [ "${DIFF_FOUND}" -ne 0 ]; then
+            echo "::error::Schema drift detected between prod and staging in controlled surfaces."
+            echo "Run supabase/snippets/parity-fingerprint.sql against both projects to diagnose."
+            exit 1
+          fi
+
+          echo "All controlled surfaces match between prod and staging."
