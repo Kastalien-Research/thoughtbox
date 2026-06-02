@@ -22,12 +22,10 @@ regex = '''ctx7sk-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}''
 keywords = ["ctx7sk-"]
 
 [allowlist]
-description = "Sanitized templates and placeholder tokens"
-# *.example files document config shape with placeholders, never real keys.
-paths = [
-  '''\.example$''',
-]
-# Placeholder tokens like <LINEAR_API_KEY> are not secrets.
+description = "Placeholder tokens in config templates"
+# Only the placeholder tokens themselves (e.g. <LINEAR_API_KEY>) are exempt —
+# NOT whole files. Scanning still runs on *.example templates so a real key
+# accidentally pasted into one is still caught.
 regexes = [
   '''<[A-Z0-9_]+>''',
 ]
