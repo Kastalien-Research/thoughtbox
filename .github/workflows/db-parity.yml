@@ -1,11 +1,16 @@
 name: DB Parity (prod ↔ staging)
 
-# Nightly deterministic schema parity check between production and staging
-# Supabase projects. Fails if any controlled surface (tables, columns,
+# Scheduled/manual deterministic schema parity check between production and
+# staging Supabase projects. Fails if any controlled surface (tables, columns,
 # constraints, indexes, RLS policies, application functions) diverges.
 #
 # Platform-managed deltas (Supabase-injected extensions and event triggers)
 # are filtered out by supabase/snippets/parity-fingerprint.sql.
+#
+# NOT triggered on migration PRs: staging-deploy.yml intentionally pushes a
+# PR's migrations to staging before merge (staging runs one PR ahead of prod),
+# so on those PRs staging is expected to differ from prod and a parity check
+# would fail by design. Run on schedule (steady state) or manually instead.
 #
 # Required secrets:
 #   SUPABASE_ACCESS_TOKEN   - personal access token
@@ -14,12 +19,6 @@ on:
   schedule:
     - cron: '0 8 * * *'  # daily at 08:00 UTC
   workflow_dispatch:
-  pull_request:
-    branches: [main]
-    paths:
-      - 'supabase/migrations/**'
-      - 'supabase/snippets/parity-fingerprint.sql'
-      - '.github/workflows/db-parity.yml'
 
 permissions:
   contents: read
@@ -57,8 +56,15 @@ jobs:
               -d "{\"query\": ${SQL}}"
           }
 
-          fingerprint "${PROD_REF}"    > prod.json
-          fingerprint "${STAGING_REF}" > staging.json
+          fingerprint "${PROD_REF}"    > prod_raw.json
+          fingerprint "${STAGING_REF}" > staging_raw.json
+
+          # The database/query endpoint returns either a bare row array [ {...} ]
+          # or a wrapped object { "result": [ {...} ] } depending on API version.
+          # Normalize both to the first row object before reading hashes.
+          normalize() { jq 'if type == "array" then .[0] else .result[0] end' "$1"; }
+          normalize prod_raw.json    > prod.json
+          normalize staging_raw.json > staging.json
 
           echo "Prod fingerprint:"
           jq . prod.json
@@ -68,8 +74,8 @@ jobs:
           # Compare each controlled surface independently for clearer failure output.
           DIFF_FOUND=0
           for key in tables_md5 columns_md5 constraints_md5 indexes_md5 policies_md5 functions_md5 rls_md5; do
-            PROD_HASH=$(jq -r ".[0].${key}" prod.json)
-            STG_HASH=$(jq -r ".[0].${key}" staging.json)
+            PROD_HASH=$(jq -r ".${key}" prod.json)
+            STG_HASH=$(jq -r ".${key}" staging.json)
             if [ "${PROD_HASH}" != "${STG_HASH}" ]; then
               echo "::error::DRIFT in ${key}: prod=${PROD_HASH} staging=${STG_HASH}"
               DIFF_FOUND=1
