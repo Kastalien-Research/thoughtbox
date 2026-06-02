@@ -1,0 +1,56 @@
+name: Staging Deploy
+
+# Push migrations to the thoughtbox-staging Supabase project whenever a PR
+# touches supabase/migrations/**. Staging is intentionally one PR ahead of
+# production so we can test schema changes before they merge to main.
+#
+# Required secrets:
+#   SUPABASE_ACCESS_TOKEN   - personal access token (shared with prod jobs)
+#   STAGING_PROJECT_ID      - pyyabzaitqvdbaneanip
+#   STAGING_DB_PASSWORD     - database password for staging project
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'supabase/migrations/**'
+  workflow_dispatch:
+
+concurrency:
+  group: staging-deploy
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  apply-migrations:
+    name: Apply migrations to staging
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.STAGING_DB_PASSWORD }}
+      SUPABASE_PROJECT_ID: ${{ secrets.STAGING_PROJECT_ID }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4.3.1
+        with:
+          persist-credentials: false
+
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@b60b5899c73b63a2d2d651b1e90db8d4c9392f51  # v1.6.0
+        with:
+          version: 2.84.2
+
+      - name: Link to staging project
+        run: supabase link --project-ref "$SUPABASE_PROJECT_ID"
+
+      - name: Show pending migrations
+        run: supabase migration list --linked
+
+      - name: Push migrations
+        run: supabase db push --linked --include-all
+
+      - name: Confirm migrations applied
+        run: supabase migration list --linked

@@ -58,6 +58,7 @@
     "check:control-plane": "tsx scripts/check-control-plane.ts",
     "agentops:daily": "tsx automation-self-improvement/agentops/runner/cli.ts daily-dev-brief",
     "agentops:daily:fixtures": "tsx automation-self-improvement/agentops/runner/cli.ts daily-dev-brief --fixtures --dry-run",
+    "check:event-types": "tsx scripts/check-event-type-parity.ts",
     "validate:pr": "tsx scripts/validate-pr-description.ts",
     "test:behavioral": "tsx scripts/agents/test-behavioral-contracts.ts",
     "test:behavioral:variance": "tsx scripts/agents/test-behavioral-contracts.ts --variance-only",

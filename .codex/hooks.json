@@ -1,0 +1,26 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "'/Users/b.c.nims/dev/kastalien-research/thoughtbox-new/thoughtbox-staging/.codex/hooks/read_before_write_guard.sh'"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "'/Users/b.c.nims/dev/kastalien-research/thoughtbox-new/thoughtbox-staging/.codex/hooks/file_access_logger.sh'"
+          }
+        ]
+      }
+    ]
+  }
+}

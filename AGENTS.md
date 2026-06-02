@@ -82,13 +82,15 @@ Committing unrelated work to an existing branch pollutes PRs, makes reverts dang
 - If push fails, resolve and retry until it succeeds
 
 
-## Local Agent Asset Bridge (`.codex/` and `.claude/`)
+## Local Agent Asset Bridge (`.codex/`, `.claude/`, and `.agents/`)
 
 These directories contain project-local agent instructions. Codex may not
 automatically discover project-local `.codex/` skills unless the user config
 loads this repo path as a skill root. Claude hooks and slash commands
-also cannot be natively installed by Codex. Treat these assets as **manual
-operating instructions** for this repo when they match the task.
+also cannot be natively installed by Codex. `.agents/skills/` is a
+tool-neutral mirror for runtimes that look up skills under `.agents/`.
+Treat these assets as **manual operating instructions** for this repo when
+they match the task.
 
 ### Resolution Order
 
@@ -97,10 +99,12 @@ When these sources disagree, use this order:
 1. `AGENTS.md`
 2. `.codex/skills/`
 3. `.claude/skills/` and `.claude/commands/`
-4. `.claude/rules/`, `.claude/agents/`, `.claude/team-prompts/`, and hook docs as supporting context
+4. `.agents/skills/` as a tool-neutral fallback when no `.codex/` or `.claude/` equivalent applies
+5. `.claude/rules/`, `.claude/agents/`, `.claude/team-prompts/`, and hook docs as supporting context
 
 Notes:
 - Prefer `.codex/skills/` for Codex-specific project procedures.
+- `.agents/skills/` mirrors the `.claude/skills/` set for non-Claude/non-Codex runtimes; prefer the tool-specific copy when one exists.
 - Treat older references to `specs/` or legacy ADR paths inside local skill docs as historical if they conflict with the rules above. The current canonical locations remain `.specs/` and `.adr/`.
 
 ### Local Skills to Honor Manually
@@ -118,6 +122,7 @@ If the user invokes one of these names, or the task clearly matches one, open th
 Path pattern:
 - `.codex/skills/<skill-name>/SKILL.md`
 - `.claude/skills/<skill-name>/SKILL.md`
+- `.agents/skills/<skill-name>/SKILL.md`
 
 ### Local Commands to Treat as Project Procedures
 
@@ -192,3 +197,24 @@ Before ending implementation work:
 2. Update the relevant spec/handoff when code changes affect documented
    behavior.
 3. Complete the canonical "Landing the Plane" workflow above.
+
+## Learned User Preferences
+
+- Prefer tightly scoped answers on the named blocker; avoid extra theory or further decomposition once the issue is clear.
+- Do not claim work has started until execution actually begins.
+- When asked what code is misplaced, cite specific files, routes, or functions — not structural drift essays.
+- Verify plugin and architecture claims against repo docs and manifests, not code inference alone.
+- Identify the concrete unit of work quickly; avoid long meta sessions before stating what is being worked on.
+- Project-local setup and `doctor` belong on the plugin/local side, not as synthetic server routes or mocks.
+- Do not treat ADRs as trustworthy authority for implementation boundaries unless the user reopens them.
+- Supabase schema or migration changes go through branch/PR flow, not direct hosted `db push` from a local `main` checkout.
+
+## Learned Workspace Facts
+
+- Thoughtbox server deploys via Docker; there is no published standalone server binary.
+- Local Claude Code plugin artifact: `plugins/thoughtbox-claude-code/` (manifest, hooks, `thoughtbox-channel`).
+- Local project inspection reads `.claude/settings.json`, `.claude/settings.local.json`, and `.gitignore` from the user's project cwd.
+- Deployed server handles remote auth validation and setup-status persistence; it should not run local project checklists.
+- `src/cli/` lives in the server repo but represents a collapsed CLI/server artifact boundary the user wants separated.
+- Default Supabase investigation target is the linked Supabase project unless the user specifies otherwise.
+- Local docker-compose may omit Supabase env vars, causing MCP session setup to fail when branch handlers require `SUPABASE_URL`.
