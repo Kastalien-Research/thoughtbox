@@ -26,7 +26,7 @@ If pre-conditions are not met, report what's missing and halt.
 
 Read all workflow artifacts:
 1. **Workflow state**: `.workflow/state.json` — timeline, iterations, stage notes
-2. **Sub-agent summaries**: `.adr/staging/*-summary-*.md` — what was built
+2. **Sub-agent summaries**: `.workflow/summaries/*.md` — what was built
 3. **Review report**: `.workflow/review-report.md` — what was found
 4. **Spec and ADR**: The original design documents
 5. **Git log**: What actually changed
@@ -70,7 +70,7 @@ If a reusable solution was produced, write it to `docs/solutions/`:
 
 ## Context
 - Workflow: <id>
-- ADR: <path>
+- Spec: <path>
 - Date: <ISO date>
 
 ## Key Decisions

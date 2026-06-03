@@ -44,7 +44,7 @@ For each task in dependency order:
 
 4. **Persist the summary** immediately upon receipt:
    ```
-   .adr/staging/<NNN>-<name>-summary-<task-id>.md
+   .workflow/summaries/<branch-slug>-<task-id>.md
    ```
 
 5. **Verify acceptance criteria**: Check each criterion from the plan against the sub-agent's summary. If any fail, note them for review.
@@ -70,7 +70,7 @@ Each sub-agent MUST return this format:
 1. "[specific testable claim]"
    - Verifiable by: [test or command]
 
-### Hypothesis Alignment
+### Spec/Evidence Alignment
 - H1 "<text>": SUPPORTS / REFUTES / NO EVIDENCE -- [evidence]
 
 ### Tests

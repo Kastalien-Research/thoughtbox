@@ -4,15 +4,15 @@
  *
  * Checks (in order):
  * 1. prs/<branch>.json exists
- * 2. Valid JSON conforming to .schemas/pr-description-v1.json (via Zod)
- * 3. All referenced ADR JSON files exist
- * 4. All adr_claim_id values resolve to actual claims in referenced ADRs
- * 5. Any claim with evidence_type "human_attestation" has an attestation block
- * 6. Any claim with evidence_type "agentic_test" has a non-null evidence_path
+ * 2. Valid JSON conforming to PR description schema (via Zod)
+ * 3. Referenced spec claims resolve against .specs/ markdown frontmatter
+ * 4. Legacy ADR claim references resolve during migration (deprecated)
+ * 5. Behavioral claims require agentic_test or human_attestation evidence
+ * 6. human_attestation claims require attestation block
+ * 7. agentic_test claims require evidence_path
  *
  * Usage:
  *   pnpm validate:pr --branch feat/my-feature
- *   pnpm validate:pr --branch feat/my-feature --adr-dir .adr/staging
  */
 
 import { promises as fsp } from "node:fs";
@@ -20,27 +20,37 @@ import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
 import { z } from "zod";
+import { loadSpecClaimIndex, parseSpecClaimRef } from "./lib/spec-claims.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "..");
 
-// ── Schemas ─────────────────────────────────────────────────────────────────
-
-const ClaimSchema = z.object({
-  id: z.string().min(1),
-  adr_claim_id: z.string().min(1),
-  statement: z.string().min(1),
-  evidence_type: z.enum([
-    "implementation",
-    "unit_test",
-    "integration_test",
-    "agentic_test",
-    "human_attestation",
-    "deterministic_check",
-  ]),
-  evidence_path: z.string().nullable(),
-  evidence_description: z.string().nullable().optional(),
-});
+const ClaimSchema = z
+  .object({
+    id: z.string().min(1),
+    spec_claim_id: z.string().min(1).optional(),
+    adr_claim_id: z.string().min(1).optional(),
+    statement: z.string().min(1),
+    evidence_type: z.enum([
+      "implementation",
+      "unit_test",
+      "integration_test",
+      "agentic_test",
+      "human_attestation",
+      "deterministic_check",
+    ]),
+    evidence_path: z.string().nullable(),
+    evidence_description: z.string().nullable().optional(),
+  })
+  .superRefine((claim, ctx) => {
+    if (!claim.spec_claim_id && !claim.adr_claim_id) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Each claim must include spec_claim_id or adr_claim_id (legacy)",
+        path: ["spec_claim_id"],
+      });
+    }
+  });
 
 const AttestationSchema = z.object({
   attested_by: z.string().min(1),
@@ -50,7 +60,8 @@ const AttestationSchema = z.object({
 
 const PRDescriptionSchema = z.object({
   branch: z.string().min(1),
-  adrs: z.array(z.string()),
+  specs: z.array(z.string()).optional().default([]),
+  adrs: z.array(z.string()).optional().default([]),
   summary: z.string().min(1),
   claims: z.array(ClaimSchema).min(1),
   attestation: AttestationSchema.nullable().optional(),
@@ -72,8 +83,6 @@ const AdrSchema = z.object({
   claims: z.array(AdrClaimSchema).min(1),
 });
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
-
 function branchToFilename(branch: string): string {
   return branch.replace(/\//g, "-") + ".json";
 }
@@ -89,40 +98,75 @@ interface Failure {
   message: string;
 }
 
+interface Warning {
+  code: string;
+  message: string;
+}
+
 async function readJson(filePath: string): Promise<unknown> {
   const content = await fsp.readFile(filePath, "utf8");
   return JSON.parse(content);
 }
 
 async function findAdrFile(adrId: string): Promise<string | null> {
-  const dirs = ["staging", "accepted", "rejected", "superseded"];
-  for (const dir of dirs) {
-    const candidate = path.join(REPO_ROOT, ".adr", dir, `${adrId}.json`);
+  const bases = [
+    path.join(REPO_ROOT, "docs/decisions/archive/adr"),
+    path.join(REPO_ROOT, "docs/decisions/archive"),
+    path.join(REPO_ROOT, ".adr"),
+  ];
+  const dirs = ["staging", "accepted", "rejected", "superseded", "retired"];
+
+  for (const base of bases) {
+    for (const dir of dirs) {
+      const candidate = path.join(base, dir, `${adrId}.json`);
+      try {
+        await fsp.access(candidate);
+        return candidate;
+      } catch {
+        // not in this dir
+      }
+    }
+    const flatCandidate = path.join(base, `${adrId}.json`);
     try {
-      await fsp.access(candidate);
-      return candidate;
+      await fsp.access(flatCandidate);
+      return flatCandidate;
     } catch {
-      // not in this dir
+      // not found
     }
   }
   return null;
 }
 
-// ── Main ─────────────────────────────────────────────────────────────────────
+function claimRef(claim: z.infer<typeof ClaimSchema>): string {
+  return claim.spec_claim_id ?? claim.adr_claim_id ?? "__none__";
+}
 
-async function main(): Promise<void> {
-  const branch = argValue("--branch");
-  if (!branch) {
-    console.error("Usage: pnpm validate:pr --branch <branch-name>");
-    process.exitCode = 1;
-    return;
+function isBehavioralClaim(
+  claim: z.infer<typeof ClaimSchema>,
+  specIndex: Map<string, { behavioral: boolean }>,
+  adrClaims: Map<string, { id: string; behavioral: boolean }[]>
+): boolean {
+  if (claim.spec_claim_id && claim.spec_claim_id !== "__none__") {
+    return specIndex.get(claim.spec_claim_id)?.behavioral ?? false;
   }
+  if (claim.adr_claim_id && claim.adr_claim_id !== "__none__") {
+    for (const claims of adrClaims.values()) {
+      const adrClaim = claims.find((c) => c.id === claim.adr_claim_id);
+      if (adrClaim?.behavioral) return true;
+    }
+  }
+  return false;
+}
 
+export async function validatePrDescription(
+  branch: string,
+  repoRoot: string = REPO_ROOT
+): Promise<{ failures: Failure[]; warnings: Warning[] }> {
   const failures: Failure[] = [];
+  const warnings: Warning[] = [];
   const filename = branchToFilename(branch);
-  const prPath = path.join(REPO_ROOT, "prs", filename);
+  const prPath = path.join(repoRoot, "prs", filename);
 
-  // 1. File exists
   try {
     await fsp.access(prPath);
   } catch {
@@ -130,11 +174,9 @@ async function main(): Promise<void> {
       code: "missing-pr-description",
       message: `PR description not found: prs/${filename}. Every PR targeting main must include a machine-readable PR description.`,
     });
-    report(failures);
-    return;
+    return { failures, warnings };
   }
 
-  // 2. Valid JSON + schema
   let raw: unknown;
   try {
     raw = await readJson(prPath);
@@ -143,8 +185,7 @@ async function main(): Promise<void> {
       code: "invalid-json",
       message: `prs/${filename} is not valid JSON: ${String(err)}`,
     });
-    report(failures);
-    return;
+    return { failures, warnings };
   }
 
   const parsed = PRDescriptionSchema.safeParse(raw);
@@ -155,13 +196,11 @@ async function main(): Promise<void> {
         message: `prs/${filename}: ${issue.path.join(".")} — ${issue.message}`,
       });
     }
-    report(failures);
-    return;
+    return { failures, warnings };
   }
 
   const pr = parsed.data;
 
-  // 3. Branch field matches actual branch
   if (pr.branch !== branch) {
     failures.push({
       code: "branch-mismatch",
@@ -169,15 +208,26 @@ async function main(): Promise<void> {
     });
   }
 
-  // 4. Referenced ADR JSON files exist and are valid
-  const adrClaims = new Map<string, { id: string; behavioral: boolean }[]>();
+  if (pr.adrs.length > 0) {
+    warnings.push({
+      code: "deprecated-adrs-field",
+      message: `prs/${filename} uses deprecated "adrs" field. Migrate to "specs" and spec_claim_id references.`,
+    });
+  }
 
+  const specClaimIndex = await loadSpecClaimIndex(path.join(repoRoot, ".specs"));
+  const specBehavioralIndex = new Map<string, { behavioral: boolean }>();
+  for (const [ref, entry] of specClaimIndex) {
+    specBehavioralIndex.set(ref, { behavioral: entry.behavioral });
+  }
+
+  const adrClaims = new Map<string, { id: string; behavioral: boolean }[]>();
   for (const adrId of pr.adrs) {
     const adrPath = await findAdrFile(adrId);
     if (!adrPath) {
       failures.push({
         code: "missing-adr",
-        message: `Referenced ADR "${adrId}" has no corresponding JSON file in .adr/staging/, .adr/accepted/, etc. Only JSON ADRs are cross-referenced by this validator.`,
+        message: `Referenced ADR "${adrId}" has no corresponding JSON file in docs/decisions/archive/ or legacy .adr/. Migrate to spec_claim_id references.`,
       });
       continue;
     }
@@ -208,43 +258,65 @@ async function main(): Promise<void> {
     );
   }
 
-  // 5. All adr_claim_id values resolve
   for (const claim of pr.claims) {
-    if (claim.adr_claim_id === "__none__") continue;
+    const ref = claimRef(claim);
 
-    let found = false;
-    for (const [, claims] of adrClaims) {
-      if (claims.some((c) => c.id === claim.adr_claim_id)) {
-        found = true;
-        break;
-      }
-    }
-
-    if (!found) {
-      failures.push({
-        code: "unresolved-claim-ref",
-        message: `Claim "${claim.id}" references adr_claim_id "${claim.adr_claim_id}" which does not exist in any referenced ADR. If this claim has no ADR, use "__none__" as the adr_claim_id.`,
+    if (claim.adr_claim_id && !claim.spec_claim_id) {
+      warnings.push({
+        code: "deprecated-adr-claim-id",
+        message: `Claim "${claim.id}" uses deprecated adr_claim_id "${claim.adr_claim_id}". Migrate to spec_claim_id (spec_id:claim_id).`,
       });
     }
 
-    // 6. Behavioral ADR claims must have agentic_test or human_attestation
-    for (const [adrId, claims] of adrClaims) {
-      const adrClaim = claims.find((c) => c.id === claim.adr_claim_id);
-      if (adrClaim?.behavioral) {
-        if (
-          claim.evidence_type !== "agentic_test" &&
-          claim.evidence_type !== "human_attestation"
-        ) {
+    if (ref === "__none__") continue;
+
+    if (claim.spec_claim_id) {
+      if (claim.spec_claim_id !== "__none__") {
+        const parsedRef = parseSpecClaimRef(claim.spec_claim_id);
+        if (!parsedRef) {
           failures.push({
-            code: "behavioral-claim-insufficient-evidence",
-            message: `Claim "${claim.id}" implements ADR ${adrId} claim "${claim.adr_claim_id}" which is behavioral=true, but evidence_type is "${claim.evidence_type}". Behavioral claims require "agentic_test" or "human_attestation".`,
+            code: "invalid-spec-claim-ref",
+            message: `Claim "${claim.id}" spec_claim_id "${claim.spec_claim_id}" must be spec_id:claim_id (e.g. SPEC-CONTROL-PLANE:c1) or "__none__".`,
+          });
+          continue;
+        }
+
+        if (!specClaimIndex.has(claim.spec_claim_id)) {
+          failures.push({
+            code: "unresolved-spec-claim-ref",
+            message: `Claim "${claim.id}" references spec_claim_id "${claim.spec_claim_id}" which does not exist in any .specs/ markdown frontmatter.`,
           });
         }
+      }
+    } else if (claim.adr_claim_id) {
+      let found = false;
+      for (const claims of adrClaims.values()) {
+        if (claims.some((c) => c.id === claim.adr_claim_id)) {
+          found = true;
+          break;
+        }
+      }
+      if (!found) {
+        failures.push({
+          code: "unresolved-claim-ref",
+          message: `Claim "${claim.id}" references adr_claim_id "${claim.adr_claim_id}" which does not exist in any referenced ADR. Migrate to spec_claim_id or use "__none__".`,
+        });
+      }
+    }
+
+    if (isBehavioralClaim(claim, specBehavioralIndex, adrClaims)) {
+      if (
+        claim.evidence_type !== "agentic_test" &&
+        claim.evidence_type !== "human_attestation"
+      ) {
+        failures.push({
+          code: "behavioral-claim-insufficient-evidence",
+          message: `Claim "${claim.id}" implements behavioral spec/ADR claim "${ref}" but evidence_type is "${claim.evidence_type}". Behavioral claims require "agentic_test" or "human_attestation".`,
+        });
       }
     }
   }
 
-  // 7. human_attestation claims require attestation block
   const hasAttestationClaim = pr.claims.some(
     (c) => c.evidence_type === "human_attestation"
   );
@@ -255,7 +327,6 @@ async function main(): Promise<void> {
     });
   }
 
-  // 8. agentic_test claims require evidence_path
   for (const claim of pr.claims) {
     if (claim.evidence_type === "agentic_test" && !claim.evidence_path) {
       failures.push({
@@ -265,10 +336,14 @@ async function main(): Promise<void> {
     }
   }
 
-  report(failures);
+  return { failures, warnings };
 }
 
-function report(failures: Failure[]): void {
+function report(failures: Failure[], warnings: Warning[]): void {
+  for (const w of warnings) {
+    console.log(`  [warn:${w.code}] ${w.message}`);
+  }
+
   if (failures.length === 0) {
     console.log("validate:pr passed");
     return;
@@ -281,7 +356,26 @@ function report(failures: Failure[]): void {
   process.exitCode = 1;
 }
 
-void main().catch((err) => {
-  console.error("validate:pr error:", err);
-  process.exitCode = 1;
-});
+async function main(): Promise<void> {
+  const branch = argValue("--branch");
+  if (!branch) {
+    console.error("Usage: pnpm validate:pr --branch <branch-name>");
+    process.exitCode = 1;
+    return;
+  }
+
+  const { failures, warnings } = await validatePrDescription(branch);
+  report(failures, warnings);
+}
+
+const isMain =
+  process.argv[1] &&
+  (process.argv[1].endsWith("validate-pr-description.ts") ||
+    process.argv[1].endsWith("validate-pr-description.js"));
+
+if (isMain) {
+  void main().catch((err) => {
+    console.error("validate:pr error:", err);
+    process.exitCode = 1;
+  });
+}

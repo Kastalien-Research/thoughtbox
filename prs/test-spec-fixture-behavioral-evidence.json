@@ -1,0 +1,15 @@
+{
+  "branch": "test/spec-fixture-behavioral-evidence",
+  "specs": ["SPEC-FIXTURE"],
+  "summary": "Fixture PR — behavioral spec claim with unit_test evidence (should fail validation).",
+  "claims": [
+    {
+      "id": "c1",
+      "spec_claim_id": "SPEC-FIXTURE:c2",
+      "statement": "Behavioral spec claims require agentic_test or human_attestation evidence in PR JSON",
+      "evidence_type": "unit_test",
+      "evidence_path": "scripts/__tests__/validate-pr-description.test.ts",
+      "evidence_description": "Intentionally insufficient evidence type for behavioral claim c2."
+    }
+  ]
+}

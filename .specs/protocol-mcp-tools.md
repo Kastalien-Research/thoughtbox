@@ -1,6 +1,23 @@
-# SPEC: Protocol MCP Tools (Theseus + Ulysses)
+---
+spec_id: SPEC-PROTOCOL-MCP-TOOLS
+title: Protocol MCP Tools (Theseus + Ulysses)
+status: active
+date: 2026-03-19
+claims:
+  - id: c1
+    statement: thoughtbox_theseus and thoughtbox_ulysses register as explicit MCP tools at STAGE_2_CIPHER_LOADED with discriminated-union inputs
+    type: implementation
+    behavioral: false
+    required_evidence: Tool definitions and registration path in src/protocol and gateway wiring tests
+  - id: c2
+    statement: Protocol session state persists to Supabase with project scoping per ADR-013 patterns
+    type: implementation
+    behavioral: false
+    required_evidence: ProtocolHandler persistence tests and Supabase schema usage
+links:
+  - docs/decisions/archive/adr/accepted/ADR-015-protocol-mcp-tools.md
+---
 
-**ADR**: `.adr/staging/ADR-015-protocol-mcp-tools.md`
 **Date**: 2026-03-19
 
 ## Overview

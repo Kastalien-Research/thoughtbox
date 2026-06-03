@@ -1,63 +1,65 @@
 {
   "branch": "feat/mcp-peer-notebook-control-plane",
-  "adrs": ["ADR-022"],
   "summary": "Stages the HDD documentation unit for MCP Peer Notebooks. ADR-022 and the companion spec define a brokered Cloud Run control plane, externalized peer manifests, a provider-neutral runtime RPC, Supabase-backed peer records and artifacts, web app inspection surfaces, and the claim-extractor pilot target. This branch also removes the tracked dep-graph experiment/artifact tree.",
   "claims": [
     {
       "id": "c1",
-      "adr_claim_id": "c1",
       "statement": "The peer broker is the sole externally visible authority for peer invocation and validates workspace, active manifest, tool schema, budgets, and outbound allowlists before runtime dispatch",
       "evidence_type": "implementation",
       "evidence_path": ".specs/mcp-peer-notebooks/SPEC-CONTROL-PLANE.md",
-      "evidence_description": "The spec defines peer.invoke, broker responsibilities, and an invocation flow that performs workspace, active manifest, tool schema, args, budget, and outbound policy validation before calling the runtime provider."
+      "evidence_description": "The spec defines peer.invoke, broker responsibilities, and an invocation flow that performs workspace, active manifest, tool schema, args, budget, and outbound policy validation before calling the runtime provider.",
+      "spec_claim_id": "SPEC-CONTROL-PLANE:c1"
     },
     {
       "id": "c2",
-      "adr_claim_id": "c2",
       "statement": "Peer notebook manifests are externalized control-plane records compiled from peer.manifest.json, parsed as data without executing notebook code, and activated only by explicit approval",
       "evidence_type": "implementation",
       "evidence_path": ".specs/mcp-peer-notebooks/SPEC-CONTROL-PLANE.md",
-      "evidence_description": "The Manifest Source And Lifecycle section requires a peer.manifest.json draft, parses it as JSON data without executing notebook code, writes draft manifests, and uses explicit approval before active broker dispatch."
+      "evidence_description": "The Manifest Source And Lifecycle section requires a peer.manifest.json draft, parses it as JSON data without executing notebook code, writes draft manifests, and uses explicit approval before active broker dispatch.",
+      "spec_claim_id": "SPEC-CONTROL-PLANE:c2"
     },
     {
       "id": "c3",
-      "adr_claim_id": "c3",
       "statement": "Cloud Run remains the MCP API/control plane; peer execution, including any future smolvm use, runs in a separate execution plane behind a runtime provider contract",
       "evidence_type": "implementation",
       "evidence_path": ".specs/mcp-peer-notebooks/SPEC-CONTROL-PLANE.md",
-      "evidence_description": "The spec non-goals and invariants explicitly exclude KVM/smolvm execution from Cloud Run and place smolvm behind the runtime provider boundary."
+      "evidence_description": "The spec non-goals and invariants explicitly exclude KVM/smolvm execution from Cloud Run and place smolvm behind the runtime provider boundary.",
+      "spec_claim_id": "SPEC-CONTROL-PLANE:c3"
     },
     {
       "id": "c4",
-      "adr_claim_id": "c4",
       "statement": "The v0 runtime contract is a simple provider RPC, not a requirement that every runtime expose public MCP directly",
       "evidence_type": "implementation",
       "evidence_path": ".specs/mcp-peer-notebooks/SPEC-CONTROL-PLANE.md",
-      "evidence_description": "The Runtime Provider Contract section defines describe, invoke, cancel, snapshot/export, and heartbeat as the v0 provider RPC and states public direct MCP is not required."
+      "evidence_description": "The Runtime Provider Contract section defines describe, invoke, cancel, snapshot/export, and heartbeat as the v0 provider RPC and states public direct MCP is not required.",
+      "spec_claim_id": "SPEC-CONTROL-PLANE:c4"
     },
     {
       "id": "c5",
-      "adr_claim_id": "c5",
       "statement": "The peer data model is Supabase-backed with peer notebooks, manifests, invocations, trace events, and artifact metadata in Postgres, while full artifact payloads live in Supabase Storage",
       "evidence_type": "implementation",
       "evidence_path": ".specs/mcp-peer-notebooks/SPEC-CONTROL-PLANE.md",
-      "evidence_description": "The Supabase Table Contract and Artifact Payload Strategy sections define peer_notebooks, peer_manifests, peer_invocations, peer_trace_events, peer_artifacts, and Supabase Storage payloads."
+      "evidence_description": "The Supabase Table Contract and Artifact Payload Strategy sections define peer_notebooks, peer_manifests, peer_invocations, peer_trace_events, peer_artifacts, and Supabase Storage payloads.",
+      "spec_claim_id": "SPEC-CONTROL-PLANE:c5"
     },
     {
       "id": "c6",
-      "adr_claim_id": "c6",
       "statement": "The deployed product inspection surface is the Next.js web app reading Supabase peer rows, not the legacy src/observatory server",
       "evidence_type": "implementation",
       "evidence_path": ".specs/mcp-peer-notebooks/DIAGRAMS.md",
-      "evidence_description": "The diagrams show the Next.js web app reading Supabase peer rows for registry, invocation, trace, and artifact inspection, and state that src/observatory is not part of the pilot read model."
+      "evidence_description": "The diagrams show the Next.js web app reading Supabase peer rows for registry, invocation, trace, and artifact inspection, and state that src/observatory is not part of the pilot read model.",
+      "spec_claim_id": "SPEC-CONTROL-PLANE:c6"
     },
     {
       "id": "c7",
-      "adr_claim_id": "__none__",
       "statement": "The tracked dep-graph experiment/artifact tree is removed from this branch",
       "evidence_type": "implementation",
       "evidence_path": null,
-      "evidence_description": "The branch stages the tracked deletions under dep-graph/ as an explicit non-ADR cleanup item."
+      "evidence_description": "The branch stages the tracked deletions under dep-graph/ as an explicit non-ADR cleanup item.",
+      "spec_claim_id": "__none__"
     }
+  ],
+  "specs": [
+    "SPEC-CONTROL-PLANE"
   ]
 }

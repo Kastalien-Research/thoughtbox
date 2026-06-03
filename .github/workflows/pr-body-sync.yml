@@ -62,8 +62,15 @@ jobs:
               lines.push(pr.summary);
               lines.push('');
 
-              if (pr.adrs && pr.adrs.length > 0) {
-                lines.push('## ADRs');
+              if (pr.specs && pr.specs.length > 0) {
+                lines.push('## Specs');
+                lines.push('');
+                for (const spec of pr.specs) {
+                  lines.push(`- ${spec}`);
+                }
+                lines.push('');
+              } else if (pr.adrs && pr.adrs.length > 0) {
+                lines.push('## ADRs (deprecated)');
                 lines.push('');
                 for (const adr of pr.adrs) {
                   lines.push(`- ${adr}`);
@@ -80,7 +87,11 @@ jobs:
                   const evidencePath = claim.evidence_path
                     ? `\`${claim.evidence_path}\``
                     : '--';
-                  lines.push(`| \`${claim.id}\` | ${claim.statement} | ${claim.evidence_type}: ${evidencePath} |`);
+                  const claimRef =
+                    claim.spec_claim_id ?? claim.adr_claim_id ?? '__none__';
+                  lines.push(
+                    `| \`${claim.id}\` (${claimRef}) | ${claim.statement} | ${claim.evidence_type}: ${evidencePath} |`
+                  );
                 }
                 lines.push('');
               }

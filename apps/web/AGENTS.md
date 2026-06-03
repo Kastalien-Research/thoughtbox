@@ -1,16 +1,16 @@
 
 ## Development Workflow (Source of Truth)
 
-**Use `/workflow` to execute the full development lifecycle.** It sequences 8 stages: ideation → spec + ADR → plan → implement → review → revision → compound → reflection.
+**Use `/workflow` to execute the full development lifecycle.** It sequences 8 stages: ideation → spec + claims → plan → implement → review → revision → compound → reflection.
 
 The conductor skill dispatches to stage-specific skills at each step. Run `/workflow <idea>` to start a new workflow, or `/workflow` to resume an in-progress one.
 
 ### Key Rules (always apply)
 
-1. **Specs go in `.specs/`** (not `specs/`). ADRs use the HDD lifecycle: `.adr/staging/` → `.adr/accepted/` or `.adr/rejected/`.
+1. **Specs go in `.specs/`** (not `specs/`). Active authority is `.specs/` markdown with YAML frontmatter claims. Archived ADRs: `docs/decisions/archive/`.
 2. **Code and spec updates in the same commit.** If you change code that a spec describes, update the spec in the same commit.
 3. **Atomic commits.** One sub-agent = one unit of work = one commit, made after review validates the work.
-4. **Sub-agent summaries use the structured format** defined in the `/workflow` conductor skill (Claims, Hypothesis Alignment, Tests, Known Gaps, Risks).
+4. **Sub-agent summaries use the structured format** defined in the `/workflow` conductor skill (Claims, Spec/Evidence Alignment, Tests, Known Gaps, Risks).
 5. **Default: human is NOT in the loop.** Operate autonomously up to the escalation thresholds defined in `agentic-dev-team/agentic-dev-team-spec.md`. Escalate only when those thresholds are met.
 6. **Orchestrators don't do manual work.** Deploy sub-agents or agent teams. Protect your context window.
 
@@ -19,19 +19,19 @@ The conductor skill dispatches to stage-specific skills at each step. Run `/work
 | Stage | Skill | Description |
 |-------|-------|-------------|
 | 1. Ideation | `/workflow-ideation` | Evaluate whether idea is worth implementing |
-| 2. Dev-Time Docs | `/hdd` | Create spec and ADR via HDD process |
+| 2. Dev-Time Docs | `workflow` Stage 2 | Create/update spec with frontmatter claims |
 | 3. Planning | `/workflows-plan` | Plan implementation approach |
 | 4. Implementation | `/workflows-work` | Execute the plan with sub-agents |
-| 5. Review | `/workflows-review` | Verify claims and test hypotheses |
+| 5. Review | `/workflows-review` | Verify claims against spec frontmatter |
 | 6. Revision | `/workflow-revision` | Fix review findings, loop until pass |
 | 7. Compound | `/workflows-compound` | Capture learnings |
-| 8. Reflection | `/workflow-reflection` | Finalize ADRs, close issues, merge |
+| 8. Reflection | `/workflow-reflection` | Finalize specs/PR claims, close issues, merge |
 
 ### References
 
 - Workflow conductor: `.claude/skills/workflow/SKILL.md`
 - Workflow rationale and failure modes: `docs/WORKFLOW-MASTER-DESCRIPTION.md`
-- HDD process: `.claude/commands/hdd/hdd.md`
+- Spec schema: `../../.schemas/spec-v1.json` (repo root)
 - Agent team structure: `agentic-dev-team/agentic-dev-team-spec.md`
 - Escalation thresholds: `agentic-dev-team/agentic-dev-team-spec.md` § Escalation Threshold Definition
 
@@ -98,7 +98,7 @@ When these sources disagree, use this order:
 3. `.claude/rules/`, `.claude/agents/`, `.claude/team-prompts/`, and hook docs as supporting context
 
 Notes:
-- Treat older references to `specs/` or legacy ADR paths inside local skill docs as historical if they conflict with the rules above. The current canonical locations remain `.specs/` and `.adr/`.
+- Treat older references to `specs/` or legacy ADR paths inside local skill docs as historical if they conflict with the rules above. The current canonical locations are `.specs/` (with frontmatter claims) and `docs/decisions/archive/` for retired ADRs.
 
 ### Local Skills to Honor Manually
 
@@ -116,10 +116,10 @@ Path pattern:
 
 The following command docs are not executable slash commands in Codex, but they define repo-specific procedures and should be read before doing matching work:
 
-- HDD command set: `.claude/commands/hdd/*.md`
+- Archived HDD commands: `docs/decisions/archive/hdd-commands/`
 - Development TDD profiles: `.claude/commands/development/*.md`
 
-If a user references `/hdd`, HDD phases, or the development TDD profiles, read the corresponding local command or skill doc first and then execute the procedure manually.
+If a user references HDD or `/hdd`, treat it as historical; use repo-root `workflow` Stage 2 (spec + claims). For development TDD profiles, read `.claude/commands/development/*.md`.
 
 ### Local Agent and Team Prompt Reuse
 

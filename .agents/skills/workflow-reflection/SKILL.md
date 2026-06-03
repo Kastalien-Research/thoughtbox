@@ -72,21 +72,21 @@ If the user provides input, append it to the reflection under a `## Chief Agenti
 Based on the workflow outcome:
 
 **If hypotheses were validated (happy path)**:
-1. Move the staging ADR to accepted:
+1. Move the spec with frontmatter to accepted:
    ```bash
-   mv .adr/staging/<NNN>-<name>-adr.md .adr/accepted/<NNN>-<name>.md
+   # Historical: ADRs archived — update spec status in frontmatter instead of mv .adr/<NNN>-<name>-adr.md .adr/accepted/<NNN>-<name>.md
    ```
 2. Move associated summaries with it:
    ```bash
-   mv .adr/staging/<NNN>-<name>-summary-*.md .adr/accepted/
+   # Historical: ADRs archived — update spec status in frontmatter instead of mv .adr/<NNN>-<name>-summary-*.md .adr/accepted/
    ```
 3. If the spec was in staging, move it to `specs/`
-4. If any existing docs in `specs/` or `.adr/accepted/` are now outdated by this work, update them
+4. If any existing docs in `specs/` or `docs/decisions/archive/adr/accepted/` are now outdated by this work, update them
 
 **If hypotheses were refuted**:
-1. Move the staging ADR to rejected:
+1. Move the spec with frontmatter to rejected:
    ```bash
-   mv .adr/staging/<NNN>-<name>-adr.md .adr/rejected/<NNN>-<name>.md
+   # Historical: ADRs archived — update spec status in frontmatter instead of mv .adr/<NNN>-<name>-adr.md .adr/rejected/<NNN>-<name>.md
    ```
 2. Preserve test insights alongside the rejected ADR
 3. Add rejection reason and falsified hypotheses to the ADR file
@@ -161,7 +161,7 @@ WORKFLOW COMPLETE
 
 <title>
 Branch: <branch>
-ADR: <final location>
+Spec: <final location>
 
 Stages:
   1. Ideation     [x] <notes excerpt>

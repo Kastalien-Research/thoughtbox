@@ -79,5 +79,5 @@ Single-tier product. The only plan is **Founding Beta** (`$17.29/mo`), defined i
 ## Specs and Decision Records
 
 - Deployment specs: `.specs/deployment/`
-- ADR lifecycle: `.adr/staging/` → `.adr/accepted/` or `.adr/rejected/`
+- Spec authority: `.specs/` with frontmatter claims; archived ADRs: `docs/decisions/archive/adr/`
 - Code and spec updates belong in the same commit
