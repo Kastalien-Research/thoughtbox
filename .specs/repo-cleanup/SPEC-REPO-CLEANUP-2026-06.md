@@ -9,27 +9,27 @@ claims:
     statement: The cleanup series removes only revalidated dead or unsupported repo artifacts while preserving currently authoritative assets such as `.agents/` and `FileSystemStorage`.
     type: governance
     behavioral: false
-    required_evidence: Cleanup tracker, per-branch diffs, and validation notes show deletions were revalidated and `.agents/` plus filesystem storage were intentionally retained.
+    required_evidence: "Cleanup tracker, per-branch diffs, and validation notes show deletions were revalidated and `.agents/` plus filesystem storage were intentionally retained."
   - id: c2
     statement: The cleanup series revalidates stale configuration drift and leaves no broken `start:stateful` script or stale Vitest include path for `automation-self-improvement/agentops/tests/`.
     type: implementation
     behavioral: false
-    required_evidence: `package.json` and `vitest.config.ts` on the cleanup branches show the broken script is absent and the include path targets `automation-self-improvement/agentops/tests/`, with validation notes recorded in the tracker.
+    required_evidence: "`package.json` and `vitest.config.ts` on the cleanup branches show the broken script is absent and the include path targets `automation-self-improvement/agentops/tests/`, with validation notes recorded in the tracker."
   - id: c3
     statement: Research workflow assets become reproducible from tracked text sources under `research-workflows/`, and the repository no longer relies on a tracked mutable SQLite binary as the authoritative seed artifact.
     type: implementation
     behavioral: false
-    required_evidence: `research-workflows/schema.sql` and `seed.sql` define the durable model, regeneration instructions exist, and `research-workflows/workflows.db` is removed from git tracking.
+    required_evidence: "`research-workflows/schema.sql` and `seed.sql` define the durable model, regeneration instructions exist, and `research-workflows/workflows.db` is removed from git tracking."
   - id: c4
     statement: Repo docs and cleanup governance artifacts explicitly record accepted cleanup decisions, validation evidence, and deferred items so later sessions can continue without re-auditing the same scope.
     type: governance
     behavioral: false
-    required_evidence: The tracker and plan artifacts under `cleanup/` document decisions, branch breakdown, validation commands, audit corrections, and follow-up items.
+    required_evidence: "The tracker and plan artifacts under `cleanup/` document decisions, branch breakdown, validation commands, audit corrections, and follow-up items."
   - id: c5
     statement: The cleanup series aligns repo authority docs with current source by removing stale loop-embedding claims from the README, changelog, and `.specs` index docs while preserving currently wired spec-workflow prompt documentation.
     type: governance
     behavioral: false
-    required_evidence: The updated README, CHANGELOG, `.specs/README.md`, and `.specs/IMPLEMENTATION-READY.md` match current source presence for spec prompts and absence of loop embedding assets.
+    required_evidence: "The updated README, CHANGELOG, `.specs/README.md`, and `.specs/IMPLEMENTATION-READY.md` match current source presence for spec prompts and absence of loop embedding assets."
 links:
   - cleanup/2026-05-29-cleanup-audit.md
   - cleanup/2026-06-03-repo-cleanup-plan.md
