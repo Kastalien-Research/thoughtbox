@@ -38,7 +38,7 @@
 | `docs/repo-cleanup-authority-alignment` | docs/spec alignment | completed | README/spec indexes updated; stale loop claims removed; live spec prompts preserved |
 | `chore/normalize-research-workflow-db` | reproducible research assets + DB untracking | completed | canonical schema/seed added; temp-db regeneration matches expected seed counts; tracked DB removed from git |
 | `chore/repo-cleanup-archive-stale-work` | narrowed stale clusters archive/delete | completed | existence-check passed; JSON parse passed; diagnostics clean |
-| `chore/remove-unsupported-agent-runtime-artifacts` | `.gemini/`, `.pi/`, observability | pending | pending |
+| `chore/remove-unsupported-agent-runtime-artifacts` | `.gemini/`, `.pi/`, local observability stack | completed | candidate paths already absent; current product observability surfaces preserved |
 | `chore/repo-cleanup-branches` | local branch cleanup + remote candidate list | pending | pending |
 
 ## Deferred / follow-up items
@@ -81,3 +81,9 @@
 - Stale-work validation confirmed the selected files are removed, preserved
   clusters still exist, the PR description parses as JSON, and diagnostics are
   clean for the tracker, system map, and PR description.
+- Unsupported-runtime validation confirmed `.gemini/`, `.pi/`,
+  `docker-compose.observability.yml`, `monitoring/`, root `observability/`,
+  root `grafana/`, root `prometheus.yml`, and root `otel-collector-config.yaml`
+  are already absent. Current `src/observability`, `src/otel`, web
+  observability docs/specs, and Supabase OTel migrations are not part of this
+  unsupported local-stack delete target.
