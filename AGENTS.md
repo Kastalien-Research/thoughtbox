@@ -201,13 +201,14 @@ Before ending implementation work:
 
 ## Learned User Preferences
 
-- Prefer tightly scoped answers on the named blocker; avoid extra theory or further decomposition once the issue is clear.
+- Prefer tightly scoped answers on the named blocker; once the issue is clear, stop extra theory, taxonomy, or further decomposition.
 - Do not claim work has started until execution actually begins.
 - When asked what code is misplaced, cite specific files, routes, or functions — not structural drift essays.
+- When the user names structural drift or a boundary violation, accept that judgment and focus on placement or extraction instead of further conceptual breakdown.
 - Verify plugin and architecture claims against repo docs and manifests, not code inference alone.
 - Identify the concrete unit of work quickly; avoid long meta sessions before stating what is being worked on.
 - Project-local setup and `doctor` belong on the plugin/local side, not as synthetic server routes or mocks.
-- Do not treat ADRs as trustworthy authority for implementation boundaries unless the user reopens them.
+- Do not treat ADRs, specs, scratch maps, tests, or prior audits as authority unless current source/config or executable evidence supports them.
 - Supabase schema or migration changes go through branch/PR flow, not direct hosted `db push` from a local `main` checkout.
 
 ## Learned Workspace Facts
@@ -219,3 +220,6 @@ Before ending implementation work:
 - `src/cli/` lives in the server repo but represents a collapsed CLI/server artifact boundary the user wants separated.
 - Default Supabase investigation target is the linked Supabase project unless the user specifies otherwise.
 - Local docker-compose may omit Supabase env vars, causing MCP session setup to fail when branch handlers require `SUPABASE_URL`.
+- ADR/HDD coupling is concentrated in agent/governance surfaces and PR validation (`pnpm validate:pr` resolving PR claims to ADR JSON); runtime code is lightly coupled.
+- `src/http/cli-routes.ts` currently backs `thoughtbox init`/`thoughtbox doctor` and contains setup/diagnostic orchestration beyond a narrow HTTP adapter role.
+- The Aspirational Systems Audit lives at `.specs/aspirational-systems-audit.md` and classifies claims by current wiring evidence.
