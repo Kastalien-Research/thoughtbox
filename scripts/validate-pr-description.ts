@@ -50,6 +50,14 @@ const ClaimSchema = z
         path: ["spec_claim_id"],
       });
     }
+    if (claim.spec_claim_id && claim.adr_claim_id) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message:
+          "Each claim must include only one claim reference field: spec_claim_id or adr_claim_id",
+        path: ["spec_claim_id"],
+      });
+    }
   });
 
 const AttestationSchema = z.object({
@@ -285,6 +293,12 @@ export async function validatePrDescription(
           failures.push({
             code: "unresolved-spec-claim-ref",
             message: `Claim "${claim.id}" references spec_claim_id "${claim.spec_claim_id}" which does not exist in any .specs/ markdown frontmatter.`,
+          });
+        }
+        if (!pr.specs.includes(parsedRef.specId)) {
+          failures.push({
+            code: "spec-claim-not-listed",
+            message: `Claim "${claim.id}" references spec "${parsedRef.specId}" but that spec is not listed in the top-level specs array.`,
           });
         }
       }
