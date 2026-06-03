@@ -53,4 +53,12 @@ describe("validatePrDescription (spec claims)", () => {
     );
     expect(failures.some((f) => f.code === "spec-claim-not-listed")).toBe(true);
   });
+
+  it("fails when a top-level specs entry does not exist in .specs frontmatter", async () => {
+    const { failures } = await validatePrDescription(
+      "test/spec-fixture-unknown-spec",
+      REPO_ROOT
+    );
+    expect(failures.some((f) => f.code === "unknown-spec")).toBe(true);
+  });
 });

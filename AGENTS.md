@@ -222,4 +222,4 @@ Before ending implementation work:
 - Local docker-compose may omit Supabase env vars, causing MCP session setup to fail when branch handlers require `SUPABASE_URL`.
 - ADR/HDD coupling is concentrated in agent/governance surfaces and PR validation (`pnpm validate:pr` resolving PR claims to ADR JSON); runtime code is lightly coupled.
 - `src/http/cli-routes.ts` currently backs `thoughtbox init`/`thoughtbox doctor` and contains setup/diagnostic orchestration beyond a narrow HTTP adapter role.
-- The Aspirational Systems Audit lives at `.specs/aspirational-systems-audit.md` and classifies claims by current wiring evidence.
+- The Aspirational Systems Audit lives at `docs/aspirational-systems-audit.md` (a read-only report, not a claim-bearing `.specs/` authority) and classifies claims by current wiring evidence.

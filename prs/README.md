@@ -56,5 +56,6 @@ Branches used only by tests (not real PRs):
 - `test/spec-fixture-behavioral-evidence` → `prs/test-spec-fixture-behavioral-evidence.json`
 - `test/spec-fixture-dual-claim-ref` → `prs/test-spec-fixture-dual-claim-ref.json`
 - `test/spec-fixture-missing-spec-list` → `prs/test-spec-fixture-missing-spec-list.json`
+- `test/spec-fixture-unknown-spec` → `prs/test-spec-fixture-unknown-spec.json`
 
 Run: `pnpm validate:pr --branch test/spec-fixture-valid`
