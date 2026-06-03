@@ -1,8 +1,8 @@
 # Thoughtbox
 
-**Multi-agent collaborative reasoning that's auditable.** Thoughtbox is a Docker-based MCP server where AI agents coordinate through shared workspaces — claiming problems, proposing solutions, reviewing each other's work, and reaching consensus. Every step is recorded as a structured thought in a persistent reasoning ledger that can be visualized, exported, and analyzed.
+**Multi-agent collaborative reasoning that's auditable.** Thoughtbox is an MCP server for structured, multi-agent reasoning, with a companion web app for workspace and inspection flows. Every step is recorded as a structured thought in a persistent reasoning ledger that can be visualized, exported, and analyzed.
 
-**Local-First:** Runs entirely on your machine. All data stays at `~/.thoughtbox/` — nothing leaves your network.
+**Runtime modes:** Local development can use filesystem or in-memory storage. Deployed mode uses Supabase-backed storage, and the current production MCP server runs on Cloud Run.
 
 ![Thoughtbox Observatory](public/thoughtbox-observatory.png)
 *Observatory UI showing a reasoning session with 14 thoughts and a branch exploration (purple nodes 13-14) forking from thought 5.*

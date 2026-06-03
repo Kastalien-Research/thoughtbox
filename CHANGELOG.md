@@ -8,15 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- OODA loops available as MCP resources (`thoughtbox://loops/{category}/{name}`) with automatic usage analytics that enable codebase learning over time
+
 - Specification workflow prompts for systematic spec design, validation, and multi-spec orchestration
 - `/mcp__thoughtbox__spec-designer` - Design specs from prompts using OODA loops
 - `/mcp__thoughtbox__spec-validator` - Validate specs against codebase architecture
 - `/mcp__thoughtbox__spec-orchestrator` - Implement multi-spec projects with OR principles
 - `/mcp__thoughtbox__specification-suite` - Full design → validate → orchestrate lifecycle
-- Loop catalog API at `thoughtbox://loops/catalog` with metadata, classification, and composition rules
-- Analytics refresh endpoint at `thoughtbox://loops/analytics/refresh` for on-demand metrics aggregation
-- ClaudeFolderIntegration class for `.claude/` folder integration with graceful degradation
 - Expand cipher as protocol layer with domain vocabulary ([8d38b7b](../../commit/8d38b7b153ea35da6bb04cbe18832a6caaf98afe))
 - Make gateway the sole MCP entry point ([1755b7f](../../commit/1755b7f79f85c9f882afb39b08d29f44180d33b7))
 - **gateway**: Add always-on routing tool for streaming HTTP clients ([6fe6f94](../../commit/6fe6f947fb09f1ea3b86b8e7e4304e29f676f332))
@@ -33,13 +30,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **benchmarks**: Add SIL benchmark harness components ([39c0542](../../commit/39c0542be750b41f66be77ecb23417b5b3309b5a))
 
 ### Changed
-- Build pipeline now includes OODA loop embedding step (`npm run embed-loops`)
-- Loop catalog automatically sorted by usage frequency when `.claude/thoughtbox/hot-loops.json` available
-- Build scripts consolidated to `npm run embed` (runs both template and loop embedding)
-- Added `gray-matter` dependency for YAML frontmatter parsing in loop embedding
-- Created `scripts/embed-loops.ts` for build-time loop catalog generation
-- Created `src/claude-folder-integration.ts` for usage analytics with atomic append operations
-- Loop usage recorded to `.claude/thoughtbox/loop-usage.jsonl` with three aggregation triggers
+
 - Remove retry delays, direct users to gateway instead ([d2957ef](../../commit/d2957ef12ecbfa0adf7725196966062ab02ea06f))
 - **server**: Consolidate server factory and handlers ([cd37ef4](../../commit/cd37ef4342a6da09915595091970cc471abfaf83))
 - **server**: Consolidate server factory and handlers ([5e83a29](../../commit/5e83a29ab28697f711c3251e10dce986c50264e7))

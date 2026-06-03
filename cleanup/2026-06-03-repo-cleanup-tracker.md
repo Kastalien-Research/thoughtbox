@@ -31,7 +31,7 @@
 | --- | --- | --- | --- |
 | `chore/repo-cleanup-tracker` | tracker/spec/plan bootstrap | completed | diff-check passed; JSON parse passed; repo PR validator blocked by missing `node_modules` |
 | `chore/repo-cleanup-tier1` | safe-delete revalidation + stale config confirmation | completed | target paths absent; config drift already resolved on current `main` |
-| `docs/repo-cleanup-authority-alignment` | docs/spec/governance alignment | pending | pending |
+| `docs/repo-cleanup-authority-alignment` | docs/spec alignment | completed | README/spec indexes updated; stale loop claims removed; live spec prompts preserved |
 | `chore/normalize-research-workflow-db` | reproducible research assets + DB untracking | pending | pending |
 | `chore/repo-cleanup-archive-stale-work` | stale clusters archive/delete | pending | pending |
 | `chore/remove-unsupported-agent-runtime-artifacts` | `.gemini/`, `.pi/`, observability | pending | pending |
@@ -42,6 +42,8 @@
 - ADR renumbering or staging relocation may split from docs alignment if it
   grows beyond bounded cleanup.
 - Remote branch deletion requires an explicit candidate list captured here.
+- ADR governance cleanup is deferred from this docs branch to keep the authority
+  alignment unit bounded.
 
 ## Validation log
 
@@ -55,3 +57,7 @@
 - Tier 1 revalidation confirmed `package.json` has no `start:stateful` script
   and `vitest.config.ts` already includes
   `automation-self-improvement/agentops/tests/**/*.test.ts`.
+- Docs alignment validation confirmed the loop-embedding spec files,
+  `scripts/embed-loops.ts`, and `src/resources/loops-content.ts` are absent,
+  while `spec-designer`, `spec-validator`, `spec-orchestrator`, and
+  `specification-suite` remain registered in `src/server-factory.ts`.
