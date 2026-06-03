@@ -11,10 +11,10 @@ claims:
     behavioral: false
     required_evidence: Cleanup tracker, per-branch diffs, and validation notes show deletions were revalidated and `.agents/` plus filesystem storage were intentionally retained.
   - id: c2
-    statement: The cleanup series fixes verified stale configuration drift, including the broken `start:stateful` script and the Vitest include path that skipped `automation-self-improvement/agentops/tests/`.
+    statement: The cleanup series revalidates stale configuration drift and leaves no broken `start:stateful` script or stale Vitest include path for `automation-self-improvement/agentops/tests/`.
     type: implementation
     behavioral: false
-    required_evidence: `package.json` and `vitest.config.ts` change together with targeted validation commands that exercise the corrected paths.
+    required_evidence: `package.json` and `vitest.config.ts` on the cleanup branches show the broken script is absent and the include path targets `automation-self-improvement/agentops/tests/`, with validation notes recorded in the tracker.
   - id: c3
     statement: Research workflow assets become reproducible from tracked text sources under `research-workflows/`, and the repository no longer relies on a tracked mutable SQLite binary as the authoritative seed artifact.
     type: implementation
