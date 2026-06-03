@@ -21,13 +21,16 @@
 3. The tracked DB contains extra tables beyond the archived
    `research-workflows-REINIT-PLEASE` schema/seed pair, so the binary is not yet
    fully reproducible.
+4. Tier 1 delete candidates from the audit are already absent on current `main`.
+5. `package.json` no longer contains `start:stateful`, and `vitest.config.ts`
+   already points at `automation-self-improvement/agentops/tests/**/*.test.ts`.
 
 ## Branch execution log
 
 | Branch | Scope | Status | Validation |
 | --- | --- | --- | --- |
 | `chore/repo-cleanup-tracker` | tracker/spec/plan bootstrap | completed | diff-check passed; JSON parse passed; repo PR validator blocked by missing `node_modules` |
-| `chore/repo-cleanup-tier1` | safe deletes + stale config fixes | pending | pending |
+| `chore/repo-cleanup-tier1` | safe-delete revalidation + stale config confirmation | completed | target paths absent; config drift already resolved on current `main` |
 | `docs/repo-cleanup-authority-alignment` | docs/spec/governance alignment | pending | pending |
 | `chore/normalize-research-workflow-db` | reproducible research assets + DB untracking | pending | pending |
 | `chore/repo-cleanup-archive-stale-work` | stale clusters archive/delete | pending | pending |
@@ -47,3 +50,8 @@
   `prs/chore-repo-cleanup-tracker.json`.
 - `pnpm validate:pr --branch chore/repo-cleanup-tracker` is currently blocked in
   this checkout because `tsx` is unavailable and `node_modules` is not present.
+- Tier 1 revalidation confirmed the audit's delete-now file targets are already
+  absent on current `main`.
+- Tier 1 revalidation confirmed `package.json` has no `start:stateful` script
+  and `vitest.config.ts` already includes
+  `automation-self-improvement/agentops/tests/**/*.test.ts`.
