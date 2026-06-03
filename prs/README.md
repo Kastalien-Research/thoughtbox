@@ -6,7 +6,7 @@ Machine-readable PR descriptions used by CI validation and PR body sync.
 
 One JSON file per PR, named after the branch with `/` replaced by `-`:
 
-```
+```text
 prs/feat-my-feature.json
 prs/fix-auth-bug.json
 ```
@@ -54,5 +54,7 @@ Branches used only by tests (not real PRs):
 - `test/spec-fixture-valid` → `prs/test-spec-fixture-valid.json`
 - `test/spec-fixture-missing-claim` → `prs/test-spec-fixture-missing-claim.json`
 - `test/spec-fixture-behavioral-evidence` → `prs/test-spec-fixture-behavioral-evidence.json`
+- `test/spec-fixture-dual-claim-ref` → `prs/test-spec-fixture-dual-claim-ref.json`
+- `test/spec-fixture-missing-spec-list` → `prs/test-spec-fixture-missing-spec-list.json`
 
 Run: `pnpm validate:pr --branch test/spec-fixture-valid`

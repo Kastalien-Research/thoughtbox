@@ -1,0 +1,17 @@
+{
+  "branch": "test/spec-fixture-dual-claim-ref",
+  "specs": [],
+  "adrs": ["ADR-020"],
+  "summary": "Fixture PR — a migrated claim keeps spec_claim_id __none__ while retaining a legacy adr_claim_id (should fail validation).",
+  "claims": [
+    {
+      "id": "c1",
+      "spec_claim_id": "__none__",
+      "adr_claim_id": "c1",
+      "statement": "Ambiguous claim references must not allow __none__ to mask a legacy ADR claim",
+      "evidence_type": "implementation",
+      "evidence_path": null,
+      "evidence_description": "Intentionally invalid for validator tests."
+    }
+  ]
+}

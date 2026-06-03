@@ -34,4 +34,23 @@ describe("validatePrDescription (spec claims)", () => {
       failures.some((f) => f.code === "behavioral-claim-insufficient-evidence")
     ).toBe(true);
   });
+
+  it("fails when a claim keeps both migrated and legacy claim refs", async () => {
+    const { failures } = await validatePrDescription(
+      "test/spec-fixture-dual-claim-ref",
+      REPO_ROOT
+    );
+    expect(failures.some((f) => f.code === "schema-violation")).toBe(true);
+    expect(failures.map((f) => f.message).join("\n")).toContain(
+      "only one claim reference field"
+    );
+  });
+
+  it("fails when spec_claim_id references a spec omitted from top-level specs", async () => {
+    const { failures } = await validatePrDescription(
+      "test/spec-fixture-missing-spec-list",
+      REPO_ROOT
+    );
+    expect(failures.some((f) => f.code === "spec-claim-not-listed")).toBe(true);
+  });
 });
