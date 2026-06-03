@@ -18,9 +18,10 @@
 1. `.agents/` is referenced by current `AGENTS.md` and is not a Tier 1 delete.
 2. `research-workflows/workflows.db` is tracked at the repo root path shown in
    the audit summary, despite `.gitignore` containing `*.db`.
-3. The tracked DB contains extra tables beyond the archived
-   `research-workflows-REINIT-PLEASE` schema/seed pair, so the binary is not yet
-   fully reproducible.
+3. The tracked DB originally contained extra tables beyond the archived
+   `research-workflows-REINIT-PLEASE` schema/seed pair; canonical
+   `research-workflows/schema.sql` and `seed.sql` now cover the reproducible
+   model.
 4. Tier 1 delete candidates from the audit are already absent on current `main`.
 5. `package.json` no longer contains `start:stateful`, and `vitest.config.ts`
    already points at `automation-self-improvement/agentops/tests/**/*.test.ts`.
@@ -32,7 +33,7 @@
 | `chore/repo-cleanup-tracker` | tracker/spec/plan bootstrap | completed | diff-check passed; JSON parse passed; repo PR validator blocked by missing `node_modules` |
 | `chore/repo-cleanup-tier1` | safe-delete revalidation + stale config confirmation | completed | target paths absent; config drift already resolved on current `main` |
 | `docs/repo-cleanup-authority-alignment` | docs/spec alignment | completed | README/spec indexes updated; stale loop claims removed; live spec prompts preserved |
-| `chore/normalize-research-workflow-db` | reproducible research assets + DB untracking | pending | pending |
+| `chore/normalize-research-workflow-db` | reproducible research assets + DB untracking | completed | canonical schema/seed added; temp-db regeneration matches expected seed counts; tracked DB removed from git |
 | `chore/repo-cleanup-archive-stale-work` | stale clusters archive/delete | pending | pending |
 | `chore/remove-unsupported-agent-runtime-artifacts` | `.gemini/`, `.pi/`, observability | pending | pending |
 | `chore/repo-cleanup-branches` | local branch cleanup + remote candidate list | pending | pending |
@@ -61,3 +62,9 @@
   `scripts/embed-loops.ts`, and `src/resources/loops-content.ts` are absent,
   while `spec-designer`, `spec-validator`, `spec-orchestrator`, and
   `specification-suite` remain registered in `src/server-factory.ts`.
+- Research-workflow normalization validation rebuilt a temporary SQLite database
+  from `research-workflows/schema.sql` and `seed.sql`, yielding 11 workflows,
+  52 workflow steps, and 6 attack-pattern seed rows with empty runtime-history
+  tables.
+- `research-workflows/workflows.db` is now removed from git tracking and remains
+  ignored locally by the existing `*.db` rule.

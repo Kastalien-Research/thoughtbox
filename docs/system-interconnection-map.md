@@ -411,14 +411,14 @@ SQLite database serving two functions: (1) MAP-Elites quality-diversity library 
 
 ### Schema (10 tables)
 
-**Base schema (from `agentic-dev-team/research-workflows-REINIT-PLEASE/`):**
+**Canonical schema (`research-workflows/schema.sql`):**
 - `workflows` — 11 seed rows, 5 behavioral coordinate axes, 6 fitness dimensions
 - `workflow_steps` — 52 ordered steps across 11 workflows
 - `workflow_lineage` — parent/child relationships (0 rows)
 - `executions` — task execution records (0 rows)
 - `taste_evaluations` — research taste verdicts (0 rows)
 
-**Runtime-added tables (via `CREATE TABLE IF NOT EXISTS` in agent scripts):**
+**Runtime history / playbook tables (included in the canonical schema):**
 - `adversarial_findings` — 6 rows (all unfixed, all real bugs)
 - `attack_patterns` — 6 patterns (all 50% hit rate after 2 uses each)
 - `verification_audits` — 0 rows
@@ -465,9 +465,12 @@ ULC QD exploration query uses wrong column names:
 - Actual columns: `coord_domain_structure`, `coord_evidence_type`, `coord_time_horizon`
 - Present in `.claude/skills/ulc-loop/ulc-prompt.md`
 
-### REINIT-PLEASE Gap
+### Historical REINIT-PLEASE Gap
 
-The reinit schema is missing the 4 runtime tables (`adversarial_findings`, `attack_patterns`, `verification_audits`, `verification_failures`). Reinitializing drops those tables until an agent first runs.
+The older `agentic-dev-team/research-workflows-REINIT-PLEASE/` copy omitted the
+4 runtime tables (`adversarial_findings`, `attack_patterns`,
+`verification_audits`, `verification_failures`). The canonical
+`research-workflows/schema.sql` now includes them.
 
 ---
 
@@ -505,7 +508,8 @@ Hypothesis doc for Hub + Agent Teams coordination proof on `fix/sub-agent-stage-
 ### References
 
 - `AGENTS.md` → `agentic-dev-team-spec.md` (escalation thresholds, team structure)
-- Contains `research-workflows-REINIT-PLEASE/` with canonical DB schema + seed data
+- Contains a historical `research-workflows-REINIT-PLEASE/` copy; canonical DB
+  schema and seed data now live under `research-workflows/`
 
 ---
 
