@@ -25,6 +25,11 @@ claims:
     type: governance
     behavioral: false
     required_evidence: The tracker and plan artifacts under `cleanup/` document decisions, branch breakdown, validation commands, audit corrections, and follow-up items.
+  - id: c5
+    statement: The cleanup series aligns repo authority docs with current source by removing stale loop-embedding claims from the README, changelog, and `.specs` index docs while preserving currently wired spec-workflow prompt documentation.
+    type: governance
+    behavioral: false
+    required_evidence: The updated README, CHANGELOG, `.specs/README.md`, and `.specs/IMPLEMENTATION-READY.md` match current source presence for spec prompts and absence of loop embedding assets.
 links:
   - cleanup/2026-05-29-cleanup-audit.md
   - cleanup/2026-06-03-repo-cleanup-plan.md
