@@ -214,8 +214,8 @@ Highest-risk gaps: agents/operators following root README or skills that call re
 | **Status** | `unwired` |
 | **Confidence** | High |
 | **Claim** | Assumption skill describes verification workflow. |
-| **Wiring** | [`.github/workflows/verify-assumptions.yml`](../.github/workflows/verify-assumptions.yml) L13: `if: false`. |
-| **Cleanup slice** | Re-enable with executable checks or update skill. |
+| **Wiring** | Removed during repo cleanup after remaining hard-disabled with `if: false`. |
+| **Cleanup slice** | Update the assumption skill or create a new executable verification workflow in a dedicated unit if this capability is still desired. |
 
 ### 18. Supabase thought-queue edge function scheduling
 
