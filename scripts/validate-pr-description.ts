@@ -225,8 +225,23 @@ export async function validatePrDescription(
 
   const specClaimIndex = await loadSpecClaimIndex(path.join(repoRoot, ".specs"));
   const specBehavioralIndex = new Map<string, { behavioral: boolean }>();
+  const knownSpecIds = new Set<string>();
   for (const [ref, entry] of specClaimIndex) {
     specBehavioralIndex.set(ref, { behavioral: entry.behavioral });
+    knownSpecIds.add(entry.specId);
+  }
+
+  // Validate top-level specs entries exist, independent of per-claim references.
+  // Mirrors the legacy ADR existence check so a listed-but-unreferenced spec
+  // (e.g. a typo alongside a "__none__" cleanup claim) cannot pass validation
+  // and then surface in the rendered PR body.
+  for (const specId of pr.specs) {
+    if (!knownSpecIds.has(specId)) {
+      failures.push({
+        code: "unknown-spec",
+        message: `Top-level specs entry "${specId}" does not match any spec_id with claims in .specs/ markdown frontmatter. Remove it or correct the spec_id.`,
+      });
+    }
   }
 
   const adrClaims = new Map<string, { id: string; behavioral: boolean }[]>();
