@@ -1,6 +1,6 @@
 # PR Descriptions
 
-Machine-readable PR descriptions used by the adversarial reviewer in CI.
+Machine-readable PR descriptions used by CI validation and PR body sync.
 
 ## Format
 
@@ -21,10 +21,14 @@ CI will fail at the validation step if this file is missing or malformed.
 ## What goes in it
 
 - `branch` — the exact branch name
-- `adrs` — list of ADR IDs this PR implements (e.g. `["ADR-020"]`). May be empty for non-architectural work.
+- `specs` — list of spec IDs from spec frontmatter `spec_id` (e.g. `["SPEC-CONTROL-PLANE"]`). May be empty for non-spec work.
 - `summary` — one paragraph: what changed and why
-- `claims` — one entry per claim being made about this PR's correctness. Each claim references an ADR claim by `adr_claim_id` and provides the evidence type and path.
+- `claims` — one entry per claim about this PR's correctness. Each claim references a spec claim as `spec_claim_id: "<spec_id>:<claim_id>"` (e.g. `SPEC-CONTROL-PLANE:c1`) and provides evidence type and path. Use `"__none__"` when no spec claim applies.
 - `attestation` — required if any claim uses `evidence_type: "human_attestation"`
+
+### Legacy ADR fields (migration only)
+
+During migration, `adrs` and `adr_claim_id` remain accepted with warnings. Prefer `specs` and `spec_claim_id`. Archived ADR JSON lives under `docs/decisions/archive/`.
 
 ## Attestation
 
@@ -40,5 +44,15 @@ If you ran an agentic test manually or verified behavior in a terminal session, 
 
 ## Schema reference
 
-See `.schemas/pr-description-v1.json` for the full JSON Schema.
-See `.schemas/adr-v1.json` for the ADR JSON format that claims reference.
+See `.schemas/pr-description-v1.json` for the PR description schema.
+See `.schemas/spec-v1.json` for spec frontmatter claims that PRs reference.
+
+## Validator fixtures
+
+Branches used only by tests (not real PRs):
+
+- `test/spec-fixture-valid` → `prs/test-spec-fixture-valid.json`
+- `test/spec-fixture-missing-claim` → `prs/test-spec-fixture-missing-claim.json`
+- `test/spec-fixture-behavioral-evidence` → `prs/test-spec-fixture-behavioral-evidence.json`
+
+Run: `pnpm validate:pr --branch test/spec-fixture-valid`

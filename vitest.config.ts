@@ -4,6 +4,7 @@ export default defineConfig({
   test: {
     include: [
       'src/**/__tests__/**/*.test.ts',
+      'scripts/**/__tests__/**/*.test.ts',
       'automation-self-improvement/agentops/tests/**/*.test.ts',
       'demo/**/*.ts',
     ],

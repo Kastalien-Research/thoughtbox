@@ -16,13 +16,13 @@ You are the **workflow conductor**. You sequence 8 stages, enforce gates between
 | # | Stage | Skill/Command | Gate (must pass before advancing) |
 |---|-------|--------------|-----------------------------------|
 | 1 | Ideation | `/workflow-ideation` | User confirms proceed (question 3d is not "confident no") |
-| 2 | Dev-Time Docs | `/hdd --phases=1-2` | Spec exists in `specs/`, ADR exists in `.adr/staging/` |
+| 2 | Dev-Time Docs | `workflow` Stage 2 (spec + claims) | Spec in `.specs/` with frontmatter claims per `.schemas/spec-v1.json` |
 | 3 | Planning | `/workflows-plan` | Plan file exists and user has approved it |
 | 4 | Implementation | `/workflows-work` | All sub-agent summaries persisted to disk, all tests pass |
 | 5 | Review | `/workflows-review` | All claims verified, no blocking findings |
 | 6 | Revision | `/workflow-revision` | Review passes OR max iterations reached + user accepts |
 | 7 | Compound | `/workflows-compound` | Learning captured |
-| 8 | Reflection | `/workflow-reflection` | ADR moved, issues closed, branch merged or marked ready |
+| 8 | Reflection | `/workflow-reflection` | Spec claims updated, issues closed, branch merged or marked ready |
 
 ## Initialization
 
@@ -55,7 +55,7 @@ Write to `.workflow/state.json`:
   "currentStage": "ideation",
   "stages": {
     "ideation": { "status": "pending", "completedAt": null, "notes": "" },
-    "dev-docs": { "status": "pending", "artifacts": { "spec": null, "adr": null } },
+    "dev-docs": { "status": "pending", "artifacts": { "spec": null, "specClaims": null } },
     "planning": { "status": "pending", "artifacts": { "plan": null } },
     "implementation": { "status": "pending", "artifacts": { "summaries": [], "issues": [] } },
     "review": { "status": "pending", "artifacts": { "findings": [] } },
@@ -107,8 +107,7 @@ When dispatching implementation sub-agents (Stage 4), each must return its summa
 
 ### Task
 - Branch: <current branch>
-- Spec: specs/<spec-file>.md
-- ADR: .adr/staging/<adr-file>.md (if applicable)
+- Spec: .specs/<spec-file>.md (with frontmatter claims)
 
 ### Changes
 - Files modified: [list with paths]
@@ -125,11 +124,10 @@ Review sub-agents verify these claims rather than reading all the code.
 2. "[Component A] now [behaves in way B] when [condition C]"
    - Verifiable by: [test name or command]
 
-### Hypothesis Alignment
-For each ADR hypothesis that this unit of work touches:
+### Spec/Evidence Alignment
+For each spec claim or acceptance criterion this unit touches:
 
-- H1 "[hypothesis text]": [SUPPORTS | REFUTES | NO EVIDENCE] -- [brief evidence]
-- H2 "...": ...
+- `SPEC-...:cN` "[claim statement]": [SATISFIED | PARTIAL | NOT YET] -- [brief evidence]
 
 ### Tests
 - Tests written: N
@@ -141,8 +139,8 @@ For each ADR hypothesis that this unit of work touches:
 - [anything not completed, deferred, or uncertain]
 - [any divergence from spec with justification]
 
-### Accepted ADR Conflicts
-- [any previously accepted ADR whose reasoning is contradicted or undermined by this work]
+### Spec Conflicts
+- [any active spec claim contradicted by this work; cite spec_id:claim_id]
 - [leave empty if none found]
 
 ### Risks
@@ -150,7 +148,7 @@ For each ADR hypothesis that this unit of work touches:
 - [any assumptions made that should be verified]
 ```
 
-Save summaries to: `.adr/staging/<NNN>-<name>-summary.md`
+Save summaries to: `.workflow/summaries/<branch-slug>-<task>.md`
 
 ## Operational Rules
 
@@ -172,7 +170,7 @@ Started: <startedAt>
 Stage                 Status        Artifacts
 -------               ------        ---------
 1. Ideation           [status]      [notes excerpt]
-2. Dev-Time Docs      [status]      spec: [path], adr: [path]
+2. Dev-Time Docs      [status]      spec: [path], claims: [count]
 3. Planning           [status]      plan: [path]
 4. Implementation     [status]      summaries: N, issues: N
 5. Review             [status]      findings: N
@@ -198,7 +196,7 @@ When Stage 8 (Reflection) completes:
 
 If you are resuming a workflow after a crash or context loss:
 1. Read `.workflow/state.json` to determine where you were
-2. Check for persisted summaries: `ls .adr/staging/*-summary-*.md`
+2. Check for persisted summaries: `ls .workflow/summaries/*.md`
 3. Check working tree: `git status`
 4. Determine which recovery case applies (see WMD incident response) and resume accordingly
 

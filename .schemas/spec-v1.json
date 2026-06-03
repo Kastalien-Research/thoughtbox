@@ -1,0 +1,70 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "thoughtbox/spec/v1",
+  "title": "Thoughtbox Spec Frontmatter",
+  "description": "YAML frontmatter contract for .specs/**/*.md. Claims are referenced in PR descriptions as <spec_id>:<claim_id> (e.g. SPEC-CONTROL-PLANE:c1).",
+  "type": "object",
+  "required": ["spec_id", "title", "status", "claims"],
+  "additionalProperties": true,
+  "properties": {
+    "spec_id": {
+      "type": "string",
+      "description": "Globally unique spec identifier, e.g. SPEC-CONTROL-PLANE or SPEC-GW-011",
+      "pattern": "^SPEC-[A-Z0-9-]+$"
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1
+    },
+    "status": {
+      "type": "string",
+      "enum": ["draft", "active", "deprecated", "superseded"]
+    },
+    "date": {
+      "type": "string",
+      "description": "ISO 8601 date when the spec was authored or last materially updated"
+    },
+    "branch": {
+      "type": "string",
+      "description": "Git branch this spec was authored on, if applicable"
+    },
+    "claims": {
+      "type": "array",
+      "description": "Falsifiable claims this spec makes. PR claims reference these as spec_id:claim_id.",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["id", "statement", "type", "behavioral"],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Claim identifier, unique within this spec, e.g. c1"
+          },
+          "statement": {
+            "type": "string",
+            "description": "What is being claimed, in plain language"
+          },
+          "type": {
+            "type": "string",
+            "enum": ["implementation", "behavioral", "governance", "performance"],
+            "description": "implementation: code exists; behavioral: system does X; governance: process enforced; performance: measurable metric"
+          },
+          "behavioral": {
+            "type": "boolean",
+            "description": "If true, verifying this claim requires agentic_test or human_attestation evidence in the PR description."
+          },
+          "required_evidence": {
+            "type": "string",
+            "description": "Plain-language description of what evidence must exist to verify this claim"
+          }
+        }
+      }
+    },
+    "links": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Related specs, archived decisions, or implementation paths"
+    }
+  }
+}

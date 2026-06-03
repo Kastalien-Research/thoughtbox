@@ -2,18 +2,23 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "thoughtbox/pr-description/v1",
   "title": "Thoughtbox PR Description",
-  "description": "Machine-readable PR description. Required for every PR targeting main. Read by the adversarial reviewer.",
+  "description": "Machine-readable PR description. Required for every PR targeting main. Claims reference spec frontmatter as spec_id:claim_id (e.g. SPEC-CONTROL-PLANE:c1). Legacy adrs/adr_claim_id fields remain supported during migration.",
   "type": "object",
-  "required": ["branch", "adrs", "summary", "claims"],
+  "required": ["branch", "summary", "claims"],
   "additionalProperties": false,
   "properties": {
     "branch": {
       "type": "string",
       "description": "Exact git branch name for this PR"
     },
+    "specs": {
+      "type": "array",
+      "description": "Spec IDs implemented by this PR (from spec frontmatter spec_id). Empty if no spec applies.",
+      "items": { "type": "string" }
+    },
     "adrs": {
       "type": "array",
-      "description": "ADR IDs implemented by this PR. Empty array if no ADR applies.",
+      "description": "DEPRECATED — use specs. ADR IDs during migration only.",
       "items": { "type": "string" }
     },
     "summary": {
@@ -27,20 +32,24 @@
       "minItems": 1,
       "items": {
         "type": "object",
-        "required": ["id", "adr_claim_id", "statement", "evidence_type"],
+        "required": ["id", "statement", "evidence_type"],
         "additionalProperties": false,
         "properties": {
           "id": {
             "type": "string",
             "description": "Claim identifier, unique within this PR description"
           },
+          "spec_claim_id": {
+            "type": "string",
+            "description": "References spec frontmatter as spec_id:claim_id. Use '__none__' if this PR has no spec claim."
+          },
           "adr_claim_id": {
             "type": "string",
-            "description": "References the claim.id in the corresponding ADR. Use '__none__' if this PR has no ADR."
+            "description": "DEPRECATED — use spec_claim_id during migration only."
           },
           "statement": {
             "type": "string",
-            "description": "What is being claimed — should match or directly implement the ADR claim statement"
+            "description": "What is being claimed — should match or directly implement the spec claim statement"
           },
           "evidence_type": {
             "type": "string",
@@ -52,7 +61,7 @@
               "human_attestation",
               "deterministic_check"
             ],
-            "description": "How this claim is verified. Behavioral claims require agentic_test or human_attestation."
+            "description": "How this claim is verified. Behavioral spec claims require agentic_test or human_attestation."
           },
           "evidence_path": {
             "type": ["string", "null"],

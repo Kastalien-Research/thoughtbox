@@ -26,7 +26,7 @@ units aligned with the brokered peer notebook end state:
 - real runtime providers behind explicit contracts
 
 Use this skill whenever work touches `.specs/mcp-peer-notebooks/`,
-`.adr/staging/ADR-022.json`, `src/peer-notebook/`, peer notebook Supabase
+`.specs/mcp-peer-notebooks/SPEC-CONTROL-PLANE.md`, `src/peer-notebook/`, peer notebook Supabase
 migrations, peer notebook web app routes, or runtime providers.
 
 ## Required Reads
@@ -34,7 +34,7 @@ migrations, peer notebook web app routes, or runtime providers.
 Read these before planning or editing:
 
 1. `AGENTS.md`
-2. `.adr/staging/ADR-022.json`
+2. `.specs/mcp-peer-notebooks/SPEC-CONTROL-PLANE.md`
 3. `.specs/mcp-peer-notebooks/SPEC-CONTROL-PLANE.md`
 4. `.specs/mcp-peer-notebooks/README.md`
 5. `.specs/mcp-peer-notebooks/NEXT-IMPLEMENTATION-HANDOFF.md`

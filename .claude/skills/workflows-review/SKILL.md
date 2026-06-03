@@ -24,10 +24,10 @@ If pre-conditions are not met, report what's missing and halt.
 
 ### Step 1: Collect Claims
 
-Read all sub-agent summaries from `.adr/staging/*-summary-*.md`. Extract:
+Read all sub-agent summaries from `.workflow/summaries/*.md`. Extract:
 - Every claim from each summary's `### Claims` section
 - Every test command from `### Tests` section
-- Every hypothesis alignment statement from `### Hypothesis Alignment`
+- Every spec claim alignment statement from `### Spec/Evidence Alignment`
 - Every risk from `### Risks` section
 
 ### Step 2: Dispatch Review Agents
@@ -70,9 +70,9 @@ Each review agent returns findings. Classify each finding:
 | **warning** | Quality concern, pattern deviation, missing edge case | No (but should fix) |
 | **info** | Style suggestion, minor improvement | No |
 
-### Step 4: Assess Hypothesis Alignment
+### Step 4: Assess Spec/Evidence Alignment
 
-Cross-reference the implementation's hypothesis alignment statements against the review results:
+Cross-reference the implementation's spec claim alignment statements against the review results:
 - Do the review findings support or undermine the ADR hypotheses?
 - Are there hypotheses with no evidence either way? Flag as inconclusive.
 

@@ -1,11 +1,47 @@
+---
+spec_id: SPEC-CONTROL-PLANE
+title: MCP Peer Notebooks Control Plane
+status: active
+date: 2026-04-30
+branch: feat/mcp-peer-notebook-control-plane
+claims:
+  - id: c1
+    statement: The peer broker is the sole externally visible authority for peer invocation and validates workspace, active manifest, tool schema, budgets, and outbound allowlists before runtime dispatch
+    type: governance
+    behavioral: false
+    required_evidence: SPEC-CONTROL-PLANE.md defines peer.invoke and the invocation flow with all listed checks before runtime provider invocation
+  - id: c2
+    statement: Peer notebook manifests are externalized control-plane records compiled from peer.manifest.json, parsed as data without executing notebook code, and activated only by explicit approval
+    type: governance
+    behavioral: false
+    required_evidence: Manifest Source And Lifecycle section requires draft manifests, JSON-only parsing, and explicit approval before active dispatch
+  - id: c3
+    statement: Cloud Run remains the MCP API/control plane; peer execution runs in a separate execution plane behind a runtime provider contract
+    type: governance
+    behavioral: false
+    required_evidence: Non-goals and invariants exclude KVM/smolvm execution from Cloud Run and place smolvm behind the runtime provider boundary
+  - id: c4
+    statement: The v0 runtime contract is a simple provider RPC, not a requirement that every runtime expose public MCP directly
+    type: implementation
+    behavioral: false
+    required_evidence: Runtime Provider Contract section defines describe, invoke, cancel, snapshot/export, and heartbeat as v0 RPC
+  - id: c5
+    statement: The peer data model is Supabase-backed with peer notebooks, manifests, invocations, trace events, and artifact metadata in Postgres, while full artifact payloads live in Supabase Storage
+    type: implementation
+    behavioral: false
+    required_evidence: Supabase Table Contract and Artifact Payload Strategy sections define tables and hybrid storage
+  - id: c6
+    statement: The deployed product inspection surface is the Next.js web app reading Supabase peer rows, not the legacy src/observatory server
+    type: governance
+    behavioral: false
+    required_evidence: DIAGRAMS.md and spec define the web app read model without depending on src/observatory
+links:
+  - docs/decisions/archive/adr/staging/ADR-022.json
+  - .specs/mcp-peer-notebooks/DIAGRAMS.md
+---
+
 # MCP Peer Notebooks Control Plane
 
-**Status**: Decision-complete staging spec for ADR-022
-**Date**: 2026-04-30
-**Branch**: `feat/mcp-peer-notebook-control-plane`
-**Tracking**: `thoughtbox-pnf`
-
-## Summary
 
 MCP Peer Notebooks are brokered, manifest-governed notebook runtimes. The
 control plane lives in the Cloud Run MCP API, owns peer authority, persists

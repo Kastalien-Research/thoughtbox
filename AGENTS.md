@@ -9,9 +9,9 @@ Every unit of work runs through a mandatory skill. Two additional protocols acti
 
 ### Mandatory Skills
 
-**`hdd`** — Hypothesis-Driven Development for architectural decisions, new features, protocol implementations, and behavior-changing refactors. Produces a staging ADR + spec pair that must be validated before accepting. Code is an implementation artifact; ADRs are the source of truth.
+**`workflow`** — Full development lifecycle from ideation through merge. Stage 2 produces or updates `.specs/` markdown with YAML frontmatter claims (not ADRs). PR claims reference specs as `spec_id:claim_id` in `prs/<branch>.json`.
 
-Read `.claude/skills/hdd/SKILL.md` when the work requires an architectural decision.
+Read `.claude/skills/workflow/SKILL.md` for multi-stage feature work. For architectural decisions, update the relevant spec with frontmatter claims and an acceptance/evidence plan before implementation.
 
 ### Conditional Protocols
 
@@ -25,16 +25,17 @@ Invoke only for refactoring tasks: `.claude/skills/theseus-protocol/SKILL.md`
 
 ### Key Rules (always apply)
 
-1. **Specs go in `.specs/`** (not `specs/`). ADRs use the HDD lifecycle: `.adr/staging/` → `.adr/accepted/` or `.adr/rejected/`.
+1. **Specs go in `.specs/`** (not `specs/`). Active authority is spec markdown with YAML frontmatter claims (see `.schemas/spec-v1.json`). Archived ADRs live under `docs/decisions/archive/` for historical context only.
 2. **Code and spec updates in the same commit.** If you change code that a spec describes, update the spec in the same commit.
 3. **Atomic commits.** One sub-agent = one unit of work = one commit, made after review validates the work.
-4. **Sub-agent summaries state**: Claims, Hypothesis Alignment, Tests run, Known Gaps, Risks.
+4. **Sub-agent summaries state**: Claims, Spec/Evidence Alignment, Tests run, Known Gaps, Risks.
 5. **Default: human is NOT in the loop.** Operate autonomously. Escalate only when genuinely stuck after investigation.
 6. **Orchestrators don't do manual work.** Deploy sub-agents or agent teams. Protect your context window.
 
 ### References
 
-- HDD process: `.claude/skills/hdd/SKILL.md`
+- Workflow orchestration: `.claude/skills/workflow/SKILL.md`
+- Spec frontmatter schema: `.schemas/spec-v1.json`
 - Ulysses protocol: `.claude/skills/ulysses-protocol/SKILL.md`
 - Theseus protocol: `.claude/skills/theseus-protocol/SKILL.md`
 
@@ -62,7 +63,7 @@ Committing unrelated work to an existing branch pollutes PRs, makes reverts dang
 
 **MANDATORY WORKFLOW:**
 
-1. **File issues for ALL remaining work** - Every follow-up, deferred decision, or "next session" item MUST be tracked before the session ends. If an ADR references future work (e.g., "deferred to ADR-010"), create the tracking item now.
+1. **File issues for ALL remaining work** - Every follow-up, deferred decision, or "next session" item MUST be tracked before the session ends. If a spec or archived ADR references future work (e.g., "deferred to ADR-010"), create the tracking item now.
 2. **Run quality gates** (if code changed) - Tests, linters, builds
 3. **Update issue status** - Close finished work, update in-progress items
 4. **PUSH TO REMOTE** - This is MANDATORY:
@@ -105,17 +106,17 @@ When these sources disagree, use this order:
 Notes:
 - Prefer `.codex/skills/` for Codex-specific project procedures.
 - `.agents/skills/` mirrors the `.claude/skills/` set for non-Claude/non-Codex runtimes; prefer the tool-specific copy when one exists.
-- Treat older references to `specs/` or legacy ADR paths inside local skill docs as historical if they conflict with the rules above. The current canonical locations remain `.specs/` and `.adr/`.
+- Treat older references to `specs/` or legacy ADR paths inside local skill docs as historical if they conflict with the rules above. The current canonical locations are `.specs/` (with frontmatter claims) and `docs/decisions/archive/` for retired ADRs.
 
 ### Local Skills to Honor Manually
 
 If the user invokes one of these names, or the task clearly matches one, open the matching local file and follow it directly:
 
-- **Mandatory workflow**: `hdd` (architectural decisions and new features)
+- **Mandatory workflow**: `workflow` (feature lifecycle); spec + claims for architectural decisions
 - **Preflight**: `source-of-truth-preflight` (canonical model inventory, illegal-state audit, and acceptance-to-enforcement mapping before domain/lifecycle/runtime work)
 - **Conditional protocols**: `ulysses-protocol` (2+ consecutive surprises), `theseus-protocol` (refactoring tasks)
 - **Implementation**: `implement`
-- **Peer notebook delivery**: `peer-notebook-delivery-guard` (ADR-022 large-unit boundaries, mock accountability, acceptance gates)
+- **Peer notebook delivery**: `peer-notebook-delivery-guard` (SPEC-CONTROL-PLANE large-unit boundaries, mock accountability, acceptance gates)
 - **Research and knowledge**: `research-task`, `knowledge`, `synthesize`, `distill`, `capture-learning`, `session-review`, `assumptions`, `eval`, `taste`, `diagram`
 - **Coordination and autonomy**: `team`, `hub-collab`, `deploy-team-hub`, `experiment`, `ulc-loop`, `loop-status`, `status`, `escalate`, `claude-prompt`
 
@@ -128,10 +129,10 @@ Path pattern:
 
 The following command docs are not executable slash commands in Codex, but they define repo-specific procedures and should be read before doing matching work:
 
-- HDD command set: `.claude/commands/hdd/*.md`
+- Archived HDD commands (historical): `docs/decisions/archive/hdd-commands/`
 - Development TDD profiles: `.claude/commands/development/*.md`
 
-If a user references `/hdd`, HDD phases, or the development TDD profiles, read the corresponding local command or skill doc first and then execute the procedure manually.
+If a user references HDD or `/hdd`, treat it as historical; use `workflow` Stage 2 (spec + claims). For development TDD profiles, read `.claude/commands/development/*.md`.
 
 ### Local Agent and Team Prompt Reuse
 
@@ -153,7 +154,7 @@ Hook intent by event:
 - `PermissionRequest`: preserve the repo's git safety policy when escalating. Default to caution on branch-destructive operations and anything that bypasses normal review flow.
 - `UserPromptSubmit`: if a prompt implies assumptions, risks, or session context worth preserving, record them in the right project artifact instead of keeping them implicit.
 - `SessionStart`: check whether `.claude/session-handoff.json`, `.claude/rules/`, or relevant state files should shape the current task.
-- `SessionEnd` / `Stop`: before considering work complete, capture handoff context, update specs/ADRs/issues, and follow the repo's landing-the-plane steps.
+- `SessionEnd` / `Stop`: before considering work complete, capture handoff context, update specs/issues, and follow the repo's landing-the-plane steps.
 - `PreCompact`: before large context shifts, preserve the minimal durable context needed for safe continuation.
 - `Notification`: assume important async events should be surfaced clearly in commentary rather than silently ignored.
 - `SubagentStop`: when using agents, persist their outputs in durable artifacts immediately if the surrounding workflow expects that.
