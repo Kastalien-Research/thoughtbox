@@ -1,0 +1,25 @@
+{
+  "branch": "chore/repo-cleanup-archive-stale-work",
+  "summary": "Deletes the stale-work subset that remains safely disconnected after revalidation: the old research-workflow `REINIT-PLEASE` copy, the disabled `verify-assumptions` workflow/script pair, disconnected web-side research/guide/report/specification artifacts, and the standalone `thought-processing-worker` prototype. The tracker records that broader targets such as `agentic-dev-team`, `self-improvement`, `src/multi-agent`, and some legacy spec clusters still have current references and were therefore deferred.",
+  "claims": [
+    {
+      "id": "c1",
+      "statement": "The cleanup series removes only revalidated dead or unsupported repo artifacts while preserving currently authoritative assets such as `.agents/` and `FileSystemStorage`.",
+      "evidence_type": "deterministic_check",
+      "evidence_path": "cleanup/2026-06-03-repo-cleanup-tracker.md; docs/system-interconnection-map.md",
+      "evidence_description": "Revalidation narrowed this branch to assets with no current non-historical references outside themselves, while the tracker explicitly preserves broader currently referenced clusters for later investigation.",
+      "spec_claim_id": "SPEC-REPO-CLEANUP:c1"
+    },
+    {
+      "id": "c2",
+      "statement": "Repo docs and cleanup governance artifacts explicitly record accepted cleanup decisions, validation evidence, and deferred items so later sessions can continue without re-auditing the same scope.",
+      "evidence_type": "implementation",
+      "evidence_path": "cleanup/2026-06-03-repo-cleanup-tracker.md",
+      "evidence_description": "The tracker records the narrowed stale-work scope, the preserved/deferred clusters, and the rationale for not deleting still-referenced targets in this branch.",
+      "spec_claim_id": "SPEC-REPO-CLEANUP:c4"
+    }
+  ],
+  "specs": [
+    "SPEC-REPO-CLEANUP"
+  ]
+}
