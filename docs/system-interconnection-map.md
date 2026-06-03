@@ -602,7 +602,7 @@ schedule: daily 2pm UTC
 └── lock-closed-issues.yml
 
 schedule: Mon 9am UTC
-└── verify-assumptions.yml (DISABLED: if: false)
+└── verify-assumptions.yml (REMOVED 2026-06-03; previously disabled with `if: false`)
 ```
 
 ### Silent Failure Risks
@@ -614,7 +614,7 @@ schedule: Mon 9am UTC
 | `agentops_on_approval_label.yml` | No environment gate; label → immediate code commit |
 | `workflow-guard.yml` | Exits 0 on push events; governance bypass on direct-to-main |
 | `issue-opened-dispatch.yml` | Silences own failure via `\|\| { exit 0; }` |
-| `verify-assumptions.yml` | `if: false` — schedule trigger exists but job never runs |
+| `verify-assumptions.yml` | Removed 2026-06-03 after remaining hard-disabled (`if: false`) |
 | `log-issue-events.yml` | Errors if `STATSIG_API_KEY` missing |
 
 ---

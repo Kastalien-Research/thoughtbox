@@ -25,6 +25,9 @@
 4. Tier 1 delete candidates from the audit are already absent on current `main`.
 5. `package.json` no longer contains `start:stateful`, and `vitest.config.ts`
    already points at `automation-self-improvement/agentops/tests/**/*.test.ts`.
+6. Broad stale-work deletion must stay narrow: `automation-self-improvement/agentic-dev-team`,
+   `automation-self-improvement/self-improvement`, and `src/multi-agent` are
+   still referenced by current control-plane artifacts or tests.
 
 ## Branch execution log
 
@@ -34,7 +37,7 @@
 | `chore/repo-cleanup-tier1` | safe-delete revalidation + stale config confirmation | completed | target paths absent; config drift already resolved on current `main` |
 | `docs/repo-cleanup-authority-alignment` | docs/spec alignment | completed | README/spec indexes updated; stale loop claims removed; live spec prompts preserved |
 | `chore/normalize-research-workflow-db` | reproducible research assets + DB untracking | completed | canonical schema/seed added; temp-db regeneration matches expected seed counts; tracked DB removed from git |
-| `chore/repo-cleanup-archive-stale-work` | stale clusters archive/delete | pending | pending |
+| `chore/repo-cleanup-archive-stale-work` | narrowed stale clusters archive/delete | completed | existence-check passed; JSON parse passed; diagnostics clean |
 | `chore/remove-unsupported-agent-runtime-artifacts` | `.gemini/`, `.pi/`, observability | pending | pending |
 | `chore/repo-cleanup-branches` | local branch cleanup + remote candidate list | pending | pending |
 
@@ -45,6 +48,10 @@
 - Remote branch deletion requires an explicit candidate list captured here.
 - ADR governance cleanup is deferred from this docs branch to keep the authority
   alignment unit bounded.
+- Additional stale-work deletions for `agentic-dev-team`, `self-improvement`,
+  `src/multi-agent`, `.specs/old-specs`, `.specs/letta-specific`, and
+  `thoughtbox-session-spec-pack` require more revalidation because current refs
+  still exist.
 
 ## Validation log
 
@@ -68,3 +75,9 @@
   tables.
 - `research-workflows/workflows.db` is now removed from git tracking and remains
   ignored locally by the existing `*.db` rule.
+- Stale-work revalidation showed that several broad audit delete targets are
+  still referenced by control-plane artifacts or tests, so this branch deletes
+  only the verified-disconnected subsets.
+- Stale-work validation confirmed the selected files are removed, preserved
+  clusters still exist, the PR description parses as JSON, and diagnostics are
+  clean for the tracker, system map, and PR description.
