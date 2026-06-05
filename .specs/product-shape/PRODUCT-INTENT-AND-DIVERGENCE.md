@@ -45,7 +45,6 @@ Additional source artifacts consulted during intent interview:
 - `.specs/agentic-runbooks.md`
 - `.specs/mcp-peer-notebooks/README.md`
 - `.specs/mcp-peer-notebooks/NEXT-IMPLEMENTATION-HANDOFF.md`
-- `automation-self-improvement/`
 - `.specs/product-shape/branches/001-merge-evidence-notebooks.md`
 
 ## Settled Intent
@@ -263,18 +262,6 @@ Current source alignment:
   manifest-governed, brokered notebook runtimes that expose typed MCP
   tools/resources and call approved MCP tools through a control-plane broker.
 
-### Scaffolding / Self-Improvement
-
-`automation-self-improvement/` is a separate body of workflow designs intended
-to implement self-improving processes on the codebase itself.
-
-Product meaning:
-
-- This is its own thing.
-- It may inform Thoughtbox's control-plane learning and surprise-driven
-  environment shaping, but it should not automatically be treated as core
-  product without further intent clarification.
-
 ## Open Questions
 
 ### Product Identity
@@ -364,8 +351,6 @@ Product meaning:
 - Notebook evidence engine and peer notebook specs align strongly with intent,
   but production runtime, secure isolation, web inspection, and manifest
   lifecycle remain incomplete.
-- `automation-self-improvement/` contains extensive scaffolding, but its
-  intended product relationship is not yet settled.
 
 ## Next Interview Batch
 

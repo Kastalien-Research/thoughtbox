@@ -156,14 +156,14 @@ The Anthropic C compiler project (2000 sessions, 16 parallel agents, $20K) estab
 | `loop-controller.ts` | Agent SDK script | Outer loop that coordinates all three execution layers |
 | `loop-state.json` | State file | Controller state machine |
 | `loop-controller.yml` | GitHub Action | Scheduled controller invocation |
-| `/loop-status` skill | Skill (new) | View controller state and recent loop activity |
+| controller-status skill | Skill (new) | View controller state and recent loop activity |
 
 **Implementation order**:
 1. Define controller state machine (see 2.1.1 below)
 2. Create `loop-state.json` with cross-loop knowledge routing rules
 3. Implement `loop-controller.ts` as Agent SDK script (the "while true" outer loop)
 4. Create GitHub Action that triggers controller on schedule (daily check, weekly full cycle)
-5. Create `/loop-status` skill
+5. Create a controller-status skill
 
 **Validation**: Run controller, verify it picks up interactive session learnings and routes them to SIL discovery queue.
 
@@ -360,7 +360,7 @@ Both paths read/write to the same locations:
 | Pattern fitness | `.dgm/fitness.json` | hook-health, regression-sentinel, ULC |
 | Eval metrics | `.eval/metrics/` | eval-collector, regression-sentinel, cost-governor |
 | Assumption registry | `.assumptions/registry.jsonl` | assumption-auditor |
-| AgentOps cost data | `agentops/runs/` | cost-governor |
+| AgentOps cost data | historical run logs | cost-governor |
 | Beads issue tracker | `.beads/` | all agents (via `bd` CLI) |
 
 ### Enriched vs Thin Wrappers
@@ -391,7 +391,7 @@ LangSmith is already partially configured:
 
 - **Claude Code session tracing**: `.claude/hooks/stop.sh` (957 lines) traces complete sessions to LangSmith
 - **Environment variables**: `.env` has `LANGSMITH_API_KEY`, `LANGSMITH_ORG_ID`, `LANGSMITH_WORKSPACE_ID`, `LANGSMITH_PROJECT`
-- **AgentOps TracingClient**: `agentops/runner/lib/trace.ts` is a stub — local-only logging, no HTTP transport to LangSmith
+- **AgentOps TracingClient**: the historical tracing client is a stub — local-only logging, no HTTP transport to LangSmith
 
 ### Integration Plan
 
@@ -503,7 +503,7 @@ Fragmentation = when knowledge exists but can't be found because it's in the wro
 | Knowledge Query | `/knowledge` | Unified cross-store knowledge query |
 | Assumptions | `/assumptions` | Manage assumption registry |
 | Eval | `/eval` | View metrics, baselines, comparisons |
-| Loop Status | `/loop-status` | View unified loop controller state |
+| Loop Status | controller-status skill | View unified loop controller state |
 | Compound Review | `/compound-review` | Invoke compound reviewers in loop context |
 
 ### New/Enhanced Hooks (`.claude/hooks/`)

@@ -766,7 +766,7 @@ VIOLATED (Action Required)
 STALE (Verification Overdue)
   [HIGH] g7h8: @anthropic-ai/claude-agent-sdk@^0.1.76 API surface stable
          Category: package_stability | Last verified: 2026-01-28 | Due: 2026-02-11
-         Affects: scripts/agents/, agentops/runner/
+         Affects: scripts/agents/, historical automation runner
 
   [MED]  i9j0: MCP Registry at registry.modelcontextprotocol.io is available
          Category: service_availability | Last verified: 2026-02-04 | Due: 2026-02-11

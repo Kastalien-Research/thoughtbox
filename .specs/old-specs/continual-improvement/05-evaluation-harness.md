@@ -18,13 +18,13 @@ Three evaluation subsystems exist in various states of implementation:
 |-----------|----------|--------|---------|
 | **Benchmark harness** | `dgm-specs/harness/` | Implemented (4 files) | Runs 4 test configs via Claude Agent SDK. Baseline comparison works. But only measures duration, response size, and pass/fail -- no quality metrics, no pattern fitness, no session-level signals. |
 | **Tiered evaluator** | `benchmarks/tiered-evaluator.ts` | Implemented (14 tests) | Executes smoke/regression/real-world tiers with early termination and cost tracking. But the real-world tier is a placeholder returning 0.75. No actual SWE-bench integration. |
-| **AgentOps eval harness** | `agentops/specs/08-evaluation-harness.md` | Spec only (Draft) | Describes scenario-based evaluation with LangSmith A/B testing. Defines 5 metrics. Day-0 dataset of 10 scenarios. Zero implementation. |
+| **AgentOps eval harness** | historical evaluation harness spec | Spec only (Draft) | Describes scenario-based evaluation with LangSmith A/B testing. Defines 5 metrics. Day-0 dataset of 10 scenarios. Zero implementation. |
 
 These three are disconnected. The benchmark harness does not feed into the tiered evaluator. The tiered evaluator does not produce LangSmith traces. The AgentOps spec does not reference the SIL infrastructure that already exists.
 
 Meanwhile, the pieces that would connect them are also incomplete:
 
-- **LangSmith integration**: Env vars are documented in `agentops/specs/05-observability-and-tracing.md` but no code wraps tool calls or model calls as LangSmith spans.
+- **LangSmith integration**: Env vars are documented in a historical observability spec, but no code wraps tool calls or model calls as LangSmith spans.
 - **Pattern fitness tracking**: The DGM evolution architecture is designed (`.claude/commands/meta/dgm-evolve.md`) but the fitness tracking files (`fitness.json`, `signals.jsonl`) do not exist. There is no automated connection between evaluation results and pattern fitness scores.
 - **Decision gates**: The self-improvement loop workflow (`.github/workflows/self-improvement-loop.yml`) creates PRs but has no quality gates beyond "did the loop produce changes." The CI pipeline (`.github/workflows/ci.yml`) runs `npm test` -- it does not run the benchmark harness or tiered evaluator.
 - **Session-level metrics**: The Observatory emitter fires events (`improvement:event`, `hub:event`) but nothing aggregates them into session-level quality metrics.
@@ -531,7 +531,7 @@ The LangSmith integration provides:
 
 ### Wiring Plan
 
-LangSmith integration follows the tracing standard defined in `agentops/specs/05-observability-and-tracing.md`.
+LangSmith integration follows the tracing standard defined in a historical observability spec.
 
 #### Environment Variables
 
@@ -609,7 +609,7 @@ Evaluation scenarios are stored as LangSmith datasets:
 |---------|--------|------|---------|
 | `thoughtbox-smoke` | `dgm-specs/harness/benchmark-runner.ts` TEST_CONFIGS | 4 scenarios | Quick sanity check |
 | `thoughtbox-behavioral` | `src/resources/behavioral-tests-content.ts` | 41 scenarios | Full behavioral coverage |
-| `thoughtbox-regression` | `agentops/specs/08-evaluation-harness.md` Day 0 set | 10 scenarios | Stage transitions, export, observatory |
+| `thoughtbox-regression` | historical Day 0 evaluation set | 10 scenarios | Stage transitions, export, observatory |
 | `thoughtbox-quality` | Manual curation | 5 scenarios | Reasoning quality assessment (LLM-judge) |
 
 Datasets are versioned. When scenarios change, a new dataset version is created. Old versions are preserved for historical comparison.
@@ -889,4 +889,4 @@ Quick reference for all thresholds used across the system:
 ---
 
 **Created**: 2026-02-11
-**Source**: Gap analysis from [00-overview.md](./00-overview.md), existing implementations in `dgm-specs/harness/`, `benchmarks/`, `agentops/specs/`, and `.github/workflows/`
+**Source**: Gap analysis from [00-overview.md](./00-overview.md), existing implementations in `dgm-specs/harness/`, `benchmarks/`, historical AgentOps specs, and `.github/workflows/`

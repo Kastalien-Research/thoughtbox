@@ -30,7 +30,7 @@ The Compound Engineering plugin from Every provides 29 specialized agents, 25 co
 
 1. **SIL Evaluate phase has no specialized reviewers.** The SIL runs `sil-010-main-loop-orchestrator.ts`, which evaluates experimental code changes with a single LLM call. It does not invoke `security-sentinel`, `performance-oracle`, or `kieran-typescript-reviewer`. A change that passes the SIL's generic evaluation might contain a security vulnerability, a performance regression, or a TypeScript anti-pattern that any of these specialized agents would catch.
 
-2. **AgentOps signal collection ignores institutional learnings.** The `collectSignals()` function in `agentops/runner/lib/sources/collect.ts` collects from four external sources (repo, arXiv, RSS, HTML). It does not invoke `learnings-researcher` to search `docs/solutions/` for patterns that relate to the collected signals. It does not invoke `best-practices-researcher` to contextualize signals against current best practices.
+2. **AgentOps signal collection ignores institutional learnings.** The historical `collectSignals()` implementation collects from four external sources (repo, arXiv, RSS, HTML). It does not invoke `learnings-researcher` to search `docs/solutions/` for patterns that relate to the collected signals. It does not invoke `best-practices-researcher` to contextualize signals against current best practices.
 
 3. **Improvement proposals are not validated against architecture.** When AgentOps or the SIL proposes a code change, there is no `architecture-strategist` review to check whether the change aligns with the project's architectural decisions (ADRs, specs). There is no `pattern-recognition-specialist` to identify whether the proposed change introduces an anti-pattern.
 
@@ -403,7 +403,7 @@ async function runCompoundReviewPanel(
 
 The `collectSignals()` function gains a new internal source: compound research agents that contextualize collected signals.
 
-**Location**: Modified `agentops/runner/lib/sources/collect.ts`
+**Location**: Modified historical signal-collection module
 
 ```typescript
 // === 5. Compound Research Enrichment ===
@@ -960,10 +960,10 @@ export function detectTaskType(context: string): TaskType {
 
 **Goal**: AgentOps signal collection includes compound research enrichment.
 
-9. Modify `agentops/runner/lib/sources/collect.ts`:
+9. Modify the historical signal-collection module:
    - Add compound research enrichment after existing signal collection
    - `learnings-researcher` and `best-practices-researcher` contextualize signals
-10. Modify `agentops/runner/lib/synthesis.ts` (or post-synthesis step):
+10. Modify the historical synthesis module (or post-synthesis step):
     - Add `spec-flow-analyzer` validation of generated proposals
 11. Wire post-implementation compounding into the AgentOps approval workflow.
 12. Tests:
@@ -1133,7 +1133,7 @@ This integration does NOT:
 | `compound-engineering` plugin installed | Agent definitions must be readable | Installed (v2.31.1) |
 | `@anthropic-ai/claude-agent-sdk` | For `query()` in headless invocation | Available in `package.json` |
 | `scripts/agents/sil-010-main-loop-orchestrator.ts` | SIL integration point | Exists |
-| `agentops/runner/lib/sources/collect.ts` | AgentOps integration point | Exists |
+| historical signal-collection module | AgentOps integration point | Exists |
 
 ### Soft (enhances but does not block)
 

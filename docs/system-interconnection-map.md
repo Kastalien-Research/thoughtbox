@@ -2,7 +2,7 @@
 
 Generated 2026-03-24. Updated 2026-03-31.
 
-> **Note (2026-03-31):** The directories `agentops/`, `dgm-specs/`, `agentic-dev-team/`, `self-improvement/`, `.specs/self-improvement-loop/`, and `.specs/patroy-one/` have been removed as part of the unified autonomy control plane cleanup. Systems 1, 4, and 6 below and the Self-Improvement Specs section are historical records of what existed at audit time. Cross-system references to those directories in other sections are now stale.
+> **Note (2026-03-31):** Several former automation directories were removed as part of the unified autonomy control plane cleanup. Systems 1, 4, and 6 below and the Self-Improvement Specs section are historical records of what existed at audit time. Cross-system references to those directories in other sections are now stale.
 
 ## Executive Summary
 
@@ -32,7 +32,7 @@ The most consequential finding: **connecting SIL to Observatory requires ~35 lin
 
 ---
 
-## System 1: AgentOps (`agentops/`) — REMOVED 2026-03-31
+## System 1: AgentOps (historical automation pipeline) — REMOVED 2026-03-31
 
 ### Purpose
 
@@ -41,7 +41,7 @@ Autonomous development workflow: collect signals from repo/arXiv/RSS/HTML → sy
 ### Architecture
 
 ```
-agentops/
+historical-automation/
 ├── runner/cli.ts              ← Entry point
 │   ├── daily-dev-brief.ts     ← Signal → Synthesis → Issue
 │   │   ├── lib/sources/collect.ts  ← Orchestrates 4 collectors
@@ -67,13 +67,13 @@ agentops/
 **Daily Brief (CI: `agentops_daily_thoughtbox_dev.yml`, cron 11:30 UTC):**
 ```
 trigger → checkout → pnpm install
-  → tsx agentops/runner/cli.ts daily-dev-brief
+  → tsx <historical-runner>/cli.ts daily-dev-brief
     → getLLMConfig() → returns null (no ANTHROPIC_API_KEY in CI env)
     → FALLBACK: read fixtures/proposals.example.json
     → loadTemplate(daily_thoughtbox_dev_brief_issue.md)
     → renderTemplate(template, context)
     → GitHubClient.createIssue(title, body, ['agentops','dev-brief'])
-  → upload agentops/runs/* artifacts
+  → upload historical run artifacts
 ```
 
 **Implement (CI: `agentops_on_approval_label.yml`, issue labeled):**
@@ -81,7 +81,7 @@ trigger → checkout → pnpm install
 trigger: issue labeled smoke:proposal-N or approved:proposal-N
   → detect-mode job: regex match → outputs should_run, mode, proposal_id
   → implement job (if should_run):
-    → tsx agentops/runner/cli.ts implement --proposal-id X --issue-number N --mode SMOKE|REAL
+    → tsx <historical-runner>/cli.ts implement --proposal-id X --issue-number N --mode SMOKE|REAL
       → GitHubClient.getIssue(N)
       → extractProposals(issue.body) → find proposal by ID
       → SMOKE: no-op, record result
@@ -132,7 +132,7 @@ trigger: issue labeled smoke:proposal-N or approved:proposal-N
 
 > Directory removed 2026-03-31. Former connections listed for historical reference.
 
-- **To scripts/**: `scripts/utils/bootstrap-signal-store.ts` wrote `agentops/signals/index.json`; `scripts/agents/ulc-meta-loop.ts` read `agentops/signals/*.jsonl`
+- **To scripts/**: `scripts/utils/bootstrap-signal-store.ts` wrote a historical signal index; `scripts/agents/ulc-meta-loop.ts` read historical signal logs
 - **To everything else**: None. AgentOps was fully self-contained.
 
 ---
@@ -754,7 +754,7 @@ dgm-specs/ (validation: benchmark harness + runtime state)
 - Agent runner infrastructure (generic + specialized + adversarial)
 
 ### Removed (2026-03-31):
-- AgentOps signal collection, synthesis, and issue creation (`agentops/`)
+- AgentOps signal collection, synthesis, and issue creation
 - DGM benchmark harness (`dgm-specs/`)
 - Agentic dev team spec (`agentic-dev-team/`)
 - Self-improvement specs (`self-improvement/`)

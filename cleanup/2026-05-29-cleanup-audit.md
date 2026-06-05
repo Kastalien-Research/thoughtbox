@@ -3,7 +3,7 @@
 **Date:** 2026-05-29
 **Branch:** `chore/repo-cleanup` (off `main`)
 **Method:** Six parallel read-only exploration agents traced wired-up vs. orphaned across
-`src/`, `apps/web/`, assistant-config dirs, `automation-self-improvement/`, docs/specs/ADRs,
+`src/`, `apps/web/`, assistant-config dirs, docs/specs/ADRs,
 and build/infra/scripts. Every finding below was verified by reading imports, CI configs, and
 git history — not inferred. **No files were modified during the audit.**
 
@@ -40,10 +40,9 @@ The mess is **four distinct problems**, not one:
 | `docs/2025-11-25.ts`, untracked `docs/session-run-current-state.md` | Stray files | Not imported anywhere |
 | `otel-collector/config.yaml` (non-prometheus variant) | Dead config | Unreferenced; compose uses `config-with-prometheus.yaml` |
 
-**Two stale-script/config bugs to fix while here:**
+**Stale-script/config bug to fix while here:**
 
 - `package.json` `start:stateful` → `node dist/http-stateful.js` — **there is no `src/http-stateful.ts`.** This script cannot work.
-- `vitest.config.ts` includes `agentops/tests/**` but the tests live at `automation-self-improvement/agentops/tests/` — **so those 8 test files never run.** Either fix the path or they are silently dead.
 
 ---
 
@@ -52,9 +51,6 @@ The mess is **four distinct problems**, not one:
 Real design artifacts/prototypes, just disconnected. Recommend moving to an `archive/` dir or
 git-tag-then-delete (git history keeps them recoverable either way).
 
-- `automation-self-improvement/` — `agentic-dev-team/`, `benchmarks/`, `dgm-specs/`,
-  `self-improvement/` (≈77 files of specs/harnesses, none executed).
-  **Keep** `control-plane/` and `agentops/` — those are live in CI.
 - `prototypes/thought-processing-worker/` — self-contained prototype with its own lockfile, referenced by nothing.
 - `apps/web/` cruft: `.research/`, `.gtm/`, `pain/`, `reports/`, `.specification-suite/`,
   `thoughtbox-session-spec-pack/`, `guides/` (superseded by `user-docs/`, which *is* wired), and
@@ -158,11 +154,9 @@ The branch cleanup roughly halves the branch list.
 - `.pi/` — Tier-3 decision (ADR-019 dependency).
 - `.roo/`, `.cursor/` — gitignored/empty, unused. DELETE.
 
-### `automation-self-improvement/` + siblings
-- KEEP (live in CI): `control-plane/`, `agentops/` (tracked by control-plane parity),
-  `research-workflows/workflows.db`, `prs/`.
-- ARCHIVE: `agentic-dev-team/`, `benchmarks/`, `dgm-specs/`, `self-improvement/`,
-  `prototypes/`, `todos/`.
+### Misc top-level dirs
+- KEEP (live in CI): `research-workflows/workflows.db`, `prs/`.
+- ARCHIVE: `prototypes/`, `todos/`.
 - `temps/`, `logs/`, `.thoughtbox/` — already gitignored, no tracked files. Leave.
 
 ### Build/infra/scripts

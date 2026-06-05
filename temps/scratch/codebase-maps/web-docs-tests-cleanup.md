@@ -81,11 +81,9 @@ Likely stale/aspirational:
 Enforcing surfaces:
 
 - Root `pnpm test`: `pnpm build:local && vitest run`.
-- Root Vitest includes `src/**/__tests__/**/*.test.ts`, `agentops/tests`, and
-  `demo`. It does not include `apps/web` tests.
+- Root Vitest includes `src/**/__tests__/**/*.test.ts` and `demo`. It does not
+  include `apps/web` tests.
 - `pnpm check:cycles`: dependency cycle gate.
-- `pnpm check:control-plane`: manifest/references/generated-artifact/test-suite
-  consistency gate.
 - `pnpm check:event-types`: live Supabase protocol event constraint parity when
   Supabase credentials are available.
 - `pnpm validate:pr`: PR claim validation against ADR claim JSON.

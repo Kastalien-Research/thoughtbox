@@ -33,7 +33,7 @@
       "statement": "CODEOWNERS requires @glassbead-tc review for all governance artifacts",
       "evidence_type": "implementation",
       "evidence_path": ".github/CODEOWNERS",
-      "evidence_description": "CODEOWNERS contains entries for .adr/accepted/, .adr/staging/, .specs/, .schemas/, .github/workflows/, .github/CODEOWNERS, .github/prompts/, automation-self-improvement/control-plane/manifest.yaml, GOVERNANCE.md, CLAUDE.md, AGENTS.md — all pointing to @glassbead-tc"
+      "evidence_description": "CODEOWNERS contains entries for .adr/accepted/, .adr/staging/, .specs/, .schemas/, .github/workflows/, .github/CODEOWNERS, .github/prompts/, GOVERNANCE.md, CLAUDE.md, AGENTS.md — all pointing to @glassbead-tc"
     },
     {
       "id": "c5",

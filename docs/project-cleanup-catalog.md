@@ -4,7 +4,7 @@ Generated 2026-03-24. Audit of all top-level directories and files.
 
 ## Corrections
 
-- `self-improvement/`, `agentic-dev-team/`, `agentops/`, `dgm-specs/` removed as part of unified autonomy control plane cleanup (2026-03-31).
+- Legacy automation directories were removed as part of unified autonomy control plane cleanup (2026-03-31).
 
 ## DELETE (no active references, no ongoing value)
 

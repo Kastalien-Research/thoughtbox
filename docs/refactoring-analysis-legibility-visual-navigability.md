@@ -204,7 +204,7 @@ The operations catalog is the Code Mode navigation layer. Current coverage: sess
 
 | Current | Proposed |
 |---------|----------|
-| `agentic-dev-team/`, `agentops/`, `ai_docs/` | `.dev/` or `tooling/` |
+| legacy automation dirs, `ai_docs/` | `.dev/` or `tooling/` |
 | `benchmarks/`, `self-improvement/`, `reports/` | `.dev/quality/` |
 | `dgm-specs/`, `specs/`, `.specs/`, `.specification-suite/` | Consolidate into `.specs/` |
 | `pain/`, `future-improvements/` | Fold into beads issues |

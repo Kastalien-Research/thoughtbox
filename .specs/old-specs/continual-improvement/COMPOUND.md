@@ -28,7 +28,7 @@
 
 | Category | Count | Files |
 |----------|-------|-------|
-| Skills | 5 | session-review, knowledge, assumptions, eval, loop-status |
+| Skills | 4 | session-review, knowledge, assumptions, eval |
 | DGM state | 3 | fitness.json (10 patterns), niche-grid.json (75% coverage), lineage.json |
 | Eval state | 1 | baselines.json (7 metrics with thresholds) |
 | Assumption registry | 1 | registry.jsonl (12 seeded assumptions from MEMORY.md) |

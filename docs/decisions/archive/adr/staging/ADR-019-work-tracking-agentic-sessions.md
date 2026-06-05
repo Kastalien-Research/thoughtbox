@@ -24,7 +24,7 @@ Three gaps this ADR addresses:
    workflow is happening, by which agent, in which session.
 
 3. **Fragmented session scaffolding.** The project has agentic scripts in multiple
-   locations (`scripts/agents/`, `automation-self-improvement/agentops/runner/`) with
+   locations (`scripts/agents/`) with
    inconsistent structure. The Claude Agent SDK is already in use (`agent-harness.ts`,
    `ulc-meta-loop.ts`) but not organized around a coherent `scripts/agentic/` home for
    full workflow scripts. There is no Pi-native way to invoke these scripts or manage work
@@ -153,8 +153,6 @@ Established as the home for full agentic workflow scripts. Existing scripts move
 shared utilities (`types.ts`, `behavioral-contracts.ts`, `index.ts`), and the generic
 harness (`agent-harness.ts`, `run-agent.ts`, `run-agent-util.ts`).
 
-`automation-self-improvement/agentops/runner/` is untouched.
-
 ## Decision Summary
 
 | Dimension | Decision |
@@ -168,7 +166,7 @@ harness (`agent-harness.ts`, `run-agent.ts`, `run-agent-util.ts`).
 | Linear sync | Direct GraphQL API calls; `linearIssueId` stored on item |
 | Pi integration | `.pi/extensions/agentic-launcher.ts` — interactive tools + script launcher |
 | Script location | `scripts/agentic/work-session.ts` (+ moved `improvement-loop.ts`, `ulc-meta-loop.ts`) |
-| `agentops/runner/` | Untouched |
+| historical automation runner | Untouched |
 | Control plane link | Work items are execution instances of manifest-declared workflows |
 | Linear sync requirement | Nice-to-have in Phase 1; extension point, not hard dependency |
 
@@ -228,5 +226,4 @@ closed, and the Thoughtbox session's branch merged back. No manual reconciliatio
 - ADR-018: `.adr/staging/ADR-018-project-as-api.md` (parallel; independent of this ADR)
 - Existing SDK usage: `scripts/agents/agent-harness.ts`, `scripts/agents/ulc-meta-loop.ts`
 - Existing JSONL pattern: `.pi/multi-team/logs/pr-issues.jsonl`
-- Control plane manifest: `automation-self-improvement/control-plane/manifest.yaml`
 - Claude Agent SDK: `@anthropic-ai/claude-agent-sdk`

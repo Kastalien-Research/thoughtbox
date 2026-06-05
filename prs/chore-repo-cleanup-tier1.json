@@ -1,13 +1,13 @@
 {
   "branch": "chore/repo-cleanup-tier1",
-  "summary": "Records Tier 1 cleanup revalidation against current `main`: the audit's delete-now targets are already absent, the broken `start:stateful` script is already gone, and `vitest.config.ts` already includes the `automation-self-improvement/agentops/tests/` path. The tracker and cleanup spec are updated so later cleanup branches do not repeat that work.",
+  "summary": "Records Tier 1 cleanup revalidation against current `main`: the audit's delete-now targets are already absent, the broken `start:stateful` script is already gone, and `vitest.config.ts` carries no stale include path. The tracker and cleanup spec are updated so later cleanup branches do not repeat that work.",
   "claims": [
     {
       "id": "c1",
-      "statement": "The cleanup series revalidates stale configuration drift and leaves no broken `start:stateful` script or stale Vitest include path for `automation-self-improvement/agentops/tests/`.",
+      "statement": "The cleanup series revalidates stale configuration drift and leaves no broken `start:stateful` script or stale Vitest include paths.",
       "evidence_type": "deterministic_check",
       "evidence_path": "package.json; vitest.config.ts",
-      "evidence_description": "Current `package.json` contains no `start:stateful` script, and current `vitest.config.ts` includes `automation-self-improvement/agentops/tests/**/*.test.ts`.",
+      "evidence_description": "Current `package.json` contains no `start:stateful` script, and current `vitest.config.ts` carries no stale include path.",
       "spec_claim_id": "SPEC-REPO-CLEANUP:c2"
     },
     {

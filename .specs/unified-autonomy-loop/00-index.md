@@ -6,7 +6,7 @@
 ## Overview
 
 This directory contains the specification for unifying Thoughtbox's disparate self-improving and autonomous architectures into a cohesive system. Previously, the project maintained separate architectural threads:
-1. **`agentops/`**: Human-in-the-loop orchestration, issue creation, and PR lifecycle.
+1. **Historical AgentOps pipeline**: Human-in-the-loop orchestration, issue creation, and PR lifecycle.
 2. **`dgm-specs/` & `self-improvement/`**: Darwin Gödel Machine evolutionary concepts, Distbook execution, tiered evaluation, and cost-reduction plans.
 3. **`quality-diversity/map-elites-research`**: Evolutionary cognitive framework prioritizing a "Taste Agent" (for selecting what to do) and a MAP-Elites Workflow Library (for determining how to do it).
 

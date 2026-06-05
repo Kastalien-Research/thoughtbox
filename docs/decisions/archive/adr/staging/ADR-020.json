@@ -29,7 +29,7 @@
     },
     {
       "id": "c4",
-      "statement": "CODEOWNERS requires @glassbead-tc review for all governance artifacts: .adr/, .specs/, .schemas/, .github/workflows/, automation-self-improvement/control-plane/manifest.yaml",
+      "statement": "CODEOWNERS requires @glassbead-tc review for all governance artifacts: .adr/, .specs/, .schemas/, .github/workflows/",
       "type": "governance",
       "behavioral": false,
       "required_evidence": ".github/CODEOWNERS contains entries for all listed paths pointing to @glassbead-tc"
