@@ -18,7 +18,7 @@
  * ```
  */
 
-import { thoughtEmitter } from "../observatory/emitter.js";
+import { thoughtEmitter } from "../events/index.js";
 import { loadLangSmithConfig, isLangSmithEnabled } from "./langsmith-config.js";
 import { getSharedClient } from "./client.js";
 import { DatasetManager } from "./dataset-manager.js";

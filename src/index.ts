@@ -20,11 +20,6 @@ import {
 } from "./persistence/index.js";
 import { SupabaseKnowledgeStorage } from "./knowledge/index.js";
 import type { KnowledgeStorage } from "./knowledge/types.js";
-import {
-  createObservatoryServer,
-  loadObservatoryConfig,
-  type ObservatoryServer,
-} from "./observatory/index.js";
 import { createFileSystemHubStorage } from "./hub/hub-storage-fs.js";
 import type { HubStorage } from "./hub/hub-types.js";
 import { initEvaluation, initMonitoring } from "./evaluation/index.js";
@@ -168,36 +163,8 @@ interface SessionEntry {
   protocolHandler: ProtocolEnforcementHandler | null;
 }
 
-async function maybeStartObservatory(hubStorage?: HubStorage, persistentStorage?: ThoughtboxStorage): Promise<ObservatoryServer | null> {
-  const observatoryConfig = loadObservatoryConfig();
-  if (!observatoryConfig.enabled) return null;
-
-  const observatoryServer = createObservatoryServer({
-    _type: 'options',
-    config: observatoryConfig,
-    hubStorage,
-    persistentStorage,
-  });
-  await observatoryServer.start();
-  console.error(`[Observatory] Server started on port ${observatoryConfig.port}`);
-  return observatoryServer;
-}
-
 async function startHttpServer() {
   const { factory, hubStorage, dataDir } = await createStorage();
-
-  // Provide observatory with a generic un-scoped storage if possible, otherwise it limits functionality
-  let observatoryBaseStorage: ThoughtboxStorage | undefined;
-  try {
-    observatoryBaseStorage = factory.getStorage();
-    if (observatoryBaseStorage) {
-      await observatoryBaseStorage.initialize();
-    }
-  } catch (e) {
-    // Fails for Supabase without workspaceId, which is fine since Observatory skips persistent reading in MVP
-  }
-
-  const observatoryServer = await maybeStartObservatory(hubStorage, observatoryBaseStorage);
 
   // Initialize LangSmith evaluation tracing (no-op if LANGSMITH_API_KEY not set)
   const traceListener = initEvaluation();
@@ -558,13 +525,6 @@ async function startHttpServer() {
     for (const entry of sessions.values()) {
       try {
         entry.transport.close();
-      } catch {
-        // ignore
-      }
-    }
-    if (observatoryServer?.isRunning()) {
-      try {
-        await observatoryServer.stop();
       } catch {
         // ignore
       }

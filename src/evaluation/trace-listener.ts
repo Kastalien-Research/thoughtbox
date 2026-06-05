@@ -19,7 +19,7 @@
  */
 
 import { Client } from "langsmith";
-import type { ThoughtEmitter, ThoughtEmitterEvents } from "../observatory/emitter.js";
+import type { ThoughtEmitter, ThoughtEmitterEvents } from "../events/index.js";
 import type { LangSmithConfig, SessionRun } from "./types.js";
 
 export interface TraceListenerOptions {

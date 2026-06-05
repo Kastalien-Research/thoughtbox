@@ -73,7 +73,7 @@ The table rows are not clickable — there is no run detail page yet.
 
 ## 3. The Observatory Reference Implementation
 
-The observatory reference implementation lives inside this repo at `thoughtbox/src/observatory/ui/observatory.html` (2678 lines). It is a standalone HTML file that connects to a local Thoughtbox MCP server via WebSocket and visualizes reasoning in real time. We are not porting this code — we are using it as design reference.
+The observatory reference implementation was a standalone `observatory.html` file (2678 lines) that connected to a local Thoughtbox MCP server via WebSocket and visualized reasoning in real time. The legacy observatory server and UI have since been removed from the repo; the HTML is preserved in git history at `thoughtbox/src/observatory/ui/observatory.html` (prior to branch `chore/remove-legacy-observatory`). We are not porting this code — we are using it as design reference.
 
 ### What the observatory does visually
 
@@ -177,7 +177,7 @@ Cards use `ThoughtCard` with border-radius 8px, `border: 1px solid var(--color-b
 
 ## 4. The Data Model
 
-From `thoughtbox/src/observatory/schemas/thought.ts` (Zod schemas):
+From `thoughtbox/src/events/thought-schemas.ts` (Zod schemas; relocated from the removed `src/observatory/schemas/thought.ts`):
 
 ### Thought
 

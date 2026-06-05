@@ -14,7 +14,7 @@
 
 import type { Client } from "langsmith";
 import type { Run } from "langsmith/schemas";
-import type { ThoughtEmitter, ThoughtEmitterEvents } from "../observatory/emitter.js";
+import type { ThoughtEmitter, ThoughtEmitterEvents } from "../events/index.js";
 import type { LangSmithConfig, MonitorConfig } from "./types.js";
 import type { LangSmithTraceListener } from "./trace-listener.js";
 import { getAllEvaluators } from "./evaluators/index.js";
