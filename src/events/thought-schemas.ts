@@ -1,8 +1,9 @@
 /**
- * Core Observatory Data Types
+ * Core Thought Data Types
  *
  * Zod schemas for thoughts, sessions, and branches.
- * These types are used throughout the observatory system.
+ * These types describe the in-memory reasoning event payloads emitted by the
+ * ThoughtEmitter and consumed by the evaluation (LangSmith) tracing system.
  */
 
 import { z } from "zod";
@@ -43,7 +44,7 @@ export const ThoughtSchema = z.object({
   /** Which thought number this branch originates from */
   branchFromThought: z.number().int().optional(),
 
-  // AUDIT-001: Structured thought type (optional in observatory for historical data)
+  // AUDIT-001: Structured thought type (optional for historical data)
   /** Structured thought type */
   thoughtType: z.enum(['reasoning', 'decision_frame', 'action_report', 'belief_snapshot', 'assumption_update', 'context_snapshot', 'progress', 'action_receipt']).optional(),
   /** Confidence level for decision_frame */

@@ -5,33 +5,6 @@
  *
  * The act of observation does NOT affect the thing observed.
  *
- * ```
- *                  ┌──────────────┐
- *                  │   Reasoning  │
- *                  │    Process   │
- *                  └──────┬───────┘
- *                         │
- *            ┌────────────┼────────────┐
- *            │            │            │
- *            ▼            ▼            ▼
- *       [Thought 1]  [Thought 2]  [Thought 3]
- *            │            │            │
- *            └────────────┼────────────┘
- *                         │
- *                         │ emit (fire-and-forget)
- *                         ▼
- *                  ┌──────────────┐
- *                  │   Emitter    │──────┐
- *                  └──────────────┘      │
- *                                        │ NO backpressure
- *                                        │ NO blocking
- *                                        │ NO feedback loop
- *                                        ▼
- *                                  ┌──────────────┐
- *                                  │  Observatory │
- *                                  └──────────────┘
- * ```
- *
  * Design constraints:
  * - Emit calls are synchronous and return immediately
  * - Failures in listeners never propagate back to the caller
@@ -40,45 +13,7 @@
  */
 
 import { EventEmitter } from "events";
-import type { Thought, Session } from "./schemas/thought.js";
-
-// =============================================================================
-// Improvement Event Types (Self-Improvement Loop)
-// =============================================================================
-
-/**
- * Types of improvement events emitted during SIL cycles
- */
-export type ImprovementEventType =
-  | "cycle_start"
-  | "discovery"
-  | "filter"
-  | "experiment"
-  | "evaluate"
-  | "integrate"
-  | "cycle_end";
-
-/**
- * Improvement event emitted by ImprovementTracker
- *
- * These events track the progress and outcomes of self-improvement loop iterations.
- */
-export interface ImprovementEvent {
-  /** Event type */
-  type: ImprovementEventType;
-  /** ISO 8601 timestamp */
-  timestamp: string;
-  /** Iteration number (monotonically increasing within a run) */
-  iteration: number;
-  /** Current phase when event was emitted */
-  phase: string;
-  /** Cost incurred for this event (tokens/API cost) */
-  cost: number;
-  /** Whether this phase/iteration was successful */
-  success: boolean;
-  /** Additional metadata specific to the event type */
-  metadata: Record<string, unknown>;
-}
+import type { Thought, Session } from "./thought-schemas.js";
 
 /**
  * Agent role type for multi-agent collaboration
@@ -187,12 +122,7 @@ export type ThoughtEmitterEvents = {
     timestamp: string;
   };
   /**
-   * Improvement events from the Self-Improvement Loop (SIL)
-   * SPEC: SIL-001
-   */
-  "improvement:event": ImprovementEvent;
-  /**
-   * Hub events bridged from hub-handler for Observatory visualization
+   * Hub events bridged from hub-handler for visualization
    */
   "hub:event": {
     type: string;
@@ -217,7 +147,7 @@ export type ThoughtEmitterEvents = {
 export type ThoughtEmitterEventName = keyof ThoughtEmitterEvents;
 
 /**
- * ThoughtEmitter - Singleton EventEmitter for observatory events
+ * ThoughtEmitter - Singleton EventEmitter for reasoning events
  *
  * This class provides a fire-and-forget mechanism for emitting
  * thought events to observers without affecting the reasoning process.
@@ -227,7 +157,7 @@ export class ThoughtEmitter extends EventEmitter {
 
   private constructor() {
     super();
-    // Increase max listeners for multiple observatory subscribers
+    // Increase max listeners for multiple subscribers
     this.setMaxListeners(100);
   }
 
@@ -317,16 +247,6 @@ export class ThoughtEmitter extends EventEmitter {
   }
 
   /**
-   * Emit an improvement:event for SIL tracking
-   *
-   * Fire-and-forget: This method returns immediately.
-   * Listener errors are logged but never propagate.
-   */
-  emitImprovementEvent(data: ThoughtEmitterEvents["improvement:event"]): void {
-    this.safeEmit("improvement:event", data);
-  }
-
-  /**
    * Emit an agent:spawned event
    *
    * Fire-and-forget: This method returns immediately.
@@ -397,7 +317,7 @@ export class ThoughtEmitter extends EventEmitter {
   }
 
   /**
-   * Emit a hub:event for Observatory workspace visualization
+   * Emit a hub:event for workspace visualization
    */
   emitHubEvent(data: ThoughtEmitterEvents["hub:event"]): void {
     this.safeEmit("hub:event", data);
@@ -427,7 +347,7 @@ export class ThoughtEmitter extends EventEmitter {
     } catch (err) {
       // Log but never rethrow - observability must not affect reasoning
       console.warn(
-        `[Observatory] Error in ${event} listener:`,
+        `[ThoughtEmitter] Error in ${event} listener:`,
         err instanceof Error ? err.message : err
       );
     }
@@ -439,7 +359,7 @@ export class ThoughtEmitter extends EventEmitter {
  *
  * Import this directly for convenience:
  * ```ts
- * import { thoughtEmitter } from '../observatory';
+ * import { thoughtEmitter } from '../events/index.js';
  * thoughtEmitter.emitThoughtAdded({ ... });
  * ```
  */

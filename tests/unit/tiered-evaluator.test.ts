@@ -14,7 +14,6 @@ import {
   type TierExecutor,
   type TierResult,
 } from "../../benchmarks/tiered-evaluator.js";
-import { ImprovementTracker } from "../../src/observatory/improvement-tracker.js";
 
 // =============================================================================
 // Test Utilities
@@ -73,7 +72,6 @@ async function runTests(): Promise<void> {
 
   // Reset singleton before tests
   resetTieredEvaluator();
-  ImprovementTracker.resetInstance();
 
   // -------------------------------------------------------------------------
   // Initialization Tests

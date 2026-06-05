@@ -11,7 +11,7 @@ import {
 import {
   thoughtEmitter,
   type Thought as ObservatoryThought,
-} from "./observatory/index.js";
+} from "./events/index.js";
 import { SamplingHandler } from "./sampling/index.js";
 // SIL-104: Event stream for external consumers
 import type { ThoughtboxEventEmitter } from "./events/index.js";
