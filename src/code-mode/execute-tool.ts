@@ -42,7 +42,13 @@ export interface ExecuteToolDeps {
   theseusTool: TheseusTool;
   ulyssesTool: UlyssesTool;
   observabilityHandler: ObservabilityGatewayHandler;
-  branchHandler: BranchHandler;
+  /**
+   * Hosted-mode only. The branch toolhost spawns Supabase Edge Function
+   * workers and requires Supabase credentials, so it is left undefined in
+   * local/self-hosted mode. `tb.branch.*` then returns a clear error instead
+   * of crashing session setup.
+   */
+  branchHandler?: BranchHandler;
 }
 
 export const EXECUTE_TOOL = {
@@ -134,6 +140,17 @@ interface TbContext {
 function buildTbObject(deps: ExecuteToolDeps, ctx: TbContext): Record<string, unknown> {
   const { thoughtTool, sessionTool, knowledgeTool, notebookTool,
           theseusTool, ulyssesTool, observabilityHandler, branchHandler } = deps;
+
+  const requireBranchHandler = (): BranchHandler => {
+    if (!branchHandler) {
+      throw new Error(
+        "Branch operations require hosted mode. The branch toolhost spawns " +
+          "Supabase Edge Function workers and needs SUPABASE_URL and " +
+          "SUPABASE_SERVICE_ROLE_KEY; it is unavailable in local/self-hosted mode.",
+      );
+    }
+    return branchHandler;
+  };
 
   return {
     thought: async (input: ThoughtToolInput) => {
@@ -280,13 +297,13 @@ function buildTbObject(deps: ExecuteToolDeps, ctx: TbContext): Record<string, un
 
     branch: {
       spawn: async (args: Record<string, unknown>) =>
-        unwrapToolResult(await branchHandler.processTool("spawn", args)),
+        unwrapToolResult(await requireBranchHandler().processTool("spawn", args)),
       merge: async (args: Record<string, unknown>) =>
-        unwrapToolResult(await branchHandler.processTool("merge", args)),
+        unwrapToolResult(await requireBranchHandler().processTool("merge", args)),
       list: async (args: Record<string, unknown>) =>
-        unwrapToolResult(await branchHandler.processTool("list", args)),
+        unwrapToolResult(await requireBranchHandler().processTool("list", args)),
       get: async (args: Record<string, unknown>) =>
-        unwrapToolResult(await branchHandler.processTool("get", args)),
+        unwrapToolResult(await requireBranchHandler().processTool("get", args)),
     },
   };
 }
