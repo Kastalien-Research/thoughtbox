@@ -552,14 +552,21 @@ Use \`console.log()\` for debugging — output captured in response logs.`;
     serviceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY,
   });
 
-  // Branch handler — requires Supabase credentials
-  const branchSupabaseUrl = process.env.SUPABASE_URL ?? "";
-  const branchServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY ?? "";
-  const branchHandler = new BranchHandler({
-    supabaseUrl: branchSupabaseUrl,
-    serviceRoleKey: branchServiceKey,
-    workspaceId: args.workspaceId ?? "default",
-  });
+  // Branch handler — hosted mode only. The branch toolhost spawns Supabase
+  // Edge Function workers and constructs a Supabase client at init, so it is
+  // only wired when Supabase credentials are present. In local/self-hosted
+  // mode it is left undefined; `tb.branch.*` then returns a clear "hosted
+  // mode" error instead of crashing session setup on a missing SUPABASE_URL.
+  const branchSupabaseUrl = process.env.SUPABASE_URL;
+  const branchServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const branchHandler =
+    branchSupabaseUrl && branchServiceKey
+      ? new BranchHandler({
+          supabaseUrl: branchSupabaseUrl,
+          serviceRoleKey: branchServiceKey,
+          workspaceId: args.workspaceId ?? "default",
+        })
+      : undefined;
 
   // =============================================================================
   // Code Mode Tools (replaces individual tool registrations)

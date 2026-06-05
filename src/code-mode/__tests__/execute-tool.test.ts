@@ -136,6 +136,17 @@ describe("thoughtbox_execute", () => {
     expect(output.result).toBeDefined();
   });
 
+  it("tb.branch.* returns a hosted-mode error when no branchHandler is wired", async () => {
+    // createExecuteTool() omits branchHandler, mirroring local/self-hosted mode.
+    const tool = createExecuteTool();
+    const result = await tool.handle({
+      code: `async () => { return await tb.branch.list({ sessionId: "s1" }); }`,
+    });
+    const output = JSON.parse(result.content[0].text);
+    expect(output.result).toBeNull();
+    expect(output.error).toContain("hosted mode");
+  });
+
   it("can call tb.thought()", async () => {
     const tool = createExecuteTool();
     const result = await tool.handle({
