@@ -10,7 +10,7 @@ import {
 } from "./persistence/index.js";
 import {
   thoughtEmitter,
-  type Thought as ObservatoryThought,
+  type Thought as EmittedThought,
 } from "./events/index.js";
 import { SamplingHandler } from "./sampling/index.js";
 // SIL-104: Event stream for external consumers
@@ -723,7 +723,7 @@ export class ThoughtHandler {
         }
 
         if (isNewSession) {
-          // Observatory: Emit session started event
+          // Emit session started event (fire-and-forget)
           if (thoughtEmitter.hasListeners()) {
             try {
               thoughtEmitter.emitSessionStarted({
@@ -736,7 +736,7 @@ export class ThoughtHandler {
                 },
               });
             } catch (e) {
-              console.warn('[Observatory] Session start emit failed:', e instanceof Error ? e.message : e);
+              console.warn('[ThoughtEmitter] Session start emit failed:', e instanceof Error ? e.message : e);
             }
           }
 
@@ -868,7 +868,7 @@ export class ThoughtHandler {
           this.branches[validatedInput.branchId].push(validatedInput);
         }
 
-        // Observatory: Fire-and-forget event emission
+        // Fire-and-forget event emission
         // This block NEVER throws - failures are logged and swallowed
         if (thoughtEmitter.hasListeners()) {
           // Generate unique ID - include branchId for branch thoughts to prevent collisions
@@ -876,7 +876,7 @@ export class ThoughtHandler {
             ? `${this.currentSessionId}-${validatedInput.branchId}-${validatedInput.thoughtNumber}`
             : `${this.currentSessionId}-${validatedInput.thoughtNumber}`;
 
-          const observatoryThought: ObservatoryThought = {
+          const emittedThought: EmittedThought = {
             id: thoughtId,
             thoughtNumber: validatedInput.thoughtNumber,
             totalThoughts: validatedInput.totalThoughts,
@@ -904,14 +904,14 @@ export class ThoughtHandler {
             if (validatedInput.isRevision && validatedInput.revisesThought) {
               thoughtEmitter.emitThoughtRevised({
                 sessionId: this.currentSessionId,
-                thought: observatoryThought,
+                thought: emittedThought,
                 parentId,
                 originalThoughtNumber: validatedInput.revisesThought,
               });
             } else if (validatedInput.branchFromThought && validatedInput.branchId) {
               thoughtEmitter.emitThoughtBranched({
                 sessionId: this.currentSessionId,
-                thought: observatoryThought,
+                thought: emittedThought,
                 parentId,
                 branchId: validatedInput.branchId,
                 fromThoughtNumber: validatedInput.branchFromThought,
@@ -919,13 +919,13 @@ export class ThoughtHandler {
             } else {
               thoughtEmitter.emitThoughtAdded({
                 sessionId: this.currentSessionId,
-                thought: observatoryThought,
+                thought: emittedThought,
                 parentId,
               });
             }
           } catch (e) {
-            // Swallow any errors - observatory must never affect reasoning
-            console.warn('[Observatory] Emit failed:', e instanceof Error ? e.message : e);
+            // Swallow any errors - emission must never affect reasoning
+            console.warn('[ThoughtEmitter] Emit failed:', e instanceof Error ? e.message : e);
           }
         }
 
@@ -1021,7 +1021,7 @@ export class ThoughtHandler {
           console.warn('[AUDIT-003] Manifest generation failed:', (err as Error).message);
         }
 
-        // Observatory: Emit session ended event
+        // Emit session ended event (fire-and-forget)
         if (thoughtEmitter.hasListeners()) {
           try {
             thoughtEmitter.emitSessionEnded({
@@ -1030,7 +1030,7 @@ export class ThoughtHandler {
               auditManifest,
             });
           } catch (e) {
-            console.warn('[Observatory] Session end emit failed:', e instanceof Error ? e.message : e);
+            console.warn('[ThoughtEmitter] Session end emit failed:', e instanceof Error ? e.message : e);
           }
         }
 
