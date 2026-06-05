@@ -36,9 +36,9 @@ The gap: there is no mechanism by which a daily AgentOps proposal becomes a SIL 
 
 | Source | Artifact | Format | Location |
 |--------|----------|--------|----------|
-| AgentOps daily brief | `proposals.json` | `ProposalsPayload` (typed) | `agentops/runs/<run_id>/proposals.json` |
+| AgentOps daily brief | `proposals.json` | `ProposalsPayload` (typed) | historical run artifact `proposals.json` |
 | AgentOps daily brief | GitHub issue | Markdown with embedded JSON | GitHub Issues (label: `agentops`, `dev-brief`) |
-| AgentOps approval | `implementation_result.json` | JSON | `agentops/runs/<run_id>/implementation_result.json` |
+| AgentOps approval | `implementation_result.json` | JSON | historical run artifact `implementation_result.json` |
 | SIL loop | `results.json` / `improvement-results.json` | `IterationResult[]` | GitHub Actions artifacts |
 | SIL scorecard | `scorecard.json` | JSON | GitHub Actions artifacts |
 | Interactive session | MEMORY.md edits | Markdown (unstructured) | `~/.claude/projects/.../memory/MEMORY.md` |
@@ -339,7 +339,7 @@ jobs:
             --limit 7 --json databaseId,conclusion \
             | jq -r '.[] | select(.conclusion == "success") | .databaseId' \
             | while read run_id; do
-                gh run download "$run_id" -D artifacts/agentops/ 2>/dev/null || true
+                gh run download "$run_id" -D artifacts/historical-automation/ 2>/dev/null || true
               done
 
       - name: Download recent SIL artifacts
@@ -825,7 +825,7 @@ append_to_controller_inbox() {
 
 #### Into `daily-dev-brief.ts`
 
-The daily brief reads controller seeds before generating proposals. Add a new signal source to `agentops/runner/lib/sources/collect.ts`:
+The daily brief reads controller seeds before generating proposals. Add a new signal source to the historical signal-collection module:
 
 ```typescript
 // New source in collectSignals()
@@ -1110,7 +1110,7 @@ IDLE (headless mode)
 |------|--------|
 | `.claude/hooks/session_start.sh` | Add controller priming integration |
 | `.claude/hooks/session_end_memory.sh` | Add `append_to_controller_inbox` function call |
-| `agentops/runner/lib/sources/collect.ts` | Add `loadControllerSeeds()` as internal signal source |
+| historical signal-collection module | Add `loadControllerSeeds()` as internal signal source |
 | `.specs/self-improvement-loop/SPEC-SIL-010-main-loop-orchestrator.md` | Document controller seed integration in discovery phase |
 | `.gitignore` | Add `controller/state/session-inbox.jsonl` |
 
@@ -1247,7 +1247,7 @@ describe('normalizeTopic', () => {
 - `.specs/self-improvement-loop/SPEC-SIL-010-main-loop-orchestrator.md` -- `AutonomousImprovementLoop` class
 - `.specs/self-improvement-loop/SPEC-SIL-011-github-actions-workflow.md` -- SIL GitHub Actions workflow
 - `.specs/self-improvement-loop/SPEC-SIL-ARCH-agent-invocation.md` -- Agent invocation modes (Mode 1: GitHub Actions, Mode 2: Claude Code)
-- `agentops/runner/daily-dev-brief.ts` -- AgentOps daily brief (signal collection, LLM synthesis, issue creation)
+- historical daily-dev-brief runner -- AgentOps daily brief (signal collection, LLM synthesis, issue creation)
 - `.github/workflows/agentops_daily_thoughtbox_dev.yml` -- AgentOps daily workflow (cron: 11:30 UTC)
 - `.github/workflows/agentops_on_approval_label.yml` -- Proposal approval workflow (label-triggered)
 - `.github/workflows/self-improvement-loop.yml` -- SIL weekly workflow (cron: Sunday 02:00 UTC)

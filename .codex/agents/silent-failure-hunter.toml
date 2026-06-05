@@ -51,7 +51,7 @@ For this project, the critical pipelines are:
 | `assumption-tracker.sh` | `.assumptions/registry.jsonl` | `assumption-auditor` | Stale assumptions not flagged |
 | `session_end_memory.sh` | `.Codex/state/memory-calibration.log` | `eval_collector.sh` | Memory usefulness always returns default |
 | `controller-prime.sh` | `controller/state/controller-state.json` | `session_start.sh` | Session gets no priming context |
-| Agent SDK scripts | `agentops/runs/` | `cost-governor` | Cost tracking misses runs |
+| Agent SDK scripts | historical run-log directories | `cost-governor` | Cost tracking misses runs |
 
 For each pipeline, verify:
 1. Does the producer actually write to the expected path?

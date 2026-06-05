@@ -20,7 +20,7 @@ The continual improvement system runs agents on schedules — daily agentops, we
 
 Look for cost data in:
 - Agent SDK output logs (the `Result: ... | cost: $X.XX` lines)
-- `agentops/runs/` — run logs with cost data
+- historical run-log directories — run logs with cost data
 - `.eval/metrics/session-*.json` — session-level cost if captured
 - Git log messages — some automated commits include cost in the message
 
@@ -34,7 +34,7 @@ Read budget constraints from:
 ### Historical Data
 
 Build cost history from:
-- `agentops/runs/` directory — past run results
+- historical run-log directories — past run results
 - `.eval/metrics/` — session snapshots with cost data
 - Git history — `git log --oneline --since="7 days ago"` for activity volume
 
@@ -43,7 +43,7 @@ Build cost history from:
 ### Observe
 
 Gather all cost data available:
-1. Scan `agentops/runs/` for recent run logs
+1. Scan historical run-log directories for recent run logs
 2. Read `.eval/metrics/session-*.json` for session costs
 3. Check any cost tracking files that exist
 4. Count agent invocations by type (from logs)

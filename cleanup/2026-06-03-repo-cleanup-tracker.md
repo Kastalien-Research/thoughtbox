@@ -24,10 +24,7 @@
    model.
 4. Tier 1 delete candidates from the audit are already absent on current `main`.
 5. `package.json` no longer contains `start:stateful`, and `vitest.config.ts`
-   already points at `automation-self-improvement/agentops/tests/**/*.test.ts`.
-6. Broad stale-work deletion must stay narrow: `automation-self-improvement/agentic-dev-team`,
-   `automation-self-improvement/self-improvement`, and `src/multi-agent` are
-   still referenced by current control-plane artifacts or tests.
+   carries no stale test include path.
 
 ## Branch execution log
 
@@ -63,8 +60,7 @@
 - Tier 1 revalidation confirmed the audit's delete-now file targets are already
   absent on current `main`.
 - Tier 1 revalidation confirmed `package.json` has no `start:stateful` script
-  and `vitest.config.ts` already includes
-  `automation-self-improvement/agentops/tests/**/*.test.ts`.
+  and `vitest.config.ts` carries no stale test include path.
 - Docs alignment validation confirmed the loop-embedding spec files,
   `scripts/embed-loops.ts`, and `src/resources/loops-content.ts` are absent,
   while `spec-designer`, `spec-validator`, `spec-orchestrator`, and

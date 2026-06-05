@@ -6,9 +6,6 @@ GOVERNANCE.md @glassbead-tc
 CLAUDE.md @glassbead-tc
 AGENTS.md @glassbead-tc
 
-# Control plane manifest - source of truth for architecture
-/automation-self-improvement/control-plane/manifest.yaml @glassbead-tc
-
 # Schemas - changing these changes what PR validation accepts
 /.schemas/ @glassbead-tc
 

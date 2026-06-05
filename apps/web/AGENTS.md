@@ -107,7 +107,7 @@ If the user invokes one of these names, or the task clearly matches one, open th
 - Workflow lifecycle: `workflow`, `workflow-ideation`, `workflow-brainstorming`, `workflows-plan`, `workflows-work`, `workflows-review`, `workflow-revision`, `workflows-compound`, `workflow-reflection`
 - HDD and implementation: `hdd`, `implement`
 - Research and knowledge: `research-task`, `knowledge`, `synthesize`, `distill`, `capture-learning`, `session-review`, `assumptions`, `eval`, `taste`, `diagram`
-- Coordination and autonomy: `team`, `hub-collab`, `deploy-team-hub`, `experiment`, `ulc-loop`, `loop-status`, `status`, `escalate`, `claude-prompt`
+- Coordination and autonomy: `team`, `hub-collab`, `deploy-team-hub`, `experiment`, `ulc-loop`, `status`, `escalate`, `claude-prompt`
 
 Path pattern:
 - `.claude/skills/<skill-name>/SKILL.md`

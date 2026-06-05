@@ -122,8 +122,8 @@ Highest-risk gaps: agents/operators following root README or skills that call re
 | **Status** | `unwired` |
 | **Confidence** | High |
 | **Claim** | [`src/resources/server-architecture-content.ts`](../src/resources/server-architecture-content.ts) L24; [`.specs/product-shape/PRODUCT-INTENT-AND-DIVERGENCE.md`](../.specs/product-shape/PRODUCT-INTENT-AND-DIVERGENCE.md). |
-| **Wiring** | Glob `src/operations-tool/**`: **0** files. Generated [`automation-self-improvement/control-plane/generated/test-truth.json`](../automation-self-improvement/control-plane/generated/test-truth.json) still lists `src/operations-tool/__tests__/handler.test.ts`. |
-| **Cleanup slice** | Regenerate control-plane artifacts; remove resource text. |
+| **Wiring** | Glob `src/operations-tool/**`: **0** files. |
+| **Cleanup slice** | Remove resource text. |
 
 ### 9. `thoughtbox://gateway/operations` resource catalog
 
@@ -193,9 +193,9 @@ Highest-risk gaps: agents/operators following root README or skills that call re
 | --- | --- |
 | **Status** | `aspirational` (partial) |
 | **Confidence** | Medium |
-| **Claim** | [`.specs/unified-autonomy-control-plane/01-systems.md`](../.specs/unified-autonomy-control-plane/01-systems.md): governance-plane **implemented**. |
-| **Wiring** | `check:control-plane` in `package.json` but **not** in `ci.yml`. SIL scheduler **paused** — [`infra/gcp/automation.tf`](../infra/gcp/automation.tf) L9. `improvement-loop` script exists; not wired to MCP server loop. |
-| **Cleanup slice** | Align manifest maturity with CI + scheduler state. |
+| **Claim** | Historical governance-plane implementation claim remained after the supporting artifacts were removed. |
+| **Wiring** | SIL scheduler **paused** — [`infra/gcp/automation.tf`](../infra/gcp/automation.tf) L9. `improvement-loop` script exists; not wired to MCP server loop. |
+| **Cleanup slice** | Remove stale governance-plane implementation claims. |
 
 ### 16. Release quality gates not in CI
 
@@ -203,7 +203,7 @@ Highest-risk gaps: agents/operators following root README or skills that call re
 | --- | --- |
 | **Status** | `unwired` |
 | **Confidence** | High |
-| **Scripts** | `test:behavioral`, `test:agentic`, `check:control-plane` — [`package.json`](../package.json). |
+| **Scripts** | `test:behavioral`, `test:agentic` — [`package.json`](../package.json). |
 | **CI** | Root [`ci.yml`](../.github/workflows/ci.yml) runs lint, types, test, cycles; **ignores** `apps/web/**`. [`web-ci.yml`](../.github/workflows/web-ci.yml) runs vitest for web only. |
 | **Cleanup slice** | Add gates to CI or document as manual pre-release. |
 

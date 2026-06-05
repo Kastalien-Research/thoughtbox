@@ -12,7 +12,7 @@
 | [Spec 07: Assumption Registry](07-assumption-registry.md) | Draft v0.1 | [00-overview.md](./00-overview.md) — Gap 7 |  |
 | [Spec 08: Compound Engineering Integration](08-compound-integration.md) | Draft v0.1 | [00-overview.md](./00-overview.md) (Gap 8: Compound Engineering Not Integrated) |  |
 | [Implementation Plan: Continual Self-Improvement System](09-implementation-plan.md) | Draft v0.1 |  | Specs 01-08 in this directory |
-| [Compound Document: Continual Self-Improvement System Design](COMPOUND.md) | | Skills | 5 | session-review, knowledge, assumptions, eval, loop-status | |  |  |
+| [Compound Document: Continual Self-Improvement System Design](COMPOUND.md) | | Skills | 4 | session-review, knowledge, assumptions, eval | |  |  |
 
 ## Dependency Graph
 

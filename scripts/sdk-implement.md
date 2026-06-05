@@ -70,7 +70,7 @@ The first time a spec catches gaming, you'll see something like:
 ```
 [sdk-implement] GAMING DETECTED: agent claimed done but external verification failed
   verify failures:
-    exit 1: npm run check:control-plane
+    exit 1: npm test
   missing artifacts:
     .github/workflows/ci.yml
   audit log: .sdk-runs/implement-ci-gate-2026-04-29T...jsonl
@@ -100,7 +100,7 @@ jq -r 'select(.type=="assistant") | .message.content[] | select(.type=="text") |
 
 ## Example specs
 
-`automation-self-improvement/control-plane/implement-ci-gate.yaml` — first runnable spec. Targets the gap we identified: `check:control-plane` exists but isn't wired to CI, so drift goes undetected.
+Write a YAML spec that declares the task, hard constraints, verify commands, and required artifacts, following the format above.
 
 ## What this does not solve
 

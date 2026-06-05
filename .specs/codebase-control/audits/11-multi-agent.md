@@ -133,7 +133,7 @@ This codebase implements a **sophisticated multi-agent coordination layer** with
 
 **Cost Governor Agent** (`specs/continual-improvement/agents/cost-governor.md:1-147`)
 - Dedicated agent role for cost tracking and budget enforcement
-- Data sources: Agent SDK logs, agentops/runs/, .eval/metrics/, git logs
+- Data sources: Agent SDK logs, historical run logs, .eval/metrics/, git logs
 - Weekly budget: $80, broken by category (SIL $15, AgentOps $10, Interactive $40, Compound $15)
 - Cost anomaly detection: spikes >3x, runaway agents, drift, waste, starvation
 - Boundary: MUST NOT modify budgets (recommends only), MUST escalate when overbudget

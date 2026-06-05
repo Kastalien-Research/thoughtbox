@@ -238,7 +238,6 @@ None of these are urgent, but each will come up.
 ### Gotchas observed during this session (don't re-learn them)
 
 - **Never commit directly to main.** `.husky/pre-commit` hard-blocks this but the friction still wastes time. Branch first.
-- **The pre-commit hook runs `pnpm check:control-plane`**, which fails if the repo has stale `automation-self-improvement/control-plane/generated/` artifacts in the working tree. These have been stale across multiple sessions. Workaround used today: stash unrelated work with `--keep-index` before the commit, pop after.
 - **`supabase db execute` doesn't exist.** SQL against the linked project needs either `supabase migrations list` / `supabase db pull` (read-only introspection) or a direct `psql` with a fetched connection string. User has service role key in `.env`; no Postgres password stored locally.
 - **`supabase functions deploy` from the plugin dir errors** because config.toml there conflicts. Run from repo root with `--project-ref akjccuoncxlvrrtkvtno`.
 - **The Thoughtbox MCP server returns "Server not initialized" after plugin reloads.** Only fix is a full Claude Code session restart. Budget a session break between `/plugin update` and any heavy MCP use.

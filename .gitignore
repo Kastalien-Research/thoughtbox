@@ -33,9 +33,6 @@ scripts/probes/runs/
 .claude/ulc-state.local.json
 .claude/ralph-loop.local.md
 
-# AgentOps run artifacts (generated per-run, not source)
-agentops/runs/
-
 # IDE
 .DS_Store
 .vscode/settings.json
