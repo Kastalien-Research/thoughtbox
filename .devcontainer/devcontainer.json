@@ -1,0 +1,20 @@
+{
+  "name": "tv-remote-tournament-runner",
+  "image": "mcr.microsoft.com/devcontainers/typescript-node:1-22-bookworm",
+  "features": {
+    "ghcr.io/devcontainers/features/node:1": { "version": "22", "pnpmVersion": "latest" },
+    "ghcr.io/devcontainers/features/github-cli:1": {}
+  },
+  "hostRequirements": { "cpus": 16, "memory": "64gb", "storage": "128gb" },
+
+  "// store-dir": "Single content-addressable pnpm store shared by every git worktree. With ~30 worktrees this is the difference between ~one node_modules of disk (hardlinks) and ~30x (disk exhaustion at the 128 GB cap).",
+  "// inotify": "30 parallel toolchains can exhaust the default file-watcher limit; raise it best-effort. Builds run one-shot (no --watch) so this is a safety net.",
+
+  "updateContentCommand": "corepack enable pnpm && pnpm config set store-dir /workspaces/.pnpm-store --global && pnpm install --frozen-lockfile && pnpm build",
+  "postCreateCommand": "npm install -g @anthropic-ai/claude-code && (sudo sysctl -w fs.inotify.max_user_watches=524288 fs.inotify.max_user_instances=1024 || true)",
+
+  "remoteEnv": {
+    "ANTHROPIC_API_KEY": "${localEnv:ANTHROPIC_API_KEY}",
+    "THOUGHTBOX_STORAGE": "fs"
+  }
+}
