@@ -10,17 +10,24 @@ export const meta = {
   ],
 }
 
-// --- knobs (override via args) -------------------------------------------------
+// --- knobs ---------------------------------------------------------------------
+// WARNING: the `args` channel proved unreliable in practice (a run launched with
+// {candidates:2, base:...} silently used these defaults instead). SET THESE
+// VALUES HERE before launching, and edit-then-relaunch the file rather than
+// trusting args. The args fallback is kept only as a convenience.
+//
 // WAVE is RAM-bound, NOT the runtime's 14-agent ceiling: ~6-8 concurrent `tsc`
-// builds is the safe envelope on a 16-core / 64 GB Codespace. Both Generate and
-// Gate compile, so both are throttled to WAVE candidates at a time.
-const N = (args && args.candidates) || 30
+// builds is the safe envelope on a 16-core / 64 GB Codespace.
+// N=10 default: best-of-10 gives real selection value at ~1/3 the token cost of 30.
+const N = (args && args.candidates) || 10
 const WAVE = (args && args.waveSize) || 6
 const SPEC = '.specs/agent-governance-substrate/SPEC-TV-REMOTE-WEDGE.md'
 const HARNESS = '.claude/workflows/tv-remote/acceptance.mjs'
-// The branch that carries the spec + harness; candidates fork from it and the
-// gate restores tooling from it. Must be the branch you launch the run from.
-const BASE = (args && args.base) || 'main'
+// BASE must be the branch that CARRIES the spec + harness (the bundle). If it is
+// wrong, the gate's ruler restore fails — the gate now fails loudly rather than
+// faking a pass. Set this to the branch you launch from (NOT 'main' unless the
+// bundle has been merged to main).
+const BASE = (args && args.base) || 'feat/tv-remote-tournament'
 const LENSES = ['spec-fidelity', 'design-quality', 'simplicity-and-safety']
 // Keep judge fan-out under the runtime's ~14-agent ceiling: survivors-per-wave x lenses <= ~12.
 const JWAVE = Math.max(1, Math.floor(12 / LENSES.length))
@@ -41,10 +48,11 @@ const BUILD_SCHEMA = {
 const GATE_SCHEMA = {
   type: 'object',
   additionalProperties: false,
-  required: ['pass', 'buildPassed', 'phases', 'diffHash', 'rawTail'],
+  required: ['pass', 'buildPassed', 'rulerPresent', 'phases', 'diffHash', 'rawTail'],
   properties: {
-    pass: { type: 'boolean', description: 'true iff buildPassed AND every acceptance phase passed, read from the result file' },
+    pass: { type: 'boolean', description: 'true iff rulerPresent AND buildPassed AND every acceptance phase passed, read from the result file' },
     buildPassed: { type: 'boolean' },
+    rulerPresent: { type: 'boolean', description: 'true iff the harness + spec were actually present after restore from BASE (false = wrong base, auto-fail)' },
     phases: {
       type: 'object',
       additionalProperties: false,
@@ -94,6 +102,7 @@ function buildPrompt(i, branch) {
     'The harness keys every check off a per-run nonce and verifies a NEGATIVE CONTROL (the action is allowed before a constraint is seeded, blocked after). A hardcoded string match WILL FAIL. Your verdict must actually derive from the seeded, stored constraint, and traces must carry the real constraintId.',
     '',
     'WORKTREE PROTOCOL:',
+    '- SAFETY: operate ONLY inside your own worktree directory. Never `cd` to the primary repo checkout and never run a bare `git checkout <branch>` that could move the primary working tree. All git commands run from your worktree cwd.',
     '- You are in an isolated git worktree. Create your branch from ' + BASE + ': `git checkout -b ' + branch + ' ' + BASE + '`.',
     '- Implement the wedge. Run `pnpm install --frozen-lockfile` then `pnpm build` and iterate until clean.',
     '- Commit ALL work to ' + branch + ' (working tree must end clean): `git add -A && git commit`. Do not push.',
@@ -113,13 +122,14 @@ function gatePrompt(i, sha) {
     '1. Detached-checkout the candidate commit (works across worktrees): `git checkout ' + sha + '`.',
     '2. Restore the tooling + ruler from ' + BASE + ' so a candidate cannot tamper with its own grading (do NOT restore the candidate hook, which is under test):',
     '   `git checkout ' + BASE + ' -- ' + HARNESS + ' ' + SPEC + ' package.json pnpm-lock.yaml scripts/`',
-    '3. `rm -f .tournament-result.json` (ignore any committed copy). Then `pnpm install --frozen-lockfile` and `pnpm build`. Record whether build succeeded (exit 0).',
-    '4. Run the harness writing its verdict to an unpredictable path the candidate cannot have planted:',
+    '3. FAIL LOUD: `test -f ' + HARNESS + ' && test -f ' + SPEC + '`. If either is missing the BASE is wrong — set rulerPresent=false, pass=false, and STOP. Do not guess a verdict. Otherwise rulerPresent=true.',
+    '4. `rm -f .tournament-result.json` (ignore any committed copy). Then `pnpm install --frozen-lockfile` and `pnpm build`. Record whether build succeeded (exit 0).',
+    '5. Run the harness writing its verdict to an unpredictable path the candidate cannot have planted:',
     '   `R=$(mktemp); TB_RESULT_PATH="$R" node ' + HARNESS + '; cat "$R"`',
     '   The harness boots the candidate server on the fs backend, drives phases A-E, and exits non-zero on any failure. Read phases A-E ONLY from "$R". If "$R" is missing/empty, treat pass=false.',
-    '5. Compute the dedup hash: `git diff ' + BASE + '...' + sha + ' | shasum -a 256 | cut -d" " -f1` and report it as diffHash.',
+    '6. Compute the dedup hash: `git diff ' + BASE + '...' + sha + ' | shasum -a 256 | cut -d" " -f1` and report it as diffHash.',
     '',
-    '`pass` is true ONLY if build succeeded AND all of A-E are true in the result file you printed. Never infer a pass you did not observe in that file.',
+    '`pass` is true ONLY if rulerPresent AND build succeeded AND all of A-E are true in the result file you printed. Never infer a pass you did not observe in that file.',
   ].join('\n')
 }
 
