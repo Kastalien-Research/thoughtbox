@@ -16,6 +16,31 @@ import {
   ensureTestWorkspace,
   TEST_WORKSPACE_ID,
 } from '../../__tests__/supabase-test-helpers.js';
+import { randomUUID } from 'node:crypto';
+
+// otel queries resolve a thoughtbox session UUID to its otel session id(s) via
+// the runs binding table. Seed a session + run so the query path can resolve a
+// UUID to the otel session id carried on ingested events.
+async function seedSessionWithOtel(otelSessionId: string): Promise<string> {
+  const client = createServiceClient();
+  const { data: session, error: sessionError } = await client
+    .from('sessions')
+    .insert({ workspace_id: TEST_WORKSPACE_ID, title: `otel-test ${otelSessionId}` })
+    .select('id')
+    .single();
+  if (sessionError || !session) {
+    throw new Error(`Failed to seed session: ${sessionError?.message}`);
+  }
+  const { error: runError } = await client.from('runs').insert({
+    workspace_id: TEST_WORKSPACE_ID,
+    session_id: session.id,
+    otel_session_id: otelSessionId,
+  });
+  if (runError) {
+    throw new Error(`Failed to seed run: ${runError.message}`);
+  }
+  return session.id as string;
+}
 
 describe('OtelEventStorage', () => {
   let storage: OtelEventStorage;
@@ -169,12 +194,13 @@ describe('OtelEventStorage', () => {
 
     await storage.ingest(parseLogsPayload(logsPayload, TEST_WORKSPACE_ID));
 
+    const sessionId = await seedSessionWithOtel('timeline-session');
     const timeline = await storage.querySessionTimeline(
       TEST_WORKSPACE_ID,
-      'timeline-session',
+      sessionId,
     );
 
-    expect(timeline.session_id).toBe('timeline-session');
+    expect(timeline.session_id).toBe(sessionId);
     expect(timeline.count).toBe(2);
     expect(timeline.events[0].event_name).toBe('claude_code.user_prompt');
     expect(timeline.events[1].event_name).toBe('claude_code.tool_result');
@@ -202,9 +228,10 @@ describe('OtelEventStorage', () => {
 
     await storage.ingest(parseLogsPayload(logsPayload, TEST_WORKSPACE_ID));
 
+    const sessionId = await seedSessionWithOtel('limit-session');
     const timeline = await storage.querySessionTimeline(
       TEST_WORKSPACE_ID,
-      'limit-session',
+      sessionId,
       { limit: 2 },
     );
 
@@ -242,8 +269,9 @@ describe('OtelEventStorage', () => {
 
     await storage.ingest(parseMetricsPayload(payload, TEST_WORKSPACE_ID));
 
-    const cost = await storage.querySessionCost(TEST_WORKSPACE_ID, 'cost-session');
-    expect(cost.session_id).toBe('cost-session');
+    const sessionId = await seedSessionWithOtel('cost-session');
+    const cost = await storage.querySessionCost(TEST_WORKSPACE_ID, sessionId);
+    expect(cost.session_id).toBe(sessionId);
     expect(cost.total).toBeCloseTo(0.035);
     expect(cost.costs).toHaveLength(2);
 
@@ -260,7 +288,7 @@ describe('OtelEventStorage', () => {
   it('returns zero cost for session with no cost events', async ({ skip }) => {
     if (!available) skip();
 
-    const cost = await storage.querySessionCost(TEST_WORKSPACE_ID, 'nonexistent-session');
+    const cost = await storage.querySessionCost(TEST_WORKSPACE_ID, randomUUID());
     expect(cost.total).toBe(0);
     expect(cost.costs).toHaveLength(0);
   });
