@@ -89,7 +89,10 @@ jobs:
           version: 2.84.2
 
       - name: Start local Supabase
-        run: supabase start -x realtime,storage-api,imgproxy,mailpit,postgres-meta,studio,edge-runtime,logflare,vector,supavisor
+        # storage-api + edge-runtime are included (not in -x): the peer-notebook
+        # tests need Storage and the intelligence-pipeline/branch-workers tests
+        # invoke edge functions.
+        run: supabase start -x realtime,imgproxy,mailpit,postgres-meta,studio,logflare,vector,supavisor
 
       - name: Run test suite
         run: pnpm test

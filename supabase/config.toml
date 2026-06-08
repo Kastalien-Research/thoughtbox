@@ -277,6 +277,14 @@ verify_jwt = false
 import_map = "./functions/process-thought-queue/deno.json"
 entrypoint = "./functions/process-thought-queue/index.ts"
 
+# tb-branch authenticates via its own signed branch token (?token=), so the
+# Supabase edge gateway must not require an Authorization JWT header.
+[functions.tb-branch]
+enabled = true
+verify_jwt = false
+import_map = "./functions/tb-branch/deno.json"
+entrypoint = "./functions/tb-branch/index.ts"
+
 [analytics]
 enabled = true
 port = 54327

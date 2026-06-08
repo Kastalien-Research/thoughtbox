@@ -105,6 +105,21 @@ describe('Intelligence Pipeline', () => {
         .single();
       expect(error).toBeNull();
       testSessionId = data!.id;
+
+      // The thought_processing queue is shared and persists across test files.
+      // Drain stale messages left by earlier files so these assertions observe
+      // only the message each test enqueues.
+      const { data: stale } = await client.rpc('pgmq_read_queue', {
+        queue_name: 'thought_processing',
+        vt: 0,
+        qty: 1000,
+      });
+      for (const msg of (stale as Array<{ msg_id: number }> | null) ?? []) {
+        await client.rpc('pgmq_archive_queue_message', {
+          queue_name: 'thought_processing',
+          msg_id: msg.msg_id,
+        });
+      }
     });
 
     it('thought insert enqueues to thought_processing', async () => {
