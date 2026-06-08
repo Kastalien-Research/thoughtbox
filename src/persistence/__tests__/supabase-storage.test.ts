@@ -17,6 +17,8 @@ import {
   isSupabaseAvailable,
   getTestSupabaseConfig,
   truncateAllTables,
+  ensureTestWorkspace,
+  TEST_WORKSPACE_ID,
 } from '../../__tests__/supabase-test-helpers.js';
 import type { ThoughtData } from '../types.js';
 
@@ -43,9 +45,11 @@ describe('SupabaseStorage (ThoughtboxStorage)', () => {
   beforeEach(async () => {
     if (!available) return;
     await truncateAllTables();
+    // Seed the workspace row the sessions FK depends on (truncate may clear it).
+    await ensureTestWorkspace();
     storage = new SupabaseStorage({
       ...getTestSupabaseConfig(),
-      workspaceId: '11111111-1111-1111-1111-111111111111',
+      workspaceId: TEST_WORKSPACE_ID,
     });
     await storage.initialize();
   });

@@ -85,6 +85,10 @@ enabled = true
 # The maximum file size allowed (e.g. "5MB", "500KB").
 file_size_limit = "50MiB"
 
+# Peer-notebook artifact payloads (see src/peer-notebook). Private bucket.
+[storage.buckets.peer-artifacts]
+public = false
+
 # Image transformation API is available to Supabase Pro plan.
 # [storage.image_transformation]
 # enabled = true
@@ -276,6 +280,13 @@ enabled = true
 verify_jwt = false
 import_map = "./functions/process-thought-queue/deno.json"
 entrypoint = "./functions/process-thought-queue/index.ts"
+
+# Branch toolhost worker. Uses its own signed token (not Supabase JWT).
+[functions.tb-branch]
+enabled = true
+verify_jwt = false
+import_map = "./functions/tb-branch/deno.json"
+entrypoint = "./functions/tb-branch/index.ts"
 
 [analytics]
 enabled = true
