@@ -2,10 +2,6 @@
 
 What runs where, and the three host constraints that will bite if ignored. Sourced from the Codespaces capability research (2026-06-06).
 
-## ⚠️ Run from a throwaway clone, not your working repo (observed hazard)
-
-In practice, the build/gate agents' git operations **move the primary checkout's HEAD** (every local run so far yanked the working tree to `main`, off the launch branch). It's harmless on an ephemeral Codespace, but on a local machine it repeatedly corrupts your working tree. **Mitigation:** run the tournament from a dedicated clone or worktree of the repo, never your active checkout. After any run, verify `git branch --show-current` and `git checkout <your-branch>` if it moved. Also: the `args` channel to the workflow proved unreliable — set `N`/`BASE`/`waveSize` by editing the workflow file, not via args.
-
 ## The 16-core box: what it gives and what it costs
 
 - **16 cores / 64 GB RAM / 128 GB disk.** Disk is a hard cap — not expandable. $1.44/hr compute.
