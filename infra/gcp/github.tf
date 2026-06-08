@@ -17,7 +17,9 @@ resource "github_branch_protection" "main" {
   }
 
   required_status_checks {
-    strict   = true
-    contexts = ["ci", "workflow-guard"]
+    strict = true
+    # Job names (not workflow names) are the status contexts. The deprecated
+    # governance-deletion guard was removed; Test Suite is the gating check.
+    contexts = ["Test Suite"]
   }
 }

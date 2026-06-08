@@ -9,7 +9,7 @@ Every unit of work runs through a mandatory skill. Two additional protocols acti
 
 ### Mandatory Skills
 
-**`workflow`** — Full development lifecycle from ideation through merge. Stage 2 produces or updates `.specs/` markdown with YAML frontmatter claims (not ADRs). PR claims reference specs as `spec_id:claim_id` in `prs/<branch>.json`.
+**`workflow`** — Full development lifecycle from ideation through merge. Stage 2 produces or updates `.specs/` markdown with YAML frontmatter claims (not ADRs).
 
 Read `.claude/skills/workflow/SKILL.md` for multi-stage feature work. For architectural decisions, update the relevant spec with frontmatter claims and an acceptance/evidence plan before implementation.
 
@@ -220,6 +220,6 @@ Before ending implementation work:
 - `src/cli/` lives in the server repo but represents a collapsed CLI/server artifact boundary the user wants separated.
 - Default Supabase investigation target is the linked Supabase project unless the user specifies otherwise.
 - Local docker-compose may omit Supabase env vars, causing MCP session setup to fail when branch handlers require `SUPABASE_URL`.
-- ADR/HDD coupling is concentrated in agent/governance surfaces and PR validation (`pnpm validate:pr` resolving PR claims to ADR JSON); runtime code is lightly coupled.
+- ADR/HDD coupling is concentrated in agent/governance surfaces; runtime code is lightly coupled. (The machine-readable `prs/<branch>.json` PR-validation system has been removed.)
 - `src/http/cli-routes.ts` currently backs `thoughtbox init`/`thoughtbox doctor` and contains setup/diagnostic orchestration beyond a narrow HTTP adapter role.
 - The Aspirational Systems Audit lives at `docs/aspirational-systems-audit.md` (a read-only report, not a claim-bearing `.specs/` authority) and classifies claims by current wiring evidence.
