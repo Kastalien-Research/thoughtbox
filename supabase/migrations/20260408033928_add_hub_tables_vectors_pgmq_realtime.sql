@@ -4,7 +4,10 @@
 -- 1. Enable extensions required for queue processing and scheduled worker invocation.
 CREATE EXTENSION IF NOT EXISTS pgmq;
 CREATE EXTENSION IF NOT EXISTS pg_cron;
-CREATE EXTENSION IF NOT EXISTS pg_net;
+-- pg_net is relocatable; under the empty search_path the CLI uses when applying
+-- migrations, a bare CREATE fails ("no schema selected"). Pin it to extensions
+-- (matches the canonical form in 20260409232440_remote_schema.sql).
+CREATE EXTENSION IF NOT EXISTS pg_net WITH SCHEMA extensions;
 
 -- 2. pgmq queues for intelligence pipeline.
 SELECT FROM pgmq.create('thought_processing');
