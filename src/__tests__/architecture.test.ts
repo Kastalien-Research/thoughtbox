@@ -34,6 +34,7 @@ describe('architectural constraints', () => {
       'protocol/handler.ts',      // thoughtbox-kcv: needs ProtocolStorage interface
       'auth/api-key.ts',          // uses SupabaseClient for API key validation
       'auth/static-workspace.ts', // upserts workspace rows for static key auth
+      'branch/handlers.ts',       // tb-branch handlers: need a BranchStorage interface
     ]);
 
     const allowed = (file: string): boolean => {
