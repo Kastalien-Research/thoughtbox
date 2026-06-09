@@ -77,17 +77,18 @@ export class ProtocolHandler {
     protocol: Protocol,
     workspaceId: string | null = this.workspaceId,
   ): Promise<ProtocolSession | null> {
-    let query = this.client
+    // Fail closed: without a workspace scope, never run an unscoped query that
+    // could return another tenant's session.
+    if (!workspaceId) return null;
+
+    const query = this.client
       .from('protocol_sessions')
       .select('*')
       .eq('protocol', protocol)
       .eq('status', 'active')
+      .eq('workspace_id', workspaceId)
       .order('created_at', { ascending: false })
       .limit(1);
-
-    if (workspaceId) {
-      query = query.eq('workspace_id', workspaceId);
-    }
 
     const { data, error } = await query.single();
 
