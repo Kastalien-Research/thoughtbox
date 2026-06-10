@@ -56,7 +56,6 @@
     "improvement-loop:dry": "tsx scripts/agents/run-improvement-loop.ts --dry-run --verbose",
     "improvement-loop:verbose": "tsx scripts/agents/run-improvement-loop.ts --verbose",
     "check:event-types": "tsx scripts/check-event-type-parity.ts",
-    "validate:pr": "tsx scripts/validate-pr-description.ts",
     "test:behavioral": "tsx scripts/agents/test-behavioral-contracts.ts",
     "test:behavioral:variance": "tsx scripts/agents/test-behavioral-contracts.ts --variance-only",
     "check:lint": "oxlint -c oxlint.json src/",

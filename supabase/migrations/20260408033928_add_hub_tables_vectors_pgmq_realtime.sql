@@ -4,7 +4,7 @@
 -- 1. Enable extensions required for queue processing and scheduled worker invocation.
 CREATE EXTENSION IF NOT EXISTS pgmq;
 CREATE EXTENSION IF NOT EXISTS pg_cron;
-CREATE EXTENSION IF NOT EXISTS pg_net;
+CREATE EXTENSION IF NOT EXISTS pg_net WITH SCHEMA extensions;
 
 -- 2. pgmq queues for intelligence pipeline.
 SELECT FROM pgmq.create('thought_processing');
