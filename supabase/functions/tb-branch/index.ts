@@ -121,9 +121,13 @@ async function parseBranchContext(url: URL): Promise<BranchContext> {
     throw new HttpError(401, "Invalid token");
   }
 
-  const secret = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  // Dedicated signing secret shared with the main MCP server. The hosted Edge
+  // runtime injects its own SUPABASE_SERVICE_ROLE_KEY value (not the dashboard
+  // key the server holds), so the service role key cannot verify server-minted
+  // tokens. Set via: supabase secrets set TB_BRANCH_SIGNING_SECRET=...
+  const secret = Deno.env.get("TB_BRANCH_SIGNING_SECRET");
   if (!secret) {
-    throw new HttpError(500, "Missing SUPABASE_SERVICE_ROLE_KEY");
+    throw new HttpError(500, "Missing TB_BRANCH_SIGNING_SECRET");
   }
 
   const expectedSignature = await signTokenSegment(payloadSegment, secret);

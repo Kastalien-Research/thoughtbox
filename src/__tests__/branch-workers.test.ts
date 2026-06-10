@@ -8,6 +8,7 @@ import {
   isSupabaseAvailable,
   SUPABASE_TEST_SERVICE_ROLE_KEY,
   SUPABASE_TEST_URL,
+  TB_BRANCH_TEST_SIGNING_SECRET,
   TEST_WORKSPACE_ID,
 } from './supabase-test-helpers.js';
 
@@ -21,7 +22,7 @@ type BranchTokenPayload = {
 
 function signBranchToken(payload: BranchTokenPayload): string {
   const encodedPayload = Buffer.from(JSON.stringify(payload)).toString('base64url');
-  const signature = createHmac('sha256', SUPABASE_TEST_SERVICE_ROLE_KEY)
+  const signature = createHmac('sha256', TB_BRANCH_TEST_SIGNING_SECRET)
     .update(encodedPayload)
     .digest('base64url');
   return `${encodedPayload}.${signature}`;
@@ -100,6 +101,7 @@ describe('Branch workers', () => {
     const handlers = new BranchHandlers({
       supabaseUrl: SUPABASE_TEST_URL,
       serviceRoleKey: SUPABASE_TEST_SERVICE_ROLE_KEY,
+      signingSecret: TB_BRANCH_TEST_SIGNING_SECRET,
       workspaceId: TEST_WORKSPACE_ID,
     });
 
@@ -199,6 +201,7 @@ describe('Branch workers', () => {
     const handlers = new BranchHandlers({
       supabaseUrl: SUPABASE_TEST_URL,
       serviceRoleKey: SUPABASE_TEST_SERVICE_ROLE_KEY,
+      signingSecret: TB_BRANCH_TEST_SIGNING_SECRET,
       workspaceId: TEST_WORKSPACE_ID,
     });
 
