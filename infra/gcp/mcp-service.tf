@@ -11,6 +11,10 @@
 # (SPEC-V1-INITIATIVE:c4 / c16): transport sessions live in an in-process Map
 # and session affinity is only best-effort.
 
+data "google_project" "current" {
+  project_id = var.project_id
+}
+
 resource "google_cloud_run_v2_service" "thoughtbox_mcp" {
   name     = "thoughtbox-mcp"
   location = var.region
@@ -84,20 +88,21 @@ resource "google_cloud_run_v2_service" "thoughtbox_mcp" {
       }
 
       dynamic "env" {
-        for_each = toset([
-          { name = "SUPABASE_URL", secret = "supabase-url" },
-          { name = "SUPABASE_ANON_KEY", secret = "supabase-anon-key" },
-          { name = "SUPABASE_JWT_SECRET", secret = "supabase-jwt-secret" },
-          { name = "SUPABASE_SERVICE_ROLE_KEY", secret = "supabase-service-role-key" },
-          { name = "OAUTH_JWT_SECRET", secret = "oauth-jwt-secret" },
-          { name = "LANGSMITH_API_KEY", secret = "langsmith-api-key" },
-          { name = "TB_BRANCH_SIGNING_SECRET", secret = "tb-branch-signing-secret" },
-        ])
+        # Stable keys (env var name -> secret name); iterated in sorted-key order.
+        for_each = {
+          LANGSMITH_API_KEY         = "langsmith-api-key"
+          OAUTH_JWT_SECRET          = "oauth-jwt-secret"
+          SUPABASE_ANON_KEY         = "supabase-anon-key"
+          SUPABASE_JWT_SECRET       = "supabase-jwt-secret"
+          SUPABASE_SERVICE_ROLE_KEY = "supabase-service-role-key"
+          SUPABASE_URL              = "supabase-url"
+          TB_BRANCH_SIGNING_SECRET  = "tb-branch-signing-secret"
+        }
         content {
-          name = env.value.name
+          name = env.key
           value_source {
             secret_key_ref {
-              secret  = env.value.secret
+              secret  = env.value
               version = "latest"
             }
           }
@@ -161,17 +166,23 @@ resource "google_cloudbuild_trigger" "mcp_deploy" {
     }
   }
 
-  service_account    = "projects/${var.project_id}/serviceAccounts/272720136470-compute@developer.gserviceaccount.com"
+  # Default compute SA, as configured by the console-created trigger. Moving to
+  # the purpose-built build_system SA (iam.tf) is tracked as a separate
+  # least-privilege unit — it needs AR/run.developer/SA-user bindings and a
+  # tested rollout of the deploy pipeline.
+  service_account    = "projects/${var.project_id}/serviceAccounts/${data.google_project.current.number}-compute@developer.gserviceaccount.com"
   include_build_logs = "INCLUDE_BUILD_LOGS_WITH_STATUS"
 
   substitutions = {
-    _AR_HOSTNAME   = "us-central1-docker.pkg.dev"
-    _AR_PROJECT_ID = "thoughtbox-480620"
+    _AR_HOSTNAME   = "${var.region}-docker.pkg.dev"
+    _AR_PROJECT_ID = var.project_id
     _AR_REPOSITORY = "cloud-run-source-deploy"
-    _DEPLOY_REGION = "us-central1"
+    _DEPLOY_REGION = var.region
     _PLATFORM      = "managed"
     _SERVICE_NAME  = "thoughtbox-mcp"
-    _TRIGGER_ID    = "cc2a7995-6738-4865-a7df-4fc8bdc366e1"
+    # Self-referential (the trigger's own ID); cannot reference the resource's
+    # computed trigger_id without a cycle.
+    _TRIGGER_ID = "cc2a7995-6738-4865-a7df-4fc8bdc366e1"
   }
 
   tags = [
