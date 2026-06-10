@@ -50,7 +50,7 @@ Thin MCP Lite server. ~100 lines. Deployed once, parameterized per invocation.
 - `branch_status` — read this branch's metadata (thought count, status)
 - `branch_read` — read this branch's thoughts
 
-**Auth:** HMAC-signed URL token. Main MCP signs `{ session_id, branch_id, workspace_id, branch_from_thought, expires_at }` using `SUPABASE_SERVICE_ROLE_KEY`. Edge function verifies signature, extracts context.
+**Auth:** HMAC-signed URL token. Main MCP signs `{ session_id, branch_id, workspace_id, branch_from_thought, expires_at }` using `TB_BRANCH_SIGNING_SECRET`, a dedicated secret set identically on the server (env) and the Edge Function (`supabase secrets set`). The Edge function verifies the signature and extracts context. The service role key cannot be the signing secret: the hosted Edge runtime injects its own `SUPABASE_SERVICE_ROLE_KEY` value, which does not match the dashboard key the server holds (verified 2026-06-10 — server-minted tokens were rejected with "Invalid token signature" on both prod and staging).
 
 **DB access:** `supabase-js` with `SUPABASE_SERVICE_ROLE_KEY` (auto-available in edge functions).
 

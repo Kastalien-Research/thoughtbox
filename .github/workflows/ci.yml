@@ -88,6 +88,12 @@ jobs:
         with:
           version: 2.84.2
 
+      - name: Seed edge function env
+        # tb-branch verifies worker tokens with TB_BRANCH_SIGNING_SECRET; the
+        # local edge runtime loads supabase/functions/.env. Must match
+        # TB_BRANCH_TEST_SIGNING_SECRET in src/__tests__/supabase-test-helpers.ts.
+        run: echo "TB_BRANCH_SIGNING_SECRET=local-dev-branch-signing-secret" > supabase/functions/.env
+
       - name: Start local Supabase
         # storage-api + edge-runtime are included (not in -x): the peer-notebook
         # tests need Storage and the intelligence-pipeline/branch-workers tests

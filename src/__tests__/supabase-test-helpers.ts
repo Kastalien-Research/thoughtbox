@@ -29,6 +29,14 @@ export const SUPABASE_TEST_DB_URL =
   'postgresql://postgres:postgres@127.0.0.1:54322/postgres';
 
 /**
+ * Shared HMAC secret for tb-branch worker tokens. The local edge runtime must
+ * receive the same value via supabase/functions/.env (TB_BRANCH_SIGNING_SECRET);
+ * CI writes that file before `supabase start`.
+ */
+export const TB_BRANCH_TEST_SIGNING_SECRET =
+  process.env.TB_BRANCH_SIGNING_SECRET || 'local-dev-branch-signing-secret';
+
+/**
  * Create a service_role client for setup/teardown operations.
  * Bypasses RLS policies.
  */
