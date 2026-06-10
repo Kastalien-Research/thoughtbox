@@ -25,10 +25,10 @@ claims:
     behavioral: false
     required_evidence: Terraform sets max_instance_count = 1 with a comment referencing c16.
   - id: c5
-    statement: A staging-to-prod Supabase migration pipeline exists — PRs apply migrations to staging; merge to main applies them to production through a gated GitHub Actions workflow; no migrations reach prod outside this path.
+    statement: A staging-to-prod Supabase migration pipeline exists — PRs apply migrations to staging; merging to main (the gate is PR review) applies them to production via the Supabase branching integration; CI monitors prod branch health and ledger-vs-files drift and fails loudly; no migrations reach prod outside this path.
     type: governance
     behavioral: true
-    required_evidence: A migration merged via PR appears in the prod ledger via the workflow run, with the approval gate exercised.
+    required_evidence: A migration merged via PR appears in the prod ledger via a green branching-integration run, and the prod-migration-health workflow passes (and demonstrably fails on injected drift or an unhealthy branch).
   - id: c6
     statement: Observability operations return isError on missing configuration instead of soft success, and the health operation reports per-component status from real probes.
     type: behavioral
@@ -144,7 +144,15 @@ Each numbered item is one unit of work: one branch, one PR, conventional commits
 
 ### Phase 2 — Supabase staging → prod pipeline
 
-- **2.1 Prod promotion workflow.** Keep `staging-deploy.yml` (PR → staging). Add `prod-deploy.yml`: on merge to main touching `supabase/migrations/**`, apply to prod via `supabase db push` against `akjccuoncxlvrrtkvtno` using a GitHub Environment with required approval. Document that local checkouts stay linked to staging by design. Add a drift check job (prod ledger vs repo) to CI so re-stamping regressions surface immediately. → **c5**
+> Amended 2026-06-10 after Phase 0.2: discovery showed the Supabase branching
+> GitHub integration already applies migrations and deploys Edge Functions to
+> prod on every push to main (confirmed by a green run once the ledger was
+> repaired). A second applier (`prod-deploy.yml`) would double-apply, so the
+> pipeline is documented rather than rebuilt, and the missing piece — loud
+> failure detection — is added instead.
+
+- **2.1 The pipeline (existing, now documented).** PR touching `supabase/migrations/**` → `staging-deploy.yml` applies to staging (`db push --include-all`) → PR review/merge is the gate → on push to main, the Supabase branching integration applies pending migrations to prod and deploys Edge Functions from the repo. Local checkouts stay linked to staging by design; nothing applies to prod from a laptop. → **c5**
+- **2.2 Prod migration health workflow.** `.github/workflows/prod-migration-health.yml` (daily schedule + post-merge + manual): fails loudly when the prod default branch is not healthy (the silent-MIGRATIONS_FAILED failure mode of Phase 0.2) or when prod's applied versions drift from the migration files on main (the re-stamping failure mode). Uses the Management API with the existing `SUPABASE_ACCESS_TOKEN` secret. → **c5**
 
 ### Phase 3 — Honesty fixes (small independent PRs)
 
