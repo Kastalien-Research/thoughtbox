@@ -33,6 +33,13 @@ function encodeBranchWorkerToken(
 export interface BranchHandlerDeps {
   supabaseUrl: string;
   serviceRoleKey: string;
+  /**
+   * Dedicated HMAC secret shared with the tb-branch Edge Function
+   * (TB_BRANCH_SIGNING_SECRET). The service role key cannot be used for
+   * signing: the hosted Edge runtime injects its own SUPABASE_SERVICE_ROLE_KEY
+   * value, which does not match the key this server holds.
+   */
+  signingSecret: string;
   workspaceId: string;
 }
 
@@ -40,12 +47,12 @@ export class BranchHandlers {
   private client: SupabaseClient;
   private supabaseUrl: string;
   private workspaceId: string;
-  private serviceRoleKey: string;
+  private signingSecret: string;
 
   constructor(deps: BranchHandlerDeps) {
     this.supabaseUrl = deps.supabaseUrl;
     this.workspaceId = deps.workspaceId;
-    this.serviceRoleKey = deps.serviceRoleKey;
+    this.signingSecret = deps.signingSecret;
     this.client = createClient(deps.supabaseUrl, deps.serviceRoleKey, {
       auth: { persistSession: false, autoRefreshToken: false },
     });
@@ -112,7 +119,7 @@ export class BranchHandlers {
         branch_from_thought: branchFromThought,
         expires_at: new Date(Date.now() + BRANCH_WORKER_TOKEN_TTL_MS).toISOString(),
       },
-      this.serviceRoleKey
+      this.signingSecret
     );
     const workerUrl =
       `${supabaseUrl}/functions/v1/tb-branch/mcp` +

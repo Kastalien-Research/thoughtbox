@@ -557,13 +557,27 @@ Use \`console.log()\` for debugging — output captured in response logs.`;
   // only wired when Supabase credentials are present. In local/self-hosted
   // mode it is left undefined; `tb.branch.*` then returns a clear "hosted
   // mode" error instead of crashing session setup on a missing SUPABASE_URL.
+  //
+  // TB_BRANCH_SIGNING_SECRET is the dedicated HMAC secret shared with the
+  // tb-branch Edge Function. The service role key cannot serve as the signing
+  // secret: the hosted Edge runtime injects its own SUPABASE_SERVICE_ROLE_KEY
+  // value, which does not match the key this server holds.
   const branchSupabaseUrl = process.env.SUPABASE_URL;
   const branchServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const branchSigningSecret = process.env.TB_BRANCH_SIGNING_SECRET;
+  if (branchSupabaseUrl && branchServiceKey && !branchSigningSecret) {
+    console.error(
+      "[branch] Supabase credentials present but TB_BRANCH_SIGNING_SECRET is not set; " +
+        "tb.branch.* is disabled. Set the same secret on this server and the " +
+        "tb-branch Edge Function (supabase secrets set TB_BRANCH_SIGNING_SECRET=...)."
+    );
+  }
   const branchHandler =
-    branchSupabaseUrl && branchServiceKey
+    branchSupabaseUrl && branchServiceKey && branchSigningSecret
       ? new BranchHandler({
           supabaseUrl: branchSupabaseUrl,
           serviceRoleKey: branchServiceKey,
+          signingSecret: branchSigningSecret,
           workspaceId: args.workspaceId ?? "default",
         })
       : undefined;
