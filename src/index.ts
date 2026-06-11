@@ -24,6 +24,7 @@ import { createFileSystemHubStorage } from "./hub/hub-storage-fs.js";
 import type { HubStorage } from "./hub/hub-types.js";
 import { initEvaluation, initMonitoring } from "./evaluation/index.js";
 import { createHubHandler, type HubEvent } from "./hub/hub-handler.js";
+import { createThoughtStoreAdapter } from "./hub/thought-store-adapter.js";
 import { createHubApiSurface, shouldWarnOnExposedLocalMode } from "./http/hub-http.js";
 import { createEventStreamSurface } from "./http/event-stream.js";
 import type { ThoughtboxEvent } from "./events/types.js";
@@ -191,6 +192,19 @@ async function startHttpServer() {
       "[Security] Local/singleton mode is bound to 0.0.0.0. Hub HTTP endpoints and local storage are not workspace-isolated; do not expose this server to untrusted users.",
     );
   }
+
+  // Unified event stream — carries both Hub and Protocol events via SSE
+  // (mounted in local mode only, below)
+  const eventStream = createEventStreamSurface();
+  const broadcastHubEvent = (event: HubEvent) => {
+    eventStream.broadcast({
+      source: 'hub',
+      type: event.type,
+      workspaceId: event.workspaceId,
+      timestamp: new Date().toISOString(),
+      data: event.data,
+    });
+  };
 
   // ---------------------------------------------------------------------------
   // OAuth 2.1 — mount auth router (discovery, registration, token, revoke)
@@ -389,6 +403,7 @@ async function startHttpServer() {
         workspaceId: localWorkspaceId,
         onProtocolHandlerReady: (handler) => { localProtocolHandler = handler; },
         onProtocolEvent: (event) => eventStream.broadcast(event),
+        onHubEvent: broadcastHubEvent,
         config: {
           disableThoughtLogging:
             (process.env.DISABLE_THOUGHT_LOGGING || "").toLowerCase() === "true",
@@ -448,51 +463,6 @@ async function startHttpServer() {
   // Hub Event SSE Endpoint — pushes HubEvents to Channel subscribers
   // ---------------------------------------------------------------------------
 
-  // Minimal thought store for the shared hub-handler (hub operations that
-  // create sessions/thoughts use this; most Channel operations don't need it)
-  const sharedThoughtStore = {
-    sessions: new Map<string, Map<number, unknown>>(),
-    async createSession(sessionId: string) {
-      this.sessions.set(sessionId, new Map());
-    },
-    async saveThought(sessionId: string, thought: any) {
-      if (!this.sessions.has(sessionId)) this.sessions.set(sessionId, new Map());
-      this.sessions.get(sessionId)!.set(thought.thoughtNumber, thought);
-    },
-    async getThought(sessionId: string, thoughtNumber: number) {
-      return this.sessions.get(sessionId)?.get(thoughtNumber) ?? null;
-    },
-    async getThoughts(sessionId: string) {
-      const session = this.sessions.get(sessionId);
-      if (!session) return [];
-      return [...session.values()];
-    },
-    async getThoughtCount(sessionId: string) {
-      return this.sessions.get(sessionId)?.size ?? 0;
-    },
-    async saveBranchThought(_sessionId: string, _branchId: string, _thought: any) {},
-    async getBranch(_sessionId: string, _branchId: string) { return []; },
-  };
-
-  // Unified event stream — carries both Hub and Protocol events via SSE
-  const eventStream = createEventStreamSurface();
-
-  const hubHandler = createHubHandler(
-    hubStorage,
-    sharedThoughtStore,
-    (event: HubEvent) => {
-      eventStream.broadcast({
-        source: 'hub',
-        type: event.type,
-        workspaceId: event.workspaceId,
-        timestamp: new Date().toISOString(),
-        data: event.data,
-      });
-    },
-  );
-
-  const hubApiSurface = createHubApiSurface(hubHandler);
-
   const protocolHttpSurface = createProtocolHttpSurface(() => {
     for (const entry of sessions.values()) {
       if (entry.protocolHandler) return entry.protocolHandler;
@@ -500,7 +470,21 @@ async function startHttpServer() {
     return null;
   });
 
+  // Local-mode hub HTTP surface (`POST /hub/api`). Its thought store
+  // delegates to real filesystem session storage scoped to the local
+  // workspace — the same project MCP sessions write to — so hub-created
+  // sessions and merge_proposal synthesis thoughts genuinely persist.
   if (!isMultiTenant) {
+    const hubApiStorage = factory.getStorage();
+    await hubApiStorage.setProject(await ensureStaticWorkspace('local-dev'));
+
+    const hubHandler = createHubHandler(
+      hubStorage,
+      createThoughtStoreAdapter(hubApiStorage),
+      broadcastHubEvent,
+    );
+    const hubApiSurface = createHubApiSurface(hubHandler);
+
     eventStream.mount(app);
     hubApiSurface.mount(app);
     protocolHttpSurface.mount(app);

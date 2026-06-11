@@ -88,7 +88,7 @@ When participating in an Agent Team, bootstrap Thoughtbox as your reasoning subs
 1. **Load the cipher**: read the `thoughtbox://cipher` MCP resource (reasoning-pattern shorthand, includes the multi-agent extension).
 2. **Begin work** — record decisions as thoughts via `tb.thought` inside `thoughtbox_execute`.
 
-Hub coordination (workspaces, problems, proposals, channels) is implemented but not yet exposed over MCP: `tb.hub.*` arrives with SPEC-V1-INITIATIVE Phase 4.1. Until then the hub is reachable only via the local-mode HTTP surface (`POST /hub/api`), and the spawn-prompt templates in `.claude/team-prompts/` cannot be executed as written — they are rewritten in Phase 4.5.
+Hub coordination (workspaces, problems, proposals, channels) is exposed over MCP as `tb.hub.*` inside `thoughtbox_execute` (SPEC-V1-INITIATIVE Phase 4.1). Call `tb.hub.register({ name })` or `tb.hub.quickJoin({ name, workspaceId })` once — the returned agentId is then implicit for the rest of the session. The local-mode HTTP surface (`POST /hub/api`) remains for non-MCP clients. The spawn-prompt templates in `.claude/team-prompts/` still use the legacy `thoughtbox_hub` syntax — they are rewritten in Phase 4.5.
 
 ### What to Record as Thoughts
 - Key decisions and their reasoning

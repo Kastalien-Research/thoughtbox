@@ -14,6 +14,7 @@ describe("thoughtbox_search", () => {
     expect(output.error).toBeUndefined();
     expect(output.result).toEqual([
       "branch",
+      "hub",
       "knowledge",
       "notebook",
       "observability",
@@ -22,6 +23,19 @@ describe("thoughtbox_search", () => {
       "thought",
       "ulysses",
     ]);
+  });
+
+  it("hub operations are discoverable in the catalog", async () => {
+    const result = await tool.handle({
+      code: "async () => Object.keys(catalog.operations.hub).sort()",
+    });
+    const output = JSON.parse(result.content[0].text);
+    expect(output.error).toBeUndefined();
+    expect(output.result).toHaveLength(28);
+    expect(output.result).toContain("register");
+    expect(output.result).toContain("create_workspace");
+    expect(output.result).toContain("merge_proposal");
+    expect(output.result).toContain("workspace_digest");
   });
 
   it("filters operations by module", async () => {
