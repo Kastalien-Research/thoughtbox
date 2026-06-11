@@ -99,7 +99,7 @@ export class InMemoryNotebookEngineRuntime {
             mode: parsedMode,
             reason:
               `Verdict derivation for mode "${parsedMode}" is not implemented; ` +
-              `only "runbook" runs execute today. Use notebook_execute_cell ` +
+              `only "runbook" runs execute today. Use notebook_run_cell ` +
               `and notebook_validate for cell-level evidence in other modes.`,
           }),
         );
@@ -119,15 +119,38 @@ export class InMemoryNotebookEngineRuntime {
       };
       this.runs.set(runId, running);
 
-      const evidence = yield* Effect.tryPromise({
-        try: () => this.executeNotebook(input.notebookId),
-        catch: (cause) =>
-          new InvalidNotebookShape({
-            reason: `Notebook execution failed: ${cause instanceof Error ? cause.message : String(cause)}`,
-          }),
-      }).pipe(
-        Effect.tapError(() =>
+      // Everything between marking the run running and marking it completed
+      // shares one error handler: any failure (execution or artifact
+      // persistence) must transition the run to FailedRun — a run may never
+      // be left in RunningRun forever.
+      const runBody = Effect.gen(this, function* () {
+        const evidence = yield* Effect.tryPromise({
+          try: () => this.executeNotebook(input.notebookId),
+          catch: (cause) =>
+            new InvalidNotebookShape({
+              reason: `Notebook execution failed: ${cause instanceof Error ? cause.message : String(cause)}`,
+            }),
+        });
+        const inputsArtifact = yield* this.putArtifact(
+          `${runId}-inputs.json`,
+          "application/json",
+          JSON.stringify(input.inputs ?? {}, null, 2),
+        );
+        const evidenceArtifact = yield* this.putArtifact(
+          `${runId}-cell-results.json`,
+          "application/json",
+          JSON.stringify(evidence, null, 2),
+        );
+        return { evidence, inputsArtifact, evidenceArtifact };
+      });
+
+      const { evidence, inputsArtifact, evidenceArtifact } = yield* runBody.pipe(
+        Effect.tapError((error) =>
           Effect.sync(() => {
+            const detail =
+              error._tag === "ArtifactTooLarge"
+                ? `run artifact too large: ${error.sizeBytes} bytes (max ${error.maxBytes})`
+                : error.reason;
             const failed: NotebookRun = {
               _tag: "FailedRun",
               runId,
@@ -137,22 +160,11 @@ export class InMemoryNotebookEngineRuntime {
               createdAt,
               startedAt,
               completedAt: new Date().toISOString(),
-              error: "notebook execution failed before producing a verdict",
+              error: detail,
             };
             this.runs.set(runId, failed);
           }),
         ),
-      );
-
-      const inputsArtifact = yield* this.putArtifact(
-        `${runId}-inputs.json`,
-        "application/json",
-        JSON.stringify(input.inputs ?? {}, null, 2),
-      );
-      const evidenceArtifact = yield* this.putArtifact(
-        `${runId}-cell-results.json`,
-        "application/json",
-        JSON.stringify(evidence, null, 2),
       );
 
       const completedAt = new Date().toISOString();

@@ -49,12 +49,12 @@ export class NotebookHandler {
       throw new Error(`Notebook ${notebookId} not found`);
     }
     const executable = notebook.cells.filter(
-      (cell: Cell) => cell.type === "code" || cell.type === "package.json",
+      (cell: Cell): cell is Extract<Cell, { type: "code" | "package.json" }> =>
+        cell.type === "code" || cell.type === "package.json",
     );
     const evidence: CellExecutionEvidence[] = [];
     let failed = false;
     for (const cell of executable) {
-      if (cell.type !== "code" && cell.type !== "package.json") continue;
       if (failed) {
         evidence.push({
           cellId: cell.id,

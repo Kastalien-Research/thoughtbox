@@ -245,6 +245,33 @@ describe("Notebook Evidence Engine runs", () => {
     });
   });
 
+  it("marks the run failed when artifact persistence fails — never stuck running", async () => {
+    // Evidence artifacts store full cell output; an oversized one fails
+    // putArtifact and must transition the run to FailedRun, not leave it
+    // in RunningRun forever.
+    const runtime = new InMemoryNotebookEngineRuntime(async () => [
+      {
+        cellId: "huge",
+        cellType: "code",
+        filename: "huge.js",
+        status: "completed",
+        exitCode: 0,
+        output: "x".repeat(1_100_000),
+        error: "",
+      },
+    ]);
+
+    await expect(
+      Effect.runPromise(runtime.startRun({ notebookId: "nb_huge", mode: "runbook" })),
+    ).rejects.toThrow();
+
+    const runs = runtime.listRuns("nb_huge");
+    expect(runs).toHaveLength(1);
+    const failedRun = runs[0] as Extract<(typeof runs)[number], { _tag: "FailedRun" }>;
+    expect(failedRun.status).toBe("failed");
+    expect(failedRun.error).toContain("too large");
+  });
+
   it("fails a blank notebook — dependency install alone cannot pass", async () => {
     // New notebooks always carry a default package.json cell; a successful
     // pnpm install with no code cells must not look like a verified runbook.
