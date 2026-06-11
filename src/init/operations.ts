@@ -29,10 +29,11 @@ export const INIT_NAVIGATION_STEPS: InitNavigationStep[] = [
       "Browse prior reasoning sessions by reading thoughtbox://init/continue. The response lists project URIs; append path segments to narrow to a project (thoughtbox://init/continue/{project}) and then a task (thoughtbox://init/continue/{project}/{task}). Sessions appear with title, thought count, and last-activity metadata. There is no callable list operation and no query filters — navigation is by URI path segments only. For a programmatic listing, use tb.session.list in thoughtbox_execute.",
     category: "navigation",
     kind: "resource-navigation",
-    uriTemplate: "thoughtbox://init/continue/{project}/{task}",
+    uriTemplate: "thoughtbox://init/continue",
     pathParams: {
-      project: "Optional. Project name taken from the project list response.",
-      task: "Optional. Task name taken from the task list response.",
+      project:
+        "Optional path segment appended after /continue (thoughtbox://init/continue/{project}). Project name taken from the project list response.",
+      task: "Optional path segment appended after /{project} (thoughtbox://init/continue/{project}/{task}). Task name taken from the task list response.",
     },
     exampleUri: "thoughtbox://init/continue",
   },

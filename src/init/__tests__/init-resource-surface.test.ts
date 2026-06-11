@@ -34,25 +34,28 @@ async function withInitTestClient(
 ): Promise<void> {
   const previousSupabaseUrl = process.env.SUPABASE_URL;
   const previousSupabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  process.env.SUPABASE_URL = "https://example.supabase.co";
-  process.env.SUPABASE_SERVICE_ROLE_KEY = "test-service-role-key";
-
-  const server = await createMcpServer({
-    storage: new InMemoryStorage(),
-    logger: silentLogger,
-  });
-  const client = new Client(
-    { name: "init-resource-test-client", version: "1.0.0" },
-    { capabilities: {} },
-  );
-  const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+  let server: Awaited<ReturnType<typeof createMcpServer>> | undefined;
+  let client: Client | undefined;
 
   try {
+    process.env.SUPABASE_URL = "https://example.supabase.co";
+    process.env.SUPABASE_SERVICE_ROLE_KEY = "test-service-role-key";
+
+    server = await createMcpServer({
+      storage: new InMemoryStorage(),
+      logger: silentLogger,
+    });
+    client = new Client(
+      { name: "init-resource-test-client", version: "1.0.0" },
+      { capabilities: {} },
+    );
+    const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+
     await server.connect(serverTransport);
     await client.connect(clientTransport);
     await run(client);
   } finally {
-    await Promise.allSettled([client.close(), server.close()]);
+    await Promise.allSettled([client?.close(), server?.close()]);
     restoreEnv("SUPABASE_URL", previousSupabaseUrl);
     restoreEnv("SUPABASE_SERVICE_ROLE_KEY", previousSupabaseServiceKey);
   }
