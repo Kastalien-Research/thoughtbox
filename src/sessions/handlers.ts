@@ -268,7 +268,9 @@ export class SessionHandlers {
     const { AnchorResolver } = await import("../references/anchor-resolver.js");
 
     const parser = new AnchorParser();
-    const resolver = new AnchorResolver(this.storage, this.loadAliases());
+    // SPEC-003 D3: project-level aliases come from the storage backend
+    const aliases = await this.storage.loadAliases();
+    const resolver = new AnchorResolver(this.storage, aliases);
 
     const allAnchors = new Map<number, any[]>();
 
@@ -295,15 +297,6 @@ export class SessionHandlers {
         anchors,
       })),
     };
-  }
-
-  /**
-   * SPEC-003 D3: Load project-level aliases
-   */
-  private loadAliases(): Record<string, string> | undefined {
-    // TODO: Load from .thoughtbox/aliases.json
-    // For now, return undefined (no aliases configured)
-    return undefined;
   }
 
   /**

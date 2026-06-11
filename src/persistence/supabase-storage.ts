@@ -120,6 +120,15 @@ export class SupabaseStorage implements ThoughtboxStorage {
     return this.config;
   }
 
+  /**
+   * SPEC-003 D3 defines aliases only as a project-local .thoughtbox/aliases.json
+   * file; no hosted alias storage is specified. No aliases exist on this
+   * backend, so resolution proceeds with tag/title strategies only.
+   */
+  async loadAliases(): Promise<Record<string, string> | undefined> {
+    return undefined;
+  }
+
   // ===========================================================================
   // Row Mapping
   // ===========================================================================

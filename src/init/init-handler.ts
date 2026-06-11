@@ -199,16 +199,6 @@ export class InitHandler implements IInitHandler {
     return this.index;
   }
 
-  /**
-   * Refresh handler with updated index
-   * (For incremental index updates after exports)
-   */
-  async refresh(): Promise<IInitHandler> {
-    // This would rebuild the index, but for now we just return self
-    // In production, this could trigger an index rebuild or incremental update
-    return this;
-  }
-
   // =========================================================================
   // Private Helpers
   // =========================================================================
