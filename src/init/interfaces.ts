@@ -284,12 +284,6 @@ export interface IInitHandler {
    * Get session index being used by this handler
    */
   getIndex(): SessionIndex;
-
-  /**
-   * Refresh index (useful after session exports)
-   * @returns Updated handler with fresh index
-   */
-  refresh?(): Promise<IInitHandler>;
 }
 
 // =============================================================================

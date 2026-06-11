@@ -126,6 +126,10 @@ export class FileSystemStorage implements ThoughtboxStorage {
     return path.join(this.getProjectDir(), 'sessions');
   }
 
+  private getAliasesPath(): string {
+    return path.join(this.getProjectDir(), 'aliases.json');
+  }
+
   private generatePartitionPath(): string {
     const now = new Date();
     switch (this.partitionGranularity) {
@@ -444,6 +448,56 @@ export class FileSystemStorage implements ThoughtboxStorage {
 
     await this.atomicWriteJson(this.getConfigPath(), this.config);
     return this.config;
+  }
+
+  /**
+   * Load project-level aliases from <projectDir>/aliases.json (SPEC-003 D3).
+   * Returns undefined when no aliases file exists. Throws when the file
+   * exists but is not a flat JSON object of string → string entries.
+   */
+  async loadAliases(): Promise<Record<string, string> | undefined> {
+    this.ensureScoped();
+    const aliasesPath = this.getAliasesPath();
+
+    let raw: string;
+    try {
+      raw = await fs.readFile(aliasesPath, 'utf-8');
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+        return undefined;
+      }
+      throw error;
+    }
+
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(raw);
+    } catch (error) {
+      throw new Error(
+        `Malformed aliases file at ${aliasesPath}: ${(error as Error).message}. ` +
+          `Expected a JSON object mapping alias keywords to session IDs.`
+      );
+    }
+
+    if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      throw new Error(
+        `Invalid aliases file at ${aliasesPath}: expected a JSON object ` +
+          `mapping alias keywords to session IDs.`
+      );
+    }
+
+    const aliases: Record<string, string> = {};
+    for (const [keyword, sessionId] of Object.entries(parsed)) {
+      if (typeof sessionId !== 'string') {
+        throw new Error(
+          `Invalid aliases file at ${aliasesPath}: alias "${keyword}" maps to ` +
+            `a ${typeof sessionId}, expected a session ID string.`
+        );
+      }
+      aliases[keyword] = sessionId;
+    }
+
+    return aliases;
   }
 
   // ===========================================================================

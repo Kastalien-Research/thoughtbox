@@ -27,7 +27,10 @@ export interface ResolvedAnchor {
   candidates: SessionCandidate[];
   selected?: {
     sessionId: string;
+    /** Thoughts referenced by the anchor, loaded from the resolved session */
     thoughts: Array<{ thoughtNumber: number; thought: string }>;
+    /** Referenced thought numbers that do not exist in the resolved session */
+    missingThoughtNumbers: number[];
   };
 }
 
@@ -90,10 +93,10 @@ export class AnchorResolver {
    * Build ResolvedAnchor from candidates
    * D5: Return candidates, client handles selection
    */
-  private buildResult(
+  private async buildResult(
     anchor: Anchor,
     candidates: SessionCandidate[]
-  ): ResolvedAnchor {
+  ): Promise<ResolvedAnchor> {
     // Filter by confidence threshold (D4)
     const qualified = candidates.filter((c) => c.confidence >= 0.60);
 
@@ -107,10 +110,7 @@ export class AnchorResolver {
         anchor,
         status: "resolved",
         candidates: qualified,
-        selected: {
-          sessionId: qualified[0].sessionId,
-          thoughts: [], // Client can fetch thoughts via resource template if needed
-        },
+        selected: await this.loadSelectedThoughts(anchor, qualified[0].sessionId),
       };
     }
 
@@ -120,6 +120,35 @@ export class AnchorResolver {
       status: "ambiguous",
       candidates: qualified,
     };
+  }
+
+  /**
+   * Load the thoughts the anchor references from the resolved session.
+   * Thought numbers absent from the session are reported in
+   * missingThoughtNumbers rather than silently dropped.
+   */
+  private async loadSelectedThoughts(
+    anchor: Anchor,
+    sessionId: string
+  ): Promise<NonNullable<ResolvedAnchor["selected"]>> {
+    const sessionThoughts = await this.storage.getThoughts(sessionId);
+    const byNumber = new Map(
+      sessionThoughts.map((t) => [t.thoughtNumber, t.thought])
+    );
+
+    const thoughts: Array<{ thoughtNumber: number; thought: string }> = [];
+    const missingThoughtNumbers: number[] = [];
+
+    for (const thoughtNumber of anchor.thoughtNumbers) {
+      const thought = byNumber.get(thoughtNumber);
+      if (thought === undefined) {
+        missingThoughtNumbers.push(thoughtNumber);
+      } else {
+        thoughts.push({ thoughtNumber, thought });
+      }
+    }
+
+    return { sessionId, thoughts, missingThoughtNumbers };
   }
 
   /**
