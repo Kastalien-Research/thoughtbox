@@ -20,10 +20,8 @@ import {
 } from "./persistence/index.js";
 import { SupabaseKnowledgeStorage } from "./knowledge/index.js";
 import type { KnowledgeStorage } from "./knowledge/types.js";
-import {
-  createFileSystemHubStorage,
-  createTenantHubStorageProvider,
-} from "./hub/hub-storage-fs.js";
+import { createFileSystemHubStorage } from "./hub/hub-storage-fs.js";
+import { createSupabaseHubStorageProvider } from "./hub/supabase-hub-storage.js";
 import type { HubStorage } from "./hub/hub-types.js";
 import { initEvaluation, initMonitoring } from "./evaluation/index.js";
 import { createHubHandler, type HubEvent } from "./hub/hub-handler.js";
@@ -174,11 +172,17 @@ async function startHttpServer() {
   const { factory, hubStorage, dataDir } = await createStorage();
   const isMultiTenant = process.env.THOUGHTBOX_STORAGE === "supabase";
 
-  // Multi-tenant hub isolation: each tenant workspace gets its own hub
-  // storage root, so tb.hub can never enumerate or read another tenant's
-  // workspaces/channels. The shared `hubStorage` is local-mode only.
-  // SupabaseHubStorage (Phase 4.3) replaces this with row-level scoping.
-  const tenantHubStorage = createTenantHubStorageProvider(dataDir);
+  // Multi-tenant hub isolation (Phase 4.3): each tenant workspace gets a
+  // SupabaseHubStorage scoped by tenant_workspace_id, so tb.hub can never
+  // enumerate or read another tenant's workspaces/channels and hub state
+  // survives Cloud Run container restarts. The shared `hubStorage` is
+  // local-mode only.
+  const tenantHubStorage = isMultiTenant
+    ? createSupabaseHubStorageProvider({
+        supabaseUrl: process.env.SUPABASE_URL!,
+        serviceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      })
+    : null;
 
   // Local-mode hub thought store: ONE storage instance shared by /hub/api
   // and every local MCP session's tb.hub dispatcher. Per-session
@@ -379,7 +383,7 @@ async function startHttpServer() {
           sessionId,
           storage,
           // Tenant-scoped: never the process-shared local hub storage.
-          hubStorage: tenantHubStorage(workspaceId),
+          hubStorage: tenantHubStorage!(workspaceId),
           dataDir,
           knowledgeStorage,
           workspaceId,

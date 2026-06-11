@@ -81,6 +81,30 @@ export function createInMemoryHubStorage(): HubStorage {
       if (!channels.has(channel.workspaceId)) channels.set(channel.workspaceId, new Map());
       channels.get(channel.workspaceId)!.set(channel.problemId, channel);
     },
+
+    // Append operations (concurrency-safe contracts; trivial in-memory)
+    async appendReview(workspaceId, proposalId, review) {
+      const proposal = proposals.get(workspaceId)?.get(proposalId);
+      if (!proposal) throw new Error(`Proposal not found: ${proposalId}`);
+      if (!proposal.reviews.some(r => r.id === review.id)) {
+        proposal.reviews.push(review);
+      }
+      proposal.status = 'reviewing';
+      proposal.updatedAt = new Date().toISOString();
+    },
+    async appendEndorsement(workspaceId, markerId, agentId) {
+      const marker = consensusMarkers.get(workspaceId)?.get(markerId);
+      if (!marker) throw new Error(`Consensus marker not found: ${markerId}`);
+      if (!marker.agreedBy.includes(agentId)) {
+        marker.agreedBy.push(agentId);
+      }
+    },
+    async appendMessage(workspaceId, problemId, message) {
+      const channel = channels.get(workspaceId)?.get(problemId);
+      if (!channel) throw new Error(`Channel not found for problem: ${problemId}`);
+      channel.messages.push(message);
+      return channel.messages.length;
+    },
   };
 }
 

@@ -60,6 +60,10 @@ Supported operations:
 | \`peer_get_invocation\` | Read invocation metadata |
 | \`peer_list_trace_events\` | Read broker/runtime trace events, including denied outbound calls |
 | \`peer_get_artifact\` | Read seeded or produced artifacts |
+| \`peer_manifest_create\` | Compile \`peer.manifest.json\` content into a draft manifest |
+| \`peer_manifest_approve\` | Approve a draft manifest (activates it; retires the previously active one) |
+| \`peer_manifest_reject\` | Reject a draft manifest |
+| \`peer_manifest_list\` | List manifest versions and statuses for a peer |
 
 ### Notebook Evidence Engine
 

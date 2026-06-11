@@ -218,6 +218,11 @@ export const STAGE_OPERATIONS: Record<DisclosureStage, HubOperation[]> = {
 /**
  * Storage operations needed by the hub layer.
  * Extends the existing ThoughtboxStorage with hub-specific persistence.
+ *
+ * Append-heavy children (reviews, endorsements, channel messages) have
+ * dedicated append operations so concurrent writers on different server
+ * instances never lose appends (SPEC-V1-INITIATIVE:c11). `save*` on the
+ * parent aggregates must not be used to append children.
  */
 export interface HubStorage {
   // Agent registry
@@ -240,14 +245,34 @@ export interface HubStorage {
   saveProposal(proposal: Proposal): Promise<void>;
   listProposals(workspaceId: string): Promise<Proposal[]>;
 
+  /**
+   * Appends a review to a proposal and transitions its status to
+   * 'reviewing'. Concurrency-safe: concurrent appends from different
+   * writers must all be retained.
+   */
+  appendReview(workspaceId: string, proposalId: string, review: Review): Promise<void>;
+
   // Consensus operations
   getConsensusMarker(workspaceId: string, markerId: string): Promise<ConsensusMarker | null>;
   saveConsensusMarker(marker: ConsensusMarker): Promise<void>;
   listConsensusMarkers(workspaceId: string): Promise<ConsensusMarker[]>;
 
+  /**
+   * Records an endorsement on a consensus marker. Idempotent per
+   * (markerId, agentId); concurrent endorsements must all be retained.
+   */
+  appendEndorsement(workspaceId: string, markerId: string, agentId: string): Promise<void>;
+
   // Channel operations
   getChannel(workspaceId: string, problemId: string): Promise<Channel | null>;
   saveChannel(channel: Channel): Promise<void>;
+
+  /**
+   * Appends a message to a problem's channel and returns the channel's
+   * message count after the append. Concurrent appends from different
+   * writers must all be retained. Throws if the channel does not exist.
+   */
+  appendMessage(workspaceId: string, problemId: string, message: ChannelMessage): Promise<number>;
 }
 
 // =============================================================================
