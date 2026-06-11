@@ -369,7 +369,8 @@ This runs in ~10 minutes vs ~30 minutes for the full audit.
 
 ## Lessons Incorporated
 
-- Sequential spawning, not parallel (hub-collab: identity overwrites on shared MCP connection)
+- Sequential spawning, not parallel (hub-collab: keeps ordering deterministic on the shared MCP connection)
+- Sub-agents pass their own explicit `agentId` in every `tb.hub.*` mutation (hub-collab: the FIRST registration in the shared session is the implicit default — agentId-less calls get attributed to the coordinator)
 - `subagent_type: "general-purpose"` always (deploy-team-hub: custom types lose ToolSearch)
 - ToolSearch in spawn prompts (Run 004: agents can't access MCP tools without it)
 - 90-second verification gate (deploy-team-hub: unverified agents waste the entire run)

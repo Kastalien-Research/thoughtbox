@@ -18,27 +18,31 @@ ToolSearch: "thoughtbox execute"
 ```
 
 ```js
-// 1. Register and join (once per session — agentId becomes implicit afterward)
+// 1. Register and join. Record the agentId from the result: you share the
+//    MCP session with the coordinator and other auditors, and the FIRST
+//    registration in the session is the implicit default identity. Pass
+//    YOUR agentId explicitly in every later tb.hub call, or your findings
+//    get attributed to another agent.
 async () => tb.hub.quickJoin({ name: "{{AUDITOR_NAME}}", workspaceId: "{{WORKSPACE_ID}}", profile: "RESEARCHER" })
 ```
 
+2. Read the `thoughtbox://cipher` MCP resource to load cipher notation.
+
 ```js
-// 2. Record your starting thought
+// 3. Record your starting thought
 async () => tb.thought({ thought: "Starting audit of {{PRINCIPLE_LIST}}", thoughtType: "reasoning", nextThoughtNeeded: true })
 ```
 
 ```js
-// 3. Announce on the first problem channel
-async () => tb.hub.postMessage({ workspaceId: "{{WORKSPACE_ID}}", problemId: "{{FIRST_PROBLEM_ID}}", content: "STATUS: STARTED | Auditing {{PRINCIPLE_LIST}}" })
+// 4. Announce on the first problem channel (agentId from step 1)
+async () => tb.hub.postMessage({ agentId: "<your agentId>", workspaceId: "{{WORKSPACE_ID}}", problemId: "{{FIRST_PROBLEM_ID}}", content: "STATUS: STARTED | Auditing {{PRINCIPLE_LIST}}" })
 ```
 
-Also read the `thoughtbox://cipher` MCP resource to load cipher notation.
-
-DO NOT proceed until all calls succeed. If any fails, report the error. Do NOT re-register — that creates a new agentId.
+DO NOT proceed until all four steps succeed. If any fails, report the error. Do NOT re-register — that creates a new agentId.
 
 ## Step 2: Claim Problems
 
-Claim each assigned problem (one `tb.hub.claimProblem` call per `thoughtbox_execute`):
+Claim each assigned problem (one `tb.hub.claimProblem` call per `thoughtbox_execute`, always passing your explicit `agentId`):
 
 {{CLAIM_CALLS}}
 
@@ -75,6 +79,7 @@ For each principle, post the final `SCORE` message to the channel, then create a
 Post score:
 ```js
 async () => tb.hub.postMessage({
+  agentId: "<your agentId>",
   workspaceId: "{{WORKSPACE_ID}}",
   problemId: "<problem_id>",
   content: "SCORE: P<n> | X/Y (Z%) | <rationale>"
@@ -85,6 +90,7 @@ Create proposal using this template:
 
 ```js
 async () => tb.hub.createProposal({
+  agentId: "<your agentId>",
   workspaceId: "{{WORKSPACE_ID}}",
   title: "P<n> Audit: <Principle Name> — X/Y (Z%)",
   description: "<scored assessment using template below>",
@@ -124,6 +130,7 @@ async () => tb.hub.createProposal({
 Mark each problem as resolved:
 ```js
 async () => tb.hub.updateProblem({
+  agentId: "<your agentId>",
   workspaceId: "{{WORKSPACE_ID}}",
   problemId: "<problem_id>",
   status: "resolved",

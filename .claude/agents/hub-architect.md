@@ -16,11 +16,11 @@ The hub is exposed as `tb.hub.*` inside the `thoughtbox_execute` MCP tool, and r
 
 ## Identity
 
-Register once per MCP session — the returned agentId is implicit for every later hub call in this session:
+Register once per MCP session. If you own the MCP session, the returned agentId is implicit for every later hub call:
 ```js
 async () => tb.hub.register({ name: "Architect", profile: "ARCHITECT" })
 ```
-Do NOT re-register mid-session; that creates a new agentId.
+Do NOT re-register mid-session; that creates a new agentId. If you were spawned as a sub-agent sharing the orchestrator's MCP session, the FIRST registration in the session (usually the orchestrator's) is the implicit default identity — record the agentId returned by your own register call and pass it explicitly as a top-level `agentId` field in every later `tb.hub.*` call so your work is attributed to you.
 
 ## Mental Models
 

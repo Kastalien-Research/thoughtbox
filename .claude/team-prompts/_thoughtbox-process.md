@@ -10,27 +10,31 @@ The only registered Thoughtbox MCP tools are `thoughtbox_search`, `thoughtbox_ex
 ToolSearch: "thoughtbox execute"
 ```
 
-Then run these `thoughtbox_execute` calls in order (one mutation each):
+Then complete these steps in order (one state-mutating `thoughtbox_execute` call each):
 
 ```js
-// 1. Register and join the workspace (once per MCP session — the returned
-//    agentId is implicit for every later tb.hub call in this session)
+// 1. Register and join the workspace (once per MCP session). Record the
+//    agentId from the result: you may share the MCP connection with the
+//    team-lead and other teammates, and the FIRST registration in the
+//    session is the implicit default identity for agentId-less calls.
+//    Pass YOUR agentId explicitly in every later tb.hub call so your work
+//    is attributed to you.
 async () => tb.hub.quickJoin({ name: "{{AGENT_NAME}}", workspaceId: "{{WORKSPACE_ID}}", profile: "{{PROFILE}}" })
 ```
 
+2. Read the `thoughtbox://cipher` MCP resource to load cipher notation.
+
 ```js
-// 2. Record your starting thought
+// 3. Record your starting thought
 async () => tb.thought({ thought: "Starting work on {{TASK}}", thoughtType: "reasoning", nextThoughtNeeded: true })
 ```
 
 ```js
-// 3. Announce yourself on the problem channel
-async () => tb.hub.postMessage({ workspaceId: "{{WORKSPACE_ID}}", problemId: "{{PROBLEM_ID}}", content: "{{AGENT_NAME}} joined. Starting {{TASK}}." })
+// 4. Announce yourself on the problem channel (agentId from step 1)
+async () => tb.hub.postMessage({ agentId: "<your agentId>", workspaceId: "{{WORKSPACE_ID}}", problemId: "{{PROBLEM_ID}}", content: "{{AGENT_NAME}} joined. Starting {{TASK}}." })
 ```
 
-Also read the `thoughtbox://cipher` MCP resource to load cipher notation.
-
-DO NOT proceed until all calls succeed. Do NOT re-register if a call fails downstream — re-registering creates a new agentId and orphans your first identity.
+DO NOT proceed until all four steps succeed. Do NOT re-register if a call fails downstream — re-registering creates a new agentId and orphans your first identity.
 
 ## During Work — Record Thoughts at Each Phase
 
@@ -48,7 +52,7 @@ Example: `tb.thought({ thought: "S2|O|S1|Found 6 emit() calls with incomplete da
 
 ## During Work — Post to Hub at Phase Transitions
 
-Post to the problem channel (`tb.hub.postMessage`) when:
+Post to the problem channel (`tb.hub.postMessage`, always passing your explicit `agentId` from bootstrap step 1) when:
 - You start a new group of changes
 - You complete a group of changes
 - You find something unexpected

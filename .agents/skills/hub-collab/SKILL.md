@@ -31,7 +31,8 @@ Sub-agents spawned via the Task tool share the parent's MCP HTTP connection but 
 2. **Cross-workspace visibility works**: Sub-agents see workspaces created by other agents
 3. **Cross-agent review works**: A Debugger sub-agent can review an Architect's proposal
 4. **Coordinator role caveat**: Re-registering creates a new identity, losing coordinator role. The orchestrator must create workspace + problems BEFORE spawning sub-agents, and not re-register afterward if merge is needed — `tb.hub.mergeProposal` must run from the coordinator's own session.
-5. **Sequential spawning recommended**: Run sub-agents sequentially (not in parallel) to avoid identity overwrites on the shared connection. Each agent should complete registration → join → claim → propose before the next starts.
+5. **Explicit agentId required in sub-agents**: Because all sub-agents share the parent's MCP session, the FIRST registration (normally the Orchestrator's) is the implicit default identity. Any `tb.hub.*` mutation that omits `agentId` is attributed to that default — silently breaking cross-agent attribution and review. Each sub-agent must capture the `agentId` returned by its own `tb.hub.register`/`tb.hub.quickJoin` and pass it as an explicit top-level `agentId` field in every subsequent hub call (e.g. `tb.hub.claimProblem({ agentId, workspaceId, problemId })`). Explicit `agentId` is accepted only for identities registered in the same session.
+6. **Sequential spawning recommended**: Run sub-agents sequentially (not in parallel). Each agent should complete registration → join → claim → propose before the next starts, which keeps the demo's ordering deterministic (e.g. the Architect's proposal exists before the Debugger reviews it).
 
 **Two approaches:**
 
@@ -96,16 +97,16 @@ async () => tb.hub.createProblem({
 ### Step 4: Spawn Architect (Task tool)
 Use Task tool with subagent_type matching the hub-architect agent:
 ```
-Prompt: "You are the ARCHITECT agent. Using thoughtbox_execute, register on the hub (tb.hub.register), join workspace <ID> (tb.hub.joinWorkspace). Check tb.hub.readyProblems, claim the design problem (tb.hub.claimProblem). Create a thought chain analyzing caching approaches via tb.thought. Create a proposal (tb.hub.createProposal) with your design recommendation. Post a summary to the problem channel (tb.hub.postMessage)."
+Prompt: "You are the ARCHITECT agent. Using thoughtbox_execute, register on the hub (tb.hub.register({ name: 'Architect', profile: 'ARCHITECT' })) and record the agentId from the result. You share the MCP session with the Orchestrator, whose earlier registration is the session's implicit default identity — you MUST pass your own agentId explicitly in EVERY subsequent tb.hub.* call, or your work is attributed to the Orchestrator. Join workspace <ID> (tb.hub.joinWorkspace({ agentId, workspaceId })). Check tb.hub.readyProblems({ agentId, workspaceId }), claim the design problem (tb.hub.claimProblem({ agentId, workspaceId, problemId })). Create a thought chain analyzing caching approaches via tb.thought. Create a proposal (tb.hub.createProposal({ agentId, ... })) with your design recommendation. Post a summary to the problem channel (tb.hub.postMessage({ agentId, workspaceId, problemId, content }))."
 ```
 
 ### Step 5: Spawn Debugger (Task tool)
 Use Task tool with subagent_type matching the hub-debugger agent:
 ```
-Prompt: "You are the DEBUGGER agent. Using thoughtbox_execute, register on the hub (tb.hub.register), join workspace <ID> (tb.hub.joinWorkspace). Check tb.hub.readyProblems, claim the bug problem (tb.hub.claimProblem). Use five-whys investigation on the profile priming bug in gateway-handler.ts via tb.thought. Create a proposal (tb.hub.createProposal) with your fix. Review the Architect's proposal (tb.hub.reviewProposal) if one exists."
+Prompt: "You are the DEBUGGER agent. Using thoughtbox_execute, register on the hub (tb.hub.register({ name: 'Debugger', profile: 'DEBUGGER' })) and record the agentId from the result. You share the MCP session with the Orchestrator, whose earlier registration is the session's implicit default identity — you MUST pass your own agentId explicitly in EVERY subsequent tb.hub.* call, or your work is attributed to the Orchestrator. Join workspace <ID> (tb.hub.joinWorkspace({ agentId, workspaceId })). Check tb.hub.readyProblems({ agentId, workspaceId }), claim the bug problem (tb.hub.claimProblem({ agentId, workspaceId, problemId })). Use five-whys investigation on the profile priming bug in gateway-handler.ts via tb.thought. Create a proposal (tb.hub.createProposal({ agentId, ... })) with your fix. Review the Architect's proposal (tb.hub.reviewProposal({ agentId, workspaceId, proposalId, verdict, reasoning })) if one exists."
 ```
 
-**Important**: Spawn Architect FIRST, wait for completion, then spawn Debugger. Sequential spawning prevents identity overwrites on the shared MCP connection. The Debugger can review the Architect's proposal because they have different agentIds.
+**Important**: Spawn Architect FIRST, wait for completion, then spawn Debugger, so the Architect's proposal exists before the Debugger looks for it. Cross-agent attribution and review only work when each sub-agent passes its own explicit agentId — calls without it are credited to the session default (the Orchestrator's first registration).
 
 ### Step 6: Report Status
 ```js

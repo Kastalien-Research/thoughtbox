@@ -74,19 +74,22 @@ operations are JavaScript against the `tb` SDK inside thoughtbox_execute — one
 state-mutating call per invocation. Run these in order:
 
 1. async () => tb.hub.quickJoin({ name: "<agent-name>", workspaceId: "<ID>", profile: "<PROFILE>" })
-2. async () => tb.thought({ thought: "Starting work on <task description>", thoughtType: "reasoning", nextThoughtNeeded: true })
-3. async () => tb.hub.postMessage({ workspaceId: "<ID>", problemId: "<ID>", content: "Joined and starting work on <task>" })
+   Record the agentId from the result. You share the MCP session with the
+   team-lead and other agents — the FIRST registration in the session is the
+   implicit default identity, so you MUST pass your own agentId explicitly in
+   every later tb.hub call or your work is attributed to another agent.
+2. Read the `thoughtbox://cipher` MCP resource for cipher notation.
+3. async () => tb.thought({ thought: "Starting work on <task description>", thoughtType: "reasoning", nextThoughtNeeded: true })
+4. async () => tb.hub.postMessage({ agentId: "<your agentId>", workspaceId: "<ID>", problemId: "<ID>", content: "Joined and starting work on <task>" })
 
-Also read the thoughtbox://cipher MCP resource for cipher notation.
-
-DO NOT proceed to Step 2 until all calls succeed. If any call fails, report the
-error. Do NOT re-register — that creates a new agentId.
+DO NOT proceed to Step 2 until all four steps succeed. If any call fails, report
+the error. Do NOT re-register — that creates a new agentId.
 ```
 
 Additionally, throughout their work agents MUST:
 - Record key decisions as thoughts via `tb.thought(...)`
-- Post progress updates to hub channels via `tb.hub.postMessage(...)`
-- Update problem status when claiming/completing work (`tb.hub.claimProblem`, `tb.hub.updateProblem`)
+- Post progress updates to hub channels via `tb.hub.postMessage({ agentId, ... })`
+- Update problem status when claiming/completing work (`tb.hub.claimProblem({ agentId, ... })`, `tb.hub.updateProblem({ agentId, ... })`)
 
 ### 6. Verification gate (MANDATORY — 90 seconds after spawn)
 

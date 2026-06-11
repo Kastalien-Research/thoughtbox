@@ -19,23 +19,27 @@ ToolSearch: "thoughtbox execute"
 ```
 
 ```js
-// 1. Register and join (once per session — agentId becomes implicit afterward)
+// 1. Register and join. Record the agentId from the result: you share the
+//    MCP session with the coordinator (and possibly still-running auditors),
+//    and the FIRST registration in the session is the implicit default
+//    identity. Pass YOUR agentId explicitly in every later tb.hub call, or
+//    your reviews and consensus markers get attributed to another agent.
 async () => tb.hub.quickJoin({ name: "Synthesizer", workspaceId: "{{WORKSPACE_ID}}", profile: "REVIEWER" })
 ```
 
+2. Read the `thoughtbox://cipher` MCP resource to load cipher notation.
+
 ```js
-// 2. Record your starting thought
+// 3. Record your starting thought
 async () => tb.thought({ thought: "Starting synthesis of audit findings for {{PROJECT_NAME}}", thoughtType: "reasoning", nextThoughtNeeded: true })
 ```
 
 ```js
-// 3. Announce on the P9 channel
-async () => tb.hub.postMessage({ workspaceId: "{{WORKSPACE_ID}}", problemId: "{{P9_ID}}", content: "STATUS: STARTED | Beginning synthesis of all audit findings" })
+// 4. Announce on the P9 channel (agentId from step 1)
+async () => tb.hub.postMessage({ agentId: "<your agentId>", workspaceId: "{{WORKSPACE_ID}}", problemId: "{{P9_ID}}", content: "STATUS: STARTED | Beginning synthesis of all audit findings" })
 ```
 
-Also read the `thoughtbox://cipher` MCP resource to load cipher notation.
-
-DO NOT proceed until all calls succeed. Do NOT re-register — that creates a new agentId.
+DO NOT proceed until all four steps succeed. Do NOT re-register — that creates a new agentId.
 
 ## Step 2: Claim P9
 
@@ -46,7 +50,7 @@ async () => tb.hub.readyProblems({ workspaceId: "{{WORKSPACE_ID}}" })
 ```
 
 ```js
-async () => tb.hub.claimProblem({ workspaceId: "{{WORKSPACE_ID}}", problemId: "{{P9_ID}}" })
+async () => tb.hub.claimProblem({ agentId: "<your agentId>", workspaceId: "{{WORKSPACE_ID}}", problemId: "{{P9_ID}}" })
 ```
 
 P9 should appear in the ready list since all P1-P8 dependencies are resolved. If P9 is not ready, post a message to the P9 channel and wait.
@@ -86,6 +90,7 @@ For each auditor proposal, evaluate against these criteria:
 For each proposal (one review per `thoughtbox_execute` call):
 ```js
 async () => tb.hub.reviewProposal({
+  agentId: "<your agentId>",
   workspaceId: "{{WORKSPACE_ID}}",
   proposalId: "<proposal_id>",
   verdict: "approve",
@@ -100,6 +105,7 @@ Use `request-changes` only if the score is materially unsupported or inconsisten
 For each principle, mark consensus (`thoughtRef` is the thought NUMBER, an integer):
 ```js
 async () => tb.hub.markConsensus({
+  agentId: "<your agentId>",
   workspaceId: "{{WORKSPACE_ID}}",
   name: "P<n> Score: X/Y",
   description: "<rationale — why this score is accurate, any adjustments from auditor's original>",
@@ -113,6 +119,7 @@ Create the compiled report as a proposal on P9:
 
 ```js
 async () => tb.hub.createProposal({
+  agentId: "<your agentId>",
   workspaceId: "{{WORKSPACE_ID}}",
   title: "Agent-Native Architecture Audit — Final Report",
   description: "<compiled report using template below>",
@@ -189,6 +196,7 @@ Verdict scale:
 Mark P9 as resolved:
 ```js
 async () => tb.hub.updateProblem({
+  agentId: "<your agentId>",
   workspaceId: "{{WORKSPACE_ID}}",
   problemId: "{{P9_ID}}",
   status: "resolved",
@@ -199,6 +207,7 @@ async () => tb.hub.updateProblem({
 Post completion:
 ```js
 async () => tb.hub.postMessage({
+  agentId: "<your agentId>",
   workspaceId: "{{WORKSPACE_ID}}",
   problemId: "{{P9_ID}}",
   content: "STATUS: COMPLETE | Final audit report compiled. Overall score: X/Y (Z%). Proposal submitted for coordinator review."

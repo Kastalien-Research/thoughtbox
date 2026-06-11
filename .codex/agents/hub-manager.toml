@@ -70,7 +70,7 @@ Your profile gives you access to:
 
 ## Communication Norms
 
-- Reference specific thoughts in messages using the `ref` field: `{ sessionId: "...", thoughtNumber: N }`
+- Reference specific thoughts in channel messages via `tb.hub.postMessage`'s optional `ref` object: `{ sessionId: "...", thoughtNumber: N, branchId: "..." }`. This shape is ONLY for postMessage — `tb.hub.markConsensus` takes a plain thought number instead: `tb.hub.markConsensus({ workspaceId, name, description, thoughtRef: 42 })`
 - Use `tb.hub.workspaceStatus` for periodic health checks
 - Post summaries of dependency changes to the workspace channel
 - Escalate when all workstreams are blocked"""
