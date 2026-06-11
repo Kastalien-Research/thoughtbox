@@ -8,17 +8,18 @@ import type {
 import {
   ArtifactTooLarge,
   InvalidNotebookShape,
+  NotebookModeNotImplemented,
   NotebookModeSchema,
   describeRunStatus,
 } from "./domain.js";
 import { getNotebookMode } from "./registry.js";
 
 const MAX_ARTIFACT_BYTES = 1_000_000;
+const MAX_EVIDENCE_OUTPUT_CHARS = 2_000;
 
 export interface StartNotebookRunInput {
   notebookId: string;
   mode: NotebookMode;
-  executionMode?: "sync" | "async";
   inputs?: Record<string, unknown>;
 }
 
@@ -27,9 +28,35 @@ export interface NotebookRunRuntimeResult {
   message: string;
 }
 
+/**
+ * Per-cell result of a real notebook execution, as reported by the
+ * NotebookCellExecutor. `skipped` means an earlier cell failed and this
+ * cell was never run.
+ */
+export interface CellExecutionEvidence {
+  cellId: string;
+  cellType: "code" | "package.json";
+  filename: string;
+  status: "completed" | "failed" | "skipped";
+  exitCode: number | null;
+  output: string;
+  error: string;
+}
+
+/**
+ * Executes a notebook's executable cells in document order and reports
+ * per-cell evidence. Implemented by NotebookHandler over the real
+ * NotebookStateManager subprocess execution path.
+ */
+export type NotebookCellExecutor = (
+  notebookId: string,
+) => Promise<CellExecutionEvidence[]>;
+
 export class InMemoryNotebookEngineRuntime {
   private runs = new Map<string, NotebookRun>();
   private artifacts = new Map<string, { ref: ArtifactRef; content: string }>();
+
+  constructor(private readonly executeNotebook: NotebookCellExecutor) {}
 
   persistNotebook(notebookId: string, content: string) {
     return Effect.gen(this, function* () {
@@ -58,10 +85,6 @@ export class InMemoryNotebookEngineRuntime {
         );
       }
 
-      const createdAt = new Date().toISOString();
-      const runId = `nbr_${Math.random().toString(36).slice(2, 12)}`;
-      const executionMode = input.executionMode ?? "sync";
-
       const parsedMode = yield* Effect.try({
         try: () => S.decodeUnknownSync(NotebookModeSchema)(input.mode),
         catch: () =>
@@ -70,23 +93,20 @@ export class InMemoryNotebookEngineRuntime {
           }),
       });
 
-      if (executionMode === "async") {
-        const queued: NotebookRun = {
-          _tag: "QueuedRun",
-          runId,
-          notebookId: input.notebookId,
-          mode: parsedMode,
-          status: "queued",
-          createdAt,
-        };
-        this.runs.set(runId, queued);
-        return {
-          run: queued,
-          message:
-            "Run queued for external notebook runner. Supabase/Cloud Run worker dispatch is the durable v1 boundary.",
-        } satisfies NotebookRunRuntimeResult;
+      if (parsedMode !== "runbook") {
+        return yield* Effect.fail(
+          new NotebookModeNotImplemented({
+            mode: parsedMode,
+            reason:
+              `Verdict derivation for mode "${parsedMode}" is not implemented; ` +
+              `only "runbook" runs execute today. Use notebook_run_cell ` +
+              `and notebook_validate for cell-level evidence in other modes.`,
+          }),
+        );
       }
 
+      const createdAt = new Date().toISOString();
+      const runId = `nbr_${Math.random().toString(36).slice(2, 12)}`;
       const startedAt = new Date().toISOString();
       const running: NotebookRun = {
         _tag: "RunningRun",
@@ -99,10 +119,52 @@ export class InMemoryNotebookEngineRuntime {
       };
       this.runs.set(runId, running);
 
-      const artifact = yield* this.putArtifact(
-        `${runId}-inputs.json`,
-        "application/json",
-        JSON.stringify(input.inputs ?? {}, null, 2),
+      // Everything between marking the run running and marking it completed
+      // shares one error handler: any failure (execution or artifact
+      // persistence) must transition the run to FailedRun — a run may never
+      // be left in RunningRun forever.
+      const runBody = Effect.gen(this, function* () {
+        const evidence = yield* Effect.tryPromise({
+          try: () => this.executeNotebook(input.notebookId),
+          catch: (cause) =>
+            new InvalidNotebookShape({
+              reason: `Notebook execution failed: ${cause instanceof Error ? cause.message : String(cause)}`,
+            }),
+        });
+        const inputsArtifact = yield* this.putArtifact(
+          `${runId}-inputs.json`,
+          "application/json",
+          JSON.stringify(input.inputs ?? {}, null, 2),
+        );
+        const evidenceArtifact = yield* this.putArtifact(
+          `${runId}-cell-results.json`,
+          "application/json",
+          JSON.stringify(evidence, null, 2),
+        );
+        return { evidence, inputsArtifact, evidenceArtifact };
+      });
+
+      const { evidence, inputsArtifact, evidenceArtifact } = yield* runBody.pipe(
+        Effect.tapError((error) =>
+          Effect.sync(() => {
+            const detail =
+              error._tag === "ArtifactTooLarge"
+                ? `run artifact too large: ${error.sizeBytes} bytes (max ${error.maxBytes})`
+                : error.reason;
+            const failed: NotebookRun = {
+              _tag: "FailedRun",
+              runId,
+              notebookId: input.notebookId,
+              mode: parsedMode,
+              status: "failed",
+              createdAt,
+              startedAt,
+              completedAt: new Date().toISOString(),
+              error: detail,
+            };
+            this.runs.set(runId, failed);
+          }),
+        ),
       );
 
       const completedAt = new Date().toISOString();
@@ -115,8 +177,8 @@ export class InMemoryNotebookEngineRuntime {
         createdAt,
         startedAt,
         completedAt,
-        outputs: [buildModeOutput(parsedMode, input.inputs ?? {}, artifact)],
-        artifacts: [artifact],
+        outputs: [buildRunbookVerdict(evidence)],
+        artifacts: [inputsArtifact, evidenceArtifact],
       };
       this.runs.set(runId, completed);
 
@@ -178,74 +240,57 @@ export class InMemoryNotebookEngineRuntime {
   }
 }
 
-function buildModeOutput(
-  mode: NotebookMode,
-  inputs: Record<string, unknown>,
-  artifact: ArtifactRef,
-): NotebookOutput {
-  switch (mode) {
-    case "runbook":
-      return {
-        _tag: "RunbookVerdict",
-        mode,
-        pass: true,
-        reason: "runbook substrate smoke run completed",
-        evidence: inputs,
-      };
-    case "simulation":
-      return {
-        _tag: "SimulationSummary",
-        mode,
-        runs: typeof inputs.runs === "number" ? inputs.runs : 0,
-        seed: typeof inputs.seed === "string" ? inputs.seed : "unseeded",
-        summary: { status: "simulation substrate smoke run" },
-        samples: artifact,
-      };
-    case "eval":
-      return {
-        _tag: "EvalScorecard",
-        mode,
-        score: 1,
-        metrics: { status: "eval substrate smoke run" },
-      };
-    case "failure_capsule":
-      return {
-        _tag: "FailureCapsuleResult",
-        mode,
-        reproduced: false,
-        fixed: false,
-        regressionArtifact: artifact,
-      };
-    case "adr_evidence":
-      return {
-        _tag: "AdrEvidenceResult",
-        mode,
-        outcome: "inconclusive",
-        evidence: { status: "adr evidence substrate smoke run" },
-      };
-    case "skill_certification":
-      return {
-        _tag: "SkillCertificationResult",
-        mode,
-        certified: false,
-        cases: { status: "skill certification substrate smoke run" },
-      };
-    case "scenario_factory":
-      return {
-        _tag: "ScenarioFactoryResult",
-        mode,
-        generated: typeof inputs.count === "number" ? inputs.count : 0,
-        artifact,
-      };
-    case "system_audit":
-      return {
-        _tag: "SystemAuditResult",
-        mode,
-        findings: [{ status: "system audit substrate smoke run" }],
-      };
-    default: {
-      const exhaustive: never = mode;
-      return exhaustive;
-    }
+/**
+ * Derive the runbook verdict from real per-cell execution results.
+ * A passing verdict must rest on at least one completed code cell:
+ * dependency installation (package.json cells) is recorded as evidence
+ * but cannot verify a runbook by itself, so blank notebooks — which
+ * always carry a default package.json cell — cannot pass.
+ */
+function buildRunbookVerdict(evidence: CellExecutionEvidence[]): NotebookOutput {
+  const failed = evidence.filter((cell) => cell.status === "failed");
+  const completedCode = evidence.filter(
+    (cell) => cell.status === "completed" && cell.cellType === "code",
+  );
+
+  let pass: boolean;
+  let reason: string;
+  if (evidence.length === 0) {
+    pass = false;
+    reason = "runbook has no executable cells; nothing was verified";
+  } else if (failed.length > 0) {
+    pass = false;
+    const first = failed[0]!;
+    reason =
+      `cell ${first.cellId} (${first.filename}) failed with exit code ` +
+      `${first.exitCode ?? "none"}: ${truncate(first.error || first.output)}`;
+  } else if (completedCode.length === 0) {
+    pass = false;
+    reason =
+      "no code cells executed; dependency install alone does not verify a runbook";
+  } else {
+    pass = true;
+    reason = `all executable cells completed (${completedCode.length} code)`;
   }
+
+  return {
+    _tag: "RunbookVerdict",
+    mode: "runbook",
+    pass,
+    reason,
+    evidence: evidence.map((cell) => ({
+      cellId: cell.cellId,
+      cellType: cell.cellType,
+      filename: cell.filename,
+      status: cell.status,
+      exitCode: cell.exitCode,
+      output: truncate(cell.output),
+      error: truncate(cell.error),
+    })),
+  };
+}
+
+function truncate(text: string): string {
+  if (text.length <= MAX_EVIDENCE_OUTPUT_CHARS) return text;
+  return `${text.slice(0, MAX_EVIDENCE_OUTPUT_CHARS)}… [truncated]`;
 }
