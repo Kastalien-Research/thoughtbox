@@ -142,6 +142,17 @@ function logMonitoringAlert(alert: ThoughtEmitterEvents["monitoring:alert"]): vo
 let alertSinkAttached = false;
 
 /**
+ * Detach the monitoring:alert stderr sink from the ThoughtEmitter singleton.
+ *
+ * Mirrors resetClient: intended for test teardown so the process-level
+ * listener does not leak across test files.
+ */
+export function resetAlertSink(): void {
+  thoughtEmitter.off("monitoring:alert", logMonitoringAlert);
+  alertSinkAttached = false;
+}
+
+/**
  * Initialize Layer 5 online monitoring.
  *
  * Subscribes to session events and scores production sessions

@@ -8,7 +8,7 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { thoughtEmitter } from "../../events/index.js";
 import type { ThoughtEmitterEvents } from "../../events/index.js";
-import { initMonitoring, resetClient } from "../index.js";
+import { initMonitoring, resetAlertSink, resetClient } from "../index.js";
 import type { OnlineMonitor } from "../online-monitor.js";
 
 const ORIGINAL_API_KEY = process.env.LANGSMITH_API_KEY;
@@ -46,6 +46,7 @@ describe("initMonitoring monitoring:alert sink", () => {
     } else {
       process.env.LANGSMITH_API_KEY = ORIGINAL_API_KEY;
     }
+    resetAlertSink();
     resetClient();
   });
 
