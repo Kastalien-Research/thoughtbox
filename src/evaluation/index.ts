@@ -36,6 +36,7 @@ export type {
   EvaluatorName,
   RunExperimentOptions,
   ExperimentRunResult,
+  RegressionCheckResult,
   MemoryDesignArchiveEntry,
   MonitoringAlert,
   AlertSeverity,
