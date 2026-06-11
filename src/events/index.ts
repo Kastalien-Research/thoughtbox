@@ -7,10 +7,7 @@
  *   thought-schemas.ts) consumed by the evaluation tracing system.
  */
 
-export {
-  ThoughtboxEventEmitter,
-  globalEventEmitter,
-} from './event-emitter.js';
+export { ThoughtboxEventEmitter } from './event-emitter.js';
 
 export {
   ThoughtEmitter,

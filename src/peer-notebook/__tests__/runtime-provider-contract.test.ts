@@ -177,6 +177,47 @@ describe("local-process runtime provider", () => {
     await expect(pending).rejects.toThrow(/cancelled/);
   }, E2E_TIMEOUT_MS);
 
+  it("honors cancel() in the pre-spawn window without spawning a child", async () => {
+    const provider = new LocalProcessRuntimeProvider({
+      entries: { "sleep-peer": SLEEP_PEER_SCRIPT },
+    });
+    let releaseBroker!: () => void;
+    const brokerGate = new Promise<void>(resolve => {
+      releaseBroker = resolve;
+    });
+    let brokerCalls = 0;
+
+    const pending = provider.invoke({
+      invocationId: "pre-spawn-cancel",
+      workspaceId: WORKSPACE_ID,
+      peerId: "sleep-peer",
+      manifestHash: "sha256:test",
+      tool: "extract_claims",
+      args: { textArtifactId: "artifact_pre_spawn" },
+      entry: "sleep-peer",
+      brokerProxyUrl: "memory://broker-proxy",
+      scopedToken: "peer-token:test",
+      budgets: { maxDurationMs: 30_000, maxToolCalls: 2, maxArtifactBytes: 1_000 },
+      brokerProxy: {
+        callTool: async () => {
+          brokerCalls += 1;
+          await brokerGate;
+          return { ok: true, result: { artifact: { content: "First claim." } } };
+        },
+      },
+    });
+
+    // Cancel while invoke() is still inside the artifact.get round trip:
+    // no child exists yet, so this exercises the pre-spawn preemption path.
+    await provider.cancel({ invocationId: "pre-spawn-cancel" });
+    releaseBroker();
+
+    // The "before spawn" rejection only fires on the pre-spawn path; a
+    // spawned sleep-peer child would instead hang until the 30s budget.
+    await expect(pending).rejects.toThrow(/cancelled before spawn/);
+    expect(brokerCalls).toBe(1);
+  }, E2E_TIMEOUT_MS);
+
   it("fails fast when the manifest entry has no registered script", async () => {
     const { tool } = setupTool(new LocalProcessRuntimeProvider());
 

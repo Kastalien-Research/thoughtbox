@@ -183,19 +183,3 @@ export class ThoughtboxEventEmitter {
     }
   }
 }
-
-// =============================================================================
-// Singleton Instance (optional - can also create per-server instances)
-// =============================================================================
-
-/**
- * Global event emitter instance (disabled by default)
- * Configure via THOUGHTBOX_EVENTS_ENABLED and THOUGHTBOX_EVENTS_DEST env vars
- */
-export const globalEventEmitter = new ThoughtboxEventEmitter({
-  enabled: process.env.THOUGHTBOX_EVENTS_ENABLED === 'true',
-  destination: process.env.THOUGHTBOX_EVENTS_DEST || 'stderr',
-  includeMcpSessionId: true,
-});
-
-export default ThoughtboxEventEmitter;

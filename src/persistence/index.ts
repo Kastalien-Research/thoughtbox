@@ -25,6 +25,7 @@ export type {
   ThoughtIndexes,
   SessionExport,
   ExportOptions,
+  AuditManifest,
   // Session analysis types (for session toolhost)
   SessionAnalysis,
   ExtractedLearning,
