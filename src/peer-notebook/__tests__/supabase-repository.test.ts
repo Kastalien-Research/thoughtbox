@@ -13,6 +13,7 @@ import {
   isSupabaseAvailable,
   TEST_WORKSPACE_ID,
 } from "../../__tests__/supabase-test-helpers.js";
+import { lifecyclePeerManifestJson } from "./fixtures.js";
 
 const SECOND_WORKSPACE_ID = "22222222-2222-4222-8222-222222222222";
 
@@ -99,6 +100,82 @@ describe("SupabasePeerNotebookRepository", () => {
         name: "claims.json",
       }),
     ]);
+  });
+
+  it("persists the draft -> approve -> invoke manifest lifecycle durably", async ({ skip }) => {
+    if (!available) skip();
+    const provider = new MockPeerRuntimeProvider();
+    const repository = new SupabasePeerNotebookRepository(getTestSupabaseConfig());
+    const tool = new PeerNotebookTool(new PeerNotebookHandler({
+      repository,
+      mockRuntimeProvider: provider,
+      workspaceId: TEST_WORKSPACE_ID,
+    }));
+
+    const created = await tool.handle({
+      operation: "peer_manifest_create",
+      manifestJson: lifecyclePeerManifestJson("lifecycle-peer"),
+    });
+    expect(created.manifest.status).toBe("draft");
+    const durableDraft = await repository.getManifest(TEST_WORKSPACE_ID, created.manifest.id);
+    expect(durableDraft?.status).toBe("draft");
+
+    const seeded = await tool.handle({
+      operation: "peer_artifact_seed",
+      text: "First claim. Second claim.",
+    });
+    await expect(tool.handle({
+      operation: "peer_invoke",
+      peerId: "lifecycle-peer",
+      tool: "extract_claims",
+      args: { textArtifactId: seeded.artifact.id },
+    })).rejects.toMatchObject({
+      code: "manifest_not_active",
+      message: expect.stringContaining("is draft"),
+    });
+    expect(provider.invocations).toHaveLength(0);
+
+    await tool.handle({
+      operation: "peer_manifest_approve",
+      manifestId: created.manifest.id,
+    });
+    const durableActive = await repository.getManifest(TEST_WORKSPACE_ID, created.manifest.id);
+    expect(durableActive?.status).toBe("active");
+    expect(durableActive?.approvedAt).toEqual(expect.any(String));
+    const peer = await repository.getPeerByPeerId(TEST_WORKSPACE_ID, "lifecycle-peer");
+    expect(peer?.activeManifestId).toBe(created.manifest.id);
+
+    const invoked = await tool.handle({
+      operation: "peer_invoke",
+      peerId: "lifecycle-peer",
+      tool: "extract_claims",
+      args: { textArtifactId: seeded.artifact.id },
+    });
+    expect(invoked.manifestHash).toBe(created.manifest.manifestHash);
+
+    const superseding = await tool.handle({
+      operation: "peer_manifest_create",
+      manifestJson: lifecyclePeerManifestJson("lifecycle-peer", { timeoutMs: 60_000 }),
+    });
+    const approved = await tool.handle({
+      operation: "peer_manifest_approve",
+      manifestId: superseding.manifest.id,
+    });
+    expect(approved.retiredManifestId).toBe(created.manifest.id);
+    const durableRetired = await repository.getManifest(TEST_WORKSPACE_ID, created.manifest.id);
+    expect(durableRetired?.status).toBe("retired");
+
+    const rejectedDraft = await tool.handle({
+      operation: "peer_manifest_create",
+      manifestJson: lifecyclePeerManifestJson("lifecycle-peer", { timeoutMs: 30_000 }),
+    });
+    await tool.handle({
+      operation: "peer_manifest_reject",
+      manifestId: rejectedDraft.manifest.id,
+    });
+    const durableRejected = await repository.getManifest(TEST_WORKSPACE_ID, rejectedDraft.manifest.id);
+    expect(durableRejected?.status).toBe("rejected");
+    expect(await repository.listManifests(TEST_WORKSPACE_ID, rejectedDraft.manifest.peerRecordId)).toHaveLength(3);
   });
 
   it("keeps artifacts workspace-scoped", async ({ skip }) => {
