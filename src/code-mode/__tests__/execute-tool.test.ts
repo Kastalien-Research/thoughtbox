@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { ExecuteTool } from "../execute-tool.js";
+import { ExecuteTool, type ExecuteToolDeps } from "../execute-tool.js";
 import { ThoughtTool } from "../../thought/tool.js";
 import { SessionTool } from "../../sessions/tool.js";
 import { KnowledgeTool } from "../../knowledge/tool.js";
@@ -12,7 +12,7 @@ import { KnowledgeHandler, FileSystemKnowledgeStorage } from "../../knowledge/in
 import { NotebookHandler } from "../../notebook/index.js";
 import { InMemoryStorage } from "../../persistence/index.js";
 
-function createExecuteTool(): ExecuteTool {
+function createExecuteTool(overrides: Partial<ExecuteToolDeps> = {}): ExecuteTool {
   const storage = new InMemoryStorage();
   const thoughtHandler = new ThoughtHandler(true, storage);
   const sessionHandler = new SessionHandler({ storage, thoughtHandler });
@@ -28,6 +28,7 @@ function createExecuteTool(): ExecuteTool {
     theseusTool: new TheseusTool(protocolHandler),
     ulyssesTool: new UlyssesTool(protocolHandler),
     observabilityHandler: new ObservabilityGatewayHandler({ storage }),
+    ...overrides,
   });
 }
 
@@ -145,6 +146,23 @@ describe("thoughtbox_execute", () => {
     const output = JSON.parse(result.content[0].text);
     expect(output.result).toBeNull();
     expect(output.error).toContain("hosted mode");
+  });
+
+  it("tb.knowledge.* returns a clean error when knowledge init failed", async () => {
+    // Mirrors server-factory behavior: knowledge storage init threw, so
+    // knowledgeTool is undefined and the captured failure reason is threaded in.
+    const tool = createExecuteTool({
+      knowledgeTool: undefined,
+      knowledgeUnavailableReason: "EACCES: permission denied, mkdir '/data/knowledge'",
+    });
+    const result = await tool.handle({
+      code: `async () => { return await tb.knowledge.stats(); }`,
+    });
+    const output = JSON.parse(result.content[0].text);
+    expect(output.result).toBeNull();
+    expect(output.error).toBe(
+      "knowledge unavailable: EACCES: permission denied, mkdir '/data/knowledge'",
+    );
   });
 
   it("can call tb.thought()", async () => {
