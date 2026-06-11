@@ -20,10 +20,17 @@ import {
 } from "./persistence/index.js";
 import { SupabaseKnowledgeStorage } from "./knowledge/index.js";
 import type { KnowledgeStorage } from "./knowledge/types.js";
-import { createFileSystemHubStorage } from "./hub/hub-storage-fs.js";
+import {
+  createFileSystemHubStorage,
+  createTenantHubStorageProvider,
+} from "./hub/hub-storage-fs.js";
 import type { HubStorage } from "./hub/hub-types.js";
 import { initEvaluation, initMonitoring } from "./evaluation/index.js";
 import { createHubHandler, type HubEvent } from "./hub/hub-handler.js";
+import {
+  createThoughtStoreAdapter,
+  type ThoughtStoreAdapter,
+} from "./hub/thought-store-adapter.js";
 import { createHubApiSurface, shouldWarnOnExposedLocalMode } from "./http/hub-http.js";
 import { createEventStreamSurface } from "./http/event-stream.js";
 import type { ThoughtboxEvent } from "./events/types.js";
@@ -165,6 +172,28 @@ interface SessionEntry {
 
 async function startHttpServer() {
   const { factory, hubStorage, dataDir } = await createStorage();
+  const isMultiTenant = process.env.THOUGHTBOX_STORAGE === "supabase";
+
+  // Multi-tenant hub isolation: each tenant workspace gets its own hub
+  // storage root, so tb.hub can never enumerate or read another tenant's
+  // workspaces/channels. The shared `hubStorage` is local-mode only.
+  // SupabaseHubStorage (Phase 4.3) replaces this with row-level scoping.
+  const tenantHubStorage = createTenantHubStorageProvider(dataDir);
+
+  // Local-mode hub thought store: ONE storage instance shared by /hub/api
+  // and every local MCP session's tb.hub dispatcher. Per-session
+  // FileSystemStorage instances each hold an in-memory session index, so a
+  // hub main-session created through one instance is invisible to the
+  // others — merge_proposal from a second MCP session would fail with
+  // "Session not found". Multi-tenant mode needs no shared instance:
+  // Supabase storage resolves sessions from the database on every call.
+  let localHubThoughtStore: ThoughtStoreAdapter | undefined;
+  if (!isMultiTenant) {
+    const hubSessionStorage = factory.getStorage();
+    await hubSessionStorage.initialize();
+    await hubSessionStorage.setProject(await ensureStaticWorkspace("local-dev"));
+    localHubThoughtStore = createThoughtStoreAdapter(hubSessionStorage);
+  }
 
   // Initialize LangSmith evaluation tracing (no-op if LANGSMITH_API_KEY not set)
   const traceListener = initEvaluation();
@@ -176,7 +205,6 @@ async function startHttpServer() {
   });
 
   const port = parseInt(process.env.PORT || "1731", 10);
-  const isMultiTenant = process.env.THOUGHTBOX_STORAGE === 'supabase';
   const sessions = new Map<string, SessionEntry>();
 
   // Cloud Run (and most reverse proxies) set X-Forwarded-For.
@@ -191,6 +219,19 @@ async function startHttpServer() {
       "[Security] Local/singleton mode is bound to 0.0.0.0. Hub HTTP endpoints and local storage are not workspace-isolated; do not expose this server to untrusted users.",
     );
   }
+
+  // Unified event stream — carries both Hub and Protocol events via SSE
+  // (mounted in local mode only, below)
+  const eventStream = createEventStreamSurface();
+  const broadcastHubEvent = (event: HubEvent) => {
+    eventStream.broadcast({
+      source: 'hub',
+      type: event.type,
+      workspaceId: event.workspaceId,
+      timestamp: new Date().toISOString(),
+      data: event.data,
+    });
+  };
 
   // ---------------------------------------------------------------------------
   // OAuth 2.1 — mount auth router (discovery, registration, token, revoke)
@@ -299,6 +340,16 @@ async function startHttpServer() {
     try {
       // --- Multi-tenant (Supabase) mode: per-session servers ---
       if (isMultiTenant) {
+        if (!workspaceId) {
+          // Auth above guarantees a workspaceId in multi-tenant mode; this
+          // guard keeps that invariant explicit and fails fast if it breaks.
+          res.status(401).json({
+            jsonrpc: "2.0",
+            error: { code: -32001, message: "Authenticated request resolved no workspace" },
+            id: null,
+          });
+          return;
+        }
         if (mcpSessionId && sessions.has(mcpSessionId)) {
           const entry = sessions.get(mcpSessionId)!;
 
@@ -327,7 +378,8 @@ async function startHttpServer() {
         const server = await createMcpServer({
           sessionId,
           storage,
-          hubStorage,
+          // Tenant-scoped: never the process-shared local hub storage.
+          hubStorage: tenantHubStorage(workspaceId),
           dataDir,
           knowledgeStorage,
           workspaceId,
@@ -384,11 +436,13 @@ async function startHttpServer() {
         sessionId,
         storage,
         hubStorage,
+        hubThoughtStore: localHubThoughtStore,
         dataDir,
         knowledgeStorage,
         workspaceId: localWorkspaceId,
         onProtocolHandlerReady: (handler) => { localProtocolHandler = handler; },
         onProtocolEvent: (event) => eventStream.broadcast(event),
+        onHubEvent: broadcastHubEvent,
         config: {
           disableThoughtLogging:
             (process.env.DISABLE_THOUGHT_LOGGING || "").toLowerCase() === "true",
@@ -448,51 +502,6 @@ async function startHttpServer() {
   // Hub Event SSE Endpoint — pushes HubEvents to Channel subscribers
   // ---------------------------------------------------------------------------
 
-  // Minimal thought store for the shared hub-handler (hub operations that
-  // create sessions/thoughts use this; most Channel operations don't need it)
-  const sharedThoughtStore = {
-    sessions: new Map<string, Map<number, unknown>>(),
-    async createSession(sessionId: string) {
-      this.sessions.set(sessionId, new Map());
-    },
-    async saveThought(sessionId: string, thought: any) {
-      if (!this.sessions.has(sessionId)) this.sessions.set(sessionId, new Map());
-      this.sessions.get(sessionId)!.set(thought.thoughtNumber, thought);
-    },
-    async getThought(sessionId: string, thoughtNumber: number) {
-      return this.sessions.get(sessionId)?.get(thoughtNumber) ?? null;
-    },
-    async getThoughts(sessionId: string) {
-      const session = this.sessions.get(sessionId);
-      if (!session) return [];
-      return [...session.values()];
-    },
-    async getThoughtCount(sessionId: string) {
-      return this.sessions.get(sessionId)?.size ?? 0;
-    },
-    async saveBranchThought(_sessionId: string, _branchId: string, _thought: any) {},
-    async getBranch(_sessionId: string, _branchId: string) { return []; },
-  };
-
-  // Unified event stream — carries both Hub and Protocol events via SSE
-  const eventStream = createEventStreamSurface();
-
-  const hubHandler = createHubHandler(
-    hubStorage,
-    sharedThoughtStore,
-    (event: HubEvent) => {
-      eventStream.broadcast({
-        source: 'hub',
-        type: event.type,
-        workspaceId: event.workspaceId,
-        timestamp: new Date().toISOString(),
-        data: event.data,
-      });
-    },
-  );
-
-  const hubApiSurface = createHubApiSurface(hubHandler);
-
   const protocolHttpSurface = createProtocolHttpSurface(() => {
     for (const entry of sessions.values()) {
       if (entry.protocolHandler) return entry.protocolHandler;
@@ -500,7 +509,18 @@ async function startHttpServer() {
     return null;
   });
 
-  if (!isMultiTenant) {
+  // Local-mode hub HTTP surface (`POST /hub/api`). Its thought store
+  // delegates to real filesystem session storage scoped to the local
+  // workspace — the same project MCP sessions write to — so hub-created
+  // sessions and merge_proposal synthesis thoughts genuinely persist.
+  if (!isMultiTenant && localHubThoughtStore) {
+    const hubHandler = createHubHandler(
+      hubStorage,
+      localHubThoughtStore,
+      broadcastHubEvent,
+    );
+    const hubApiSurface = createHubApiSurface(hubHandler);
+
     eventStream.mount(app);
     hubApiSurface.mount(app);
     protocolHttpSurface.mount(app);

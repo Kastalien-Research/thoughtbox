@@ -18,7 +18,7 @@ You have received structural metrics for a reasoning session. To perform qualita
 
 ## Step 1: Review Session Content
 
-Use the \`thoughtbox_session\` tool with operation \`get\` to retrieve the full session with all thoughts if you haven't already.
+Call \`tb.session.get("<session-id>")\` via the \`thoughtbox_execute\` tool to retrieve the full session with all thoughts if you haven't already.
 
 ## Step 2: Identify Key Moments
 
@@ -39,26 +39,25 @@ For each key moment identified, consider:
 
 ## Step 4: Extract Learnings
 
-Use the \`session\` tool with operation \`extract_learnings\` and your identified key moments:
+Call \`tb.session.extractLearnings\` via \`thoughtbox_execute\` with your identified key moments:
 
-\`\`\`json
-{
-  "sessionId": "<session-id>",
-  "keyMoments": [
+\`\`\`javascript
+async () => tb.session.extractLearnings("<session-id>", {
+  keyMoments: [
     {
-      "thoughtNumber": 5,
-      "type": "decision",
-      "significance": 8,
-      "summary": "Chose hybrid approach over pure options"
+      thoughtNumber: 5,
+      type: "decision",
+      significance: 8,
+      summary: "Chose hybrid approach over pure options"
     }
   ],
-  "targetTypes": ["pattern", "anti-pattern", "signal"]
-}
+  targetTypes: ["pattern", "anti-pattern", "signal"]
+})
 \`\`\`
 
 ## Step 5: Generate Artifacts
 
-The extract_learnings tool will generate:
+The extractLearnings operation will generate:
 - **Patterns**: From decisions and insights (for DGM experiments)
 - **Anti-patterns**: From revisions (what didn't work)
 - **Signals**: Session-level success/failure metrics
@@ -96,7 +95,7 @@ When scanning thoughts, look for these signals:
 
 ## Writing Effective Learnings
 
-When providing key moments to \`extract_learnings\`:
+When providing key moments to \`tb.session.extractLearnings\`:
 
 1. **Be specific**: Include the exact thought number
 2. **Rate significance**: 1-10 scale helps prioritize

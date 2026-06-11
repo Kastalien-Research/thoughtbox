@@ -3,7 +3,10 @@ import { NotebookStateManager } from "./state.js";
 import type { Cell, CodeLanguage } from "./types.js";
 import { randomid } from "./types.js";
 import { ValidatorService } from "./validator.js";
-import { InMemoryNotebookEngineRuntime } from "./engine/runtime.js";
+import {
+  InMemoryNotebookEngineRuntime,
+  type CellExecutionEvidence,
+} from "./engine/runtime.js";
 import { getNotebookCapabilitiesJson } from "./engine/registry.js";
 import {
   NOTEBOOK_OPERATIONS,
@@ -28,7 +31,55 @@ export class NotebookHandler {
   constructor(tempDir?: string) {
     this.stateManager = new NotebookStateManager(tempDir);
     this.validatorService = new ValidatorService(this.stateManager);
-    this.engineRuntime = new InMemoryNotebookEngineRuntime();
+    this.engineRuntime = new InMemoryNotebookEngineRuntime((notebookId) =>
+      this.executeAllCells(notebookId),
+    );
+  }
+
+  /**
+   * Execute every executable cell (package.json installs and code cells) in
+   * document order through the real subprocess execution path, stopping at
+   * the first failure; remaining executable cells are reported as skipped.
+   */
+  private async executeAllCells(
+    notebookId: string,
+  ): Promise<CellExecutionEvidence[]> {
+    const notebook = this.stateManager.getNotebook(notebookId);
+    if (!notebook) {
+      throw new Error(`Notebook ${notebookId} not found`);
+    }
+    const executable = notebook.cells.filter(
+      (cell: Cell): cell is Extract<Cell, { type: "code" | "package.json" }> =>
+        cell.type === "code" || cell.type === "package.json",
+    );
+    const evidence: CellExecutionEvidence[] = [];
+    let failed = false;
+    for (const cell of executable) {
+      if (failed) {
+        evidence.push({
+          cellId: cell.id,
+          cellType: cell.type,
+          filename: cell.filename,
+          status: "skipped",
+          exitCode: null,
+          output: "",
+          error: "",
+        });
+        continue;
+      }
+      const result = await this.stateManager.executeCell(notebookId, cell.id);
+      evidence.push({
+        cellId: cell.id,
+        cellType: cell.type,
+        filename: cell.filename,
+        status: result.success ? "completed" : "failed",
+        exitCode: result.exitCode,
+        output: result.stdout,
+        error: result.stderr,
+      });
+      if (!result.success) failed = true;
+    }
+    return evidence;
   }
 
   /**
@@ -467,19 +518,12 @@ export class NotebookHandler {
    * Handle notebook_start_run tool call.
    */
   async handleStartRun(args: any): Promise<any> {
-    const { notebookId, mode, executionMode, inputs } = args;
+    const { notebookId, mode, inputs } = args;
     if (!notebookId || typeof notebookId !== "string") {
       throw new Error("notebookId is required and must be a string");
     }
     if (!mode || typeof mode !== "string") {
       throw new Error("mode is required and must be a string");
-    }
-    if (
-      executionMode !== undefined &&
-      executionMode !== "sync" &&
-      executionMode !== "async"
-    ) {
-      throw new Error('executionMode must be "sync" or "async" if provided');
     }
     if (inputs !== undefined && (typeof inputs !== "object" || inputs === null || Array.isArray(inputs))) {
       throw new Error("inputs must be an object if provided");
@@ -493,7 +537,6 @@ export class NotebookHandler {
         this.engineRuntime.startRun({
           notebookId,
           mode: mode as any,
-          executionMode,
           inputs,
         }),
       ),

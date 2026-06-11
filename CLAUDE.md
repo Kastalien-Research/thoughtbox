@@ -83,13 +83,12 @@ docs: Update README with loops documentation
 
 ## Agent Teams — Thoughtbox Integration
 
-When participating in an Agent Team, bootstrap Thoughtbox as your reasoning substrate:
+When participating in an Agent Team, bootstrap Thoughtbox as your reasoning substrate through the Code Mode surface (the only registered MCP tools are `thoughtbox_search`, `thoughtbox_execute`, and `thoughtbox_peer_notebook`):
 
-1. **Quick join** (single call): `thoughtbox_hub { operation: "quick_join", args: { name: "<your-role>", workspaceId: "<ID from spawn prompt>", profile: "<COORDINATOR|ARCHITECT|DEBUGGER|SECURITY|RESEARCHER|REVIEWER>" } }`
-2. **Load cipher**: `thoughtbox_gateway { operation: "cipher" }`
-3. **Begin work** — record decisions as thoughts, proposals as hub proposals
+1. **Load the cipher**: read the `thoughtbox://cipher` MCP resource (reasoning-pattern shorthand, includes the multi-agent extension).
+2. **Begin work** — record decisions as thoughts via `tb.thought` inside `thoughtbox_execute`.
 
-Spawn prompt templates for teammates are in `.claude/team-prompts/`.
+Hub coordination (workspaces, problems, proposals, channels) is exposed over MCP as `tb.hub.*` inside `thoughtbox_execute` (SPEC-V1-INITIATIVE Phase 4.1). Call `tb.hub.register({ name })` or `tb.hub.quickJoin({ name, workspaceId })` once — the returned agentId is then implicit for the rest of the session. The local-mode HTTP surface (`POST /hub/api`) remains for non-MCP clients. The spawn-prompt templates in `.claude/team-prompts/` still use the legacy `thoughtbox_hub` syntax — they are rewritten in Phase 4.5.
 
 ### What to Record as Thoughts
 - Key decisions and their reasoning

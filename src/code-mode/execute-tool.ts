@@ -20,6 +20,7 @@ import type { TheseusTool, TheseusToolInput } from "../protocol/theseus-tool.js"
 import type { UlyssesTool, UlyssesToolInput } from "../protocol/ulysses-tool.js";
 import type { ObservabilityGatewayHandler, ObservabilityInput } from "../observability/gateway-handler.js";
 import type { BranchHandler } from "../branch/index.js";
+import type { HubToolResult } from "../hub/hub-tool-handler.js";
 
 const MAX_LOGS = 100;
 const TIMEOUT_MS = 30_000;
@@ -34,10 +35,28 @@ export const executeToolInputSchema = z.object({
 
 export type ExecuteToolInput = z.infer<typeof executeToolInputSchema>;
 
+/**
+ * Session-bound hub dispatch surface. The server factory wraps the
+ * session's HubToolHandler (which holds the register-once identity
+ * registry) with the MCP session key, so tb.hub callers get an implicit
+ * agentId after their first register/quick_join. agentId remains
+ * overridable per call for multi-agent flows within one session.
+ */
+export interface HubDispatcher {
+  handle(input: { operation: string; [key: string]: unknown }): Promise<HubToolResult>;
+}
+
 export interface ExecuteToolDeps {
   thoughtTool: ThoughtTool;
   sessionTool: SessionTool;
-  knowledgeTool: KnowledgeTool;
+  /**
+   * Undefined when knowledge storage failed to initialize at server creation.
+   * `tb.knowledge.*` then returns a clean error (carrying
+   * `knowledgeUnavailableReason`) instead of crashing.
+   */
+  knowledgeTool?: KnowledgeTool;
+  /** Captured knowledge storage init failure, surfaced in the tb.knowledge.* error. */
+  knowledgeUnavailableReason?: string;
   notebookTool: NotebookTool;
   theseusTool: TheseusTool;
   ulyssesTool: UlyssesTool;
@@ -49,13 +68,19 @@ export interface ExecuteToolDeps {
    * of crashing session setup.
    */
   branchHandler?: BranchHandler;
+  /**
+   * Per-session dispatcher over the process-shared hub storage. Undefined
+   * when no hub storage was wired at server creation; `tb.hub.*` then
+   * returns a clear error instead of crashing.
+   */
+  hubDispatcher?: HubDispatcher;
 }
 
 export const EXECUTE_TOOL = {
   name: "thoughtbox_execute",
   description: `Run JavaScript using the \`tb\` SDK to chain Thoughtbox operations in a single call.
 
-**One state-mutating operation per call.** Submit only one \`tb.thought()\`, \`tb.ulysses()\`, or \`tb.theseus()\` call per \`thoughtbox_execute\` invocation. Each response contains guidance (patterns, session state, protocol state) that should inform your next operation. Batching multiple state-mutating calls bypasses this feedback loop and produces lower-quality reasoning. Read-only operations (\`tb.session.*\`, \`tb.knowledge.*\`, \`tb.observability()\`, \`tb.branch.*\`) may be freely chained.
+**One state-mutating operation per call.** Submit only one \`tb.thought()\`, \`tb.ulysses()\`, \`tb.theseus()\`, or hub-mutating call (\`tb.hub.register()\`, \`tb.hub.createWorkspace()\`, \`tb.hub.createProblem()\`, \`tb.hub.mergeProposal()\`, etc.) per \`thoughtbox_execute\` invocation. Each response contains guidance (patterns, session state, protocol state) that should inform your next operation. Batching multiple state-mutating calls bypasses this feedback loop and produces lower-quality reasoning. Read-only operations (\`tb.session.*\`, \`tb.knowledge.*\`, \`tb.observability()\`, \`tb.branch.*\`, \`tb.hub.whoami()\`, \`tb.hub.listWorkspaces()\`, \`tb.hub.readChannel()\`, etc.) may be freely chained.
 
 ${TB_SDK_TYPES}
 
@@ -133,13 +158,82 @@ function normalizeEntityResult(raw: unknown): unknown {
   return raw;
 }
 
+/**
+ * Extract the result value from a hub dispatcher response.
+ * HubToolHandler returns { content: [text, resource?], isError? } where the
+ * text block carries either the operation result or { error } as JSON.
+ */
+function unwrapHubResult(raw: HubToolResult): unknown {
+  const textBlock = raw.content.find(
+    (block): block is { type: "text"; text: string } => block.type === "text",
+  );
+  let parsed: unknown = textBlock?.text;
+  if (textBlock?.text) {
+    try {
+      parsed = JSON.parse(textBlock.text);
+    } catch {
+      parsed = textBlock.text;
+    }
+  }
+  if (raw.isError) {
+    const message = (parsed as { error?: string } | null)?.error;
+    throw new Error(message ?? "Hub operation failed");
+  }
+  return parsed;
+}
+
+/**
+ * tb.hub method names mapped to hub operation names
+ * (canonical list: src/hub/operations.ts).
+ */
+const HUB_SDK_METHODS: Record<string, string> = {
+  register: "register",
+  quickJoin: "quick_join",
+  listWorkspaces: "list_workspaces",
+  whoami: "whoami",
+  createWorkspace: "create_workspace",
+  joinWorkspace: "join_workspace",
+  getProfilePrompt: "get_profile_prompt",
+  createProblem: "create_problem",
+  claimProblem: "claim_problem",
+  updateProblem: "update_problem",
+  listProblems: "list_problems",
+  addDependency: "add_dependency",
+  removeDependency: "remove_dependency",
+  readyProblems: "ready_problems",
+  blockedProblems: "blocked_problems",
+  createSubProblem: "create_sub_problem",
+  createProposal: "create_proposal",
+  reviewProposal: "review_proposal",
+  mergeProposal: "merge_proposal",
+  listProposals: "list_proposals",
+  markConsensus: "mark_consensus",
+  endorseConsensus: "endorse_consensus",
+  listConsensus: "list_consensus",
+  postMessage: "post_message",
+  readChannel: "read_channel",
+  postSystemMessage: "post_system_message",
+  workspaceStatus: "workspace_status",
+  workspaceDigest: "workspace_digest",
+};
+
 interface TbContext {
   sessionId?: string;
 }
 
 function buildTbObject(deps: ExecuteToolDeps, ctx: TbContext): Record<string, unknown> {
   const { thoughtTool, sessionTool, knowledgeTool, notebookTool,
-          theseusTool, ulyssesTool, observabilityHandler, branchHandler } = deps;
+          theseusTool, ulyssesTool, observabilityHandler, branchHandler,
+          hubDispatcher } = deps;
+
+  const requireKnowledgeTool = (): KnowledgeTool => {
+    if (!knowledgeTool) {
+      throw new Error(
+        `knowledge unavailable: ${deps.knowledgeUnavailableReason ?? "knowledge storage failed to initialize"}`,
+      );
+    }
+    return knowledgeTool;
+  };
 
   const requireBranchHandler = (): BranchHandler => {
     if (!branchHandler) {
@@ -151,6 +245,23 @@ function buildTbObject(deps: ExecuteToolDeps, ctx: TbContext): Record<string, un
     }
     return branchHandler;
   };
+
+  const requireHubDispatcher = (): HubDispatcher => {
+    if (!hubDispatcher) {
+      throw new Error(
+        "Hub operations are unavailable: no hub storage was wired into this " +
+          "server instance. tb.hub.* requires the server to be started with " +
+          "hub storage (see createMcpServer's hubStorage argument).",
+      );
+    }
+    return hubDispatcher;
+  };
+
+  const hub: Record<string, (args?: Record<string, unknown>) => Promise<unknown>> = {};
+  for (const [method, operation] of Object.entries(HUB_SDK_METHODS)) {
+    hub[method] = async (hubArgs: Record<string, unknown> = {}) =>
+      unwrapHubResult(await requireHubDispatcher().handle({ operation, ...hubArgs }));
+  }
 
   return {
     thought: async (input: ThoughtToolInput) => {
@@ -186,31 +297,31 @@ function buildTbObject(deps: ExecuteToolDeps, ctx: TbContext): Record<string, un
 
     knowledge: {
       createEntity: async (args: Record<string, unknown>) =>
-        normalizeEntityResult(unwrapToolResult(await knowledgeTool.handle({
+        normalizeEntityResult(unwrapToolResult(await requireKnowledgeTool().handle({
           operation: "knowledge_create_entity", ...args,
         } as KnowledgeToolInput))),
       getEntity: async (entityId: string) =>
-        normalizeEntityResult(unwrapToolResult(await knowledgeTool.handle({
+        normalizeEntityResult(unwrapToolResult(await requireKnowledgeTool().handle({
           operation: "knowledge_get_entity", entity_id: entityId,
         } as KnowledgeToolInput))),
       listEntities: async (args?: Record<string, unknown>) =>
-        unwrapToolResult(await knowledgeTool.handle({
+        unwrapToolResult(await requireKnowledgeTool().handle({
           operation: "knowledge_list_entities", ...args,
         } as KnowledgeToolInput)),
       addObservation: async (args: { entity_id: string; content: string; source_session?: string; added_by?: string }) =>
-        unwrapToolResult(await knowledgeTool.handle({
+        unwrapToolResult(await requireKnowledgeTool().handle({
           operation: "knowledge_add_observation", ...args,
         } as KnowledgeToolInput)),
       createRelation: async (args: { from_id: string; to_id: string; relation_type: string; properties?: Record<string, unknown> }) =>
-        unwrapToolResult(await knowledgeTool.handle({
+        unwrapToolResult(await requireKnowledgeTool().handle({
           operation: "knowledge_create_relation", ...args,
         } as KnowledgeToolInput)),
       queryGraph: async (args: { start_entity_id: string; max_depth?: number; relation_types?: string[] }) =>
-        unwrapToolResult(await knowledgeTool.handle({
+        unwrapToolResult(await requireKnowledgeTool().handle({
           operation: "knowledge_query_graph", ...args,
         } as KnowledgeToolInput)),
       stats: async () =>
-        unwrapToolResult(await knowledgeTool.handle({
+        unwrapToolResult(await requireKnowledgeTool().handle({
           operation: "knowledge_stats",
         } as KnowledgeToolInput)),
     },
@@ -305,6 +416,8 @@ function buildTbObject(deps: ExecuteToolDeps, ctx: TbContext): Record<string, un
       get: async (args: Record<string, unknown>) =>
         unwrapToolResult(await requireBranchHandler().processTool("get", args)),
     },
+
+    hub,
   };
 }
 

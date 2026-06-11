@@ -12,6 +12,7 @@ function createHandlerWithFakeClient(fakeClient: unknown): BranchHandlers {
   const handler = new BranchHandlers({
     supabaseUrl: 'http://127.0.0.1:54321',
     serviceRoleKey: 'service-role-key',
+    signingSecret: 'test-branch-signing-secret',
     workspaceId: WORKSPACE_ID,
   });
 

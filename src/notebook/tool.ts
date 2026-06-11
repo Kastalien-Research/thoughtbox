@@ -42,7 +42,6 @@ export const notebookToolInputSchema = z.object({
     "scenario_factory",
     "system_audit",
   ]).optional().describe("Notebook Evidence Engine mode (notebook_start_run)"),
-  executionMode: z.enum(["sync", "async"]).optional().describe("Execution mode for notebook_start_run"),
   inputs: z.record(z.unknown()).optional().describe("Mode-specific JSON inputs for notebook_start_run"),
   runId: z.string().optional().describe("Notebook run ID"),
   artifactId: z.string().optional().describe("Notebook artifact ID"),

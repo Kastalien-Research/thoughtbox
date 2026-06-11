@@ -39,9 +39,9 @@ Choose how you'd like to begin:
 
 Thoughtbox helps you think through complex problems with structured reasoning tools:
 
-- **thoughtbox** — Step-by-step reasoning with branching and revision
-- **notebook** — Literate programming notebooks with executable code
-- **mental_models** — Structured reasoning frameworks
+- **thoughtbox_search** — Query the operation/prompt/resource catalog
+- **thoughtbox_execute** — Run JavaScript against the \`tb\` SDK (thoughts, sessions, knowledge, notebooks)
+- **thoughtbox_peer_notebook** — Seed artifacts and invoke the brokered claim-extractor peer
 
 The init flow helps you load relevant context from prior sessions before beginning new work.
 `;
@@ -60,7 +60,7 @@ You don't have any exported sessions yet. Start by creating a new reasoning sess
 
 - \`thoughtbox://init/new\` — Start new work
 
-Sessions are automatically exported when you complete a reasoning chain using the \`thoughtbox\` tool.
+Sessions are automatically exported when you complete a reasoning chain via \`tb.thought\` in the \`thoughtbox_execute\` tool.
 `,
       };
     }
@@ -220,10 +220,9 @@ ${sessionPreviews || '*No prior sessions with this aspect yet.*'}
 
 The following tools are now available for your work:
 
-- \`thoughtbox\` — Step-by-step reasoning with branching and revision
-- \`notebook\` — Literate programming notebooks with executable code
-- \`mental_models\` — Structured reasoning frameworks
-- \`export_reasoning_chain\` — Persist completed sessions
+- \`thoughtbox_search\` — Query the operation/prompt/resource catalog
+- \`thoughtbox_execute\` — Run JavaScript against the \`tb\` SDK (thoughts, sessions, knowledge, notebooks)
+- \`thoughtbox_peer_notebook\` — Seed artifacts and invoke the brokered claim-extractor peer
 
 ## Suggested Start
 
@@ -231,17 +230,18 @@ ${suggestions}
 
 ---
 
-**Ready to begin.** Start a new reasoning session with appropriate tags:
+**Ready to begin.** Start a new reasoning session with appropriate tags via \`thoughtbox_execute\`:
 
-\`\`\`json
-{
-  "thought": "Your first thought...",
-  "thoughtNumber": 1,
-  "totalThoughts": 5,
-  "nextThoughtNeeded": true,
-  "sessionTitle": "${taskName}: ${aspect}",
-  "sessionTags": ["project:${projectName}", "task:${taskName}", "aspect:${aspect}"]
-}
+\`\`\`javascript
+async () => tb.thought({
+  thought: "Your first thought...",
+  thoughtType: "reasoning",
+  thoughtNumber: 1,
+  totalThoughts: 5,
+  nextThoughtNeeded: true,
+  sessionTitle: "${taskName}: ${aspect}",
+  sessionTags: ["project:${projectName}", "task:${taskName}", "aspect:${aspect}"]
+})
 \`\`\`
 `;
 
@@ -296,7 +296,7 @@ Structured tags enable:
 
 ---
 
-**Begin when ready.** Use the \`thoughtbox\` tool with appropriate tags to start your reasoning session.
+**Begin when ready.** Call \`tb.thought\` via the \`thoughtbox_execute\` tool with appropriate tags to start your reasoning session.
 `;
 
     return { markdown };

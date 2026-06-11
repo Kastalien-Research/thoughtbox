@@ -45,9 +45,9 @@ interface SearchCatalog {
   resourceTemplates: Array<{ name: string; uriTemplate: string; description: string; mimeType: string }>;
 }
 
-Modules in catalog.operations: session, thought, knowledge, notebook, theseus, ulysses, observability, branch
+Modules in catalog.operations: session, thought, knowledge, notebook, theseus, ulysses, observability, branch, hub
 Public MCP tools in catalog.publicTools: thoughtbox_search, thoughtbox_execute, thoughtbox_peer_notebook
-Legacy entrypoints like init and hub are intentionally absent from the Code Mode catalog.
+The legacy init entrypoint is intentionally absent from the Code Mode catalog.
 
 Examples:
 - List all modules: \`async () => Object.keys(catalog.operations)\`

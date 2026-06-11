@@ -1,23 +1,30 @@
 /**
- * Behavioral test specifications for Thoughtbox MCP tools.
+ * Behavioral test specifications for the Thoughtbox Code Mode surface.
  * Served as both prompts (slash commands) and resources (URIs).
+ *
+ * Every call goes through the `thoughtbox_execute` tool: write JavaScript
+ * against the `tb` SDK (e.g. `async () => tb.thought({ ... })`).
  */
 
 export const BEHAVIORAL_TESTS = {
   thoughtbox: {
     name: "test-thoughtbox",
     uri: "thoughtbox://tests/thoughtbox",
-    description: "Behavioral tests for the thoughtbox thinking tool (15 tests covering forward/backward thinking, branching, revisions, linked structure)",
-    content: `# Thoughtbox Tool - Behavioral Tests
+    description: "Behavioral tests for tb.thought via thoughtbox_execute (15 tests covering forward/backward thinking, branching, revisions, linked structure)",
+    content: `# tb.thought - Behavioral Tests
 
-Workflows for Claude to execute when verifying the thoughtbox thinking tool functions correctly.
+Workflows for Claude to execute when verifying structured reasoning works correctly.
+
+**Surface:** All calls go through the \`thoughtbox_execute\` tool. Write code against the
+\`tb\` SDK, e.g. \`async () => tb.thought({ thought: "...", thoughtType: "reasoning", thoughtNumber: 1, totalThoughts: 3, nextThoughtNeeded: true })\`.
+Every \`tb.thought\` call requires a \`thoughtType\` (use \`"reasoning"\` unless a test says otherwise).
 
 ## Test 1: Basic Forward Thinking Flow
 
 **Goal:** Verify sequential thought progression works.
 
 **Steps:**
-1. Call \`thoughtbox\` with thought 1 of 3, nextThoughtNeeded: true
+1. Call \`tb.thought\` with thought 1 of 3, nextThoughtNeeded: true
 2. Verify response includes thoughtNumber, totalThoughts, nextThoughtNeeded
 3. Call thought 2 of 3
 4. Call thought 3 of 3 with nextThoughtNeeded: false
@@ -41,7 +48,7 @@ Workflows for Claude to execute when verifying the thoughtbox thinking tool func
 **Expected:**
 - Session auto-creates at first thought (thought 5), not waiting for thought 1
 - \`sessionId\` returned in response from first call
-- Tool accepts backward progression without error
+- \`tb.thought\` accepts backward progression without error
 
 ---
 
@@ -94,7 +101,7 @@ Workflows for Claude to execute when verifying the thoughtbox thinking tool func
 1. Start with thought 1 of 5
 2. At thought 4, realize more needed - set totalThoughts to 10
 3. Continue to thought 10
-4. Verify tool accepts the adjustment
+4. Verify \`tb.thought\` accepts the adjustment
 
 **Expected:** Flexible estimation, not rigid planning
 
@@ -105,7 +112,7 @@ Workflows for Claude to execute when verifying the thoughtbox thinking tool func
 **Goal:** Verify input validation.
 
 **Steps:**
-1. Call without required field (thought) - should error
+1. Call \`tb.thought\` without required field (thought) - should error
 2. Call without thoughtNumber - should error
 3. Call with thoughtNumber > totalThoughts - should auto-adjust totalThoughts
 4. Call with invalid types - should error with clear message
@@ -120,7 +127,7 @@ Workflows for Claude to execute when verifying the thoughtbox thinking tool func
 
 **Steps:**
 1. Create thoughts 1, 2, 3 sequentially with nextThoughtNeeded: true
-2. Call session export tool to export session
+2. Call \`tb.session.export(sessionId, "json")\` to export the session
 3. Verify thoughts are stored correctly
 
 **Expected:**
@@ -138,7 +145,7 @@ Workflows for Claude to execute when verifying the thoughtbox thinking tool func
 1. Create thoughts 1-3 on main chain
 2. Create thought 4 with \`branchFromThought: 3\`, \`branchId: "option-a"\`
 3. Create thought 5 with \`branchFromThought: 3\`, \`branchId: "option-b"\`
-4. Export session and examine node 3
+4. Export the session via \`tb.session.export(sessionId, "json")\` and examine node 3
 
 **Expected:**
 - Node 3 has \`next: ["{sessionId}:4", "{sessionId}:5"]\` (two children)
@@ -154,7 +161,7 @@ Workflows for Claude to execute when verifying the thoughtbox thinking tool func
 **Steps:**
 1. Create thoughts 1-3
 2. Create thought 4 with \`isRevision: true\`, \`revisesThought: 2\`
-3. Export session
+3. Export the session via \`tb.session.export(sessionId, "json")\`
 
 **Expected:**
 - Node 4 has \`revisesNode: "{sessionId}:2"\`
@@ -164,7 +171,7 @@ Workflows for Claude to execute when verifying the thoughtbox thinking tool func
 
 ## Test 11: Auto-Export on Session Close
 
-**Goal:** Verify session automatically exports to filesystem when complete.
+**Goal:** Verify session automatically exports to storage when complete.
 
 **Steps:**
 1. Create thoughts 1-3 with \`nextThoughtNeeded: true\`
@@ -177,13 +184,13 @@ Workflows for Claude to execute when verifying the thoughtbox thinking tool func
 
 ---
 
-## Test 12: Manual Export Tool
+## Test 12: Manual Export
 
-**Goal:** Verify \`export_reasoning_chain\` tool exports without closing session.
+**Goal:** Verify \`tb.session.export\` exports without closing the session.
 
 **Steps:**
 1. Create thoughts 1-3 with \`nextThoughtNeeded: true\` (session still open)
-2. Call \`export_reasoning_chain\` tool
+2. Call \`tb.session.export(sessionId)\`
 3. Create thought 4 (should work - session still active)
 
 **Expected:** Export without closing session
@@ -197,7 +204,7 @@ Workflows for Claude to execute when verifying the thoughtbox thinking tool func
 **Steps:**
 1. Create thought 1, capture sessionId from response
 2. Create thoughts 2-3
-3. Export session and verify thoughts have consistent structure
+3. Export the session and verify thoughts have consistent structure
 
 **Expected:**
 - Session ID returned with each thought response
@@ -214,7 +221,7 @@ Workflows for Claude to execute when verifying the thoughtbox thinking tool func
 **Steps:**
 1. Start at thought 5 of 5
 2. Create thoughts 4, 3, 2, 1 in sequence
-3. Export session
+3. Export the session
 
 **Expected:** Chain flows 5←4←3←2←1 by creation order
 
@@ -229,7 +236,7 @@ Workflows for Claude to execute when verifying the thoughtbox thinking tool func
 2. Create thought 5 of 10 (skipping 2-4)
 3. Create thought 8 of 10 (skipping 6-7)
 4. Create thought 10 of 10
-5. Export session
+5. Export the session
 
 **Expected:** Chain is contiguous (1←5←8←10) despite thought number gaps
 `
@@ -238,19 +245,22 @@ Workflows for Claude to execute when verifying the thoughtbox thinking tool func
   notebook: {
     name: "test-notebook",
     uri: "thoughtbox://tests/notebook",
-    description: "Behavioral tests for the notebook literate programming tool (8 tests covering creation, cells, execution, export)",
-    content: `# Notebook Toolhost - Behavioral Tests
+    description: "Behavioral tests for tb.notebook via thoughtbox_execute (8 tests covering creation, cells, execution, export)",
+    content: `# tb.notebook - Behavioral Tests
 
-Workflows for Claude to execute when verifying the notebook toolhost functions correctly.
+Workflows for Claude to execute when verifying the notebook module functions correctly.
+
+**Surface:** All calls go through the \`thoughtbox_execute\` tool. Write code against the
+\`tb.notebook\` module, e.g. \`async () => tb.notebook.create({ title: "Test", language: "typescript" })\`.
 
 ## Test 1: Create and List Flow
 
 **Goal:** Verify notebook creation and discovery.
 
 **Steps:**
-1. Call \`notebook\` with operation \`create\`, args: { title: "Test Notebook", language: "typescript" }
+1. Call \`tb.notebook.create({ title: "Test Notebook", language: "typescript" })\`
 2. Verify response includes notebookId, title, language, cells array
-3. Call operation \`list\`
+3. Call \`tb.notebook.list()\`
 4. Verify created notebook appears in list with correct metadata
 
 **Expected:** Notebook created with unique ID, discoverable via list
@@ -263,10 +273,10 @@ Workflows for Claude to execute when verifying the notebook toolhost functions c
 
 **Steps:**
 1. Create a notebook
-2. Add title cell: operation \`add_cell\`, cellType: "title", content: "My Analysis"
+2. Add title cell: \`tb.notebook.addCell({ notebookId, cellType: "title", content: "My Analysis" })\`
 3. Add markdown cell: cellType: "markdown", content: "## Introduction..."
 4. Add code cell: cellType: "code", content: "console.log('hello')", filename: "hello.ts"
-5. Call operation \`list_cells\` with notebookId
+5. Call \`tb.notebook.listCells({ notebookId })\`
 6. Verify all three cells present with correct types
 
 **Expected:** All cell types work, retrievable by ID
@@ -280,7 +290,7 @@ Workflows for Claude to execute when verifying the notebook toolhost functions c
 **Steps:**
 1. Create notebook with language: "typescript"
 2. Add code cell: \`const x = 1 + 1; console.log(x);\`
-3. Call operation \`run_cell\` with notebookId and cellId
+3. Call \`tb.notebook.runCell({ notebookId, cellId })\`
 4. Verify output contains "2"
 5. Verify cell status is "completed"
 
@@ -294,8 +304,8 @@ Workflows for Claude to execute when verifying the notebook toolhost functions c
 
 **Steps:**
 1. Create notebook with a code cell
-2. Call operation \`update_cell\` with new content
-3. Call \`get_cell\` to verify content changed
+2. Call \`tb.notebook.updateCell({ notebookId, cellId, content })\` with new content
+3. Call \`tb.notebook.getCell({ notebookId, cellId })\` to verify content changed
 4. Run the updated cell
 5. Verify new output reflects updated code
 
@@ -309,9 +319,9 @@ Workflows for Claude to execute when verifying the notebook toolhost functions c
 
 **Steps:**
 1. Create notebook with title, markdown, and code cells
-2. Call operation \`export\` with notebookId
+2. Call \`tb.notebook.export({ notebookId })\`
 3. Verify response includes content in .src.md format
-4. Call operation \`load\` with the exported content string
+4. Call \`tb.notebook.load({ content })\` with the exported content string
 5. Verify loaded notebook has same cells as original
 
 **Expected:** Lossless roundtrip through .src.md format
@@ -323,7 +333,7 @@ Workflows for Claude to execute when verifying the notebook toolhost functions c
 **Goal:** Verify template instantiation.
 
 **Steps:**
-1. Call \`create\` with template: "sequential-feynman", title: "React Hooks"
+1. Call \`tb.notebook.create({ template: "sequential-feynman", title: "React Hooks", language: "typescript" })\`
 2. Verify notebook created with pre-populated cells
 3. Cells should include scaffolded structure from template
 
@@ -338,7 +348,7 @@ Workflows for Claude to execute when verifying the notebook toolhost functions c
 **Steps:**
 1. Create notebook
 2. Add package.json cell or update existing with dependencies
-3. Call operation \`install_deps\` with notebookId
+3. Call \`tb.notebook.installDeps({ notebookId })\`
 4. Verify installation completes
 5. Add code cell that uses installed dependency
 6. Run cell, verify it works
@@ -352,126 +362,26 @@ Workflows for Claude to execute when verifying the notebook toolhost functions c
 **Goal:** Verify graceful error handling.
 
 **Steps:**
-1. Call \`run_cell\` with nonexistent notebookId - should error
-2. Call \`get_cell\` with invalid cellId - should error
-3. Call \`add_cell\` with invalid cellType - should error
+1. Call \`tb.notebook.runCell\` with nonexistent notebookId - should error
+2. Call \`tb.notebook.getCell\` with invalid cellId - should error
+3. Call \`tb.notebook.addCell\` with invalid cellType - should error
 4. Run code cell with syntax error - should show error in output
 
 **Expected:** Clear errors, failed cells have error info
 `
   },
 
-  mentalModels: {
-    name: "test-mental-models",
-    uri: "thoughtbox://tests/mental-models",
-    description: "Behavioral tests for the mental_models structured reasoning tool (6 tests covering discovery, retrieval, capability graph)",
-    content: `# Mental Models Toolhost - Behavioral Tests
-
-Workflows for Claude to execute when verifying the mental_models toolhost functions correctly.
-
-## Test 1: Discovery Flow
-
-**Goal:** Verify an agent can discover what's available.
-
-**Steps:**
-1. Call \`mental_models\` with operation \`list_tags\`
-2. Verify response contains 9 tags with descriptions
-3. Pick a tag (e.g., "debugging") and call \`list_models\` with that tag filter
-4. Verify only models with that tag are returned
-
-**Expected:** Agent can navigate from tags → filtered models
-
----
-
-## Test 2: Model Retrieval Flow
-
-**Goal:** Verify an agent can retrieve and use a mental model.
-
-**Steps:**
-1. Call \`mental_models\` with operation \`get_model\`, model \`five-whys\`
-2. Verify response contains:
-   - Name and title
-   - Tags array
-   - Content with "# Five Whys" heading
-   - "## When to Use" section
-   - "## Process" section with numbered steps
-3. Content should be process scaffolding (HOW to think), not analysis
-
-**Expected:** Full prompt content suitable for guiding reasoning
-
----
-
-## Test 3: Error Handling Flow
-
-**Goal:** Verify graceful error handling.
-
-**Steps:**
-1. Call \`get_model\` without a model name - should error with available models list
-2. Call \`get_model\` with invalid model name - should error with available models list
-3. Call \`list_models\` with invalid tag - should error with available tags list
-4. Call unknown operation - should error with available operations list
-
-**Expected:** All errors include guidance on valid options
-
----
-
-## Test 4: Capability Graph Flow
-
-**Goal:** Verify capability graph can initialize knowledge graph.
-
-**Steps:**
-1. Call \`mental_models\` with operation \`get_capability_graph\`
-2. Verify response contains:
-   - \`entities\` array with thoughtbox_server, tools, tags, and models
-   - \`relations\` array with provides, contains, tagged_with relationships
-   - \`usage\` object with step-by-step instructions
-3. Optionally: Use returned data with \`memory_create_entities\` and \`memory_create_relations\`
-
-**Expected:** Structured data ready for knowledge graph initialization
-
----
-
-## Test 5: Tag Coverage Flow
-
-**Goal:** Verify tag taxonomy covers use cases.
-
-**Steps:**
-1. Call \`list_tags\` to see all categories
-2. For each tag, call \`list_models\` with that tag
-3. Verify each tag has at least one model
-4. Verify model descriptions match tag intent
-
-**Expected:** Complete coverage - no orphan tags or miscategorized models
-
----
-
-## Test 6: Content Quality Flow
-
-**Goal:** Verify mental model content follows "infrastructure not intelligence" principle.
-
-**Steps:**
-1. Retrieve several models (rubber-duck, pre-mortem, inversion)
-2. For each, verify content:
-   - Has clear process steps (numbered or bulleted)
-   - Explains WHEN to use
-   - Provides examples of APPLICATION
-   - Lists anti-patterns or common mistakes
-   - Does NOT perform reasoning or draw conclusions
-
-**Expected:** Process scaffolds, not analysis
-`
-  },
-
   memory: {
     name: "test-memory",
     uri: "thoughtbox://tests/memory",
-    description: "Behavioral tests for the thoughtbox_knowledge tool (12 tests covering entities, observations, relations, graph traversal, stats)",
+    description: "Behavioral tests for tb.knowledge via thoughtbox_execute (12 tests covering entities, observations, relations, graph traversal, stats)",
     content: `# Knowledge Graph - Behavioral Tests
 
-Workflows for verifying the \`thoughtbox_knowledge\` tool functions correctly.
+Workflows for verifying the \`tb.knowledge\` module functions correctly.
 
-**Tool:** \`thoughtbox_knowledge\`
-**Operations:** \`knowledge_create_entity\`, \`knowledge_get_entity\`, \`knowledge_list_entities\`, \`knowledge_add_observation\`, \`knowledge_create_relation\`, \`knowledge_query_graph\`, \`knowledge_stats\`
+**Surface:** All calls go through the \`thoughtbox_execute\` tool. Write code against the
+\`tb.knowledge\` module, e.g. \`async () => tb.knowledge.createEntity({ name: "...", type: "Concept", label: "..." })\`.
+**Operations:** \`createEntity\`, \`getEntity\`, \`listEntities\`, \`addObservation\`, \`createRelation\`, \`queryGraph\`, \`stats\`
 **Entity types:** Insight, Concept, Workflow, Decision, Agent
 **Relation types:** RELATES_TO, BUILDS_ON, CONTRADICTS, EXTRACTED_FROM, APPLIED_IN, LEARNED_BY, DEPENDS_ON, SUPERSEDES, MERGED_FROM
 
@@ -482,8 +392,7 @@ Workflows for verifying the \`thoughtbox_knowledge\` tool functions correctly.
 **Goal:** Verify entity creation with name, type, and label.
 
 **Steps:**
-1. Call \`thoughtbox_knowledge\` with:
-   \`{ operation: "knowledge_create_entity", name: "test-entity-001", type: "Concept", label: "Test Entity" }\`
+1. Call \`tb.knowledge.createEntity({ name: "test-entity-001", type: "Concept", label: "Test Entity" })\`
 2. Verify response includes:
    - \`entity_id\` (UUID)
    - \`name\` matches \`"test-entity-001"\`
@@ -500,7 +409,7 @@ Workflows for verifying the \`thoughtbox_knowledge\` tool functions correctly.
 
 **Steps:**
 1. Create an entity, capture the \`entity_id\`
-2. Call \`{ operation: "knowledge_get_entity", entity_id: "<id>" }\`
+2. Call \`tb.knowledge.getEntity("<id>")\`
 3. Verify response includes all entity fields:
    - \`id\`, \`name\`, \`type\`, \`label\`
    - \`created_at\`, \`updated_at\`
@@ -518,9 +427,9 @@ Workflows for verifying the \`thoughtbox_knowledge\` tool functions correctly.
 
 **Steps:**
 1. Create 2+ entities with different types (Concept, Insight, Decision)
-2. Call \`{ operation: "knowledge_list_entities" }\`
+2. Call \`tb.knowledge.listEntities()\`
 3. Verify \`count\` >= 2, \`entities\` array present
-4. Call \`{ operation: "knowledge_list_entities", types: ["Concept"] }\`
+4. Call \`tb.knowledge.listEntities({ types: ["Concept"] })\`
 5. Verify only Concept entities returned
 6. Call with \`name_pattern: "test-entity"\`
 7. Verify only matching entities returned
@@ -535,15 +444,15 @@ Workflows for verifying the \`thoughtbox_knowledge\` tool functions correctly.
 
 **Steps:**
 1. Create an entity, capture \`entity_id\`
-2. Call \`{ operation: "knowledge_add_observation", entity_id: "<id>", content: "This entity was tested" }\`
+2. Call \`tb.knowledge.addObservation({ entity_id: "<id>", content: "This entity was tested" })\`
 3. Verify response includes:
    - \`observation_id\` (UUID)
    - \`entity_id\` matches
    - \`added_at\` (timestamp)
-4. Call \`knowledge_get_entity\` with the entity ID
+4. Call \`tb.knowledge.getEntity\` with the entity ID
 5. Verify the observation appears in the entity's observations array
 
-**Expected:** Observation attached to entity, retrievable via get_entity
+**Expected:** Observation attached to entity, retrievable via getEntity
 
 ---
 
@@ -553,7 +462,7 @@ Workflows for verifying the \`thoughtbox_knowledge\` tool functions correctly.
 
 **Steps:**
 1. Create entity A (type: Concept) and entity B (type: Insight)
-2. Call \`{ operation: "knowledge_create_relation", from_id: "<B-id>", to_id: "<A-id>", relation_type: "BUILDS_ON" }\`
+2. Call \`tb.knowledge.createRelation({ from_id: "<B-id>", to_id: "<A-id>", relation_type: "BUILDS_ON" })\`
 3. Verify response includes:
    - \`relation_id\` (UUID)
    - \`from_id\` matches entity B
@@ -571,7 +480,7 @@ Workflows for verifying the \`thoughtbox_knowledge\` tool functions correctly.
 
 **Steps:**
 1. Create entities A and B with a BUILDS_ON relation (A → B)
-2. Call \`{ operation: "knowledge_query_graph", start_entity_id: "<A-id>" }\`
+2. Call \`tb.knowledge.queryGraph({ start_entity_id: "<A-id>" })\`
 3. Verify response includes:
    - \`entity_count\` >= 2
    - \`relation_count\` >= 1
@@ -588,7 +497,7 @@ Workflows for verifying the \`thoughtbox_knowledge\` tool functions correctly.
 
 **Steps:**
 1. Create entities A, B, C with relations A→B→C
-2. Call \`{ operation: "knowledge_query_graph", start_entity_id: "<A-id>", max_depth: 1 }\`
+2. Call \`tb.knowledge.queryGraph({ start_entity_id: "<A-id>", max_depth: 1 })\`
 3. Verify only A and B returned (not C)
 4. Call with \`max_depth: 2\`
 5. Verify A, B, and C all returned
@@ -605,7 +514,7 @@ Workflows for verifying the \`thoughtbox_knowledge\` tool functions correctly.
 1. Create entities A, B, C
 2. Create relation A → B type BUILDS_ON
 3. Create relation A → C type CONTRADICTS
-4. Call \`{ operation: "knowledge_query_graph", start_entity_id: "<A-id>", relation_types: ["BUILDS_ON"] }\`
+4. Call \`tb.knowledge.queryGraph({ start_entity_id: "<A-id>", relation_types: ["BUILDS_ON"] })\`
 5. Verify B is in results but C is NOT
 6. Call with \`relation_types: ["CONTRADICTS"]\`
 7. Verify C is in results but B is NOT
@@ -619,10 +528,10 @@ Workflows for verifying the \`thoughtbox_knowledge\` tool functions correctly.
 **Goal:** Verify knowledge graph statistics.
 
 **Steps:**
-1. Call \`{ operation: "knowledge_stats" }\`
+1. Call \`tb.knowledge.stats()\`
 2. Verify response includes entity count and relation count
 3. Create a new entity
-4. Call \`knowledge_stats\` again
+4. Call \`tb.knowledge.stats()\` again
 5. Verify entity count increased by 1
 
 **Expected:** Accurate counts reflecting current graph state
@@ -634,16 +543,16 @@ Workflows for verifying the \`thoughtbox_knowledge\` tool functions correctly.
 **Goal:** Verify clear errors for invalid operations.
 
 **Steps:**
-1. Call \`knowledge_create_entity\` without required \`name\` field — should error
-2. Call \`knowledge_get_entity\` with nonexistent \`entity_id\` — should error "not found"
-3. Call \`knowledge_create_relation\` with nonexistent \`from_id\` — should error
-4. Call \`knowledge_add_observation\` with nonexistent \`entity_id\` — should error
+1. Call \`tb.knowledge.createEntity\` without required \`name\` field — should error
+2. Call \`tb.knowledge.getEntity\` with nonexistent \`entity_id\` — should error "not found"
+3. Call \`tb.knowledge.createRelation\` with nonexistent \`from_id\` — should error
+4. Call \`tb.knowledge.addObservation\` with nonexistent \`entity_id\` — should error
 
 **Expected:** Each error is specific, actionable, and non-destructive
 
 ---
 
-## Test 11: UNIQUE Collision on create_entity
+## Test 11: UNIQUE Collision on createEntity
 
 **Goal:** Verify duplicate entity name+type returns existing entity.
 
@@ -651,7 +560,7 @@ Workflows for verifying the \`thoughtbox_knowledge\` tool functions correctly.
 1. Create entity with name "collision-test", type "Concept", label "First"
 2. Create entity with same name "collision-test", type "Concept", label "Second"
 3. Verify second call returns the SAME entity_id as the first
-4. Use \`knowledge_add_observation\` to add corroborating evidence to the existing entity
+4. Use \`tb.knowledge.addObservation\` to add corroborating evidence to the existing entity
 
 **Expected:** No error on collision; existing entity returned for deduplication
 
@@ -663,9 +572,9 @@ Workflows for verifying the \`thoughtbox_knowledge\` tool functions correctly.
 
 **Steps:**
 1. **Create entities:**
-   - Entity A: \`{ operation: "knowledge_create_entity", name: "arch-patterns", type: "Concept", label: "Architecture Patterns" }\`
-   - Entity B: \`{ operation: "knowledge_create_entity", name: "microservices-insight", type: "Insight", label: "Microservices Trade-offs" }\`
-   - Entity C: \`{ operation: "knowledge_create_entity", name: "monolith-decision", type: "Decision", label: "Stay Monolith" }\`
+   - Entity A: \`tb.knowledge.createEntity({ name: "arch-patterns", type: "Concept", label: "Architecture Patterns" })\`
+   - Entity B: \`tb.knowledge.createEntity({ name: "microservices-insight", type: "Insight", label: "Microservices Trade-offs" })\`
+   - Entity C: \`tb.knowledge.createEntity({ name: "monolith-decision", type: "Decision", label: "Stay Monolith" })\`
 2. **Add observations:**
    - On A: \`"Common patterns include microservices, monolith, serverless"\`
    - On B: \`"Microservices add network complexity but improve team autonomy"\`
@@ -679,118 +588,10 @@ Workflows for verifying the \`thoughtbox_knowledge\` tool functions correctly.
    - From C, max_depth: 1: verify only B found
 5. **Verify stats:** entity_count >= 3, relation_count >= 3
 6. **Verify consistency:**
-   - \`knowledge_get_entity\` for each verifies observations attached
-   - \`knowledge_list_entities\` with types: ["Decision"] returns only C
+   - \`tb.knowledge.getEntity\` for each verifies observations attached
+   - \`tb.knowledge.listEntities({ types: ["Decision"] })\` returns only C
 
 **Expected:** Complete lifecycle — create, observe, link, traverse, query, stats all consistent
 `
-  },
-  hub: {
-    name: "test-hub",
-    uri: "thoughtbox://tests/hub",
-    description: "Behavioral tests for the Hub multi-agent collaboration tool (6 tests covering identity registry, shared sessions, proposal review, and cross-agent workflows)",
-    content: `# Hub Tool - Behavioral Tests
-
-Workflows for verifying Hub multi-agent collaboration, with focus on the
-connection-scoped identity registry that allows multiple agents to share
-a single MCP session while maintaining distinct identities.
-
-## Test 1: Multi-Agent Registration in Shared Session
-
-**Goal:** Verify two agents can register in the same MCP session and keep distinct identities.
-
-**Steps:**
-1. Call \`thoughtbox_hub\` with operation \`register\`, name: "coordinator"
-2. Note the returned agentId (call it coordId)
-3. Call \`register\` again with name: "auditor"
-4. Note the returned agentId (call it auditorId)
-5. Call \`whoami\` with agentId: coordId
-6. Call \`whoami\` with agentId: auditorId
-
-**Expected:**
-- coordId !== auditorId
-- Each whoami returns the correct agent's identity
-- First register becomes the session default
-
----
-
-## Test 2: Per-Call Identity Override
-
-**Goal:** Verify agents identify themselves per-call via agentId.
-
-**Steps:**
-1. Register "alice" and "bob" in the same session
-2. Alice creates a workspace (default identity or explicit agentId)
-3. Bob joins via \`join_workspace\` with agentId: bobId, workspaceId: ...
-4. Bob creates a problem with agentId: bobId, workspaceId: ..., title: ..., description: ...
-5. Alice posts a message with agentId: aliceId, workspaceId: ..., problemId: ..., content: ...
-
-**Expected:** Each operation attributed to the correct agent
-
----
-
-## Test 3: Cross-Agent Proposal Review (The Core Bug)
-
-**Goal:** Verify the exact scenario that was broken — proposal review across agents sharing a session.
-
-**Steps:**
-1. Register "coordinator" and "auditor" in the same session
-2. Coordinator creates workspace and problem
-3. Auditor joins, claims problem, and creates a proposal
-4. Coordinator reviews the proposal with agentId: coordId, ..., verdict: "approve"
-5. Coordinator merges the proposal
-
-**Expected:**
-- Review succeeds (no self-review error)
-- Merge succeeds (coordinator is recognized as coordinator, not auditor)
-- Problem status becomes "resolved"
-- Proposal status becomes "merged"
-
----
-
-## Test 4: Unregistered Agent ID Rejection
-
-**Goal:** Verify the anti-spoofing guard rejects unknown agentIds.
-
-**Steps:**
-1. Register "alice" in a session
-2. Call \`whoami\` with agentId: "fake-agent-id"
-
-**Expected:** Error: "Agent fake-agent-id not registered in this session. Call register first."
-
----
-
-## Test 5: quick_join Identity Registration
-
-**Goal:** Verify quick_join adds the agent to the session identity registry.
-
-**Steps:**
-1. Register "coordinator", create a workspace
-2. Call \`quick_join\` with name: "debugger", workspaceId: ...
-3. Call \`whoami\` with agentId: debuggerAgentId
-4. Debugger creates a problem using its own agentId
-
-**Expected:**
-- quick_join returns a distinct agentId
-- Debugger can use its agentId in subsequent calls
-- Operations are attributed to the debugger, not the coordinator
-
----
-
-## Test 6: Env-Var Agent Coexistence
-
-**Goal:** Verify env-var-resolved agents coexist with dynamically registered agents.
-
-**Steps:**
-1. Create handler with envAgentId and envAgentName set
-2. Verify env agent can call \`whoami\` without explicit register
-3. Register a second agent ("sub-agent") in the same session
-4. Sub-agent calls operations with agentId: subAgentId
-5. Env agent calls operations with agentId: envAgentId
-
-**Expected:** Both agents operate independently, neither overwrites the other
-`
   }
 } as const;
-
-export type BehavioralTestKey = keyof typeof BEHAVIORAL_TESTS;

@@ -1,7 +1,7 @@
 /**
  * Operations Catalog for Hub Toolhost
  *
- * Defines all 27 hub operations organized by category with stage metadata.
+ * Defines all 28 hub operations organized by category with stage metadata.
  * Includes hub vocabulary for agent onboarding.
  */
 

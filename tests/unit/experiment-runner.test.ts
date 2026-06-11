@@ -244,6 +244,7 @@ async function runTests() {
     const check = await runner.runRegressionCheck("regression-ds", async (input) => input);
 
     assertEqual(check.passed, true, "Should pass above thresholds");
+    assertEqual(check.skipped, false, "Should not be skipped when experiment ran");
     assertEqual(check.failedEvaluators.length, 0, "No failed evaluators");
     assert(check.details.includes("passed"), "Details should say passed");
   });
@@ -265,8 +266,20 @@ async function runTests() {
     const check = await runner.runRegressionCheck("regression-ds", async (input) => input);
 
     assertEqual(check.passed, false, "Should fail below thresholds");
+    assertEqual(check.skipped, false, "Should not be skipped when experiment ran");
     assert(check.failedEvaluators.includes("sessionQuality"), "sessionQuality should fail");
     assert(!check.failedEvaluators.includes("reasoningCoherence"), "reasoningCoherence should pass");
+  });
+
+  await test("runRegressionCheck on unconfigured runner is skipped and NOT passed", async () => {
+    const runner = new ExperimentRunner(null);
+    const check = await runner.runRegressionCheck("regression-ds", async (input) => input);
+
+    assertEqual(check.passed, false, "A skipped gate must not report passed");
+    assertEqual(check.skipped, true, "Should be marked skipped when LangSmith unconfigured");
+    assertEqual(check.failedEvaluators.length, 0, "No evaluators ran");
+    assertEqual(Object.keys(check.scores).length, 0, "No scores when skipped");
+    assert(check.details.includes("not configured"), "Details should explain why it was skipped");
   });
 
   await test("shared client is reused across instances", async () => {

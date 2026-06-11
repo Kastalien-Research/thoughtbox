@@ -88,8 +88,17 @@ jobs:
         with:
           version: 2.84.2
 
+      - name: Seed edge function env
+        # tb-branch verifies worker tokens with TB_BRANCH_SIGNING_SECRET; the
+        # local edge runtime loads supabase/functions/.env. Must match
+        # TB_BRANCH_TEST_SIGNING_SECRET in src/__tests__/supabase-test-helpers.ts.
+        run: echo "TB_BRANCH_SIGNING_SECRET=local-dev-branch-signing-secret" > supabase/functions/.env
+
       - name: Start local Supabase
-        run: supabase start -x realtime,storage-api,imgproxy,mailpit,postgres-meta,studio,edge-runtime,logflare,vector,supavisor
+        # storage-api + edge-runtime are included (not in -x): the peer-notebook
+        # tests need Storage and the intelligence-pipeline/branch-workers tests
+        # invoke edge functions.
+        run: supabase start -x realtime,imgproxy,mailpit,postgres-meta,studio,logflare,vector,supavisor
 
       - name: Run test suite
         run: pnpm test
@@ -110,10 +119,25 @@ jobs:
       - name: Start local Supabase
         run: supabase start -x realtime,storage-api,imgproxy,mailpit,postgres-meta,studio,edge-runtime,logflare,vector,supavisor
 
+      - name: Link production project
+        # db diff --linked needs a linked project ref; the checkout has none
+        # (supabase/.temp is not committed). Without this step the diff fails
+        # with "Cannot find project ref" — which the old error handling then
+        # misreported as schema drift.
+        run: supabase link --project-ref akjccuoncxlvrrtkvtno
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+
       - name: Check for schema drift against production
         run: |
-          DIFF=$(supabase db diff --linked 2>&1) || true
-          if [ -n "$DIFF" ] && ! echo "$DIFF" | grep -q "^$"; then
+          set -uo pipefail
+          if ! DIFF=$(supabase db diff --linked); then
+            echo "::error::supabase db diff failed to run (not a drift verdict)"
+            echo "$DIFF"
+            exit 1
+          fi
+          if [ -n "$DIFF" ]; then
             echo "::error::Schema drift detected between migrations and production"
             echo "$DIFF"
             exit 1

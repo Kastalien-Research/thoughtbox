@@ -2,6 +2,12 @@ import { McpServer, ResourceTemplate } from "@modelcontextprotocol/sdk/server/mc
 import { ListResourcesRequestSchema, ListResourceTemplatesRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod"; // hypothesis test 3
 import type { HubStorage } from "./hub/hub-types.js";
+import type { HubEvent } from "./hub/hub-handler.js";
+import { createHubToolHandler } from "./hub/hub-tool-handler.js";
+import {
+  createThoughtStoreAdapter,
+  type ThoughtStoreAdapter,
+} from "./hub/thought-store-adapter.js";
 import { FileSystemTaskStore } from "./hub/hub-task-store.js";
 import { InMemoryTaskStore, InMemoryTaskMessageQueue } from "@modelcontextprotocol/sdk/experimental/tasks/stores/in-memory.js";
 import { PATTERNS_COOKBOOK } from "./resources/patterns-cookbook-content.js";
@@ -131,8 +137,24 @@ export interface CreateMcpServerArgs {
    * Use FileSystemStorage for durable persistence to disk.
    */
   storage?: ThoughtboxStorage;
-  /** Hub storage for multi-agent coordination */
+  /**
+   * Hub storage for multi-agent coordination. Must be the single
+   * process-shared instance so workspaces, agents, and proposals are
+   * visible across MCP sessions; tb.hub.* is unavailable without it.
+   */
   hubStorage?: HubStorage;
+  /**
+   * Shared thought store for hub session persistence. Local mode must pass
+   * the single process-shared adapter: per-session FileSystemStorage holds
+   * an in-memory session index, so hub main-sessions created by one MCP
+   * session would otherwise be invisible to another (merge_proposal would
+   * fail with "Session not found"). When omitted, falls back to this
+   * session's storage — correct for Supabase, which resolves sessions from
+   * the database on every call.
+   */
+  hubThoughtStore?: ThoughtStoreAdapter;
+  /** Optional callback for hub events (local-mode unified event stream) */
+  onHubEvent?: (event: HubEvent) => void;
   /** Data directory for task store (filesystem persistence) */
   dataDir?: string;
   /** Optional pre-created knowledge storage (used by Supabase mode) */
@@ -332,6 +354,7 @@ Use \`console.log()\` for debugging — output captured in response logs.`;
   // Otherwise fall back to FileSystemKnowledgeStorage.
   let knowledgeHandler: KnowledgeHandler | undefined;
   let knowledgeStorage: import('./knowledge/types.js').KnowledgeStorage | undefined;
+  let knowledgeInitError: string | undefined;
   if (args.knowledgeStorage) {
     knowledgeStorage = args.knowledgeStorage;
     knowledgeHandler = new KnowledgeHandler(knowledgeStorage);
@@ -343,8 +366,10 @@ Use \`console.log()\` for debugging — output captured in response logs.`;
       knowledgeStorage = fsKnowledge;
       knowledgeHandler = new KnowledgeHandler(knowledgeStorage);
     } catch (knowledgeError) {
+      knowledgeInitError =
+        knowledgeError instanceof Error ? knowledgeError.message : String(knowledgeError);
       logger.warn(
-        `Knowledge storage unavailable, continuing without it: ${knowledgeError instanceof Error ? knowledgeError.message : String(knowledgeError)}`
+        `Knowledge storage unavailable, continuing without it: ${knowledgeInitError}`
       );
     }
   }
@@ -410,7 +435,9 @@ Use \`console.log()\` for debugging — output captured in response logs.`;
   // Tool Registration (all tools enabled at startup)
   // =============================================================================
 
-  const knowledgeTool = new KnowledgeTool(knowledgeHandler!);
+  // Undefined when knowledge init failed above; tb.knowledge.* then returns
+  // a clean "knowledge unavailable" error from ExecuteTool instead of crashing.
+  const knowledgeTool = knowledgeHandler ? new KnowledgeTool(knowledgeHandler) : undefined;
   const sessionTool = new SessionTool(sessionHandler);
   const thoughtTool = new ThoughtTool(thoughtHandler);
   const notebookTool = new NotebookTool(notebookHandler);
@@ -557,13 +584,27 @@ Use \`console.log()\` for debugging — output captured in response logs.`;
   // only wired when Supabase credentials are present. In local/self-hosted
   // mode it is left undefined; `tb.branch.*` then returns a clear "hosted
   // mode" error instead of crashing session setup on a missing SUPABASE_URL.
+  //
+  // TB_BRANCH_SIGNING_SECRET is the dedicated HMAC secret shared with the
+  // tb-branch Edge Function. The service role key cannot serve as the signing
+  // secret: the hosted Edge runtime injects its own SUPABASE_SERVICE_ROLE_KEY
+  // value, which does not match the key this server holds.
   const branchSupabaseUrl = process.env.SUPABASE_URL;
   const branchServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const branchSigningSecret = process.env.TB_BRANCH_SIGNING_SECRET;
+  if (branchSupabaseUrl && branchServiceKey && !branchSigningSecret) {
+    console.error(
+      "[branch] Supabase credentials present but TB_BRANCH_SIGNING_SECRET is not set; " +
+        "tb.branch.* is disabled. Set the same secret on this server and the " +
+        "tb-branch Edge Function (supabase secrets set TB_BRANCH_SIGNING_SECRET=...)."
+    );
+  }
   const branchHandler =
-    branchSupabaseUrl && branchServiceKey
+    branchSupabaseUrl && branchServiceKey && branchSigningSecret
       ? new BranchHandler({
           supabaseUrl: branchSupabaseUrl,
           serviceRoleKey: branchServiceKey,
+          signingSecret: branchSigningSecret,
           workspaceId: args.workspaceId ?? "default",
         })
       : undefined;
@@ -572,17 +613,43 @@ Use \`console.log()\` for debugging — output captured in response logs.`;
   // Code Mode Tools (replaces individual tool registrations)
   // =============================================================================
 
+  // Hub dispatcher — tb.hub.* over the process-shared hub storage.
+  // Hub state (workspaces, agents, proposals) is shared across MCP sessions
+  // via args.hubStorage; the thought store delegates to THIS session's
+  // storage so merge_proposal synthesis thoughts persist with the session's
+  // real backend (filesystem locally, Supabase when hosted).
+  // The HubToolHandler keeps a register-once identity registry keyed by the
+  // session, so agentId is implicit after the first register/quick_join.
+  const hubToolHandler = args.hubStorage
+    ? createHubToolHandler({
+        hubStorage: args.hubStorage,
+        thoughtStore: args.hubThoughtStore ?? createThoughtStoreAdapter(storage),
+        envAgentId: process.env.THOUGHTBOX_AGENT_ID,
+        envAgentName: process.env.THOUGHTBOX_AGENT_NAME,
+        onEvent: args.onHubEvent,
+      })
+    : undefined;
+  const hubSessionKey = sessionId ?? "local";
+  const hubDispatcher = hubToolHandler
+    ? {
+        handle: (input: { operation: string; [key: string]: unknown }) =>
+          hubToolHandler.handle(input, hubSessionKey),
+      }
+    : undefined;
+
   const searchCatalog = buildSearchCatalog();
   const searchTool = new SearchTool(searchCatalog);
   const executeTool = new ExecuteTool({
     thoughtTool,
     sessionTool,
     knowledgeTool,
+    knowledgeUnavailableReason: knowledgeInitError,
     notebookTool,
     theseusTool,
     ulyssesTool,
     observabilityHandler,
     branchHandler,
+    hubDispatcher,
   });
 
   registerTool(SEARCH_TOOL, searchTool);
@@ -668,7 +735,7 @@ You MUST now spawn a sub-agent using the Task tool to fulfill this request. This
   "tool": "Task",
   "subagent_type": "general-purpose",
   "description": "${request ? request.slice(0, 50) : "Query Thoughtbox sessions"}",
-  "prompt": "${request ? `Task: ${request}` : "Retrieve and summarize Thoughtbox session data."}\\n\\nSteps:\\n1. Call mcp__thoughtbox__thoughtbox_session with appropriate operation:\\n   - 'list' to see available sessions\\n   - 'get' with sessionId to retrieve specific session\\n   - 'search' with query to find relevant sessions\\n2. Process the data according to the request\\n\\nReturn ONLY your findings/summary. Do not include raw thought content."
+  "prompt": "${request ? `Task: ${request}` : "Retrieve and summarize Thoughtbox session data."}\\n\\nSteps:\\n1. Call mcp__thoughtbox__thoughtbox_execute with code using the tb SDK:\\n   - async () => tb.session.list() to see available sessions\\n   - async () => tb.session.get('<SESSION_ID>') to retrieve a specific session\\n   - async () => tb.session.search('<QUERY>') to find relevant sessions\\n2. Process the data according to the request\\n\\nReturn ONLY your findings/summary. Do not include raw thought content."
 }
 \`\`\`
 
@@ -735,8 +802,10 @@ Spawn a Haiku sub-agent to evaluate which prior thoughts should be updated based
 For each thought marked UPDATE, use:
 
 \`\`\`typescript
-mcp__thoughtbox__thoughtbox({
+// Via the thoughtbox_execute tool:
+async () => tb.thought({
   thought: "[REVISED content with new context]",
+  thoughtType: "reasoning",
   thoughtNumber: [N],
   totalThoughts: [total],
   nextThoughtNeeded: false,
@@ -796,21 +865,6 @@ mcp__thoughtbox__thoughtbox({
         {
           role: "user" as const,
           content: { type: "text" as const, text: BEHAVIORAL_TESTS.notebook.content },
-        },
-      ],
-    })
-  );
-
-  server.registerPrompt(
-    "test-mental-models",
-    {
-      description: BEHAVIORAL_TESTS.mentalModels.description,
-    },
-    async () => ({
-      messages: [
-        {
-          role: "user" as const,
-          content: { type: "text" as const, text: BEHAVIORAL_TESTS.mentalModels.content },
         },
       ],
     })
@@ -1254,24 +1308,6 @@ mcp__thoughtbox__thoughtbox({
   );
 
   server.registerResource(
-    "test-mental-models",
-    BEHAVIORAL_TESTS.mentalModels.uri,
-    {
-      description: BEHAVIORAL_TESTS.mentalModels.description,
-      mimeType: "text/markdown",
-    },
-    async (uri) => ({
-      contents: [
-        {
-          uri: uri.toString(),
-          mimeType: "text/markdown",
-          text: BEHAVIORAL_TESTS.mentalModels.content,
-        },
-      ],
-    })
-  );
-
-  server.registerResource(
     "test-memory",
     BEHAVIORAL_TESTS.memory.uri,
     {
@@ -1351,7 +1387,7 @@ mcp__thoughtbox__thoughtbox({
     "hub-operations",
     "thoughtbox://hub/operations",
     {
-      description: "Complete catalog of all 27 hub operations organized by category with stage metadata and vocabulary",
+      description: "Complete catalog of all 28 hub operations organized by category with stage metadata and vocabulary",
       mimeType: "application/json",
     },
     async (uri) => ({
@@ -1365,7 +1401,31 @@ mcp__thoughtbox__thoughtbox({
     })
   );
 
-
+  server.registerResource(
+    "gateway-operations",
+    "thoughtbox://gateway/operations",
+    {
+      description: "Complete catalog of operations available through the Code Mode gateway, grouped by tb SDK module (thought, session, knowledge, notebook, theseus, ulysses, observability, branch, hub)",
+      mimeType: "application/json",
+    },
+    async (uri) => ({
+      contents: [
+        {
+          uri: uri.toString(),
+          mimeType: "application/json",
+          text: JSON.stringify(
+            {
+              version: "1.0.0",
+              publicTools: searchCatalog.publicTools,
+              operations: searchCatalog.operations,
+            },
+            null,
+            2
+          ),
+        },
+      ],
+    })
+  );
 
   server.registerResource(
     "init-operation",
@@ -1412,6 +1472,22 @@ mcp__thoughtbox__thoughtbox({
   );
 
   server.registerResource(
+    "gateway-operation",
+    new ResourceTemplate("thoughtbox://gateway/operations/{op}", { list: undefined }),
+    { description: "Individual operation schema from the Code Mode gateway catalog, looked up by name across tb SDK modules", mimeType: "application/json" },
+    async (uri, { op }) => {
+      const opName = op as string;
+      for (const [module, ops] of Object.entries(searchCatalog.operations)) {
+        const opDef = ops[opName];
+        if (opDef) {
+          return { contents: [{ uri: uri.href, mimeType: "application/json", text: JSON.stringify({ module, name: opName, ...opDef }, null, 2) }] };
+        }
+      }
+      throw new Error(`Unknown gateway operation: ${opName}`);
+    }
+  );
+
+  server.registerResource(
     "notebook-operation",
     new ResourceTemplate("thoughtbox://notebook/operations/{op}", { list: undefined }),
     { description: "Individual notebook operation schema and examples", mimeType: "application/json" },
@@ -1451,7 +1527,7 @@ mcp__thoughtbox__thoughtbox({
       return {
         uri: "thoughtbox://init",
         mimeType: "text/markdown",
-        text: `# Thoughtbox Init\n\nSession index not available. You can start using tools directly.\n\n## Available Tools\n\n- \`thoughtbox\` — Step-by-step reasoning\n- \`thoughtbox_cipher\` — Token-efficient notation system\n- \`session\` — Manage/retrieve/analyze reasoning sessions\n- \`notebook\` — Literate programming notebooks`,
+        text: `# Thoughtbox Init\n\nSession index not available. You can start using tools directly.\n\n## Available Tools\n\n- \`thoughtbox_search\` — Query the operation/prompt/resource catalog\n- \`thoughtbox_execute\` — Run JavaScript against the \`tb\` SDK (thoughts, sessions, knowledge, notebooks)\n- \`thoughtbox_peer_notebook\` — Seed artifacts and invoke the brokered claim-extractor peer`,
       };
     }
     return initHandler.handle(params);
@@ -1723,7 +1799,7 @@ mcp__thoughtbox__thoughtbox({
       {
         uri: "thoughtbox://gateway/operations",
         name: "Gateway Operations Catalog",
-        description: "Complete catalog of gateway operations (thought, read_thoughts, get_structure, cipher, deep_analysis)",
+        description: "Complete catalog of operations available through the Code Mode gateway, grouped by tb SDK module (thought, session, knowledge, notebook, theseus, ulysses, observability, branch, hub)",
         mimeType: "application/json",
       },
       {
@@ -1741,7 +1817,7 @@ mcp__thoughtbox__thoughtbox({
       {
         uri: "thoughtbox://hub/operations",
         name: "Hub Operations Catalog",
-        description: "Complete catalog of all 27 hub operations with stage metadata and vocabulary",
+        description: "Complete catalog of all 28 hub operations with stage metadata and vocabulary",
         mimeType: "application/json",
       },
       {
@@ -1873,7 +1949,7 @@ mcp__thoughtbox__thoughtbox({
         {
           uriTemplate: "thoughtbox://gateway/operations/{op}",
           name: "Gateway Operation Detail",
-          description: "Individual gateway operation schema and examples",
+          description: "Individual operation schema from the Code Mode gateway catalog, looked up by name across tb SDK modules",
           mimeType: "application/json",
         },
         {

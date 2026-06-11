@@ -77,17 +77,18 @@ export class ProtocolHandler {
     protocol: Protocol,
     workspaceId: string | null = this.workspaceId,
   ): Promise<ProtocolSession | null> {
-    let query = this.client
+    // Fail closed: without a workspace scope, never run an unscoped query that
+    // could return another tenant's session.
+    if (!workspaceId) return null;
+
+    const query = this.client
       .from('protocol_sessions')
       .select('*')
       .eq('protocol', protocol)
       .eq('status', 'active')
+      .eq('workspace_id', workspaceId)
       .order('created_at', { ascending: false })
       .limit(1);
-
-    if (workspaceId) {
-      query = query.eq('workspace_id', workspaceId);
-    }
 
     const { data, error } = await query.single();
 
@@ -1012,15 +1013,20 @@ export class ProtocolHandler {
   async ulyssesStatus(): Promise<Record<string, unknown>> {
     const session = await this.getActiveSession('ulysses');
     if (!session) {
-      // Fetch most recent completed session for context
-      const { data: last } = await this.client
-        .from('protocol_sessions')
-        .select('id, status, completed_at')
-        .eq('protocol', 'ulysses')
-        .neq('status', 'active')
-        .order('completed_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
+      // Fetch most recent completed session for context, strictly scoped to
+      // this workspace. With no workspace set we skip the lookup entirely
+      // rather than fall back to a cross-tenant read.
+      const { data: last } = this.workspaceId
+        ? await this.client
+            .from('protocol_sessions')
+            .select('id, status, completed_at')
+            .eq('protocol', 'ulysses')
+            .neq('status', 'active')
+            .eq('workspace_id', this.workspaceId)
+            .order('completed_at', { ascending: false })
+            .limit(1)
+            .maybeSingle()
+        : { data: null };
 
       return {
         active: false,
