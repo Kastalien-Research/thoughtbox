@@ -1,7 +1,51 @@
 # Layer 2 Scope: SupabaseHubStorage + Migration
 
-Status: SCOPED
-Date: 2026-04-07
+Status: IMPLEMENTED (SPEC-V1-INITIATIVE Phase 4.3, claim c11)
+Date: 2026-04-07 (scoped) / 2026-06-11 (implemented)
+
+## Implemented Amendments (Phase 4.3 — supersede the design below where they differ)
+
+Migration: `supabase/migrations/20260611000000_add_hub_coordination_tables.sql`.
+Implementation: `src/hub/supabase-hub-storage.ts`.
+
+1. **Concurrency safety (c11).** Append-heavy children are normalized into
+   rows, not JSONB arrays: channel messages (`hub_channel_messages`, as
+   scoped below), plus proposal reviews (`hub_proposal_reviews`) and
+   consensus endorsements (`hub_consensus_endorsements`). The `HubStorage`
+   interface gained `appendMessage`/`appendReview`/`appendEndorsement`;
+   `channels.ts`, `proposals.ts`, and `consensus.ts` append through them, so
+   concurrent writers on different server instances never lose appends.
+   Remaining read-modify-write aggregates (`hub_workspaces.agents`,
+   `hub_problems.comments`, proposal status/merge fields) carry a `version`
+   column; `SupabaseHubStorage.save*` does a compare-and-swap on `version`
+   and throws on conflict instead of silently overwriting. `appendReview`
+   also transitions proposal status open→reviewing (guarded so it cannot
+   revert a merge).
+2. **Multi-tenant readiness.** `tenant_workspace_id uuid NOT NULL REFERENCES
+   public.workspaces(id)` on all tenant-scoped tables, indexed; `hub_agents`
+   stays global (per this scope) with a nullable `user_id` referencing
+   `auth.users` for future web/auth binding. Every query in
+   `SupabaseHubStorage` is scoped by `tenant_workspace_id`.
+3. **Real RLS.** RLS enabled on all 9 hub tables. `service_role` full-access
+   policies plus workspace-membership SELECT policies for `authenticated`
+   (`tenant_workspace_id IN (SELECT workspace_id FROM workspace_memberships
+   WHERE user_id = auth.uid())`); `hub_agents` allows authenticated reads of
+   rows where `user_id = auth.uid()`. The server uses the service role and
+   bypasses RLS; the policies exist for Phase 4.4/4.6 Realtime/web access.
+4. **Dropped `hub_events`, `hub_tasks`, `hub_workers`** in the same
+   migration — worker-queue tables from a deferred design, never written
+   (0 rows on prod and staging, 2026-06-10 drift report; nothing in `src/`
+   referenced them).
+5. **Wiring.** `THOUGHTBOX_STORAGE=supabase` gives each tenant session a
+   cached per-tenant `SupabaseHubStorage`
+   (`createSupabaseHubStorageProvider` in `src/index.ts`), replacing the
+   interim per-tenant filesystem scoping (`createTenantHubStorageProvider`,
+   removed). Local mode keeps the shared `FileSystemHubStorage`
+   (documented single-writer).
+6. **Evidence.** `src/hub/__tests__/supabase-hub-storage.test.ts` runs the
+   HubStorage contract against both backends, the c11 concurrent-writer
+   tests (two instances, no lost messages/reviews/endorsements), the
+   optimistic-concurrency conflict test, and tenant isolation.
 
 ## Context
 
