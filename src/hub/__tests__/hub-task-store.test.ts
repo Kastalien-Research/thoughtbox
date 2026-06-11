@@ -26,7 +26,7 @@ describe('FileSystemTaskStore', () => {
     const task = await store.createTask(
       { ttl: 300000 },
       'req-1',
-      { method: 'tools/call', params: { name: 'thoughtbox_hub', arguments: {} } }
+      { method: 'tools/call', params: { name: 'thoughtbox_execute', arguments: {} } }
     );
 
     expect(task.taskId).toBeDefined();

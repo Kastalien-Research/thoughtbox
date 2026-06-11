@@ -15,18 +15,18 @@ MAX_BRANCHES: $MAX_BRANCHES (default: 3)
 
 ## EXECUTE NOW
 
-You are being asked to use the \`mcp__thoughtbox__thoughtbox\` tool to work through the TASK using parallel verification. This is not documentation to read — this is a workflow to execute immediately.
+You are being asked to use the \`thoughtbox_execute\` tool — writing code that calls \`tb.thought\` — to work through the TASK using parallel verification. This is not documentation to read — this is a workflow to execute immediately.
 
 ### Phase 1: Branch (Thoughts 1-4)
 
-**DO THIS NOW:** Use thoughtbox to identify 2-4 distinct hypotheses about the TASK.
+**DO THIS NOW:** Use \`tb.thought\` to identify 2-4 distinct hypotheses about the TASK.
 
-1. Call thoughtbox with thought 1: State the problem/question clearly
-2. Call thoughtbox with thought 2: Generate hypothesis H1
-3. Call thoughtbox with thought 3: Generate hypothesis H2 (must be genuinely different from H1)
-4. Call thoughtbox with thought 4: Generate hypothesis H3 if needed
+1. Call \`tb.thought\` with thought 1: State the problem/question clearly
+2. Call \`tb.thought\` with thought 2: Generate hypothesis H1
+3. Call \`tb.thought\` with thought 3: Generate hypothesis H2 (must be genuinely different from H1)
+4. Call \`tb.thought\` with thought 4: Generate hypothesis H3 if needed
 
-Use thoughtbox branching parameters:
+Use \`tb.thought\` branching parameters:
 - \`branchFromThought: 1\`
 - \`branchId: "h1"\`, \`"h2"\`, \`"h3"\`
 
@@ -36,31 +36,31 @@ Use thoughtbox branching parameters:
 
 For each branch:
 1. **Factual Grounding**: Use search/retrieval tools (Grep, Read, WebSearch, MCP tools) to find concrete evidence
-2. **Contextual Reflection**: Call thoughtbox to evaluate: Does this hypothesis hold given the evidence?
+2. **Contextual Reflection**: Call \`tb.thought\` to evaluate: Does this hypothesis hold given the evidence?
 
 Document findings in each branch's thought chain.
 
 ### Phase 3: Cross-Verify (Thoughts 11-13)
 
-**DO THIS NOW:** Use thoughtbox to compare branches.
+**DO THIS NOW:** Use \`tb.thought\` to compare branches.
 
-Call thoughtbox with thoughts that explicitly compare:
+Call \`tb.thought\` with thoughts that explicitly compare:
 - H1 vs H2: Where do they agree? Contradict?
 - H1 vs H3: Where do they agree? Contradict?
 - H2 vs H3: Where do they agree? Contradict?
 
 ### Phase 4: Prune (Thought 14)
 
-**DO THIS NOW:** Use thoughtbox to eliminate hypotheses that:
+**DO THIS NOW:** Use \`tb.thought\` to eliminate hypotheses that:
 - Were contradicted by factual evidence
 - Are logically inconsistent
 - Are strictly dominated by another hypothesis
 
-Call thoughtbox with \`isRevision: true\` to mark pruned branches.
+Call \`tb.thought\` with \`isRevision: true\` to mark pruned branches.
 
 ### Phase 5: Converge (Thought 15)
 
-**DO THIS NOW:** Use thoughtbox with \`nextThoughtNeeded: false\` to:
+**DO THIS NOW:** Use \`tb.thought\` with \`nextThoughtNeeded: false\` to:
 1. Select the surviving hypothesis (or synthesize compatible survivors)
 2. State your confidence level (high/medium/low)
 3. Provide the rationale for your conclusion
@@ -68,12 +68,18 @@ Call thoughtbox with \`isRevision: true\` to mark pruned branches.
 
 ## Begin Execution
 
-Start Phase 1 NOW. Call \`mcp__thoughtbox__thoughtbox\` with:
-- thought: "Analyzing task: [restate TASK]. Identifying distinct hypotheses..."
-- thoughtNumber: 1
-- totalThoughts: 15
-- nextThoughtNeeded: true
-- sessionTitle: "Parallel Verification: [TASK summary]"
+Start Phase 1 NOW. Call \`thoughtbox_execute\` with code:
+
+\`\`\`javascript
+async () => tb.thought({
+  thought: "Analyzing task: [restate TASK]. Identifying distinct hypotheses...",
+  thoughtType: "reasoning",
+  thoughtNumber: 1,
+  totalThoughts: 15,
+  nextThoughtNeeded: true,
+  sessionTitle: "Parallel Verification: [TASK summary]"
+})
+\`\`\`
 `;
 
 /**

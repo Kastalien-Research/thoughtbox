@@ -41,16 +41,6 @@ export const knowledgeToolInputSchema = z.object({
 
 export type KnowledgeToolInput = z.infer<typeof knowledgeToolInputSchema>;
 
-export const KNOWLEDGE_TOOL = {
-  name: "thoughtbox_knowledge",
-  description: "Knowledge graph operations for tracking entities, relationships, and temporal observations.",
-  inputSchema: knowledgeToolInputSchema,
-  annotations: {
-    audience: ["assistant"],
-    priority: 0.8,
-  },
-};
-
 export class KnowledgeTool {
   constructor(private handler: KnowledgeHandler) {}
 

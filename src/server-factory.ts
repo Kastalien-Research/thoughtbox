@@ -682,7 +682,7 @@ You MUST now spawn a sub-agent using the Task tool to fulfill this request. This
   "tool": "Task",
   "subagent_type": "general-purpose",
   "description": "${request ? request.slice(0, 50) : "Query Thoughtbox sessions"}",
-  "prompt": "${request ? `Task: ${request}` : "Retrieve and summarize Thoughtbox session data."}\\n\\nSteps:\\n1. Call mcp__thoughtbox__thoughtbox_session with appropriate operation:\\n   - 'list' to see available sessions\\n   - 'get' with sessionId to retrieve specific session\\n   - 'search' with query to find relevant sessions\\n2. Process the data according to the request\\n\\nReturn ONLY your findings/summary. Do not include raw thought content."
+  "prompt": "${request ? `Task: ${request}` : "Retrieve and summarize Thoughtbox session data."}\\n\\nSteps:\\n1. Call mcp__thoughtbox__thoughtbox_execute with code using the tb SDK:\\n   - async () => tb.session.list() to see available sessions\\n   - async () => tb.session.get('<SESSION_ID>') to retrieve a specific session\\n   - async () => tb.session.search('<QUERY>') to find relevant sessions\\n2. Process the data according to the request\\n\\nReturn ONLY your findings/summary. Do not include raw thought content."
 }
 \`\`\`
 
@@ -749,8 +749,10 @@ Spawn a Haiku sub-agent to evaluate which prior thoughts should be updated based
 For each thought marked UPDATE, use:
 
 \`\`\`typescript
-mcp__thoughtbox__thoughtbox({
+// Via the thoughtbox_execute tool:
+async () => tb.thought({
   thought: "[REVISED content with new context]",
+  thoughtType: "reasoning",
   thoughtNumber: [N],
   totalThoughts: [total],
   nextThoughtNeeded: false,
@@ -810,21 +812,6 @@ mcp__thoughtbox__thoughtbox({
         {
           role: "user" as const,
           content: { type: "text" as const, text: BEHAVIORAL_TESTS.notebook.content },
-        },
-      ],
-    })
-  );
-
-  server.registerPrompt(
-    "test-mental-models",
-    {
-      description: BEHAVIORAL_TESTS.mentalModels.description,
-    },
-    async () => ({
-      messages: [
-        {
-          role: "user" as const,
-          content: { type: "text" as const, text: BEHAVIORAL_TESTS.mentalModels.content },
         },
       ],
     })
@@ -1268,24 +1255,6 @@ mcp__thoughtbox__thoughtbox({
   );
 
   server.registerResource(
-    "test-mental-models",
-    BEHAVIORAL_TESTS.mentalModels.uri,
-    {
-      description: BEHAVIORAL_TESTS.mentalModels.description,
-      mimeType: "text/markdown",
-    },
-    async (uri) => ({
-      contents: [
-        {
-          uri: uri.toString(),
-          mimeType: "text/markdown",
-          text: BEHAVIORAL_TESTS.mentalModels.content,
-        },
-      ],
-    })
-  );
-
-  server.registerResource(
     "test-memory",
     BEHAVIORAL_TESTS.memory.uri,
     {
@@ -1465,7 +1434,7 @@ mcp__thoughtbox__thoughtbox({
       return {
         uri: "thoughtbox://init",
         mimeType: "text/markdown",
-        text: `# Thoughtbox Init\n\nSession index not available. You can start using tools directly.\n\n## Available Tools\n\n- \`thoughtbox\` — Step-by-step reasoning\n- \`thoughtbox_cipher\` — Token-efficient notation system\n- \`session\` — Manage/retrieve/analyze reasoning sessions\n- \`notebook\` — Literate programming notebooks`,
+        text: `# Thoughtbox Init\n\nSession index not available. You can start using tools directly.\n\n## Available Tools\n\n- \`thoughtbox_search\` — Query the operation/prompt/resource catalog\n- \`thoughtbox_execute\` — Run JavaScript against the \`tb\` SDK (thoughts, sessions, knowledge, notebooks)\n- \`thoughtbox_peer_notebook\` — Seed artifacts and invoke the brokered claim-extractor peer`,
       };
     }
     return initHandler.handle(params);

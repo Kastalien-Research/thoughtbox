@@ -1092,7 +1092,7 @@ export class ThoughtHandler {
                     branches: Object.keys(this.branches),
                     thoughtHistoryLength: this.thoughtHistory.length,
                     sessionId: this.currentSessionId,
-                    warning: `Auto-export failed: ${exportError}. Session remains open to prevent data loss. You can manually export using the export_reasoning_chain tool.`,
+                    warning: `Auto-export failed: ${exportError}. Session remains open to prevent data loss. You can manually export via tb.session.export(sessionId) in thoughtbox_execute.`,
                     ...(critiqueResult && { critique: critiqueResult }),
                   },
                   null,
