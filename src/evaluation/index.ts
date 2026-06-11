@@ -19,6 +19,7 @@
  */
 
 import { thoughtEmitter } from "../events/index.js";
+import type { ThoughtEmitterEvents } from "../events/index.js";
 import { loadLangSmithConfig, isLangSmithEnabled } from "./langsmith-config.js";
 import { getSharedClient } from "./client.js";
 import { DatasetManager } from "./dataset-manager.js";
@@ -131,10 +132,22 @@ export function initExperimentRunner(): ExperimentRunner {
 }
 
 /**
+ * Log a monitoring alert as a structured stderr line so production
+ * alerts emitted by OnlineMonitor are visible in Cloud Run logs.
+ */
+function logMonitoringAlert(alert: ThoughtEmitterEvents["monitoring:alert"]): void {
+  console.error(`[Evaluation] monitoring:alert ${JSON.stringify(alert)}`);
+}
+
+let alertSinkAttached = false;
+
+/**
  * Initialize Layer 5 online monitoring.
  *
  * Subscribes to session events and scores production sessions
  * using the same evaluator pipeline as offline experiments.
+ * Also attaches a stderr sink for monitoring:alert events so
+ * regressions and anomalies surface in process logs.
  *
  * Requires a trace listener instance to look up LangSmith run IDs.
  * Returns null if LangSmith is not configured.
@@ -151,6 +164,11 @@ export function initMonitoring(
   const client = getSharedClient(config);
   const monitor = new OnlineMonitor(config, client, { traceListener });
   monitor.attach(thoughtEmitter);
+
+  if (!alertSinkAttached) {
+    alertSinkAttached = true;
+    thoughtEmitter.on("monitoring:alert", logMonitoringAlert);
+  }
 
   console.error("[Evaluation] Online monitoring enabled");
   return monitor;
