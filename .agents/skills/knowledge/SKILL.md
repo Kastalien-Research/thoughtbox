@@ -15,7 +15,7 @@ Search all knowledge stores for: $ARGUMENTS
 Execute all searches in parallel:
 
 1. **MEMORY.md**: Search the auto memory file at `.Codex/projects/*/memory/MEMORY.md` for the query terms using Grep
-2. **Thoughtbox Knowledge Graph**: Use ToolSearch to load `mcp__thoughtbox_gateway` tools, then search entities and observations matching the query
+2. **Thoughtbox Knowledge Graph**: Use ToolSearch to load `thoughtbox_execute`, then search entities and observations matching the query via `tb.knowledge.listEntities({ name_pattern: "..." })` and `tb.knowledge.queryGraph(...)`
 3. **Git History**: Run `git log --all --oneline --grep="$ARGUMENTS" -20` for commit history
 4. **Assumption Registry**: Search `.assumptions/*.jsonl` for matching assumption records using Grep
 5. **DGM Patterns**: Search `.dgm/fitness.json` for patterns matching the query using Grep

@@ -183,7 +183,11 @@ export class PeerNotebookHandler {
     }
 
     const existing = await this.repository.listManifests(workspaceId, peer.id);
-    const duplicate = existing.find(record => record.manifestHash === compiled.manifestHash);
+    const duplicate = existing.find(
+      record =>
+        (record.status === "draft" || record.status === "active")
+        && record.manifestHash === compiled.manifestHash,
+    );
     if (duplicate) {
       throw new PeerNotebookError(
         "manifest_duplicate",

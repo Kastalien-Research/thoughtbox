@@ -87,12 +87,11 @@ export function createProposalsManager(
         createdAt: new Date().toISOString(),
       };
 
-      proposal.reviews.push(review);
-      proposal.status = 'reviewing';
-      proposal.updatedAt = new Date().toISOString();
-
-      await storage.saveProposal(proposal);
-      return { review, proposalStatus: proposal.status };
+      // Append-safe: the storage layer persists the review as its own
+      // record and transitions status to 'reviewing'; concurrent reviews
+      // from other server instances are never lost (SPEC-V1-INITIATIVE:c11).
+      await storage.appendReview(workspaceId, proposalId, review);
+      return { review, proposalStatus: 'reviewing' };
     },
 
     async mergeProposal(agentId, { workspaceId, proposalId, mergeMessage }) {
