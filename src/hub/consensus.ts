@@ -53,12 +53,12 @@ export function createConsensusManager(storage: HubStorage): ConsensusManager {
       const marker = await storage.getConsensusMarker(workspaceId, consensusId);
       if (!marker) throw new Error(`Consensus marker not found: ${consensusId}`);
 
-      if (!marker.agreedBy.includes(agentId)) {
-        marker.agreedBy.push(agentId);
-        await storage.saveConsensusMarker(marker);
-      }
+      // Append-safe and idempotent: persisted as its own endorsement record
+      // so concurrent endorsements from other instances are never lost.
+      await storage.appendEndorsement(workspaceId, consensusId, agentId);
 
-      return { marker };
+      const updated = await storage.getConsensusMarker(workspaceId, consensusId);
+      return { marker: updated ?? marker };
     },
 
     async listConsensus({ workspaceId }) {
