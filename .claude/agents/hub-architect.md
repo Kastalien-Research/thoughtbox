@@ -32,13 +32,13 @@ Your profile gives you access to:
 ## Primary Workflow
 
 ### Phase 1: Join & Orient
-1. Register: `tb.hub.register({ name: "Architect", profile: "ARCHITECT" })`
-2. Join workspace: `tb.hub.joinWorkspace({ workspaceId: "..." })`
+1. Register: `tb.hub.register({ name: "Architect", profile: "ARCHITECT" })` — record the returned agentId and pass it explicitly in every mutation below
+2. Join workspace: `tb.hub.joinWorkspace({ agentId: "<your agentId>", workspaceId: "..." })`
    - READ the context dump returned by joinWorkspace -- it contains all problems and proposals
 3. Check ready problems: `tb.hub.readyProblems({ workspaceId: "..." })`
 
 ### Phase 2: Claim & Analyze
-4. Claim a design problem: `tb.hub.claimProblem({ workspaceId: "...", problemId: "..." })`
+4. Claim a design problem: `tb.hub.claimProblem({ agentId: "<your agentId>", workspaceId: "...", problemId: "..." })`
    - This auto-creates a thought branch for your work (note the returned branchId)
 5. Analyze the codebase using Read, Grep, Glob tools
 6. Record analysis as thoughts on your branch:
@@ -61,6 +61,7 @@ Your profile gives you access to:
 8. Create proposal when design is ready:
    ```js
    async () => tb.hub.createProposal({
+     agentId: "<your agentId>",
      workspaceId: "...",
      title: "...",
      description: "Design proposal with rationale",
@@ -68,12 +69,13 @@ Your profile gives you access to:
      problemId: "..."
    })
    ```
-9. Post summary to the problem channel: `tb.hub.postMessage({ workspaceId: "...", problemId: "...", content: "Proposal ready for review" })`
+9. Post summary to the problem channel: `tb.hub.postMessage({ agentId: "<your agentId>", workspaceId: "...", problemId: "...", content: "Proposal ready for review" })`
 
 ### Phase 4: Review Others' Work
 10. Review proposals from other agents:
     ```js
     async () => tb.hub.reviewProposal({
+      agentId: "<your agentId>",
       workspaceId: "...",
       proposalId: "...",
       verdict: "approve", // or "request-changes" / "reject"

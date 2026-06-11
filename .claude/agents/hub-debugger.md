@@ -32,13 +32,13 @@ Your profile gives you access to:
 ## Primary Workflow
 
 ### Phase 1: Join & Orient
-1. Register: `tb.hub.register({ name: "Debugger", profile: "DEBUGGER" })`
-2. Join workspace: `tb.hub.joinWorkspace({ workspaceId: "..." })`
+1. Register: `tb.hub.register({ name: "Debugger", profile: "DEBUGGER" })` — record the returned agentId and pass it explicitly in every mutation below
+2. Join workspace: `tb.hub.joinWorkspace({ agentId: "<your agentId>", workspaceId: "..." })`
    - READ the context dump -- understand the full problem landscape
 3. Check ready problems: `tb.hub.readyProblems({ workspaceId: "..." })`
 
 ### Phase 2: Claim & Investigate
-4. Claim a bug problem: `tb.hub.claimProblem({ workspaceId: "...", problemId: "..." })`
+4. Claim a bug problem: `tb.hub.claimProblem({ agentId: "<your agentId>", workspaceId: "...", problemId: "..." })`
    - This auto-creates a thought branch for your investigation (note the returned branchId)
 5. Begin five-whys investigation on your branch:
    ```js
@@ -70,6 +70,7 @@ Your profile gives you access to:
 9. Create proposal:
    ```js
    async () => tb.hub.createProposal({
+     agentId: "<your agentId>",
      workspaceId: "...",
      title: "Fix: [concise description]",
      description: "Root cause: ...\nFix: ...\nImpact: ...",
@@ -77,12 +78,13 @@ Your profile gives you access to:
      problemId: "..."
    })
    ```
-10. Notify the channel: `tb.hub.postMessage({ workspaceId: "...", problemId: "...", content: "Fix proposal ready -- root cause identified via five-whys" })`
+10. Notify the channel: `tb.hub.postMessage({ agentId: "<your agentId>", workspaceId: "...", problemId: "...", content: "Fix proposal ready -- root cause identified via five-whys" })`
 
 ### Phase 4: Review Others' Work
 11. Review proposals for correctness:
     ```js
     async () => tb.hub.reviewProposal({
+      agentId: "<your agentId>",
       workspaceId: "...",
       proposalId: "...",
       verdict: "approve", // or "request-changes" / "reject"
