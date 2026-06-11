@@ -2,6 +2,12 @@ import { McpServer, ResourceTemplate } from "@modelcontextprotocol/sdk/server/mc
 import { ListResourcesRequestSchema, ListResourceTemplatesRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod"; // hypothesis test 3
 import type { HubStorage } from "./hub/hub-types.js";
+import type { HubEvent } from "./hub/hub-handler.js";
+import { createHubToolHandler } from "./hub/hub-tool-handler.js";
+import {
+  createThoughtStoreAdapter,
+  type ThoughtStoreAdapter,
+} from "./hub/thought-store-adapter.js";
 import { FileSystemTaskStore } from "./hub/hub-task-store.js";
 import { InMemoryTaskStore, InMemoryTaskMessageQueue } from "@modelcontextprotocol/sdk/experimental/tasks/stores/in-memory.js";
 import { PATTERNS_COOKBOOK } from "./resources/patterns-cookbook-content.js";
@@ -131,8 +137,24 @@ export interface CreateMcpServerArgs {
    * Use FileSystemStorage for durable persistence to disk.
    */
   storage?: ThoughtboxStorage;
-  /** Hub storage for multi-agent coordination */
+  /**
+   * Hub storage for multi-agent coordination. Must be the single
+   * process-shared instance so workspaces, agents, and proposals are
+   * visible across MCP sessions; tb.hub.* is unavailable without it.
+   */
   hubStorage?: HubStorage;
+  /**
+   * Shared thought store for hub session persistence. Local mode must pass
+   * the single process-shared adapter: per-session FileSystemStorage holds
+   * an in-memory session index, so hub main-sessions created by one MCP
+   * session would otherwise be invisible to another (merge_proposal would
+   * fail with "Session not found"). When omitted, falls back to this
+   * session's storage — correct for Supabase, which resolves sessions from
+   * the database on every call.
+   */
+  hubThoughtStore?: ThoughtStoreAdapter;
+  /** Optional callback for hub events (local-mode unified event stream) */
+  onHubEvent?: (event: HubEvent) => void;
   /** Data directory for task store (filesystem persistence) */
   dataDir?: string;
   /** Optional pre-created knowledge storage (used by Supabase mode) */
@@ -591,6 +613,30 @@ Use \`console.log()\` for debugging — output captured in response logs.`;
   // Code Mode Tools (replaces individual tool registrations)
   // =============================================================================
 
+  // Hub dispatcher — tb.hub.* over the process-shared hub storage.
+  // Hub state (workspaces, agents, proposals) is shared across MCP sessions
+  // via args.hubStorage; the thought store delegates to THIS session's
+  // storage so merge_proposal synthesis thoughts persist with the session's
+  // real backend (filesystem locally, Supabase when hosted).
+  // The HubToolHandler keeps a register-once identity registry keyed by the
+  // session, so agentId is implicit after the first register/quick_join.
+  const hubToolHandler = args.hubStorage
+    ? createHubToolHandler({
+        hubStorage: args.hubStorage,
+        thoughtStore: args.hubThoughtStore ?? createThoughtStoreAdapter(storage),
+        envAgentId: process.env.THOUGHTBOX_AGENT_ID,
+        envAgentName: process.env.THOUGHTBOX_AGENT_NAME,
+        onEvent: args.onHubEvent,
+      })
+    : undefined;
+  const hubSessionKey = sessionId ?? "local";
+  const hubDispatcher = hubToolHandler
+    ? {
+        handle: (input: { operation: string; [key: string]: unknown }) =>
+          hubToolHandler.handle(input, hubSessionKey),
+      }
+    : undefined;
+
   const searchCatalog = buildSearchCatalog();
   const searchTool = new SearchTool(searchCatalog);
   const executeTool = new ExecuteTool({
@@ -603,6 +649,7 @@ Use \`console.log()\` for debugging — output captured in response logs.`;
     ulyssesTool,
     observabilityHandler,
     branchHandler,
+    hubDispatcher,
   });
 
   registerTool(SEARCH_TOOL, searchTool);
@@ -1340,7 +1387,7 @@ async () => tb.thought({
     "hub-operations",
     "thoughtbox://hub/operations",
     {
-      description: "Complete catalog of all 27 hub operations organized by category with stage metadata and vocabulary",
+      description: "Complete catalog of all 28 hub operations organized by category with stage metadata and vocabulary",
       mimeType: "application/json",
     },
     async (uri) => ({
@@ -1358,7 +1405,7 @@ async () => tb.thought({
     "gateway-operations",
     "thoughtbox://gateway/operations",
     {
-      description: "Complete catalog of operations available through the Code Mode gateway, grouped by tb SDK module (thought, session, knowledge, notebook, theseus, ulysses, observability, branch)",
+      description: "Complete catalog of operations available through the Code Mode gateway, grouped by tb SDK module (thought, session, knowledge, notebook, theseus, ulysses, observability, branch, hub)",
       mimeType: "application/json",
     },
     async (uri) => ({
@@ -1752,7 +1799,7 @@ async () => tb.thought({
       {
         uri: "thoughtbox://gateway/operations",
         name: "Gateway Operations Catalog",
-        description: "Complete catalog of operations available through the Code Mode gateway, grouped by tb SDK module (thought, session, knowledge, notebook, theseus, ulysses, observability, branch)",
+        description: "Complete catalog of operations available through the Code Mode gateway, grouped by tb SDK module (thought, session, knowledge, notebook, theseus, ulysses, observability, branch, hub)",
         mimeType: "application/json",
       },
       {
@@ -1770,7 +1817,7 @@ async () => tb.thought({
       {
         uri: "thoughtbox://hub/operations",
         name: "Hub Operations Catalog",
-        description: "Complete catalog of all 27 hub operations with stage metadata and vocabulary",
+        description: "Complete catalog of all 28 hub operations with stage metadata and vocabulary",
         mimeType: "application/json",
       },
       {

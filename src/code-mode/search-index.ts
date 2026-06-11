@@ -19,6 +19,7 @@ import {
   OBSERVABILITY_OPERATIONS,
 } from "../observability/operations.js";
 import { BRANCH_OPERATIONS } from "../branch/operations.js";
+import { HUB_OPERATIONS } from "../hub/operations.js";
 import { PEER_NOTEBOOK_TOOL } from "../peer-notebook/tool.js";
 
 export interface SearchCatalog {
@@ -240,6 +241,7 @@ export function buildSearchCatalog(): SearchCatalog {
       ulysses: indexOperations(ULYSSES_OPERATIONS),
       observability: indexOperations(OBSERVABILITY_OPERATIONS),
       branch: indexOperations(BRANCH_OPERATIONS),
+      hub: indexOperations(HUB_OPERATIONS),
     },
 
     prompts: [
@@ -350,6 +352,12 @@ export function buildSearchCatalog(): SearchCatalog {
         mimeType: "application/json",
       },
       {
+        name: "Hub Operations Catalog",
+        uri: "thoughtbox://hub/operations",
+        description: "Complete catalog of all 28 hub operations organized by category with stage metadata and vocabulary",
+        mimeType: "application/json",
+      },
+      {
         name: "Thoughtbox Patterns Cookbook",
         uri: "thoughtbox://patterns-cookbook",
         description: "Guide to core reasoning patterns for thoughtbox tool",
@@ -435,6 +443,12 @@ export function buildSearchCatalog(): SearchCatalog {
         name: "Knowledge Operation Detail",
         uriTemplate: "thoughtbox://knowledge/operations/{op}",
         description: "Individual knowledge graph operation schema and examples",
+        mimeType: "application/json",
+      },
+      {
+        name: "Hub Operation Detail",
+        uriTemplate: "thoughtbox://hub/operations/{op}",
+        description: "Individual hub operation schema and examples",
         mimeType: "application/json",
       },
       {

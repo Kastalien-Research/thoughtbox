@@ -1,4 +1,7 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, afterAll } from "vitest";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { ExecuteTool, type ExecuteToolDeps } from "../execute-tool.js";
 import { ThoughtTool } from "../../thought/tool.js";
 import { SessionTool } from "../../sessions/tool.js";
@@ -11,8 +14,12 @@ import { SessionHandler } from "../../sessions/index.js";
 import { KnowledgeHandler, FileSystemKnowledgeStorage } from "../../knowledge/index.js";
 import { NotebookHandler } from "../../notebook/index.js";
 import { InMemoryStorage } from "../../persistence/index.js";
+import { createFileSystemHubStorage } from "../../hub/hub-storage-fs.js";
+import { createHubToolHandler } from "../../hub/hub-tool-handler.js";
+import { createThoughtStoreAdapter } from "../../hub/thought-store-adapter.js";
+import { createHubHandler } from "../../hub/hub-handler.js";
 
-function createExecuteTool(overrides: Partial<ExecuteToolDeps> = {}): ExecuteTool {
+function createHarness(overrides: Partial<ExecuteToolDeps> = {}) {
   const storage = new InMemoryStorage();
   const thoughtHandler = new ThoughtHandler(true, storage);
   const sessionHandler = new SessionHandler({ storage, thoughtHandler });
@@ -20,7 +27,7 @@ function createExecuteTool(overrides: Partial<ExecuteToolDeps> = {}): ExecuteToo
   const notebookHandler = new NotebookHandler();
   const protocolHandler = new InMemoryProtocolHandler();
 
-  return new ExecuteTool({
+  const tool = new ExecuteTool({
     thoughtTool: new ThoughtTool(thoughtHandler),
     sessionTool: new SessionTool(sessionHandler),
     knowledgeTool: new KnowledgeTool(knowledgeHandler),
@@ -30,6 +37,53 @@ function createExecuteTool(overrides: Partial<ExecuteToolDeps> = {}): ExecuteToo
     observabilityHandler: new ObservabilityGatewayHandler({ storage }),
     ...overrides,
   });
+
+  return { tool, storage };
+}
+
+function createExecuteTool(overrides: Partial<ExecuteToolDeps> = {}): ExecuteTool {
+  return createHarness(overrides).tool;
+}
+
+const tempHubDirs: string[] = [];
+
+afterAll(async () => {
+  for (const dir of tempHubDirs) {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+async function createHubHarness() {
+  const hubDir = await mkdtemp(join(tmpdir(), "tb-hub-execute-"));
+  tempHubDirs.push(hubDir);
+
+  const storage = new InMemoryStorage();
+  const thoughtHandler = new ThoughtHandler(true, storage);
+  const sessionHandler = new SessionHandler({ storage, thoughtHandler });
+  const knowledgeHandler = new KnowledgeHandler(new FileSystemKnowledgeStorage({}));
+  const notebookHandler = new NotebookHandler();
+  const protocolHandler = new InMemoryProtocolHandler();
+
+  const hubStorage = createFileSystemHubStorage(hubDir);
+  const hubToolHandler = createHubToolHandler({
+    hubStorage,
+    thoughtStore: createThoughtStoreAdapter(storage),
+  });
+
+  const tool = new ExecuteTool({
+    thoughtTool: new ThoughtTool(thoughtHandler),
+    sessionTool: new SessionTool(sessionHandler),
+    knowledgeTool: new KnowledgeTool(knowledgeHandler),
+    notebookTool: new NotebookTool(notebookHandler),
+    theseusTool: new TheseusTool(protocolHandler),
+    ulyssesTool: new UlyssesTool(protocolHandler),
+    observabilityHandler: new ObservabilityGatewayHandler({ storage }),
+    hubDispatcher: {
+      handle: (input) => hubToolHandler.handle(input, "execute-test-session"),
+    },
+  });
+
+  return { tool, storage };
 }
 
 describe("thoughtbox_execute", () => {
@@ -108,13 +162,16 @@ describe("thoughtbox_execute", () => {
     expect(output.result).toBe("undefined");
   });
 
-  it("tb.hub is not available", async () => {
+  it("tb.hub.* errors cleanly when no hub dispatcher is wired", async () => {
+    // createExecuteTool() omits hubDispatcher (defensive: server started
+    // without hub storage).
     const tool = createExecuteTool();
     const result = await tool.handle({
-      code: `async () => { return typeof tb.hub; }`,
+      code: `async () => { return await tb.hub.listWorkspaces(); }`,
     });
     const output = JSON.parse(result.content[0].text);
-    expect(output.result).toBe("undefined");
+    expect(output.result).toBeNull();
+    expect(output.error).toContain("Hub operations are unavailable");
   });
 
   it("tb.init is not available", async () => {
@@ -274,5 +331,226 @@ describe("thoughtbox_execute", () => {
     });
     const output = JSON.parse(result.content[0].text);
     expect(output.error).toBeDefined();
+  });
+});
+
+describe("thoughtbox_execute tb.hub", () => {
+  it("register makes the agentId implicit for subsequent calls", async () => {
+    const { tool } = await createHubHarness();
+    const result = await tool.handle({
+      code: `async () => {
+        const reg = await tb.hub.register({ name: "Coordinator", profile: "MANAGER" });
+        const who = await tb.hub.whoami();
+        return { reg, who };
+      }`,
+    });
+    const output = JSON.parse(result.content[0].text);
+    expect(output.error).toBeUndefined();
+    expect(output.result.reg.agentId).toBeDefined();
+    expect(output.result.who.agentId).toBe(output.result.reg.agentId);
+    expect(output.result.who.name).toBe("Coordinator");
+  });
+
+  it("runs the workspace/problem/channel flow against FS hub storage", async () => {
+    const { tool } = await createHubHarness();
+    const result = await tool.handle({
+      code: `async () => {
+        await tb.hub.register({ name: "Coordinator" });
+        const ws = await tb.hub.createWorkspace({
+          name: "Phase 4 Workspace",
+          description: "tb.hub namespace test",
+        });
+        const prob = await tb.hub.createProblem({
+          workspaceId: ws.workspaceId,
+          title: "Expose hub over Code Mode",
+          description: "Map operations under tb.hub",
+        });
+        await tb.hub.postMessage({
+          workspaceId: ws.workspaceId,
+          problemId: prob.problemId,
+          content: "starting work",
+        });
+        const channel = await tb.hub.readChannel({
+          workspaceId: ws.workspaceId,
+          problemId: prob.problemId,
+        });
+        const workspaces = await tb.hub.listWorkspaces();
+        return { ws, prob, channel, workspaces };
+      }`,
+    });
+    const output = JSON.parse(result.content[0].text);
+    expect(output.error).toBeUndefined();
+    expect(output.result.ws.workspaceId).toBeDefined();
+    expect(output.result.prob.problemId).toBeDefined();
+    const messages = output.result.channel.messages;
+    expect(messages.some((m: { content: string }) => m.content === "starting work")).toBe(true);
+    expect(
+      output.result.workspaces.workspaces.some(
+        (w: { id: string }) => w.id === output.result.ws.workspaceId,
+      ),
+    ).toBe(true);
+  });
+
+  it("merge_proposal persists the synthesis thought to real thought storage", async () => {
+    const { tool, storage } = await createHubHarness();
+
+    const setup = await tool.handle({
+      code: `async () => {
+        await tb.hub.register({ name: "Coordinator" });
+        const ws = await tb.hub.createWorkspace({
+          name: "Merge Workspace",
+          description: "merge_proposal persistence test",
+        });
+        const reviewer = await tb.hub.register({ name: "Reviewer" });
+        await tb.hub.joinWorkspace({ workspaceId: ws.workspaceId, agentId: reviewer.agentId });
+        const prop = await tb.hub.createProposal({
+          workspaceId: ws.workspaceId,
+          title: "Real delegation",
+          description: "Replace the stub with a facade",
+          sourceBranch: "coordinator/real-delegation",
+        });
+        await tb.hub.reviewProposal({
+          workspaceId: ws.workspaceId,
+          proposalId: prop.proposalId,
+          verdict: "approve",
+          reasoning: "delegation verified",
+          agentId: reviewer.agentId,
+        });
+        const merged = await tb.hub.mergeProposal({
+          workspaceId: ws.workspaceId,
+          proposalId: prop.proposalId,
+          mergeMessage: "Merged: stub replaced with real facade",
+        });
+        return { ws, merged };
+      }`,
+    });
+    const output = JSON.parse(setup.content[0].text);
+    expect(output.error).toBeUndefined();
+    expect(output.result.merged.mergeThoughtNumber).toBe(1);
+    expect(output.result.merged.proposal.status).toBe("merged");
+
+    // The synthesis thought must land in the REAL per-session thought
+    // storage (the same InMemoryStorage the session's ThoughtHandler uses),
+    // not a throwaway stub.
+    const mainSessionId = output.result.ws.mainSessionId;
+    const thoughts = await storage.getThoughts(mainSessionId);
+    expect(
+      thoughts.some((t) => t.thought === "Merged: stub replaced with real facade"),
+    ).toBe(true);
+  });
+
+  it("rejects agentId values not registered in this session", async () => {
+    const { tool } = await createHubHarness();
+    const result = await tool.handle({
+      code: `async () => {
+        await tb.hub.register({ name: "Coordinator" });
+        return await tb.hub.whoami({ agentId: "not-a-registered-agent" });
+      }`,
+    });
+    const output = JSON.parse(result.content[0].text);
+    expect(output.result).toBeNull();
+    expect(output.error).toContain("not registered in this session");
+  });
+
+  it("merges across surfaces when the hub thought store is shared", async () => {
+    // A workspace's mainSession is created through the hub thought store.
+    // The /hub/api surface and every MCP session each hold their own
+    // ThoughtboxStorage instance; only a SHARED hub thought store
+    // (server-factory's hubThoughtStore) lets a merge initiated on one
+    // surface find a mainSession created on another. Coordinator identity
+    // is session-bound in tb.hub, so the cross-surface merge goes through
+    // the registry-less hub handler (the /hub/api path) with an explicit
+    // coordinator agentId.
+    const hubDir = await mkdtemp(join(tmpdir(), "tb-hub-xsurface-"));
+    tempHubDirs.push(hubDir);
+    const hubStorage = createFileSystemHubStorage(hubDir);
+    const sharedHubThoughtStorage = new InMemoryStorage();
+    const sharedThoughtStore = createThoughtStoreAdapter(sharedHubThoughtStorage);
+
+    const sessionHandler = createHubToolHandler({
+      hubStorage,
+      thoughtStore: sharedThoughtStore,
+    });
+    const sessionTool = createExecuteTool({
+      hubDispatcher: { handle: (input) => sessionHandler.handle(input, "session-a") },
+    });
+
+    const setup = await sessionTool.handle({
+      code: `async () => {
+        const coordinator = await tb.hub.register({ name: "Coordinator" });
+        const ws = await tb.hub.createWorkspace({
+          name: "Cross-surface Workspace",
+          description: "created via tb.hub",
+        });
+        const reviewer = await tb.hub.register({ name: "Reviewer" });
+        await tb.hub.joinWorkspace({ workspaceId: ws.workspaceId, agentId: reviewer.agentId });
+        const prop = await tb.hub.createProposal({
+          workspaceId: ws.workspaceId,
+          title: "Cross-surface merge",
+          description: "merge from a different surface",
+          sourceBranch: "coordinator/cross-surface",
+        });
+        await tb.hub.reviewProposal({
+          workspaceId: ws.workspaceId,
+          proposalId: prop.proposalId,
+          verdict: "approve",
+          reasoning: "ok",
+          agentId: reviewer.agentId,
+        });
+        return { coordinator, ws, prop };
+      }`,
+    });
+    const setupOut = JSON.parse(setup.content[0].text);
+    expect(setupOut.error).toBeUndefined();
+    const { coordinator, ws, prop } = setupOut.result;
+
+    // Second surface sharing the thought store (post-fix /hub/api wiring):
+    const sharedSurface = createHubHandler(hubStorage, sharedThoughtStore, () => {});
+    const merged = await sharedSurface.handle(coordinator.agentId, "merge_proposal", {
+      workspaceId: ws.workspaceId,
+      proposalId: prop.proposalId,
+      mergeMessage: "Merged from the hub API surface",
+    });
+    expect((merged as { proposal: { status: string } }).proposal.status).toBe("merged");
+    const thoughts = await sharedHubThoughtStorage.getThoughts(ws.mainSessionId);
+    expect(thoughts.some((t) => t.thought === "Merged from the hub API surface")).toBe(true);
+
+    // Control (pre-fix wiring): a surface with its own thought storage has
+    // never seen the workspace mainSession, so the same merge fails on a
+    // fresh approved proposal.
+    const isolatedSurface = createHubHandler(
+      hubStorage,
+      createThoughtStoreAdapter(new InMemoryStorage()),
+      () => {},
+    );
+    const propB = await sessionTool.handle({
+      code: `async () => {
+        const prop = await tb.hub.createProposal({
+          workspaceId: "${ws.workspaceId}",
+          title: "Doomed merge",
+          description: "isolated thought store cannot see mainSession",
+          sourceBranch: "coordinator/doomed",
+        });
+        const reviewer = await tb.hub.register({ name: "Reviewer3" });
+        await tb.hub.joinWorkspace({ workspaceId: "${ws.workspaceId}", agentId: reviewer.agentId });
+        await tb.hub.reviewProposal({
+          workspaceId: "${ws.workspaceId}",
+          proposalId: prop.proposalId,
+          verdict: "approve",
+          reasoning: "ok",
+          agentId: reviewer.agentId,
+        });
+        return prop;
+      }`,
+    });
+    const propBOut = JSON.parse(propB.content[0].text);
+    expect(propBOut.error).toBeUndefined();
+    await expect(
+      isolatedSurface.handle(coordinator.agentId, "merge_proposal", {
+        workspaceId: ws.workspaceId,
+        proposalId: propBOut.result.proposalId,
+        mergeMessage: "should not persist",
+      }),
+    ).rejects.toThrow(/not found/);
   });
 });

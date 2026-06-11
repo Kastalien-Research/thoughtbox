@@ -190,3 +190,31 @@ export function createFileSystemHubStorage(dataDir: string): HubStorage {
     },
   };
 }
+
+/**
+ * Per-tenant hub storage provider for multi-tenant mode. Each tenant
+ * workspace gets its own storage root (data/hub-tenants/<workspaceId>),
+ * so hub workspaces, agents, proposals, and channels are invisible across
+ * tenants. Interim isolation until SupabaseHubStorage (SPEC-V1-INITIATIVE
+ * Phase 4.3) scopes rows by tenant in Postgres.
+ */
+export function createTenantHubStorageProvider(
+  baseDir: string,
+): (tenantWorkspaceId: string) => HubStorage {
+  const cache = new Map<string, HubStorage>();
+  return (tenantWorkspaceId: string): HubStorage => {
+    if (!/^[A-Za-z0-9_-]+$/.test(tenantWorkspaceId)) {
+      throw new Error(
+        `Invalid tenant workspace id for hub storage: ${tenantWorkspaceId}`,
+      );
+    }
+    let storage = cache.get(tenantWorkspaceId);
+    if (!storage) {
+      storage = createFileSystemHubStorage(
+        join(baseDir, 'hub-tenants', tenantWorkspaceId),
+      );
+      cache.set(tenantWorkspaceId, storage);
+    }
+    return storage;
+  };
+}
