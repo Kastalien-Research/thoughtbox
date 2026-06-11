@@ -121,9 +121,13 @@ Confirmed current capabilities:
   in-memory peer/manifest/invocation/trace/artifact repositories,
   Supabase peer/manifest/invocation/trace/artifact repository,
   `peer.invoke({ peerId, tool, args })`, a runtime provider interface, a mock
-  `claim-extractor` provider, broker-proxy allow/deny policy tests, and the
-  MCP-facing `thoughtbox_peer_notebook` surface for seed/invoke/read
-  operations.
+  `claim-extractor` provider, broker-proxy allow/deny policy tests, real broker
+  proxy targets (`thoughtbox.knowledge.queryGraph` and `thoughtbox.session.get`
+  wired to the real knowledge and session handlers via
+  `src/peer-notebook/proxy-targets.ts`, v1-initiative Phase 5.2; the `mayCall`
+  allowlist remains the only gate and absent handlers raise
+  `target_unavailable`), and the MCP-facing `thoughtbox_peer_notebook` surface
+  for seed/invoke/read operations.
 - Existing specs already point toward related directions:
   - `.specs/thoughtbox-v1-finalstretch/SPEC-NOTEBOOK-RLM.md`
   - `.specs/SPEC-SRC-002-preview-lifecycle.md`

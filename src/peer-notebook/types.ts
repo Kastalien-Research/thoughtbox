@@ -187,6 +187,8 @@ export class PeerNotebookError extends Error {
       | "runtime_provider_not_found"
       | "artifact_not_found"
       | "outbound_denied"
+      | "target_unavailable"
+      | "target_failed"
       | "timeout",
     message: string,
     public readonly details?: JsonValue,

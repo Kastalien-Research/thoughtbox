@@ -9,7 +9,7 @@ claims:
     statement: The peer broker is the sole externally visible authority for peer invocation and validates workspace, active manifest, tool schema, budgets, and outbound allowlists before runtime dispatch
     type: governance
     behavioral: false
-    required_evidence: SPEC-CONTROL-PLANE.md defines peer.invoke and the invocation flow with all listed checks before runtime provider invocation
+    required_evidence: SPEC-CONTROL-PLANE.md defines peer.invoke and the invocation flow with all listed checks before runtime provider invocation. Outbound governance is exercised against real targets by the v1-initiative Phase 5.2 slice. createBrokerProxyTargets (src/peer-notebook/proxy-targets.ts) registers thoughtbox.knowledge.queryGraph and thoughtbox.session.get against the real knowledge and session handlers, threaded from src/server-factory.ts through PeerNotebookHandler.proxyTargetDeps; the mayCall allowlist remains the only gate and absent handlers raise target_unavailable through the broker error path. Evidence is src/peer-notebook/__tests__/proxy-targets.test.ts (allowed calls return real handler data with an outbound_call_allowed trace, unlisted targets are denied with a denied_outbound_call trace, absent handlers fail the invocation with target_unavailable)
   - id: c2
     statement: Peer notebook manifests are externalized control-plane records compiled from peer.manifest.json, parsed as data without executing notebook code, and activated only by explicit approval
     type: governance
@@ -85,6 +85,18 @@ documented exception that ships active out of the box
 approval is a plain operation in v1 (single-operator trust model, no roles).
 Notebook-source graduation (compiling drafts from real notebook cells) remains
 deferred to the graduation slice.
+
+Implementation note: the v1-initiative Phase 5.2 slice populates the broker
+proxy target map with real outbound handlers. `createBrokerProxyTargets`
+(`src/peer-notebook/proxy-targets.ts`) registers
+`thoughtbox.knowledge.queryGraph` (knowledge handler `query_graph`) and
+`thoughtbox.session.get` (session handler `get`), threaded from the server
+factory through `PeerNotebookHandler.proxyTargetDeps`. Targets are optional
+dependencies: when a backing handler is absent (for example, knowledge storage
+failed to initialize), the target raises a `target_unavailable` error through
+the broker's existing invocation error path instead of crashing. The `mayCall`
+allowlist and allow/deny trace machinery are unchanged and remain the only
+gate; the built-in claim-extractor manifest still allows only `artifact.get`.
 
 ## Non-Goals
 
