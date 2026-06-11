@@ -5,12 +5,14 @@
  * restart (fresh storage instance reads it back) and is included in
  * toLinkedExport — the retrieval path behind session_export (json).
  */
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { FileSystemStorage } from '../filesystem-storage.js';
 import { InMemoryStorage } from '../storage.js';
+import { ThoughtHandler } from '../../thought-handler.js';
+import { thoughtEmitter } from '../../events/thought-emitter.js';
 import type { AuditManifest, ThoughtData } from '../types.js';
 
 const PROJECT = 'audit-manifest-test';
@@ -151,5 +153,84 @@ describe('InMemoryStorage audit manifest persistence', () => {
     await expect(
       storage.saveAuditManifest('missing', makeManifest('missing')),
     ).rejects.toThrow('not found');
+  });
+
+  it('returns null when getting a manifest for an unknown session', async () => {
+    expect(await storage.getAuditManifest('unknown-session')).toBeNull();
+  });
+});
+
+describe('ThoughtHandler session close — manifest persistence failure honesty', () => {
+  let storage: InMemoryStorage;
+  let handler: ThoughtHandler;
+  let endedEvents: Array<{ sessionId: string; auditManifest?: AuditManifest }>;
+  const onSessionEnded = (payload: { sessionId: string; auditManifest?: AuditManifest }) => {
+    endedEvents.push(payload);
+  };
+
+  function parseToolResult(raw: { content: Array<{ type: string; text: string }> }) {
+    return JSON.parse(raw.content[0].text);
+  }
+
+  beforeEach(async () => {
+    storage = new InMemoryStorage();
+    await storage.initialize();
+    handler = new ThoughtHandler(true, storage);
+    endedEvents = [];
+    thoughtEmitter.on('session:ended', onSessionEnded);
+  });
+
+  afterEach(() => {
+    thoughtEmitter.off('session:ended', onSessionEnded);
+    vi.restoreAllMocks();
+  });
+
+  it('carries the manifest in the close response and session:ended when persistence succeeds', async () => {
+    await handler.processThought({
+      thought: 'open the session',
+      thoughtType: 'reasoning',
+      nextThoughtNeeded: true,
+    });
+    const sessionId = handler.getCurrentSessionId();
+
+    const result = parseToolResult(await handler.processThought({
+      thought: 'close the session',
+      thoughtType: 'reasoning',
+      nextThoughtNeeded: false,
+    }));
+
+    expect(result.sessionClosed).toBe(true);
+    expect(result.auditManifest).toBeDefined();
+    expect(endedEvents).toHaveLength(1);
+    expect(endedEvents[0].auditManifest).toBeDefined();
+    expect(await storage.getAuditManifest(sessionId!)).toEqual(result.auditManifest);
+  });
+
+  it('omits the manifest from the close response and session:ended when persistence fails', async () => {
+    vi.spyOn(storage, 'saveAuditManifest').mockRejectedValue(new Error('disk full'));
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    await handler.processThought({
+      thought: 'open the session',
+      thoughtType: 'reasoning',
+      nextThoughtNeeded: true,
+    });
+    const sessionId = handler.getCurrentSessionId();
+
+    const result = parseToolResult(await handler.processThought({
+      thought: 'close the session',
+      thoughtType: 'reasoning',
+      nextThoughtNeeded: false,
+    }));
+
+    expect(result.sessionClosed).toBe(true);
+    expect(result.auditManifest).toBeUndefined();
+    expect(endedEvents).toHaveLength(1);
+    expect(endedEvents[0].auditManifest).toBeUndefined();
+    expect(await storage.getAuditManifest(sessionId!)).toBeNull();
+    expect(errorSpy).toHaveBeenCalledWith(
+      expect.stringContaining('[AUDIT-003] Manifest persistence failed'),
+      'disk full',
+    );
   });
 });

@@ -954,7 +954,8 @@ export class InMemoryStorage implements ThoughtboxStorage {
   }
 
   async getAuditManifest(sessionId: string): Promise<AuditManifest | null> {
-    return this.auditManifests.get(sessionId) || null;
+    if (!this.sessions.has(sessionId)) return null;
+    return this.auditManifests.get(sessionId) ?? null;
   }
 
   // ===========================================================================

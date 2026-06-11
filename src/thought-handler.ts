@@ -1019,9 +1019,21 @@ export class ThoughtHandler {
           const allThoughts = await this.storage.getThoughts(this.currentSessionId);
           const auditData = generateAuditData(this.currentSessionId, allThoughts);
           auditManifest = toAuditManifest(auditData);
-          await this.storage.saveAuditManifest(this.currentSessionId, auditManifest);
         } catch (err) {
-          console.warn('[AUDIT-003] Manifest generation/persistence failed:', (err as Error).message);
+          console.warn('[AUDIT-003] Manifest generation failed:', (err as Error).message);
+        }
+        if (auditManifest) {
+          try {
+            await this.storage.saveAuditManifest(this.currentSessionId, auditManifest);
+          } catch (err) {
+            // Persistence failed: drop the manifest so emitted events and the
+            // closing response never advertise a manifest that storage doesn't hold.
+            console.error(
+              '[AUDIT-003] Manifest persistence failed, omitting manifest from session close:',
+              (err as Error).message
+            );
+            auditManifest = undefined;
+          }
         }
 
         // Emit session ended event (fire-and-forget)
