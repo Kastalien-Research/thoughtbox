@@ -262,13 +262,14 @@ The guide is also automatically provided:
 
 ## Accessing Thoughtbox
 
-### Direct Tool Access
+### Code Mode Access
 
-The standard way to use thoughtbox (when the tool is visible):
+Call \`tb.thought\` through the \`thoughtbox_execute\` tool:
 
 \`\`\`javascript
-mcp__thoughtbox__thoughtbox({
+async () => tb.thought({
   thought: "Your reasoning step",
+  thoughtType: "reasoning",
   thoughtNumber: 1,
   totalThoughts: 10,
   nextThoughtNeeded: true

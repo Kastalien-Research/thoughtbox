@@ -77,15 +77,15 @@ A thought should NOT be updated if:
 
 \`\`\`typescript
 // Retrieve prior thoughts (you do this, not sub-agent)
-const sessionResult = await mcp__thoughtbox__session({
-  operation: "get",
-  args: { sessionId: "<YOUR_SESSION_ID>" }
-});
+// Via the thoughtbox_execute tool:
+async () => {
+  const sessionResult = await tb.session.get("<YOUR_SESSION_ID>");
 
-// Extract thought content for sub-agent
-const priorThoughts = sessionResult.thoughts
-  .map((t, i) => \`S\${i+1}: \${t.thought}\`)
-  .join("\\n");
+  // Extract thought content for sub-agent
+  return sessionResult.thoughts
+    .map((t, i) => \`S\${i + 1}: \${t.thought}\`)
+    .join("\\n");
+}
 \`\`\`
 
 ### Step 2: Spawn Evolution Checker
@@ -105,8 +105,10 @@ const priorThoughts = sessionResult.thoughts
 For each thought marked UPDATE:
 
 \`\`\`typescript
-await mcp__thoughtbox__thoughtbox({
+// Via the thoughtbox_execute tool:
+async () => tb.thought({
   thought: "REVISED: [Original thought content] — Context updated: [How new insight relates]",
+  thoughtType: "reasoning",
   thoughtNumber: [original thought number],
   totalThoughts: [current total],
   nextThoughtNeeded: false,
@@ -194,7 +196,7 @@ Key differences from paper:
 
 - \`thoughtbox://cipher\` — Token-efficient notation system
 - \`subagent-summarize\` — Context isolation for session retrieval
-- \`thoughtbox_session\` with operation \`get\` — Direct session retrieval
-- \`thoughtbox_thought\` with \`isRevision: true\` — Apply revisions
+- \`tb.session.get(sessionId)\` via \`thoughtbox_execute\` — Direct session retrieval
+- \`tb.thought\` with \`isRevision: true\` via \`thoughtbox_execute\` — Apply revisions
 - A-Mem paper: https://arxiv.org/abs/2502.12110
 `;

@@ -13,16 +13,21 @@ export const SERVER_ARCHITECTURE_GUIDE = `<!-- srcbook:{"language":"typescript",
 
 ## Introduction
 
-Thoughtbox is an MCP (Model Context Protocol) server that provides cognitive enhancement tools for LLM agents. All tools are available immediately at connection start. No staged unlocking is required.
+Thoughtbox is an MCP (Model Context Protocol) server that provides cognitive enhancement tools for LLM agents using Code Mode. Three tools are registered:
 
-1. **thoughtbox_session** - Session management and persistence
-2. **thoughtbox_thought** - Step-by-step reasoning with branching, revision, and semantic types
-3. **thoughtbox_notebook** - Literate programming notebooks
-4. **thoughtbox_knowledge** - Knowledge graph (entities, relations, observations)
-5. **thoughtbox_theseus** - Friction-gated refactoring protocol
-6. **thoughtbox_ulysses** - Surprise-gated debugging protocol
-7. **thoughtbox_operations** - Discover operation schemas for any tool
-8. **observability_gateway** - Metrics, health, alerts
+1. **thoughtbox_search** - Write JavaScript to query the operation/prompt/resource catalog
+2. **thoughtbox_execute** - Write JavaScript against the \`tb\` SDK to chain operations
+3. **thoughtbox_peer_notebook** - Seed artifacts and invoke the brokered claim-extractor peer
+
+The \`tb\` SDK inside \`thoughtbox_execute\` exposes the domain modules:
+
+- **tb.thought** - Step-by-step reasoning with branching, revision, and semantic types
+- **tb.session** - Session management and persistence
+- **tb.notebook** - Literate programming notebooks
+- **tb.knowledge** - Knowledge graph (entities, relations, observations)
+- **tb.theseus** - Friction-gated refactoring protocol
+- **tb.ulysses** - Surprise-gated debugging protocol
+- **tb.observability** - Metrics, health, alerts
 
 This notebook explores the architecture, implementation patterns, and design decisions behind the Thoughtbox server.
 
@@ -66,8 +71,8 @@ The server consists of several interconnected components:
 
 ### Key Design Patterns
 
-1. **Toolhost Pattern**: Each domain is a single tool with operation dispatch (e.g., \`thoughtbox_session\`, \`thoughtbox_thought\`)
-2. **Direct Tool Access**: All tools available immediately at connection start — no gateway or init ceremony
+1. **Code Mode**: One execute tool hosts the whole \`tb\` SDK — the LLM writes code that chains operations instead of making many tool calls
+2. **Search + Execute**: \`thoughtbox_search\` discovers operations; \`thoughtbox_execute\` runs them
 3. **Resource Embedding**: Responses include contextual documentation as embedded resources
 4. **Streamable HTTP**: Single transport via Express with per-session server instances
 5. **Lazy Initialization**: Resources created on-demand, not at startup
@@ -76,39 +81,26 @@ The server consists of several interconnected components:
 
 ## Tool Surface
 
-All tools are available immediately at connection start. Each tool is a domain-specific toolhost with operation dispatch.
+Three tools are registered at connection start. Domain functionality lives in the \`tb\` SDK modules inside \`thoughtbox_execute\`.
 
 ### Tool Examples
 
 ###### tool-usage.ts
 
 \`\`\`typescript
-// Example: Using Thoughtbox tools directly
+// Example: code passed to the thoughtbox_execute tool
 
 // Structured reasoning
-const thought = {
-  tool: 'thoughtbox_thought',
-  args: {
-    operation: 'thought',
-    args: {
-      thought: 'Analyzing the problem',
-      thoughtNumber: 1,
-      totalThoughts: 5,
-      nextThoughtNeeded: true
-    }
-  }
-};
+async () => tb.thought({
+  thought: 'Analyzing the problem',
+  thoughtType: 'reasoning',
+  thoughtNumber: 1,
+  totalThoughts: 5,
+  nextThoughtNeeded: true
+});
 
 // Session management
-const sessions = {
-  tool: 'thoughtbox_session',
-  args: {
-    operation: 'list'
-  }
-};
-
-console.log('Thought:', JSON.stringify(thought, null, 2));
-console.log('Sessions:', JSON.stringify(sessions, null, 2));
+async () => tb.session.list();
 \`\`\`
 
 ## Project Scoping
@@ -242,16 +234,19 @@ interface MCPToolResponse {
   isError?: boolean;
 }
 
-// Example: thoughtbox tool call
+// Example: thoughtbox_execute tool call running tb.thought
 const exampleRequest: MCPToolRequest = {
   method: 'tools/call',
   params: {
-    name: 'thoughtbox',
+    name: 'thoughtbox_execute',
     arguments: {
-      thought: 'Analyzing the problem structure',
-      thoughtNumber: 1,
-      totalThoughts: 5,
-      nextThoughtNeeded: true
+      code: \`async () => tb.thought({
+        thought: 'Analyzing the problem structure',
+        thoughtType: 'reasoning',
+        thoughtNumber: 1,
+        totalThoughts: 5,
+        nextThoughtNeeded: true
+      })\`
     }
   }
 };
@@ -286,9 +281,9 @@ const exampleResponse: MCPToolResponse = {
 console.log('\\nMCP Response:', JSON.stringify(exampleResponse, null, 2));
 \`\`\`
 
-## The thoughtbox Tool
+## The tb.thought Module
 
-The \`thoughtbox\` tool implements a flexible sequential thinking framework. Key features:
+\`tb.thought\` implements a flexible sequential thinking framework. Key features:
 
 ### Parameters
 - **thought**: The current reasoning step
@@ -364,13 +359,12 @@ console.log('\\nRevision:', revision);
 console.log('\\nWith Guide:', withGuide);
 \`\`\`
 
-## The Notebook Toolhost Pattern
+## The tb.notebook Module
 
-Instead of exposing 10 separate MCP tools (\`notebook_create\`, \`notebook_list\`, etc.), Thoughtbox uses a **toolhost pattern**:
+Instead of exposing 10 separate MCP tools (\`notebook_create\`, \`notebook_list\`, etc.), Thoughtbox groups notebook functionality into the \`tb.notebook\` SDK module inside \`thoughtbox_execute\`:
 
-- **Single Tool**: \`notebook(operation, args)\`
-- **Operation Dispatch**: The \`operation\` parameter routes to specific handlers
-- **Cleaner Interface**: Clients see 1 tool instead of 10
+- **Single Surface**: \`tb.notebook.<operation>(args)\`
+- **Cleaner Interface**: Clients see 3 registered tools total, not one per operation
 - **Easier Maintenance**: Add operations without changing MCP tool registration
 
 ### Available Operations
@@ -378,18 +372,18 @@ Instead of exposing 10 separate MCP tools (\`notebook_create\`, \`notebook_list\
 **Notebook Management**
 - \`create\`: Create new notebook
 - \`list\`: List all notebooks
-- \`load\`: Load from .src.md file
-- \`export\`: Save to .src.md file
+- \`load\`: Load from .src.md content
+- \`export\`: Save to .src.md format
 
 **Cell Operations**
-- \`add_cell\`: Add title/markdown/code cell
-- \`update_cell\`: Modify cell content
-- \`list_cells\`: List all cells
-- \`get_cell\`: Get cell details
+- \`addCell\`: Add title/markdown/code cell
+- \`updateCell\`: Modify cell content
+- \`listCells\`: List all cells
+- \`getCell\`: Get cell details
 
 **Execution**
-- \`run_cell\`: Execute code cell
-- \`install_deps\`: Install pnpm dependencies
+- \`runCell\`: Execute code cell
+- \`installDeps\`: Install pnpm dependencies
 
 ### Operation Catalog Resource
 
