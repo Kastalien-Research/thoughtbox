@@ -374,6 +374,7 @@ Use \`console.log()\` for debugging — output captured in response logs.`;
   const peerNotebookHandler = new PeerNotebookHandler({
     getWorkspaceId: () => resolvedWorkspaceId,
     repository: peerNotebookRepository,
+    notebookSource: notebookHandler,
     proxyTargetDeps: {
       knowledgeHandler,
       knowledgeUnavailableReason: knowledgeInitError,

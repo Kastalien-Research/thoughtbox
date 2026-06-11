@@ -90,6 +90,14 @@ export class NotebookHandler {
     return this.validatorService;
   }
 
+  /**
+   * Read-only notebook lookup for in-process callers; peer notebook
+   * graduation reads manifest cell text through this without executing code.
+   */
+  getNotebook(notebookId: string) {
+    return this.stateManager.getNotebook(notebookId);
+  }
+
   async init(): Promise<void> {
     await this.stateManager.init();
   }

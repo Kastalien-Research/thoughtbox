@@ -64,6 +64,7 @@ Supported operations:
 | \`peer_manifest_approve\` | Approve a draft manifest (activates it; retires the previously active one) |
 | \`peer_manifest_reject\` | Reject a draft manifest |
 | \`peer_manifest_list\` | List manifest versions and statuses for a peer |
+| \`peer_graduate_notebook\` | Graduate a notebook's \`peer.manifest.json\` code cell into a draft manifest (cell text parsed as data; no notebook code runs) |
 
 ### Notebook Evidence Engine
 

@@ -54,4 +54,10 @@ export interface RuntimeProvider {
   cancel(input: { invocationId: string }): Promise<void>;
   "snapshot/export"(input: { invocationId: string }): Promise<JsonValue>;
   heartbeat(input: { peerRuntimeId: string; invocationId: string }): Promise<void>;
+  /**
+   * Providers that resolve manifest runtime.entry names from a fixed script
+   * registry report whether an entry resolves, so graduation can reject
+   * unregistered entries up front instead of failing at first invoke.
+   */
+  resolvesEntry?(entry: string): boolean;
 }

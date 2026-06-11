@@ -7,7 +7,9 @@ import { InMemoryPeerNotebookRepository, type PeerNotebookRepository } from "./r
 import type { RuntimeProvider } from "./runtime-provider.js";
 import { PeerNotebookError } from "./types.js";
 import type {
+  CompiledPeerManifest,
   JsonObject,
+  ManifestDraftSource,
   PeerArtifactRecord,
   PeerInvocationRecord,
   PeerManifest,
@@ -27,14 +29,46 @@ const BOOTSTRAP_TIMESTAMP = "2026-04-30T00:00:00.000Z";
 // SPEC-CONTROL-PLANE c2 bootstrap exception: the claim-extractor pilot is the
 // platform-owned built-in peer and is the ONLY manifest permitted to bootstrap
 // directly to "active" so it works out of the box. Every other creation path
-// (createManifestDraft, future notebook graduation) persists status "draft"
-// and requires an explicit peer_manifest_approve before broker dispatch.
+// (createManifestDraft and graduateNotebook) persists status "draft" and
+// requires an explicit peer_manifest_approve before broker dispatch.
 const PLATFORM_BUILTIN_BOOTSTRAP_MANIFEST_STATUS: PeerManifestStatus = "active";
+
+/**
+ * Notebook graduation convention: the manifest lives in a code cell whose
+ * filename is exactly this name; the cell's source TEXT is parsed as JSON.
+ */
+const MANIFEST_CELL_FILENAME = "peer.manifest.json";
+
+/**
+ * Structural view of a notebook cell for graduation. Only code cells carry
+ * filename/source; graduation reads cell TEXT as data and never executes it.
+ */
+export interface PeerGraduationNotebookCell {
+  id: string;
+  type: string;
+  filename?: string;
+  source?: string;
+}
+
+export interface PeerGraduationNotebook {
+  id: string;
+  cells: PeerGraduationNotebookCell[];
+}
+
+/** Read-only notebook lookup used by peer_graduate_notebook. */
+export interface PeerGraduationNotebookSource {
+  getNotebook(notebookId: string): PeerGraduationNotebook | undefined;
+}
 
 export interface PeerNotebookHandlerOptions {
   workspaceId?: string;
   getWorkspaceId?: () => string | undefined;
   repository?: PeerNotebookRepository;
+  /**
+   * Notebook lookup for peer_graduate_notebook. Graduation reads the manifest
+   * cell text as pure data; absent wiring fails graduation with a clear error.
+   */
+  notebookSource?: PeerGraduationNotebookSource;
   /**
    * Runtime provider override; tests inject MockPeerRuntimeProvider here.
    * Production wiring keeps the default development-only local-process
@@ -61,6 +95,12 @@ export interface PeerInvokeToolInput {
 
 export interface PeerManifestCreateInput {
   manifestJson: string;
+  displayName?: string;
+  description?: string;
+}
+
+export interface PeerGraduateNotebookInput {
+  notebookId: string;
   displayName?: string;
   description?: string;
 }
@@ -167,12 +207,106 @@ export class PeerNotebookHandler {
 
     const compiled = compilePeerManifestDraft([
       {
-        name: "peer.manifest.json",
+        name: MANIFEST_CELL_FILENAME,
         sourceType: "file",
         content: input.manifestJson,
       },
     ]);
 
+    const { manifest } = await this.persistDraft(workspaceId, compiled, input, {
+      supersedeGraduatedDrafts: false,
+    });
+    return { manifest };
+  }
+
+  /**
+   * Promote a notebook into a draft peer manifest. The manifest is declared
+   * in a code cell whose filename is exactly `peer.manifest.json`; the cell's
+   * source text is parsed and validated as pure JSON data — graduation never
+   * executes notebook code. Graduated manifests are always drafts; the 5.1
+   * approval flow governs activation.
+   */
+  async graduateNotebook(
+    input: PeerGraduateNotebookInput,
+  ): Promise<{ manifest: PeerManifestRecord; supersededManifestIds: string[] }> {
+    const workspaceId = this.resolveWorkspaceId();
+    await this.bootstrapWorkspace(workspaceId);
+
+    const notebookSource = this.options.notebookSource;
+    if (!notebookSource) {
+      throw new Error(
+        "peer_graduate_notebook requires a notebook source; this handler was constructed without notebookSource",
+      );
+    }
+
+    const notebook = notebookSource.getNotebook(input.notebookId);
+    if (!notebook) {
+      throw new PeerNotebookError("notebook_not_found", `Notebook ${input.notebookId} does not exist`);
+    }
+
+    const sources = manifestDraftSourcesFromNotebook(notebook);
+    if (!sources.some(source => source.name === MANIFEST_CELL_FILENAME)) {
+      throw new PeerNotebookError(
+        "manifest_compile_error",
+        `Notebook ${notebook.id} has no code cell named ${MANIFEST_CELL_FILENAME}; ` +
+          "graduation requires exactly one manifest cell whose text is the peer manifest JSON",
+      );
+    }
+
+    const compiled = compilePeerManifestDraft(sources);
+    if (compiled.manifest.notebookId !== notebook.id) {
+      throw new PeerNotebookError(
+        "manifest_compile_error",
+        `${MANIFEST_CELL_FILENAME} declares notebookId "${compiled.manifest.notebookId}" ` +
+          `but the graduating notebook is "${notebook.id}"`,
+      );
+    }
+    this.validateGraduatedRuntimeBinding(compiled.manifest);
+
+    return this.persistDraft(workspaceId, compiled, input, { supersedeGraduatedDrafts: true });
+  }
+
+  /**
+   * Graduated manifests must be invocable once approved: the declared runtime
+   * provider has to be registered on this handler, and providers with a fixed
+   * entry registry (local-process) must resolve runtime.entry now, at
+   * graduation, instead of failing at first invoke.
+   */
+  private validateGraduatedRuntimeBinding(manifest: PeerManifest): void {
+    if (manifest.runtime.provider !== this.runtimeProviderName) {
+      throw new PeerNotebookError(
+        "runtime_provider_not_found",
+        `Graduated manifest declares runtime.provider "${manifest.runtime.provider}" ` +
+          `but only "${this.runtimeProviderName}" is registered`,
+      );
+    }
+
+    const provider = this.runtimeProvider;
+    if (!provider.resolvesEntry) {
+      return;
+    }
+    if (!manifest.runtime.entry) {
+      throw new PeerNotebookError(
+        "manifest_compile_error",
+        `Graduated manifest omits runtime.entry, which provider "${this.runtimeProviderName}" ` +
+          "requires to resolve a registered entry script",
+      );
+    }
+    if (!provider.resolvesEntry(manifest.runtime.entry)) {
+      throw new PeerNotebookError(
+        "manifest_compile_error",
+        `Graduated manifest names runtime.entry "${manifest.runtime.entry}", ` +
+          `which is not a registered ${this.runtimeProviderName} entry script`,
+      );
+    }
+  }
+
+  private async persistDraft(
+    workspaceId: string,
+    compiled: CompiledPeerManifest,
+    identity: { displayName?: string; description?: string },
+    options: { supersedeGraduatedDrafts: boolean },
+  ): Promise<{ manifest: PeerManifestRecord; supersededManifestIds: string[] }> {
     const now = new Date().toISOString();
     let peer = await this.repository.getPeerByPeerId(workspaceId, compiled.manifest.peerId);
     if (!peer) {
@@ -180,8 +314,8 @@ export class PeerNotebookHandler {
         id: randomUUID(),
         workspaceId,
         peerId: compiled.manifest.peerId,
-        displayName: input.displayName ?? compiled.manifest.peerId,
-        description: input.description,
+        displayName: identity.displayName ?? compiled.manifest.peerId,
+        description: identity.description,
         status: "active",
         activeManifestId: null,
         createdAt: now,
@@ -203,6 +337,20 @@ export class PeerNotebookHandler {
       );
     }
 
+    // Re-graduation supersedes the prior pending graduated draft the same way
+    // approval supersedes the prior active manifest (5.1): the old record is
+    // retired and can no longer be approved. Only cell-sourced drafts are
+    // touched; operator-created file drafts keep their pending status.
+    const supersededManifestIds: string[] = [];
+    if (options.supersedeGraduatedDrafts) {
+      for (const record of existing) {
+        if (record.status === "draft" && record.compiledFrom.sourceType === "cell") {
+          await this.repository.saveManifest({ ...record, status: "retired" });
+          supersededManifestIds.push(record.id);
+        }
+      }
+    }
+
     const manifest: PeerManifestRecord = {
       id: randomUUID(),
       workspaceId,
@@ -219,7 +367,7 @@ export class PeerNotebookHandler {
     };
     await this.repository.saveManifest(manifest);
 
-    return { manifest };
+    return { manifest, supersededManifestIds };
   }
 
   async approveManifest(
@@ -460,6 +608,21 @@ function claimExtractorManifest(provider: RuntimeProviderName): PeerManifest {
       maxArtifactBytes: 10_000_000,
     },
   };
+}
+
+/**
+ * Map notebook code cells to manifest draft sources. Cell source is carried
+ * as opaque text for JSON parsing; non-code cells (title, markdown) and the
+ * package.json cell never match the manifest cell filename.
+ */
+function manifestDraftSourcesFromNotebook(notebook: PeerGraduationNotebook): ManifestDraftSource[] {
+  const sources: ManifestDraftSource[] = [];
+  for (const cell of notebook.cells) {
+    if (cell.type !== "code") continue;
+    if (typeof cell.filename !== "string" || typeof cell.source !== "string") continue;
+    sources.push({ name: cell.filename, content: cell.source, sourceType: "cell" });
+  }
+  return sources;
 }
 
 function previewText(text: string): string {

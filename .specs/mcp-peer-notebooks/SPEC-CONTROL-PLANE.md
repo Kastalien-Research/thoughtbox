@@ -14,7 +14,7 @@ claims:
     statement: Peer notebook manifests are externalized control-plane records compiled from peer.manifest.json, parsed as data without executing notebook code, and activated only by explicit approval
     type: governance
     behavioral: false
-    required_evidence: Implemented by the thoughtbox-g5t lifecycle slice. peer_manifest_create persists drafts; peer_manifest_approve activates and retires the previous active manifest; peer_manifest_reject finalizes drafts; the broker rejects non-active manifests naming their status. Evidence is src/peer-notebook/__tests__/manifest-lifecycle.test.ts plus the durable lifecycle test in src/peer-notebook/__tests__/supabase-repository.test.ts. The built-in claim-extractor bootstrap is the documented platform-owned exception (PLATFORM_BUILTIN_BOOTSTRAP_MANIFEST_STATUS in src/peer-notebook/handler.ts)
+    required_evidence: Implemented by the thoughtbox-g5t lifecycle slice. peer_manifest_create persists drafts; peer_manifest_approve activates and retires the previous active manifest; peer_manifest_reject finalizes drafts; the broker rejects non-active manifests naming their status. Evidence is src/peer-notebook/__tests__/manifest-lifecycle.test.ts plus the durable lifecycle test in src/peer-notebook/__tests__/supabase-repository.test.ts. The built-in claim-extractor bootstrap is the documented platform-owned exception (PLATFORM_BUILTIN_BOOTSTRAP_MANIFEST_STATUS in src/peer-notebook/handler.ts). Notebook graduation (v1-initiative Phase 5.4) compiles the manifest from a real notebook's peer.manifest.json code cell as pure data - graduateNotebook in src/peer-notebook/handler.ts parses cell text with the same zod compile path, never executing notebook code, always persisting status draft, and rejecting unregistered runtime providers/entries at graduation. Evidence is src/peer-notebook/__tests__/notebook-graduation.test.ts plus the durable graduation test in src/peer-notebook/__tests__/supabase-repository.test.ts
   - id: c3
     statement: Cloud Run remains the MCP API/control plane; peer execution runs in a separate execution plane behind a runtime provider contract
     type: governance
@@ -83,8 +83,8 @@ non-active manifests. The built-in `claim-extractor` bootstrap is the single
 documented exception that ships active out of the box
 (`PLATFORM_BUILTIN_BOOTSTRAP_MANIFEST_STATUS` in `src/peer-notebook/handler.ts`);
 approval is a plain operation in v1 (single-operator trust model, no roles).
-Notebook-source graduation (compiling drafts from real notebook cells) remains
-deferred to the graduation slice.
+Notebook-source graduation (compiling drafts from real notebook cells) is
+delivered by the v1-initiative Phase 5.4 slice (see implementation note below).
 
 Implementation note: the v1-initiative Phase 5.2 slice populates the broker
 proxy target map with real outbound handlers. `createBrokerProxyTargets`
@@ -120,6 +120,38 @@ bootstrapped with `provider: "mock"` are reconciled in place at bootstrap
 (platform builtin record only). `local-process` is process separation for
 development, never production isolation - that remains the smolvm unit
 (`thoughtbox-vdw`).
+
+Implementation note: the v1-initiative Phase 5.4 slice completes the
+`thoughtbox-g5t` unit with notebook graduation. `peer_graduate_notebook`
+(`graduateNotebook` in `src/peer-notebook/handler.ts`) takes a `notebookId`,
+reads the notebook through a read-only `PeerGraduationNotebookSource` lookup
+(the `NotebookHandler` in production wiring), and compiles the manifest from
+the notebook's draft cell. The cell convention is the least-new-concept
+mapping of this spec's "JSON cell or file named `peer.manifest.json`" rule
+onto the existing notebook model: the manifest lives in a **code cell whose
+`filename` is exactly `peer.manifest.json`**, and the cell's source TEXT is
+parsed as JSON through the same `compilePeerManifestDraft` zod path used by
+`peer_manifest_create` (`compiledFrom.sourceType = "cell"`). Graduation never
+executes notebook code - no eval, no module import, no cell run. Graduated
+manifests are ALWAYS `status='draft'` (the platform-builtin direct-to-active
+exception does not apply); 5.1 approval governs activation. Graduation
+validates the runtime binding up front: the declared `runtime.provider` must
+be the registered provider, and providers with a fixed entry registry
+(`RuntimeProvider.resolvesEntry`, implemented by `local-process`) must resolve
+`runtime.entry` at graduation - an unregistered entry is rejected with a clear
+error instead of failing at first invoke. The manifest's `notebookId` must
+match the graduating notebook. `mayCall` allowlists are accepted as declared,
+bounded by schema validation. Re-graduating a notebook creates a new draft
+version and supersedes the prior pending cell-sourced draft for that peer
+(retired, no longer approvable), mirroring 5.1's retire-on-approve
+supersession; operator-created file drafts are untouched, and the
+duplicate-hash rejection still applies. Evidence:
+`src/peer-notebook/__tests__/notebook-graduation.test.ts` (graduate -> draft
+blocked at invoke -> approve -> end-to-end local-process invoke of the
+registered claim-extractor entry, supersession, malformed JSON, missing
+manifest cell, schema violation, unregistered entry, missing entry, wrong
+provider, notebookId mismatch, unknown notebook) and the durable graduation
+test in `src/peer-notebook/__tests__/supabase-repository.test.ts`.
 
 ## Non-Goals
 
@@ -202,6 +234,11 @@ peer.manifest.json
 
 The compiler treats `peer.manifest.json` as data. It parses JSON and never
 executes notebook code while extracting, validating, or hashing the manifest.
+
+In the implemented notebook model (`src/notebook/types.ts`), the draft source
+is a code cell whose `filename` is exactly `peer.manifest.json`; graduation
+(`peer_graduate_notebook`) parses the cell's source text as JSON without
+running any cell.
 
 Rules:
 

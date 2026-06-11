@@ -1,4 +1,8 @@
+import * as fs from "fs/promises";
+import * as os from "os";
+import * as path from "path";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { NotebookHandler } from "../../notebook/index.js";
 import {
   createPeerBroker,
   PeerNotebookHandler,
@@ -13,7 +17,7 @@ import {
   isSupabaseAvailable,
   TEST_WORKSPACE_ID,
 } from "../../__tests__/supabase-test-helpers.js";
-import { lifecyclePeerManifestJson } from "./fixtures.js";
+import { graduationPeerManifest, lifecyclePeerManifestJson } from "./fixtures.js";
 
 const SECOND_WORKSPACE_ID = "22222222-2222-4222-8222-222222222222";
 
@@ -176,6 +180,88 @@ describe("SupabasePeerNotebookRepository", () => {
     const durableRejected = await repository.getManifest(TEST_WORKSPACE_ID, rejectedDraft.manifest.id);
     expect(durableRejected?.status).toBe("rejected");
     expect(await repository.listManifests(TEST_WORKSPACE_ID, rejectedDraft.manifest.peerRecordId)).toHaveLength(3);
+  });
+
+  it("persists notebook graduation drafts durably with supersession and post-approval invoke", { timeout: 30_000 }, async ({ skip }) => {
+    if (!available) skip();
+    const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "tb-graduation-supabase-"));
+    try {
+      const notebookHandler = new NotebookHandler(tempDir);
+      const repository = new SupabasePeerNotebookRepository(getTestSupabaseConfig());
+      // Default runtime provider: the real development-only local-process path.
+      const tool = new PeerNotebookTool(new PeerNotebookHandler({
+        repository,
+        workspaceId: TEST_WORKSPACE_ID,
+        notebookSource: notebookHandler,
+      }));
+
+      const created = await notebookHandler.handleCreateNotebook({
+        title: "Durable graduation candidate",
+        language: "javascript",
+      });
+      const notebookId = created.notebook.id as string;
+      const added = await notebookHandler.handleAddCell({
+        notebookId,
+        cellType: "code",
+        content: JSON.stringify(graduationPeerManifest("durable-graduated-peer", notebookId)),
+        filename: "peer.manifest.json",
+      });
+
+      const graduated = await tool.handle({
+        operation: "peer_graduate_notebook",
+        notebookId,
+      });
+      const durableDraft = await repository.getManifest(TEST_WORKSPACE_ID, graduated.manifest.id);
+      expect(durableDraft?.status).toBe("draft");
+      expect(durableDraft?.compiledFrom).toEqual({
+        sourceName: "peer.manifest.json",
+        sourceType: "cell",
+      });
+
+      const seeded = await tool.handle({
+        operation: "peer_artifact_seed",
+        text: "First claim. Second claim.",
+      });
+      await expect(tool.handle({
+        operation: "peer_invoke",
+        peerId: "durable-graduated-peer",
+        tool: "extract_claims",
+        args: { textArtifactId: seeded.artifact.id },
+      })).rejects.toMatchObject({
+        code: "manifest_not_active",
+        message: expect.stringContaining("is draft"),
+      });
+
+      await notebookHandler.handleUpdateCell({
+        notebookId,
+        cellId: added.cell.id as string,
+        content: JSON.stringify(
+          graduationPeerManifest("durable-graduated-peer", notebookId, { timeoutMs: 60_000 }),
+        ),
+      });
+      const regraduated = await tool.handle({
+        operation: "peer_graduate_notebook",
+        notebookId,
+      });
+      expect(regraduated.supersededManifestIds).toEqual([graduated.manifest.id]);
+      const durableSuperseded = await repository.getManifest(TEST_WORKSPACE_ID, graduated.manifest.id);
+      expect(durableSuperseded?.status).toBe("retired");
+
+      await tool.handle({
+        operation: "peer_manifest_approve",
+        manifestId: regraduated.manifest.id,
+      });
+      const invoked = await tool.handle({
+        operation: "peer_invoke",
+        peerId: "durable-graduated-peer",
+        tool: "extract_claims",
+        args: { textArtifactId: seeded.artifact.id },
+      });
+      expect(invoked.result).toMatchObject({ claimCount: 2 });
+      expect(invoked.manifestHash).toBe(regraduated.manifest.manifestHash);
+    } finally {
+      await fs.rm(tempDir, { recursive: true, force: true });
+    }
   });
 
   it("keeps artifacts workspace-scoped", async ({ skip }) => {

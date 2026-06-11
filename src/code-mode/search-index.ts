@@ -232,6 +232,7 @@ export function buildSearchCatalog(): SearchCatalog {
           "peer_manifest_approve",
           "peer_manifest_reject",
           "peer_manifest_list",
+          "peer_graduate_notebook",
         ],
       },
     ],

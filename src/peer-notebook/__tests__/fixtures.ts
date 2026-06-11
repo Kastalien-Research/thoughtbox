@@ -1,3 +1,25 @@
+/**
+ * Manifest object for notebook graduation tests: local-process provider bound
+ * to the registered claim-extractor entry script. Returned as an object so
+ * tests can mutate fields before stringifying into the manifest cell.
+ */
+export function graduationPeerManifest(
+  peerId: string,
+  notebookId: string,
+  overrides: { entry?: string; timeoutMs?: number } = {},
+): Record<string, unknown> {
+  const manifest = JSON.parse(lifecyclePeerManifestJson(peerId, {
+    timeoutMs: overrides.timeoutMs,
+  })) as Record<string, unknown>;
+  manifest.notebookId = notebookId;
+  manifest.runtime = {
+    provider: "local-process",
+    entry: overrides.entry ?? "claim-extractor",
+    timeoutMs: overrides.timeoutMs ?? 120_000,
+  };
+  return manifest;
+}
+
 export function lifecyclePeerManifestJson(
   peerId: string,
   overrides: { timeoutMs?: number } = {},

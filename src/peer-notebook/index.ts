@@ -28,6 +28,10 @@ export type {
   PeerArtifactSeedInput,
   PeerInvokeToolInput,
   PeerManifestCreateInput,
+  PeerGraduateNotebookInput,
+  PeerGraduationNotebook,
+  PeerGraduationNotebookCell,
+  PeerGraduationNotebookSource,
 } from "./handler.js";
 export { PEER_NOTEBOOK_TOOL, PeerNotebookTool, peerNotebookToolInputSchema } from "./tool.js";
 export type { PeerNotebookToolInput } from "./tool.js";

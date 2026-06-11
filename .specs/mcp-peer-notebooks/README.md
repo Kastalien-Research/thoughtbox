@@ -68,7 +68,8 @@ Its hard rule is: mocks are contract fixtures, not final substitutes.
 
 ## Remaining Delivery Units
 
-1. **Manifest Lifecycle And Notebook Graduation** (`thoughtbox-g5t`)
+1. **Manifest Lifecycle And Notebook Graduation** (`thoughtbox-g5t`) —
+   **delivered**
    - **Lifecycle delivered** (v1-initiative Phase 5.1, claim
      SPEC-CONTROL-PLANE:c2): `peer_manifest_create` persists drafts,
      `peer_manifest_approve` activates and retires the previously active
@@ -76,8 +77,17 @@ Its hard rule is: mocks are contract fixtures, not final substitutes.
      non-active manifests naming their status. The built-in `claim-extractor`
      bootstrap is the single documented active-out-of-the-box exception.
      Approval is a plain operation in v1 (single-operator trust model).
-   - **Remaining**: notebook graduation — compile `peer.manifest.json` drafts
-     from real notebook source (v1-initiative Phase 5.4).
+   - **Graduation delivered** (v1-initiative Phase 5.4, claim
+     SPEC-CONTROL-PLANE:c2): `peer_graduate_notebook` compiles the manifest
+     from a real notebook's code cell named `peer.manifest.json` — the cell's
+     source text is parsed as JSON data, never executed. Graduated manifests
+     are always drafts governed by the 5.1 approval flow; `runtime.provider`
+     and `runtime.entry` must resolve against the registered provider's fixed
+     script registry at graduation; re-graduation creates a new draft version
+     and retires the prior pending cell-sourced draft. Evidence:
+     `src/peer-notebook/__tests__/notebook-graduation.test.ts` and the durable
+     graduation test in
+     `src/peer-notebook/__tests__/supabase-repository.test.ts`.
 
 2. **Web App Inspection Surface** (`thoughtbox-2ot`)
    - Peer registry/detail, invocation detail, denied-call trace timeline, and
