@@ -56,6 +56,85 @@ describe("createMcpServer tool surface", () => {
     }
   });
 
+  it("lists and serves the gateway operations catalog resource", async () => {
+    const previousSupabaseUrl = process.env.SUPABASE_URL;
+    const previousSupabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    process.env.SUPABASE_URL = "https://example.supabase.co";
+    process.env.SUPABASE_SERVICE_ROLE_KEY = "test-service-role-key";
+
+    const server = await createMcpServer({
+      storage: new InMemoryStorage(),
+      logger: silentLogger,
+    });
+    const client = new Client(
+      { name: "gateway-resource-test-client", version: "1.0.0" },
+      { capabilities: {} },
+    );
+    const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+
+    try {
+      await server.connect(serverTransport);
+      await client.connect(clientTransport);
+
+      const { resources } = await client.listResources();
+      const listed = resources.find(
+        resource => resource.uri === "thoughtbox://gateway/operations",
+      );
+      expect(listed).toBeDefined();
+      expect(listed?.description).not.toContain("read_thoughts");
+
+      const { contents } = await client.readResource({
+        uri: "thoughtbox://gateway/operations",
+      });
+      expect(contents).toHaveLength(1);
+      expect(contents[0]?.mimeType).toBe("application/json");
+
+      const catalog = JSON.parse(contents[0]?.text as string) as {
+        version: string;
+        publicTools: Array<{ name: string }>;
+        operations: Record<string, Record<string, { title: string; description: string }>>;
+      };
+      expect(catalog.version).toBe("1.0.0");
+      expect(catalog.publicTools.map(tool => tool.name)).toEqual(
+        expect.arrayContaining(["thoughtbox_search", "thoughtbox_execute"]),
+      );
+      expect(Object.keys(catalog.operations)).toEqual(
+        expect.arrayContaining([
+          "thought",
+          "session",
+          "knowledge",
+          "notebook",
+          "theseus",
+          "ulysses",
+          "observability",
+          "branch",
+        ]),
+      );
+      expect(catalog.operations["thought"]?.["thoughtbox_thought"]?.description).toEqual(
+        expect.any(String),
+      );
+
+      const opDetail = await client.readResource({
+        uri: "thoughtbox://gateway/operations/thoughtbox_thought",
+      });
+      const op = JSON.parse(opDetail.contents[0]?.text as string) as {
+        module: string;
+        name: string;
+        title: string;
+      };
+      expect(op.module).toBe("thought");
+      expect(op.name).toBe("thoughtbox_thought");
+
+      await expect(
+        client.readResource({ uri: "thoughtbox://gateway/operations/no_such_op" }),
+      ).rejects.toThrow(/Unknown gateway operation/);
+    } finally {
+      await Promise.allSettled([client.close(), server.close()]);
+      restoreEnv("SUPABASE_URL", previousSupabaseUrl);
+      restoreEnv("SUPABASE_SERVICE_ROLE_KEY", previousSupabaseServiceKey);
+    }
+  });
+
   it("invokes the mock peer notebook pilot through the MCP client", async () => {
     const previousSupabaseUrl = process.env.SUPABASE_URL;
     const previousSupabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
