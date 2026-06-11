@@ -37,7 +37,14 @@ export type ExecuteToolInput = z.infer<typeof executeToolInputSchema>;
 export interface ExecuteToolDeps {
   thoughtTool: ThoughtTool;
   sessionTool: SessionTool;
-  knowledgeTool: KnowledgeTool;
+  /**
+   * Undefined when knowledge storage failed to initialize at server creation.
+   * `tb.knowledge.*` then returns a clean error (carrying
+   * `knowledgeUnavailableReason`) instead of crashing.
+   */
+  knowledgeTool?: KnowledgeTool;
+  /** Captured knowledge storage init failure, surfaced in the tb.knowledge.* error. */
+  knowledgeUnavailableReason?: string;
   notebookTool: NotebookTool;
   theseusTool: TheseusTool;
   ulyssesTool: UlyssesTool;
@@ -141,6 +148,15 @@ function buildTbObject(deps: ExecuteToolDeps, ctx: TbContext): Record<string, un
   const { thoughtTool, sessionTool, knowledgeTool, notebookTool,
           theseusTool, ulyssesTool, observabilityHandler, branchHandler } = deps;
 
+  const requireKnowledgeTool = (): KnowledgeTool => {
+    if (!knowledgeTool) {
+      throw new Error(
+        `knowledge unavailable: ${deps.knowledgeUnavailableReason ?? "knowledge storage failed to initialize"}`,
+      );
+    }
+    return knowledgeTool;
+  };
+
   const requireBranchHandler = (): BranchHandler => {
     if (!branchHandler) {
       throw new Error(
@@ -186,31 +202,31 @@ function buildTbObject(deps: ExecuteToolDeps, ctx: TbContext): Record<string, un
 
     knowledge: {
       createEntity: async (args: Record<string, unknown>) =>
-        normalizeEntityResult(unwrapToolResult(await knowledgeTool.handle({
+        normalizeEntityResult(unwrapToolResult(await requireKnowledgeTool().handle({
           operation: "knowledge_create_entity", ...args,
         } as KnowledgeToolInput))),
       getEntity: async (entityId: string) =>
-        normalizeEntityResult(unwrapToolResult(await knowledgeTool.handle({
+        normalizeEntityResult(unwrapToolResult(await requireKnowledgeTool().handle({
           operation: "knowledge_get_entity", entity_id: entityId,
         } as KnowledgeToolInput))),
       listEntities: async (args?: Record<string, unknown>) =>
-        unwrapToolResult(await knowledgeTool.handle({
+        unwrapToolResult(await requireKnowledgeTool().handle({
           operation: "knowledge_list_entities", ...args,
         } as KnowledgeToolInput)),
       addObservation: async (args: { entity_id: string; content: string; source_session?: string; added_by?: string }) =>
-        unwrapToolResult(await knowledgeTool.handle({
+        unwrapToolResult(await requireKnowledgeTool().handle({
           operation: "knowledge_add_observation", ...args,
         } as KnowledgeToolInput)),
       createRelation: async (args: { from_id: string; to_id: string; relation_type: string; properties?: Record<string, unknown> }) =>
-        unwrapToolResult(await knowledgeTool.handle({
+        unwrapToolResult(await requireKnowledgeTool().handle({
           operation: "knowledge_create_relation", ...args,
         } as KnowledgeToolInput)),
       queryGraph: async (args: { start_entity_id: string; max_depth?: number; relation_types?: string[] }) =>
-        unwrapToolResult(await knowledgeTool.handle({
+        unwrapToolResult(await requireKnowledgeTool().handle({
           operation: "knowledge_query_graph", ...args,
         } as KnowledgeToolInput)),
       stats: async () =>
-        unwrapToolResult(await knowledgeTool.handle({
+        unwrapToolResult(await requireKnowledgeTool().handle({
           operation: "knowledge_stats",
         } as KnowledgeToolInput)),
     },

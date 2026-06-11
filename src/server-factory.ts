@@ -332,6 +332,7 @@ Use \`console.log()\` for debugging — output captured in response logs.`;
   // Otherwise fall back to FileSystemKnowledgeStorage.
   let knowledgeHandler: KnowledgeHandler | undefined;
   let knowledgeStorage: import('./knowledge/types.js').KnowledgeStorage | undefined;
+  let knowledgeInitError: string | undefined;
   if (args.knowledgeStorage) {
     knowledgeStorage = args.knowledgeStorage;
     knowledgeHandler = new KnowledgeHandler(knowledgeStorage);
@@ -343,8 +344,10 @@ Use \`console.log()\` for debugging — output captured in response logs.`;
       knowledgeStorage = fsKnowledge;
       knowledgeHandler = new KnowledgeHandler(knowledgeStorage);
     } catch (knowledgeError) {
+      knowledgeInitError =
+        knowledgeError instanceof Error ? knowledgeError.message : String(knowledgeError);
       logger.warn(
-        `Knowledge storage unavailable, continuing without it: ${knowledgeError instanceof Error ? knowledgeError.message : String(knowledgeError)}`
+        `Knowledge storage unavailable, continuing without it: ${knowledgeInitError}`
       );
     }
   }
@@ -410,7 +413,9 @@ Use \`console.log()\` for debugging — output captured in response logs.`;
   // Tool Registration (all tools enabled at startup)
   // =============================================================================
 
-  const knowledgeTool = new KnowledgeTool(knowledgeHandler!);
+  // Undefined when knowledge init failed above; tb.knowledge.* then returns
+  // a clean "knowledge unavailable" error from ExecuteTool instead of crashing.
+  const knowledgeTool = knowledgeHandler ? new KnowledgeTool(knowledgeHandler) : undefined;
   const sessionTool = new SessionTool(sessionHandler);
   const thoughtTool = new ThoughtTool(thoughtHandler);
   const notebookTool = new NotebookTool(notebookHandler);
@@ -592,6 +597,7 @@ Use \`console.log()\` for debugging — output captured in response logs.`;
     thoughtTool,
     sessionTool,
     knowledgeTool,
+    knowledgeUnavailableReason: knowledgeInitError,
     notebookTool,
     theseusTool,
     ulyssesTool,
@@ -1348,7 +1354,31 @@ async () => tb.thought({
     })
   );
 
-
+  server.registerResource(
+    "gateway-operations",
+    "thoughtbox://gateway/operations",
+    {
+      description: "Complete catalog of operations available through the Code Mode gateway, grouped by tb SDK module (thought, session, knowledge, notebook, theseus, ulysses, observability, branch)",
+      mimeType: "application/json",
+    },
+    async (uri) => ({
+      contents: [
+        {
+          uri: uri.toString(),
+          mimeType: "application/json",
+          text: JSON.stringify(
+            {
+              version: "1.0.0",
+              publicTools: searchCatalog.publicTools,
+              operations: searchCatalog.operations,
+            },
+            null,
+            2
+          ),
+        },
+      ],
+    })
+  );
 
   server.registerResource(
     "init-operation",
@@ -1391,6 +1421,22 @@ async () => tb.thought({
       const opDef = getHubOp(op as string);
       if (!opDef) throw new Error(`Unknown hub operation: ${op}`);
       return { contents: [{ uri: uri.href, mimeType: "application/json", text: JSON.stringify(opDef, null, 2) }] };
+    }
+  );
+
+  server.registerResource(
+    "gateway-operation",
+    new ResourceTemplate("thoughtbox://gateway/operations/{op}", { list: undefined }),
+    { description: "Individual operation schema from the Code Mode gateway catalog, looked up by name across tb SDK modules", mimeType: "application/json" },
+    async (uri, { op }) => {
+      const opName = op as string;
+      for (const [module, ops] of Object.entries(searchCatalog.operations)) {
+        const opDef = ops[opName];
+        if (opDef) {
+          return { contents: [{ uri: uri.href, mimeType: "application/json", text: JSON.stringify({ module, name: opName, ...opDef }, null, 2) }] };
+        }
+      }
+      throw new Error(`Unknown gateway operation: ${opName}`);
     }
   );
 
@@ -1706,7 +1752,7 @@ async () => tb.thought({
       {
         uri: "thoughtbox://gateway/operations",
         name: "Gateway Operations Catalog",
-        description: "Complete catalog of gateway operations (thought, read_thoughts, get_structure, cipher, deep_analysis)",
+        description: "Complete catalog of operations available through the Code Mode gateway, grouped by tb SDK module (thought, session, knowledge, notebook, theseus, ulysses, observability, branch)",
         mimeType: "application/json",
       },
       {
@@ -1856,7 +1902,7 @@ async () => tb.thought({
         {
           uriTemplate: "thoughtbox://gateway/operations/{op}",
           name: "Gateway Operation Detail",
-          description: "Individual gateway operation schema and examples",
+          description: "Individual operation schema from the Code Mode gateway catalog, looked up by name across tb SDK modules",
           mimeType: "application/json",
         },
         {

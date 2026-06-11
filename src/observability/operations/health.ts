@@ -1,10 +1,13 @@
 /**
  * Health Check Operation
  *
- * Checks health of Thoughtbox and OTEL event storage.
+ * Probes the Thoughtbox storage backend and OTEL event storage and reports
+ * per-component status. Components that cannot be probed report `unknown` —
+ * never an unconditional `healthy`.
  */
 
 import type { OtelEventStorage } from '../../otel/otel-storage.js';
+import type { ThoughtboxStorage } from '../../persistence/types.js';
 
 export interface HealthArgs {
   services?: string[];
@@ -25,7 +28,7 @@ export interface HealthResult {
 
 export async function checkHealth(
   args: HealthArgs,
-  thoughtboxUrl: string,
+  storage: ThoughtboxStorage,
   otelStorage: OtelEventStorage | null,
 ): Promise<HealthResult> {
   const requestedServices = args.services ?? ['thoughtbox', 'supabase'];
@@ -35,9 +38,7 @@ export async function checkHealth(
     requestedServices.map(async (service) => {
       switch (service) {
         case 'thoughtbox':
-          // If responding to this request, the server is healthy.
-          // External URL checks fail from Cloud Run (no loopback route).
-          return { name: service, health: { status: 'healthy' as const } };
+          return { name: service, health: await checkThoughtboxStorage(storage) };
         case 'supabase':
           return { name: service, health: await checkOtelStorage(otelStorage) };
         default:
@@ -69,6 +70,20 @@ export async function checkHealth(
     timestamp: new Date().toISOString(),
     services,
   };
+}
+
+async function checkThoughtboxStorage(
+  storage: ThoughtboxStorage,
+): Promise<ServiceHealth> {
+  try {
+    await storage.listSessions({ limit: 1 });
+    return { status: 'healthy' };
+  } catch (err) {
+    return {
+      status: 'unhealthy',
+      error: err instanceof Error ? err.message : 'Storage probe failed',
+    };
+  }
 }
 
 async function checkOtelStorage(
