@@ -92,6 +92,10 @@ export class LocalProcessRuntimeProvider implements RuntimeProvider {
     return null;
   }
 
+  resolvesEntry(entry: string): boolean {
+    return Object.hasOwn(this.entries, entry);
+  }
+
   async heartbeat(): Promise<void> {}
 
   private resolveEntryScript(input: RuntimeInvocationInput): string {
