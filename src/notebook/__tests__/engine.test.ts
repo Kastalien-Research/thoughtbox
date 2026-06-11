@@ -245,6 +245,32 @@ describe("Notebook Evidence Engine runs", () => {
     });
   });
 
+  it("fails a blank notebook — dependency install alone cannot pass", async () => {
+    // New notebooks always carry a default package.json cell; a successful
+    // pnpm install with no code cells must not look like a verified runbook.
+    const handler = new NotebookHandler();
+    await handler.init();
+
+    const created = await handler.handleCreateNotebook({
+      title: "Runbook blank",
+      language: "javascript",
+    });
+
+    const runResult = await handler.handleStartRun({
+      notebookId: created.notebook.id,
+      mode: "runbook",
+    });
+
+    expect(runResult.run.status).toBe("completed");
+    const verdict = runResult.run.outputs[0];
+    expect(verdict.pass).toBe(false);
+    expect(verdict.reason).toContain("no code cells executed");
+    const evidence = verdict.evidence as Array<Record<string, unknown>>;
+    expect(evidence).toHaveLength(1);
+    expect(evidence[0]!.cellType).toBe("package.json");
+    expect(evidence[0]!.status).toBe("completed");
+  });
+
   it("rejects non-runbook modes with an explicit not-implemented error", async () => {
     const handler = new NotebookHandler();
     await handler.init();

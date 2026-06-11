@@ -230,12 +230,16 @@ export class InMemoryNotebookEngineRuntime {
 
 /**
  * Derive the runbook verdict from real per-cell execution results.
- * An empty runbook cannot pass: a verdict must rest on at least one
- * executed cell.
+ * A passing verdict must rest on at least one completed code cell:
+ * dependency installation (package.json cells) is recorded as evidence
+ * but cannot verify a runbook by itself, so blank notebooks — which
+ * always carry a default package.json cell — cannot pass.
  */
 function buildRunbookVerdict(evidence: CellExecutionEvidence[]): NotebookOutput {
   const failed = evidence.filter((cell) => cell.status === "failed");
-  const completed = evidence.filter((cell) => cell.status === "completed");
+  const completedCode = evidence.filter(
+    (cell) => cell.status === "completed" && cell.cellType === "code",
+  );
 
   let pass: boolean;
   let reason: string;
@@ -248,9 +252,13 @@ function buildRunbookVerdict(evidence: CellExecutionEvidence[]): NotebookOutput 
     reason =
       `cell ${first.cellId} (${first.filename}) failed with exit code ` +
       `${first.exitCode ?? "none"}: ${truncate(first.error || first.output)}`;
+  } else if (completedCode.length === 0) {
+    pass = false;
+    reason =
+      "no code cells executed; dependency install alone does not verify a runbook";
   } else {
     pass = true;
-    reason = `all ${completed.length} executable cells completed`;
+    reason = `all executable cells completed (${completedCode.length} code)`;
   }
 
   return {
