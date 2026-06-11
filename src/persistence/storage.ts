@@ -22,6 +22,7 @@ import type {
   ThoughtNodeId,
   SessionExport,
   RevisionMetadata,
+  AuditManifest,
 } from './types.js';
 import { RevisionIndexBuilder } from '../revision/revision-index.js';
 
@@ -542,6 +543,7 @@ export class InMemoryStorage implements ThoughtboxStorage {
   private config: Config | null = null;
   private sessions: Map<string, Session> = new Map();
   private runs: Map<string, Run> = new Map();
+  private auditManifests: Map<string, AuditManifest> = new Map();
   private project: string | null = null;
 
   /**
@@ -660,6 +662,7 @@ export class InMemoryStorage implements ThoughtboxStorage {
 
   async deleteSession(id: string): Promise<void> {
     this.sessions.delete(id);
+    this.auditManifests.delete(id);
     this.linkedStore.clearSession(id);
   }
 
@@ -941,7 +944,26 @@ export class InMemoryStorage implements ThoughtboxStorage {
     const session = await this.getSession(sessionId);
     if (!session) throw new Error(`Session ${sessionId} not found`);
 
-    return this.linkedStore.toExportFormat(sessionId, session);
+    const exportData = this.linkedStore.toExportFormat(sessionId, session);
+    const auditManifest = this.auditManifests.get(sessionId);
+    if (auditManifest) exportData.auditManifest = auditManifest;
+    return exportData;
+  }
+
+  // ===========================================================================
+  // Audit Manifest Operations (AUDIT-003)
+  // ===========================================================================
+
+  async saveAuditManifest(sessionId: string, manifest: AuditManifest): Promise<void> {
+    if (!this.sessions.has(sessionId)) {
+      throw new Error(`Session ${sessionId} not found`);
+    }
+    this.auditManifests.set(sessionId, manifest);
+  }
+
+  async getAuditManifest(sessionId: string): Promise<AuditManifest | null> {
+    if (!this.sessions.has(sessionId)) return null;
+    return this.auditManifests.get(sessionId) ?? null;
   }
 
   // ===========================================================================

@@ -339,10 +339,6 @@ Use \`console.log()\` for debugging — output captured in response logs.`;
   const durablePeerWorkspaceId = resolvedWorkspaceId === "default" ? undefined : resolvedWorkspaceId;
   const peerNotebookRepository =
     args.peerNotebookRepository ?? createDefaultPeerNotebookRepository(durablePeerWorkspaceId, logger);
-  const peerNotebookHandler = new PeerNotebookHandler({
-    getWorkspaceId: () => resolvedWorkspaceId,
-    repository: peerNotebookRepository,
-  });
 
   const sessionHandler = new SessionHandler({
     storage,
@@ -373,6 +369,18 @@ Use \`console.log()\` for debugging — output captured in response logs.`;
       );
     }
   }
+
+  // Broker proxy targets resolve through the same handlers the tb SDK uses;
+  // absent handlers surface target_unavailable errors instead of crashing.
+  const peerNotebookHandler = new PeerNotebookHandler({
+    getWorkspaceId: () => resolvedWorkspaceId,
+    repository: peerNotebookRepository,
+    proxyTargetDeps: {
+      knowledgeHandler,
+      knowledgeUnavailableReason: knowledgeInitError,
+      sessionHandler,
+    },
+  });
 
   // Log server creation when sessionId is available
   if (sessionId) {

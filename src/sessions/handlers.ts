@@ -268,8 +268,17 @@ export class SessionHandlers {
     const { AnchorResolver } = await import("../references/anchor-resolver.js");
 
     const parser = new AnchorParser();
-    // SPEC-003 D3: project-level aliases come from the storage backend
-    const aliases = await this.storage.loadAliases();
+    // SPEC-003 D3: project-level aliases come from the storage backend.
+    // SPEC-003 REQ-008: resolution problems must not prevent export — a
+    // broken aliases file degrades to "no aliases configured" and the
+    // error is surfaced non-fatally in the crossReferences block.
+    let aliases: Record<string, string> | undefined;
+    let aliasConfigError: string | undefined;
+    try {
+      aliases = await this.storage.loadAliases();
+    } catch (error) {
+      aliasConfigError = error instanceof Error ? error.message : String(error);
+    }
     const resolver = new AnchorResolver(this.storage, aliases);
 
     const allAnchors = new Map<number, any[]>();
@@ -296,6 +305,7 @@ export class SessionHandlers {
         thoughtNumber: thoughtNum,
         anchors,
       })),
+      ...(aliasConfigError !== undefined && { aliasConfigError }),
     };
   }
 

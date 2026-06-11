@@ -42,9 +42,6 @@ export function createChannelsManager(storage: HubStorage): ChannelsManager {
 
   return {
     async postMessage(agentId, { workspaceId, problemId, content, ref }) {
-      const channel = await storage.getChannel(workspaceId, problemId);
-      if (!channel) throw new Error(`Channel not found for problem: ${problemId}`);
-
       const message: ChannelMessage = {
         id: randomUUID(),
         agentId,
@@ -53,19 +50,15 @@ export function createChannelsManager(storage: HubStorage): ChannelsManager {
         ...(ref ? { ref } : {}),
       };
 
-      channel.messages.push(message);
-      await storage.saveChannel(channel);
+      const channelMessageCount = await storage.appendMessage(workspaceId, problemId, message);
 
       const uri = `thoughtbox://hub/${workspaceId}/channels/${problemId}`;
       notifySubscribers(uri);
 
-      return { messageId: message.id, channelMessageCount: channel.messages.length };
+      return { messageId: message.id, channelMessageCount };
     },
 
     async postSystemMessage({ workspaceId, problemId, content, ref }) {
-      const channel = await storage.getChannel(workspaceId, problemId);
-      if (!channel) throw new Error(`Channel not found for problem: ${problemId}`);
-
       const message: ChannelMessage = {
         id: randomUUID(),
         agentId: 'system',
@@ -74,13 +67,12 @@ export function createChannelsManager(storage: HubStorage): ChannelsManager {
         ...(ref ? { ref } : {}),
       };
 
-      channel.messages.push(message);
-      await storage.saveChannel(channel);
+      const channelMessageCount = await storage.appendMessage(workspaceId, problemId, message);
 
       const uri = `thoughtbox://hub/${workspaceId}/channels/${problemId}`;
       notifySubscribers(uri);
 
-      return { messageId: message.id, channelMessageCount: channel.messages.length };
+      return { messageId: message.id, channelMessageCount };
     },
 
     async readChannel({ workspaceId, problemId, since }) {

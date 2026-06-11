@@ -1,6 +1,6 @@
 ---
 name: test-suite
-description: Run behavioral smoke tests against the live Thoughtbox Code Mode MCP server. Verifies the public `/mcp` surface (`thoughtbox_search` + `thoughtbox_execute`) plus the main execution paths behind it.
+description: Run behavioral smoke tests against the live Thoughtbox Code Mode MCP server. Verifies the public `/mcp` surface (`thoughtbox_search`, `thoughtbox_execute`, `thoughtbox_peer_notebook`) plus the main execution paths behind it.
 ---
 
 # Thoughtbox Code Mode Behavioral Test Suite
@@ -11,6 +11,7 @@ The authoritative hosted contract is:
 
 - `thoughtbox_search`
 - `thoughtbox_execute`
+- `thoughtbox_peer_notebook`
 
 The legacy progressive-disclosure suite (`thoughtbox_init`, `thoughtbox_operations`, raw per-domain tools) is no longer the primary behavioral contract for `/mcp`. Treat the old `01-09` markdown files in this folder as historical reference only unless you are explicitly auditing legacy behavior.
 
@@ -24,8 +25,9 @@ The legacy progressive-disclosure suite (`thoughtbox_init`, `thoughtbox_operatio
 | 04 | `tests/04-codemode-sessions.md` | Session CRUD, search, resume, export, analysis | 8 |
 | 05 | `tests/05-codemode-knowledge.md` | Knowledge graph: entities, relations, traversal | 5 |
 | 06 | `tests/06-codemode-protocols.md` | Theseus, Ulysses, and observability lifecycles | 8 |
+| 07 | `tests/07-hub.md` | Hub coordination via `tb.hub.*`: identity, workspaces, problems, proposals, consensus, channels | 15 |
 
-**Total: 45 behavioral tests across the 2-tool Code Mode surface**
+**Total: 60 behavioral tests across the 3-tool Code Mode surface**
 
 Every test creates real data in Supabase and verifies it through retrieval. The suite should leave named sessions visible in the web app's Runs view.
 
@@ -40,6 +42,7 @@ Confirm the live MCP server is reachable and using the Code Mode surface:
 3. Verify the tool list is exactly:
    - `thoughtbox_search`
    - `thoughtbox_execute`
+   - `thoughtbox_peer_notebook`
 
 If raw tools like `thoughtbox_init`, `thoughtbox_session`, or `thoughtbox_hub` appear in `tools/list`, the behavioral suite should fail immediately because the hosted surface is not the intended Code Mode contract.
 
@@ -59,9 +62,9 @@ Track results in a state object:
 
 ### Step 3: Execute tests in order
 
-For each test file (`01` through `04`):
+For each test file (`01` through `07`):
 
-1. Read the file from `.Codex/skills/test-suite/tests/NN-codemode-*.md`
+1. Read the file from `.Codex/skills/test-suite/tests/NN-*.md`
 2. Execute each test using the live `thoughtbox_search` and `thoughtbox_execute` tools
 3. Record `pass`, `fail`, or `skip`
 4. Report progress after each file
@@ -69,7 +72,7 @@ For each test file (`01` through `04`):
 Example:
 
 ```text
-[02/04] thoughtbox_search: 5/5 pass
+[02/07] thoughtbox_search: 5/5 pass
 ```
 
 ### Step 4: Final report
@@ -81,10 +84,13 @@ Thoughtbox Code Mode Behavioral Suite — Results
 ==============================================
 01-codemode-surface:                  4/4 pass
 02-codemode-search:                   5/5 pass
-03-codemode-execute:                  6/6 pass
-04-codemode-protocols-observability:  5/5 pass
+03-codemode-thought:                 15/15 pass
+04-codemode-sessions:                 8/8 pass
+05-codemode-knowledge:                5/5 pass
+06-codemode-protocols:                8/8 pass
+07-hub:                              15/15 pass
 ----------------------------------------------
-Total: 20/20 pass
+Total: 60/60 pass
 ```
 
 If anything fails, list the exact test and the observed discrepancy.
@@ -116,8 +122,8 @@ Examples:
 
 ### Rule 4: Legacy namespaces must fail cleanly
 
-If the suite checks `tb.hub` or `tb.init`, the expected result is absence (`undefined`), not graceful fallback behavior.
+`tb.hub` is part of the supported SDK surface (covered by `tests/07-hub.md`). Retired namespaces such as `tb.init` or `tb.gateway` must be absent (`undefined`), not gracefully shimmed.
 
 ### Rule 5: Never rationalize mismatches
 
-If the server exposes more than the intended two tools, or if search/execute exposes an out-of-scope namespace for this release, that is a failure against the current Code Mode contract.
+If the server exposes more than the intended three tools, or if search/execute exposes an out-of-scope namespace for this release, that is a failure against the current Code Mode contract.
