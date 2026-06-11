@@ -14,7 +14,7 @@ claims:
     statement: Peer notebook manifests are externalized control-plane records compiled from peer.manifest.json, parsed as data without executing notebook code, and activated only by explicit approval
     type: governance
     behavioral: false
-    required_evidence: Manifest Source And Lifecycle section requires draft manifests, JSON-only parsing, and explicit approval before active dispatch
+    required_evidence: Implemented by the thoughtbox-g5t lifecycle slice. peer_manifest_create persists drafts; peer_manifest_approve activates and retires the previous active manifest; peer_manifest_reject finalizes drafts; the broker rejects non-active manifests naming their status. Evidence is src/peer-notebook/__tests__/manifest-lifecycle.test.ts plus the durable lifecycle test in src/peer-notebook/__tests__/supabase-repository.test.ts. The built-in claim-extractor bootstrap is the documented platform-owned exception (PLATFORM_BUILTIN_BOOTSTRAP_MANIFEST_STATUS in src/peer-notebook/handler.ts)
   - id: c3
     statement: Cloud Run remains the MCP API/control plane; peer execution runs in a separate execution plane behind a runtime provider contract
     type: governance
@@ -67,6 +67,24 @@ repository when an effective non-default workspace id is available from
 `SUPABASE_SERVICE_ROLE_KEY` are present; local tests keep the in-memory
 repository. The runtime provider remains the mock contract fixture for this
 slice.
+
+Implementation note: the `thoughtbox-g5t` manifest lifecycle slice implements
+the draft-to-active transitions on the `thoughtbox_peer_notebook` surface:
+`peer_manifest_create` compiles `peer.manifest.json` content into a
+`status='draft'` record (registering the peer if new), `peer_manifest_approve`
+transitions draft to active, sets `approved_at`, updates
+`peer_notebooks.active_manifest_id`, and retires the previously active
+manifest, `peer_manifest_reject` transitions draft to rejected, and
+`peer_manifest_list` reads versions and statuses. Both repositories persist
+transitions through the shared contract (`listManifests` added; no schema
+change — the existing `peer_manifests.status` and `approved_at` columns carry
+the lifecycle). The broker names the offending status when rejecting
+non-active manifests. The built-in `claim-extractor` bootstrap is the single
+documented exception that ships active out of the box
+(`PLATFORM_BUILTIN_BOOTSTRAP_MANIFEST_STATUS` in `src/peer-notebook/handler.ts`);
+approval is a plain operation in v1 (single-operator trust model, no roles).
+Notebook-source graduation (compiling drafts from real notebook cells) remains
+deferred to the graduation slice.
 
 ## Non-Goals
 

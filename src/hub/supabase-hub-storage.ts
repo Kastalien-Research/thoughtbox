@@ -465,9 +465,14 @@ export class SupabaseHubStorage implements HubStorage {
     if (lookupError) this.fail('appendReview', lookupError.message);
     if (!existing) this.fail('appendReview', `Proposal not found: ${proposalId}`);
 
+    // Upsert with ignoreDuplicates keeps appendReview idempotent on review
+    // id (at-least-once retries), matching the filesystem backend.
     const { error } = await this.client
       .from('hub_proposal_reviews')
-      .insert(this.reviewToRow(proposalId, review));
+      .upsert(this.reviewToRow(proposalId, review), {
+        onConflict: 'id',
+        ignoreDuplicates: true,
+      });
     if (error) this.fail('appendReview', error.message);
 
     // Monotonic status transition; guarded so a concurrent merge cannot be
@@ -699,6 +704,9 @@ export class SupabaseHubStorage implements HubStorage {
       .insert(this.messageToRow(row.id, message));
     if (error) this.fail('appendMessage', error.message);
 
+    // The returned channelMessageCount is informational only: it is read in
+    // a separate query after the insert, so under concurrent appends it may
+    // exceed this message's ordinal position.
     const { count, error: countError } = await this.client
       .from('hub_channel_messages')
       .select('id', { count: 'exact', head: true })

@@ -6,18 +6,18 @@ Purpose: Verify that the live `/mcp` endpoint exposes the intended Code Mode con
 
 ## Test 1: Public Tool List
 
-**Goal:** Verify that `/mcp` exposes only the two Code Mode tools.
+**Goal:** Verify that `/mcp` exposes only the three Code Mode tools.
 
 **Steps:**
 1. Call `tools/list`
 2. Capture the full tool name list
 
 **Expected:**
-- Exactly `thoughtbox_search` and `thoughtbox_execute`
+- Exactly `thoughtbox_search`, `thoughtbox_execute`, and `thoughtbox_peer_notebook`
 - No `thoughtbox_init`
 - No `thoughtbox_session`
 - No `thoughtbox_knowledge`
-- No `thoughtbox_hub`
+- No `thoughtbox_hub` (hub is reached as `tb.hub.*` inside `thoughtbox_execute`, not as a registered tool)
 
 ---
 
