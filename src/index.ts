@@ -27,7 +27,10 @@ import {
 import type { HubStorage } from "./hub/hub-types.js";
 import { initEvaluation, initMonitoring } from "./evaluation/index.js";
 import { createHubHandler, type HubEvent } from "./hub/hub-handler.js";
-import { createThoughtStoreAdapter } from "./hub/thought-store-adapter.js";
+import {
+  createThoughtStoreAdapter,
+  type ThoughtStoreAdapter,
+} from "./hub/thought-store-adapter.js";
 import { createHubApiSurface, shouldWarnOnExposedLocalMode } from "./http/hub-http.js";
 import { createEventStreamSurface } from "./http/event-stream.js";
 import type { ThoughtboxEvent } from "./events/types.js";
@@ -169,12 +172,28 @@ interface SessionEntry {
 
 async function startHttpServer() {
   const { factory, hubStorage, dataDir } = await createStorage();
+  const isMultiTenant = process.env.THOUGHTBOX_STORAGE === "supabase";
 
   // Multi-tenant hub isolation: each tenant workspace gets its own hub
   // storage root, so tb.hub can never enumerate or read another tenant's
   // workspaces/channels. The shared `hubStorage` is local-mode only.
   // SupabaseHubStorage (Phase 4.3) replaces this with row-level scoping.
   const tenantHubStorage = createTenantHubStorageProvider(dataDir);
+
+  // Local-mode hub thought store: ONE storage instance shared by /hub/api
+  // and every local MCP session's tb.hub dispatcher. Per-session
+  // FileSystemStorage instances each hold an in-memory session index, so a
+  // hub main-session created through one instance is invisible to the
+  // others — merge_proposal from a second MCP session would fail with
+  // "Session not found". Multi-tenant mode needs no shared instance:
+  // Supabase storage resolves sessions from the database on every call.
+  let localHubThoughtStore: ThoughtStoreAdapter | undefined;
+  if (!isMultiTenant) {
+    const hubSessionStorage = factory.getStorage();
+    await hubSessionStorage.initialize();
+    await hubSessionStorage.setProject(await ensureStaticWorkspace("local-dev"));
+    localHubThoughtStore = createThoughtStoreAdapter(hubSessionStorage);
+  }
 
   // Initialize LangSmith evaluation tracing (no-op if LANGSMITH_API_KEY not set)
   const traceListener = initEvaluation();
@@ -186,7 +205,6 @@ async function startHttpServer() {
   });
 
   const port = parseInt(process.env.PORT || "1731", 10);
-  const isMultiTenant = process.env.THOUGHTBOX_STORAGE === 'supabase';
   const sessions = new Map<string, SessionEntry>();
 
   // Cloud Run (and most reverse proxies) set X-Forwarded-For.
@@ -418,6 +436,7 @@ async function startHttpServer() {
         sessionId,
         storage,
         hubStorage,
+        hubThoughtStore: localHubThoughtStore,
         dataDir,
         knowledgeStorage,
         workspaceId: localWorkspaceId,
@@ -494,13 +513,10 @@ async function startHttpServer() {
   // delegates to real filesystem session storage scoped to the local
   // workspace — the same project MCP sessions write to — so hub-created
   // sessions and merge_proposal synthesis thoughts genuinely persist.
-  if (!isMultiTenant) {
-    const hubApiStorage = factory.getStorage();
-    await hubApiStorage.setProject(await ensureStaticWorkspace('local-dev'));
-
+  if (!isMultiTenant && localHubThoughtStore) {
     const hubHandler = createHubHandler(
       hubStorage,
-      createThoughtStoreAdapter(hubApiStorage),
+      localHubThoughtStore,
       broadcastHubEvent,
     );
     const hubApiSurface = createHubApiSurface(hubHandler);

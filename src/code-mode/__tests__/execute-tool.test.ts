@@ -17,6 +17,7 @@ import { InMemoryStorage } from "../../persistence/index.js";
 import { createFileSystemHubStorage } from "../../hub/hub-storage-fs.js";
 import { createHubToolHandler } from "../../hub/hub-tool-handler.js";
 import { createThoughtStoreAdapter } from "../../hub/thought-store-adapter.js";
+import { createHubHandler } from "../../hub/hub-handler.js";
 
 function createHarness(overrides: Partial<ExecuteToolDeps> = {}) {
   const storage = new InMemoryStorage();
@@ -449,5 +450,107 @@ describe("thoughtbox_execute tb.hub", () => {
     const output = JSON.parse(result.content[0].text);
     expect(output.result).toBeNull();
     expect(output.error).toContain("not registered in this session");
+  });
+
+  it("merges across surfaces when the hub thought store is shared", async () => {
+    // A workspace's mainSession is created through the hub thought store.
+    // The /hub/api surface and every MCP session each hold their own
+    // ThoughtboxStorage instance; only a SHARED hub thought store
+    // (server-factory's hubThoughtStore) lets a merge initiated on one
+    // surface find a mainSession created on another. Coordinator identity
+    // is session-bound in tb.hub, so the cross-surface merge goes through
+    // the registry-less hub handler (the /hub/api path) with an explicit
+    // coordinator agentId.
+    const hubDir = await mkdtemp(join(tmpdir(), "tb-hub-xsurface-"));
+    tempHubDirs.push(hubDir);
+    const hubStorage = createFileSystemHubStorage(hubDir);
+    const sharedHubThoughtStorage = new InMemoryStorage();
+    const sharedThoughtStore = createThoughtStoreAdapter(sharedHubThoughtStorage);
+
+    const sessionHandler = createHubToolHandler({
+      hubStorage,
+      thoughtStore: sharedThoughtStore,
+    });
+    const sessionTool = createExecuteTool({
+      hubDispatcher: { handle: (input) => sessionHandler.handle(input, "session-a") },
+    });
+
+    const setup = await sessionTool.handle({
+      code: `async () => {
+        const coordinator = await tb.hub.register({ name: "Coordinator" });
+        const ws = await tb.hub.createWorkspace({
+          name: "Cross-surface Workspace",
+          description: "created via tb.hub",
+        });
+        const reviewer = await tb.hub.register({ name: "Reviewer" });
+        await tb.hub.joinWorkspace({ workspaceId: ws.workspaceId, agentId: reviewer.agentId });
+        const prop = await tb.hub.createProposal({
+          workspaceId: ws.workspaceId,
+          title: "Cross-surface merge",
+          description: "merge from a different surface",
+          sourceBranch: "coordinator/cross-surface",
+        });
+        await tb.hub.reviewProposal({
+          workspaceId: ws.workspaceId,
+          proposalId: prop.proposalId,
+          verdict: "approve",
+          reasoning: "ok",
+          agentId: reviewer.agentId,
+        });
+        return { coordinator, ws, prop };
+      }`,
+    });
+    const setupOut = JSON.parse(setup.content[0].text);
+    expect(setupOut.error).toBeUndefined();
+    const { coordinator, ws, prop } = setupOut.result;
+
+    // Second surface sharing the thought store (post-fix /hub/api wiring):
+    const sharedSurface = createHubHandler(hubStorage, sharedThoughtStore, () => {});
+    const merged = await sharedSurface.handle(coordinator.agentId, "merge_proposal", {
+      workspaceId: ws.workspaceId,
+      proposalId: prop.proposalId,
+      mergeMessage: "Merged from the hub API surface",
+    });
+    expect((merged as { proposal: { status: string } }).proposal.status).toBe("merged");
+    const thoughts = await sharedHubThoughtStorage.getThoughts(ws.mainSessionId);
+    expect(thoughts.some((t) => t.thought === "Merged from the hub API surface")).toBe(true);
+
+    // Control (pre-fix wiring): a surface with its own thought storage has
+    // never seen the workspace mainSession, so the same merge fails on a
+    // fresh approved proposal.
+    const isolatedSurface = createHubHandler(
+      hubStorage,
+      createThoughtStoreAdapter(new InMemoryStorage()),
+      () => {},
+    );
+    const propB = await sessionTool.handle({
+      code: `async () => {
+        const prop = await tb.hub.createProposal({
+          workspaceId: "${ws.workspaceId}",
+          title: "Doomed merge",
+          description: "isolated thought store cannot see mainSession",
+          sourceBranch: "coordinator/doomed",
+        });
+        const reviewer = await tb.hub.register({ name: "Reviewer3" });
+        await tb.hub.joinWorkspace({ workspaceId: "${ws.workspaceId}", agentId: reviewer.agentId });
+        await tb.hub.reviewProposal({
+          workspaceId: "${ws.workspaceId}",
+          proposalId: prop.proposalId,
+          verdict: "approve",
+          reasoning: "ok",
+          agentId: reviewer.agentId,
+        });
+        return prop;
+      }`,
+    });
+    const propBOut = JSON.parse(propB.content[0].text);
+    expect(propBOut.error).toBeUndefined();
+    await expect(
+      isolatedSurface.handle(coordinator.agentId, "merge_proposal", {
+        workspaceId: ws.workspaceId,
+        proposalId: propBOut.result.proposalId,
+        mergeMessage: "should not persist",
+      }),
+    ).rejects.toThrow(/not found/);
   });
 });

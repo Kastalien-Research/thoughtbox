@@ -4,7 +4,10 @@ import { z } from "zod"; // hypothesis test 3
 import type { HubStorage } from "./hub/hub-types.js";
 import type { HubEvent } from "./hub/hub-handler.js";
 import { createHubToolHandler } from "./hub/hub-tool-handler.js";
-import { createThoughtStoreAdapter } from "./hub/thought-store-adapter.js";
+import {
+  createThoughtStoreAdapter,
+  type ThoughtStoreAdapter,
+} from "./hub/thought-store-adapter.js";
 import { FileSystemTaskStore } from "./hub/hub-task-store.js";
 import { InMemoryTaskStore, InMemoryTaskMessageQueue } from "@modelcontextprotocol/sdk/experimental/tasks/stores/in-memory.js";
 import { PATTERNS_COOKBOOK } from "./resources/patterns-cookbook-content.js";
@@ -140,6 +143,16 @@ export interface CreateMcpServerArgs {
    * visible across MCP sessions; tb.hub.* is unavailable without it.
    */
   hubStorage?: HubStorage;
+  /**
+   * Shared thought store for hub session persistence. Local mode must pass
+   * the single process-shared adapter: per-session FileSystemStorage holds
+   * an in-memory session index, so hub main-sessions created by one MCP
+   * session would otherwise be invisible to another (merge_proposal would
+   * fail with "Session not found"). When omitted, falls back to this
+   * session's storage — correct for Supabase, which resolves sessions from
+   * the database on every call.
+   */
+  hubThoughtStore?: ThoughtStoreAdapter;
   /** Optional callback for hub events (local-mode unified event stream) */
   onHubEvent?: (event: HubEvent) => void;
   /** Data directory for task store (filesystem persistence) */
@@ -610,7 +623,7 @@ Use \`console.log()\` for debugging — output captured in response logs.`;
   const hubToolHandler = args.hubStorage
     ? createHubToolHandler({
         hubStorage: args.hubStorage,
-        thoughtStore: createThoughtStoreAdapter(storage),
+        thoughtStore: args.hubThoughtStore ?? createThoughtStoreAdapter(storage),
         envAgentId: process.env.THOUGHTBOX_AGENT_ID,
         envAgentName: process.env.THOUGHTBOX_AGENT_NAME,
         onEvent: args.onHubEvent,
