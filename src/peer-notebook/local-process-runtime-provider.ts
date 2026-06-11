@@ -40,10 +40,14 @@ export interface LocalProcessRuntimeProviderOptions {
  *   runtime.entry; manifests cannot point at arbitrary filesystem paths.
  * - The manifest budget (budgets.maxDurationMs) is enforced on the child via
  *   SIGTERM, escalating to SIGKILL; cancel() kills the child the same way.
+ * - cancel() also covers the pre-spawn window: invocations are tracked from
+ *   the moment invoke() is entered, and a cancel arriving while the broker
+ *   round trips are still in flight preempts the spawn entirely.
  */
 export class LocalProcessRuntimeProvider implements RuntimeProvider {
   private readonly entries: Record<string, string>;
   private readonly children = new Map<string, ChildProcess>();
+  private readonly activeInvocations = new Set<string>();
   private readonly cancelledInvocations = new Set<string>();
 
   constructor(options: LocalProcessRuntimeProviderOptions = {}) {
@@ -61,31 +65,44 @@ export class LocalProcessRuntimeProvider implements RuntimeProvider {
   }
 
   async invoke(input: RuntimeInvocationInput): Promise<RuntimeInvocationResult> {
-    const scriptPath = this.resolveEntryScript(input);
-    const artifactContent = await fetchInputArtifact(input);
+    this.activeInvocations.add(input.invocationId);
+    try {
+      const scriptPath = this.resolveEntryScript(input);
+      const artifactContent = await fetchInputArtifact(input);
+      this.throwIfCancelledBeforeSpawn(input.invocationId);
 
-    if (input.tool === "extract_claims") {
-      // Pilot-parity denied probe: traced as denied_outbound_call exactly as
-      // the mock contract fixture path records it.
-      await input.brokerProxy.callTool("thoughtbox.knowledge.queryGraph", { query: "denied pilot probe" });
+      if (input.tool === "extract_claims") {
+        // Pilot-parity denied probe: traced as denied_outbound_call exactly as
+        // the mock contract fixture path records it.
+        await input.brokerProxy.callTool("thoughtbox.knowledge.queryGraph", { query: "denied pilot probe" });
+        this.throwIfCancelledBeforeSpawn(input.invocationId);
+      }
+
+      const payload = JSON.stringify({
+        invocationId: input.invocationId,
+        tool: input.tool,
+        args: input.args,
+        artifactContent,
+      });
+      return await this.runEntryProcess(input, scriptPath, payload);
+    } finally {
+      this.activeInvocations.delete(input.invocationId);
+      this.cancelledInvocations.delete(input.invocationId);
     }
-
-    const payload = JSON.stringify({
-      invocationId: input.invocationId,
-      tool: input.tool,
-      args: input.args,
-      artifactContent,
-    });
-    return this.runEntryProcess(input, scriptPath, payload);
   }
 
   async cancel(input: { invocationId: string }): Promise<void> {
     const child = this.children.get(input.invocationId);
-    if (!child) {
+    if (child) {
+      this.cancelledInvocations.add(input.invocationId);
+      terminate(child);
       return;
     }
-    this.cancelledInvocations.add(input.invocationId);
-    terminate(child);
+    if (this.activeInvocations.has(input.invocationId)) {
+      // Pre-spawn window: invoke() is still awaiting broker round trips.
+      // Mark for preemption so it rejects as cancelled without spawning.
+      this.cancelledInvocations.add(input.invocationId);
+    }
   }
 
   async "snapshot/export"(): Promise<null> {
@@ -93,6 +110,12 @@ export class LocalProcessRuntimeProvider implements RuntimeProvider {
   }
 
   async heartbeat(): Promise<void> {}
+
+  private throwIfCancelledBeforeSpawn(invocationId: string): void {
+    if (this.cancelledInvocations.has(invocationId)) {
+      throw new Error(`Peer process cancelled before spawn for invocation ${invocationId}`);
+    }
+  }
 
   private resolveEntryScript(input: RuntimeInvocationInput): string {
     if (!input.entry) {
