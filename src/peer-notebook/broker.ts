@@ -130,6 +130,7 @@ export class PeerBroker {
           manifestHash: manifest.manifestHash,
           tool: input.tool,
           args: input.args,
+          entry: manifest.manifest.runtime.entry,
           brokerProxyUrl: "memory://broker-proxy",
           scopedToken,
           budgets: manifest.manifest.budgets,

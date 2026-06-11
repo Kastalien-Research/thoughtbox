@@ -8,8 +8,10 @@ import type {
 import type { JsonObject } from "./types.js";
 import { PeerNotebookError } from "./types.js";
 
-// Contract fixture for the brokered claim-extractor pilot. This provider is
-// intentionally not a production runtime or isolation boundary.
+// Test-only contract fixture for the brokered claim-extractor pilot. It is
+// intentionally not a production runtime or isolation boundary: production
+// wiring registers LocalProcessRuntimeProvider, and this class is imported
+// only from tests (it is excluded from the package barrel on purpose).
 export class MockPeerRuntimeProvider implements RuntimeProvider {
   readonly invocations: RuntimeInvocationInput[] = [];
 
@@ -17,6 +19,7 @@ export class MockPeerRuntimeProvider implements RuntimeProvider {
     return {
       provider: "mock",
       isolation: "mock",
+      developmentOnly: true,
       supportsCancel: true,
       supportsSnapshots: false,
     };

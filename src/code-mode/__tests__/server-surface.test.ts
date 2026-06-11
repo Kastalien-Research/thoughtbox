@@ -135,7 +135,7 @@ describe("createMcpServer tool surface", () => {
     }
   });
 
-  it("invokes the mock peer notebook pilot through the MCP client", async () => {
+  it("invokes the peer notebook pilot on the local-process runtime through the MCP client", async () => {
     const previousSupabaseUrl = process.env.SUPABASE_URL;
     const previousSupabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
     process.env.SUPABASE_URL = "https://example.supabase.co";

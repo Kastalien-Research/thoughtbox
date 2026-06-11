@@ -47,9 +47,9 @@ Discover Thoughtbox operation modules, prompts, resources, and public tool surfa
 
 Run JavaScript against the \`tb\` SDK to use Thoughtbox operation modules such as session, thought, knowledge, notebook, protocol, observability, and branch operations.
 
-### 3. \`thoughtbox_peer_notebook\` — Mock Peer Notebook Pilot
+### 3. \`thoughtbox_peer_notebook\` — Peer Notebook Pilot
 
-Brokered MCP peer notebook pilot surface for the deterministic in-memory \`claim-extractor\` peer.
+Brokered MCP peer notebook pilot surface for the deterministic \`claim-extractor\` peer on the development-only local-process runtime.
 
 Supported operations:
 
@@ -103,7 +103,7 @@ ${NOTEBOOK_OPERATIONS.map(op => `| \`${op.name}\` | ${op.category} | ${op.descri
 | \`system://status\` | Notebook server health snapshot |
 | \`thoughtbox://notebook/operations\` | Notebook operations catalog (JSON) |
 | \`thoughtbox://notebook/capabilities\` | Notebook Evidence Engine modes, templates, outputs, and recommended use cases |
-| \`thoughtbox://peer-notebook/pilot\` | Mock peer notebook pilot surface and operation quick reference |
+| \`thoughtbox://peer-notebook/pilot\` | Peer notebook pilot surface and operation quick reference |
 | \`thoughtbox://patterns-cookbook\` | Thoughtbox reasoning patterns guide |
 | \`thoughtbox://architecture\` | Server architecture and implementation guide |
 

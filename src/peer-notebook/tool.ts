@@ -33,7 +33,7 @@ export type PeerNotebookToolInput = z.infer<typeof peerNotebookToolInputSchema>;
 
 export const PEER_NOTEBOOK_TOOL = {
   name: "thoughtbox_peer_notebook",
-  description: "Brokered MCP peer notebook pilot surface. Seeds in-memory text artifacts, invokes the mock claim-extractor peer, manages the draft-to-active manifest lifecycle, and reads invocations, traces, and artifacts.",
+  description: "Brokered MCP peer notebook pilot surface. Seeds text artifacts, invokes the claim-extractor peer on the development-only local-process runtime, manages the draft-to-active manifest lifecycle, and reads invocations, traces, and artifacts.",
   inputSchema: peerNotebookToolInputSchema,
   annotations: {
     readOnlyHint: false,

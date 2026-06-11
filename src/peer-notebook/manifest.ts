@@ -36,6 +36,7 @@ const PeerManifestSchema: z.ZodType<PeerManifest> = z.object({
   notebookId: z.string().min(1),
   runtime: z.object({
     provider: z.enum(["mock", "local-process", "smolvm"]),
+    entry: z.string().min(1).optional(),
     image: z.string().optional(),
     cpus: z.number().positive().optional(),
     memoryMiB: z.number().positive().optional(),

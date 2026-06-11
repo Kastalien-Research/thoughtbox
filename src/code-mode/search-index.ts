@@ -340,7 +340,7 @@ export function buildSearchCatalog(): SearchCatalog {
       {
         name: "Peer Notebook Pilot",
         uri: "thoughtbox://peer-notebook/pilot",
-        description: "Mock peer notebook pilot surface and operation quick reference",
+        description: "Peer notebook pilot surface and operation quick reference",
         mimeType: "application/json",
       },
       {

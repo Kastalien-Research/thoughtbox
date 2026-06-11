@@ -1,9 +1,10 @@
 import { randomUUID } from "node:crypto";
 import { createPeerBroker } from "./broker.js";
+import { LocalProcessRuntimeProvider } from "./local-process-runtime-provider.js";
 import { compilePeerManifestDraft } from "./manifest.js";
-import { MockPeerRuntimeProvider } from "./mock-runtime-provider.js";
 import { createBrokerProxyTargets, type BrokerProxyTargetDeps } from "./proxy-targets.js";
 import { InMemoryPeerNotebookRepository, type PeerNotebookRepository } from "./repositories.js";
+import type { RuntimeProvider } from "./runtime-provider.js";
 import { PeerNotebookError } from "./types.js";
 import type {
   JsonObject,
@@ -34,7 +35,12 @@ export interface PeerNotebookHandlerOptions {
   workspaceId?: string;
   getWorkspaceId?: () => string | undefined;
   repository?: PeerNotebookRepository;
-  mockRuntimeProvider?: MockPeerRuntimeProvider;
+  /**
+   * Runtime provider override; tests inject MockPeerRuntimeProvider here.
+   * Production wiring keeps the default development-only local-process
+   * provider, so the mock never registers outside tests.
+   */
+  runtimeProvider?: RuntimeProvider;
   /**
    * Real outbound handlers behind the broker proxy targets. Optional: absent
    * handlers yield target_unavailable errors at call time, never crashes.
@@ -61,17 +67,19 @@ export interface PeerManifestCreateInput {
 
 export class PeerNotebookHandler {
   private readonly repository: PeerNotebookRepository;
-  private readonly mockRuntimeProvider: MockPeerRuntimeProvider;
+  private readonly runtimeProvider: RuntimeProvider;
+  private readonly runtimeProviderName: RuntimeProviderName;
   private readonly bootstrappedWorkspaces = new Set<string>();
   private readonly bootstrapPromises = new Map<string, Promise<void>>();
 
   constructor(private readonly options: PeerNotebookHandlerOptions = {}) {
     this.repository = options.repository ?? new InMemoryPeerNotebookRepository();
-    this.mockRuntimeProvider = options.mockRuntimeProvider ?? new MockPeerRuntimeProvider();
+    this.runtimeProvider = options.runtimeProvider ?? new LocalProcessRuntimeProvider();
+    this.runtimeProviderName = this.runtimeProvider.describe().provider;
   }
 
   getRuntimeProviderNames(): RuntimeProviderName[] {
-    return ["mock"];
+    return [this.runtimeProviderName];
   }
 
   async seedArtifact(input: PeerArtifactSeedInput): Promise<{ artifact: PeerArtifactRecord }> {
@@ -101,7 +109,7 @@ export class PeerNotebookHandler {
       workspaceId,
       repository: this.repository,
       runtimeProviders: {
-        mock: this.mockRuntimeProvider,
+        [this.runtimeProviderName]: this.runtimeProvider,
       },
       proxyTargets: createBrokerProxyTargets(this.options.proxyTargetDeps),
     });
@@ -313,6 +321,7 @@ export class PeerNotebookHandler {
   private async performBootstrapWorkspace(workspaceId: string): Promise<void> {
     const existing = await this.repository.getPeerByPeerId(workspaceId, CLAIM_EXTRACTOR_PEER_ID);
     if (existing?.activeManifestId) {
+      await this.reconcileBuiltinManifestProvider(workspaceId, existing.activeManifestId);
       this.bootstrappedWorkspaces.add(workspaceId);
       return;
     }
@@ -321,7 +330,7 @@ export class PeerNotebookHandler {
       {
         name: "peer.manifest.json",
         sourceType: "file",
-        content: JSON.stringify(claimExtractorManifest()),
+        content: JSON.stringify(claimExtractorManifest(this.runtimeProviderName)),
       },
     ]);
 
@@ -330,7 +339,7 @@ export class PeerNotebookHandler {
       workspaceId,
       peerId: CLAIM_EXTRACTOR_PEER_ID,
       displayName: "Claim extractor",
-      description: "Deterministic mock peer that extracts sentence-level claims from a text artifact.",
+      description: "Deterministic peer that extracts sentence-level claims from a text artifact.",
       status: "active",
       activeManifestId: CLAIM_EXTRACTOR_MANIFEST_ID,
       createdAt: BOOTSTRAP_TIMESTAMP,
@@ -356,15 +365,48 @@ export class PeerNotebookHandler {
     await this.repository.saveManifest(manifest);
     this.bootstrappedWorkspaces.add(workspaceId);
   }
+
+  /**
+   * Platform-owned builtin maintenance: workspaces bootstrapped before the
+   * local-process slice persisted the claim-extractor manifest pinned to the
+   * mock provider. Recompile the builtin manifest record in place so broker
+   * dispatch resolves the currently registered runtime provider. Only the
+   * platform manifest record is ever touched; operator-created manifests are
+   * left alone.
+   */
+  private async reconcileBuiltinManifestProvider(workspaceId: string, activeManifestId: string): Promise<void> {
+    if (activeManifestId !== CLAIM_EXTRACTOR_MANIFEST_ID) {
+      return;
+    }
+    const manifest = await this.repository.getManifest(workspaceId, activeManifestId);
+    if (!manifest || manifest.manifest.runtime.provider === this.runtimeProviderName) {
+      return;
+    }
+
+    const compiled = compilePeerManifestDraft([
+      {
+        name: "peer.manifest.json",
+        sourceType: "file",
+        content: JSON.stringify(claimExtractorManifest(this.runtimeProviderName)),
+      },
+    ]);
+    await this.repository.saveManifest({
+      ...manifest,
+      schemaVersion: compiled.manifest.schemaVersion,
+      manifest: compiled.manifest,
+      manifestHash: compiled.manifestHash,
+    });
+  }
 }
 
-function claimExtractorManifest(): PeerManifest {
+function claimExtractorManifest(provider: RuntimeProviderName): PeerManifest {
   return {
     schemaVersion: "peer-notebook.v0",
     peerId: CLAIM_EXTRACTOR_PEER_ID,
     notebookId: CLAIM_EXTRACTOR_NOTEBOOK_ID,
     runtime: {
-      provider: "mock",
+      provider,
+      entry: "claim-extractor",
       timeoutMs: 120_000,
     },
     exposes: {

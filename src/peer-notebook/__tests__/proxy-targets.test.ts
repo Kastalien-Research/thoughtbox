@@ -5,7 +5,6 @@ import { afterAll, describe, expect, it } from "vitest";
 import {
   InMemoryPeerNotebookRepository,
   KNOWLEDGE_QUERY_GRAPH_TARGET,
-  MockPeerRuntimeProvider,
   PeerNotebookHandler,
   SESSION_GET_TARGET,
   compilePeerManifestDraft,
@@ -21,6 +20,7 @@ import {
   type RuntimeInvocationResult,
   type RuntimeProvider,
 } from "../index.js";
+import { MockPeerRuntimeProvider } from "../mock-runtime-provider.js";
 import { KnowledgeHandler } from "../../knowledge/handler.js";
 import { FileSystemKnowledgeStorage } from "../../knowledge/storage.js";
 import { InMemoryStorage } from "../../persistence/index.js";
@@ -240,7 +240,7 @@ describe("PeerNotebookHandler proxy target wiring", () => {
     const handler = new PeerNotebookHandler({
       workspaceId: "workspace_handler_targets",
       repository: new InMemoryPeerNotebookRepository(),
-      mockRuntimeProvider: provider,
+      runtimeProvider: provider,
       proxyTargetDeps: { sessionHandler },
     });
 

@@ -9,6 +9,8 @@ import type {
 export interface RuntimeProviderDescription {
   provider: RuntimeProviderName;
   isolation: "mock" | "none" | "external";
+  /** Honest declaration: true for providers that must never serve production isolation claims. */
+  developmentOnly: boolean;
   supportsCancel: boolean;
   supportsSnapshots: boolean;
 }
@@ -20,6 +22,8 @@ export interface RuntimeInvocationInput {
   manifestHash: string;
   tool: string;
   args: JsonObject;
+  /** Executable entry name from manifest runtime.entry (required by local-process). */
+  entry?: string;
   brokerProxyUrl: string;
   scopedToken: string;
   budgets: {
