@@ -47,6 +47,24 @@ Implementation: `src/hub/supabase-hub-storage.ts`.
    tests (two instances, no lost messages/reviews/endorsements), the
    optimistic-concurrency conflict test, and tenant isolation.
 
+## Phase 4.4 Realtime Enablement (claim c12)
+
+Migration `supabase/migrations/20260611110000_add_hub_realtime_publication.sql`
+adds seven hub tables to the `supabase_realtime` publication:
+`hub_channel_messages`, `hub_workspaces`, `hub_problems`, `hub_proposals`,
+`hub_proposal_reviews`, `hub_consensus_markers`, `hub_consensus_endorsements`.
+`hub_agents` (global, not tenant-scoped; RLS exposes only `user_id =
+auth.uid()` rows) and `hub_channels` (1:1 with problems; creation implied by
+problem events) are deliberately excluded. Authorization rides the Phase 4.3
+workspace-membership SELECT policies — no new policies were needed. No
+`REPLICA IDENTITY FULL` (INSERT/UPDATE are the coordination signal; full-row
+DELETE payloads would bloat WAL on message-heavy tables). The subscription
+pattern is documented in the `thoughtbox://architecture` resource
+(`src/resources/server-architecture-content.ts`). Delivery is Supabase-native;
+the server writes rows and pushes nothing — local SSE (`/events`) stays
+local-only. Live subscribe verification (c12 evidence) happens post-deploy
+against the hosted project.
+
 ## Context
 
 Hub coordination (27 operations across workspaces, problems, proposals, consensus, channels) currently uses FileSystemHubStorage only. Cloud Run containers are stateless — hub state vanishes on restart. This layer implements Supabase-backed hub storage so the hub works deployed.

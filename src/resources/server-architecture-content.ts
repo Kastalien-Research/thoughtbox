@@ -434,6 +434,45 @@ When you call a notebook operation, the response includes an embedded resource:
 
 This means every tool response includes just-in-time documentation about what was executed!
 
+## Hub Realtime Delivery (Hosted Mode)
+
+In hosted mode the server's job ends at writing hub rows to Supabase; event
+delivery is Supabase Realtime (postgres_changes), not a server push path. The
+local-mode SSE stream (\`/events\`) and \`POST /hub/api\` are local-only and do
+not exist on the deployed server.
+
+**Published tables** (in the \`supabase_realtime\` publication):
+\`hub_channel_messages\`, \`hub_workspaces\`, \`hub_problems\`, \`hub_proposals\`,
+\`hub_proposal_reviews\`, \`hub_consensus_markers\`, \`hub_consensus_endorsements\`.
+
+**Authorization is RLS.** Clients subscribe with the Supabase anon key plus
+their own auth session; Realtime delivers only rows the subscriber's
+workspace-membership SELECT policies allow. A client outside the tenant
+workspace receives nothing.
+
+**Subscription pattern** (supabase-js, filter by your tenant workspace id):
+
+\`\`\`typescript
+const channel = supabase
+  .channel('hub-coordination')
+  .on(
+    'postgres_changes',
+    {
+      event: 'INSERT',
+      schema: 'public',
+      table: 'hub_channel_messages',
+      filter: \`tenant_workspace_id=eq.\${tenantWorkspaceId}\`,
+    },
+    (payload) => handleMessage(payload.new)
+  )
+  .subscribe();
+\`\`\`
+
+The same pattern applies to the other published tables (use \`event: '*'\` to
+also see UPDATE transitions such as proposal status changes). Polling
+\`tb.hub.read_channel\` remains the fallback when a Realtime connection is not
+available.
+
 ## Key Takeaways
 
 ### 1. All Tools Available Immediately
