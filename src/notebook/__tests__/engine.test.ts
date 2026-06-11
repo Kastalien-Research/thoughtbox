@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { Schema as S } from "effect";
+import { Effect, Schema as S } from "effect";
 import { NotebookHandler } from "../index.js";
+import { InMemoryNotebookEngineRuntime } from "../engine/runtime.js";
 import {
   BoundValidatorSchema,
   NotebookDocumentSchema,
@@ -100,14 +101,28 @@ describe("Notebook Evidence Engine domain", () => {
 
   it("handles run statuses exhaustively", () => {
     const run = S.decodeUnknownSync(NotebookRunSchema)({
-      _tag: "QueuedRun",
+      _tag: "RunningRun",
       runId: "run",
       notebookId: "nb",
       mode: "system_audit",
-      status: "queued",
+      status: "running",
       createdAt: "2026-04-30T00:00:00.000Z",
+      startedAt: "2026-04-30T00:00:00.000Z",
     });
-    expect(describeRunStatus(run)).toBe("queued");
+    expect(describeRunStatus(run)).toBe("running");
+  });
+
+  it("rejects queued runs — no external dispatcher exists", () => {
+    expect(() =>
+      S.decodeUnknownSync(NotebookRunSchema)({
+        _tag: "QueuedRun",
+        runId: "run",
+        notebookId: "nb",
+        mode: "runbook",
+        status: "queued",
+        createdAt: "2026-04-30T00:00:00.000Z",
+      }),
+    ).toThrow();
   });
 });
 
@@ -130,7 +145,107 @@ describe("Notebook Evidence Engine visibility", () => {
     ]);
   });
 
-  it("creates evidence templates and can start a sync evidence run", async () => {
+  it("marks only runbook as implemented; the rest are specified", () => {
+    const statuses = Object.fromEntries(
+      listNotebookModes().map((m) => [m.mode, m.runStatus]),
+    );
+    expect(statuses.runbook).toBe("implemented");
+    for (const [mode, status] of Object.entries(statuses)) {
+      if (mode !== "runbook") expect(status).toBe("specified");
+    }
+  });
+});
+
+describe("Notebook Evidence Engine runs", () => {
+  it("derives a passing runbook verdict from real cell execution", async () => {
+    const handler = new NotebookHandler();
+    await handler.init();
+
+    const created = await handler.handleCreateNotebook({
+      title: "Runbook pass",
+      language: "javascript",
+    });
+    await handler.handleAddCell({
+      notebookId: created.notebook.id,
+      cellType: "code",
+      filename: "step1.js",
+      content: 'console.log("step one ran");',
+    });
+
+    const runResult = await handler.handleStartRun({
+      notebookId: created.notebook.id,
+      mode: "runbook",
+    });
+
+    expect(runResult.run.status).toBe("completed");
+    const verdict = runResult.run.outputs[0];
+    expect(verdict._tag).toBe("RunbookVerdict");
+    expect(verdict.pass).toBe(true);
+    // Evidence covers the default package.json install cell plus step1.js.
+    const evidence = verdict.evidence as Array<Record<string, unknown>>;
+    expect(evidence).toHaveLength(2);
+    expect(evidence.every((cell) => cell.status === "completed")).toBe(true);
+    const step = evidence.find((cell) => cell.filename === "step1.js");
+    expect(String(step!.output)).toContain("step one ran");
+
+    const listed = await handler.handleListRuns({ notebookId: created.notebook.id });
+    expect(listed.runs).toHaveLength(1);
+  });
+
+  it("derives a failing runbook verdict and skips later cells", async () => {
+    const handler = new NotebookHandler();
+    await handler.init();
+
+    const created = await handler.handleCreateNotebook({
+      title: "Runbook fail",
+      language: "javascript",
+    });
+    await handler.handleAddCell({
+      notebookId: created.notebook.id,
+      cellType: "code",
+      filename: "boom.js",
+      content: 'console.error("deliberate failure"); process.exit(1);',
+    });
+    await handler.handleAddCell({
+      notebookId: created.notebook.id,
+      cellType: "code",
+      filename: "never.js",
+      content: 'console.log("should not run");',
+    });
+
+    const runResult = await handler.handleStartRun({
+      notebookId: created.notebook.id,
+      mode: "runbook",
+    });
+
+    expect(runResult.run.status).toBe("completed");
+    const verdict = runResult.run.outputs[0];
+    expect(verdict.pass).toBe(false);
+    expect(verdict.reason).toContain("boom.js");
+    // package.json install, then boom.js fails, then never.js is skipped.
+    const evidence = verdict.evidence as Array<Record<string, unknown>>;
+    expect(evidence).toHaveLength(3);
+    const boom = evidence.find((cell) => cell.filename === "boom.js");
+    expect(boom!.status).toBe("failed");
+    expect(boom!.exitCode).toBe(1);
+    const never = evidence.find((cell) => cell.filename === "never.js");
+    expect(never!.status).toBe("skipped");
+  });
+
+  it("fails a runbook with no executable cells — a verdict needs evidence", async () => {
+    const runtime = new InMemoryNotebookEngineRuntime(async () => []);
+    const result = await Effect.runPromise(
+      runtime.startRun({ notebookId: "nb_empty", mode: "runbook" }),
+    );
+
+    const run = result.run as Extract<typeof result.run, { _tag: "CompletedRun" }>;
+    expect(run.outputs[0]).toMatchObject({
+      pass: false,
+      reason: expect.stringContaining("no executable cells"),
+    });
+  });
+
+  it("rejects non-runbook modes with an explicit not-implemented error", async () => {
     const handler = new NotebookHandler();
     await handler.init();
 
@@ -140,17 +255,15 @@ describe("Notebook Evidence Engine visibility", () => {
       template: "evidence-eval-workbook",
     });
 
-    const runResult = await handler.handleStartRun({
-      notebookId: created.notebook.id,
-      mode: "eval",
-      executionMode: "sync",
-      inputs: { datasetName: "demo" },
-    });
-
-    expect(runResult.run.status).toBe("completed");
-    expect(runResult.run.outputs[0].mode).toBe("eval");
+    await expect(
+      handler.handleStartRun({
+        notebookId: created.notebook.id,
+        mode: "eval",
+        inputs: { datasetName: "demo" },
+      }),
+    ).rejects.toThrow(/not implemented/i);
 
     const listed = await handler.handleListRuns({ notebookId: created.notebook.id });
-    expect(listed.runs).toHaveLength(1);
+    expect(listed.runs).toHaveLength(0);
   });
 });
