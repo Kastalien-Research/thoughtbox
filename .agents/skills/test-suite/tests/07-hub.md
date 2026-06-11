@@ -1,8 +1,15 @@
-# 07 — thoughtbox_hub
+# 07 — Hub (`tb.hub.*` via `thoughtbox_execute`)
 
-Stage: Always-on (registered when hubStorage provided)
+Stage: Always-on (`tb.hub.*` available when hubStorage is wired at server creation)
 28 operations across 7 categories: identity, agent, problems, proposals, consensus, channels, status
-All parameters are top-level (flat schema, not nested in args)
+
+**Primary path:** every test runs JavaScript against the `tb.hub` namespace inside `thoughtbox_execute`. SDK method names are camelCase (`tb.hub.quickJoin`, `tb.hub.createProblem`, ...); the canonical mapping to snake_case hub operations lives in `src/code-mode/execute-tool.ts` (`HUB_SDK_METHODS`).
+
+**Identity model:** the hub keeps a per-MCP-session identity registry. The first `tb.hub.register` / `tb.hub.quickJoin` in a session becomes the implicit default agentId for all later hub calls in that session. An explicit `agentId` argument is accepted only if that agentId was registered in the SAME session. Re-registering creates a NEW agentId (and coordinator role stays bound to the creating agentId).
+
+**One mutation per call:** submit one state-mutating hub call per `thoughtbox_execute` invocation. Read-only operations (`tb.hub.whoami`, `tb.hub.listWorkspaces`, `tb.hub.readChannel`, `tb.hub.workspaceStatus`, `tb.hub.workspaceDigest`, `tb.hub.listProblems`, `tb.hub.listProposals`, `tb.hub.listConsensus`, `tb.hub.readyProblems`, `tb.hub.blockedProblems`) may be chained freely.
+
+**Local-HTTP alternative (explicitly non-MCP):** in local mode the server also exposes `POST /hub/api` for non-MCP clients. That surface has no MCP-session identity registry, so every request must carry an explicit agentId. Use it only when testing the HTTP adapter itself, not as the primary path for this suite.
 
 ---
 
@@ -11,10 +18,10 @@ All parameters are top-level (flat schema, not nested in args)
 **Goal:** Verify agent registration.
 
 **Steps:**
-1. Call `thoughtbox_hub { operation: "register", name: "test-agent" }`
+1. Execute: `async () => tb.hub.register({ name: "test-agent" })`
 2. Verify response includes `agentId`, `name`, `role: "contributor"`
 
-**Expected:** Unique agentId assigned
+**Expected:** Unique agentId assigned; it becomes the session's implicit identity
 
 ---
 
@@ -24,10 +31,10 @@ All parameters are top-level (flat schema, not nested in args)
 
 **Steps:**
 1. Register as "test-agent"
-2. Call `{ operation: "whoami" }`
+2. Execute: `async () => tb.hub.whoami()`
 3. Verify response includes agentId, name, workspaces list
 
-**Expected:** Current identity returned
+**Expected:** Current (implicit session) identity returned without passing agentId
 
 ---
 
@@ -37,7 +44,7 @@ All parameters are top-level (flat schema, not nested in args)
 
 **Steps:**
 1. Register a coordinator and create a workspace
-2. Call `{ operation: "quick_join", name: "sub-agent", workspaceId: "<id>" }`
+2. Execute: `async () => tb.hub.quickJoin({ name: "sub-agent", workspaceId: "<id>" })`
 3. Verify response includes agentId and workspace state
 
 **Expected:** Single call registers and joins
@@ -49,9 +56,9 @@ All parameters are top-level (flat schema, not nested in args)
 **Goal:** Verify workspace lifecycle.
 
 **Steps:**
-1. Register, then call `{ operation: "create_workspace", name: "test-ws", description: "Test workspace" }`
+1. Register, then execute: `async () => tb.hub.createWorkspace({ name: "test-ws", description: "Test workspace" })`
 2. Verify `workspaceId` returned, caller becomes coordinator
-3. Call `{ operation: "list_workspaces" }`
+3. Execute: `async () => tb.hub.listWorkspaces()`
 4. Verify workspace appears in list
 
 **Expected:** Workspace created, discoverable
@@ -64,10 +71,10 @@ All parameters are top-level (flat schema, not nested in args)
 
 **Steps:**
 1. Create workspace as agent A
-2. Register agent B, call `{ operation: "join_workspace", workspaceId: "<id>" }`
+2. Register agent B (`tb.hub.register({ name: "agent-b" })`), then execute: `async () => tb.hub.joinWorkspace({ workspaceId: "<id>", agentId: "<B's agentId>" })`
 3. Verify response includes workspace state with problems and proposals
 
-**Expected:** Agent B is now a workspace member
+**Expected:** Agent B is now a workspace member (explicit agentId works because B was registered in this session)
 
 ---
 
@@ -77,11 +84,11 @@ All parameters are top-level (flat schema, not nested in args)
 
 **Steps:**
 1. Setup: register + create workspace
-2. Call `{ operation: "create_problem", workspaceId: "<id>", title: "Bug fix", description: "Fix it" }`
+2. Execute: `async () => tb.hub.createProblem({ workspaceId: "<id>", title: "Bug fix", description: "Fix it" })`
 3. Verify `problemId` and `channelId` returned
-4. Call `{ operation: "claim_problem", workspaceId: "<id>", problemId: "<id>" }`
+4. Execute: `async () => tb.hub.claimProblem({ workspaceId: "<id>", problemId: "<id>" })`
 5. Verify status is "in-progress", branchId auto-generated
-6. Call `{ operation: "update_problem", workspaceId: "<id>", problemId: "<id>", status: "resolved", resolution: "Fixed" }`
+6. Execute: `async () => tb.hub.updateProblem({ workspaceId: "<id>", problemId: "<id>", status: "resolved", resolution: "Fixed" })`
 7. Verify status updated
 
 **Expected:** Full problem lifecycle works
@@ -94,11 +101,11 @@ All parameters are top-level (flat schema, not nested in args)
 
 **Steps:**
 1. Create problems A and B
-2. Call `{ operation: "add_dependency", workspaceId: "<id>", problemId: "B", dependsOnProblemId: "A" }`
-3. Call `{ operation: "blocked_problems", workspaceId: "<id>" }` — B should be blocked
-4. Call `{ operation: "ready_problems", workspaceId: "<id>" }` — A should be ready, B should not
-5. Resolve A, then call `ready_problems` again — B should now be ready
-6. Call `{ operation: "remove_dependency", ... }` — verify removal works
+2. Execute: `async () => tb.hub.addDependency({ workspaceId: "<id>", problemId: "B", dependsOnProblemId: "A" })`
+3. Execute: `async () => tb.hub.blockedProblems({ workspaceId: "<id>" })` — B should be blocked
+4. Execute: `async () => tb.hub.readyProblems({ workspaceId: "<id>" })` — A should be ready, B should not
+5. Resolve A, then call `readyProblems` again — B should now be ready
+6. Execute: `async () => tb.hub.removeDependency({ workspaceId: "<id>", problemId: "B", dependsOnProblemId: "A" })` — verify removal works
 
 **Expected:** Dependencies tracked, ready/blocked computed correctly
 
@@ -110,7 +117,7 @@ All parameters are top-level (flat schema, not nested in args)
 
 **Steps:**
 1. Create parent problem
-2. Call `{ operation: "create_sub_problem", workspaceId: "<id>", parentId: "<id>", title: "Sub-task", description: "Part of parent" }`
+2. Execute: `async () => tb.hub.createSubProblem({ workspaceId: "<id>", parentId: "<id>", title: "Sub-task", description: "Part of parent" })`
 3. Verify sub-problem created with own problemId
 
 **Expected:** Sub-problem linked to parent
@@ -121,19 +128,17 @@ All parameters are top-level (flat schema, not nested in args)
 
 **Goal:** Verify full proposal lifecycle.
 
-**Prerequisite:** `merge_proposal` records a merge thought in the workspace's `mainSessionId`. The workspace must have an active thought session for merge to succeed. If the workspace was created without `sessionId`, the auto-generated `mainSessionId` may not correspond to a persisted session — this causes "Session not found" errors on merge.
+**Note:** `tb.hub.mergeProposal` records a merge thought in the workspace's `mainSessionId`. The hub persists that session automatically through the shared hub thought store (PR #374), so binding a pre-existing `sessionId` at workspace creation is optional.
 
 **Steps:**
-1. Register agents A (coordinator) and B
-2. **Before creating the workspace**, start a thought session and note the sessionId
-3. Create workspace with `sessionId: "<id>"` to bind the session
-4. B creates a proposal: `{ operation: "create_proposal", workspaceId: "<id>", title: "Fix", description: "Details", sourceBranch: "fix-branch" }`
-5. A reviews: `{ operation: "review_proposal", ..., verdict: "approve", reasoning: "Looks good" }`
-6. A merges: `{ operation: "merge_proposal", ..., mergeMessage: "Merged fix" }`
+1. Register agents A (coordinator) and B in this session
+2. Create a workspace (binding a pre-existing `sessionId` is optional; the hub persists `mainSessionId` automatically)
+4. B creates a proposal: `async () => tb.hub.createProposal({ workspaceId: "<id>", title: "Fix", description: "Details", sourceBranch: "fix-branch", agentId: "<B>" })`
+5. A reviews: `async () => tb.hub.reviewProposal({ workspaceId: "<id>", proposalId: "<id>", verdict: "approve", reasoning: "Looks good", agentId: "<A>" })`
+6. A merges: `async () => tb.hub.mergeProposal({ workspaceId: "<id>", proposalId: "<id>", mergeMessage: "Merged fix", agentId: "<A>" })` — must run in the session where A registered (coordinator role is session-bound)
 7. Verify proposal status is "merged"
-8. Call `list_proposals` with `proposalStatus: "merged"` to confirm
+8. Execute `tb.hub.listProposals({ workspaceId: "<id>", status: "merged" })` to confirm
 
-**Known issue (2026-03-21):** If workspace is created without binding a pre-existing session, `merge_proposal` fails with "Session not found" because the auto-generated `mainSessionId` is not persisted. This is a server bug.
 
 **Expected:** Full proposal lifecycle — cannot self-review, requires approval to merge
 
@@ -144,10 +149,10 @@ All parameters are top-level (flat schema, not nested in args)
 **Goal:** Verify consensus marking and endorsement.
 
 **Steps:**
-1. Coordinator calls `{ operation: "mark_consensus", workspaceId: "<id>", name: "Use HTTP", description: "HTTP only, no STDIO", thoughtRef: 5 }`
+1. Coordinator executes: `async () => tb.hub.markConsensus({ workspaceId: "<id>", name: "Use HTTP", description: "HTTP only, no STDIO", thoughtRef: 5 })` — `thoughtRef` is a NUMBER
 2. Verify `consensusId` returned
-3. Another agent calls `{ operation: "endorse_consensus", workspaceId: "<id>", consensusId: "<id>" }`
-4. Call `{ operation: "list_consensus", workspaceId: "<id>" }` — verify marker with endorsement
+3. Another agent executes: `async () => tb.hub.endorseConsensus({ workspaceId: "<id>", consensusId: "<id>", agentId: "<other agent>" })` — param is `consensusId`, not markerId
+4. Execute: `async () => tb.hub.listConsensus({ workspaceId: "<id>" })` — verify marker with endorsement
 
 **Expected:** Consensus tracked with endorsements
 
@@ -159,10 +164,10 @@ All parameters are top-level (flat schema, not nested in args)
 
 **Steps:**
 1. Create workspace and problem
-2. Call `{ operation: "post_message", workspaceId: "<id>", problemId: "<id>", content: "Working on it" }`
-3. Call `{ operation: "read_channel", workspaceId: "<id>", problemId: "<id>" }`
+2. Execute: `async () => tb.hub.postMessage({ workspaceId: "<id>", problemId: "<id>", content: "Working on it" })`
+3. Execute: `async () => tb.hub.readChannel({ workspaceId: "<id>", problemId: "<id>" })`
 4. Verify message appears with correct agentId attribution
-5. Call `{ operation: "post_system_message", ..., content: "Status: in-progress" }`
+5. Execute: `async () => tb.hub.postSystemMessage({ workspaceId: "<id>", problemId: "<id>", content: "Status: in-progress" })`
 6. Read channel again — verify system message has `agentId: "system"`
 
 **Expected:** Messages attributed to correct agents, system messages distinct
@@ -175,10 +180,10 @@ All parameters are top-level (flat schema, not nested in args)
 
 **Steps:**
 1. Create workspace with agents, problems, proposals
-2. Call `{ operation: "workspace_status", workspaceId: "<id>" }` — verify agents, problem counts
-3. Call `{ operation: "workspace_digest", workspaceId: "<id>" }` — verify comprehensive view
+2. Execute: `async () => tb.hub.workspaceStatus({ workspaceId: "<id>" })` — verify agents, problem counts
+3. Execute: `async () => tb.hub.workspaceDigest({ workspaceId: "<id>" })` — verify comprehensive view
 
-**Expected:** Status gives summary, digest gives full picture
+**Expected:** Status gives summary, digest gives full picture (both read-only, may be chained in one execute call)
 
 ---
 
@@ -187,7 +192,7 @@ All parameters are top-level (flat schema, not nested in args)
 **Goal:** Verify behavioral prompt retrieval.
 
 **Steps:**
-1. Call `{ operation: "get_profile_prompt", profile: "ARCHITECT" }`
+1. Execute: `async () => tb.hub.getProfilePrompt({ profile: "ARCHITECT" })`
 2. Verify response includes behavioral prompt content
 3. Call with each profile: MANAGER, DEBUGGER, SECURITY, RESEARCHER, REVIEWER
 
@@ -195,17 +200,18 @@ All parameters are top-level (flat schema, not nested in args)
 
 ---
 
-## Test 14: Multi-Agent Attribution
+## Test 14: Multi-Agent Attribution (Session Identity Registry)
 
 **Goal:** Verify correct identity in shared sessions.
 
 **Steps:**
-1. Register agents A and B in the same session
-2. A creates workspace, B joins
-3. A creates problem, B posts message with `agentId: B.agentId`
+1. Register agents A and B in the same MCP session (two register calls; A is the implicit default)
+2. A creates workspace, B joins (explicit `agentId: B`)
+3. A creates problem; B posts message with `agentId: "<B's agentId>"`
 4. Read channel — verify message attributed to B, not A
+5. Negative check: pass an agentId that was NOT registered in this session — expect error "Agent <id> not registered in this session. Call register first."
 
-**Expected:** agentId override correctly attributes actions
+**Expected:** agentId override correctly attributes actions; identities from other sessions are rejected
 
 ---
 
@@ -214,7 +220,7 @@ All parameters are top-level (flat schema, not nested in args)
 **Goal:** Verify progressive disclosure enforcement.
 
 **Steps:**
-1. Without registering, call `{ operation: "create_workspace", ... }`
+1. In a fresh MCP session, without registering, execute: `async () => tb.hub.createWorkspace({ name: "x", description: "y" })`
 2. Verify error: "Register first"
 
 **Expected:** Clear error with recovery guidance

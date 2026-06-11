@@ -16,6 +16,12 @@ import type {
   Channel,
 } from './hub-types.js';
 
+/**
+ * Single-writer storage: append operations below are read-modify-write on
+ * JSON files and are only safe because local mode runs one server process.
+ * Multi-tenant deployments use SupabaseHubStorage (row-level appends).
+ */
+
 async function ensureDir(dir: string): Promise<void> {
   await mkdir(dir, { recursive: true });
 }
@@ -148,6 +154,17 @@ export function createFileSystemHubStorage(dataDir: string): HubStorage {
       }
     },
 
+    async appendReview(workspaceId, proposalId, review) {
+      const proposal = await this.getProposal(workspaceId, proposalId);
+      if (!proposal) throw new Error(`Proposal not found: ${proposalId}`);
+      if (!proposal.reviews.some(r => r.id === review.id)) {
+        proposal.reviews.push(review);
+      }
+      proposal.status = 'reviewing';
+      proposal.updatedAt = new Date().toISOString();
+      await this.saveProposal(proposal);
+    },
+
     // Consensus operations
     async getConsensusMarker(workspaceId, markerId) {
       return readJson<ConsensusMarker>(join(workspaceDir(workspaceId), 'consensus', `${markerId}.json`));
@@ -177,6 +194,15 @@ export function createFileSystemHubStorage(dataDir: string): HubStorage {
       }
     },
 
+    async appendEndorsement(workspaceId, markerId, agentId) {
+      const marker = await this.getConsensusMarker(workspaceId, markerId);
+      if (!marker) throw new Error(`Consensus marker not found: ${markerId}`);
+      if (!marker.agreedBy.includes(agentId)) {
+        marker.agreedBy.push(agentId);
+        await this.saveConsensusMarker(marker);
+      }
+    },
+
     // Channel operations
     async getChannel(workspaceId, problemId) {
       return readJson<Channel>(join(workspaceDir(workspaceId), 'channels', `${problemId}.json`));
@@ -188,33 +214,13 @@ export function createFileSystemHubStorage(dataDir: string): HubStorage {
         channel,
       );
     },
-  };
-}
 
-/**
- * Per-tenant hub storage provider for multi-tenant mode. Each tenant
- * workspace gets its own storage root (data/hub-tenants/<workspaceId>),
- * so hub workspaces, agents, proposals, and channels are invisible across
- * tenants. Interim isolation until SupabaseHubStorage (SPEC-V1-INITIATIVE
- * Phase 4.3) scopes rows by tenant in Postgres.
- */
-export function createTenantHubStorageProvider(
-  baseDir: string,
-): (tenantWorkspaceId: string) => HubStorage {
-  const cache = new Map<string, HubStorage>();
-  return (tenantWorkspaceId: string): HubStorage => {
-    if (!/^[A-Za-z0-9_-]+$/.test(tenantWorkspaceId)) {
-      throw new Error(
-        `Invalid tenant workspace id for hub storage: ${tenantWorkspaceId}`,
-      );
-    }
-    let storage = cache.get(tenantWorkspaceId);
-    if (!storage) {
-      storage = createFileSystemHubStorage(
-        join(baseDir, 'hub-tenants', tenantWorkspaceId),
-      );
-      cache.set(tenantWorkspaceId, storage);
-    }
-    return storage;
+    async appendMessage(workspaceId, problemId, message) {
+      const channel = await this.getChannel(workspaceId, problemId);
+      if (!channel) throw new Error(`Channel not found for problem: ${problemId}`);
+      channel.messages.push(message);
+      await this.saveChannel(channel);
+      return channel.messages.length;
+    },
   };
 }

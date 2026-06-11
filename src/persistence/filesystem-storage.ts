@@ -38,6 +38,7 @@ import type {
   SessionExport,
   SessionManifest,
   TimePartitionGranularity,
+  AuditManifest,
 } from './types.js';
 
 // =============================================================================
@@ -53,7 +54,7 @@ export interface FileSystemStorageOptions {
 
 export class StorageNotScopedError extends Error {
   constructor() {
-    super('Project scope not established. Call bind_root or start_new first.');
+    super('Project scope not established. Set THOUGHTBOX_PROJECT (or pass workspaceId) or connect a client that provides MCP roots.');
     this.name = 'StorageNotScopedError';
   }
 }
@@ -126,6 +127,10 @@ export class FileSystemStorage implements ThoughtboxStorage {
     return path.join(this.getProjectDir(), 'sessions');
   }
 
+  private getAliasesPath(): string {
+    return path.join(this.getProjectDir(), 'aliases.json');
+  }
+
   private generatePartitionPath(): string {
     const now = new Date();
     switch (this.partitionGranularity) {
@@ -160,6 +165,10 @@ export class FileSystemStorage implements ThoughtboxStorage {
 
   private getManifestPath(sessionDir: string): string {
     return path.join(sessionDir, 'manifest.json');
+  }
+
+  private getAuditManifestPath(sessionDir: string): string {
+    return path.join(sessionDir, 'audit-manifest.json');
   }
 
   private getThoughtPath(sessionDir: string, thoughtNumber: number, branchId?: string): string {
@@ -444,6 +453,56 @@ export class FileSystemStorage implements ThoughtboxStorage {
 
     await this.atomicWriteJson(this.getConfigPath(), this.config);
     return this.config;
+  }
+
+  /**
+   * Load project-level aliases from <projectDir>/aliases.json (SPEC-003 D3).
+   * Returns undefined when no aliases file exists. Throws when the file
+   * exists but is not a flat JSON object of string → string entries.
+   */
+  async loadAliases(): Promise<Record<string, string> | undefined> {
+    this.ensureScoped();
+    const aliasesPath = this.getAliasesPath();
+
+    let raw: string;
+    try {
+      raw = await fs.readFile(aliasesPath, 'utf-8');
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+        return undefined;
+      }
+      throw error;
+    }
+
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(raw);
+    } catch (error) {
+      throw new Error(
+        `Malformed aliases file at ${aliasesPath}: ${(error as Error).message}. ` +
+          `Expected a JSON object mapping alias keywords to session IDs.`
+      );
+    }
+
+    if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      throw new Error(
+        `Invalid aliases file at ${aliasesPath}: expected a JSON object ` +
+          `mapping alias keywords to session IDs.`
+      );
+    }
+
+    const aliases: Record<string, string> = {};
+    for (const [keyword, sessionId] of Object.entries(parsed)) {
+      if (typeof sessionId !== 'string') {
+        throw new Error(
+          `Invalid aliases file at ${aliasesPath}: alias "${keyword}" maps to ` +
+            `a ${typeof sessionId}, expected a session ID string.`
+        );
+      }
+      aliases[keyword] = sessionId;
+    }
+
+    return aliases;
   }
 
   // ===========================================================================
@@ -917,7 +976,38 @@ export class FileSystemStorage implements ThoughtboxStorage {
     const session = await this.getSession(sessionId);
     if (!session) throw new Error(`Session ${sessionId} not found`);
 
-    return this.linkedStore.toExportFormat(sessionId, session);
+    const exportData = this.linkedStore.toExportFormat(sessionId, session);
+    const auditManifest = await this.getAuditManifest(sessionId);
+    if (auditManifest) exportData.auditManifest = auditManifest;
+    return exportData;
+  }
+
+  // ===========================================================================
+  // Audit Manifest Operations (AUDIT-003)
+  // ===========================================================================
+
+  async saveAuditManifest(sessionId: string, manifest: AuditManifest): Promise<void> {
+    this.ensureScoped();
+    const session = this.sessions.get(sessionId);
+    if (!session) throw new Error(`Session ${sessionId} not found`);
+
+    const sessionDir = this.getSessionDir(sessionId, session.partitionPath);
+    await this.atomicWriteJson(this.getAuditManifestPath(sessionDir), manifest);
+  }
+
+  async getAuditManifest(sessionId: string): Promise<AuditManifest | null> {
+    this.ensureScoped();
+    const session = this.sessions.get(sessionId);
+    if (!session) return null;
+
+    const sessionDir = this.getSessionDir(sessionId, session.partitionPath);
+    try {
+      const data = await fs.readFile(this.getAuditManifestPath(sessionDir), 'utf-8');
+      return JSON.parse(data) as AuditManifest;
+    } catch (error: unknown) {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') return null;
+      throw error;
+    }
   }
 
   // ===========================================================================

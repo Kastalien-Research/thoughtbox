@@ -84,7 +84,7 @@ import { SUBAGENT_SUMMARIZE_CONTENT } from "./resources/subagent-summarize-conte
 import { EVOLUTION_CHECK_CONTENT } from "./resources/evolution-check-content.js";
 import { BEHAVIORAL_TESTS } from "./resources/behavioral-tests-content.js";
 import { SKILL_DEFINITIONS, getSkillCatalog, getSkill } from "./resources/skills/index.js";
-import { getOperationsCatalog as getInitOperationsCatalog, getOperation as getInitOp } from "./init/operations.js";
+import { getNavigationCatalog as getInitNavigationCatalog, getNavigationStep as getInitStep } from "./init/operations.js";
 import { getOperationsCatalog as getSessionOperationsCatalog, getOperation as getSessOp } from "./sessions/operations.js";
 import { getOperationsCatalog as getKnowledgeOperationsCatalog, getOperation as getKnowOp } from "./knowledge/operations.js";
 import { getOperationsCatalog as getHubOperationsCatalog, getOperation as getHubOp } from "./hub/operations.js";
@@ -1358,7 +1358,7 @@ async () => tb.thought({
     "init-operations",
     "thoughtbox://init/operations",
     {
-      description: "Complete catalog of init operations (get_state, list_sessions, navigate, load_context, start_new, list_roots, bind_root) with schemas and examples",
+      description: "Catalog of init navigation steps (list_sessions, load_context, start_new). Resource navigation only: each step is performed by reading thoughtbox://init URIs, not by calling a tool.",
       mimeType: "application/json",
     },
     async (uri) => ({
@@ -1366,7 +1366,7 @@ async () => tb.thought({
         {
           uri: uri.toString(),
           mimeType: "application/json",
-          text: getInitOperationsCatalog(),
+          text: getInitNavigationCatalog(),
         },
       ],
     })
@@ -1437,10 +1437,10 @@ async () => tb.thought({
   server.registerResource(
     "init-operation",
     new ResourceTemplate("thoughtbox://init/operations/{op}", { list: undefined }),
-    { description: "Individual init operation schema and examples", mimeType: "application/json" },
+    { description: "Individual init navigation step (URI template, path parameters, example URI)", mimeType: "application/json" },
     async (uri, { op }) => {
-      const opDef = getInitOp(op as string);
-      if (!opDef) throw new Error(`Unknown init operation: ${op}`);
+      const opDef = getInitStep(op as string);
+      if (!opDef) throw new Error(`Unknown init navigation step: ${op}`);
       return { contents: [{ uri: uri.href, mimeType: "application/json", text: JSON.stringify(opDef, null, 2) }] };
     }
   );
@@ -1811,8 +1811,8 @@ async () => tb.thought({
       },
       {
         uri: "thoughtbox://init/operations",
-        name: "Init Operations Catalog",
-        description: "Complete catalog of init operations (get_state, list_sessions, navigate, load_context, start_new, list_roots, bind_root)",
+        name: "Init Navigation Catalog",
+        description: "Catalog of init navigation steps (list_sessions, load_context, start_new). Resource navigation only: each step is performed by reading thoughtbox://init URIs, not by calling a tool.",
         mimeType: "application/json",
       },
       {
@@ -1961,8 +1961,8 @@ async () => tb.thought({
         },
         {
           uriTemplate: "thoughtbox://init/operations/{op}",
-          name: "Init Operation Detail",
-          description: "Individual init operation schema and examples",
+          name: "Init Navigation Step Detail",
+          description: "Individual init navigation step (URI template, path parameters, example URI)",
           mimeType: "application/json",
         },
         {

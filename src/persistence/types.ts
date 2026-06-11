@@ -362,12 +362,13 @@ export interface SessionManifest {
 }
 
 // =============================================================================
-// Audit Manifest Types (AUDIT-002/003)
+// Audit Manifest Types (AUDIT-003)
 // =============================================================================
 
 /**
- * AUDIT-003: Session audit manifest — auto-generated at session close
- * Also used as the shape for audit_summary analysis (AUDIT-002)
+ * AUDIT-003: Session audit manifest — auto-generated and persisted at
+ * session close via ThoughtboxStorage.saveAuditManifest. Retrievable via
+ * getAuditManifest and included in SessionExport (session_export json).
  */
 export interface AuditManifest {
   sessionId: string;
@@ -584,6 +585,16 @@ export interface ThoughtboxStorage {
    */
   updateConfig(attrs: Partial<Config>): Promise<Config>;
 
+  /**
+   * Load project-level session aliases (SPEC-003 D3/REQ-006).
+   *
+   * Returns a keyword → sessionId map, or undefined when no aliases are
+   * configured. Backends without an alias configuration source (in-memory,
+   * Supabase — SPEC-003 only defines the project-local aliases.json file)
+   * return undefined. Throws if alias configuration exists but is malformed.
+   */
+  loadAliases(): Promise<Record<string, string> | undefined>;
+
   // ---------------------------------------------------------------------------
   // Session Operations
   // ---------------------------------------------------------------------------
@@ -703,9 +714,28 @@ export interface ThoughtboxStorage {
   exportSession(sessionId: string, format: 'json' | 'markdown'): Promise<string>;
 
   /**
-   * Export session as linked node structure (for filesystem export)
+   * Export session as linked node structure (for filesystem export).
+   * Includes the persisted audit manifest when one exists (AUDIT-003).
    */
   toLinkedExport(sessionId: string): Promise<SessionExport>;
+
+  // ---------------------------------------------------------------------------
+  // Audit Manifest Operations (AUDIT-003)
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Durably persist the audit manifest generated at session close.
+   * Filesystem: audit-manifest.json in the session directory.
+   * Supabase: sessions.audit_manifest jsonb column.
+   */
+  saveAuditManifest(sessionId: string, manifest: AuditManifest): Promise<void>;
+
+  /**
+   * Retrieve the persisted audit manifest for a session.
+   * Returns null if the session has no manifest (session still open,
+   * or closed before manifest persistence existed).
+   */
+  getAuditManifest(sessionId: string): Promise<AuditManifest | null>;
 
   // ---------------------------------------------------------------------------
   // Integrity Operations

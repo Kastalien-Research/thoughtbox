@@ -196,6 +196,46 @@ describe("peer manifest lifecycle", () => {
     })).rejects.toMatchObject({ code: "manifest_duplicate" });
   });
 
+  it("allows re-creating the content of a retired manifest", async () => {
+    const { tool } = setupTool();
+
+    const draftA = await tool.handle({
+      operation: "peer_manifest_create",
+      manifestJson: lifecyclePeerManifestJson("rollback-peer"),
+    });
+    await tool.handle({
+      operation: "peer_manifest_approve",
+      manifestId: draftA.manifest.id,
+    });
+
+    const draftB = await tool.handle({
+      operation: "peer_manifest_create",
+      manifestJson: lifecyclePeerManifestJson("rollback-peer", { timeoutMs: 60_000 }),
+    });
+    await tool.handle({
+      operation: "peer_manifest_approve",
+      manifestId: draftB.manifest.id,
+    });
+
+    const rollback = await tool.handle({
+      operation: "peer_manifest_create",
+      manifestJson: lifecyclePeerManifestJson("rollback-peer"),
+    });
+    expect(rollback.manifest.status).toBe("draft");
+    expect(rollback.manifest.manifestHash).toBe(draftA.manifest.manifestHash);
+    expect(rollback.manifest.version).toBe(3);
+
+    const listed = await tool.handle({
+      operation: "peer_manifest_list",
+      peerId: "rollback-peer",
+    });
+    expect(listed.manifests.map(manifest => [manifest.version, manifest.status])).toEqual([
+      [1, "retired"],
+      [2, "active"],
+      [3, "draft"],
+    ]);
+  });
+
   it("scopes lifecycle records to the handler workspace", async () => {
     const repository = new InMemoryPeerNotebookRepository();
     const toolA = new PeerNotebookTool(new PeerNotebookHandler({
