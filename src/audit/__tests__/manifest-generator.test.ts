@@ -1,5 +1,5 @@
 /**
- * AUDIT-002: manifest-generator unit tests
+ * AUDIT-003: manifest-generator unit tests
  * Tests generateAuditData() aggregation logic directly.
  */
 import { describe, it, expect } from 'vitest';

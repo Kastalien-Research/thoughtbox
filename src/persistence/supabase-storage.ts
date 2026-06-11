@@ -7,7 +7,7 @@
  */
 
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
-import type { Database } from '../database.types.js';
+import type { Database, Json } from '../database.types.js';
 import { randomUUID } from 'node:crypto';
 import type {
   ThoughtboxStorage,
@@ -23,6 +23,7 @@ import type {
   ThoughtNode,
   ThoughtNodeId,
   SessionExport,
+  AuditManifest,
 } from './types.js';
 
 type SessionRow = Database['public']['Tables']['sessions']['Row'];
@@ -708,12 +709,48 @@ export class SupabaseStorage implements ThoughtboxStorage {
       revisionMetadata: revisionIndex.get(node.data.thoughtNumber),
     }));
 
+    const auditManifest = await this.getAuditManifest(sessionId);
+
     return {
       version: '1.0',
       session,
       nodes: nodesWithMetadata,
+      ...(auditManifest && { auditManifest }),
       exportedAt: new Date().toISOString(),
     };
+  }
+
+  // ===========================================================================
+  // Audit Manifest Operations (AUDIT-003)
+  // ===========================================================================
+
+  async saveAuditManifest(sessionId: string, manifest: AuditManifest): Promise<void> {
+    const client = this.ensureClient();
+    const { data, error } = await client
+      .from('sessions')
+      .update({ audit_manifest: manifest as unknown as Json })
+      .eq('id', sessionId)
+      .eq('workspace_id', this.workspaceId)
+      .select('id');
+
+    if (error) throw new Error(`Failed to save audit manifest: ${error.message}`);
+    if (!data || data.length === 0) {
+      throw new Error(`Failed to save audit manifest: session ${sessionId} not found`);
+    }
+  }
+
+  async getAuditManifest(sessionId: string): Promise<AuditManifest | null> {
+    const client = this.ensureClient();
+    const { data, error } = await client
+      .from('sessions')
+      .select('audit_manifest')
+      .eq('id', sessionId)
+      .eq('workspace_id', this.workspaceId)
+      .maybeSingle();
+
+    if (error) throw new Error(`Failed to get audit manifest: ${error.message}`);
+    if (!data || data.audit_manifest == null) return null;
+    return data.audit_manifest as unknown as AuditManifest;
   }
 
   private generateNodeId(

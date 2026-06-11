@@ -581,6 +581,7 @@ export type Database = {
       }
       sessions: {
         Row: {
+          audit_manifest: Json | null
           branch_count: number
           completed_at: string | null
           created_at: string
@@ -595,6 +596,7 @@ export type Database = {
           workspace_id: string
         }
         Insert: {
+          audit_manifest?: Json | null
           branch_count?: number
           completed_at?: string | null
           created_at?: string
@@ -609,6 +611,7 @@ export type Database = {
           workspace_id: string
         }
         Update: {
+          audit_manifest?: Json | null
           branch_count?: number
           completed_at?: string | null
           created_at?: string

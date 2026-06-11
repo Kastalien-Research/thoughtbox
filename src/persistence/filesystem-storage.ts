@@ -38,6 +38,7 @@ import type {
   SessionExport,
   SessionManifest,
   TimePartitionGranularity,
+  AuditManifest,
 } from './types.js';
 
 // =============================================================================
@@ -160,6 +161,10 @@ export class FileSystemStorage implements ThoughtboxStorage {
 
   private getManifestPath(sessionDir: string): string {
     return path.join(sessionDir, 'manifest.json');
+  }
+
+  private getAuditManifestPath(sessionDir: string): string {
+    return path.join(sessionDir, 'audit-manifest.json');
   }
 
   private getThoughtPath(sessionDir: string, thoughtNumber: number, branchId?: string): string {
@@ -917,7 +922,38 @@ export class FileSystemStorage implements ThoughtboxStorage {
     const session = await this.getSession(sessionId);
     if (!session) throw new Error(`Session ${sessionId} not found`);
 
-    return this.linkedStore.toExportFormat(sessionId, session);
+    const exportData = this.linkedStore.toExportFormat(sessionId, session);
+    const auditManifest = await this.getAuditManifest(sessionId);
+    if (auditManifest) exportData.auditManifest = auditManifest;
+    return exportData;
+  }
+
+  // ===========================================================================
+  // Audit Manifest Operations (AUDIT-003)
+  // ===========================================================================
+
+  async saveAuditManifest(sessionId: string, manifest: AuditManifest): Promise<void> {
+    this.ensureScoped();
+    const session = this.sessions.get(sessionId);
+    if (!session) throw new Error(`Session ${sessionId} not found`);
+
+    const sessionDir = this.getSessionDir(sessionId, session.partitionPath);
+    await this.atomicWriteJson(this.getAuditManifestPath(sessionDir), manifest);
+  }
+
+  async getAuditManifest(sessionId: string): Promise<AuditManifest | null> {
+    this.ensureScoped();
+    const session = this.sessions.get(sessionId);
+    if (!session) return null;
+
+    const sessionDir = this.getSessionDir(sessionId, session.partitionPath);
+    try {
+      const data = await fs.readFile(this.getAuditManifestPath(sessionDir), 'utf-8');
+      return JSON.parse(data) as AuditManifest;
+    } catch (error: unknown) {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') return null;
+      throw error;
+    }
   }
 
   // ===========================================================================

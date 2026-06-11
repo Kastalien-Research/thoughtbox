@@ -390,6 +390,92 @@ describe('SupabaseStorage (ThoughtboxStorage)', () => {
     });
   });
 
+  // ===========================================================================
+  // AUDIT-003: Audit manifest persistence
+  // ===========================================================================
+
+  describe('AUDIT-003: Audit manifest persistence', () => {
+    function makeManifest(sessionId: string) {
+      return {
+        sessionId,
+        generatedAt: new Date().toISOString(),
+        thoughtCounts: {
+          total: 2,
+          reasoning: 1,
+          decision_frame: 1,
+          action_report: 0,
+          belief_snapshot: 0,
+          assumption_update: 0,
+          context_snapshot: 0,
+          progress: 0,
+          action_receipt: 0,
+        },
+        decisions: { total: 1, byConfidence: { high: 0, medium: 1, low: 0 } },
+        actions: {
+          total: 0,
+          successful: 0,
+          failed: 0,
+          reversible: 0,
+          irreversible: 0,
+          partiallyReversible: 0,
+        },
+        gaps: [],
+        assumptionFlips: 0,
+        critiques: { generated: 0, addressed: 0, overridden: 0 },
+      };
+    }
+
+    it('persists the manifest across a simulated restart (new storage instance)', async ({ skip }) => {
+      if (!available) skip();
+      const session = await storage.createSession({ title: 'Audit Manifest' });
+      await storage.saveThought(session.id, makeThought({ thoughtNumber: 1 }));
+
+      const manifest = makeManifest(session.id);
+      await storage.saveAuditManifest(session.id, manifest);
+
+      // Simulate restart: fresh SupabaseStorage instance
+      const restarted = new SupabaseStorage({
+        ...getTestSupabaseConfig(),
+        workspaceId: TEST_WORKSPACE_ID,
+      });
+      await restarted.initialize();
+
+      const restored = await restarted.getAuditManifest(session.id);
+      expect(restored).toEqual(manifest);
+    });
+
+    it('includes the manifest in toLinkedExport (session_export json path)', async ({ skip }) => {
+      if (!available) skip();
+      const session = await storage.createSession({ title: 'Audit Export' });
+      await storage.saveThought(session.id, makeThought({ thoughtNumber: 1 }));
+
+      const manifest = makeManifest(session.id);
+      await storage.saveAuditManifest(session.id, manifest);
+
+      const exported = await storage.toLinkedExport(session.id);
+      expect(exported.auditManifest).toEqual(manifest);
+    });
+
+    it('returns null when no manifest has been saved', async ({ skip }) => {
+      if (!available) skip();
+      const session = await storage.createSession({ title: 'No Audit Manifest' });
+      expect(await storage.getAuditManifest(session.id)).toBeNull();
+
+      const exported = await storage.toLinkedExport(session.id);
+      expect(exported.auditManifest).toBeUndefined();
+    });
+
+    it('rejects saving a manifest for a nonexistent session', async ({ skip }) => {
+      if (!available) skip();
+      await expect(
+        storage.saveAuditManifest(
+          '00000000-0000-0000-0000-000000000000',
+          makeManifest('00000000-0000-0000-0000-000000000000'),
+        ),
+      ).rejects.toThrow();
+    });
+  });
+
   describe('Integrity validation', () => {
     it('returns valid for existing session', async ({ skip }) => {
       if (!available) skip();

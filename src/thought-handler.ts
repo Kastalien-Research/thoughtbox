@@ -1010,15 +1010,18 @@ export class ThoughtHandler {
         });
         await this.storage.endRunsForSession(this.currentSessionId);
 
-        // AUDIT-003: Generate audit manifest at session close
+        // AUDIT-003: Generate and durably persist audit manifest at session close.
+        // Persisted before export so toLinkedExport includes it in the export file
+        // (filesystem) and the session row carries it (Supabase).
         let auditManifest: import('./persistence/types.js').AuditManifest | undefined;
         try {
           const { generateAuditData, toAuditManifest } = await import('./audit/index.js');
           const allThoughts = await this.storage.getThoughts(this.currentSessionId);
           const auditData = generateAuditData(this.currentSessionId, allThoughts);
           auditManifest = toAuditManifest(auditData);
+          await this.storage.saveAuditManifest(this.currentSessionId, auditManifest);
         } catch (err) {
-          console.warn('[AUDIT-003] Manifest generation failed:', (err as Error).message);
+          console.warn('[AUDIT-003] Manifest generation/persistence failed:', (err as Error).message);
         }
 
         // Emit session ended event (fire-and-forget)
