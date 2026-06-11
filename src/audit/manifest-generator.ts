@@ -1,6 +1,6 @@
 /**
- * Shared audit data aggregation logic.
- * Used by audit_summary (AUDIT-002) and session manifest (AUDIT-003).
+ * Shared audit data aggregation logic for the session audit manifest
+ * (AUDIT-003), generated and persisted at session close.
  */
 import type { ThoughtData } from '../persistence/types.js';
 
