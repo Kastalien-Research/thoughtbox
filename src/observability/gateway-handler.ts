@@ -96,7 +96,6 @@ export interface ObservabilityGatewayConfig {
   workspaceId?: string;
   supabaseUrl?: string;
   serviceRoleKey?: string;
-  thoughtboxUrl?: string;
 }
 
 // =============================================================================
@@ -104,13 +103,11 @@ export interface ObservabilityGatewayConfig {
 // =============================================================================
 
 export class ObservabilityGatewayHandler {
-  private readonly thoughtboxUrl: string;
   private readonly storage: ThoughtboxStorage;
   private readonly workspaceId: string;
   private readonly otelStorage: OtelEventStorage | null;
 
   constructor(config: ObservabilityGatewayConfig) {
-    this.thoughtboxUrl = config.thoughtboxUrl ?? 'http://thoughtbox:1731';
     this.storage = config.storage;
     this.workspaceId = config.workspaceId ?? '00000000-0000-4000-a000-000000000001';
 
@@ -170,7 +167,7 @@ export class ObservabilityGatewayHandler {
   }
 
   private async handleHealth(args: HealthArgs) {
-    return checkHealth(args, this.thoughtboxUrl, this.otelStorage);
+    return checkHealth(args, this.storage, this.otelStorage);
   }
 
   private async handleSessions(args: SessionsArgs) {
@@ -185,10 +182,10 @@ export class ObservabilityGatewayHandler {
     args: { sessionId?: string; limit?: number },
   ) {
     if (!this.otelStorage) {
-      return { error: 'OTEL queries require Supabase configuration' };
+      throw new Error('OTEL queries require Supabase configuration');
     }
     if (!args.sessionId) {
-      return { error: 'sessionId is required for session_timeline' };
+      throw new Error('sessionId is required for session_timeline');
     }
     return this.otelStorage.querySessionTimeline(
       this.workspaceId,
@@ -201,7 +198,7 @@ export class ObservabilityGatewayHandler {
     args: { sessionId?: string },
   ) {
     if (!this.otelStorage) {
-      return { error: 'OTEL queries require Supabase configuration' };
+      throw new Error('OTEL queries require Supabase configuration');
     }
     return this.otelStorage.querySessionCost(
       this.workspaceId,
