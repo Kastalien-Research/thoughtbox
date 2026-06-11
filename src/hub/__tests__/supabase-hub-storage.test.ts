@@ -314,6 +314,26 @@ function runHubStorageContract(
     expect(await storage.listProposals(workspace.id)).toEqual([merged]);
   });
 
+  it('appendReview is idempotent on review id (at-least-once retry)', async ({ skip }) => {
+    if (!isAvailable()) skip();
+    const storage = getStorage();
+
+    const alice = makeAgent('alice');
+    await storage.saveAgent(alice);
+    const workspace = makeWorkspace(alice.agentId);
+    await storage.saveWorkspace(workspace);
+    const proposal = makeProposal(workspace.id, alice.agentId);
+    await storage.saveProposal(proposal);
+
+    const review = makeReview(proposal.id, 'agent-bob');
+    await storage.appendReview(workspace.id, proposal.id, review);
+    await storage.appendReview(workspace.id, proposal.id, review);
+
+    const reviewed = await storage.getProposal(workspace.id, proposal.id);
+    expect(reviewed!.reviews).toEqual([review]);
+    expect(reviewed!.status).toBe('reviewing');
+  });
+
   it('round-trips consensus markers; appendEndorsement is idempotent', async ({ skip }) => {
     if (!isAvailable()) skip();
     const storage = getStorage();
