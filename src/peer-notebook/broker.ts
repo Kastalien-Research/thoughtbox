@@ -42,12 +42,28 @@ export class PeerBroker {
       throw new PeerNotebookError("peer_not_active", `Peer ${input.peerId} is ${peer.status}`);
     }
     if (!peer.activeManifestId) {
-      throw new PeerNotebookError("manifest_not_active", `Peer ${input.peerId} has no active manifest`);
+      const manifests = await this.options.repository.listManifests(this.options.workspaceId, peer.id);
+      const latest = manifests.at(-1);
+      throw new PeerNotebookError(
+        "manifest_not_active",
+        latest
+          ? `Peer ${input.peerId} has no active manifest; latest manifest ${latest.id} is ${latest.status}`
+          : `Peer ${input.peerId} has no active manifest`,
+      );
     }
 
     const manifest = await this.options.repository.getManifest(this.options.workspaceId, peer.activeManifestId);
-    if (!manifest || manifest.status !== "active") {
-      throw new PeerNotebookError("manifest_not_active", `Peer ${input.peerId} active manifest is not active`);
+    if (!manifest) {
+      throw new PeerNotebookError(
+        "manifest_not_active",
+        `Peer ${input.peerId} active manifest ${peer.activeManifestId} does not exist`,
+      );
+    }
+    if (manifest.status !== "active") {
+      throw new PeerNotebookError(
+        "manifest_not_active",
+        `Peer ${input.peerId} manifest ${manifest.id} is ${manifest.status}, not active`,
+      );
     }
 
     const tool = manifest.manifest.exposes.tools.find(candidate => candidate.name === input.tool);

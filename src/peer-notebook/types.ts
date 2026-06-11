@@ -116,6 +116,7 @@ export interface PeerManifestRecord {
   manifestHash: string;
   status: PeerManifestStatus;
   compiledFrom: CompiledPeerManifest["compiledFrom"];
+  approvedAt: string | null;
   createdAt: string;
 }
 
@@ -176,7 +177,10 @@ export class PeerNotebookError extends Error {
       | "invocation_not_found"
       | "peer_not_found"
       | "peer_not_active"
+      | "manifest_not_found"
       | "manifest_not_active"
+      | "manifest_duplicate"
+      | "invalid_manifest_transition"
       | "tool_not_found"
       | "invalid_args"
       | "invalid_result"

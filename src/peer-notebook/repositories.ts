@@ -16,6 +16,7 @@ export interface PeerNotebookRepository {
   getPeerByPeerId(workspaceId: string, peerId: string): Promise<PeerNotebookRecord | null>;
   saveManifest(manifest: PeerManifestRecord): Promise<void>;
   getManifest(workspaceId: string, manifestId: string): Promise<PeerManifestRecord | null>;
+  listManifests(workspaceId: string, peerRecordId: string): Promise<PeerManifestRecord[]>;
   saveInvocation(invocation: PeerInvocationRecord): Promise<void>;
   updateInvocation(invocation: PeerInvocationRecord): Promise<void>;
   getInvocation(workspaceId: string, invocationId: string): Promise<PeerInvocationRecord | null>;
@@ -63,6 +64,12 @@ export class InMemoryPeerNotebookRepository implements PeerNotebookRepository {
 
   async getManifest(workspaceId: string, manifestId: string): Promise<PeerManifestRecord | null> {
     return this.manifests.get(manifestKey(workspaceId, manifestId)) ?? null;
+  }
+
+  async listManifests(workspaceId: string, peerRecordId: string): Promise<PeerManifestRecord[]> {
+    return [...this.manifests.values()]
+      .filter(manifest => manifest.workspaceId === workspaceId && manifest.peerRecordId === peerRecordId)
+      .sort((left, right) => left.version - right.version);
   }
 
   async saveInvocation(invocation: PeerInvocationRecord): Promise<void> {
