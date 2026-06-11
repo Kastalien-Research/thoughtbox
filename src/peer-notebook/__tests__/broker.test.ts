@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import {
   BrokerProxy,
   InMemoryPeerNotebookRepository,
-  MockPeerRuntimeProvider,
   canonicalizeJson,
   compilePeerManifestDraft,
   createPeerBroker,
@@ -11,6 +10,7 @@ import {
   type PeerNotebookRecord,
   type RuntimeProvider,
 } from "../index.js";
+import { MockPeerRuntimeProvider } from "../mock-runtime-provider.js";
 
 const workspaceId = "workspace_test";
 

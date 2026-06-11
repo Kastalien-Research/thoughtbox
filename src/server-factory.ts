@@ -204,11 +204,10 @@ function getPeerNotebookPilotResourceContent(): string {
     description: PEER_NOTEBOOK_TOOL.description,
     scope: {
       persistence: "in-memory by default; Supabase-backed in hosted workspace mode",
-      runtimeProviders: ["mock"],
+      runtimeProviders: ["local-process (development-only, no isolation boundary)"],
       deferred: [
         "web app peer views",
-        "local-process provider",
-        "smolvm provider",
+        "smolvm provider (production isolation)",
         "public direct runtime MCP",
       ],
     },

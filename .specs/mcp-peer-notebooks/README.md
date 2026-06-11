@@ -35,7 +35,9 @@ Baseline after this slice:
 - `thoughtbox_peer_notebook` public MCP tool.
 - In-memory `claim-extractor` pilot with artifact seed, peer invoke,
   invocation read, trace list, and artifact read operations.
-- Mock-only runtime provider.
+- Development-only `local-process` runtime provider as the production-wired
+  default (child-process execution; no isolation claim); the mock provider is
+  a test-only fixture.
 - Broker proxy allow/deny trace coverage.
 - MCP client integration coverage through `createMcpServer` and
   `InMemoryTransport`.
@@ -56,8 +58,10 @@ Baseline after this slice:
 
 The pilot now proves broker shape and MCP reachability with a durable
 repository path for peer notebooks, manifests, invocations, trace events, and
-artifacts. `MockPeerRuntimeProvider` remains a contract fixture only; it is not
-a production runtime implementation.
+artifacts, and executes invocations in a real child process through
+`LocalProcessRuntimeProvider`. `MockPeerRuntimeProvider` is a test-only
+contract fixture, imported only from tests and absent from production wiring.
+Neither provider is a production isolation boundary.
 
 Future work must use `.claude/skills/peer-notebook-delivery-guard/SKILL.md`.
 Its hard rule is: mocks are contract fixtures, not final substitutes.
@@ -79,8 +83,20 @@ Its hard rule is: mocks are contract fixtures, not final substitutes.
    - Peer registry/detail, invocation detail, denied-call trace timeline, and
      artifact preview from durable rows.
 
-3. **Real Runtime Provider Path** (`thoughtbox-s7f`)
-   - Development-only `local-process` provider behind the runtime contract.
+3. **Real Runtime Provider Path** (`thoughtbox-s7f`) — **delivered**
+   (v1-initiative Phase 5.3, claim SPEC-V1-INITIATIVE:c14):
+   `LocalProcessRuntimeProvider` executes peer invocations in a spawned child
+   process behind the existing runtime contract, declared development-only
+   (`describe()` reports `isolation: "none"`, `developmentOnly: true`). The
+   claim-extractor entry is a standalone stdin/stdout script
+   (`src/peer-notebook/peers/claim-extractor.ts`) resolved through a fixed
+   entry registry via the new optional `runtime.entry` manifest field.
+   Production wiring registers only `local-process`; `MockPeerRuntimeProvider`
+   is test-only and removed from the package barrel. Shared contract tests run
+   against both providers
+   (`src/peer-notebook/__tests__/runtime-provider-contract.test.ts`),
+   including budget-timeout kill and cancel kill coverage. This unit makes no
+   production isolation claim.
 
 4. **Production Isolation And Policy Hardening** (`thoughtbox-vdw`)
    - smolvm or equivalent isolated provider plus enforced network, filesystem,
@@ -120,12 +136,14 @@ Confirmed current capabilities:
   draft compilation from `peer.manifest.json`, canonical manifest hashing,
   in-memory peer/manifest/invocation/trace/artifact repositories,
   Supabase peer/manifest/invocation/trace/artifact repository,
-  `peer.invoke({ peerId, tool, args })`, a runtime provider interface, a mock
-  `claim-extractor` provider, broker-proxy allow/deny policy tests, real broker
-  proxy targets (`thoughtbox.knowledge.queryGraph` and `thoughtbox.session.get`
-  wired to the real knowledge and session handlers via
-  `src/peer-notebook/proxy-targets.ts`, v1-initiative Phase 5.2; the `mayCall`
-  allowlist remains the only gate and absent handlers raise
+  `peer.invoke({ peerId, tool, args })`, a runtime provider interface, the
+  development-only `local-process` provider executing the standalone
+  `claim-extractor` entry script in a child process (v1-initiative Phase 5.3),
+  a test-only mock contract fixture, broker-proxy allow/deny policy tests,
+  real broker proxy targets (`thoughtbox.knowledge.queryGraph` and
+  `thoughtbox.session.get` wired to the real knowledge and session handlers
+  via `src/peer-notebook/proxy-targets.ts`, v1-initiative Phase 5.2; the
+  `mayCall` allowlist remains the only gate and absent handlers raise
   `target_unavailable`), and the MCP-facing `thoughtbox_peer_notebook` surface
   for seed/invoke/read operations.
 - Existing specs already point toward related directions:
@@ -138,11 +156,12 @@ Confirmed current capabilities:
 Important non-capabilities today:
 
 - No brokered notebook-to-notebook MCP routing.
-- No runtime lifecycle manager for notebook workers beyond the mock provider
-  contract.
+- No runtime lifecycle manager for notebook workers beyond per-invocation
+  child-process spawn/kill in the local-process provider.
 - No web app view for peer invocations, peer traces, or peer artifacts.
 - No secure isolated execution boundary for notebook code.
-- No local-process or smolvm provider integration.
+- No in-child broker-proxy calls (the provider performs outbound calls before
+  spawning) and no smolvm provider integration.
 
 ## Product Concept
 

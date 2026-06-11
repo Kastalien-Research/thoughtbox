@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
   InMemoryPeerNotebookRepository,
-  MockPeerRuntimeProvider,
   PeerNotebookHandler,
   PeerNotebookTool,
   type PeerManifestRecord,
   type PeerNotebookRecord,
 } from "../index.js";
+import { MockPeerRuntimeProvider } from "../mock-runtime-provider.js";
 
 describe("thoughtbox_peer_notebook", () => {
   it("seeds an input text artifact in the current workspace", async () => {
@@ -103,7 +103,16 @@ describe("thoughtbox_peer_notebook", () => {
     })).rejects.toMatchObject({ code: "invocation_not_found" });
   });
 
-  it("uses only the mock runtime provider", async () => {
+  it("registers local-process as the only production runtime provider", () => {
+    const productionHandler = new PeerNotebookHandler({
+      repository: new InMemoryPeerNotebookRepository(),
+      workspaceId: "workspace_test",
+    });
+
+    expect(productionHandler.getRuntimeProviderNames()).toEqual(["local-process"]);
+  });
+
+  it("dispatches through the injected test-only mock runtime provider", async () => {
     const { tool, handler } = setupTool();
     const seeded = await tool.handle({
       operation: "peer_artifact_seed",
@@ -169,7 +178,7 @@ function setupTool() {
   const provider = new MockPeerRuntimeProvider();
   const handler = new PeerNotebookHandler({
     repository,
-    mockRuntimeProvider: provider,
+    runtimeProvider: provider,
     workspaceId: "workspace_test",
   });
 

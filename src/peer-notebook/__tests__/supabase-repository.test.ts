@@ -1,11 +1,11 @@
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import {
   createPeerBroker,
-  MockPeerRuntimeProvider,
   PeerNotebookHandler,
   PeerNotebookTool,
   SupabasePeerNotebookRepository,
 } from "../index.js";
+import { MockPeerRuntimeProvider } from "../mock-runtime-provider.js";
 import {
   createServiceClient,
   ensureTestWorkspace,
@@ -37,7 +37,7 @@ describe("SupabasePeerNotebookRepository", () => {
     const repository = new SupabasePeerNotebookRepository(getTestSupabaseConfig());
     const tool = new PeerNotebookTool(new PeerNotebookHandler({
       repository,
-      mockRuntimeProvider: provider,
+      runtimeProvider: provider,
       workspaceId: TEST_WORKSPACE_ID,
     }));
 
@@ -108,7 +108,7 @@ describe("SupabasePeerNotebookRepository", () => {
     const repository = new SupabasePeerNotebookRepository(getTestSupabaseConfig());
     const tool = new PeerNotebookTool(new PeerNotebookHandler({
       repository,
-      mockRuntimeProvider: provider,
+      runtimeProvider: provider,
       workspaceId: TEST_WORKSPACE_ID,
     }));
 
@@ -206,7 +206,7 @@ describe("SupabasePeerNotebookRepository", () => {
     const repository = new SupabasePeerNotebookRepository(getTestSupabaseConfig());
     const tool = new PeerNotebookTool(new PeerNotebookHandler({
       repository,
-      mockRuntimeProvider: provider,
+      runtimeProvider: provider,
       workspaceId: TEST_WORKSPACE_ID,
     }));
 
@@ -225,7 +225,7 @@ describe("SupabasePeerNotebookRepository", () => {
     const repository = new SupabasePeerNotebookRepository(getTestSupabaseConfig());
     const handler = new PeerNotebookHandler({
       repository,
-      mockRuntimeProvider: provider,
+      runtimeProvider: provider,
       workspaceId: TEST_WORKSPACE_ID,
     });
     const seeded = await handler.seedArtifact({

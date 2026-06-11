@@ -14,7 +14,10 @@ export type {
 } from "./proxy-targets.js";
 export { compilePeerManifestDraft, canonicalizeJson, hashJson } from "./manifest.js";
 export { validateJsonSchemaSubset } from "./json-schema.js";
-export { MockPeerRuntimeProvider } from "./mock-runtime-provider.js";
+// MockPeerRuntimeProvider is intentionally NOT exported: it is a test-only
+// contract fixture imported directly from ./mock-runtime-provider.js by tests.
+export { LocalProcessRuntimeProvider } from "./local-process-runtime-provider.js";
+export type { LocalProcessRuntimeProviderOptions } from "./local-process-runtime-provider.js";
 export { InMemoryPeerNotebookRepository } from "./repositories.js";
 export type { PeerNotebookRepository, SaveArtifactInput } from "./repositories.js";
 export { SupabasePeerNotebookRepository } from "./supabase-repository.js";

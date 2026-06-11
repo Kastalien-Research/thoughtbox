@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
   InMemoryPeerNotebookRepository,
-  MockPeerRuntimeProvider,
   PeerNotebookHandler,
   PeerNotebookTool,
 } from "../index.js";
+import { MockPeerRuntimeProvider } from "../mock-runtime-provider.js";
 import { lifecyclePeerManifestJson } from "./fixtures.js";
 
 const WORKSPACE_ID = "workspace_test";
@@ -228,7 +228,7 @@ function setupTool() {
   const provider = new MockPeerRuntimeProvider();
   const handler = new PeerNotebookHandler({
     repository,
-    mockRuntimeProvider: provider,
+    runtimeProvider: provider,
     workspaceId: WORKSPACE_ID,
   });
 

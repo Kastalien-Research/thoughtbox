@@ -37,6 +37,8 @@ export interface PeerManifest {
   notebookId: string;
   runtime: {
     provider: RuntimeProviderName;
+    /** Executable entry name resolved by the runtime provider's script registry. */
+    entry?: string;
     image?: string;
     cpus?: number;
     memoryMiB?: number;

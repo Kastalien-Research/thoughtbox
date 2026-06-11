@@ -19,12 +19,12 @@ claims:
     statement: Cloud Run remains the MCP API/control plane; peer execution runs in a separate execution plane behind a runtime provider contract
     type: governance
     behavioral: false
-    required_evidence: Non-goals and invariants exclude KVM/smolvm execution from Cloud Run and place smolvm behind the runtime provider boundary
+    required_evidence: Non-goals and invariants exclude KVM/smolvm execution from Cloud Run and place smolvm behind the runtime provider boundary. The v1-initiative Phase 5.3 slice (thoughtbox-s7f) delivers the first real provider behind that boundary - LocalProcessRuntimeProvider (src/peer-notebook/local-process-runtime-provider.ts) executes peer invocations in a spawned child process, declares developmentOnly true with isolation "none" in describe(), and production wiring registers only local-process (PeerNotebookHandler.getRuntimeProviderNames). Local-process is process separation for development, never a production isolation claim; production isolation remains the deferred smolvm unit (thoughtbox-vdw)
   - id: c4
     statement: The v0 runtime contract is a simple provider RPC, not a requirement that every runtime expose public MCP directly
     type: implementation
     behavioral: false
-    required_evidence: Runtime Provider Contract section defines describe, invoke, cancel, snapshot/export, and heartbeat as v0 RPC
+    required_evidence: Runtime Provider Contract section defines describe, invoke, cancel, snapshot/export, and heartbeat as v0 RPC. Two providers implement the contract - the test-only MockPeerRuntimeProvider fixture (excluded from the package barrel, imported only by tests) and the development-only LocalProcessRuntimeProvider. The shared contract suite src/peer-notebook/__tests__/runtime-provider-contract.test.ts runs the same end-to-end claim-extractor invocation, lifecycle, and allow/deny trace assertions against both, plus local-process budget-timeout and cancel kill tests (SPEC-V1-INITIATIVE c14 evidence)
   - id: c5
     statement: The peer data model is Supabase-backed with peer notebooks, manifests, invocations, trace events, and artifact metadata in Postgres, while full artifact payloads live in Supabase Storage
     type: implementation
@@ -97,6 +97,29 @@ failed to initialize), the target raises a `target_unavailable` error through
 the broker's existing invocation error path instead of crashing. The `mayCall`
 allowlist and allow/deny trace machinery are unchanged and remain the only
 gate; the built-in claim-extractor manifest still allows only `artifact.get`.
+
+Implementation note: the v1-initiative Phase 5.3 slice (`thoughtbox-s7f`)
+delivers the development-only `local-process` runtime provider
+(`src/peer-notebook/local-process-runtime-provider.ts`). The provider executes
+the peer tool invocation in a spawned child process: the claim-extractor entry
+is a standalone script (`src/peer-notebook/peers/claim-extractor.ts`) that
+reads `{ invocationId, tool, args, artifactContent }` JSON on stdin and writes
+`{ result, artifacts }` JSON to stdout, porting the mock's deterministic
+claim-extraction logic so both providers produce identical output. Manifests
+gain an optional `runtime.entry` field naming an executable entry; the
+provider resolves entries from a fixed script registry, so manifests can never
+point at arbitrary filesystem paths. Broker-proxied outbound calls (the
+`artifact.get` input fetch and the pilot denied probe) happen in the provider
+before spawning, preserving allow/deny trace semantics; in-child broker calls
+are out of scope for v1. The manifest budget (`budgets.maxDurationMs`) is
+enforced on the child via SIGTERM escalating to SIGKILL, and `cancel()` kills
+the child the same way. Production wiring registers only `local-process`;
+`MockPeerRuntimeProvider` is now a test-only fixture removed from the package
+barrel. Existing workspaces whose platform-owned claim-extractor manifest was
+bootstrapped with `provider: "mock"` are reconciled in place at bootstrap
+(platform builtin record only). `local-process` is process separation for
+development, never production isolation - that remains the smolvm unit
+(`thoughtbox-vdw`).
 
 ## Non-Goals
 
@@ -212,6 +235,9 @@ Minimum v0 manifest fields:
 - `peerId`
 - `notebookId` or source notebook reference
 - `runtime.provider`
+- `runtime.entry` (optional executable entry name; required by providers that
+  resolve scripts from a fixed registry, such as `local-process`. Manifests
+  name an entry, never a filesystem path.)
 - `runtime` budgets such as CPU, memory, and timeout
 - `exposes.tools[]` with `name`, `description`, `inputSchema`, and
   `outputSchema`
@@ -288,8 +314,9 @@ Runtime obligations:
 
 Runtime providers:
 
-- `mock`: deterministic contract tests and web-app fixtures.
-- `local-process`: integration development only; not a security boundary.
+- `mock`: test-only contract fixture; never registered in production wiring.
+- `local-process` (delivered, default): child-process execution for
+  integration development only; process separation, not a security boundary.
 - `smolvm`: deferred provider in a separate execution plane.
 
 ## Broker Proxy Contract
