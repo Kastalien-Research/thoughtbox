@@ -579,7 +579,7 @@ export class InMemoryStorage implements ThoughtboxStorage {
 
   getProject(): string {
     if (this.project === null) {
-      throw new Error('Project scope not established. Call bind_root or start_new first.');
+      throw new Error('Project scope not established. Set THOUGHTBOX_PROJECT (or pass workspaceId) or connect a client that provides MCP roots.');
     }
     return this.project;
   }
