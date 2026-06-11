@@ -2,6 +2,16 @@ export { createPeerBroker, PeerBroker } from "./broker.js";
 export type { PeerBrokerOptions, PeerInvokeInput, PeerInvokeResult } from "./broker.js";
 export { BrokerProxy } from "./broker-proxy.js";
 export type { BrokerProxyCall, BrokerProxyClient, BrokerProxyResult, BrokerProxyTarget } from "./broker-proxy.js";
+export {
+  createBrokerProxyTargets,
+  KNOWLEDGE_QUERY_GRAPH_TARGET,
+  SESSION_GET_TARGET,
+} from "./proxy-targets.js";
+export type {
+  BrokerProxyTargetDeps,
+  KnowledgeProxyHandler,
+  SessionProxyHandler,
+} from "./proxy-targets.js";
 export { compilePeerManifestDraft, canonicalizeJson, hashJson } from "./manifest.js";
 export { validateJsonSchemaSubset } from "./json-schema.js";
 export { MockPeerRuntimeProvider } from "./mock-runtime-provider.js";

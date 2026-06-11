@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { createPeerBroker } from "./broker.js";
 import { compilePeerManifestDraft } from "./manifest.js";
 import { MockPeerRuntimeProvider } from "./mock-runtime-provider.js";
+import { createBrokerProxyTargets, type BrokerProxyTargetDeps } from "./proxy-targets.js";
 import { InMemoryPeerNotebookRepository, type PeerNotebookRepository } from "./repositories.js";
 import { PeerNotebookError } from "./types.js";
 import type {
@@ -34,6 +35,11 @@ export interface PeerNotebookHandlerOptions {
   getWorkspaceId?: () => string | undefined;
   repository?: PeerNotebookRepository;
   mockRuntimeProvider?: MockPeerRuntimeProvider;
+  /**
+   * Real outbound handlers behind the broker proxy targets. Optional: absent
+   * handlers yield target_unavailable errors at call time, never crashes.
+   */
+  proxyTargetDeps?: BrokerProxyTargetDeps;
 }
 
 export interface PeerArtifactSeedInput {
@@ -97,6 +103,7 @@ export class PeerNotebookHandler {
       runtimeProviders: {
         mock: this.mockRuntimeProvider,
       },
+      proxyTargets: createBrokerProxyTargets(this.options.proxyTargetDeps),
     });
 
     const result = await broker.peer.invoke(input);
