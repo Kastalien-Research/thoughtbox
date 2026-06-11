@@ -128,19 +128,17 @@ Stage: Always-on (`tb.hub.*` available when hubStorage is wired at server creati
 
 **Goal:** Verify full proposal lifecycle.
 
-**Prerequisite:** `tb.hub.mergeProposal` records a merge thought in the workspace's `mainSessionId`. The workspace must have an active thought session for merge to succeed. If the workspace was created without `sessionId`, the auto-generated `mainSessionId` may not correspond to a persisted session — this causes "Session not found" errors on merge.
+**Note:** `tb.hub.mergeProposal` records a merge thought in the workspace's `mainSessionId`. The hub persists that session automatically through the shared hub thought store (PR #374), so binding a pre-existing `sessionId` at workspace creation is optional.
 
 **Steps:**
 1. Register agents A (coordinator) and B in this session
-2. **Before creating the workspace**, start a thought session and note the sessionId
-3. Create workspace with `sessionId: "<id>"` to bind the session
+2. Create a workspace (binding a pre-existing `sessionId` is optional; the hub persists `mainSessionId` automatically)
 4. B creates a proposal: `async () => tb.hub.createProposal({ workspaceId: "<id>", title: "Fix", description: "Details", sourceBranch: "fix-branch", agentId: "<B>" })`
 5. A reviews: `async () => tb.hub.reviewProposal({ workspaceId: "<id>", proposalId: "<id>", verdict: "approve", reasoning: "Looks good", agentId: "<A>" })`
 6. A merges: `async () => tb.hub.mergeProposal({ workspaceId: "<id>", proposalId: "<id>", mergeMessage: "Merged fix", agentId: "<A>" })` — must run in the session where A registered (coordinator role is session-bound)
 7. Verify proposal status is "merged"
 8. Execute `tb.hub.listProposals({ workspaceId: "<id>", status: "merged" })` to confirm
 
-**Known issue (2026-03-21):** If workspace is created without binding a pre-existing session, `merge_proposal` fails with "Session not found" because the auto-generated `mainSessionId` is not persisted. This is a server bug.
 
 **Expected:** Full proposal lifecycle — cannot self-review, requires approval to merge
 
