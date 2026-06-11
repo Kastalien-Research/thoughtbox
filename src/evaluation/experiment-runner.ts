@@ -26,6 +26,7 @@ import type {
   LangSmithConfig,
   RunExperimentOptions,
   ExperimentRunResult,
+  RegressionCheckResult,
   EvaluatorName,
 } from "./types.js";
 import { getEvaluator, getAllEvaluators } from "./evaluators/index.js";
@@ -204,18 +205,16 @@ export class ExperimentRunner {
   /**
    * Run a regression check suitable for gatekeeper integration.
    *
-   * Runs all evaluators and returns a simple pass/fail with details.
+   * Runs all evaluators and returns pass/fail with details. When the check
+   * cannot run (LangSmith unconfigured, or the experiment produced no
+   * result), the check is reported as skipped AND not passed — a disabled
+   * gate must never read as a passing gate.
    */
   async runRegressionCheck(
     datasetName: string,
     target: RunExperimentOptions["target"],
     thresholds?: Record<string, number>,
-  ): Promise<{
-    passed: boolean;
-    scores: Record<string, number>;
-    failedEvaluators: string[];
-    details: string;
-  }> {
+  ): Promise<RegressionCheckResult> {
     const defaultThresholds: Record<string, number> = {
       sessionQuality: 0.5,
       memoryQuality: 0.4,
@@ -233,10 +232,13 @@ export class ExperimentRunner {
 
     if (!result) {
       return {
-        passed: true,
+        passed: false,
+        skipped: true,
         scores: {},
         failedEvaluators: [],
-        details: "LangSmith not configured — regression check skipped",
+        details: this.isEnabled()
+          ? "Experiment produced no result — regression check skipped, not passed"
+          : "LangSmith not configured — regression check skipped, not passed",
       };
     }
 
@@ -250,6 +252,7 @@ export class ExperimentRunner {
 
     return {
       passed: failedEvaluators.length === 0,
+      skipped: false,
       scores: result.aggregateScores,
       failedEvaluators,
       details: failedEvaluators.length === 0

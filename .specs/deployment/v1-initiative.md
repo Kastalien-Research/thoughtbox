@@ -160,7 +160,7 @@ Each numbered item is one unit of work: one branch, one PR, conventional commits
 - **3.2** Knowledge init failure → clean unavailable error, not `knowledgeHandler!` crash (`src/server-factory.ts:413`). → **c8**
 - **3.3** Register a read handler for `thoughtbox://gateway/operations` (content exists; it is a missing wire).
 - **3.4** Purge `mental_models` and all stale tool names from search catalog, init renderer, behavioral tests, prompts. → **c7**
-- **3.5** `runRegressionCheck` returns explicit skipped/failed when LangSmith unconfigured (or is deleted, per 0.4 decision).
+- **3.5** `runRegressionCheck` returns explicit skipped + non-passing (`RegressionCheckResult` with `passed: false, skipped: true`) when LangSmith is unconfigured or the experiment yields no result. The LangSmith stack stays per the 0.4 decision (2026-06-10; live in production). Done.
 - **3.6 Evidence Engine** (`src/notebook/engine/runtime.ts`): sync runs execute referenced notebook cells through the real notebook runtime and derive verdicts from actual outputs, or return an explicit unsupported error. Delete the async branch that queues to a nonexistent dispatcher. Rewrite tests to assert real verdict derivation (a failing runbook must yield `pass: false`). → **c9**
 
 ### Phase 4 — Hub: expose, persist, deliver

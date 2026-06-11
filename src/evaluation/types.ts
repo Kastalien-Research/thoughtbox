@@ -176,6 +176,27 @@ export interface ExperimentRunResult {
   timestamp: string;
 }
 
+/**
+ * Result of a regression check gate.
+ *
+ * A skipped check is never a passed check: when the experiment cannot run
+ * (LangSmith unconfigured, or the run produced no results), `passed` is
+ * false and `skipped` is true so callers can distinguish "gate ran and
+ * passed" from "gate did not run".
+ */
+export interface RegressionCheckResult {
+  /** True only when the experiment ran and all evaluators met thresholds */
+  passed: boolean;
+  /** True when the check did not run (unconfigured or no results) */
+  skipped: boolean;
+  /** Aggregate scores keyed by evaluator name (empty when skipped) */
+  scores: Record<string, number>;
+  /** Evaluators that scored below their threshold */
+  failedEvaluators: string[];
+  /** Human-readable explanation of the outcome */
+  details: string;
+}
+
 // =============================================================================
 // DGM Archive Types (Layer 4 → DGM bridge)
 // =============================================================================
