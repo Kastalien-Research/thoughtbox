@@ -1,149 +1,103 @@
 /**
- * Operations Catalog for Init Toolhost
+ * Init Navigation Catalog
  *
- * Defines all available init operations with their schemas,
- * descriptions, categories, and examples.
+ * Init has NO callable executor: there is no tb.init module and the Code Mode
+ * catalog intentionally excludes init (see src/code-mode/search-tool.ts).
+ * Every step below is performed by READING a thoughtbox://init URI; the
+ * InitHandler read handler renders markdown that links to the next step.
+ *
+ * Entries therefore describe resource-navigation contracts (URI templates and
+ * path parameters), not tool-call schemas.
  */
 
-export interface OperationDefinition {
+export interface InitNavigationStep {
   name: string;
   title: string;
   description: string;
   category: string;
-  inputSchema: any;
-  example?: any;
+  kind: "resource-navigation";
+  uriTemplate: string;
+  pathParams: Record<string, string>;
+  exampleUri: string;
 }
 
-export const INIT_OPERATIONS: OperationDefinition[] = [
+export const INIT_NAVIGATION_STEPS: InitNavigationStep[] = [
   {
     name: "list_sessions",
     title: "List Sessions",
-    description: "List previous reasoning sessions with optional filtering by project, task, aspect, or search text. Returns session metadata including title, thought count, and timestamps.",
+    description:
+      "Browse prior reasoning sessions by reading thoughtbox://init/continue. The response lists project URIs; append path segments to narrow to a project (thoughtbox://init/continue/{project}) and then a task (thoughtbox://init/continue/{project}/{task}). Sessions appear with title, thought count, and last-activity metadata. There is no callable list operation and no query filters — navigation is by URI path segments only. For a programmatic listing, use tb.session.list in thoughtbox_execute.",
     category: "navigation",
-    inputSchema: {
-      type: "object",
-      properties: {
-        filters: {
-          type: "object",
-          properties: {
-            project: {
-              type: "string",
-              description: "Filter by project name",
-            },
-            task: {
-              type: "string",
-              description: "Filter by task name",
-            },
-            aspect: {
-              type: "string",
-              description: "Filter by aspect name",
-            },
-            search: {
-              type: "string",
-              description: "Search text to match against session titles",
-            },
-            limit: {
-              type: "number",
-              description: "Maximum results to return (default: 20)",
-            },
-          },
-        },
-      },
+    kind: "resource-navigation",
+    uriTemplate: "thoughtbox://init/continue",
+    pathParams: {
+      project:
+        "Optional path segment appended after /continue (thoughtbox://init/continue/{project}). Project name taken from the project list response.",
+      task: "Optional path segment appended after /{project} (thoughtbox://init/continue/{project}/{task}). Task name taken from the task list response.",
     },
-    example: {
-      filters: { project: "thoughtbox", limit: 10 },
-    },
+    exampleUri: "thoughtbox://init/continue",
   },
   {
     name: "load_context",
     title: "Load Context",
-    description: "Load full context for continuing a previous session. Retrieves session metadata and recent thoughts.",
+    description:
+      "Load context for continuing prior work by reading thoughtbox://init/continue/{project}/{task}/{aspect}. The response renders recent sessions matching that scope, with conclusions and thoughtbox://sessions/{sessionId} URIs for full content. There is no callable load operation and no sessionId argument — scope comes entirely from the URI path segments. To restore a specific session programmatically, use tb.session.resume in thoughtbox_execute.",
     category: "session-setup",
-    inputSchema: {
-      type: "object",
-      properties: {
-        sessionId: {
-          type: "string",
-          description: "The ID of the session to load",
-        },
-      },
-      required: ["sessionId"],
+    kind: "resource-navigation",
+    uriTemplate: "thoughtbox://init/continue/{project}/{task}/{aspect}",
+    pathParams: {
+      project: "Required. Project name from the project list response.",
+      task: "Required. Task name from the task list response.",
+      aspect:
+        "Required. Aspect name (e.g. understanding, design, implementing, debugging, reviewing, documenting).",
     },
-    example: {
-      sessionId: "abc-123-def-456",
-    },
+    exampleUri: "thoughtbox://init/continue/my-project/feature-x/implementing",
   },
   {
     name: "start_new",
     title: "Start New Work",
-    description: "Initialize new work context with project/task/aspect classification. Project scope is auto-resolved from MCP roots or THOUGHTBOX_PROJECT env var.",
+    description:
+      "Start new work by reading thoughtbox://init/new. The response renders tag conventions (project:/task:/aspect:) for organizing the new session. Reading this URI only provides guidance — session creation itself happens via tb.thought in thoughtbox_execute.",
     category: "session-setup",
-    inputSchema: {
-      type: "object",
-      properties: {
-        project: {
-          type: "string",
-          description: "Project name (auto-derived from bound root if not provided)",
-        },
-        task: {
-          type: "string",
-          description: "Task within the project",
-        },
-        aspect: {
-          type: "string",
-          description: "Specific aspect of the task",
-        },
-        domain: {
-          type: "string",
-          description: "Reasoning domain (e.g., 'debugging', 'planning', 'architecture') - unlocks domain-specific mental models",
-        },
-      },
-    },
-    example: {
-      project: "thoughtbox",
-      task: "hub-operations",
-      aspect: "implementation",
-    },
+    kind: "resource-navigation",
+    uriTemplate: "thoughtbox://init/new",
+    pathParams: {},
+    exampleUri: "thoughtbox://init/new",
   },
 ];
 
 /**
- * Get operation definition by name
+ * Get navigation step definition by name
  */
-export function getOperation(name: string): OperationDefinition | undefined {
-  return INIT_OPERATIONS.find((op) => op.name === name);
+export function getNavigationStep(name: string): InitNavigationStep | undefined {
+  return INIT_NAVIGATION_STEPS.find((step) => step.name === name);
 }
 
 /**
- * Get all operation names
+ * Get all navigation step names
  */
-export function getOperationNames(): string[] {
-  return INIT_OPERATIONS.map((op) => op.name);
+export function getNavigationStepNames(): string[] {
+  return INIT_NAVIGATION_STEPS.map((step) => step.name);
 }
 
 /**
- * Get operations catalog as JSON resource
+ * Get init navigation catalog as JSON resource
  */
-export function getOperationsCatalog(): string {
+export function getNavigationCatalog(): string {
   return JSON.stringify(
     {
-      version: "1.0.0",
-      operations: INIT_OPERATIONS.map((op) => ({
-        name: op.name,
-        title: op.title,
-        description: op.description,
-        category: op.category,
-        inputs: op.inputSchema,
-        example: op.example,
-      })),
+      version: "2.0.0",
+      kind: "resource-navigation",
+      note: "Init steps are performed by reading thoughtbox://init URIs — there is no callable init tool and no tb.init module. The Code Mode catalog intentionally excludes init.",
+      steps: INIT_NAVIGATION_STEPS,
       categories: [
         {
           name: "navigation",
-          description: "Browse and navigate the project/task/aspect hierarchy",
+          description: "Browse the project/task/aspect hierarchy by reading URIs",
         },
         {
           name: "session-setup",
-          description: "Load existing sessions or start new work",
+          description: "Load prior context or start new work by reading URIs",
         },
       ],
     },
