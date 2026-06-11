@@ -454,7 +454,7 @@ workspace receives nothing.
 
 \`\`\`typescript
 const channel = supabase
-  .channel('hub-coordination')
+  .channel('hub-channel-messages')
   .on(
     'postgres_changes',
     {
@@ -468,10 +468,23 @@ const channel = supabase
   .subscribe();
 \`\`\`
 
-The same pattern applies to the other published tables (use \`event: '*'\` to
-also see UPDATE transitions such as proposal status changes). Polling
-\`tb.hub.read_channel\` remains the fallback when a Realtime connection is not
-available.
+The same pattern applies to the other published tables. Subscribe to explicit
+events — \`event: 'INSERT'\` plus \`event: 'UPDATE'\` where transitions matter
+(e.g. proposal status changes) — not \`event: '*'\`. To watch multiple tables,
+chain additional \`.on()\` calls on one channel or use a distinct channel name
+per table; creating separate channels with the same name produces competing
+subscriptions in supabase-js.
+
+**DELETE events cannot be RLS-filtered.** With default REPLICA IDENTITY,
+DELETE WAL records carry only primary-key columns — no
+\`tenant_workspace_id\` — so Realtime cannot evaluate the workspace-membership
+policy and cross-workspace subscribers could see deleted-row PKs.
+\`REPLICA IDENTITY FULL\` is deliberately not enabled (full-row DELETE
+payloads would bloat WAL on the message-heavy tables), so do not rely on
+\`event: '*'\` for tenant-isolated streams.
+
+Polling \`tb.hub.read_channel\` remains the fallback when a Realtime
+connection is not available.
 
 ## Key Takeaways
 
