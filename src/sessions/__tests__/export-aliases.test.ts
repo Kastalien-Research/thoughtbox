@@ -114,4 +114,49 @@ describe("session export with project-level aliases", () => {
       missingThoughtNumbers: [],
     });
   });
+
+  it("export survives a malformed aliases.json (SPEC-003 REQ-008)", async () => {
+    const target = await storage.createSession({
+      title: "Target session",
+      tags: ["my-tag"],
+    });
+    await storage.saveThought(target.id, thought(1, "the referenced insight"));
+
+    const source = await storage.createSession({ title: "Source session" });
+    await storage.saveThought(
+      source.id,
+      thought(1, "this builds on @my-tag:S1 directly")
+    );
+
+    await fs.writeFile(aliasesPath(), "{not json");
+
+    const handlers = new SessionHandlers({
+      storage,
+      thoughtHandler: new ThoughtHandler(true, storage),
+    });
+
+    const result = await handlers.handleExport({
+      sessionId: source.id,
+      format: "json",
+    });
+
+    const exported = JSON.parse(result.content);
+    expect(exported.crossReferences.aliasConfigError).toMatch(
+      /Malformed aliases file/
+    );
+
+    // Anchors still resolve via the backend-agnostic tag strategy
+    expect(exported.crossReferences.anchorsFound).toBe(1);
+    expect(exported.crossReferences.resolved).toBe(1);
+
+    const [detail] = exported.crossReferences.details;
+    const [resolvedAnchor] = detail.anchors;
+    expect(resolvedAnchor.status).toBe("resolved");
+    expect(resolvedAnchor.candidates[0].matchReason).toBe("tag");
+    expect(resolvedAnchor.selected).toEqual({
+      sessionId: target.id,
+      thoughts: [{ thoughtNumber: 1, thought: "the referenced insight" }],
+      missingThoughtNumbers: [],
+    });
+  });
 });
