@@ -12,6 +12,10 @@ Deploy a multi-agent team that coordinates through Thoughtbox Hub.
 
 When the coordinator registers on the Hub before spawning agents, the spawn prompts naturally include Hub bootstrap instructions. When the coordinator skips Hub registration and goes straight to exploration, the spawn prompts omit Hub integration entirely. This command codifies the sequence that works.
 
+## Hub Surface
+
+The hub is exposed as `tb.hub.*` inside the `thoughtbox_execute` MCP tool (the only registered Thoughtbox MCP tools are `thoughtbox_search`, `thoughtbox_execute`, and `thoughtbox_peer_notebook`). Register once per MCP session; the returned agentId is implicit for every later hub call in that session. Submit at most ONE state-mutating hub call per `thoughtbox_execute` invocation; read-only calls (`tb.hub.whoami`, `tb.hub.listWorkspaces`, `tb.hub.readChannel`, `tb.hub.workspaceStatus`) may be freely chained.
+
 ## Prerequisites (VERIFY BEFORE ANYTHING ELSE)
 
 Before spawning ANY agent, verify these are true:
@@ -29,22 +33,29 @@ Execute these steps in this order. Do not skip ahead to exploration or spawning.
 
 ### 1. Register on the Hub
 
+```js
+// thoughtbox_execute
+async () => tb.hub.register({ name: "Coordinator", profile: "MANAGER" })
 ```
-thoughtbox_hub { operation: "register", args: { "name": "Coordinator", "profile": "MANAGER" } }
-```
+
+Do NOT re-register later in the session — coordinator role is bound to this agentId, and `tb.hub.mergeProposal` must run from this same session.
 
 ### 2. Create the workspace
 
-```
-thoughtbox_hub { operation: "create_workspace", args: { "name": "<branch-name>", "description": "<what we're doing and why>" } }
+```js
+async () => tb.hub.createWorkspace({ name: "<branch-name>", description: "<what we're doing and why>" })
 ```
 
 ### 3. Decompose into problems
 
-Create Hub problems with dependency chains.
+Create Hub problems with dependency chains (one mutation per `thoughtbox_execute` call).
 
+```js
+async () => tb.hub.createProblem({ workspaceId: "...", title: "...", description: "..." })
 ```
-thoughtbox_hub { operation: "create_problem", args: { "workspaceId": "...", "title": "...", "description": "..." } }
+
+```js
+async () => tb.hub.addDependency({ workspaceId: "...", problemId: "...", dependsOnProblemId: "..." })
 ```
 
 ### 4. Explore and research
@@ -58,32 +69,37 @@ Every agent spawn prompt MUST include the following as **Step 1**, before ANY im
 ```
 ## Step 1: Bootstrap Thoughtbox (DO THIS FIRST — before any code changes)
 
-Use ToolSearch to load mcp__thoughtbox__thoughtbox_hub AND mcp__thoughtbox__thoughtbox_gateway.
-Then run ALL FOUR of these calls:
+Use ToolSearch to load mcp__thoughtbox__thoughtbox_execute. All hub and thought
+operations are JavaScript against the `tb` SDK inside thoughtbox_execute — one
+state-mutating call per invocation. Run these in order:
 
-1. thoughtbox_hub { operation: "quick_join", args: { name: "<agent-name>", workspaceId: "<ID>", profile: "<PROFILE>" } }
-2. thoughtbox_gateway { operation: "cipher" }
-3. thoughtbox_gateway { operation: "thought", args: { content: "Starting work on <task description>" } }
-4. thoughtbox_hub { operation: "post_message", args: { problemId: "<ID>", content: "Joined and starting work on <task>" } }
+1. async () => tb.hub.quickJoin({ name: "<agent-name>", workspaceId: "<ID>", profile: "<PROFILE>" })
+2. async () => tb.thought({ thought: "Starting work on <task description>", thoughtType: "reasoning", nextThoughtNeeded: true })
+3. async () => tb.hub.postMessage({ workspaceId: "<ID>", problemId: "<ID>", content: "Joined and starting work on <task>" })
 
-DO NOT proceed to Step 2 until all four calls succeed. If any call fails, report the error.
+Also read the thoughtbox://cipher MCP resource for cipher notation.
+
+DO NOT proceed to Step 2 until all calls succeed. If any call fails, report the
+error. Do NOT re-register — that creates a new agentId.
 ```
 
 Additionally, throughout their work agents MUST:
-- Record key decisions as thoughts via `thoughtbox_gateway { operation: "thought" }`
-- Post progress updates to hub channels via `thoughtbox_hub { operation: "post_message" }`
-- Update problem status when claiming/completing work
+- Record key decisions as thoughts via `tb.thought(...)`
+- Post progress updates to hub channels via `tb.hub.postMessage(...)`
+- Update problem status when claiming/completing work (`tb.hub.claimProblem`, `tb.hub.updateProblem`)
 
 ### 6. Verification gate (MANDATORY — 90 seconds after spawn)
 
-After spawning all agents, wait 90 seconds, then verify hub integration:
+After spawning all agents, wait 90 seconds, then verify hub integration (both calls are read-only and may be chained in one `thoughtbox_execute`):
 
-```
-# Check workspace members — all agents should appear
-thoughtbox_hub { operation: "list_members", args: { workspaceId: "<ID>" } }
-
-# Check channel messages — each agent should have posted at least one
-thoughtbox_hub { operation: "read_channel", args: { workspaceId: "<ID>", problemId: "<first-problem-ID>" } }
+```js
+async () => {
+  // Workspace overview — all agents should appear
+  const status = await tb.hub.workspaceStatus({ workspaceId: "<ID>" });
+  // Channel messages — each agent should have posted at least one
+  const channel = await tb.hub.readChannel({ workspaceId: "<ID>", problemId: "<first-problem-ID>" });
+  return { status, channel };
+}
 ```
 
 **If ANY agent has NOT posted to the hub within 90 seconds:**
@@ -96,7 +112,7 @@ This gate is non-negotiable. The entire purpose of Agent Teams is hub coordinati
 
 ### 7. Monitor and coordinate
 
-Post coordination decisions to channels. Create consensus markers for architectural decisions. Review proposals from other agents.
+Post coordination decisions to channels. Create consensus markers for architectural decisions (`tb.hub.markConsensus`). Review proposals from other agents (`tb.hub.reviewProposal`).
 
 ### 8. Shutdown sequence
 
@@ -115,14 +131,14 @@ Before spawning, define testable hypotheses for what the run should produce. Doc
 
 ## Post-Run
 
-1. Record consensus on the Hub workspace
+1. Record consensus on the Hub workspace (`tb.hub.markConsensus` — `thoughtRef` is a thought number)
 2. Update hypotheses doc with results
 3. Note findings about the coordination process itself — these improve the next run
 
 ## Lessons from Previous Runs
 
 - **Run 003**: Used Task sub-agents instead of TeamCreate. Sub-agents have no inter-agent communication. Use TeamCreate.
-- **Run 004**: Agents lacked ToolSearch in tool whitelists. Hub/Gateway instructions in spawn prompts were impossible to follow. Fixed and committed at 09a6224.
+- **Run 004**: Agents lacked ToolSearch in tool whitelists. Hub instructions in spawn prompts were impossible to follow. Fixed and committed at 09a6224.
 - **Run 004**: Coordinator shut down first, stranding other teammates. Always shut down coordinator last.
 - **Run 004**: Hub integration not verified until late in the run. By then it was too late. Verify within 90 seconds.
 - **Run 004**: User's hand-edits to agent files were lost (uncommitted). Always commit agent definition changes before spawning.

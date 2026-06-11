@@ -17,6 +17,10 @@ Orchestrate a multi-agent audit of the codebase against 8 agent-native architect
 
 Single principle arguments: `action-parity`, `tools`, `context`, `shared-workspace`, `crud`, `ui`, `discovery`, `prompt-native`
 
+## Hub Surface
+
+The hub is exposed as `tb.hub.*` inside the `thoughtbox_execute` MCP tool (the only registered Thoughtbox MCP tools are `thoughtbox_search`, `thoughtbox_execute`, and `thoughtbox_peer_notebook`). Register once per MCP session — the returned agentId is implicit for every later hub call in that session, and coordinator role is bound to the registering agentId. Submit at most ONE state-mutating hub call per `thoughtbox_execute` invocation; read-only calls (`tb.hub.whoami`, `tb.hub.readChannel`, `tb.hub.workspaceDigest`, `tb.hub.listProposals`) may be freely chained.
+
 ## Architecture
 
 4 agents collaborate through a shared Hub workspace:
@@ -32,7 +36,7 @@ Sequential spawning (required per hub-collab findings) with 90-second verificati
 
 ## Structured Message Protocol
 
-All `post_message` content MUST use one of these typed prefixes. This is the coordination backbone.
+All `tb.hub.postMessage` content MUST use one of these typed prefixes. This is the coordination backbone.
 
 ```
 FINDING:  P<n> | HIGH|MEDIUM|LOW | <description with file:line refs>
@@ -151,94 +155,96 @@ Each auditor creates one proposal per principle problem:
 
 ### Phase 0: SETUP (Coordinator)
 
-```
-thoughtbox_hub { operation: "register", args: { name: "Audit-Coordinator", profile: "MANAGER" } }
+Each block below is JavaScript passed to `thoughtbox_execute` — one mutation per call.
+
+```js
+async () => tb.hub.register({ name: "Audit-Coordinator", profile: "MANAGER" })
 ```
 
-Record the agentId. Then create workspace:
+Record the agentId. Do NOT re-register later — coordinator role (including the Phase 5 merge) is bound to this identity and session. Then create workspace:
 
-```
-thoughtbox_hub { operation: "create_workspace", args: {
+```js
+async () => tb.hub.createWorkspace({
   name: "audit/<project-name>",
   description: "Agent-native architecture audit — 8 principles scored by 3 auditor agents with synthesizer"
-} }
+})
 ```
 
-Create 9 problems (P1-P8 for principles, P9 for synthesis):
+Create 9 problems (P1-P8 for principles, P9 for synthesis), one `tb.hub.createProblem` call each:
 
-```
-# P1 - Action Parity
-thoughtbox_hub { operation: "create_problem", args: {
+```js
+// P1 - Action Parity
+async () => tb.hub.createProblem({
   workspaceId: "<ID>",
   title: "P1: Action Parity — Can agents do everything users can?",
   description: "Enumerate ALL user actions (API calls, UI interactions). Check which have corresponding agent tools. Score: agent can do X out of Y user actions."
-} }
+})
 
-# P2 - Tools as Primitives
-thoughtbox_hub { operation: "create_problem", args: {
+// P2 - Tools as Primitives
+async () => tb.hub.createProblem({
   workspaceId: "<ID>",
   title: "P2: Tools as Primitives — Are tools atomic capabilities, not workflows?",
   description: "Find all agent tools. Classify each as PRIMITIVE (single capability) or WORKFLOW (embeds business logic). Score: X out of Y tools are proper primitives."
-} }
+})
 
-# P3 - Context Injection
-thoughtbox_hub { operation: "create_problem", args: {
+// P3 - Context Injection
+async () => tb.hub.createProblem({
   workspaceId: "<ID>",
   title: "P3: Context Injection — Does the system prompt include dynamic app state?",
   description: "Find context injection code. Check what dynamic state (resources, preferences, activity, capabilities) is injected vs what should be."
-} }
+})
 
-# P4 - Shared Workspace
-thoughtbox_hub { operation: "create_problem", args: {
+// P4 - Shared Workspace
+async () => tb.hub.createProblem({
   workspaceId: "<ID>",
   title: "P4: Shared Workspace — Do agents and users share the same data space?",
   description: "Identify all data stores. Check if agents read/write the SAME tables/stores as users. Flag sandbox isolation anti-patterns."
-} }
+})
 
-# P5 - CRUD Completeness
-thoughtbox_hub { operation: "create_problem", args: {
+// P5 - CRUD Completeness
+async () => tb.hub.createProblem({
   workspaceId: "<ID>",
   title: "P5: CRUD Completeness — Does every entity have full CRUD for agents?",
   description: "Identify all entities/models. For each, check agent tools for Create, Read, Update, Delete. Score per entity and overall."
-} }
+})
 
-# P6 - UI Integration
-thoughtbox_hub { operation: "create_problem", args: {
+// P6 - UI Integration
+async () => tb.hub.createProblem({
   workspaceId: "<ID>",
   title: "P6: UI Integration — Are agent actions immediately reflected in UI?",
   description: "Check how agent writes propagate to frontend. Look for streaming, polling, shared state, event buses. Flag silent action anti-patterns."
-} }
+})
 
-# P7 - Capability Discovery
-thoughtbox_hub { operation: "create_problem", args: {
+// P7 - Capability Discovery
+async () => tb.hub.createProblem({
   workspaceId: "<ID>",
   title: "P7: Capability Discovery — Can users discover what agents can do?",
   description: "Check 7 discovery mechanisms: onboarding, help docs, UI hints, self-description, suggested prompts, empty state guidance, slash commands."
-} }
+})
 
-# P8 - Prompt-Native Features
-thoughtbox_hub { operation: "create_problem", args: {
+// P8 - Prompt-Native Features
+async () => tb.hub.createProblem({
   workspaceId: "<ID>",
   title: "P8: Prompt-Native Features — Are features prompts, not code?",
   description: "Read agent prompts. Classify features as PROMPT-defined (outcomes in natural language) or CODE-defined (hardcoded logic). Check if behavior changes need code changes."
-} }
+})
 
-# P9 - Synthesis (depends on all above)
-thoughtbox_hub { operation: "create_problem", args: {
+// P9 - Synthesis (depends on all above)
+async () => tb.hub.createProblem({
   workspaceId: "<ID>",
   title: "P9: Synthesis — Compile final audit report",
   description: "Review all auditor proposals. Calibrate scores for cross-principle consistency. Compile the final Agent-Native Architecture Audit Report."
-} }
+})
 ```
 
-Add dependencies so P9 blocks until P1-P8 are resolved:
+Add dependencies so P9 blocks until P1-P8 are resolved (one call per dependency):
 
-```
-thoughtbox_hub { operation: "add_dependency", args: { workspaceId: "<ID>", problemId: "<P9_ID>", dependsOnId: "<P1_ID>" } }
-# ... repeat for P2-P8
+```js
+async () => tb.hub.addDependency({ workspaceId: "<ID>", problemId: "<P9_ID>", dependsOnProblemId: "<P1_ID>" })
+// ... repeat for P2-P8
 ```
 
-**Gate**: Verify with `workspace_digest` — 9 problems, P9 blocked by 8 dependencies.
+**Gate**: Verify with `tb.hub.workspaceDigest({ workspaceId: "<ID>" })` — 9 problems, P9 blocked by 8 dependencies.
 
 ### Phase 1: SPAWN AUDITORS (Sequential)
 
@@ -252,10 +258,10 @@ Spawn each auditor using the Agent tool with `subagent_type: "general-purpose"`.
 - `{{OTHER_PROBLEM_IDS}}`: P3, P4, P6, P7, P8 IDs (for cross-pollination read)
 
 Wait 90 seconds after spawn, then verify:
+```js
+async () => tb.hub.readChannel({ workspaceId: "<ID>", problemId: "<P1_ID>" })
 ```
-thoughtbox_hub { operation: "read_channel", args: { workspaceId: "<ID>", problemId: "<P1_ID>" } }
-```
-If no `STATUS: STARTED` message, send status query via `post_message`. Wait 30s more. If still nothing, kill and respawn.
+If no `STATUS: STARTED` message, send status query via `tb.hub.postMessage`. Wait 30s more. If still nothing, kill and respawn.
 
 **Auditor-B** (after A verified): P3, P4, P8. Same gate.
 **Auditor-C** (after B verified): P6, P7. Same gate.
@@ -266,7 +272,7 @@ If no `STATUS: STARTED` message, send status query via `post_message`. Wait 30s 
 
 While auditors work, the coordinator:
 
-1. **Polls `workspace_digest`** every 3 minutes to track problem status and message counts
+1. **Polls `tb.hub.workspaceDigest`** every 3 minutes to track problem status and message counts
 2. **Reads channels selectively** when digest shows new messages
 3. **Relays QUESTION messages** if addressed to an agent on a channel they don't own — copy the message to one of the addressee's problem channels
 4. **Detects stalls** — no messages from an auditor for 5 minutes → post status query to their channel
@@ -288,12 +294,12 @@ The Synthesizer (working autonomously):
 
 1. Reads all 8 problem channels for context and cross-references
 2. Lists and reads all auditor proposals
-3. Reviews each proposal via `review_proposal`:
+3. Reviews each proposal via `tb.hub.reviewProposal`:
    - Evidence supports the claimed score?
    - XREFs from other auditors incorporated?
    - Consistent with related principles?
-   - Verdict: `approve` or `request-changes` with reasoning
-4. Records per-principle consensus: `mark_consensus { name: "P<n> Score: X/Y", description: "<rationale>", thoughtRef: <N> }`
+   - Verdict: `approve` or `request-changes` with `reasoning`
+4. Records per-principle consensus: `tb.hub.markConsensus({ workspaceId: "<ID>", name: "P<n> Score: X/Y", description: "<rationale>", thoughtRef: <thought number> })`
 5. Creates compiled final report as proposal on P9
 6. Resolves P9
 
@@ -303,10 +309,12 @@ The Synthesizer (working autonomously):
 
 ### Phase 5: FINALIZE (Coordinator)
 
+These run from the coordinator's own session — the merge requires the coordinator identity registered in Phase 0.
+
 1. Read Synthesizer's proposal on P9
-2. Review proposal: `review_proposal` with verdict `approve`
-3. Mark final consensus: `mark_consensus { name: "Audit Complete", description: "All 8 principles scored and calibrated" }`
-4. Merge: `merge_proposal` for the P9 proposal
+2. Review proposal: `tb.hub.reviewProposal({ workspaceId: "<ID>", proposalId: "<P9 proposal>", verdict: "approve", reasoning: "<assessment>" })`
+3. Mark final consensus: `tb.hub.markConsensus({ workspaceId: "<ID>", name: "Audit Complete", description: "All 8 principles scored and calibrated", thoughtRef: <thought number> })`
+4. Merge: `tb.hub.mergeProposal({ workspaceId: "<ID>", proposalId: "<P9 proposal>", mergeMessage: "Final audit report merged" })`
 5. Extract the compiled report text and present to the user
 6. Shutdown: Synthesizer first, coordinator last
 
@@ -366,4 +374,4 @@ This runs in ~10 minutes vs ~30 minutes for the full audit.
 - ToolSearch in spawn prompts (Run 004: agents can't access MCP tools without it)
 - 90-second verification gate (deploy-team-hub: unverified agents waste the entire run)
 - Coordinator shuts down LAST (deploy-team-hub: shutting down first strands teammates)
-- Re-registering loses coordinator identity (hub-collab: creates new agentId)
+- Re-registering loses coordinator identity (hub-collab: creates new agentId; merge must run from the coordinator's session)

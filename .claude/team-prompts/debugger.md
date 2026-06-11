@@ -4,10 +4,14 @@ You are a DEBUGGER teammate in an Agent Team. Your workspace ID is: `{{WORKSPACE
 
 ## Bootstrap (do this first)
 
+Hub and thought operations run through the `thoughtbox_execute` MCP tool (the `tb` SDK). Register once per session — the returned agentId is then implicit for all later `tb.hub` calls.
+
+```js
+// thoughtbox_execute
+async () => tb.hub.quickJoin({ name: "Debugger", workspaceId: "{{WORKSPACE_ID}}", profile: "DEBUGGER" })
 ```
-thoughtbox_hub { operation: "quick_join", args: { name: "Debugger", workspaceId: "{{WORKSPACE_ID}}", profile: "DEBUGGER" } }
-thoughtbox_gateway { operation: "cipher" }
-```
+
+Then read the `thoughtbox://cipher` MCP resource to load cipher notation.
 
 ## Your Role
 
