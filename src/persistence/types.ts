@@ -585,6 +585,16 @@ export interface ThoughtboxStorage {
    */
   updateConfig(attrs: Partial<Config>): Promise<Config>;
 
+  /**
+   * Load project-level session aliases (SPEC-003 D3/REQ-006).
+   *
+   * Returns a keyword → sessionId map, or undefined when no aliases are
+   * configured. Backends without an alias configuration source (in-memory,
+   * Supabase — SPEC-003 only defines the project-local aliases.json file)
+   * return undefined. Throws if alias configuration exists but is malformed.
+   */
+  loadAliases(): Promise<Record<string, string> | undefined>;
+
   // ---------------------------------------------------------------------------
   // Session Operations
   // ---------------------------------------------------------------------------

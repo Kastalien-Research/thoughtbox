@@ -1,0 +1,33 @@
+{
+  "branch": "feat/supabase-hub-storage",
+  "summary": "Adds Supabase-backed hub coordination storage (SPEC-V1-INITIATIVE Phase 4.3). A new migration creates the hub_* tables with append-heavy children (channel messages, proposal reviews, consensus endorsements) normalized into rows, a version column for optimistic concurrency on the remaining aggregates, tenant_workspace_id scoping, and workspace-membership RLS policies; it also drops the never-written hub_events/hub_tasks/hub_workers tables. SupabaseHubStorage implements the HubStorage interface (extended with appendMessage/appendReview/appendEndorsement) and replaces the interim per-tenant filesystem scoping in multi-tenant mode; local mode keeps FileSystemHubStorage. database.types.ts is regenerated from the local stack, and src/protocol/handler.ts now passes the workspace_id the regenerated types require.",
+  "claims": [
+    {
+      "id": "c1",
+      "statement": "Hub state is durable in Supabase in hosted mode, and concurrent writers on different instances do not lose appends (messages, reviews, endorsements).",
+      "evidence_type": "test",
+      "evidence_path": "src/hub/__tests__/supabase-hub-storage.test.ts",
+      "evidence_description": "Two SupabaseHubStorage instances append 10 messages and 4 reviews concurrently with no lost writes; concurrent endorsements are all retained; a stale aggregate save throws instead of silently overwriting; a fresh instance reads the full state back from Postgres.",
+      "spec_claim_id": "SPEC-V1-INITIATIVE:c11"
+    },
+    {
+      "id": "c2",
+      "statement": "Tenant isolation: a SupabaseHubStorage scoped to one tenant workspace cannot see another tenant's hub workspaces, problems, or channels.",
+      "evidence_type": "test",
+      "evidence_path": "src/hub/__tests__/supabase-hub-storage.test.ts",
+      "evidence_description": "Two instances with different tenant_workspace_ids each see only their own hub workspaces; cross-tenant gets return null/empty.",
+      "spec_claim_id": "SPEC-V1-INITIATIVE:c11"
+    },
+    {
+      "id": "c3",
+      "statement": "FileSystemHubStorage still satisfies the full HubStorage contract, including the new append operations, for local single-writer mode.",
+      "evidence_type": "test",
+      "evidence_path": "src/hub/__tests__/supabase-hub-storage.test.ts",
+      "evidence_description": "The shared HubStorage contract suite runs against both backends; hub (218) and code-mode (41) suites pass.",
+      "spec_claim_id": "SPEC-V1-INITIATIVE:c11"
+    }
+  ],
+  "specs": [
+    "SPEC-V1-INITIATIVE"
+  ]
+}

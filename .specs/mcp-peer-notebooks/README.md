@@ -65,7 +65,15 @@ Its hard rule is: mocks are contract fixtures, not final substitutes.
 ## Remaining Delivery Units
 
 1. **Manifest Lifecycle And Notebook Graduation** (`thoughtbox-g5t`)
-   - Compile, approve, activate, retire, and enforce notebook-derived manifests.
+   - **Lifecycle delivered** (v1-initiative Phase 5.1, claim
+     SPEC-CONTROL-PLANE:c2): `peer_manifest_create` persists drafts,
+     `peer_manifest_approve` activates and retires the previously active
+     manifest, `peer_manifest_reject` finalizes drafts, and the broker blocks
+     non-active manifests naming their status. The built-in `claim-extractor`
+     bootstrap is the single documented active-out-of-the-box exception.
+     Approval is a plain operation in v1 (single-operator trust model).
+   - **Remaining**: notebook graduation — compile `peer.manifest.json` drafts
+     from real notebook source (v1-initiative Phase 5.4).
 
 2. **Web App Inspection Surface** (`thoughtbox-2ot`)
    - Peer registry/detail, invocation detail, denied-call trace timeline, and
@@ -113,9 +121,13 @@ Confirmed current capabilities:
   in-memory peer/manifest/invocation/trace/artifact repositories,
   Supabase peer/manifest/invocation/trace/artifact repository,
   `peer.invoke({ peerId, tool, args })`, a runtime provider interface, a mock
-  `claim-extractor` provider, broker-proxy allow/deny policy tests, and the
-  MCP-facing `thoughtbox_peer_notebook` surface for seed/invoke/read
-  operations.
+  `claim-extractor` provider, broker-proxy allow/deny policy tests, real broker
+  proxy targets (`thoughtbox.knowledge.queryGraph` and `thoughtbox.session.get`
+  wired to the real knowledge and session handlers via
+  `src/peer-notebook/proxy-targets.ts`, v1-initiative Phase 5.2; the `mayCall`
+  allowlist remains the only gate and absent handlers raise
+  `target_unavailable`), and the MCP-facing `thoughtbox_peer_notebook` surface
+  for seed/invoke/read operations.
 - Existing specs already point toward related directions:
   - `.specs/thoughtbox-v1-finalstretch/SPEC-NOTEBOOK-RLM.md`
   - `.specs/SPEC-SRC-002-preview-lifecycle.md`

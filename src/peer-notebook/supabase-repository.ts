@@ -47,6 +47,7 @@ type PeerManifestRow = {
   manifest_hash: string;
   status: string;
   compiled_from: JsonValue;
+  approved_at: string | null;
   created_at: string;
 };
 
@@ -162,6 +163,7 @@ export class SupabasePeerNotebookRepository implements PeerNotebookRepository {
         manifest_hash: manifest.manifestHash,
         status: manifest.status,
         compiled_from: manifest.compiledFrom,
+        approved_at: manifest.approvedAt,
         created_at: manifest.createdAt,
       }, { onConflict: "id" });
 
@@ -182,6 +184,20 @@ export class SupabasePeerNotebookRepository implements PeerNotebookRepository {
       throw new Error(`Failed to get peer manifest ${manifestId}: ${error.message}`);
     }
     return data ? this.rowToManifest(data as PeerManifestRow) : null;
+  }
+
+  async listManifests(workspaceId: string, peerRecordId: string): Promise<PeerManifestRecord[]> {
+    const { data, error } = await this.ensureClient()
+      .from("peer_manifests")
+      .select("*")
+      .eq("workspace_id", workspaceId)
+      .eq("peer_id", peerRecordId)
+      .order("version", { ascending: true });
+
+    if (error) {
+      throw new Error(`Failed to list peer manifests for peer ${peerRecordId}: ${error.message}`);
+    }
+    return ((data ?? []) as PeerManifestRow[]).map(row => this.rowToManifest(row));
   }
 
   async saveInvocation(invocation: PeerInvocationRecord): Promise<void> {
@@ -414,6 +430,7 @@ export class SupabasePeerNotebookRepository implements PeerNotebookRepository {
       manifestHash: row.manifest_hash,
       status: row.status as PeerManifestStatus,
       compiledFrom: row.compiled_from as PeerManifestRecord["compiledFrom"],
+      approvedAt: row.approved_at,
       createdAt: row.created_at,
     };
   }

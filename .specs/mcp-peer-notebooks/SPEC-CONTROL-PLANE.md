@@ -9,12 +9,12 @@ claims:
     statement: The peer broker is the sole externally visible authority for peer invocation and validates workspace, active manifest, tool schema, budgets, and outbound allowlists before runtime dispatch
     type: governance
     behavioral: false
-    required_evidence: SPEC-CONTROL-PLANE.md defines peer.invoke and the invocation flow with all listed checks before runtime provider invocation
+    required_evidence: SPEC-CONTROL-PLANE.md defines peer.invoke and the invocation flow with all listed checks before runtime provider invocation. Outbound governance is exercised against real targets by the v1-initiative Phase 5.2 slice. createBrokerProxyTargets (src/peer-notebook/proxy-targets.ts) registers thoughtbox.knowledge.queryGraph and thoughtbox.session.get against the real knowledge and session handlers, threaded from src/server-factory.ts through PeerNotebookHandler.proxyTargetDeps; the mayCall allowlist remains the only gate and absent handlers raise target_unavailable through the broker error path. Evidence is src/peer-notebook/__tests__/proxy-targets.test.ts (allowed calls return real handler data with an outbound_call_allowed trace, unlisted targets are denied with a denied_outbound_call trace, absent handlers fail the invocation with target_unavailable)
   - id: c2
     statement: Peer notebook manifests are externalized control-plane records compiled from peer.manifest.json, parsed as data without executing notebook code, and activated only by explicit approval
     type: governance
     behavioral: false
-    required_evidence: Manifest Source And Lifecycle section requires draft manifests, JSON-only parsing, and explicit approval before active dispatch
+    required_evidence: Implemented by the thoughtbox-g5t lifecycle slice. peer_manifest_create persists drafts; peer_manifest_approve activates and retires the previous active manifest; peer_manifest_reject finalizes drafts; the broker rejects non-active manifests naming their status. Evidence is src/peer-notebook/__tests__/manifest-lifecycle.test.ts plus the durable lifecycle test in src/peer-notebook/__tests__/supabase-repository.test.ts. The built-in claim-extractor bootstrap is the documented platform-owned exception (PLATFORM_BUILTIN_BOOTSTRAP_MANIFEST_STATUS in src/peer-notebook/handler.ts)
   - id: c3
     statement: Cloud Run remains the MCP API/control plane; peer execution runs in a separate execution plane behind a runtime provider contract
     type: governance
@@ -67,6 +67,36 @@ repository when an effective non-default workspace id is available from
 `SUPABASE_SERVICE_ROLE_KEY` are present; local tests keep the in-memory
 repository. The runtime provider remains the mock contract fixture for this
 slice.
+
+Implementation note: the `thoughtbox-g5t` manifest lifecycle slice implements
+the draft-to-active transitions on the `thoughtbox_peer_notebook` surface:
+`peer_manifest_create` compiles `peer.manifest.json` content into a
+`status='draft'` record (registering the peer if new), `peer_manifest_approve`
+transitions draft to active, sets `approved_at`, updates
+`peer_notebooks.active_manifest_id`, and retires the previously active
+manifest, `peer_manifest_reject` transitions draft to rejected, and
+`peer_manifest_list` reads versions and statuses. Both repositories persist
+transitions through the shared contract (`listManifests` added; no schema
+change — the existing `peer_manifests.status` and `approved_at` columns carry
+the lifecycle). The broker names the offending status when rejecting
+non-active manifests. The built-in `claim-extractor` bootstrap is the single
+documented exception that ships active out of the box
+(`PLATFORM_BUILTIN_BOOTSTRAP_MANIFEST_STATUS` in `src/peer-notebook/handler.ts`);
+approval is a plain operation in v1 (single-operator trust model, no roles).
+Notebook-source graduation (compiling drafts from real notebook cells) remains
+deferred to the graduation slice.
+
+Implementation note: the v1-initiative Phase 5.2 slice populates the broker
+proxy target map with real outbound handlers. `createBrokerProxyTargets`
+(`src/peer-notebook/proxy-targets.ts`) registers
+`thoughtbox.knowledge.queryGraph` (knowledge handler `query_graph`) and
+`thoughtbox.session.get` (session handler `get`), threaded from the server
+factory through `PeerNotebookHandler.proxyTargetDeps`. Targets are optional
+dependencies: when a backing handler is absent (for example, knowledge storage
+failed to initialize), the target raises a `target_unavailable` error through
+the broker's existing invocation error path instead of crashing. The `mayCall`
+allowlist and allow/deny trace machinery are unchanged and remain the only
+gate; the built-in claim-extractor manifest still allows only `artifact.get`.
 
 ## Non-Goals
 

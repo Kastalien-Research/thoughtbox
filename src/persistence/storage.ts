@@ -609,6 +609,14 @@ export class InMemoryStorage implements ThoughtboxStorage {
     return this.config;
   }
 
+  /**
+   * In-memory backend has no alias configuration source (SPEC-003 D3 defines
+   * aliases as a project-local file), so no aliases are ever configured.
+   */
+  async loadAliases(): Promise<Record<string, string> | undefined> {
+    return undefined;
+  }
+
   // ===========================================================================
   // Session Operations
   // ===========================================================================
