@@ -1,0 +1,115 @@
+# Prod migration health (SPEC-V1-INITIATIVE:c5)
+#
+# The Supabase branching GitHub integration is the prod migration applier:
+# on every push to main it applies pending supabase/migrations/ files to the
+# production project and deploys Edge Functions. It once sat in
+# MIGRATIONS_FAILED for weeks without anyone noticing, silently blocking all
+# migration delivery to prod. This workflow makes that state loud:
+#
+#   1. fails if the prod default branch is not in a healthy terminal state
+#   2. fails if prod's applied migration versions drift from the files on main
+#
+# Both checks always run (continue-on-error + final gate), so a single run
+# reports both failure modes — they coexisted in the Phase 0.2 incident.
+#
+# Requires: SUPABASE_ACCESS_TOKEN repo secret (sbp_ personal access token,
+# already used by staging-deploy.yml).
+
+name: Prod Migration Health
+
+on:
+  schedule:
+    - cron: "17 6 * * *"
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "supabase/migrations/**"
+
+permissions:
+  contents: read
+
+env:
+  PROD_PROJECT_REF: akjccuoncxlvrrtkvtno
+
+jobs:
+  check:
+    name: Branch status + ledger drift
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4.3.1
+        with:
+          persist-credentials: false
+
+      - name: Check prod default branch status
+        id: branch-status
+        continue-on-error: true
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        # Polls instead of a fixed sleep: on push the integration needs about
+        # 1-2 minutes (queueing or a heavy migration can take longer), and
+        # intermediate statuses (e.g. RUNNING_MIGRATIONS) must not be treated
+        # as failures. Polling also guarantees the drift check below runs
+        # only after the integration reached a terminal state.
+        run: |
+          set -euo pipefail
+          deadline=$((SECONDS + 420))
+          while :; do
+            status=$(curl -sf --max-time 30 -H "Authorization: Bearer ${SUPABASE_ACCESS_TOKEN}" \
+              "https://api.supabase.com/v1/projects/${PROD_PROJECT_REF}/branches" \
+              | jq -r '.[] | select(.is_default) | .status')
+            echo "Prod default branch status: ${status}"
+            case "${status}" in
+              FUNCTIONS_DEPLOYED|MIGRATIONS_PASSED)
+                echo "Healthy."
+                exit 0 ;;
+              MIGRATIONS_FAILED|FUNCTIONS_FAILED)
+                echo "::error::Prod Supabase branch is unhealthy (${status})." \
+                  "Migrations are NOT being delivered to prod." \
+                  "Inspect branch-action logs in the Supabase dashboard and" \
+                  "see SPEC-V1-INITIATIVE Phase 0.2 / 2 for the repair playbook."
+                exit 1 ;;
+              *)
+                if [ "${SECONDS}" -ge "${deadline}" ]; then
+                  echo "::error::Prod branch still in non-terminal state (${status}) after 7 minutes."
+                  exit 1
+                fi
+                echo "Non-terminal state; retrying in 20s..."
+                sleep 20 ;;
+            esac
+          done
+
+      - name: Check prod ledger vs migration files
+        id: ledger-drift
+        continue-on-error: true
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          set -euo pipefail
+          curl -sf --max-time 30 -H "Authorization: Bearer ${SUPABASE_ACCESS_TOKEN}" \
+            "https://api.supabase.com/v1/projects/${PROD_PROJECT_REF}/database/migrations" \
+            | jq -r '.[].version' | sort > /tmp/prod-versions.txt
+          find supabase/migrations -name '*.sql' \
+            | sed 's|.*/\([0-9]*\)_.*|\1|' | sort > /tmp/repo-versions.txt
+          if diff -u /tmp/prod-versions.txt /tmp/repo-versions.txt > /tmp/drift.txt; then
+            echo "No drift: $(wc -l < /tmp/repo-versions.txt | tr -d ' ') versions match."
+          else
+            echo "::error::Prod migration ledger has drifted from supabase/migrations/ on main."
+            echo "Lines starting with '-' are prod-only versions (file missing from repo);"
+            echo "lines starting with '+' are repo files not applied to prod."
+            cat /tmp/drift.txt
+            exit 1
+          fi
+
+      - name: Fail if any check failed
+        if: steps.branch-status.outcome == 'failure' || steps.ledger-drift.outcome == 'failure'
+        env:
+          BRANCH_STATUS_OUTCOME: ${{ steps.branch-status.outcome }}
+          LEDGER_DRIFT_OUTCOME: ${{ steps.ledger-drift.outcome }}
+        run: |
+          echo "::error::Prod migration health failed:" \
+            "branch-status=${BRANCH_STATUS_OUTCOME}," \
+            "ledger-drift=${LEDGER_DRIFT_OUTCOME}"
+          exit 1
