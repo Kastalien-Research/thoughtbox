@@ -20,7 +20,10 @@ import {
 } from "./persistence/index.js";
 import { SupabaseKnowledgeStorage } from "./knowledge/index.js";
 import type { KnowledgeStorage } from "./knowledge/types.js";
-import { createFileSystemHubStorage } from "./hub/hub-storage-fs.js";
+import {
+  createFileSystemHubStorage,
+  createTenantHubStorageProvider,
+} from "./hub/hub-storage-fs.js";
 import type { HubStorage } from "./hub/hub-types.js";
 import { initEvaluation, initMonitoring } from "./evaluation/index.js";
 import { createHubHandler, type HubEvent } from "./hub/hub-handler.js";
@@ -166,6 +169,12 @@ interface SessionEntry {
 
 async function startHttpServer() {
   const { factory, hubStorage, dataDir } = await createStorage();
+
+  // Multi-tenant hub isolation: each tenant workspace gets its own hub
+  // storage root, so tb.hub can never enumerate or read another tenant's
+  // workspaces/channels. The shared `hubStorage` is local-mode only.
+  // SupabaseHubStorage (Phase 4.3) replaces this with row-level scoping.
+  const tenantHubStorage = createTenantHubStorageProvider(dataDir);
 
   // Initialize LangSmith evaluation tracing (no-op if LANGSMITH_API_KEY not set)
   const traceListener = initEvaluation();
@@ -313,6 +322,16 @@ async function startHttpServer() {
     try {
       // --- Multi-tenant (Supabase) mode: per-session servers ---
       if (isMultiTenant) {
+        if (!workspaceId) {
+          // Auth above guarantees a workspaceId in multi-tenant mode; this
+          // guard keeps that invariant explicit and fails fast if it breaks.
+          res.status(401).json({
+            jsonrpc: "2.0",
+            error: { code: -32001, message: "Authenticated request resolved no workspace" },
+            id: null,
+          });
+          return;
+        }
         if (mcpSessionId && sessions.has(mcpSessionId)) {
           const entry = sessions.get(mcpSessionId)!;
 
@@ -341,7 +360,8 @@ async function startHttpServer() {
         const server = await createMcpServer({
           sessionId,
           storage,
-          hubStorage,
+          // Tenant-scoped: never the process-shared local hub storage.
+          hubStorage: tenantHubStorage(workspaceId),
           dataDir,
           knowledgeStorage,
           workspaceId,
