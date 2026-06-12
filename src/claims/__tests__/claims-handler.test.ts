@@ -5,10 +5,13 @@
  * subscription registry. Runs over InMemoryClaimStorage.
  */
 
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { createClaimsHandler, type ClaimsHandler } from '../claims-handler.js';
 import { InMemoryClaimStorage } from '../in-memory-claim-storage.js';
 import type { Claim } from '../types.js';
+import { thoughtEmitter, type ThoughtEmitterEvents } from '../../events/index.js';
+
+const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 const WS = 'ws-test';
 const ALICE = 'agent-alice';
@@ -372,6 +375,198 @@ describe('ClaimsHandler', () => {
       await expect(
         handler.handle(null, 'affected', { claimId: 'claim-missing' }),
       ).rejects.toThrow(/Claim not found/);
+    });
+  });
+
+  describe('staleness primitives (B3)', () => {
+    it('verify reports current status per id and found:false for missing ids', async () => {
+      const alive = await assertClaim('still standing');
+      const dead = await assertClaim('will be invalidated');
+      await handler.handle(BOB, 'invalidate', { claimId: dead.id });
+      const replaced = await assertClaim('will be superseded');
+      const { replacement } = (await handler.handle(BOB, 'supersede', {
+        claimId: replaced.id,
+        statement: 'the replacement',
+      })) as { replacement: Claim };
+
+      // verify is read-only: works with a null identity
+      const result = (await handler.handle(null, 'verify', {
+        ids: [alive.id, dead.id, replaced.id, 'claim-missing'],
+      })) as { results: Array<Record<string, unknown>>; count: number };
+
+      expect(result.count).toBe(4);
+      expect(result.results).toEqual([
+        {
+          claimId: alive.id,
+          found: true,
+          status: 'asserted',
+          statusChangedAt: alive.statusChangedAt,
+        },
+        {
+          claimId: dead.id,
+          found: true,
+          status: 'invalidated',
+          statusChangedAt: expect.any(String),
+        },
+        {
+          claimId: replaced.id,
+          found: true,
+          status: 'superseded',
+          statusChangedAt: expect.any(String),
+          supersededBy: replacement.id,
+        },
+        { claimId: 'claim-missing', found: false },
+      ]);
+    });
+
+    it('verify rejects an empty id list', async () => {
+      await expect(handler.handle(null, 'verify', { ids: [] })).rejects.toThrow();
+    });
+
+    it('verify collapses duplicate ids to one entry in first-occurrence order', async () => {
+      const claim = await assertClaim('checked twice');
+
+      const result = (await handler.handle(null, 'verify', {
+        ids: [claim.id, 'claim-missing', claim.id, 'claim-missing'],
+      })) as { results: Array<Record<string, unknown>>; count: number };
+
+      expect(result.count).toBe(2);
+      expect(result.results).toEqual([
+        {
+          claimId: claim.id,
+          found: true,
+          status: 'asserted',
+          statusChangedAt: claim.statusChangedAt,
+        },
+        { claimId: 'claim-missing', found: false },
+      ]);
+    });
+
+    it('statusChangedAt moves on transitions but not on evidence-only appends', async () => {
+      const claim = await assertClaim();
+      expect(claim.statusChangedAt).toBe(claim.createdAt);
+
+      await sleep(15);
+      const supported = (await handler.handle(BOB, 'support', {
+        claimId: claim.id,
+        evidenceRefs: ['ref-1'],
+      })) as Claim;
+      expect(supported.statusChangedAt > claim.statusChangedAt).toBe(true);
+
+      await sleep(15);
+      const appended = (await handler.handle(BOB, 'support', {
+        claimId: claim.id,
+        evidenceRefs: ['ref-2'],
+      })) as Claim;
+      // Evidence append without a status transition: updatedAt moves,
+      // statusChangedAt does not.
+      expect(appended.statusChangedAt).toBe(supported.statusChangedAt);
+      expect(appended.updatedAt > supported.updatedAt).toBe(true);
+    });
+
+    it('changed_since returns transitions strictly after the cutoff', async () => {
+      const untouched = await assertClaim('asserted before the cutoff');
+      const invalidated = await assertClaim('invalidated after the cutoff');
+      await sleep(15);
+      const cutoff = new Date().toISOString();
+      await sleep(15);
+      await handler.handle(BOB, 'invalidate', { claimId: invalidated.id });
+
+      const digest = (await handler.handle(null, 'changed_since', {
+        since: cutoff,
+      })) as { claims: Claim[]; count: number; since: string };
+      expect(digest.since).toBe(cutoff);
+      expect(digest.count).toBe(1);
+      expect(digest.claims[0]!.id).toBe(invalidated.id);
+      expect(digest.claims[0]!.status).toBe('invalidated');
+
+      const everything = (await handler.handle(null, 'changed_since', {
+        since: '1970-01-01T00:00:00Z',
+        workspaceId: WS,
+      })) as { claims: Claim[] };
+      expect(new Set(everything.claims.map(c => c.id))).toEqual(
+        new Set([untouched.id, invalidated.id]),
+      );
+
+      const otherWorkspace = (await handler.handle(null, 'changed_since', {
+        since: '1970-01-01T00:00:00Z',
+        workspaceId: 'ws-other',
+      })) as { count: number };
+      expect(otherWorkspace.count).toBe(0);
+    });
+
+    it('changed_since rejects a non-timestamp since', async () => {
+      await expect(
+        handler.handle(null, 'changed_since', { since: 'yesterday-ish' }),
+      ).rejects.toThrow(/ISO 8601/);
+    });
+  });
+
+  describe('claim:status emission (B3 in-process propagation)', () => {
+    let events: Array<ThoughtEmitterEvents['claim:status']>;
+    const listener = (event: ThoughtEmitterEvents['claim:status']): void => {
+      events.push(event);
+    };
+
+    beforeEach(() => {
+      events = [];
+      thoughtEmitter.on('claim:status', listener);
+    });
+
+    afterEach(() => {
+      thoughtEmitter.off('claim:status', listener);
+    });
+
+    it('invalidate emits old → new status with actor and workspace', async () => {
+      const claim = await assertClaim();
+      expect(events).toEqual([]); // creation is not a transition
+
+      await handler.handle(BOB, 'invalidate', { claimId: claim.id });
+      expect(events).toEqual([
+        {
+          claimId: claim.id,
+          oldStatus: 'asserted',
+          newStatus: 'invalidated',
+          actor: BOB,
+          workspaceId: WS,
+        },
+      ]);
+
+      // Idempotent re-invalidation does not re-emit.
+      await handler.handle(BOB, 'invalidate', { claimId: claim.id });
+      expect(events).toHaveLength(1);
+    });
+
+    it('support emits only on the asserted → supported transition', async () => {
+      const claim = await assertClaim();
+      await handler.handle(BOB, 'support', { claimId: claim.id, evidenceRefs: ['ref-1'] });
+      expect(events).toEqual([
+        {
+          claimId: claim.id,
+          oldStatus: 'asserted',
+          newStatus: 'supported',
+          actor: BOB,
+          workspaceId: WS,
+        },
+      ]);
+
+      // Evidence append without a transition stays silent.
+      await handler.handle(BOB, 'support', { claimId: claim.id, evidenceRefs: ['ref-2'] });
+      expect(events).toHaveLength(1);
+    });
+
+    it('supersede emits one event, for the superseded claim only', async () => {
+      const old = await assertClaim('the old way');
+      await handler.handle(BOB, 'supersede', { claimId: old.id, statement: 'the new way' });
+      expect(events).toEqual([
+        {
+          claimId: old.id,
+          oldStatus: 'asserted',
+          newStatus: 'superseded',
+          actor: BOB,
+          workspaceId: WS,
+        },
+      ]);
     });
   });
 

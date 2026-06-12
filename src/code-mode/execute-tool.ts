@@ -249,6 +249,8 @@ const CLAIMS_SDK_METHODS: Record<string, string> = {
   subscribe: "subscribe",
   unsubscribe: "unsubscribe",
   query: "query",
+  verify: "verify",
+  changedSince: "changed_since",
   affected: "affected",
 };
 

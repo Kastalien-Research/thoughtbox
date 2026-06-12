@@ -209,6 +209,8 @@ describe('Claims tool wiring — search catalog discoverability', () => {
       'subscribe',
       'unsubscribe',
       'query',
+      'verify',
+      'changed_since',
       'affected',
     ]);
   });

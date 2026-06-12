@@ -14,6 +14,7 @@
 
 import { EventEmitter } from "events";
 import type { Thought, Session } from "./thought-schemas.js";
+import type { ClaimStatus } from "../claims/types.js";
 
 /**
  * Agent role type for multi-agent collaboration
@@ -128,6 +129,21 @@ export type ThoughtEmitterEvents = {
     type: string;
     workspaceId: string;
     data: Record<string, unknown>;
+  };
+  /**
+   * Claim graph propagation (SPEC-AGX-SUBSTRATE B3): a claim's status
+   * transitioned. In local/in-memory mode this emitter IS the delivery
+   * channel (B6 binds awaiting runbook cells to it); in Supabase mode the
+   * same signal also rides the supabase_realtime publication.
+   */
+  "claim:status": {
+    claimId: string;
+    oldStatus: ClaimStatus;
+    newStatus: ClaimStatus;
+    /** Hub agentId that caused the transition. */
+    actor: string;
+    /** Hub workspace the claim belongs to. */
+    workspaceId: string;
   };
   /**
    * Monitoring alerts from the evaluation system (SPEC-EVAL-001, Layer 5)
@@ -332,6 +348,17 @@ export class ThoughtEmitter extends EventEmitter {
    */
   emitMonitoringAlert(data: ThoughtEmitterEvents["monitoring:alert"]): void {
     this.safeEmit("monitoring:alert", data);
+  }
+
+  /**
+   * Emit a claim:status event for a claim status transition
+   * SPEC: SPEC-AGX-SUBSTRATE, B3
+   *
+   * Fire-and-forget: This method returns immediately.
+   * Listener errors are logged but never propagate.
+   */
+  emitClaimStatus(data: ThoughtEmitterEvents["claim:status"]): void {
+    this.safeEmit("claim:status", data);
   }
 
   /**

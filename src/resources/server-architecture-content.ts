@@ -443,7 +443,11 @@ not exist on the deployed server.
 
 **Published tables** (in the \`supabase_realtime\` publication):
 \`hub_channel_messages\`, \`hub_workspaces\`, \`hub_problems\`, \`hub_proposals\`,
-\`hub_proposal_reviews\`, \`hub_consensus_markers\`, \`hub_consensus_endorsements\`.
+\`hub_proposal_reviews\`, \`hub_consensus_markers\`, \`hub_consensus_endorsements\`,
+and \`claims\` (claim status transitions, SPEC-AGX-SUBSTRATE B3 — subscribe to
+\`event: 'UPDATE'\`; \`claim_edges\`/\`claim_subscriptions\` are deliberately not
+published, and agents should prefer the pull primitives \`tb.claims.verify\`
+and \`tb.claims.changed_since\` over a standing subscription).
 
 **Authorization is RLS.** Clients subscribe with the Supabase anon key plus
 their own auth session; Realtime delivers only rows the subscriber's

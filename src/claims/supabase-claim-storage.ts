@@ -75,6 +75,7 @@ export class SupabaseClaimStorage implements ClaimStorage {
       ...(row.superseded_by !== null ? { supersededBy: row.superseded_by } : {}),
       createdAt: toIso(row.created_at),
       updatedAt: toIso(row.updated_at),
+      statusChangedAt: toIso(row.status_changed_at),
     };
     this.versions.set(claim, row.version);
     return claim;
@@ -91,6 +92,33 @@ export class SupabaseClaimStorage implements ClaimStorage {
     return data ? this.rowToClaim(data) : null;
   }
 
+  async getClaims(claimIds: string[]): Promise<Claim[]> {
+    if (claimIds.length === 0) return [];
+    const { data, error } = await this.client
+      .from('claims')
+      .select()
+      .in('id', claimIds)
+      .eq('tenant_workspace_id', this.tenantWorkspaceId)
+      .order('created_at', { ascending: true })
+      .order('id', { ascending: true });
+    if (error) this.fail('getClaims', error.message);
+    return (data ?? []).map(row => this.rowToClaim(row));
+  }
+
+  async claimsChangedSince(since: string, workspaceId?: string): Promise<Claim[]> {
+    let request = this.client
+      .from('claims')
+      .select()
+      .eq('tenant_workspace_id', this.tenantWorkspaceId)
+      .gt('status_changed_at', since);
+    if (workspaceId) request = request.eq('workspace_id', workspaceId);
+    const { data, error } = await request
+      .order('status_changed_at', { ascending: true })
+      .order('id', { ascending: true });
+    if (error) this.fail('claimsChangedSince', error.message);
+    return (data ?? []).map(row => this.rowToClaim(row));
+  }
+
   async saveClaim(claim: Claim): Promise<void> {
     const fields = {
       statement: claim.statement,
@@ -98,6 +126,7 @@ export class SupabaseClaimStorage implements ClaimStorage {
       evidence_refs: claim.evidenceRefs as unknown as Json,
       superseded_by: claim.supersededBy ?? null,
       updated_at: claim.updatedAt,
+      status_changed_at: claim.statusChangedAt,
     };
     const expected = this.versions.get(claim);
     if (expected === undefined) {

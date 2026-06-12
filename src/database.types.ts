@@ -237,6 +237,7 @@ export type Database = {
           id: string
           statement: string
           status: string
+          status_changed_at: string
           superseded_by: string | null
           tenant_workspace_id: string
           type: string
@@ -251,6 +252,7 @@ export type Database = {
           id: string
           statement: string
           status?: string
+          status_changed_at?: string
           superseded_by?: string | null
           tenant_workspace_id: string
           type: string
@@ -265,6 +267,7 @@ export type Database = {
           id?: string
           statement?: string
           status?: string
+          status_changed_at?: string
           superseded_by?: string | null
           tenant_workspace_id?: string
           type?: string
