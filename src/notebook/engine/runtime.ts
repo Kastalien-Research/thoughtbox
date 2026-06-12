@@ -23,11 +23,11 @@ import {
   type ExpectationRecord,
 } from "../contracts.js";
 import {
-  hashTemplateCells,
   type FitnessLedgerRow,
   type RunbookStorage,
   type RunbookTemplateCell,
 } from "../runbook/types.js";
+import { ensureTemplateVersion } from "../runbook/template-versioning.js";
 import { InMemoryRunbookStorage } from "../runbook/in-memory-runbook-storage.js";
 import { hashJson } from "../../peer-notebook/manifest.js";
 
@@ -349,23 +349,16 @@ export class InMemoryNotebookEngineRuntime {
     const { runId, notebookId, startedAt, inputs, evidence, records, outputsRef } = args;
     const cells =
       this.templateCellSource?.(notebookId) ?? templateCellsFromEvidence(evidence);
-    const cellsHash = hashTemplateCells(cells);
 
-    const latest = await this.storage.getLatestTemplate(notebookId);
-    let templateVersion: number;
-    if (latest && latest.cellsHash === cellsHash) {
-      templateVersion = latest.version;
-    } else {
-      templateVersion = (latest?.version ?? 0) + 1;
-      await this.storage.saveTemplate({
-        templateId: notebookId,
-        version: templateVersion,
-        cells,
-        cellsHash,
-        createdBy: this.agentId,
-        createdAt: new Date().toISOString(),
-      });
-    }
+    // Concurrency-safe: a lost saveTemplate race against a concurrent run of
+    // the same notebook reuses the winner's just-written version instead of
+    // failing this run (Greptile PR #401 — TOCTOU in template versioning).
+    const template = await ensureTemplateVersion(this.storage, {
+      templateId: notebookId,
+      cells,
+      createdBy: this.agentId,
+    });
+    const templateVersion = template.version;
 
     await this.storage.createInstance({
       instanceId: runId,

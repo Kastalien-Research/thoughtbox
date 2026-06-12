@@ -364,6 +364,39 @@ function runRunbookStorageContract(
       ]),
     ).rejects.toThrow();
   });
+
+  it("rejects ledger rows for missing instances or mismatched template pinning", async ({
+    skip,
+  }) => {
+    if (!isAvailable()) skip();
+    const { storage } = ctx();
+    const template = makeTemplate(`rbt-${randomUUID()}`);
+    await storage.saveTemplate(template);
+    const instance = makeInstance(template);
+    await storage.createInstance(instance);
+
+    // Unknown instance — the instance_id FK (InMemory: explicit check).
+    await expect(
+      storage.appendFitnessRows([makeLedgerRow(template, `rbi-${randomUUID()}`)]),
+    ).rejects.toThrow();
+
+    // The denormalized (templateId, templateVersion) must match the
+    // instance's pinning even when the other version EXISTS as a template —
+    // migration 20260612130000's composite FK / the InMemory pinning check.
+    const v2 = makeTemplate(template.templateId, 2, [
+      ...makeTemplateCells(),
+      { cellId: "extra", cellType: "code", filename: "extra.js", source: "2" },
+    ]);
+    await storage.saveTemplate(v2);
+    await expect(
+      storage.appendFitnessRows([makeLedgerRow(v2, instance.instanceId)]),
+    ).rejects.toThrow();
+
+    // A matching row is still accepted, and nothing from the rejected
+    // batches leaked into the ledger.
+    await storage.appendFitnessRows([makeLedgerRow(template, instance.instanceId)]);
+    expect(await storage.listFitnessRows(template.templateId)).toHaveLength(1);
+  });
 }
 
 // =============================================================================
