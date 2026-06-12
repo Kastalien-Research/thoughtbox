@@ -1,0 +1,17 @@
+{
+  "branch": "docs/spec-agx-substrate",
+  "summary": "Adds SPEC-AGX-SUBSTRATE, the draft architecture spec synthesizing the 2026-06-11 AgX design sessions: a claim graph (typed claims with dependency edges and explicit subscriptions, propagated via the existing hub Realtime publication), reactive runbooks (versioned prose+code templates with typed outcome contracts, append-only instances, pull-based advancement where an awaiting cell is a claim subscription), and the existing SPEC-CONTROL-PLANE broker as the governed execution layer under both, joined by a fitness-gated graduation pipeline that evolves proven runbook behaviors into governed capabilities. The spec includes a build inventory with relative complexity (B1-B11, predominantly M-sized, two deferred-XL items), five discriminating experiments (H1-H5) with protocols and success criteria, binding design principles derived from the AgX findings (instrumentation-not-discipline, reader-before-writer, mediate-the-trust-boundary-not-the-body, pull-not-push, typed-outcomes-only), and explicit non-goals (no Bash removal, no workflow engine, no semantic routing in v0). Prior specs are treated as idea sources, not authority; adopted ideas are argued on merit.",
+  "claims": [
+    {
+      "id": "c1",
+      "statement": "SPEC-AGX-SUBSTRATE exists as a draft spec with schema-valid frontmatter claims (c1-c10), a build inventory with complexity ratings, and an experiment plan with success criteria.",
+      "evidence_type": "doc",
+      "evidence_path": ".specs/agx/SPEC-AGX-SUBSTRATE.md",
+      "evidence_description": "Spec document with 10 frontmatter claims conforming to .schemas/spec-v1.json, sections 8 (build inventory B1-B11 with S/M/L/XL ratings and risk) and 9 (experiments H1-H5 with protocols, success criteria, and dependencies).",
+      "spec_claim_id": "SPEC-AGX-SUBSTRATE:c1"
+    }
+  ],
+  "specs": [
+    "SPEC-AGX-SUBSTRATE"
+  ]
+}
