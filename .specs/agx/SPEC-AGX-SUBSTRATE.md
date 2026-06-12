@@ -231,6 +231,35 @@ verify ledger" manually from prose JSON, leaving no durable record. As a runbook
 `await` cells on workflow-conclusion claims, `exec` cells for cleanup via `gh`/`git` targets,
 `assert` cells on ledger state. This is Experiment H2's substrate.
 
+### 5.1 Outcome contract (adopted design, 2026-06-12 — implemented by B4a)
+
+1. **Per-cell contracts, document verdict derived.** An exec/code cell may declare an outcome
+   contract. The document verdict passes iff every declared expectation was evaluated and
+   passed (a procedurally failed cell still fails the run). A runbook with zero declared
+   contracts keeps its procedural verdict but carries `contractCoverage: 0` and a reason
+   stating "procedural completion only — no outcome contracts declared", so fitness (B9)
+   excludes contract-less runs from pass-rates.
+2. **Two tiers.** Tier 1 is pure data — `{ source, op, value }` with source ∈ { exitCode,
+   output (RFC 6901 JSON pointer into the cell's structured output), artifact ref,
+   claim-status } and op ∈ { eq, ne, lt, lte, gt, gte, matches, schema (minimal JSON Schema
+   subset) } — validated with zod on the compile path (authored data, not Effect Schema).
+   Claim-status resolution sits behind a narrow injected resolver interface; unwired it yields
+   an `error` result ("claim resolver not wired") until the claims layer merges. Tier 2 is the
+   existing validator-cell machinery (validatorFor, snapshot+hash), mechanics unchanged, with
+   verdicts mapped into the same per-expectation record model tagged `tier: 2` so future
+   fitness gating (negative controls) can discriminate.
+3. **Binding at authoring, hash-checked at run** (Ulysses pattern): contracts compile
+   parse-only (extract → zod → canonicalize → sha256, mirroring `peer.manifest.json`); the
+   hash is re-verified before any cell executes; mismatch = tampering = run rejected with a
+   distinct error.
+4. **Result semantics:** per-expectation result ∈ { pass, fail, error, skipped }. error =
+   could not evaluate; fail = evaluated false; skipped = cell never reached. skipped and error
+   are never pass. Verdict evidence carries per-expectation records
+   (cellId, expectation, tier, result, expected, actual-or-error).
+5. **Actuals from declared channels only:** exit code, JSON pointer into the structured output
+   the cell writes to its `TB_OUTPUT_PATH` sidecar (the validator env-var-to-sidecar pattern),
+   or artifact ref. Free-text stdout is never scraped.
+
 ## 6. Layer 3: Governed Capability Plane (EXISTS — deltas only)
 
 SPEC-CONTROL-PLANE delivered the broker (sole invocation authority; manifest, schema, budget,
@@ -281,7 +310,8 @@ Phases 4+5 (≈9 M-units) shipped in about a week of agent-team time.
 | B1 | Claim graph schema + storage + RLS migration | hub-table pattern (#377) | **M** | Low | Contract-suite-first; Supabase implementation first (§11.5); FS backend gated on H1/H2 passing |
 | B2 | `tb.claims.*` Code Mode surface | catalog/execute infra | **S** | Low | Mechanical once B1 lands |
 | B3 | Subscription registry + Realtime propagation + `affected` traversal | #380 publication | **M** | Med | Delivery split by subscriber type (§11.1): push to cells, staleness-check/digest for agents; depends on #393 for web clients |
-| B4 | Runbook template/instance model + typed outcome schema | notebook subsystem, agentic-runbooks spec | **M** | Med | The outcome-contract design is the load-bearing decision |
+| B4a | Typed outcome-contract schema + honest verdict derivation | notebook subsystem, agentic-runbooks spec | **M** | Med | The load-bearing decision; adopted design recorded in §5.1 |
+| B4b | Durable run/instance persistence + fitness ledger rows | B4a | **M** | Med | Discovered gap: NotebookRun is in-memory only; instances must become append-only durable records |
 | B5 | Ordered execution + append-only instance enforcement | B4 | **S/M** | Low | Reject, don't warn |
 | B6 | `await` cell ↔ claim subscription binding + runnable marking | B3+B4 | **M** | Med | The novel integration; nothing like it exists yet |
 | B7 | Brokered `exec`-cell execution (generalize broker beyond peers) | SPEC-CONTROL-PLANE broker | **M/L** | Med | Authority model resolved to manifest reuse (§11.2): approved templates carry declared authority; drafts run under declared ∩ executor |
@@ -294,11 +324,11 @@ Phases 4+5 (≈9 M-units) shipped in about a week of agent-team time.
 | — | Durable suspended execution | — | **XL** | — | Explicitly rejected (Principle 5) |
 | — | Production isolation runtime (smolvm) | SPEC-CONTROL-PLANE | **L** | — | Already tracked separately (thoughtbox-vdw) |
 
-**v0 testbed total: B1–B11 ≈ 10 units, predominantly M** — comparable to the Phase 4+5 block
+**v0 testbed total: B1–B11 ≈ 11 units, predominantly M** — comparable to the Phase 4+5 block
 just shipped. The decision that deserves the most design attention before code is the
-outcome-contract schema (B4); the cell execution authority model (B7) is resolved in
-principle (§11.2) but its manifest-reuse design should be validated against the actual
-compilation path before implementation.
+outcome-contract schema (B4a, adopted in §5.1); the cell execution authority model (B7) is
+resolved in principle (§11.2) but its manifest-reuse design should be validated against the
+actual compilation path before implementation.
 
 ## 9. Experiments — What We Are Trying to Test
 
