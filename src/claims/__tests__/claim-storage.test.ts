@@ -12,6 +12,7 @@
 
 import { describe, it, expect, beforeAll, beforeEach } from 'vitest';
 import { randomUUID } from 'node:crypto';
+import { createClaimsHandler } from '../claims-handler.js';
 import { InMemoryClaimStorage } from '../in-memory-claim-storage.js';
 import { SupabaseClaimStorage } from '../supabase-claim-storage.js';
 import { SupabaseHubStorage } from '../../hub/supabase-hub-storage.js';
@@ -106,6 +107,31 @@ function runClaimStorageContract(
     const reloaded = await storage.getClaim(full.id);
     expect(reloaded!.status).toBe('superseded');
     expect(reloaded!.supersededBy).toBe(minimal.id);
+  });
+
+  it('getClaims batch-fetches by id, preserving input order and skipping missing ids', async ({ skip }) => {
+    if (!isAvailable()) skip();
+    const { storage, workspaceId } = ctx();
+
+    const first = makeClaim(workspaceId, { statement: 'first claim' });
+    const second = makeClaim(workspaceId, { statement: 'second claim' });
+    const third = makeClaim(workspaceId, { statement: 'third claim' });
+    await storage.saveClaim(first);
+    await storage.saveClaim(second);
+    await storage.saveClaim(third);
+
+    expect(await storage.getClaims([])).toEqual([]);
+    expect(await storage.getClaims([third.id, 'claim-missing', first.id])).toEqual([
+      third,
+      first,
+    ]);
+
+    // Instances read through getClaims carry CAS versions like getClaim.
+    const [view] = await storage.getClaims([second.id]);
+    view!.status = 'supported';
+    view!.updatedAt = new Date().toISOString();
+    await storage.saveClaim(view!);
+    expect((await storage.getClaim(second.id))!.status).toBe('supported');
   });
 
   it('rejects stale saves (optimistic concurrency on the claim aggregate)', async ({ skip }) => {
@@ -370,6 +396,57 @@ describe('SupabaseClaimStorage — cross-instance behavior', () => {
     expect((await writerA.getClaim(claim.id))!.status).toBe('supported');
   });
 
+  it('supersede losing a cross-instance CAS race leaves no orphaned replacement', async ({ skip }) => {
+    if (!available) skip();
+    const storageA = makeSupabaseClaimStorage(TEST_WORKSPACE_ID);
+    const storageB = makeSupabaseClaimStorage(TEST_WORKSPACE_ID);
+
+    const claim = makeClaim(workspaceId);
+    await storageA.saveClaim(claim);
+
+    // Interpose on storage A's getClaim: as soon as the supersede running
+    // through instance A reads the claim, instance B wins the version race
+    // with a concurrent status update.
+    let injectRace = true;
+    const racingStorage: ClaimStorage = {
+      getClaim: async claimId => {
+        const result = await storageA.getClaim(claimId);
+        if (injectRace) {
+          injectRace = false;
+          const viewB = await storageB.getClaim(claimId);
+          viewB!.status = 'supported';
+          viewB!.evidenceRefs = ['ref-from-racing-instance'];
+          viewB!.updatedAt = new Date().toISOString();
+          await storageB.saveClaim(viewB!);
+        }
+        return result;
+      },
+      getClaims: ids => storageA.getClaims(ids),
+      saveClaim: candidate => storageA.saveClaim(candidate),
+      queryClaims: query => storageA.queryClaims(query),
+      addEdge: edge => storageA.addEdge(edge),
+      listEdges: filter => storageA.listEdges(filter),
+      addSubscription: subscription => storageA.addSubscription(subscription),
+      removeSubscription: (id, subscriber) => storageA.removeSubscription(id, subscriber),
+      listSubscriptions: id => storageA.listSubscriptions(id),
+    };
+    const racingHandler = createClaimsHandler(racingStorage);
+
+    await expect(
+      racingHandler.handle('agent-alice', 'supersede', {
+        claimId: claim.id,
+        statement: 'replacement that must not be orphaned',
+      }),
+    ).rejects.toThrow(/concurrent update/);
+
+    // The lost race committed nothing: only the original row exists, with
+    // the racing instance's update intact and no superseded_by pointer.
+    const rows = await storageB.queryClaims({ workspaceId });
+    expect(rows.map(row => row.id)).toEqual([claim.id]);
+    expect(rows[0]!.status).toBe('supported');
+    expect(rows[0]!.supersededBy).toBeUndefined();
+  });
+
   it('concurrent edge and subscription appends from two instances are all retained', async ({ skip }) => {
     if (!available) skip();
     const writerA = makeSupabaseClaimStorage(TEST_WORKSPACE_ID);
@@ -433,6 +510,7 @@ describe('SupabaseClaimStorage — tenant isolation', () => {
 
     // Tenant B sees nothing of tenant A's graph, even with exact ids.
     expect(await tenantB.getClaim(claimA1.id)).toBeNull();
+    expect(await tenantB.getClaims([claimA1.id, claimA2.id])).toEqual([]);
     expect(await tenantB.queryClaims({ workspaceId: workspaceA })).toEqual([]);
     expect(await tenantB.listEdges({ toClaim: claimA1.id })).toEqual([]);
     expect(await tenantB.listSubscriptions(claimA1.id)).toEqual([]);

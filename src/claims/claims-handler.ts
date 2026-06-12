@@ -158,6 +158,8 @@ export function createClaimsHandler(storage: ClaimStorage): ClaimsHandler {
         `Cannot supersede claim ${claim.id}: already superseded by ${claim.supersededBy}.`,
       );
     }
+    const previousStatus = claim.status;
+    const previousUpdatedAt = claim.updatedAt;
     const now = new Date().toISOString();
     const replacement: Claim = {
       id: `claim-${randomUUID()}`,
@@ -170,11 +172,39 @@ export function createClaimsHandler(storage: ClaimStorage): ClaimsHandler {
       createdAt: now,
       updatedAt: now,
     };
-    await storage.saveClaim(replacement);
+    // CAS the original first: when a concurrent update wins the version
+    // race (the realistic failure), nothing has been written yet, so a lost
+    // race can never orphan an unreachable "asserted" replacement. Only
+    // after the original commits as superseded is the replacement inserted;
+    // if that insert fails (infrastructure-level), roll the original back
+    // so its superseded_by pointer never dangles at a missing claim.
     claim.status = 'superseded';
     claim.supersededBy = replacement.id;
     claim.updatedAt = now;
     await storage.saveClaim(claim);
+    try {
+      await storage.saveClaim(replacement);
+    } catch (insertError) {
+      claim.status = previousStatus;
+      delete claim.supersededBy;
+      claim.updatedAt = previousUpdatedAt;
+      try {
+        await storage.saveClaim(claim);
+      } catch (rollbackError) {
+        const insertMessage =
+          insertError instanceof Error ? insertError.message : String(insertError);
+        const rollbackMessage =
+          rollbackError instanceof Error ? rollbackError.message : String(rollbackError);
+        throw new Error(
+          `Supersede of ${claim.id} failed inserting replacement ${replacement.id} ` +
+            `(${insertMessage}) and the rollback also failed (${rollbackMessage}). ` +
+            `Claim ${claim.id} is superseded with a dangling superseded_by pointer ` +
+            `to ${replacement.id}; once storage recovers, repair it by asserting the ` +
+            `replacement statement as a new claim and invalidating ${claim.id}.`,
+        );
+      }
+      throw insertError;
+    }
     return { superseded: claim, replacement };
   }
 
@@ -249,9 +279,9 @@ export function createClaimsHandler(storage: ClaimStorage): ClaimsHandler {
         visited.add(edge.fromClaim);
         next.push(edge.fromClaim);
       }
-      for (const claimId of next) {
-        const claim = await storage.getClaim(claimId);
-        if (claim) results.push({ claim, depth });
+      const claims = await storage.getClaims(next);
+      for (const claim of claims) {
+        results.push({ claim, depth });
       }
       frontier = next;
     }

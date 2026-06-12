@@ -91,6 +91,23 @@ export class SupabaseClaimStorage implements ClaimStorage {
     return data ? this.rowToClaim(data) : null;
   }
 
+  async getClaims(claimIds: string[]): Promise<Claim[]> {
+    if (claimIds.length === 0) return [];
+    const { data, error } = await this.client
+      .from('claims')
+      .select()
+      .in('id', claimIds)
+      .eq('tenant_workspace_id', this.tenantWorkspaceId);
+    if (error) this.fail('getClaims', error.message);
+    const byId = new Map((data ?? []).map(row => [row.id, this.rowToClaim(row)]));
+    const claims: Claim[] = [];
+    for (const claimId of claimIds) {
+      const claim = byId.get(claimId);
+      if (claim) claims.push(claim);
+    }
+    return claims;
+  }
+
   async saveClaim(claim: Claim): Promise<void> {
     const fields = {
       statement: claim.statement,

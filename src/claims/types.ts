@@ -93,6 +93,12 @@ export interface ClaimEdgeFilter {
  */
 export interface ClaimStorage {
   getClaim(claimId: string): Promise<Claim | null>;
+  /**
+   * Batch form of getClaim for level-wise graph traversal: one query per
+   * call. Returns found claims in `claimIds` order; missing ids are
+   * skipped. Returned instances carry CAS read versions like getClaim.
+   */
+  getClaims(claimIds: string[]): Promise<Claim[]>;
   saveClaim(claim: Claim): Promise<void>;
   queryClaims(query: ClaimQuery): Promise<Claim[]>;
 
