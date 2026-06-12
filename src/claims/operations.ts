@@ -234,7 +234,7 @@ export const CLAIMS_OPERATIONS: OperationDefinition[] = [
     name: 'verify',
     title: 'Verify Claims',
     description:
-      'Cheap revalidation: current status per claim id in one batch read (1-100 ids). The staleness check at decision boundaries (spec §11.1) — call before acting on a premise; cache-revalidation semantics, not pub/sub. Missing ids return found: false. Read-only.',
+      'Cheap revalidation: current status per claim id in one batch read (1-100 ids). The staleness check at decision boundaries (spec §11.1) — call before acting on a premise; cache-revalidation semantics, not pub/sub. Missing ids return found: false. Duplicate ids collapse to one entry (first-occurrence order); count is the number of distinct ids. Read-only.',
     category: 'claims',
     stage: 2,
     inputSchema: {

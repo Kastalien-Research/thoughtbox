@@ -147,7 +147,12 @@ function subscribeOrFail(channel: RealtimeChannel): Promise<string> {
   return new Promise(resolve => {
     const timer = setTimeout(() => resolve('TIMED_OUT'), SUBSCRIBE_TIMEOUT_MS);
     channel.subscribe(status => {
-      if (status === 'SUBSCRIBED' || status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+      if (
+        status === 'SUBSCRIBED' ||
+        status === 'CHANNEL_ERROR' ||
+        status === 'TIMED_OUT' ||
+        status === 'CLOSED'
+      ) {
         clearTimeout(timer);
         resolve(status);
       }

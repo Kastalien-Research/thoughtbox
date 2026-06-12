@@ -423,6 +423,25 @@ describe('ClaimsHandler', () => {
       await expect(handler.handle(null, 'verify', { ids: [] })).rejects.toThrow();
     });
 
+    it('verify collapses duplicate ids to one entry in first-occurrence order', async () => {
+      const claim = await assertClaim('checked twice');
+
+      const result = (await handler.handle(null, 'verify', {
+        ids: [claim.id, 'claim-missing', claim.id, 'claim-missing'],
+      })) as { results: Array<Record<string, unknown>>; count: number };
+
+      expect(result.count).toBe(2);
+      expect(result.results).toEqual([
+        {
+          claimId: claim.id,
+          found: true,
+          status: 'asserted',
+          statusChangedAt: claim.statusChangedAt,
+        },
+        { claimId: 'claim-missing', found: false },
+      ]);
+    });
+
     it('statusChangedAt moves on transitions but not on evidence-only appends', async () => {
       const claim = await assertClaim();
       expect(claim.statusChangedAt).toBe(claim.createdAt);

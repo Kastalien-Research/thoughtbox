@@ -288,13 +288,16 @@ export function createClaimsHandler(storage: ClaimStorage): ClaimsHandler {
   /**
    * Cheap revalidation (spec §11.1 staleness check): current status per
    * claim id, one batch read. Missing ids come back found: false instead
-   * of failing the whole batch.
+   * of failing the whole batch. Duplicate input ids collapse to a single
+   * entry (first-occurrence order), so `count` is the number of distinct
+   * ids checked — consistent with the dedup in storage.getClaims().
    */
   async function verify(args: Record<string, unknown>): Promise<unknown> {
     const input = verifySchema.parse(args);
-    const claims = await storage.getClaims(input.ids);
+    const distinctIds = [...new Set(input.ids)];
+    const claims = await storage.getClaims(distinctIds);
     const byId = new Map(claims.map(claim => [claim.id, claim]));
-    const results: VerifiedClaimStatus[] = input.ids.map(claimId => {
+    const results: VerifiedClaimStatus[] = distinctIds.map(claimId => {
       const claim = byId.get(claimId);
       if (!claim) return { claimId, found: false };
       return {
