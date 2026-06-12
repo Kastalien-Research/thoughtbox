@@ -11,7 +11,7 @@
  *   ever mutated in place.
  * - An instance pins `(templateId, templateVersion)` at creation and never
  *   changes it. Instance status is DERIVED from its append-only execution
- *   records via `deriveInstanceStatus` — it is never stored mutably.
+ *   records via `deriveInstanceStatus` (ordering.ts) — never stored mutably.
  * - Cell executions are append-only rows keyed by `(instanceId, seq)`;
  *   re-executing a cell appends a new record with a fresh seq. There is no
  *   update operation anywhere in the storage contract — that absence is the
@@ -76,6 +76,13 @@ export interface RunbookInstance {
   createdAt: string;
 }
 
+/**
+ * Since B5, the engine records only cells that actually executed —
+ * "completed" or "failed". Cells a halted run never reached leave NO record
+ * (their skipped expectations still produce ledger rows). "skipped" remains
+ * accepted by the storage contract and database for callers that record
+ * explicit skips.
+ */
 export type CellExecutionStatus = "completed" | "failed" | "skipped";
 
 export interface CellExecutionRecord {
@@ -229,28 +236,6 @@ export function verifyTemplateContracts(template: RunbookTemplate): void {
       verifyAttachedContract(cell.cellId, cell.contract);
     }
   }
-}
-
-/**
- * Derive an instance's status from its append-only execution records —
- * the latest record per cell wins (decided design: derived, never stored).
- */
-export function deriveInstanceStatus(
-  template: RunbookTemplate,
-  executions: CellExecutionRecord[],
-): RunbookInstanceStatus {
-  if (executions.length === 0) return "created";
-  const latestByCell = new Map<string, CellExecutionRecord>();
-  for (const record of [...executions].sort((a, b) => a.seq - b.seq)) {
-    latestByCell.set(record.cellId, record);
-  }
-  for (const record of latestByCell.values()) {
-    if (record.status === "failed") return "failed";
-  }
-  const allCompleted = template.cells.every(
-    (cell) => latestByCell.get(cell.cellId)?.status === "completed",
-  );
-  return allCompleted ? "completed" : "in_progress";
 }
 
 /**
