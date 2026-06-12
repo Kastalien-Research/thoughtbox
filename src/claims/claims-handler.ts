@@ -1,24 +1,34 @@
 /**
- * Claims domain handler (SPEC-AGX-SUBSTRATE B2) — routes tb.claims.*
+ * Claims domain handler (SPEC-AGX-SUBSTRATE B2/B3) — routes tb.claims.*
  * operations over a ClaimStorage with Zod-validated inputs.
  *
  * Status transitions are append-history-style: invalidate and supersede
  * change status (and set the superseded_by pointer) but never destroy the
  * claim. There are no hard deletes in v0.
+ *
+ * Propagation (B3): every status transition stamps statusChangedAt and
+ * emits a fire-and-forget `claim:status` event on the process
+ * ThoughtEmitter — the local-mode delivery channel (B6 binds awaiting
+ * runbook cells to it). In Supabase mode the same transition also rides
+ * the supabase_realtime publication. Agents pull instead (spec §11.1):
+ * `verify` is the cheap staleness check, `changed_since` the digest.
  */
 
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
+import { thoughtEmitter } from '../events/index.js';
 import {
   CLAIM_EDGE_KINDS,
   CLAIM_STATUSES,
   CLAIM_TYPES,
   type Claim,
+  type ClaimStatus,
   type ClaimStorage,
 } from './types.js';
 
 const MAX_AFFECTED_DEPTH = 20;
 const DEFAULT_AFFECTED_DEPTH = 10;
+const MAX_VERIFY_IDS = 100;
 
 const assertSchema = z.object({
   workspaceId: z.string().min(1),
@@ -67,10 +77,34 @@ const affectedSchema = z.object({
   maxDepth: z.number().int().min(1).max(MAX_AFFECTED_DEPTH).optional(),
 });
 
+const verifySchema = z.object({
+  ids: z.array(z.string().min(1)).min(1).max(MAX_VERIFY_IDS),
+});
+
+const changedSinceSchema = z.object({
+  since: z
+    .string()
+    .min(1)
+    .refine(value => !Number.isNaN(Date.parse(value)), {
+      message: 'since must be an ISO 8601 timestamp',
+    }),
+  workspaceId: z.string().min(1).optional(),
+});
+
 export interface AffectedClaim {
   claim: Claim;
   /** Edge distance from the queried claim (direct dependents are depth 1). */
   depth: number;
+}
+
+/** Per-id result of the `verify` staleness check. */
+export interface VerifiedClaimStatus {
+  claimId: string;
+  found: boolean;
+  status?: ClaimStatus;
+  statusChangedAt?: string;
+  /** Present when status is 'superseded': the replacement claim. */
+  supersededBy?: string;
 }
 
 export interface ClaimsHandler {
@@ -98,6 +132,17 @@ export function createClaimsHandler(storage: ClaimStorage): ClaimsHandler {
     return claim;
   }
 
+  /** Fire-and-forget propagation; call only after the save succeeded. */
+  function emitStatusChange(claim: Claim, oldStatus: ClaimStatus, actor: string): void {
+    thoughtEmitter.emitClaimStatus({
+      claimId: claim.id,
+      oldStatus,
+      newStatus: claim.status,
+      actor,
+      workspaceId: claim.workspaceId,
+    });
+  }
+
   async function assertClaim(agentId: string, args: Record<string, unknown>): Promise<Claim> {
     const input = assertSchema.parse(args);
     const now = new Date().toISOString();
@@ -111,12 +156,13 @@ export function createClaimsHandler(storage: ClaimStorage): ClaimsHandler {
       createdBy: agentId,
       createdAt: now,
       updatedAt: now,
+      statusChangedAt: now,
     };
     await storage.saveClaim(claim);
     return claim;
   }
 
-  async function support(args: Record<string, unknown>): Promise<Claim> {
+  async function support(agentId: string, args: Record<string, unknown>): Promise<Claim> {
     const input = supportSchema.parse(args);
     const claim = await requireClaim(input.claimId);
     if (claim.status === 'invalidated' || claim.status === 'superseded') {
@@ -125,14 +171,18 @@ export function createClaimsHandler(storage: ClaimStorage): ClaimsHandler {
           `Assert a new claim (or supersede) instead of reviving it.`,
       );
     }
+    const oldStatus = claim.status;
+    const now = new Date().toISOString();
     claim.evidenceRefs = [...claim.evidenceRefs, ...input.evidenceRefs];
     claim.status = 'supported';
-    claim.updatedAt = new Date().toISOString();
+    claim.updatedAt = now;
+    if (oldStatus !== claim.status) claim.statusChangedAt = now;
     await storage.saveClaim(claim);
+    if (oldStatus !== claim.status) emitStatusChange(claim, oldStatus, agentId);
     return claim;
   }
 
-  async function invalidate(args: Record<string, unknown>): Promise<Claim> {
+  async function invalidate(agentId: string, args: Record<string, unknown>): Promise<Claim> {
     const input = invalidateSchema.parse(args);
     const claim = await requireClaim(input.claimId);
     if (claim.status === 'superseded') {
@@ -141,9 +191,13 @@ export function createClaimsHandler(storage: ClaimStorage): ClaimsHandler {
       );
     }
     if (claim.status === 'invalidated') return claim;
+    const oldStatus = claim.status;
+    const now = new Date().toISOString();
     claim.status = 'invalidated';
-    claim.updatedAt = new Date().toISOString();
+    claim.updatedAt = now;
+    claim.statusChangedAt = now;
     await storage.saveClaim(claim);
+    emitStatusChange(claim, oldStatus, agentId);
     return claim;
   }
 
@@ -169,12 +223,16 @@ export function createClaimsHandler(storage: ClaimStorage): ClaimsHandler {
       createdBy: agentId,
       createdAt: now,
       updatedAt: now,
+      statusChangedAt: now,
     };
     await storage.saveClaim(replacement);
+    const oldStatus = claim.status;
     claim.status = 'superseded';
     claim.supersededBy = replacement.id;
     claim.updatedAt = now;
+    claim.statusChangedAt = now;
     await storage.saveClaim(claim);
+    emitStatusChange(claim, oldStatus, agentId);
     return { superseded: claim, replacement };
   }
 
@@ -228,6 +286,41 @@ export function createClaimsHandler(storage: ClaimStorage): ClaimsHandler {
   }
 
   /**
+   * Cheap revalidation (spec §11.1 staleness check): current status per
+   * claim id, one batch read. Missing ids come back found: false instead
+   * of failing the whole batch.
+   */
+  async function verify(args: Record<string, unknown>): Promise<unknown> {
+    const input = verifySchema.parse(args);
+    const claims = await storage.getClaims(input.ids);
+    const byId = new Map(claims.map(claim => [claim.id, claim]));
+    const results: VerifiedClaimStatus[] = input.ids.map(claimId => {
+      const claim = byId.get(claimId);
+      if (!claim) return { claimId, found: false };
+      return {
+        claimId,
+        found: true,
+        status: claim.status,
+        statusChangedAt: claim.statusChangedAt,
+        ...(claim.supersededBy ? { supersededBy: claim.supersededBy } : {}),
+      };
+    });
+    return { results, count: results.length };
+  }
+
+  /**
+   * Digest query (spec §11.1): claims whose status changed strictly after
+   * a timestamp, oldest transition first — session-start recall and
+   * natural-boundary syncs.
+   */
+  async function changedSince(args: Record<string, unknown>): Promise<unknown> {
+    const input = changedSinceSchema.parse(args);
+    const since = new Date(input.since).toISOString();
+    const claims = await storage.claimsChangedSince(since, input.workspaceId);
+    return { since, claims, count: claims.length };
+  }
+
+  /**
    * Transitive dependents of a claim: breadth-first traversal of reverse
    * `depends_on` edges (X depends_on Y means X is affected when Y moves).
    * Cycle-safe via a visited set; depth-capped (default 10, max 20).
@@ -276,9 +369,9 @@ export function createClaimsHandler(storage: ClaimStorage): ClaimsHandler {
         case 'assert':
           return assertClaim(agentId!, args);
         case 'support':
-          return support(args);
+          return support(agentId!, args);
         case 'invalidate':
-          return invalidate(args);
+          return invalidate(agentId!, args);
         case 'supersede':
           return supersede(agentId!, args);
         case 'link':
@@ -289,6 +382,10 @@ export function createClaimsHandler(storage: ClaimStorage): ClaimsHandler {
           return unsubscribe(agentId!, args);
         case 'query':
           return query(args);
+        case 'verify':
+          return verify(args);
+        case 'changed_since':
+          return changedSince(args);
         case 'affected':
           return affected(args);
         default:

@@ -39,6 +39,7 @@ function makeClaim(workspaceId: string, overrides: Partial<Claim> = {}): Claim {
     createdBy: 'agent-alice',
     createdAt: now,
     updatedAt: now,
+    statusChangedAt: now,
     ...overrides,
   };
 }
@@ -158,6 +159,65 @@ function runClaimStorageContract(
     expect(
       await storage.queryClaims({ workspaceId: 'other-workspace-id' }),
     ).toEqual([]);
+  });
+
+  it('getClaims batch-fetches by id, dedupes, and omits missing ids', async ({ skip }) => {
+    if (!isAvailable()) skip();
+    const { storage, workspaceId } = ctx();
+
+    const first = makeClaim(workspaceId, {
+      statement: 'claim a',
+      createdAt: '2026-06-12T01:00:00.000Z',
+    });
+    const second = makeClaim(workspaceId, {
+      statement: 'claim b',
+      createdAt: '2026-06-12T02:00:00.000Z',
+    });
+    await storage.saveClaim(first);
+    await storage.saveClaim(second);
+
+    // Ordered by createdAt regardless of input order; missing ids omitted.
+    expect(await storage.getClaims([second.id, first.id, 'claim-missing'])).toEqual([
+      first,
+      second,
+    ]);
+    expect(await storage.getClaims([first.id, first.id])).toEqual([first]);
+    expect(await storage.getClaims([])).toEqual([]);
+  });
+
+  it('claimsChangedSince returns status changes strictly after the cutoff', async ({ skip }) => {
+    if (!isAvailable()) skip();
+    const { storage, workspaceId } = ctx();
+
+    const t1 = '2026-06-12T01:00:00.000Z';
+    const t2 = '2026-06-12T02:00:00.000Z';
+    const t3 = '2026-06-12T03:00:00.000Z';
+    const early = makeClaim(workspaceId, {
+      statement: 'early transition',
+      statusChangedAt: t1,
+    });
+    const boundary = makeClaim(workspaceId, {
+      statement: 'exactly at the cutoff',
+      status: 'supported',
+      statusChangedAt: t2,
+    });
+    const late = makeClaim(workspaceId, {
+      statement: 'late transition',
+      status: 'invalidated',
+      statusChangedAt: t3,
+    });
+    await storage.saveClaim(early);
+    await storage.saveClaim(boundary);
+    await storage.saveClaim(late);
+
+    // Strictly after: the claim exactly at the cutoff is excluded.
+    expect(await storage.claimsChangedSince(t2)).toEqual([late]);
+    // Ordered by statusChangedAt ascending.
+    expect(await storage.claimsChangedSince(t1)).toEqual([boundary, late]);
+    expect(await storage.claimsChangedSince(t3)).toEqual([]);
+    // Optional hub-workspace narrowing.
+    expect(await storage.claimsChangedSince(t1, workspaceId)).toEqual([boundary, late]);
+    expect(await storage.claimsChangedSince(t1, 'ws-other')).toEqual([]);
   });
 
   it('adds and lists edges; addEdge is idempotent and validates endpoints', async ({ skip }) => {

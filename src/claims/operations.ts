@@ -1,7 +1,7 @@
 /**
- * Operations catalog for the claim graph (SPEC-AGX-SUBSTRATE B2).
+ * Operations catalog for the claim graph (SPEC-AGX-SUBSTRATE B2/B3).
  *
- * Defines the 9 tb.claims.* operations with schemas and examples,
+ * Defines the 11 tb.claims.* operations with schemas and examples,
  * mirroring the hub catalog pattern (src/hub/operations.ts). Mutations
  * accept a top-level agentId; without it the session's default hub
  * identity (first register/quick_join) is used.
@@ -229,6 +229,46 @@ export const CLAIMS_OPERATIONS: OperationDefinition[] = [
       required: ['workspaceId'],
     },
     example: { workspaceId: 'ws-abc123', type: 'assumption', status: 'asserted' },
+  },
+  {
+    name: 'verify',
+    title: 'Verify Claims',
+    description:
+      'Cheap revalidation: current status per claim id in one batch read (1-100 ids). The staleness check at decision boundaries (spec §11.1) — call before acting on a premise; cache-revalidation semantics, not pub/sub. Missing ids return found: false. Read-only.',
+    category: 'claims',
+    stage: 2,
+    inputSchema: {
+      type: 'object',
+      properties: {
+        ids: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Claim ids to revalidate (1-100)',
+        },
+      },
+      required: ['ids'],
+    },
+    example: { ids: ['claim-001', 'claim-002'] },
+  },
+  {
+    name: 'changed_since',
+    title: 'Claims Changed Since',
+    description:
+      'Digest query: claims whose status changed strictly after a timestamp, oldest transition first. For session-start recall and natural-boundary syncs (spec §11.1). Optionally narrowed to one hub workspace. Read-only.',
+    category: 'claims',
+    stage: 2,
+    inputSchema: {
+      type: 'object',
+      properties: {
+        since: {
+          type: 'string',
+          description: 'ISO 8601 timestamp; claims with a status transition strictly after it are returned',
+        },
+        workspaceId: { type: 'string', description: 'Optional hub workspace filter' },
+      },
+      required: ['since'],
+    },
+    example: { since: '2026-06-12T00:00:00Z', workspaceId: 'ws-abc123' },
   },
   {
     name: 'affected',
