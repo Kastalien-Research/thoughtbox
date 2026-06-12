@@ -26,11 +26,8 @@ import {
   createRunbookMemoryState,
 } from "../runbook/in-memory-runbook-storage.js";
 import { SupabaseRunbookStorage } from "../runbook/supabase-runbook-storage.js";
-import {
-  deriveInstanceStatus,
-  verifyTemplateContracts,
-  type RunbookStorage,
-} from "../runbook/types.js";
+import { verifyTemplateContracts, type RunbookStorage } from "../runbook/types.js";
+import { deriveInstanceStatus } from "../runbook/ordering.js";
 import {
   ensureTestWorkspace,
   isSupabaseAvailable,

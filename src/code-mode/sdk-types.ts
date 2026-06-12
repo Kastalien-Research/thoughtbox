@@ -75,7 +75,8 @@ interface TB {
     load(args: { path?: string; content?: string }): Promise<unknown>;
     addCell(args: { notebookId: string; cellType: "title" | "markdown" | "code"; content: string; filename?: string; position?: number }): Promise<unknown>;
     updateCell(args: { notebookId: string; cellId: string; content: string }): Promise<unknown>;
-    runCell(args: { notebookId: string; cellId: string }): Promise<unknown>;
+    /** With instanceId, execution is instance-aware and ordered (only the next unsatisfied cell may run). */
+    runCell(args: { notebookId: string; cellId: string; instanceId?: string }): Promise<unknown>;
     listCells(args: { notebookId: string }): Promise<unknown>;
     getCell(args: { notebookId: string; cellId: string }): Promise<unknown>;
     installDeps(args: { notebookId: string }): Promise<unknown>;

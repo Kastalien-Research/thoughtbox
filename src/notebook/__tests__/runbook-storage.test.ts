@@ -23,7 +23,6 @@ import {
 import { SupabaseRunbookStorage } from "../runbook/supabase-runbook-storage.js";
 import {
   aggregateFitness,
-  deriveInstanceStatus,
   hashTemplateCells,
   verifyTemplateContracts,
   type CellExecutionRecord,
@@ -33,6 +32,7 @@ import {
   type RunbookTemplate,
   type RunbookTemplateCell,
 } from "../runbook/types.js";
+import { deriveInstanceStatus } from "../runbook/ordering.js";
 import { compileOutcomeContract } from "../contracts.js";
 import {
   createServiceClient,
@@ -246,7 +246,12 @@ function runRunbookStorageContract(
     await storage.createInstance(instance);
 
     const first = makeExecution(instance.instanceId, 1, { cellId: "pkg" });
-    const second = makeExecution(instance.instanceId, 2, { status: "failed" });
+    // An uncontracted procedural failure: no declared expectations, so the
+    // B5 satisfaction rule derives "failed" from the procedural status.
+    const second = makeExecution(instance.instanceId, 2, {
+      status: "failed",
+      expectations: [],
+    });
     await storage.appendCellExecution(first);
     await storage.appendCellExecution(second);
 
