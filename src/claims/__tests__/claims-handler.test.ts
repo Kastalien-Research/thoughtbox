@@ -1,0 +1,457 @@
+/**
+ * Claims domain handler tests (SPEC-AGX-SUBSTRATE B2): operation routing,
+ * Zod validation, append-history status transitions, edge linking, the
+ * affected traversal (including cycles and depth caps), and the
+ * subscription registry. Runs over InMemoryClaimStorage.
+ */
+
+import { describe, it, expect, beforeEach } from 'vitest';
+import { createClaimsHandler, type ClaimsHandler } from '../claims-handler.js';
+import { InMemoryClaimStorage } from '../in-memory-claim-storage.js';
+import type { Claim, ClaimStorage } from '../types.js';
+
+/** Delegating wrapper so tests can interpose on individual storage calls. */
+function delegateStorage(storage: ClaimStorage): ClaimStorage {
+  return {
+    getClaim: id => storage.getClaim(id),
+    getClaims: ids => storage.getClaims(ids),
+    saveClaim: claim => storage.saveClaim(claim),
+    queryClaims: query => storage.queryClaims(query),
+    addEdge: edge => storage.addEdge(edge),
+    listEdges: filter => storage.listEdges(filter),
+    addSubscription: subscription => storage.addSubscription(subscription),
+    removeSubscription: (id, subscriber) => storage.removeSubscription(id, subscriber),
+    listSubscriptions: id => storage.listSubscriptions(id),
+  };
+}
+
+const WS = 'ws-test';
+const ALICE = 'agent-alice';
+const BOB = 'agent-bob';
+
+describe('ClaimsHandler', () => {
+  let storage: InMemoryClaimStorage;
+  let handler: ClaimsHandler;
+
+  beforeEach(() => {
+    storage = new InMemoryClaimStorage();
+    handler = createClaimsHandler(storage);
+  });
+
+  async function assertClaim(statement = 'a test assumption', agentId = ALICE): Promise<Claim> {
+    return (await handler.handle(agentId, 'assert', {
+      workspaceId: WS,
+      type: 'assumption',
+      statement,
+    })) as Claim;
+  }
+
+  describe('assert', () => {
+    it('creates an asserted claim with provenance', async () => {
+      const claim = await assertClaim();
+      expect(claim.id).toMatch(/^claim-/);
+      expect(claim.status).toBe('asserted');
+      expect(claim.createdBy).toBe(ALICE);
+      expect(claim.evidenceRefs).toEqual([]);
+      expect(await storage.getClaim(claim.id)).toEqual(claim);
+    });
+
+    it('accepts initial evidence refs', async () => {
+      const claim = (await handler.handle(ALICE, 'assert', {
+        workspaceId: WS,
+        type: 'observation',
+        statement: 'tests pass on main',
+        evidenceRefs: ['ci:run/123'],
+      })) as Claim;
+      expect(claim.type).toBe('observation');
+      expect(claim.evidenceRefs).toEqual(['ci:run/123']);
+    });
+
+    it('rejects invalid type and empty statement', async () => {
+      await expect(
+        handler.handle(ALICE, 'assert', { workspaceId: WS, type: 'vibe', statement: 'x' }),
+      ).rejects.toThrow();
+      await expect(
+        handler.handle(ALICE, 'assert', { workspaceId: WS, type: 'decision', statement: '' }),
+      ).rejects.toThrow();
+    });
+
+    it('rejects mutations without an agent identity', async () => {
+      await expect(
+        handler.handle(null, 'assert', {
+          workspaceId: WS,
+          type: 'assumption',
+          statement: 'no identity',
+        }),
+      ).rejects.toThrow(/requires an agent identity/);
+    });
+  });
+
+  describe('status transitions (append-history)', () => {
+    it('support appends evidence and marks the claim supported', async () => {
+      const claim = await assertClaim();
+      const supported = (await handler.handle(BOB, 'support', {
+        claimId: claim.id,
+        evidenceRefs: ['thought:sess-1/4'],
+      })) as Claim;
+      expect(supported.status).toBe('supported');
+      expect(supported.evidenceRefs).toEqual(['thought:sess-1/4']);
+
+      const again = (await handler.handle(BOB, 'support', {
+        claimId: claim.id,
+        evidenceRefs: ['thought:sess-1/9'],
+      })) as Claim;
+      expect(again.evidenceRefs).toEqual(['thought:sess-1/4', 'thought:sess-1/9']);
+    });
+
+    it('support requires at least one evidence ref', async () => {
+      const claim = await assertClaim();
+      await expect(
+        handler.handle(BOB, 'support', { claimId: claim.id, evidenceRefs: [] }),
+      ).rejects.toThrow();
+    });
+
+    it('invalidate preserves the claim row (no hard delete)', async () => {
+      const claim = await assertClaim();
+      const invalidated = (await handler.handle(BOB, 'invalidate', {
+        claimId: claim.id,
+      })) as Claim;
+      expect(invalidated.status).toBe('invalidated');
+
+      const stored = await storage.getClaim(claim.id);
+      expect(stored).not.toBeNull();
+      expect(stored!.statement).toBe(claim.statement);
+    });
+
+    it('invalidate is idempotent', async () => {
+      const claim = await assertClaim();
+      await handler.handle(BOB, 'invalidate', { claimId: claim.id });
+      const second = (await handler.handle(BOB, 'invalidate', { claimId: claim.id })) as Claim;
+      expect(second.status).toBe('invalidated');
+    });
+
+    it('support is rejected on invalidated and superseded claims', async () => {
+      const dead = await assertClaim('will be invalidated');
+      await handler.handle(BOB, 'invalidate', { claimId: dead.id });
+      await expect(
+        handler.handle(BOB, 'support', { claimId: dead.id, evidenceRefs: ['x'] }),
+      ).rejects.toThrow(/Cannot support/);
+
+      const old = await assertClaim('will be superseded');
+      await handler.handle(BOB, 'supersede', { claimId: old.id, statement: 'replacement' });
+      await expect(
+        handler.handle(BOB, 'support', { claimId: old.id, evidenceRefs: ['x'] }),
+      ).rejects.toThrow(/Cannot support/);
+    });
+
+    it('supersede creates a replacement and sets the superseded_by pointer', async () => {
+      const old = await assertClaim('30s clock skew tolerated');
+      const result = (await handler.handle(BOB, 'supersede', {
+        claimId: old.id,
+        statement: '5s clock skew tolerated (measured)',
+      })) as { superseded: Claim; replacement: Claim };
+
+      expect(result.superseded.id).toBe(old.id);
+      expect(result.superseded.status).toBe('superseded');
+      expect(result.superseded.supersededBy).toBe(result.replacement.id);
+      expect(result.replacement.status).toBe('asserted');
+      expect(result.replacement.type).toBe(old.type); // inherited
+      expect(result.replacement.workspaceId).toBe(WS);
+      expect(result.replacement.createdBy).toBe(BOB);
+
+      // Both rows persist — append-history, not replacement-by-deletion.
+      expect(await storage.getClaim(old.id)).not.toBeNull();
+      expect(await storage.getClaim(result.replacement.id)).not.toBeNull();
+    });
+
+    it('supersede and invalidate are rejected on already-superseded claims', async () => {
+      const old = await assertClaim();
+      await handler.handle(BOB, 'supersede', { claimId: old.id, statement: 'v2' });
+      await expect(
+        handler.handle(BOB, 'supersede', { claimId: old.id, statement: 'v3' }),
+      ).rejects.toThrow(/already superseded/);
+      await expect(
+        handler.handle(BOB, 'invalidate', { claimId: old.id }),
+      ).rejects.toThrow(/already superseded/);
+    });
+
+    it('operations on missing claims fail with a clear error', async () => {
+      await expect(
+        handler.handle(BOB, 'invalidate', { claimId: 'claim-missing' }),
+      ).rejects.toThrow(/Claim not found/);
+    });
+  });
+
+  describe('supersede atomicity', () => {
+    it('losing a concurrent CAS race leaves no orphaned replacement', async () => {
+      const claim = await assertClaim('raced claim');
+
+      // Interpose on getClaim: the moment supersede reads the original, a
+      // concurrent support (through the unwrapped handler) wins the version
+      // race, so supersede's CAS on the original must fail.
+      let injectRace = true;
+      const racingStorage = delegateStorage(storage);
+      racingStorage.getClaim = async claimId => {
+        const result = await storage.getClaim(claimId);
+        if (injectRace) {
+          injectRace = false;
+          await handler.handle(BOB, 'support', {
+            claimId,
+            evidenceRefs: ['ref-from-racing-agent'],
+          });
+        }
+        return result;
+      };
+      const racingHandler = createClaimsHandler(racingStorage);
+
+      await expect(
+        racingHandler.handle(ALICE, 'supersede', { claimId: claim.id, statement: 'v2' }),
+      ).rejects.toThrow(/concurrent update/);
+
+      // The lost race wrote nothing: no phantom "asserted" replacement, and
+      // the original carries the concurrent winner's state untouched.
+      const all = await storage.queryClaims({ workspaceId: WS });
+      expect(all.map(c => c.id)).toEqual([claim.id]);
+      expect(all[0]!.status).toBe('supported');
+      expect(all[0]!.supersededBy).toBeUndefined();
+    });
+
+    it('rolls the original back when inserting the replacement fails', async () => {
+      const claim = await assertClaim('insert-failure claim');
+
+      // The original's CAS succeeds; the replacement insert (a claim with a
+      // different id) blows up at the storage layer.
+      const failingStorage = delegateStorage(storage);
+      failingStorage.saveClaim = async candidate => {
+        if (candidate.id !== claim.id) throw new Error('replacement insert exploded');
+        return storage.saveClaim(candidate);
+      };
+      const failingHandler = createClaimsHandler(failingStorage);
+
+      await expect(
+        failingHandler.handle(ALICE, 'supersede', { claimId: claim.id, statement: 'v2' }),
+      ).rejects.toThrow(/replacement insert exploded/);
+
+      // Rolled back: no dangling superseded_by pointer, no extra claim.
+      const restored = await storage.getClaim(claim.id);
+      expect(restored!.status).toBe('asserted');
+      expect(restored!.supersededBy).toBeUndefined();
+      expect(restored!.updatedAt).toBe(claim.updatedAt);
+      expect(await storage.queryClaims({ workspaceId: WS })).toHaveLength(1);
+    });
+  });
+
+  describe('link', () => {
+    it('creates typed edges between claims', async () => {
+      const base = await assertClaim('base');
+      const dependent = await assertClaim('dependent');
+      const edge = (await handler.handle(ALICE, 'link', {
+        fromClaimId: dependent.id,
+        toClaimId: base.id,
+        kind: 'depends_on',
+      })) as { fromClaim: string; toClaim: string; kind: string };
+      expect(edge.fromClaim).toBe(dependent.id);
+      expect(edge.toClaim).toBe(base.id);
+      expect(await storage.listEdges({ toClaim: base.id })).toHaveLength(1);
+    });
+
+    it('rejects self-links, cross-workspace links, and missing claims', async () => {
+      const claim = await assertClaim();
+      await expect(
+        handler.handle(ALICE, 'link', {
+          fromClaimId: claim.id,
+          toClaimId: claim.id,
+          kind: 'depends_on',
+        }),
+      ).rejects.toThrow(/itself/);
+
+      const other = (await handler.handle(ALICE, 'assert', {
+        workspaceId: 'ws-other',
+        type: 'decision',
+        statement: 'in another workspace',
+      })) as Claim;
+      await expect(
+        handler.handle(ALICE, 'link', {
+          fromClaimId: claim.id,
+          toClaimId: other.id,
+          kind: 'depends_on',
+        }),
+      ).rejects.toThrow(/across workspaces/);
+
+      await expect(
+        handler.handle(ALICE, 'link', {
+          fromClaimId: claim.id,
+          toClaimId: 'claim-missing',
+          kind: 'contradicts',
+        }),
+      ).rejects.toThrow(/Claim not found/);
+    });
+  });
+
+  describe('subscriptions', () => {
+    it('subscribe defaults to the acting agent; unsubscribe removes it', async () => {
+      const claim = await assertClaim();
+      const subscription = (await handler.handle(BOB, 'subscribe', {
+        claimId: claim.id,
+      })) as { subscriber: string };
+      expect(subscription.subscriber).toBe(BOB);
+      expect(await storage.listSubscriptions(claim.id)).toHaveLength(1);
+
+      await handler.handle(BOB, 'unsubscribe', { claimId: claim.id });
+      expect(await storage.listSubscriptions(claim.id)).toEqual([]);
+    });
+
+    it('accepts runbook cell refs as explicit subscribers', async () => {
+      const claim = await assertClaim();
+      await handler.handle(BOB, 'subscribe', {
+        claimId: claim.id,
+        subscriber: 'runbook:inst-1/cell-3',
+      });
+      const listed = await storage.listSubscriptions(claim.id);
+      expect(listed).toHaveLength(1);
+      expect(listed[0]!.subscriber).toBe('runbook:inst-1/cell-3');
+      expect(listed[0]!.createdBy).toBe(BOB);
+    });
+
+    it('subscribe rejects missing claims', async () => {
+      await expect(
+        handler.handle(BOB, 'subscribe', { claimId: 'claim-missing' }),
+      ).rejects.toThrow(/Claim not found/);
+    });
+  });
+
+  describe('query', () => {
+    it('filters by type, status, agent, and text without an identity', async () => {
+      await assertClaim('alpha statement');
+      const decision = (await handler.handle(BOB, 'assert', {
+        workspaceId: WS,
+        type: 'decision',
+        statement: 'beta statement',
+      })) as Claim;
+      await handler.handle(BOB, 'support', {
+        claimId: decision.id,
+        evidenceRefs: ['ref-1'],
+      });
+
+      // query is read-only: works with a null identity
+      const all = (await handler.handle(null, 'query', { workspaceId: WS })) as {
+        claims: Claim[];
+        count: number;
+      };
+      expect(all.count).toBe(2);
+
+      const supported = (await handler.handle(null, 'query', {
+        workspaceId: WS,
+        status: 'supported',
+      })) as { claims: Claim[] };
+      expect(supported.claims.map(c => c.id)).toEqual([decision.id]);
+
+      const byText = (await handler.handle(null, 'query', {
+        workspaceId: WS,
+        text: 'ALPHA',
+      })) as { count: number };
+      expect(byText.count).toBe(1);
+
+      const byAgent = (await handler.handle(null, 'query', {
+        workspaceId: WS,
+        createdBy: BOB,
+      })) as { claims: Claim[] };
+      expect(byAgent.claims.map(c => c.id)).toEqual([decision.id]);
+    });
+  });
+
+  describe('affected (transitive dependents)', () => {
+    async function linkDependsOn(from: Claim, to: Claim): Promise<void> {
+      await handler.handle(ALICE, 'link', {
+        fromClaimId: from.id,
+        toClaimId: to.id,
+        kind: 'depends_on',
+      });
+    }
+
+    it('returns transitive dependents with depths', async () => {
+      const base = await assertClaim('base');
+      const direct = await assertClaim('direct dependent');
+      const transitive = await assertClaim('transitive dependent');
+      const unrelated = await assertClaim('unrelated');
+      await linkDependsOn(direct, base);
+      await linkDependsOn(transitive, direct);
+
+      const result = (await handler.handle(null, 'affected', { claimId: base.id })) as {
+        affected: Array<{ claim: Claim; depth: number }>;
+        count: number;
+        truncated: boolean;
+      };
+      expect(result.count).toBe(2);
+      expect(result.truncated).toBe(false);
+      const byId = new Map(result.affected.map(entry => [entry.claim.id, entry.depth]));
+      expect(byId.get(direct.id)).toBe(1);
+      expect(byId.get(transitive.id)).toBe(2);
+      expect(byId.has(unrelated.id)).toBe(false);
+    });
+
+    it('ignores non-depends_on edges', async () => {
+      const base = await assertClaim('base');
+      const derived = await assertClaim('derived');
+      await handler.handle(ALICE, 'link', {
+        fromClaimId: derived.id,
+        toClaimId: base.id,
+        kind: 'derives_from',
+      });
+      const result = (await handler.handle(null, 'affected', { claimId: base.id })) as {
+        count: number;
+      };
+      expect(result.count).toBe(0);
+    });
+
+    it('is cycle-safe: mutual dependencies terminate and visit each node once', async () => {
+      const a = await assertClaim('claim a');
+      const b = await assertClaim('claim b');
+      const c = await assertClaim('claim c');
+      await linkDependsOn(b, a);
+      await linkDependsOn(c, b);
+      await linkDependsOn(a, c); // closes the cycle a -> c -> b -> a
+
+      const result = (await handler.handle(null, 'affected', { claimId: a.id })) as {
+        affected: Array<{ claim: Claim; depth: number }>;
+        count: number;
+      };
+      // b (depth 1) and c (depth 2); a itself is never re-reported.
+      expect(result.count).toBe(2);
+      expect(new Set(result.affected.map(entry => entry.claim.id))).toEqual(
+        new Set([b.id, c.id]),
+      );
+    });
+
+    it('caps traversal depth and reports truncation', async () => {
+      const chain = [await assertClaim('link 0')];
+      for (let i = 1; i <= 4; i++) {
+        const claim = await assertClaim(`link ${i}`);
+        await linkDependsOn(claim, chain[i - 1]!);
+        chain.push(claim);
+      }
+      const result = (await handler.handle(null, 'affected', {
+        claimId: chain[0]!.id,
+        maxDepth: 2,
+      })) as { count: number; truncated: boolean };
+      expect(result.count).toBe(2);
+      expect(result.truncated).toBe(true);
+
+      await expect(
+        handler.handle(null, 'affected', { claimId: chain[0]!.id, maxDepth: 99 }),
+      ).rejects.toThrow();
+    });
+
+    it('rejects missing claims', async () => {
+      await expect(
+        handler.handle(null, 'affected', { claimId: 'claim-missing' }),
+      ).rejects.toThrow(/Claim not found/);
+    });
+  });
+
+  it('rejects unknown operations', async () => {
+    await expect(handler.handle(ALICE, 'destroy', {})).rejects.toThrow(
+      /Unknown claims operation/,
+    );
+  });
+});
