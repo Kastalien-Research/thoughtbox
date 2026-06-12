@@ -224,6 +224,64 @@ describe("Engine runtime — concurrent first runs of the same notebook", () => 
   });
 });
 
+describe("Engine runtime — concurrent gated first runs of the same notebook", () => {
+  it("both gated runs pin the single template version and proceed", async () => {
+    const evidence: CellExecutionEvidence[] = [
+      {
+        cellId: "step",
+        cellType: "code",
+        filename: "step.js",
+        status: "completed",
+        exitCode: 0,
+        output: "ok",
+        error: "",
+      },
+    ];
+    const state = createRunbookMemoryState();
+    const arrive = makeBarrier(2);
+    // templateCellSource wired: run-start beginDurableRun resolves the
+    // template version and creates the instance BEFORE any cell executes,
+    // and the executor consults the per-cell gate like the real handler.
+    const makeRuntime = (agentId: string) =>
+      new InMemoryNotebookEngineRuntime(
+        async (_notebookId, gate) => {
+          for (const cell of evidence) {
+            if (gate) await gate(cell);
+          }
+          return evidence;
+        },
+        undefined,
+        {
+          storage: withFirstReadBarrier(new InMemoryRunbookStorage(state), arrive),
+          templateCellSource: () => makeCells(),
+          agentId,
+        },
+      );
+
+    const notebookId = "nb_gated_version_race";
+    const [a, b] = await Promise.all([
+      Effect.runPromise(makeRuntime("agent-a").startRun({ notebookId, mode: "runbook" })),
+      Effect.runPromise(makeRuntime("agent-b").startRun({ notebookId, mode: "runbook" })),
+    ]);
+
+    // Before delegating to the shared resolver the loser's run-start
+    // saveTemplate surfaced "already exists" and failed the whole run.
+    expect(a.run.status).toBe("completed");
+    expect(b.run.status).toBe("completed");
+
+    const storage = new InMemoryRunbookStorage(state);
+    expect(await storage.listTemplateVersions(notebookId)).toEqual([1]);
+    const instances = await storage.listInstances(notebookId);
+    expect(instances).toHaveLength(2);
+    expect(instances.every((instance) => instance.templateVersion === 1)).toBe(true);
+    for (const instance of instances) {
+      const executions = await storage.listCellExecutions(instance.instanceId);
+      expect(executions).toHaveLength(1);
+      expect(executions[0]?.cellId).toBe("step");
+    }
+  });
+});
+
 describe("SupabaseRunbookStorage — version conflicts (local stack)", () => {
   let available = false;
 

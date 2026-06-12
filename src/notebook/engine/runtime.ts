@@ -573,7 +573,14 @@ export class InMemoryNotebookEngineRuntime {
     cells: RunbookTemplateCell[];
   }): Promise<DurableRunContext> {
     const { runId, notebookId, startedAt, inputs, cells } = args;
-    const template = await this.ensureTemplateVersion(notebookId, cells);
+    // Concurrency-safe: a lost saveTemplate race against a concurrent run of
+    // the same notebook reuses the winner's just-written version instead of
+    // failing this run (Greptile PR #401 — TOCTOU in template versioning).
+    const template = await ensureTemplateVersion(this.storage, {
+      templateId: notebookId,
+      cells,
+      createdBy: this.agentId,
+    });
     await this.storage.createInstance({
       instanceId: runId,
       templateId: notebookId,
@@ -590,25 +597,6 @@ export class InMemoryNotebookEngineRuntime {
       recordsByCell: new Map(),
       gatedCellIds: new Set(),
     };
-  }
-
-  private async ensureTemplateVersion(
-    templateId: string,
-    cells: RunbookTemplateCell[],
-  ): Promise<RunbookTemplate> {
-    const cellsHash = hashTemplateCells(cells);
-    const latest = await this.storage.getLatestTemplate(templateId);
-    if (latest && latest.cellsHash === cellsHash) return latest;
-    const template: RunbookTemplate = {
-      templateId,
-      version: (latest?.version ?? 0) + 1,
-      cells,
-      cellsHash,
-      createdBy: this.agentId,
-      createdAt: new Date().toISOString(),
-    };
-    await this.storage.saveTemplate(template);
-    return template;
   }
 
   /**
