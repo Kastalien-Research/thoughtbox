@@ -83,6 +83,9 @@ export class NotebookHandler {
    * - Cells with `validatorFor` are tier-2 assertion cells: they run through
    *   the existing ValidatorService (snapshot+hash, sidecar verdict) against
    *   the target cell's structured output instead of executing as steps.
+   * - Before each cell runs, the runtime gate's ordering assertion fires
+   *   (§5: a rejected cell never executes) and the execution start time is
+   *   captured onto the evidence for the durable record.
    * - After each executed cell, the runtime's gate evaluates its declared
    *   expectations, persists the durable record, and decides the halt: an
    *   expectation-satisfied predicted failure (nonzero exit, every declared
@@ -136,13 +139,17 @@ export class NotebookHandler {
         });
         continue;
       }
+      // Ordering is enforced BEFORE the cell runs (spec §5): a rejected cell
+      // never executes, so an ordering failure cannot drop the durable
+      // record of a cell that already ran.
+      gate?.assertExecutable(cell.id);
+      const startedAt = new Date().toISOString();
       let cellEvidence: CellExecutionEvidence;
       if (cell.type === "code" && validatorFor !== undefined) {
-        cellEvidence = await this.runValidatorCell(
-          notebookId,
-          cell,
-          structuredOutputByCell,
-        );
+        cellEvidence = {
+          ...(await this.runValidatorCell(notebookId, cell, structuredOutputByCell)),
+          startedAt,
+        };
       } else {
         const result = await this.stateManager.executeCell(notebookId, cell.id);
         if (cell.type === "code" && result.structuredOutput !== undefined) {
@@ -152,6 +159,7 @@ export class NotebookHandler {
           cellId: cell.id,
           cellType: cell.type,
           filename: cell.filename,
+          startedAt,
           status: result.success ? "completed" : "failed",
           exitCode: result.exitCode,
           output: result.stdout,
@@ -166,7 +174,7 @@ export class NotebookHandler {
       }
       evidence.push(cellEvidence);
       if (gate) {
-        const { disposition } = await gate(cellEvidence);
+        const { disposition } = await gate.record(cellEvidence);
         if (disposition === "halt") halted = true;
       } else if (validatorFor === undefined && cellEvidence.status === "failed") {
         // Ungated fallback (raw runtime usage): halt on procedural failure.

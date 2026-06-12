@@ -68,6 +68,8 @@ export interface CellExecutionEvidence {
   cellId: string;
   cellType: "code" | "package.json";
   filename: string;
+  /** ISO timestamp captured when the cell's execution began; absent for skipped cells. */
+  startedAt?: string;
   status: "completed" | "failed" | "skipped";
   exitCode: number | null;
   output: string;
@@ -92,16 +94,26 @@ export interface CellGateResult {
 
 /**
  * Per-cell gate the runtime hands to the executor (SPEC-AGX-SUBSTRATE B5).
- * Called once after each cell actually executes (never for skipped cells).
- * It enforces document-order execution, evaluates the cell's declared
- * expectations, persists the durable execution record and its ledger rows
- * immediately (partial-run durability), and decides whether the run
- * continues: an expectation-satisfied predicted failure continues; an
- * uncontracted failure or failed/errored expectations halt.
+ *
+ * The executor calls `assertExecutable` BEFORE a cell runs — document-order
+ * enforcement happens pre-execution, so a rejected cell never executes and
+ * an ordering failure can never drop an already-executed cell's durable
+ * record — and `record` once after the cell actually executes (never for
+ * skipped cells). `record` evaluates the cell's declared expectations,
+ * persists the durable execution record and its ledger rows immediately
+ * (partial-run durability), and decides whether the run continues: an
+ * expectation-satisfied predicted failure continues; an uncontracted
+ * failure or failed/errored expectations halt.
  */
-export type CellExecutionGate = (
-  evidence: CellExecutionEvidence,
-) => Promise<CellGateResult>;
+export interface CellExecutionGate {
+  /**
+   * Pre-execution ordering check (spec §5): throws OutOfOrderExecutionError
+   * naming the expected next cell, or a plain Error when the cell is not
+   * part of the pinned template.
+   */
+  assertExecutable(cellId: string): void;
+  record(evidence: CellExecutionEvidence): Promise<CellGateResult>;
+}
 
 /**
  * Executes a notebook's executable cells in document order and reports
@@ -527,7 +539,9 @@ export class InMemoryNotebookEngineRuntime {
         : [];
     const record: CellExecutionRecord = {
       instanceId: input.instanceId,
-      seq: (executions[executions.length - 1]?.seq ?? 0) + 1,
+      // Explicit max over recorded seqs — never an implicit dependency on
+      // the storage backend's sort order.
+      seq: executions.reduce((max, prior) => Math.max(max, prior.seq), 0) + 1,
       cellId: input.cellId,
       startedAt,
       agentId: this.agentId,
@@ -600,53 +614,61 @@ export class InMemoryNotebookEngineRuntime {
   }
 
   /**
-   * The per-cell gate (B5): enforces document-order execution against the
-   * accumulating instance records, evaluates the cell's declared
-   * expectations (tier 2 from the executor, tier 1 from the attached
-   * contract), persists the execution record and its ledger rows
-   * immediately, and derives the continue/halt disposition from the B5
-   * satisfaction rule. Gated records omit `outputsRef` — the cell-results
-   * artifact does not exist yet when a record is appended.
+   * The per-cell gate (B5). `assertExecutable` enforces document-order
+   * execution against the accumulating instance records BEFORE a cell runs
+   * (a rejection can therefore never drop an executed cell's record).
+   * `record` evaluates the cell's declared expectations (tier 2 from the
+   * executor, tier 1 from the attached contract), persists the execution
+   * record and its ledger rows immediately, and derives the continue/halt
+   * disposition from the B5 satisfaction rule. Gated records omit
+   * `outputsRef` — the cell-results artifact does not exist yet when a
+   * record is appended.
    */
   private createCellGate(
     durable: DurableRunContext,
     preArtifacts: ArtifactRef[],
   ): CellExecutionGate {
-    return async (evidence) => {
-      assertCellExecutable(durable.template, durable.executions, evidence.cellId);
-      const records = evaluateEvidenceExpectations(evidence, {
-        readArtifact: (name) => this.readRunArtifact(preArtifacts, name),
-        claimResolver: this.claimResolver,
-      });
-      const record: CellExecutionRecord = {
-        instanceId: durable.instanceId,
-        seq: durable.nextSeq,
-        cellId: evidence.cellId,
-        startedAt: new Date().toISOString(),
-        agentId: this.agentId,
-        inputsDigest: durable.inputsDigest,
-        status: evidence.status,
-        expectations: records,
-      };
-      try {
-        await this.storage.appendCellExecution(record);
-        await this.storage.appendFitnessRows(
-          this.ledgerRowsFromRecords(durable.template, durable.instanceId, records),
-        );
-      } catch (cause) {
-        throw new RunbookPersistenceError(
-          `durable cell-execution persistence failed for cell ${evidence.cellId} ` +
-            `(seq ${record.seq}): ${errorMessage(cause)}`,
-        );
-      }
-      durable.nextSeq += 1;
-      durable.executions.push(record);
-      durable.gatedCellIds.add(evidence.cellId);
-      if (records.length > 0) durable.recordsByCell.set(evidence.cellId, records);
-      return {
-        records,
-        disposition: isExecutionSatisfied(record) ? "continue" : "halt",
-      };
+    return {
+      assertExecutable: (cellId) => {
+        assertCellExecutable(durable.template, durable.executions, cellId);
+      },
+      record: async (evidence) => {
+        const records = evaluateEvidenceExpectations(evidence, {
+          readArtifact: (name) => this.readRunArtifact(preArtifacts, name),
+          claimResolver: this.claimResolver,
+        });
+        const record: CellExecutionRecord = {
+          instanceId: durable.instanceId,
+          seq: durable.nextSeq,
+          cellId: evidence.cellId,
+          // Executor-captured execution start; the gate-time fallback covers
+          // executors that report no startedAt (it post-dates the execution).
+          startedAt: evidence.startedAt ?? new Date().toISOString(),
+          agentId: this.agentId,
+          inputsDigest: durable.inputsDigest,
+          status: evidence.status,
+          expectations: records,
+        };
+        try {
+          await this.storage.appendCellExecution(record);
+          await this.storage.appendFitnessRows(
+            this.ledgerRowsFromRecords(durable.template, durable.instanceId, records),
+          );
+        } catch (cause) {
+          throw new RunbookPersistenceError(
+            `durable cell-execution persistence failed for cell ${evidence.cellId} ` +
+              `(seq ${record.seq}): ${errorMessage(cause)}`,
+          );
+        }
+        durable.nextSeq += 1;
+        durable.executions.push(record);
+        durable.gatedCellIds.add(evidence.cellId);
+        if (records.length > 0) durable.recordsByCell.set(evidence.cellId, records);
+        return {
+          records,
+          disposition: isExecutionSatisfied(record) ? "continue" : "halt",
+        };
+      },
     };
   }
 
@@ -719,7 +741,9 @@ export class InMemoryNotebookEngineRuntime {
         instanceId: runId,
         seq,
         cellId: cell.cellId,
-        startedAt,
+        // Per-cell execution start when the executor reported one; the run
+        // start is the legacy-path fallback.
+        startedAt: cell.startedAt ?? startedAt,
         agentId: this.agentId,
         inputsDigest,
         outputsRef,

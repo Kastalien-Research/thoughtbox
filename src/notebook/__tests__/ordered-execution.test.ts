@@ -19,7 +19,12 @@
 
 import { describe, it, expect, beforeAll } from "vitest";
 import { randomUUID } from "node:crypto";
+import { Effect } from "effect";
 import { NotebookHandler } from "../index.js";
+import {
+  InMemoryNotebookEngineRuntime,
+  type CellExecutionEvidence,
+} from "../engine/runtime.js";
 import {
   InMemoryRunbookStorage,
   createRunbookMemoryState,
@@ -278,6 +283,14 @@ describe("Expected-failure halt rule (B5, real execution)", () => {
     const rows = await storage.listFitnessRows(notebookId, 1);
     expect(rows).toHaveLength(1);
     expect(rows[0]).toMatchObject({ cellId: predicted.cell.id, result: "pass", pass: true });
+
+    // Sequential cells carry distinct, ordered execution start times —
+    // startedAt is captured when each cell BEGINS executing, not when the
+    // gate persists its record afterwards.
+    const startTimes = executions.map((record) => Date.parse(record.startedAt));
+    expect(startTimes.every((time) => Number.isFinite(time))).toBe(true);
+    expect(startTimes[0]!).toBeLessThan(startTimes[1]!);
+    expect(startTimes[1]!).toBeLessThan(startTimes[2]!);
   }, 180_000);
 
   it("halts when a predicted failure's expectation fails", async () => {
@@ -607,4 +620,140 @@ describe("Out-of-order rejection on the instance-aware single-cell path (B5)", (
       handler.handleRunCell({ notebookId, cellId: c1.cell.id, instanceId }),
     ).rejects.toThrow(/drifted/);
   }, 120_000);
+});
+
+// =============================================================================
+// Gate seam residuals (PR #402): startedAt provenance, pre-execution ordering
+// assertion, explicit max seq derivation
+// =============================================================================
+
+function gateEvidence(cellId: string, startedAt?: string): CellExecutionEvidence {
+  return {
+    cellId,
+    cellType: "code",
+    filename: `${cellId}.js`,
+    status: "completed",
+    exitCode: 0,
+    output: "ok",
+    error: "",
+    ...(startedAt !== undefined ? { startedAt } : {}),
+  };
+}
+
+const GATE_TEMPLATE_CELLS: RunbookTemplateCell[] = [
+  templateCell("a"),
+  templateCell("b"),
+];
+
+describe("Per-cell gate timing and seq derivation (PR #402 residuals)", () => {
+  it("persists the executor-captured startedAt, not the gate call time", async () => {
+    const storage = new InMemoryRunbookStorage(createRunbookMemoryState());
+    const startedAts = ["2026-06-12T00:00:00.000Z", "2026-06-12T00:00:01.000Z"];
+    const runtime = new InMemoryNotebookEngineRuntime(
+      async (_notebookId, gate) => {
+        const out: CellExecutionEvidence[] = [];
+        for (const [index, cellId] of ["a", "b"].entries()) {
+          gate?.assertExecutable(cellId);
+          const cell = gateEvidence(cellId, startedAts[index]);
+          out.push(cell);
+          if (gate) await gate.record(cell);
+        }
+        return out;
+      },
+      undefined,
+      {
+        storage,
+        templateCellSource: () => GATE_TEMPLATE_CELLS,
+        agentId: "tester",
+      },
+    );
+
+    const result = await Effect.runPromise(
+      runtime.startRun({ notebookId: "nb_started_at", mode: "runbook" }),
+    );
+    expect(result.run.status).toBe("completed");
+    const records = await storage.listCellExecutions(result.run.runId);
+    expect(records.map((record) => record.startedAt)).toEqual(startedAts);
+  });
+
+  it("rejects an out-of-order cell BEFORE it executes; earlier records survive", async () => {
+    const storage = new InMemoryRunbookStorage(createRunbookMemoryState());
+    let executedAfterRejection = false;
+    const runtime = new InMemoryNotebookEngineRuntime(
+      async (_notebookId, gate) => {
+        gate!.assertExecutable("a");
+        const a = gateEvidence("a");
+        await gate!.record(a);
+        // Misbehaving executor: re-runs "a" while "b" is still unsatisfied.
+        gate!.assertExecutable("a");
+        executedAfterRejection = true;
+        return [a];
+      },
+      undefined,
+      {
+        storage,
+        templateCellSource: () => GATE_TEMPLATE_CELLS,
+        agentId: "tester",
+      },
+    );
+
+    await expect(
+      Effect.runPromise(runtime.startRun({ notebookId: "nb_pre_exec", mode: "runbook" })),
+    ).rejects.toThrow();
+    // The rejection fired pre-execution: the out-of-order cell never ran.
+    expect(executedAfterRejection).toBe(false);
+    const failedRun = runtime.listRuns("nb_pre_exec")[0]!;
+    expect(failedRun).toMatchObject({
+      status: "failed",
+      error: expect.stringContaining("out-of-order"),
+    });
+    // And the rejection dropped no durable record: cell a's record, written
+    // by the gate before the violation, survived.
+    const records = await storage.listCellExecutions(failedRun.runId);
+    expect(records).toHaveLength(1);
+    expect(records[0]!.cellId).toBe("a");
+  });
+
+  it("re-execution seq increments from the max recorded seq, not storage order", async () => {
+    const storage = new InMemoryRunbookStorage(createRunbookMemoryState());
+    await storage.saveTemplate(TEMPLATE);
+    await storage.createInstance({
+      instanceId: "rbi-ordering",
+      templateId: TEMPLATE.templateId,
+      templateVersion: TEMPLATE.version,
+      createdBy: "tester",
+      createdAt: "2026-06-12T00:00:00.000Z",
+    });
+    // Out-of-order history: b failed at seq 2 and was re-run at seq 3.
+    await storage.appendCellExecution(execution("a", 1, "completed"));
+    await storage.appendCellExecution(execution("b", 2, "failed"));
+    await storage.appendCellExecution(execution("b", 3, "completed"));
+    await storage.appendCellExecution(execution("c", 4, "completed"));
+    // Adversarial backend: returns records in DESCENDING seq order, so a
+    // last-element read would derive seq 2 and collide with the existing
+    // append — the runtime must take the explicit max instead.
+    const list = storage.listCellExecutions.bind(storage);
+    storage.listCellExecutions = async (instanceId) =>
+      (await list(instanceId)).reverse();
+
+    const runtime = new InMemoryNotebookEngineRuntime(async () => [], undefined, {
+      storage,
+      agentId: "tester",
+    });
+    const result = await runtime.executeInstanceCell({
+      instanceId: "rbi-ordering",
+      // The instance is fully satisfied, so re-executing any cell is allowed.
+      cellId: "a",
+      executeCell: async () => ({
+        status: "completed",
+        exitCode: 0,
+        stdout: "ok",
+        stderr: "",
+      }),
+    });
+
+    expect(result.seq).toBe(5);
+    const persisted = await list("rbi-ordering");
+    expect(persisted.map((record) => record.seq)).toEqual([1, 2, 3, 4, 5]);
+  });
 });

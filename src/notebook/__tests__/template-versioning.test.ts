@@ -246,7 +246,10 @@ describe("Engine runtime — concurrent gated first runs of the same notebook", 
       new InMemoryNotebookEngineRuntime(
         async (_notebookId, gate) => {
           for (const cell of evidence) {
-            if (gate) await gate(cell);
+            if (gate) {
+              gate.assertExecutable(cell.cellId);
+              await gate.record(cell);
+            }
           }
           return evidence;
         },
