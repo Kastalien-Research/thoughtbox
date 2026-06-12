@@ -11,6 +11,7 @@ import { createHubHandler, type HubEvent, type HubHandler } from './hub-handler.
 import { resolveAgentId } from './agent-identity.js';
 import type { HubStorage } from './hub-types.js';
 import { getOperation as getHubOperation } from './operations.js';
+import { SessionIdentityRegistry } from './session-identity.js';
 
 interface ThoughtStore {
   createSession(sessionId: string): Promise<void>;
@@ -23,12 +24,17 @@ interface ThoughtStore {
 }
 
 export interface HubToolHandlerOptions {
-  
   hubStorage: HubStorage;
   thoughtStore: ThoughtStore;
   envAgentId?: string;
   envAgentName?: string;
   onEvent?: (event: HubEvent) => void;
+  /**
+   * Shared session identity registry. Pass the same instance to other
+   * namespaces that follow the explicit-agentId convention (tb.claims) so
+   * one hub registration grants an identity across all of them.
+   */
+  identityRegistry?: SessionIdentityRegistry;
 }
 
 type HubContentBlock =
@@ -49,11 +55,11 @@ export function createHubToolHandler(options: HubToolHandlerOptions): HubToolHan
 
   const hubHandler = createHubHandler(hubStorage, thoughtStore, onEvent);
 
-  // Connection-scoped identity registry.
-  // sessionDefaults: env-var-resolved or first-registered agentId per session.
-  // sessionRegistries: all agentIds registered within a session (for multi-agent).
-  const sessionDefaults = new Map<string, string | null>();
-  const sessionRegistries = new Map<string, Set<string>>();
+  // Connection-scoped identity registry: env-var-resolved or
+  // first-registered agentId per session becomes the default; the registry
+  // tracks all agentIds registered within a session (for multi-agent).
+  // Shared with other namespaces (tb.claims) when passed in via options.
+  const identities = options.identityRegistry ?? new SessionIdentityRegistry();
   let envResolved = false;
 
   async function ensureEnvResolved(sessionKey: string): Promise<void> {
@@ -61,31 +67,15 @@ export function createHubToolHandler(options: HubToolHandlerOptions): HubToolHan
     envResolved = true;
     const resolved = await resolveAgentId(hubStorage, envAgentId, envAgentName);
     if (resolved) {
-      sessionDefaults.set(sessionKey, resolved);
-      getOrCreateRegistry(sessionKey).add(resolved);
+      identities.register(sessionKey, resolved);
     }
-  }
-
-  function getOrCreateRegistry(sessionKey: string): Set<string> {
-    let reg = sessionRegistries.get(sessionKey);
-    if (!reg) {
-      reg = new Set();
-      sessionRegistries.set(sessionKey, reg);
-    }
-    return reg;
   }
 
   function captureRegistration(
     sessionKey: string, result: unknown
   ): void {
     if (result && typeof result === 'object' && 'agentId' in result) {
-      const newId = (result as { agentId: string }).agentId;
-      const registry = getOrCreateRegistry(sessionKey);
-      registry.add(newId);
-      // First registration becomes the session default
-      if (!sessionDefaults.has(sessionKey) || sessionDefaults.get(sessionKey) === null) {
-        sessionDefaults.set(sessionKey, newId);
-      }
+      identities.register(sessionKey, (result as { agentId: string }).agentId);
     }
   }
 
@@ -96,25 +86,11 @@ export function createHubToolHandler(options: HubToolHandlerOptions): HubToolHan
 
       await ensureEnvResolved(sessionKey);
 
-      const registry = getOrCreateRegistry(sessionKey);
-      const defaultId = sessionDefaults.get(sessionKey) ?? null;
-
       try {
-        let agentId: string | null;
-
-        if (operation === 'register' || operation === 'quick_join') {
-          agentId = null;
-        } else if (callerAgentId && typeof callerAgentId === 'string') {
-          if (!registry.has(callerAgentId)) {
-            throw new Error(
-              `Agent ${callerAgentId} not registered in this session. ` +
-              "Call register first."
-            );
-          }
-          agentId = callerAgentId;
-        } else {
-          agentId = defaultId;
-        }
+        const agentId =
+          operation === 'register' || operation === 'quick_join'
+            ? null
+            : identities.resolve(sessionKey, callerAgentId);
 
         const result = await hubHandler.handle(
           agentId, operation as string, args as Record<string, unknown>

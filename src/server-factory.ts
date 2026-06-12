@@ -4,6 +4,9 @@ import { z } from "zod"; // hypothesis test 3
 import type { HubStorage } from "./hub/hub-types.js";
 import type { HubEvent } from "./hub/hub-handler.js";
 import { createHubToolHandler } from "./hub/hub-tool-handler.js";
+import { SessionIdentityRegistry } from "./hub/session-identity.js";
+import type { ClaimStorage } from "./claims/types.js";
+import { createClaimsToolHandler } from "./claims/claims-tool-handler.js";
 import {
   createThoughtStoreAdapter,
   type ThoughtStoreAdapter,
@@ -155,6 +158,14 @@ export interface CreateMcpServerArgs {
   hubThoughtStore?: ThoughtStoreAdapter;
   /** Optional callback for hub events (local-mode unified event stream) */
   onHubEvent?: (event: HubEvent) => void;
+  /**
+   * Claim graph storage (SPEC-AGX-SUBSTRATE B1/B2). Like hubStorage, must
+   * be shared across MCP sessions (single in-memory instance locally;
+   * tenant-scoped SupabaseClaimStorage when hosted); tb.claims.* is
+   * unavailable without it. Identity rides the hub session registry, so
+   * tb.claims requires hubStorage to be wired as well.
+   */
+  claimStorage?: ClaimStorage;
   /** Data directory for task store (filesystem persistence) */
   dataDir?: string;
   /** Optional pre-created knowledge storage (used by Supabase mode) */
@@ -628,6 +639,9 @@ Use \`console.log()\` for debugging — output captured in response logs.`;
   // real backend (filesystem locally, Supabase when hosted).
   // The HubToolHandler keeps a register-once identity registry keyed by the
   // session, so agentId is implicit after the first register/quick_join.
+  // The identity registry is shared between tb.hub and tb.claims so one
+  // register/quick_join grants the session identity to both namespaces.
+  const sessionIdentities = new SessionIdentityRegistry();
   const hubToolHandler = args.hubStorage
     ? createHubToolHandler({
         hubStorage: args.hubStorage,
@@ -635,6 +649,7 @@ Use \`console.log()\` for debugging — output captured in response logs.`;
         envAgentId: process.env.THOUGHTBOX_AGENT_ID,
         envAgentName: process.env.THOUGHTBOX_AGENT_NAME,
         onEvent: args.onHubEvent,
+        identityRegistry: sessionIdentities,
       })
     : undefined;
   const hubSessionKey = sessionId ?? "local";
@@ -642,6 +657,22 @@ Use \`console.log()\` for debugging — output captured in response logs.`;
     ? {
         handle: (input: { operation: string; [key: string]: unknown }) =>
           hubToolHandler.handle(input, hubSessionKey),
+      }
+    : undefined;
+
+  // Claims dispatcher — tb.claims.* over the process-shared claim storage
+  // (SPEC-AGX-SUBSTRATE B2), bound to the same session key and identity
+  // registry as the hub dispatcher.
+  const claimsToolHandler = args.claimStorage
+    ? createClaimsToolHandler({
+        claimStorage: args.claimStorage,
+        identityRegistry: sessionIdentities,
+      })
+    : undefined;
+  const claimsDispatcher = claimsToolHandler
+    ? {
+        handle: (input: { operation: string; [key: string]: unknown }) =>
+          claimsToolHandler.handle(input, hubSessionKey),
       }
     : undefined;
 
@@ -658,6 +689,7 @@ Use \`console.log()\` for debugging — output captured in response logs.`;
     observabilityHandler,
     branchHandler,
     hubDispatcher,
+    claimsDispatcher,
   });
 
   registerTool(SEARCH_TOOL, searchTool);
