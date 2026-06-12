@@ -32,6 +32,7 @@ import {
   type RunbookTemplateCell,
 } from "./types.js";
 import type { ExpectationRecord, ExpectationResult } from "../contracts.js";
+import { TemplateVersionConflictError } from "./template-versioning.js";
 
 type Tables = Database["public"]["Tables"];
 type TemplateRow = Tables["runbook_templates"]["Row"];
@@ -95,10 +96,11 @@ export class SupabaseRunbookStorage implements RunbookStorage {
     });
     if (error) {
       if (error.code === "23505") {
-        this.fail(
-          "saveTemplate",
-          `template ${template.templateId} version ${template.version} already exists — ` +
-            `versions are immutable; append a new version`,
+        // Typed so ensureTemplateVersion can recover from a lost version race.
+        throw new TemplateVersionConflictError(
+          template.templateId,
+          template.version,
+          `tenant ${this.tenantWorkspaceId}`,
         );
       }
       this.fail("saveTemplate", error.message);
@@ -299,7 +301,17 @@ export class SupabaseRunbookStorage implements RunbookStorage {
         ts: row.ts,
       })),
     );
-    if (error) this.fail("appendFitnessRows", error.message);
+    if (error) {
+      if (error.code === "23503") {
+        this.fail(
+          "appendFitnessRows",
+          `a ledger row references a missing instance or carries a ` +
+            `(template_id, template_version) that does not match its instance's ` +
+            `template pinning: ${error.message}`,
+        );
+      }
+      this.fail("appendFitnessRows", error.message);
+    }
   }
 
   async listFitnessRows(

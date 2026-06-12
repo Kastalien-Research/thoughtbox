@@ -21,6 +21,7 @@ import {
   type RunbookStorage,
   type RunbookTemplate,
 } from "./types.js";
+import { TemplateVersionConflictError } from "./template-versioning.js";
 
 export interface RunbookMemoryState {
   /** Keyed by `${templateId}@${version}`. */
@@ -63,10 +64,7 @@ export class InMemoryRunbookStorage implements RunbookStorage {
     }
     const key = templateKey(template.templateId, template.version);
     if (this.state.templates.has(key)) {
-      throw new Error(
-        `InMemoryRunbookStorage.saveTemplate failed: template ${template.templateId} ` +
-          `version ${template.version} already exists — versions are immutable; append a new version`,
-      );
+      throw new TemplateVersionConflictError(template.templateId, template.version);
     }
     this.state.templates.set(key, copy(template));
   }
@@ -161,13 +159,39 @@ export class InMemoryRunbookStorage implements RunbookStorage {
   }
 
   async appendFitnessRows(rows: FitnessLedgerRow[]): Promise<void> {
+    // Validate every row before appending any — the Supabase backend's batch
+    // insert is atomic, so a partially applied batch must be impossible here
+    // too. The first two checks mirror the database FKs (instance_id →
+    // runbook_instances, plus the composite pinning FK from migration
+    // 20260612130000) so tests that run only against this backend catch what
+    // Supabase would reject.
     for (const row of rows) {
+      const instance = this.state.instances.get(row.instanceId);
+      if (!instance) {
+        throw new Error(
+          `InMemoryRunbookStorage.appendFitnessRows failed: instance ${row.instanceId} not found`,
+        );
+      }
+      if (
+        instance.templateId !== row.templateId ||
+        instance.templateVersion !== row.templateVersion
+      ) {
+        throw new Error(
+          `InMemoryRunbookStorage.appendFitnessRows failed: row for cell ${row.cellId} ` +
+            `carries template ${row.templateId} version ${row.templateVersion}, but ` +
+            `instance ${row.instanceId} pins template ${instance.templateId} ` +
+            `version ${instance.templateVersion} — ledger rows must match the ` +
+            `instance's template pinning`,
+        );
+      }
       if (row.pass !== (row.result === "pass")) {
         throw new Error(
           `InMemoryRunbookStorage.appendFitnessRows failed: pass must equal (result === "pass") ` +
             `for cell ${row.cellId} (result ${row.result}, pass ${row.pass})`,
         );
       }
+    }
+    for (const row of rows) {
       this.state.ledger.push(copy(row));
     }
   }

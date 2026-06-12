@@ -38,6 +38,7 @@ import {
   isExecutionSatisfied,
   nextUnsatisfiedCell,
 } from "../runbook/ordering.js";
+import { ensureTemplateVersion } from "../runbook/template-versioning.js";
 import { InMemoryRunbookStorage } from "../runbook/in-memory-runbook-storage.js";
 import { hashJson } from "../../peer-notebook/manifest.js";
 
@@ -694,8 +695,17 @@ export class InMemoryNotebookEngineRuntime {
     outputsRef: string;
   }): Promise<void> {
     const { runId, notebookId, startedAt, inputs, evidence, records, outputsRef } = args;
-    const cells = templateCellsFromEvidence(evidence);
-    const template = await this.ensureTemplateVersion(notebookId, cells);
+    const cells =
+      this.templateCellSource?.(notebookId) ?? templateCellsFromEvidence(evidence);
+
+    // Concurrency-safe: a lost saveTemplate race against a concurrent run of
+    // the same notebook reuses the winner's just-written version instead of
+    // failing this run (Greptile PR #401 — TOCTOU in template versioning).
+    const template = await ensureTemplateVersion(this.storage, {
+      templateId: notebookId,
+      cells,
+      createdBy: this.agentId,
+    });
 
     await this.storage.createInstance({
       instanceId: runId,
