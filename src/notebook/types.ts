@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { AttachedContractSchema } from "./contracts.js";
 
 // Cell Schemas
 export const TitleCellSchema = z.object({
@@ -42,6 +43,12 @@ export const CodeCellSchema = z.object({
   ]),
   output: z.string().optional(),
   error: z.string().optional(),
+  /** Tier-1 outcome contract, compiled (zod → canonicalize → sha256) at attach time. */
+  contract: AttachedContractSchema.optional(),
+  /** Tier-2 marker: this cell is a validator over the named cell's structured output. */
+  validatorFor: z.string().optional(),
+  /** Validator snapshot hash captured at authoring; re-verified at run (Ulysses pattern). */
+  validatorSnapshotHash: z.string().optional(),
 });
 
 export const CellSchema = z.union([
