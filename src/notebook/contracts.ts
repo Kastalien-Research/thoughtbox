@@ -392,13 +392,19 @@ type Comparison = { ok: true; pass: boolean } | { ok: false; error: string };
 
 // Patterns are zod-validated at authoring time; cache the compiled form so
 // repeated evaluations don't re-compile. Unanchored substring semantics, no
-// flags — a shared instance carries no lastIndex state.
+// flags — a shared instance carries no lastIndex state. Bounded: once full,
+// the oldest entry is evicted (insertion-order FIFO).
+const REGEX_CACHE_MAX_ENTRIES = 256;
 const compiledRegexCache = new Map<string, RegExp>();
 
 function compiledRegex(pattern: string): RegExp {
   let regex = compiledRegexCache.get(pattern);
   if (regex === undefined) {
     regex = new RegExp(pattern);
+    if (compiledRegexCache.size >= REGEX_CACHE_MAX_ENTRIES) {
+      const oldest = compiledRegexCache.keys().next().value;
+      if (oldest !== undefined) compiledRegexCache.delete(oldest);
+    }
     compiledRegexCache.set(pattern, regex);
   }
   return regex;

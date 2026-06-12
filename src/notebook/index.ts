@@ -202,12 +202,22 @@ export class NotebookHandler {
       targetCellId,
       result,
     });
+    // Machinery errors (snapshot_hash_mismatch, validator_crash, ...) can
+    // produce no stderr — no subprocess ever launched. Fall back to the
+    // expectation record's reason so the run verdict carries the real
+    // diagnostic instead of an empty trailer.
+    const error =
+      result.stderr !== ""
+        ? result.stderr
+        : record.result === "error"
+          ? (record.error ?? "")
+          : "";
     return {
       ...base,
       status: record.result === "error" ? "failed" : "completed",
       exitCode: result.exitCode,
       output: result.stdout,
-      error: result.stderr,
+      error,
       expectations: [record],
     };
   }

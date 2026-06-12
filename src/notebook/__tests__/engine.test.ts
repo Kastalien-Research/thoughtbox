@@ -559,7 +559,11 @@ describe("Outcome contracts (SPEC-AGX-SUBSTRATE B4a)", () => {
 
     const verdict = await runVerdict(handler, notebookId);
     expect(verdict.pass).toBe(false);
+    // No subprocess ran, so stderr is empty — the verdict reason must carry
+    // the machinery diagnostic, not an empty trailer after "exit code none:".
+    expect(verdict.reason).toContain("snapshot_hash_mismatch");
     const check = verdict.evidence.find((cell) => cell.filename === "check.js")!;
+    expect(check.error).toBe("snapshot_hash_mismatch");
     expect(check.expectations![0]).toMatchObject({
       tier: 2,
       result: "error",
