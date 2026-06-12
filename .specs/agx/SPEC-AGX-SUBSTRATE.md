@@ -241,8 +241,11 @@ merged 2026-06-11).
 **Deltas this spec requires:**
 
 1. **Generalize brokered execution to runbook cells.** An `exec` cell's outbound calls are
-   broker calls under the advancing agent's allowlist/budget — the cell-injection threat
-   (agent A authors a cell, agent B executes it) is contained by B's authority, not A's.
+   broker calls whose authority follows the template's lifecycle status (§11.2): approved
+   templates execute under their own parse-time-declared allowlist/budget (approval is the
+   authority grant, reusing the manifest lifecycle); draft and ad-hoc instances execute under
+   declared ∩ the advancing agent's allowlist. The cell-injection threat (agent A authors a
+   cell, agent B executes it) is contained by the declared bound in both cases.
 2. **Verb inventory strategy.** The broker's target set grows toward roughly a dozen
    high-blast-radius verbs (deploy, migrate, prod-write, spend, external-publish,
    message-human), not toward mediating the agent body (claim c10). New verbs arrive
@@ -275,13 +278,13 @@ Phases 4+5 (≈9 M-units) shipped in about a week of agent-team time.
 
 | # | Unit | Builds on | Size | Risk | Notes |
 |---|---|---|---|---|---|
-| B1 | Claim graph schema + dual-backend storage + RLS migration | hub-table pattern (#377) | **M** | Low | Pattern fully established; contract-test both backends |
+| B1 | Claim graph schema + storage + RLS migration | hub-table pattern (#377) | **M** | Low | Contract-suite-first; Supabase implementation first (§11.5); FS backend gated on H1/H2 passing |
 | B2 | `tb.claims.*` Code Mode surface | catalog/execute infra | **S** | Low | Mechanical once B1 lands |
-| B3 | Subscription registry + Realtime propagation + `affected` traversal | #380 publication | **M** | Med | Delivery semantics, cross-workspace negatives; depends on #393 for web clients |
+| B3 | Subscription registry + Realtime propagation + `affected` traversal | #380 publication | **M** | Med | Delivery split by subscriber type (§11.1): push to cells, staleness-check/digest for agents; depends on #393 for web clients |
 | B4 | Runbook template/instance model + typed outcome schema | notebook subsystem, agentic-runbooks spec | **M** | Med | The outcome-contract design is the load-bearing decision |
 | B5 | Ordered execution + append-only instance enforcement | B4 | **S/M** | Low | Reject, don't warn |
 | B6 | `await` cell ↔ claim subscription binding + runnable marking | B3+B4 | **M** | Med | The novel integration; nothing like it exists yet |
-| B7 | Brokered `exec`-cell execution (generalize broker beyond peers) | SPEC-CONTROL-PLANE broker | **M/L** | **High** | Riskiest governance piece: authority model for authored-by-A, executed-by-B cells |
+| B7 | Brokered `exec`-cell execution (generalize broker beyond peers) | SPEC-CONTROL-PLANE broker | **M/L** | Med | Authority model resolved to manifest reuse (§11.2): approved templates carry declared authority; drafts run under declared ∩ executor |
 | B8 | Advancer v0 (advance-on-open + cron tick) | B4–B6 | **S** | Low | Explicitly not a workflow engine |
 | B9 | Fitness ledger + aggregates | B4 | **S/M** | Low | Schema + queries |
 | B10 | Evidence-gated graduation | #389 graduation, B9 | **M** | Med | Threshold policy design |
@@ -292,14 +295,16 @@ Phases 4+5 (≈9 M-units) shipped in about a week of agent-team time.
 | — | Production isolation runtime (smolvm) | SPEC-CONTROL-PLANE | **L** | — | Already tracked separately (thoughtbox-vdw) |
 
 **v0 testbed total: B1–B11 ≈ 10 units, predominantly M** — comparable to the Phase 4+5 block
-just shipped. The two decisions that deserve the most design attention before code: the
-outcome-contract schema (B4) and the cell execution authority model (B7).
+just shipped. The decision that deserves the most design attention before code is the
+outcome-contract schema (B4); the cell execution authority model (B7) is resolved in
+principle (§11.2) but its manifest-reuse design should be validated against the actual
+compilation path before implementation.
 
 ## 9. Experiments — What We Are Trying to Test
 
 | # | Hypothesis | Protocol | Success criterion | Needs | Cost |
 |---|---|---|---|---|---|
-| H1 | Claim-graph coordination beats orchestrator mediation on *coupled* tasks (claim c9) | One deliberately non-partitionable task (e.g. cross-cutting refactor with interlocking design decisions), run twice: N agents + claim graph vs orchestrator baseline. Count stale-premise incidents, rework, wall time | Fewer stale-premise incidents and less rework, or a documented null result | B1–B3 | M |
+| H1 | Claim-graph coordination beats orchestrator mediation on *coupled* tasks (claim c9) | One deliberately non-partitionable task (e.g. cross-cutting refactor with interlocking design decisions), run twice: N agents + claim graph vs orchestrator baseline. Count stale-premise incidents, rework, wall time, and notification overhead (notifications delivered and tokens consumed by them per agent) | Fewer stale-premise incidents OR materially less rework (both preferred; partial improvement is documented as partial success). Null result = neither metric moves | B1–B3 | M |
 | H2 | Runbook instances survive agent death (claim c5) | Express the post-merge checklist as a template; execute half in session 1; resume in a fresh session from instance id alone | Completion with all assertions passing, zero carried context | B4–B8 | S |
 | H3 | Pre-registration produces usable fitness signal (claims c3, c7) | 10+ instances of 2–3 templates across real work; inspect ledger | Hypothesis-vs-actual discriminates good templates from bad; no vibes-fitness leakage | B4, B9 | S |
 | H4 | Graduation is a cheaper verb supply than specification (claim c8) | Take one proven template through evidence-gated graduation; compare effort against the hand-built pilot peer (#378–#389 actuals as baseline) | Materially less effort per governed verb | B10 | M |
@@ -324,21 +329,69 @@ informative outcome.
   layer covers pre-code approach formation and live coordination.
 - **No new thought-journal investment.** Existing surface remains for operator-class agents.
 
-## 11. Risks and Open Questions
+## 11. Risks, Open Questions, and Adopted Positions
+
+Each risk below carries an adopted position from the 2026-06-11 design review. Positions are
+design decisions for v0; the residual open questions are marked.
 
 1. **Notification economics (B3/B6).** Every notification is context spend — the scarcest
-   agent resource. Over-subscription drowns agents; under-subscription resurrects stale
-   premises. v0's explicit-subscription model bounds this but shifts burden to agents'
-   subscription judgment. H1 measures whether the burden is tolerable.
+   agent resource — and an agent receiving one is forced into a context-switch decision agents
+   are constitutionally bad at deferring. Over-subscription drowns agents; under-subscription
+   resurrects stale premises.
+   **Position: push to machines, pull for minds.** Cells have no attention to waste — Realtime
+   push marks them runnable for free. Agents get (a) a cheap **staleness check at decision
+   boundaries** (before acting on a premise, revalidate it — cache-revalidation semantics, not
+   pub/sub, enforceable via the existing hook pattern so it is instrumentation, not
+   discipline), (b) digests at natural sync points, and (c) interrupt-grade delivery reserved
+   for one case: the root claim of the agent's active task was invalidated. H1 measures
+   notifications delivered and tokens consumed by them per agent.
+   *Open:* digest cadence and the definition of "root claim of active task."
 2. **Cell execution authority (B7).** Authored-by-A/executed-by-B is a confused-deputy
-   factory. The broker contains blast radius, but the policy (does B implicitly endorse A's
-   cell? is template approval an authority grant?) needs explicit design before B7 code.
-3. **Fitness gaming.** Templates can declare trivial hypotheses to farm pass-rate. Graduation
-   thresholds must weigh hypothesis non-triviality (open: how?) or rely on human review at
-   graduation, which exists (manifest approval).
+   factory; "advancing = endorsing" assumes agents review cells before running them, which
+   they will not. Options considered: executor's authority (A escalates through B's broader
+   allowlist), author's authority (authority outlives the author; needs revocation),
+   declared ∩ executor intersection, template-as-principal.
+   **Position: template-as-principal for approved templates, intersection for drafts.** A
+   template declares its required targets and budgets at parse time — the same parse-only
+   compilation path as `peer.manifest.json` — and **approval is the authority grant**, through
+   the existing draft→active lifecycle. Approved templates carry their own declared authority;
+   draft/ad-hoc instances run under declared ∩ executor's allowlist. This reframes B7 from
+   novel authority design to manifest-machinery reuse and makes "approved template" literally
+   a proto-manifest, tightening the graduation continuum.
+   *Open:* revocation semantics when an approved template's authority must be withdrawn.
+3. **Fitness gaming.** Templates can declare trivial hypotheses to farm pass-rate — the same
+   optimization pressure that produces weak tests, requiring no malice.
+   **Position: negative controls, borrowed from test-quality practice.** A hypothesis is
+   non-trivial iff it fails when it should: v1 fitness records require **negative-control
+   runs** (deliberately broken precondition or perturbed environment must fail the
+   assertions; a template whose assertions pass under perturbation is vacuous and cannot
+   graduate). v0 relies on fitness thresholds plus human review of assertion quality at the
+   existing manifest-approval gate. Diversity requirements (≥ k agents/workspaces) remain as
+   the accidental-gaming dampener. (The negative-control idea is mined from the prior
+   agentic-runbooks spec's `skill_certification` mode.)
 4. **Claim granularity.** Too-fine claims make subscription unmanageable; too-coarse claims
-   make invalidation uninformative. No principled answer yet; H1's task design should probe it.
-5. **Dual-backend cost.** Every layer doubles its storage work (FS + Supabase). Accepted as
-   the project's standing architecture decision, but it is a real multiplier on B1/B4/B9.
+   make invalidation uninformative ("something about auth changed").
+   **Position: granularity is discovered, not designed.** Starting heuristic — **atomic
+   falsifiability**: one observation should suffice to invalidate a claim, and one decision
+   should be able to depend on it. Calibration corpus: existing spec frontmatter claims and
+   assumption-registry entries, both roughly this grain and use-tested. Instrument from day
+   one: high subscriber count + frequent *partial* invalidation = split signal; zero
+   subscribers ever = archive signal. H1's task deliberately mixes granularities.
+5. **Dual-backend cost.** Every layer doubles its storage work (FS + Supabase).
+   **Position: contract-suite-first, Supabase-first, FS gated on evidence.** The hub work
+   demonstrated that with a contract suite leading, the second backend is closer to mechanical
+   than to 2x — the real cost is interface design, paid once. The experiments need Supabase
+   (H1 requires multi-client Realtime; local mode is single-process where propagation is just
+   the in-process emitter). The FS implementation is a product requirement, delivered after
+   H1/H2 pass, not before. This honors the standing dual-backend architecture decision as a
+   product gate rather than an experiment tax.
 6. **Adoption is the meta-risk.** Principles 1–3 exist because the thought journal failed
-   them. H5 is the check that we have not rebuilt the same failure with better architecture.
+   them; better architecture alone does not change agent behavior.
+   **Position: adoption is centralized, not per-agent — engineer it at three chokepoints.**
+   (a) Session-start recall-on-load: claims relevant to the task surface automatically, making
+   prior writes visibly pay off. (b) Spawn-prompt templates: sub-agents do not choose their
+   tools, their spawn prompts do, and the full template set was rewritten in a day (#379) —
+   that is the entire sub-agent adoption surface. (c) Obligatory-artifact replacement: when
+   the post-merge checklist *is* a runbook instance, no parallel non-substrate path exists.
+   **Kill criterion:** H5 failure with all three chokepoints wired is a verdict on the
+   substrate, not an awareness problem — believe the result.
