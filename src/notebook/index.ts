@@ -406,6 +406,31 @@ export class NotebookHandler {
               `validatorFor target ${validatorFor} not found or not a code cell`,
             );
           }
+          if (target.validatorFor !== undefined) {
+            throw new Error(
+              `validatorFor target ${validatorFor} is itself a validator cell; ` +
+                "validators never write structured output, so chained validators " +
+                "always error at run time — target a subject cell instead",
+            );
+          }
+          // Cells execute in document order, so a validator inserted before
+          // its target would always run before any output exists.
+          const targetIndex = notebook.cells.findIndex(
+            (c: Cell) => c.id === validatorFor,
+          );
+          const insertionIndex =
+            typeof position === "number" &&
+            position >= 0 &&
+            position <= notebook.cells.length
+              ? position
+              : notebook.cells.length;
+          if (insertionIndex <= targetIndex) {
+            throw new Error(
+              `validator cell would be inserted at position ${insertionIndex}, at or ` +
+                `before its target ${validatorFor} (position ${targetIndex}); cells run ` +
+                "in document order, so the validator must come after its target",
+            );
+          }
         }
         // Parse-only compile path: extract → zod → canonicalize → sha256.
         // Throws ContractCompileError with the offending issues on bad input.

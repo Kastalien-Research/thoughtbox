@@ -259,6 +259,12 @@ verify ledger" manually from prose JSON, leaving no durable record. As a runbook
 5. **Actuals from declared channels only:** exit code, JSON pointer into the structured output
    the cell writes to its `TB_OUTPUT_PATH` sidecar (the validator env-var-to-sidecar pattern),
    or artifact ref. Free-text stdout is never scraped.
+6. **Bindings survive the .src.md encoding.** `encode` persists each bound cell's id,
+   contract (with hash), `validatorFor`, and validator snapshot hash in a
+   `<!-- thoughtbox:cell {...} -->` comment between the filename heading and the code fence;
+   `decode` restores them, re-verifies the contract hash (tampered exports are rejected
+   loudly, same gate as run time), and refuses dangling or duplicate bindings. Notebooks
+   without bindings encode byte-identically to the legacy format.
 
 ## 6. Layer 3: Governed Capability Plane (EXISTS — deltas only)
 

@@ -1,5 +1,85 @@
-import type { Notebook, Cell, NotebookMetadata, CodeLanguage } from "./types.js";
+import { z } from "zod";
+import type { Notebook, Cell, CodeCell, NotebookMetadata, CodeLanguage } from "./types.js";
 import { randomid, buildDefaultTsconfig, buildDefaultPackageJson } from "./types.js";
+import { AttachedContractSchema, verifyAttachedContract } from "./contracts.js";
+
+/**
+ * Per-cell binding metadata persisted in the .src.md format as an HTML comment
+ * (`<!-- thoughtbox:cell {...} -->`) between the `###### filename` heading and
+ * the code fence. Carries the contract/validator bindings introduced by
+ * SPEC-AGX-SUBSTRATE B4a, plus the cell id so `validatorFor` references
+ * survive an export → load round trip.
+ */
+const CellBindingMetadataSchema = z
+  .object({
+    id: z.string().min(1),
+    contract: AttachedContractSchema.optional(),
+    validatorFor: z.string().min(1).optional(),
+    validatorSnapshotHash: z.string().min(1).optional(),
+  })
+  .refine((m) => m.contract === undefined || m.validatorFor === undefined, {
+    message: "a cell declares either a tier-1 contract or validatorFor, not both",
+  });
+
+type CellBindingMetadata = z.infer<typeof CellBindingMetadataSchema>;
+
+const CELL_BINDING_PREFIX = "<!-- thoughtbox:cell ";
+
+function encodeCellBinding(
+  cell: CodeCell,
+  validatorTargetIds: Set<string>,
+): string | null {
+  const hasBinding =
+    cell.contract !== undefined ||
+    cell.validatorFor !== undefined ||
+    cell.validatorSnapshotHash !== undefined;
+  if (!hasBinding && !validatorTargetIds.has(cell.id)) {
+    return null;
+  }
+  const metadata: CellBindingMetadata = {
+    id: cell.id,
+    ...(cell.contract !== undefined ? { contract: cell.contract } : {}),
+    ...(cell.validatorFor !== undefined ? { validatorFor: cell.validatorFor } : {}),
+    ...(cell.validatorSnapshotHash !== undefined
+      ? { validatorSnapshotHash: cell.validatorSnapshotHash }
+      : {}),
+  };
+  return `${CELL_BINDING_PREFIX}${JSON.stringify(metadata)} -->`;
+}
+
+/**
+ * Parse a `<!-- thoughtbox:cell {...} -->` line. Throws on malformed JSON,
+ * schema violations, or a contract whose hash no longer matches its body
+ * (tampering) — contract bindings must never be dropped or accepted silently.
+ */
+function parseCellBinding(line: string): CellBindingMetadata {
+  const match = line.trim().match(/^<!-- thoughtbox:cell (.+) -->$/);
+  if (!match) {
+    throw new Error(`Malformed thoughtbox:cell metadata line: ${line.trim()}`);
+  }
+  let raw: unknown;
+  try {
+    raw = JSON.parse(match[1]);
+  } catch (error) {
+    throw new Error(
+      `thoughtbox:cell metadata is not valid JSON: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    );
+  }
+  const parsed = CellBindingMetadataSchema.safeParse(raw);
+  if (!parsed.success) {
+    const issues = parsed.error.issues
+      .map((issue) => `${issue.path.join(".") || "(root)"}: ${issue.message}`)
+      .join("; ");
+    throw new Error(`thoughtbox:cell metadata failed validation: ${issues}`);
+  }
+  if (parsed.data.contract !== undefined) {
+    // Loud tamper detection at import time (same Ulysses gate as run time).
+    verifyAttachedContract(parsed.data.id, parsed.data.contract);
+  }
+  return parsed.data;
+}
 
 /**
  * Encode a notebook to .src.md format
@@ -7,6 +87,15 @@ import { randomid, buildDefaultTsconfig, buildDefaultPackageJson } from "./types
  */
 export function encode(notebook: Notebook): string {
   const lines: string[] = [];
+
+  // Cells referenced by a validator need their id persisted so the
+  // validatorFor link survives a decode (which otherwise regenerates ids).
+  const validatorTargetIds = new Set<string>();
+  for (const cell of notebook.cells) {
+    if (cell.type === "code" && cell.validatorFor !== undefined) {
+      validatorTargetIds.add(cell.validatorFor);
+    }
+  }
 
   // Add metadata header
   const metadata: NotebookMetadata = {
@@ -36,6 +125,11 @@ export function encode(notebook: Notebook): string {
     } else if (cell.type === "code") {
       lines.push(`###### ${cell.filename}`);
       lines.push("");
+      const binding = encodeCellBinding(cell, validatorTargetIds);
+      if (binding !== null) {
+        lines.push(binding);
+        lines.push("");
+      }
       const langTag = cell.language === "typescript" ? "typescript" : "javascript";
       lines.push(`\`\`\`${langTag}`);
       lines.push(cell.source);
@@ -102,6 +196,15 @@ export function decode(srcmd: string): Notebook {
       // Skip empty line
       if (i < lines.length && lines[i].trim() === "") i++;
 
+      // Optional per-cell binding metadata (contracts / validator bindings)
+      let binding: CellBindingMetadata | undefined;
+      if (i < lines.length && lines[i].trim().startsWith(CELL_BINDING_PREFIX)) {
+        binding = parseCellBinding(lines[i]);
+        i++;
+        // Skip empty line after the metadata comment
+        if (i < lines.length && lines[i].trim() === "") i++;
+      }
+
       // Expect code fence
       if (i < lines.length && lines[i].startsWith("```")) {
         const fenceLine = lines[i];
@@ -126,6 +229,11 @@ export function decode(srcmd: string): Notebook {
 
         // Package.json cell
         if (filename === "package.json") {
+          if (binding !== undefined) {
+            throw new Error(
+              "thoughtbox:cell metadata is not supported on package.json cells",
+            );
+          }
           cells.push({
             id: randomid(),
             type: "package.json",
@@ -139,14 +247,25 @@ export function decode(srcmd: string): Notebook {
           const language: CodeLanguage =
             lang === "typescript" ? "typescript" : "javascript";
           cells.push({
-            id: randomid(),
+            id: binding?.id ?? randomid(),
             type: "code",
             language,
             filename,
             source,
             status: "idle",
+            ...(binding?.contract !== undefined ? { contract: binding.contract } : {}),
+            ...(binding?.validatorFor !== undefined
+              ? { validatorFor: binding.validatorFor }
+              : {}),
+            ...(binding?.validatorSnapshotHash !== undefined
+              ? { validatorSnapshotHash: binding.validatorSnapshotHash }
+              : {}),
           });
         }
+      } else if (binding !== undefined) {
+        throw new Error(
+          `thoughtbox:cell metadata for cell ${binding.id} is not followed by a code fence`,
+        );
       }
     }
     // Markdown cell (everything else)
@@ -178,6 +297,27 @@ export function decode(srcmd: string): Notebook {
           text: markdownLines.join("\n"),
         });
       }
+    }
+  }
+
+  // Structural integrity: persisted ids must be unique and every
+  // validatorFor binding must resolve to a code cell. A dangling binding
+  // would silently degrade to a run-time error, so refuse the load instead.
+  const seenIds = new Set<string>();
+  for (const cell of cells) {
+    if (seenIds.has(cell.id)) {
+      throw new Error(`Duplicate cell id "${cell.id}" in thoughtbox:cell metadata`);
+    }
+    seenIds.add(cell.id);
+  }
+  for (const cell of cells) {
+    if (cell.type !== "code" || cell.validatorFor === undefined) continue;
+    const target = cells.find((c) => c.id === cell.validatorFor);
+    if (!target || target.type !== "code") {
+      throw new Error(
+        `validatorFor target ${cell.validatorFor} (declared by cell ${cell.id}) ` +
+          "not found or not a code cell",
+      );
     }
   }
 
