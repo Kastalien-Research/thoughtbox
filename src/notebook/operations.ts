@@ -127,6 +127,21 @@ Both approaches create an identical in-memory notebook.`,
           type: "integer",
           description: "Optional position to insert cell (0-indexed), appends if not specified",
         },
+        contract: {
+          type: "object",
+          description:
+            "Optional tier-1 outcome contract for code cells: { schemaVersion: 'outcome-contract.v0', " +
+            "expectations: [{ source, op, value }] }. Sources: exitCode, output (RFC 6901 pointer into " +
+            "the JSON the cell writes to TB_OUTPUT_PATH), artifact, claimStatus. Ops: eq, ne, lt, lte, " +
+            "gt, gte, matches, schema. Compiled (zod → canonicalize → sha256) at attach; hash re-verified at run.",
+        },
+        validatorFor: {
+          type: "string",
+          description:
+            "Optional tier-2 marker for code cells: id of the code cell this validator asserts over. " +
+            "The validator runs via notebook_validate machinery against the target's structured output. " +
+            "Mutually exclusive with contract.",
+        },
       },
       required: ["notebookId", "cellType", "content"],
     },

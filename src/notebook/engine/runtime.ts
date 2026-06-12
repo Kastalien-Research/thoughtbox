@@ -10,12 +10,23 @@ import {
   InvalidNotebookShape,
   NotebookModeNotImplemented,
   NotebookModeSchema,
+  SnapshotMismatch,
   describeRunStatus,
 } from "./domain.js";
 import { getNotebookMode } from "./registry.js";
+import {
+  ContractHashMismatchError,
+  evaluateExpectation,
+  type AttachedContract,
+  type ClaimStatusResolver,
+  type ExpectationRecord,
+} from "../contracts.js";
 
 const MAX_ARTIFACT_BYTES = 1_000_000;
 const MAX_EVIDENCE_OUTPUT_CHARS = 2_000;
+
+export const PROCEDURAL_ONLY_NOTE =
+  "procedural completion only — no outcome contracts declared";
 
 export interface StartNotebookRunInput {
   notebookId: string;
@@ -41,12 +52,22 @@ export interface CellExecutionEvidence {
   exitCode: number | null;
   output: string;
   error: string;
+  /** Raw JSON text the cell wrote to its TB_OUTPUT_PATH sidecar, if any. */
+  structuredOutput?: string;
+  /** Tier-1 outcome contract attached to the cell (hash-verified by the executor). */
+  contract?: AttachedContract;
+  /** When the cell is a tier-2 validator: the cell it validates. */
+  validatorFor?: string;
+  /** Pre-computed expectation records (tier 2 — produced by the executor). */
+  expectations?: ExpectationRecord[];
 }
 
 /**
  * Executes a notebook's executable cells in document order and reports
  * per-cell evidence. Implemented by NotebookHandler over the real
- * NotebookStateManager subprocess execution path.
+ * NotebookStateManager subprocess execution path. Throws
+ * ContractHashMismatchError when an attached outcome contract fails its
+ * run-time hash re-verification (tampering — the run is rejected).
  */
 export type NotebookCellExecutor = (
   notebookId: string,
@@ -56,7 +77,10 @@ export class InMemoryNotebookEngineRuntime {
   private runs = new Map<string, NotebookRun>();
   private artifacts = new Map<string, { ref: ArtifactRef; content: string }>();
 
-  constructor(private readonly executeNotebook: NotebookCellExecutor) {}
+  constructor(
+    private readonly executeNotebook: NotebookCellExecutor,
+    private readonly claimResolver?: ClaimStatusResolver,
+  ) {}
 
   persistNotebook(notebookId: string, content: string) {
     return Effect.gen(this, function* () {
@@ -120,16 +144,21 @@ export class InMemoryNotebookEngineRuntime {
       this.runs.set(runId, running);
 
       // Everything between marking the run running and marking it completed
-      // shares one error handler: any failure (execution or artifact
-      // persistence) must transition the run to FailedRun — a run may never
-      // be left in RunningRun forever.
+      // shares one error handler: any failure (execution, contract integrity,
+      // or artifact persistence) must transition the run to FailedRun — a run
+      // may never be left in RunningRun forever.
       const runBody = Effect.gen(this, function* () {
         const evidence = yield* Effect.tryPromise({
           try: () => this.executeNotebook(input.notebookId),
           catch: (cause) =>
-            new InvalidNotebookShape({
-              reason: `Notebook execution failed: ${cause instanceof Error ? cause.message : String(cause)}`,
-            }),
+            cause instanceof ContractHashMismatchError
+              ? new SnapshotMismatch({
+                  expected: cause.expected,
+                  actual: cause.actual,
+                })
+              : new InvalidNotebookShape({
+                  reason: `Notebook execution failed: ${cause instanceof Error ? cause.message : String(cause)}`,
+                }),
         });
         const inputsArtifact = yield* this.putArtifact(
           `${runId}-inputs.json`,
@@ -150,7 +179,10 @@ export class InMemoryNotebookEngineRuntime {
             const detail =
               error._tag === "ArtifactTooLarge"
                 ? `run artifact too large: ${error.sizeBytes} bytes (max ${error.maxBytes})`
-                : error.reason;
+                : error._tag === "SnapshotMismatch"
+                  ? `outcome contract hash mismatch: expected ${error.expected}, ` +
+                    `got ${error.actual} — contract was modified after attach; run rejected`
+                  : error.reason;
             const failed: NotebookRun = {
               _tag: "FailedRun",
               runId,
@@ -167,6 +199,7 @@ export class InMemoryNotebookEngineRuntime {
         ),
       );
 
+      const runArtifacts = [inputsArtifact, evidenceArtifact];
       const completedAt = new Date().toISOString();
       const completed: NotebookRun = {
         _tag: "CompletedRun",
@@ -177,8 +210,13 @@ export class InMemoryNotebookEngineRuntime {
         createdAt,
         startedAt,
         completedAt,
-        outputs: [buildRunbookVerdict(evidence)],
-        artifacts: [inputsArtifact, evidenceArtifact],
+        outputs: [
+          buildRunbookVerdict(evidence, {
+            readArtifact: (name) => this.readRunArtifact(runArtifacts, name),
+            claimResolver: this.claimResolver,
+          }),
+        ],
+        artifacts: runArtifacts,
       };
       this.runs.set(runId, completed);
 
@@ -224,6 +262,17 @@ export class InMemoryNotebookEngineRuntime {
     return this.artifacts.get(artifactId) ?? null;
   }
 
+  /**
+   * Resolve a run artifact's content by authored name. Run artifacts carry a
+   * runId prefix unknowable at authoring time, so "inputs.json" matches
+   * "<runId>-inputs.json".
+   */
+  private readRunArtifact(refs: ArtifactRef[], name: string): string | undefined {
+    const ref = refs.find((r) => r.name === name || r.name.endsWith(`-${name}`));
+    if (!ref) return undefined;
+    return this.artifacts.get(ref.artifactId)?.content;
+  }
+
   private putArtifact(name: string, mimeType: string, content: string) {
     return Effect.gen(this, function* () {
       const sizeBytes = Buffer.byteLength(content, "utf8");
@@ -240,14 +289,76 @@ export class InMemoryNotebookEngineRuntime {
   }
 }
 
+interface VerdictDerivationContext {
+  readArtifact: (name: string) => string | undefined;
+  claimResolver?: ClaimStatusResolver;
+}
+
 /**
- * Derive the runbook verdict from real per-cell execution results.
- * A passing verdict must rest on at least one completed code cell:
- * dependency installation (package.json cells) is recorded as evidence
- * but cannot verify a runbook by itself, so blank notebooks — which
- * always carry a default package.json cell — cannot pass.
+ * Derive the runbook verdict from real per-cell execution results
+ * (SPEC-AGX-SUBSTRATE §5.1 outcome-contract semantics).
+ *
+ * With declared expectations (tier-1 contracts or tier-2 validators), the
+ * verdict passes iff every declared expectation was evaluated and passed AND
+ * no cell failed procedurally — `skipped` and `error` expectations are never
+ * pass, and a crashed cell still fails the run.
+ *
+ * With ZERO declared expectations, the legacy procedural derivation applies
+ * unchanged, but the verdict carries contractCoverage 0 and a reason marking
+ * it as procedural-only so downstream fitness can exclude it: a passing
+ * verdict must rest on at least one completed code cell — dependency
+ * installation (package.json cells) is recorded as evidence but cannot verify
+ * a runbook by itself, so blank notebooks cannot pass.
  */
-function buildRunbookVerdict(evidence: CellExecutionEvidence[]): NotebookOutput {
+function buildRunbookVerdict(
+  evidence: CellExecutionEvidence[],
+  context: VerdictDerivationContext,
+): NotebookOutput {
+  const recordsByCell = new Map<string, ExpectationRecord[]>();
+  const allRecords: ExpectationRecord[] = [];
+  const coveredCellIds = new Set<string>();
+
+  for (const cell of evidence) {
+    const cellRecords: ExpectationRecord[] = [];
+    if (cell.expectations) {
+      // Tier 2 — pre-computed by the executor's validator machinery.
+      cellRecords.push(...cell.expectations);
+      if (cell.validatorFor !== undefined) coveredCellIds.add(cell.validatorFor);
+    }
+    if (cell.contract) {
+      coveredCellIds.add(cell.cellId);
+      for (const expectation of cell.contract.contract.expectations) {
+        cellRecords.push(
+          evaluateExpectation(expectation, {
+            cellId: cell.cellId,
+            cellStatus: cell.status,
+            exitCode: cell.exitCode,
+            ...(cell.structuredOutput !== undefined
+              ? { structuredOutputRaw: cell.structuredOutput }
+              : {}),
+            readArtifact: context.readArtifact,
+            ...(context.claimResolver !== undefined
+              ? { claimResolver: context.claimResolver }
+              : {}),
+          }),
+        );
+      }
+    }
+    if (cellRecords.length > 0) {
+      recordsByCell.set(cell.cellId, cellRecords);
+      allRecords.push(...cellRecords);
+    }
+  }
+
+  const subjectCodeCells = evidence.filter(
+    (cell) => cell.cellType === "code" && cell.validatorFor === undefined,
+  );
+  const contractCoverage =
+    subjectCodeCells.length === 0
+      ? 0
+      : subjectCodeCells.filter((cell) => coveredCellIds.has(cell.cellId)).length /
+        subjectCodeCells.length;
+
   const failed = evidence.filter((cell) => cell.status === "failed");
   const completedCode = evidence.filter(
     (cell) => cell.status === "completed" && cell.cellType === "code",
@@ -255,22 +366,48 @@ function buildRunbookVerdict(evidence: CellExecutionEvidence[]): NotebookOutput 
 
   let pass: boolean;
   let reason: string;
-  if (evidence.length === 0) {
-    pass = false;
-    reason = "runbook has no executable cells; nothing was verified";
-  } else if (failed.length > 0) {
-    pass = false;
-    const first = failed[0]!;
-    reason =
-      `cell ${first.cellId} (${first.filename}) failed with exit code ` +
-      `${first.exitCode ?? "none"}: ${truncate(first.error || first.output)}`;
-  } else if (completedCode.length === 0) {
-    pass = false;
-    reason =
-      "no code cells executed; dependency install alone does not verify a runbook";
+
+  if (allRecords.length === 0) {
+    // Legacy procedural derivation — kept verbatim, marked procedural-only.
+    if (evidence.length === 0) {
+      pass = false;
+      reason = "runbook has no executable cells; nothing was verified";
+    } else if (failed.length > 0) {
+      pass = false;
+      const first = failed[0]!;
+      reason =
+        `cell ${first.cellId} (${first.filename}) failed with exit code ` +
+        `${first.exitCode ?? "none"}: ${truncate(first.error || first.output)}`;
+    } else if (completedCode.length === 0) {
+      pass = false;
+      reason =
+        "no code cells executed; dependency install alone does not verify a runbook";
+    } else {
+      pass = true;
+      reason = `all executable cells completed (${completedCode.length} code)`;
+    }
+    reason = `${reason}; ${PROCEDURAL_ONLY_NOTE}`;
   } else {
-    pass = true;
-    reason = `all executable cells completed (${completedCode.length} code)`;
+    const notPassed = allRecords.filter((record) => record.result !== "pass");
+    if (failed.length > 0) {
+      pass = false;
+      const first = failed[0]!;
+      reason =
+        `cell ${first.cellId} (${first.filename}) failed with exit code ` +
+        `${first.exitCode ?? "none"}: ${truncate(first.error || first.output)}`;
+    } else if (notPassed.length > 0) {
+      pass = false;
+      const first = notPassed[0]!;
+      reason =
+        `expectation "${first.expectation}" on cell ${first.cellId} ` +
+        `${first.result}${first.error ? `: ${first.error}` : ""} ` +
+        `(${notPassed.length} of ${allRecords.length} declared expectations did not pass)`;
+    } else {
+      pass = true;
+      reason =
+        `all ${allRecords.length} declared expectation(s) passed ` +
+        `(contract coverage ${Math.round(contractCoverage * 100)}% of code cells)`;
+    }
   }
 
   return {
@@ -278,6 +415,7 @@ function buildRunbookVerdict(evidence: CellExecutionEvidence[]): NotebookOutput 
     mode: "runbook",
     pass,
     reason,
+    contractCoverage,
     evidence: evidence.map((cell) => ({
       cellId: cell.cellId,
       cellType: cell.cellType,
@@ -286,6 +424,12 @@ function buildRunbookVerdict(evidence: CellExecutionEvidence[]): NotebookOutput 
       exitCode: cell.exitCode,
       output: truncate(cell.output),
       error: truncate(cell.error),
+      ...(cell.contract !== undefined
+        ? { contractHash: cell.contract.contractHash }
+        : {}),
+      ...(recordsByCell.has(cell.cellId)
+        ? { expectations: recordsByCell.get(cell.cellId) }
+        : {}),
     })),
   };
 }
