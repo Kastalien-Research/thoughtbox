@@ -11,6 +11,7 @@ import {
   NotebookModeNotImplemented,
   NotebookModeSchema,
   SnapshotMismatch,
+  StoreUnavailable,
   describeRunStatus,
 } from "./domain.js";
 import { getNotebookMode } from "./registry.js";
@@ -21,6 +22,14 @@ import {
   type ClaimStatusResolver,
   type ExpectationRecord,
 } from "../contracts.js";
+import {
+  hashTemplateCells,
+  type FitnessLedgerRow,
+  type RunbookStorage,
+  type RunbookTemplateCell,
+} from "../runbook/types.js";
+import { InMemoryRunbookStorage } from "../runbook/in-memory-runbook-storage.js";
+import { hashJson } from "../../peer-notebook/manifest.js";
 
 const MAX_ARTIFACT_BYTES = 1_000_000;
 const MAX_EVIDENCE_OUTPUT_CHARS = 2_000;
@@ -73,14 +82,46 @@ export type NotebookCellExecutor = (
   notebookId: string,
 ) => Promise<CellExecutionEvidence[]>;
 
+/**
+ * Durable persistence wiring for the engine runtime (SPEC-AGX-SUBSTRATE B4b).
+ * The storage port defaults to InMemoryRunbookStorage so the runtime works
+ * unchanged without external infrastructure; deployments inject
+ * SupabaseRunbookStorage through the same port.
+ */
+export interface NotebookEngineRuntimeOptions {
+  storage?: RunbookStorage;
+  /**
+   * Snapshot of a notebook's executable cells (including compiled contracts)
+   * for durable template versioning. When absent, a degenerate template is
+   * derived from execution evidence (cell ids/types/contracts; source
+   * unavailable at that layer).
+   */
+  templateCellSource?: (notebookId: string) => RunbookTemplateCell[] | undefined;
+  /** Executing agent identity recorded on instances/executions/ledger rows. */
+  agentId?: string;
+}
+
 export class InMemoryNotebookEngineRuntime {
   private runs = new Map<string, NotebookRun>();
   private artifacts = new Map<string, { ref: ArtifactRef; content: string }>();
+  /** Durable runbook substrate (templates, instances, executions, ledger). */
+  readonly storage: RunbookStorage;
+  private readonly templateCellSource?: (
+    notebookId: string,
+  ) => RunbookTemplateCell[] | undefined;
+  private readonly agentId: string;
 
   constructor(
     private readonly executeNotebook: NotebookCellExecutor,
     private readonly claimResolver?: ClaimStatusResolver,
-  ) {}
+    options: NotebookEngineRuntimeOptions = {},
+  ) {
+    this.storage = options.storage ?? new InMemoryRunbookStorage();
+    if (options.templateCellSource !== undefined) {
+      this.templateCellSource = options.templateCellSource;
+    }
+    this.agentId = options.agentId ?? "local";
+  }
 
   persistNotebook(notebookId: string, content: string) {
     return Effect.gen(this, function* () {
@@ -170,10 +211,36 @@ export class InMemoryNotebookEngineRuntime {
           "application/json",
           JSON.stringify(evidence, null, 2),
         );
-        return { evidence, inputsArtifact, evidenceArtifact };
+        const runArtifacts = [inputsArtifact, evidenceArtifact];
+        const { verdict, records } = buildRunbookVerdict(evidence, {
+          readArtifact: (name) => this.readRunArtifact(runArtifacts, name),
+          claimResolver: this.claimResolver,
+        });
+        // Durable persistence (SPEC-AGX-SUBSTRATE B4b): template version,
+        // instance pinning it, append-only cell executions, and fitness
+        // ledger rows. A persistence failure fails the run — durable records
+        // are part of the run's contract, not a best-effort side channel.
+        yield* Effect.tryPromise({
+          try: () =>
+            this.persistDurableRecords({
+              runId,
+              notebookId: input.notebookId,
+              startedAt,
+              inputs: input.inputs ?? {},
+              evidence,
+              records,
+              outputsRef: evidenceArtifact.artifactId,
+            }),
+          catch: (cause) =>
+            new StoreUnavailable({
+              store: "runbook",
+              reason: cause instanceof Error ? cause.message : String(cause),
+            }),
+        });
+        return { verdict, runArtifacts };
       });
 
-      const { evidence, inputsArtifact, evidenceArtifact } = yield* runBody.pipe(
+      const { verdict, runArtifacts } = yield* runBody.pipe(
         Effect.tapError((error) =>
           Effect.sync(() => {
             const detail =
@@ -182,7 +249,9 @@ export class InMemoryNotebookEngineRuntime {
                 : error._tag === "SnapshotMismatch"
                   ? `outcome contract hash mismatch: expected ${error.expected}, ` +
                     `got ${error.actual} — contract was modified after attach; run rejected`
-                  : error.reason;
+                  : error._tag === "StoreUnavailable"
+                    ? `durable runbook persistence failed (${error.store}): ${error.reason}`
+                    : error.reason;
             const failed: NotebookRun = {
               _tag: "FailedRun",
               runId,
@@ -199,7 +268,6 @@ export class InMemoryNotebookEngineRuntime {
         ),
       );
 
-      const runArtifacts = [inputsArtifact, evidenceArtifact];
       const completedAt = new Date().toISOString();
       const completed: NotebookRun = {
         _tag: "CompletedRun",
@@ -210,12 +278,7 @@ export class InMemoryNotebookEngineRuntime {
         createdAt,
         startedAt,
         completedAt,
-        outputs: [
-          buildRunbookVerdict(evidence, {
-            readArtifact: (name) => this.readRunArtifact(runArtifacts, name),
-            claimResolver: this.claimResolver,
-          }),
-        ],
+        outputs: [verdict],
         artifacts: runArtifacts,
       };
       this.runs.set(runId, completed);
@@ -260,6 +323,96 @@ export class InMemoryNotebookEngineRuntime {
 
   getArtifact(artifactId: string): { ref: ArtifactRef; content: string } | null {
     return this.artifacts.get(artifactId) ?? null;
+  }
+
+  /**
+   * Persist the durable record of one run (SPEC-AGX-SUBSTRATE B4b):
+   * 1. Template version — the notebook id is the stable templateId; a new
+   *    immutable version is appended when the canonical cells hash changes,
+   *    otherwise the latest version is reused.
+   * 2. Instance — pins (templateId, version) at creation; instanceId = runId.
+   * 3. Cell executions — one append-only record per evidence cell
+   *    (seq = document order), carrying the per-expectation results.
+   * 4. Fitness ledger — one row per machine-checked expectation evaluation
+   *    (tier carried; error/skipped recorded with their state and excluded
+   *    from pass-rate aggregates by `aggregateFitness`).
+   */
+  private async persistDurableRecords(args: {
+    runId: string;
+    notebookId: string;
+    startedAt: string;
+    inputs: Record<string, unknown>;
+    evidence: CellExecutionEvidence[];
+    records: ExpectationRecord[];
+    outputsRef: string;
+  }): Promise<void> {
+    const { runId, notebookId, startedAt, inputs, evidence, records, outputsRef } = args;
+    const cells =
+      this.templateCellSource?.(notebookId) ?? templateCellsFromEvidence(evidence);
+    const cellsHash = hashTemplateCells(cells);
+
+    const latest = await this.storage.getLatestTemplate(notebookId);
+    let templateVersion: number;
+    if (latest && latest.cellsHash === cellsHash) {
+      templateVersion = latest.version;
+    } else {
+      templateVersion = (latest?.version ?? 0) + 1;
+      await this.storage.saveTemplate({
+        templateId: notebookId,
+        version: templateVersion,
+        cells,
+        cellsHash,
+        createdBy: this.agentId,
+        createdAt: new Date().toISOString(),
+      });
+    }
+
+    await this.storage.createInstance({
+      instanceId: runId,
+      templateId: notebookId,
+      templateVersion,
+      createdBy: this.agentId,
+      createdAt: startedAt,
+    });
+
+    const recordsByCell = new Map<string, ExpectationRecord[]>();
+    for (const record of records) {
+      const list = recordsByCell.get(record.cellId);
+      if (list) list.push(record);
+      else recordsByCell.set(record.cellId, [record]);
+    }
+
+    const inputsDigest = hashJson(inputs);
+    for (const [index, cell] of evidence.entries()) {
+      await this.storage.appendCellExecution({
+        instanceId: runId,
+        seq: index + 1,
+        cellId: cell.cellId,
+        startedAt,
+        agentId: this.agentId,
+        inputsDigest,
+        outputsRef,
+        status: cell.status,
+        expectations: recordsByCell.get(cell.cellId) ?? [],
+      });
+    }
+
+    const ts = new Date().toISOString();
+    const ledgerRows: FitnessLedgerRow[] = records.map((record) => ({
+      templateId: notebookId,
+      templateVersion,
+      instanceId: runId,
+      cellId: record.cellId,
+      tier: record.tier,
+      result: record.result,
+      pass: record.result === "pass",
+      expected: record.expected,
+      ...(record.actual !== undefined ? { actual: record.actual } : {}),
+      ...(record.error !== undefined ? { error: record.error } : {}),
+      agentId: this.agentId,
+      ts,
+    }));
+    await this.storage.appendFitnessRows(ledgerRows);
   }
 
   /**
@@ -309,11 +462,15 @@ interface VerdictDerivationContext {
  * verdict must rest on at least one completed code cell — dependency
  * installation (package.json cells) is recorded as evidence but cannot verify
  * a runbook by itself, so blank notebooks cannot pass.
+ *
+ * Returns the verdict plus the flat list of per-expectation records so the
+ * caller can flow them into durable instance records and fitness ledger rows
+ * (B4b) without re-evaluating.
  */
 function buildRunbookVerdict(
   evidence: CellExecutionEvidence[],
   context: VerdictDerivationContext,
-): NotebookOutput {
+): { verdict: NotebookOutput; records: ExpectationRecord[] } {
   const recordsByCell = new Map<string, ExpectationRecord[]>();
   const allRecords: ExpectationRecord[] = [];
   const coveredCellIds = new Set<string>();
@@ -411,30 +568,52 @@ function buildRunbookVerdict(
   }
 
   return {
-    _tag: "RunbookVerdict",
-    mode: "runbook",
-    pass,
-    reason,
-    contractCoverage,
-    evidence: evidence.map((cell) => ({
-      cellId: cell.cellId,
-      cellType: cell.cellType,
-      filename: cell.filename,
-      status: cell.status,
-      exitCode: cell.exitCode,
-      output: truncate(cell.output),
-      error: truncate(cell.error),
-      ...(cell.contract !== undefined
-        ? { contractHash: cell.contract.contractHash }
-        : {}),
-      ...(recordsByCell.has(cell.cellId)
-        ? { expectations: recordsByCell.get(cell.cellId) }
-        : {}),
-    })),
+    verdict: {
+      _tag: "RunbookVerdict",
+      mode: "runbook",
+      pass,
+      reason,
+      contractCoverage,
+      evidence: evidence.map((cell) => ({
+        cellId: cell.cellId,
+        cellType: cell.cellType,
+        filename: cell.filename,
+        status: cell.status,
+        exitCode: cell.exitCode,
+        output: truncate(cell.output),
+        error: truncate(cell.error),
+        ...(cell.contract !== undefined
+          ? { contractHash: cell.contract.contractHash }
+          : {}),
+        ...(recordsByCell.has(cell.cellId)
+          ? { expectations: recordsByCell.get(cell.cellId) }
+          : {}),
+      })),
+    },
+    records: allRecords,
   };
 }
 
 function truncate(text: string): string {
   if (text.length <= MAX_EVIDENCE_OUTPUT_CHARS) return text;
   return `${text.slice(0, MAX_EVIDENCE_OUTPUT_CHARS)}… [truncated]`;
+}
+
+/**
+ * Degenerate template snapshot derived from execution evidence, used only
+ * when no templateCellSource is wired (raw runtime usage). Cell identity,
+ * contracts (with hashes), and validator markers survive; authored source is
+ * not available at this layer, so prefer wiring a templateCellSource.
+ */
+function templateCellsFromEvidence(
+  evidence: CellExecutionEvidence[],
+): RunbookTemplateCell[] {
+  return evidence.map((cell) => ({
+    cellId: cell.cellId,
+    cellType: cell.cellType,
+    filename: cell.filename,
+    source: "",
+    ...(cell.contract !== undefined ? { contract: cell.contract } : {}),
+    ...(cell.validatorFor !== undefined ? { validatorFor: cell.validatorFor } : {}),
+  }));
 }
