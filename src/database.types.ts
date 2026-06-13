@@ -1545,6 +1545,209 @@ export type Database = {
           },
         ]
       }
+      runbook_cell_executions: {
+        Row: {
+          agent_id: string
+          cell_id: string
+          expectations: Json
+          inputs_digest: string
+          instance_id: string
+          outputs_ref: string | null
+          recorded_at: string
+          seq: number
+          started_at: string
+          status: string
+          tenant_workspace_id: string
+        }
+        Insert: {
+          agent_id: string
+          cell_id: string
+          expectations?: Json
+          inputs_digest: string
+          instance_id: string
+          outputs_ref?: string | null
+          recorded_at?: string
+          seq: number
+          started_at: string
+          status: string
+          tenant_workspace_id: string
+        }
+        Update: {
+          agent_id?: string
+          cell_id?: string
+          expectations?: Json
+          inputs_digest?: string
+          instance_id?: string
+          outputs_ref?: string | null
+          recorded_at?: string
+          seq?: number
+          started_at?: string
+          status?: string
+          tenant_workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "runbook_cell_executions_instance_id_fkey"
+            columns: ["instance_id"]
+            isOneToOne: false
+            referencedRelation: "runbook_instances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "runbook_cell_executions_tenant_workspace_id_fkey"
+            columns: ["tenant_workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      runbook_fitness_ledger: {
+        Row: {
+          actual: Json | null
+          agent_id: string
+          cell_id: string
+          error: string | null
+          expected: Json
+          id: number
+          instance_id: string
+          pass: boolean
+          result: string
+          template_id: string
+          template_version: number
+          tenant_workspace_id: string
+          tier: number
+          ts: string
+        }
+        Insert: {
+          actual?: Json | null
+          agent_id: string
+          cell_id: string
+          error?: string | null
+          expected: Json
+          id?: never
+          instance_id: string
+          pass: boolean
+          result: string
+          template_id: string
+          template_version: number
+          tenant_workspace_id: string
+          tier: number
+          ts?: string
+        }
+        Update: {
+          actual?: Json | null
+          agent_id?: string
+          cell_id?: string
+          error?: string | null
+          expected?: Json
+          id?: never
+          instance_id?: string
+          pass?: boolean
+          result?: string
+          template_id?: string
+          template_version?: number
+          tenant_workspace_id?: string
+          tier?: number
+          ts?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "runbook_fitness_ledger_instance_id_fkey"
+            columns: ["instance_id"]
+            isOneToOne: false
+            referencedRelation: "runbook_instances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "runbook_fitness_ledger_tenant_workspace_id_fkey"
+            columns: ["tenant_workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      runbook_instances: {
+        Row: {
+          created_at: string
+          created_by: string
+          id: string
+          template_id: string
+          template_version: number
+          tenant_workspace_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          id: string
+          template_id: string
+          template_version: number
+          tenant_workspace_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          id?: string
+          template_id?: string
+          template_version?: number
+          tenant_workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "runbook_instances_template_id_template_version_fkey"
+            columns: ["template_id", "template_version"]
+            isOneToOne: false
+            referencedRelation: "runbook_templates"
+            referencedColumns: ["template_id", "version"]
+          },
+          {
+            foreignKeyName: "runbook_instances_tenant_workspace_id_fkey"
+            columns: ["tenant_workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      runbook_templates: {
+        Row: {
+          cells: Json
+          cells_hash: string
+          created_at: string
+          created_by: string
+          template_id: string
+          tenant_workspace_id: string
+          version: number
+        }
+        Insert: {
+          cells: Json
+          cells_hash: string
+          created_at?: string
+          created_by: string
+          template_id: string
+          tenant_workspace_id: string
+          version: number
+        }
+        Update: {
+          cells?: Json
+          cells_hash?: string
+          created_at?: string
+          created_by?: string
+          template_id?: string
+          tenant_workspace_id?: string
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "runbook_templates_tenant_workspace_id_fkey"
+            columns: ["tenant_workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       runs: {
         Row: {
           ended_at: string | null
