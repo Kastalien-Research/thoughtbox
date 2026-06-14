@@ -339,3 +339,23 @@ export class SupabaseRunbookStorage implements RunbookStorage {
     return aggregateFitness(templateId, templateVersion, rows);
   }
 }
+
+/**
+ * Per-tenant SupabaseRunbookStorage provider for multi-tenant mode.
+ * Instances are cached per tenant workspace; all rows are scoped by
+ * tenant_workspace_id so durable runbooks never cross tenant boundaries.
+ * Mirrors createSupabaseClaimStorageProvider.
+ */
+export function createSupabaseRunbookStorageProvider(
+  config: Omit<SupabaseRunbookStorageConfig, "tenantWorkspaceId">,
+): (tenantWorkspaceId: string) => RunbookStorage {
+  const cache = new Map<string, RunbookStorage>();
+  return (tenantWorkspaceId: string): RunbookStorage => {
+    let storage = cache.get(tenantWorkspaceId);
+    if (!storage) {
+      storage = new SupabaseRunbookStorage({ ...config, tenantWorkspaceId });
+      cache.set(tenantWorkspaceId, storage);
+    }
+    return storage;
+  };
+}

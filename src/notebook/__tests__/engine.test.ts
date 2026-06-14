@@ -559,7 +559,11 @@ describe("Outcome contracts (SPEC-AGX-SUBSTRATE B4a)", () => {
 
     const verdict = await runVerdict(handler, notebookId);
     expect(verdict.pass).toBe(false);
+    // No subprocess ran, so stderr is empty — the verdict reason must carry
+    // the machinery diagnostic, not an empty trailer after "exit code none:".
+    expect(verdict.reason).toContain("snapshot_hash_mismatch");
     const check = verdict.evidence.find((cell) => cell.filename === "check.js")!;
+    expect(check.error).toBe("snapshot_hash_mismatch");
     expect(check.expectations![0]).toMatchObject({
       tier: 2,
       result: "error",
@@ -612,5 +616,80 @@ describe("Outcome contracts (SPEC-AGX-SUBSTRATE B4a)", () => {
     const wiredVerdict = wiredRun.outputs[0] as unknown as VerdictShape;
     expect(wiredVerdict.pass).toBe(true);
     expect(wiredVerdict.contractCoverage).toBe(1);
+  });
+});
+
+describe("validatorFor authoring guards", () => {
+  async function newRunbookWithStep(handler: NotebookHandler) {
+    const created = await handler.handleCreateNotebook({
+      title: "Guards",
+      language: "javascript",
+    });
+    const notebookId = created.notebook.id as string;
+    const step = await handler.handleAddCell({
+      notebookId,
+      cellType: "code",
+      filename: "step.js",
+      content: WRITE_OUTPUT_SOURCE("{ count: 3 }"),
+    });
+    return { notebookId, stepId: step.cell.id as string };
+  }
+
+  it("rejects a validator that targets another validator cell", async () => {
+    const handler = new NotebookHandler();
+    await handler.init();
+    const { notebookId, stepId } = await newRunbookWithStep(handler);
+
+    const validator = await handler.handleAddCell({
+      notebookId,
+      cellType: "code",
+      filename: "check.js",
+      content: 'import { pass } from "./tb-validate.js"; pass("ok");',
+      validatorFor: stepId,
+    });
+
+    await expect(
+      handler.handleAddCell({
+        notebookId,
+        cellType: "code",
+        filename: "check2.js",
+        content: 'import { pass } from "./tb-validate.js"; pass("ok");',
+        validatorFor: validator.cell.id,
+      }),
+    ).rejects.toThrow(/is itself a validator cell/);
+  });
+
+  it("rejects a validator inserted at or before its target in document order", async () => {
+    const handler = new NotebookHandler();
+    await handler.init();
+    const { notebookId, stepId } = await newRunbookWithStep(handler);
+
+    await expect(
+      handler.handleAddCell({
+        notebookId,
+        cellType: "code",
+        filename: "check.js",
+        content: 'import { pass } from "./tb-validate.js"; pass("ok");',
+        validatorFor: stepId,
+        position: 0,
+      }),
+    ).rejects.toThrow(/must come after its target/);
+  });
+
+  it("accepts a validator inserted after its target via explicit position", async () => {
+    const handler = new NotebookHandler();
+    await handler.init();
+    const { notebookId, stepId } = await newRunbookWithStep(handler);
+
+    const added = await handler.handleAddCell({
+      notebookId,
+      cellType: "code",
+      filename: "check.js",
+      content: 'import { pass } from "./tb-validate.js"; pass("ok");',
+      validatorFor: stepId,
+      position: 99,
+    });
+    expect(added.success).toBe(true);
+    expect(added.cell.validatorFor).toBe(stepId);
   });
 });

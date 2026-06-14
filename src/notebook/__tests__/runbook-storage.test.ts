@@ -570,4 +570,85 @@ describe("SupabaseRunbookStorage — tenant isolation", () => {
     expect(aggregate.instances).toBe(0);
     expect(aggregate.passRate).toBeNull();
   });
+
+  it("rejects attaching a child row to another tenant's instance (composite FK)", async ({
+    skip,
+  }) => {
+    if (!available) skip();
+    const tenantA = makeSupabaseRunbookStorage(TEST_WORKSPACE_ID);
+    const template = makeTemplate(`rbt-${randomUUID()}`);
+    await tenantA.saveTemplate(template);
+    const instance = makeInstance(template);
+    await tenantA.createInstance(instance);
+
+    // Raw service-role client bypasses the storage layer's tenant scoping and
+    // tries to write an execution + ledger row for tenant B that points at
+    // tenant A's instance. The (instance_id, tenant_workspace_id) FK
+    // (migration 20260613020000) must reject both: no instance exists at
+    // (A's id, tenant B).
+    const raw = createServiceClient();
+    const execInsert = await raw.from("runbook_cell_executions").insert({
+      instance_id: instance.instanceId,
+      seq: 1,
+      cell_id: "step",
+      tenant_workspace_id: TENANT_B_WORKSPACE_ID,
+      started_at: new Date().toISOString(),
+      agent_id: "agent-mallory",
+      inputs_digest: "sha256:abc",
+      status: "completed",
+      expectations: [],
+    });
+    expect(execInsert.error?.message).toMatch(/foreign key constraint/);
+
+    const ledgerInsert = await raw.from("runbook_fitness_ledger").insert({
+      template_id: template.templateId,
+      template_version: template.version,
+      instance_id: instance.instanceId,
+      cell_id: "step",
+      tenant_workspace_id: TENANT_B_WORKSPACE_ID,
+      tier: 1,
+      result: "pass",
+      pass: true,
+      expected: { source: { kind: "exitCode" }, op: "eq", value: 0 },
+      actual: 0,
+      agent_id: "agent-mallory",
+    });
+    expect(ledgerInsert.error?.message).toMatch(/foreign key constraint/);
+
+    // Tenant A's instance is untouched by the rejected writes.
+    expect(await tenantA.listCellExecutions(instance.instanceId)).toEqual([]);
+    expect(await tenantA.listFitnessRows(template.templateId)).toEqual([]);
+  });
+
+  it("isolates template keys by tenant: a shared (template_id, version) does not collide", async ({
+    skip,
+  }) => {
+    if (!available) skip();
+    const tenantA = makeSupabaseRunbookStorage(TEST_WORKSPACE_ID);
+    const tenantB = makeSupabaseRunbookStorage(TENANT_B_WORKSPACE_ID);
+    // The runtime sets template_id to the notebook id, so two tenants can use
+    // the same one. Before 20260613030000 the global PK made tenant B's save
+    // collide on A's row (a spurious TemplateVersionConflictError); the
+    // tenant-scoped PK must let both save it.
+    const sharedId = `rbt-${randomUUID()}`;
+    await tenantA.saveTemplate(makeTemplate(sharedId));
+    await tenantB.saveTemplate(makeTemplate(sharedId));
+
+    expect(await tenantA.getLatestTemplate(sharedId)).not.toBeNull();
+    expect(await tenantB.getLatestTemplate(sharedId)).not.toBeNull();
+  });
+
+  it("rejects an instance pinned to another tenant's template", async ({ skip }) => {
+    if (!available) skip();
+    const tenantA = makeSupabaseRunbookStorage(TEST_WORKSPACE_ID);
+    const tenantB = makeSupabaseRunbookStorage(TENANT_B_WORKSPACE_ID);
+    const template = makeTemplate(`rbt-${randomUUID()}`);
+    await tenantA.saveTemplate(template); // only tenant A holds this template
+
+    // Tenant B pinning an instance to A's template must fail the
+    // tenant-composite template FK, not silently bind across tenants.
+    await expect(tenantB.createInstance(makeInstance(template))).rejects.toThrow(
+      /not found/,
+    );
+  });
 });

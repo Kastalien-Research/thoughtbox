@@ -390,6 +390,26 @@ function parseAndPoint(raw: string, pointer: string, channel: string): Extractio
 
 type Comparison = { ok: true; pass: boolean } | { ok: false; error: string };
 
+// Patterns are zod-validated at authoring time; cache the compiled form so
+// repeated evaluations don't re-compile. Unanchored substring semantics, no
+// flags — a shared instance carries no lastIndex state. Bounded: once full,
+// the oldest entry is evicted (insertion-order FIFO).
+const REGEX_CACHE_MAX_ENTRIES = 256;
+const compiledRegexCache = new Map<string, RegExp>();
+
+function compiledRegex(pattern: string): RegExp {
+  let regex = compiledRegexCache.get(pattern);
+  if (regex === undefined) {
+    regex = new RegExp(pattern);
+    if (compiledRegexCache.size >= REGEX_CACHE_MAX_ENTRIES) {
+      const oldest = compiledRegexCache.keys().next().value;
+      if (oldest !== undefined) compiledRegexCache.delete(oldest);
+    }
+    compiledRegexCache.set(pattern, regex);
+  }
+  return regex;
+}
+
 function applyOp(op: OutcomeOp, value: JsonValue, actual: unknown): Comparison {
   switch (op) {
     case "eq":
@@ -427,7 +447,7 @@ function applyOp(op: OutcomeOp, value: JsonValue, actual: unknown): Comparison {
       if (typeof actual !== "string") {
         return { ok: false, error: `op "matches" requires a string actual, got ${JSON.stringify(actual)}` };
       }
-      return { ok: true, pass: new RegExp(value as string).test(actual) };
+      return { ok: true, pass: compiledRegex(value as string).test(actual) };
     }
     case "schema": {
       const mismatch = checkJsonSchemaSubset(actual, value as ContractJsonSchemaSubset);

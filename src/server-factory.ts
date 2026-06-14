@@ -4,6 +4,10 @@ import { z } from "zod"; // hypothesis test 3
 import type { HubStorage } from "./hub/hub-types.js";
 import type { HubEvent } from "./hub/hub-handler.js";
 import { createHubToolHandler } from "./hub/hub-tool-handler.js";
+import { SessionIdentityRegistry } from "./hub/session-identity.js";
+import type { ClaimStorage } from "./claims/types.js";
+import type { RunbookStorage } from "./notebook/runbook/types.js";
+import { createClaimsToolHandler } from "./claims/claims-tool-handler.js";
 import {
   createThoughtStoreAdapter,
   type ThoughtStoreAdapter,
@@ -88,6 +92,7 @@ import { getNavigationCatalog as getInitNavigationCatalog, getNavigationStep as 
 import { getOperationsCatalog as getSessionOperationsCatalog, getOperation as getSessOp } from "./sessions/operations.js";
 import { getOperationsCatalog as getKnowledgeOperationsCatalog, getOperation as getKnowOp } from "./knowledge/operations.js";
 import { getOperationsCatalog as getHubOperationsCatalog, getOperation as getHubOp } from "./hub/operations.js";
+import { getClaimsOperationsCatalog, getClaimsOperation } from "./claims/operations.js";
 import { getOperation as getNbOp } from "./notebook/operations.js";
 import {
   SearchTool, SEARCH_TOOL,
@@ -155,6 +160,22 @@ export interface CreateMcpServerArgs {
   hubThoughtStore?: ThoughtStoreAdapter;
   /** Optional callback for hub events (local-mode unified event stream) */
   onHubEvent?: (event: HubEvent) => void;
+  /**
+   * Claim graph storage (SPEC-AGX-SUBSTRATE B1/B2). Like hubStorage, must
+   * be shared across MCP sessions (single in-memory instance locally;
+   * tenant-scoped SupabaseClaimStorage when hosted); tb.claims.* is
+   * unavailable without it. Identity rides the hub session registry, so
+   * tb.claims requires hubStorage to be wired as well.
+   */
+  claimStorage?: ClaimStorage;
+  /**
+   * Durable runbook storage (SPEC-AGX-SUBSTRATE B4b). Like claimStorage,
+   * must be shared across MCP sessions (tenant-scoped SupabaseRunbookStorage
+   * when hosted; a single in-memory instance locally). Without it the
+   * notebook engine falls back to a per-handler InMemoryRunbookStorage, so
+   * templates/instances/executions/ledger rows are lost with the process.
+   */
+  runbookStorage?: RunbookStorage;
   /** Data directory for task store (filesystem persistence) */
   dataDir?: string;
   /** Optional pre-created knowledge storage (used by Supabase mode) */
@@ -333,7 +354,10 @@ Use \`console.log()\` for debugging — output captured in response logs.`;
   }, sessionId);
   thoughtHandler.setEventEmitter(eventEmitter);
 
-  const notebookHandler = new NotebookHandler();
+  const notebookHandler = new NotebookHandler(
+    undefined,
+    args.runbookStorage ? { runbookStorage: args.runbookStorage } : {},
+  );
   let resolvedWorkspaceId = args.workspaceId || process.env.THOUGHTBOX_PROJECT || "default";
   const durablePeerWorkspaceId = resolvedWorkspaceId === "default" ? undefined : resolvedWorkspaceId;
   const peerNotebookRepository =
@@ -628,6 +652,9 @@ Use \`console.log()\` for debugging — output captured in response logs.`;
   // real backend (filesystem locally, Supabase when hosted).
   // The HubToolHandler keeps a register-once identity registry keyed by the
   // session, so agentId is implicit after the first register/quick_join.
+  // The identity registry is shared between tb.hub and tb.claims so one
+  // register/quick_join grants the session identity to both namespaces.
+  const sessionIdentities = new SessionIdentityRegistry();
   const hubToolHandler = args.hubStorage
     ? createHubToolHandler({
         hubStorage: args.hubStorage,
@@ -635,6 +662,7 @@ Use \`console.log()\` for debugging — output captured in response logs.`;
         envAgentId: process.env.THOUGHTBOX_AGENT_ID,
         envAgentName: process.env.THOUGHTBOX_AGENT_NAME,
         onEvent: args.onHubEvent,
+        identityRegistry: sessionIdentities,
       })
     : undefined;
   const hubSessionKey = sessionId ?? "local";
@@ -642,6 +670,22 @@ Use \`console.log()\` for debugging — output captured in response logs.`;
     ? {
         handle: (input: { operation: string; [key: string]: unknown }) =>
           hubToolHandler.handle(input, hubSessionKey),
+      }
+    : undefined;
+
+  // Claims dispatcher — tb.claims.* over the process-shared claim storage
+  // (SPEC-AGX-SUBSTRATE B2), bound to the same session key and identity
+  // registry as the hub dispatcher.
+  const claimsToolHandler = args.claimStorage
+    ? createClaimsToolHandler({
+        claimStorage: args.claimStorage,
+        identityRegistry: sessionIdentities,
+      })
+    : undefined;
+  const claimsDispatcher = claimsToolHandler
+    ? {
+        handle: (input: { operation: string; [key: string]: unknown }) =>
+          claimsToolHandler.handle(input, hubSessionKey),
       }
     : undefined;
 
@@ -658,6 +702,7 @@ Use \`console.log()\` for debugging — output captured in response logs.`;
     observabilityHandler,
     branchHandler,
     hubDispatcher,
+    claimsDispatcher,
   });
 
   registerTool(SEARCH_TOOL, searchTool);
@@ -1410,6 +1455,24 @@ async () => tb.thought({
   );
 
   server.registerResource(
+    "claims-operations",
+    "thoughtbox://claims/operations",
+    {
+      description: "Complete catalog of the 9 claim graph operations (assert, support, invalidate, supersede, link, subscribe, unsubscribe, query, affected) with schemas, examples, and vocabulary",
+      mimeType: "application/json",
+    },
+    async (uri) => ({
+      contents: [
+        {
+          uri: uri.toString(),
+          mimeType: "application/json",
+          text: getClaimsOperationsCatalog(),
+        },
+      ],
+    })
+  );
+
+  server.registerResource(
     "gateway-operations",
     "thoughtbox://gateway/operations",
     {
@@ -1475,6 +1538,17 @@ async () => tb.thought({
     async (uri, { op }) => {
       const opDef = getHubOp(op as string);
       if (!opDef) throw new Error(`Unknown hub operation: ${op}`);
+      return { contents: [{ uri: uri.href, mimeType: "application/json", text: JSON.stringify(opDef, null, 2) }] };
+    }
+  );
+
+  server.registerResource(
+    "claims-operation",
+    new ResourceTemplate("thoughtbox://claims/operations/{op}", { list: undefined }),
+    { description: "Individual claim graph operation schema and examples", mimeType: "application/json" },
+    async (uri, { op }) => {
+      const opDef = getClaimsOperation(op as string);
+      if (!opDef) throw new Error(`Unknown claims operation: ${op}`);
       return { contents: [{ uri: uri.href, mimeType: "application/json", text: JSON.stringify(opDef, null, 2) }] };
     }
   );
@@ -1829,6 +1903,12 @@ async () => tb.thought({
         mimeType: "application/json",
       },
       {
+        uri: "thoughtbox://claims/operations",
+        name: "Claims Operations Catalog",
+        description: "Complete catalog of the 9 claim graph operations with schemas, examples, and vocabulary",
+        mimeType: "application/json",
+      },
+      {
         uri: "thoughtbox://patterns-cookbook",
         name: "Thoughtbox Patterns Cookbook",
         description: "Guide to core reasoning patterns for thoughtbox tool",
@@ -1982,6 +2062,12 @@ async () => tb.thought({
           uriTemplate: "thoughtbox://hub/operations/{op}",
           name: "Hub Operation Detail",
           description: "Individual hub operation schema and examples",
+          mimeType: "application/json",
+        },
+        {
+          uriTemplate: "thoughtbox://claims/operations/{op}",
+          name: "Claims Operation Detail",
+          description: "Individual claim graph operation schema and examples",
           mimeType: "application/json",
         },
         {

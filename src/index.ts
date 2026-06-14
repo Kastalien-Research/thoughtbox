@@ -23,6 +23,10 @@ import type { KnowledgeStorage } from "./knowledge/types.js";
 import { createFileSystemHubStorage } from "./hub/hub-storage-fs.js";
 import { createSupabaseHubStorageProvider } from "./hub/supabase-hub-storage.js";
 import type { HubStorage } from "./hub/hub-types.js";
+import { InMemoryClaimStorage } from "./claims/in-memory-claim-storage.js";
+import { createSupabaseClaimStorageProvider } from "./claims/supabase-claim-storage.js";
+import { InMemoryRunbookStorage } from "./notebook/runbook/in-memory-runbook-storage.js";
+import { createSupabaseRunbookStorageProvider } from "./notebook/runbook/supabase-runbook-storage.js";
 import { initEvaluation, initMonitoring } from "./evaluation/index.js";
 import { createHubHandler, type HubEvent } from "./hub/hub-handler.js";
 import {
@@ -183,6 +187,31 @@ async function startHttpServer() {
         serviceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY!,
       })
     : null;
+
+  // Claim graph storage (SPEC-AGX-SUBSTRATE B1/B2): tenant-scoped
+  // SupabaseClaimStorage when hosted; a single process-shared
+  // InMemoryClaimStorage locally (volatile — the FileSystem backend is
+  // deferred per spec §11.5 until the H1/H2 experiments pass).
+  const tenantClaimStorage = isMultiTenant
+    ? createSupabaseClaimStorageProvider({
+        supabaseUrl: process.env.SUPABASE_URL!,
+        serviceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      })
+    : null;
+  const localClaimStorage = isMultiTenant ? null : new InMemoryClaimStorage();
+
+  // Durable runbook storage (SPEC-AGX-SUBSTRATE B4b): tenant-scoped
+  // SupabaseRunbookStorage when hosted; a single process-shared
+  // InMemoryRunbookStorage locally. Without it the notebook engine falls
+  // back to a per-handler InMemoryRunbookStorage and runbook
+  // templates/instances/executions/ledger rows are lost with the process.
+  const tenantRunbookStorage = isMultiTenant
+    ? createSupabaseRunbookStorageProvider({
+        supabaseUrl: process.env.SUPABASE_URL!,
+        serviceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      })
+    : null;
+  const localRunbookStorage = isMultiTenant ? null : new InMemoryRunbookStorage();
 
   // Local-mode hub thought store: ONE storage instance shared by /hub/api
   // and every local MCP session's tb.hub dispatcher. Per-session
@@ -384,6 +413,8 @@ async function startHttpServer() {
           storage,
           // Tenant-scoped: never the process-shared local hub storage.
           hubStorage: tenantHubStorage!(workspaceId),
+          claimStorage: tenantClaimStorage!(workspaceId),
+          runbookStorage: tenantRunbookStorage!(workspaceId),
           dataDir,
           knowledgeStorage,
           workspaceId,
@@ -440,6 +471,8 @@ async function startHttpServer() {
         sessionId,
         storage,
         hubStorage,
+        claimStorage: localClaimStorage!,
+        runbookStorage: localRunbookStorage!,
         hubThoughtStore: localHubThoughtStore,
         dataDir,
         knowledgeStorage,
