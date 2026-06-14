@@ -14,6 +14,7 @@ describe("thoughtbox_search", () => {
     expect(output.error).toBeUndefined();
     expect(output.result).toEqual([
       "branch",
+      "claims",
       "hub",
       "knowledge",
       "notebook",
@@ -23,6 +24,18 @@ describe("thoughtbox_search", () => {
       "thought",
       "ulysses",
     ]);
+  });
+
+  it("claims operations are discoverable in the catalog", async () => {
+    const result = await tool.handle({
+      code: "async () => Object.keys(catalog.operations.claims).sort()",
+    });
+    const output = JSON.parse(result.content[0].text);
+    expect(output.error).toBeUndefined();
+    expect(output.result).toHaveLength(9);
+    expect(output.result).toContain("assert");
+    expect(output.result).toContain("supersede");
+    expect(output.result).toContain("affected");
   });
 
   it("hub operations are discoverable in the catalog", async () => {
