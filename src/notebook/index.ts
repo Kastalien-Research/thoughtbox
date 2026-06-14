@@ -14,6 +14,7 @@ import {
   InMemoryNotebookEngineRuntime,
   type CellExecutionEvidence,
 } from "./engine/runtime.js";
+import { templateCellsFromNotebook, type RunbookStorage } from "./runbook/types.js";
 import { getNotebookCapabilitiesJson } from "./engine/registry.js";
 import {
   NOTEBOOK_OPERATIONS,
@@ -27,6 +28,17 @@ export { getOperationNames };
 
 import { AVAILABLE_TEMPLATES } from "./templates.generated.js";
 
+export interface NotebookHandlerOptions {
+  /**
+   * Durable runbook substrate (SPEC-AGX-SUBSTRATE B4b). Defaults to
+   * InMemoryRunbookStorage inside the engine runtime; deployments inject
+   * SupabaseRunbookStorage here.
+   */
+  runbookStorage?: RunbookStorage;
+  /** Executing agent identity recorded on instances/executions/ledger rows. */
+  agentId?: string;
+}
+
 /**
  * Notebook Handler - MCP tool handlers for headless Srcbook notebooks
  */
@@ -35,12 +47,28 @@ export class NotebookHandler {
   private validatorService: ValidatorService;
   private engineRuntime: InMemoryNotebookEngineRuntime;
 
-  constructor(tempDir?: string) {
+  constructor(tempDir?: string, options: NotebookHandlerOptions = {}) {
     this.stateManager = new NotebookStateManager(tempDir);
     this.validatorService = new ValidatorService(this.stateManager);
-    this.engineRuntime = new InMemoryNotebookEngineRuntime((notebookId) =>
-      this.executeAllCells(notebookId),
+    this.engineRuntime = new InMemoryNotebookEngineRuntime(
+      (notebookId) => this.executeAllCells(notebookId),
+      undefined,
+      {
+        ...(options.runbookStorage !== undefined
+          ? { storage: options.runbookStorage }
+          : {}),
+        ...(options.agentId !== undefined ? { agentId: options.agentId } : {}),
+        templateCellSource: (notebookId) => {
+          const notebook = this.stateManager.getNotebook(notebookId);
+          return notebook ? templateCellsFromNotebook(notebook) : undefined;
+        },
+      },
     );
+  }
+
+  /** Durable runbook substrate behind the engine runtime (templates/instances/ledger). */
+  getRunbookStorage(): RunbookStorage {
+    return this.engineRuntime.storage;
   }
 
   /**

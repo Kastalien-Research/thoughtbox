@@ -6,6 +6,7 @@ import type { HubEvent } from "./hub/hub-handler.js";
 import { createHubToolHandler } from "./hub/hub-tool-handler.js";
 import { SessionIdentityRegistry } from "./hub/session-identity.js";
 import type { ClaimStorage } from "./claims/types.js";
+import type { RunbookStorage } from "./notebook/runbook/types.js";
 import { createClaimsToolHandler } from "./claims/claims-tool-handler.js";
 import {
   createThoughtStoreAdapter,
@@ -167,6 +168,14 @@ export interface CreateMcpServerArgs {
    * tb.claims requires hubStorage to be wired as well.
    */
   claimStorage?: ClaimStorage;
+  /**
+   * Durable runbook storage (SPEC-AGX-SUBSTRATE B4b). Like claimStorage,
+   * must be shared across MCP sessions (tenant-scoped SupabaseRunbookStorage
+   * when hosted; a single in-memory instance locally). Without it the
+   * notebook engine falls back to a per-handler InMemoryRunbookStorage, so
+   * templates/instances/executions/ledger rows are lost with the process.
+   */
+  runbookStorage?: RunbookStorage;
   /** Data directory for task store (filesystem persistence) */
   dataDir?: string;
   /** Optional pre-created knowledge storage (used by Supabase mode) */
@@ -345,7 +354,10 @@ Use \`console.log()\` for debugging — output captured in response logs.`;
   }, sessionId);
   thoughtHandler.setEventEmitter(eventEmitter);
 
-  const notebookHandler = new NotebookHandler();
+  const notebookHandler = new NotebookHandler(
+    undefined,
+    args.runbookStorage ? { runbookStorage: args.runbookStorage } : {},
+  );
   let resolvedWorkspaceId = args.workspaceId || process.env.THOUGHTBOX_PROJECT || "default";
   const durablePeerWorkspaceId = resolvedWorkspaceId === "default" ? undefined : resolvedWorkspaceId;
   const peerNotebookRepository =
