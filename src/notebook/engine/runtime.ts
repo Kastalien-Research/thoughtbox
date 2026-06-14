@@ -21,6 +21,7 @@ import {
   type AttachedContract,
   type ClaimStatusResolver,
   type ExpectationRecord,
+  type OutcomeExpectation,
 } from "../contracts.js";
 import {
   hashTemplateCells,
@@ -660,10 +661,21 @@ export class InMemoryNotebookEngineRuntime {
         assertCellExecutable(durable.template, durable.executions, cellId);
       },
       record: async (evidence) => {
-        const records = evaluateEvidenceExpectations(evidence, {
-          readArtifact: (name) => this.readRunArtifact(preArtifacts, name),
-          claimResolver: this.claimResolver,
-        });
+        // The gate runs mid-execution with only pre-run artifacts (inputs).
+        // Defer artifact-backed expectations to the verdict, where the
+        // post-run cell-results artifact exists — evaluating them here would
+        // always error ("run artifact not found") and wrongly halt/fail an
+        // otherwise valid run (Codex PR #402, P2). They do not gate the
+        // mid-run halt decision and are not persisted to the durable record
+        // or the fitness ledger; they contribute to the final verdict only.
+        const records = evaluateEvidenceExpectations(
+          evidence,
+          {
+            readArtifact: (name) => this.readRunArtifact(preArtifacts, name),
+            claimResolver: this.claimResolver,
+          },
+          { tier1Filter: (expectation) => expectation.source.kind !== "artifact" },
+        );
         const record: CellExecutionRecord = {
           instanceId: durable.instanceId,
           seq: durable.nextSeq,
@@ -843,8 +855,11 @@ interface VerdictDerivationContext {
   claimResolver?: ClaimStatusResolver;
   /**
    * Expectation records already evaluated (and persisted) by the per-cell
-   * gate (B5). Authoritative for those cells — the verdict derivation must
-   * not re-evaluate them, or ledger and verdict could diverge.
+   * gate (B5): tier-2 and non-artifact tier-1. Authoritative for those —
+   * the verdict must not re-evaluate them, or ledger and verdict could
+   * diverge. The gate could not see post-run artifacts, so artifact-backed
+   * tier-1 expectations are deferred; the verdict evaluates those alone (with
+   * the full run artifacts) and appends them to the precomputed set.
    */
   precomputedRecords?: Map<string, ExpectationRecord[]>;
 }
@@ -858,13 +873,20 @@ interface VerdictDerivationContext {
 function evaluateEvidenceExpectations(
   cell: CellExecutionEvidence,
   context: Pick<VerdictDerivationContext, "readArtifact" | "claimResolver">,
+  options?: {
+    /** Only tier-1 contract expectations matching this predicate are evaluated. */
+    tier1Filter?: (expectation: OutcomeExpectation) => boolean;
+    /** Include tier-2 validator records (default true). */
+    includeTier2?: boolean;
+  },
 ): ExpectationRecord[] {
   const records: ExpectationRecord[] = [];
-  if (cell.expectations) {
+  if (cell.expectations && options?.includeTier2 !== false) {
     records.push(...cell.expectations);
   }
   if (cell.contract) {
     for (const expectation of cell.contract.contract.expectations) {
+      if (options?.tier1Filter && !options.tier1Filter(expectation)) continue;
       records.push(
         evaluateExpectation(expectation, {
           cellId: cell.cellId,
@@ -916,9 +938,23 @@ function buildRunbookVerdict(
   const coveredCellIds = new Set<string>();
 
   for (const cell of evidence) {
+    const precomputed = context.precomputedRecords?.get(cell.cellId);
+    // Precomputed gate records cover tier-2 and non-artifact tier-1 (the gate
+    // could not see post-run artifacts). Evaluate the deferred artifact-backed
+    // expectations now, with the full run artifacts available, and merge —
+    // so an artifact assertion participates in the verdict instead of erroring
+    // (Codex PR #402, P2). Cells without precomputed records (non-durable
+    // runs) are evaluated whole here, where every artifact already exists.
     const cellRecords =
-      context.precomputedRecords?.get(cell.cellId) ??
-      evaluateEvidenceExpectations(cell, context);
+      precomputed !== undefined
+        ? [
+            ...precomputed,
+            ...evaluateEvidenceExpectations(cell, context, {
+              tier1Filter: (expectation) => expectation.source.kind === "artifact",
+              includeTier2: false,
+            }),
+          ]
+        : evaluateEvidenceExpectations(cell, context);
     if (cell.expectations && cell.validatorFor !== undefined) {
       coveredCellIds.add(cell.validatorFor);
     }
