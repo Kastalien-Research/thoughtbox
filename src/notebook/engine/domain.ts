@@ -206,6 +206,13 @@ export const NotebookOutputSchema = S.Union(
     mode: S.Literal("runbook"),
     pass: S.Boolean,
     reason: S.String,
+    /**
+     * Fraction of non-validator code cells covered by a declared outcome
+     * contract (tier 1) or a tier-2 validator. 0 means the verdict is
+     * procedural only — downstream fitness must exclude such runs from
+     * pass-rates (SPEC-AGX-SUBSTRATE §5.1).
+     */
+    contractCoverage: S.Number,
     evidence: S.optional(S.Unknown),
   }),
   S.Struct({
