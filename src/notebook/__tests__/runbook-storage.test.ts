@@ -614,4 +614,36 @@ describe("SupabaseRunbookStorage — tenant isolation", () => {
     expect(await tenantA.listCellExecutions(instance.instanceId)).toEqual([]);
     expect(await tenantA.listFitnessRows(template.templateId)).toEqual([]);
   });
+
+  it("isolates template keys by tenant: a shared (template_id, version) does not collide", async ({
+    skip,
+  }) => {
+    if (!available) skip();
+    const tenantA = makeSupabaseRunbookStorage(TEST_WORKSPACE_ID);
+    const tenantB = makeSupabaseRunbookStorage(TENANT_B_WORKSPACE_ID);
+    // The runtime sets template_id to the notebook id, so two tenants can use
+    // the same one. Before 20260613030000 the global PK made tenant B's save
+    // collide on A's row (a spurious TemplateVersionConflictError); the
+    // tenant-scoped PK must let both save it.
+    const sharedId = `rbt-${randomUUID()}`;
+    await tenantA.saveTemplate(makeTemplate(sharedId));
+    await tenantB.saveTemplate(makeTemplate(sharedId));
+
+    expect(await tenantA.getLatestTemplate(sharedId)).not.toBeNull();
+    expect(await tenantB.getLatestTemplate(sharedId)).not.toBeNull();
+  });
+
+  it("rejects an instance pinned to another tenant's template", async ({ skip }) => {
+    if (!available) skip();
+    const tenantA = makeSupabaseRunbookStorage(TEST_WORKSPACE_ID);
+    const tenantB = makeSupabaseRunbookStorage(TENANT_B_WORKSPACE_ID);
+    const template = makeTemplate(`rbt-${randomUUID()}`);
+    await tenantA.saveTemplate(template); // only tenant A holds this template
+
+    // Tenant B pinning an instance to A's template must fail the
+    // tenant-composite template FK, not silently bind across tenants.
+    await expect(tenantB.createInstance(makeInstance(template))).rejects.toThrow(
+      /not found/,
+    );
+  });
 });

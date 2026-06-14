@@ -1853,11 +1853,11 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "runbook_instances_template_id_template_version_fkey"
-            columns: ["template_id", "template_version"]
+            foreignKeyName: "runbook_instances_template_tenant_fkey"
+            columns: ["tenant_workspace_id", "template_id", "template_version"]
             isOneToOne: false
             referencedRelation: "runbook_templates"
-            referencedColumns: ["template_id", "version"]
+            referencedColumns: ["tenant_workspace_id", "template_id", "version"]
           },
           {
             foreignKeyName: "runbook_instances_tenant_workspace_id_fkey"
