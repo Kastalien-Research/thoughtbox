@@ -40,6 +40,13 @@ export interface Claim {
   supersededBy?: string;
   createdAt: string;
   updatedAt: string;
+  /**
+   * When the status last transitioned (equals createdAt until the first
+   * transition). Set-on-write by the domain handler; unlike updatedAt,
+   * an evidence append without a status change does not move it. Powers
+   * tb.claims.changed_since digests (spec §11.1).
+   */
+  statusChangedAt: string;
 }
 
 export interface ClaimEdge {
@@ -94,9 +101,11 @@ export interface ClaimEdgeFilter {
 export interface ClaimStorage {
   getClaim(claimId: string): Promise<Claim | null>;
   /**
-   * Batch form of getClaim for level-wise graph traversal: one query per
-   * call. Returns found claims in `claimIds` order; missing ids are
-   * skipped. Returned instances carry CAS read versions like getClaim.
+   * Batch form of getClaim: one query per call, for level-wise graph
+   * traversal (tb.claims.affected) and cheap revalidation
+   * (tb.claims.verify). Returns found claims in `claimIds` order; missing
+   * ids are skipped. Returned instances carry CAS read versions like
+   * getClaim.
    */
   getClaims(claimIds: string[]): Promise<Claim[]>;
   saveClaim(claim: Claim): Promise<void>;
@@ -114,6 +123,12 @@ export interface ClaimStorage {
    */
   supersedeClaim(original: Claim, replacement: Claim): Promise<void>;
   queryClaims(query: ClaimQuery): Promise<Claim[]>;
+  /**
+   * Claims whose status changed strictly after `since` (ISO timestamp),
+   * optionally narrowed to one hub workspace, ordered by statusChangedAt
+   * ascending then id. Powers tb.claims.changed_since digests.
+   */
+  claimsChangedSince(since: string, workspaceId?: string): Promise<Claim[]>;
 
   addEdge(edge: ClaimEdge): Promise<void>;
   listEdges(filter: ClaimEdgeFilter): Promise<ClaimEdge[]>;

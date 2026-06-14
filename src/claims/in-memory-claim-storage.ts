@@ -127,6 +127,23 @@ export class InMemoryClaimStorage implements ClaimStorage {
     return matches;
   }
 
+  async claimsChangedSince(since: string, workspaceId?: string): Promise<Claim[]> {
+    const cutoff = new Date(since).toISOString();
+    const matches: Claim[] = [];
+    for (const stored of this.claims.values()) {
+      if (workspaceId && stored.workspaceId !== workspaceId) continue;
+      if (stored.statusChangedAt <= cutoff) continue;
+      const claim = copyClaim(stored);
+      this.readVersions.set(claim, this.claimVersions.get(stored.id) ?? 1);
+      matches.push(claim);
+    }
+    matches.sort(
+      (a, b) =>
+        a.statusChangedAt.localeCompare(b.statusChangedAt) || a.id.localeCompare(b.id),
+    );
+    return matches;
+  }
+
   async addEdge(edge: ClaimEdge): Promise<void> {
     for (const endpoint of [edge.fromClaim, edge.toClaim]) {
       if (!this.claims.has(endpoint)) {

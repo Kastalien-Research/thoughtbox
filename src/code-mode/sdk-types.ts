@@ -204,6 +204,9 @@ interface TB {
    * supersede preserve the claim (append-history; supersede sets a
    * superseded_by pointer to the replacement). affected = transitive
    * dependents via reverse depends_on edges (cycle-safe, depth-capped).
+   * Staleness primitives (pull, not push): verify = cheap revalidation of
+   * specific claim ids before acting on them; changedSince = digest of
+   * status transitions after a timestamp for session-start recall.
    * Source: src/claims/operations.ts
    */
   claims: {
@@ -215,6 +218,8 @@ interface TB {
     subscribe(args: { claimId: string; subscriber?: string; agentId?: string }): Promise<unknown>;
     unsubscribe(args: { claimId: string; subscriber?: string; agentId?: string }): Promise<unknown>;
     query(args: { workspaceId: string; type?: ClaimType; status?: ClaimStatus; createdBy?: string; text?: string }): Promise<unknown>;
+    verify(args: { ids: string[] }): Promise<unknown>;
+    changedSince(args: { since: string; workspaceId?: string }): Promise<unknown>;
     affected(args: { claimId: string; maxDepth?: number }): Promise<unknown>;
   };
 }
