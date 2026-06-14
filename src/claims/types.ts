@@ -100,6 +100,19 @@ export interface ClaimStorage {
    */
   getClaims(claimIds: string[]): Promise<Claim[]>;
   saveClaim(claim: Claim): Promise<void>;
+  /**
+   * Atomically supersede `original` with `replacement`: insert the
+   * replacement and flip the original to 'superseded' (its `supersededBy`
+   * already pointing at `replacement.id`) in a single all-or-nothing step.
+   * `original` is CAS'd on its read version — a stale original (a lost
+   * concurrency race) throws with a 'concurrent update' message and writes
+   * nothing. A failure leaves neither the replacement inserted nor the
+   * original modified; there is no partially-applied state to compensate.
+   * The handler keeps the two writes in storage because claims.superseded_by
+   * is an immediate FK: only the storage layer can satisfy it within one
+   * transaction.
+   */
+  supersedeClaim(original: Claim, replacement: Claim): Promise<void>;
   queryClaims(query: ClaimQuery): Promise<Claim[]>;
 
   addEdge(edge: ClaimEdge): Promise<void>;

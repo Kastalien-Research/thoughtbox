@@ -2052,6 +2052,16 @@ export type Database = {
         }
         Returns: number
       }
+      supersede_claim: {
+        Args: {
+          p_expected_version: number
+          p_original_id: string
+          p_replacement: Json
+          p_superseded_at: string
+          p_tenant_workspace_id: string
+        }
+        Returns: number
+      }
     }
     Enums: {
       [_ in never]: never

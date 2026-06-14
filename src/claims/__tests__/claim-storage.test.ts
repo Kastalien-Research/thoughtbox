@@ -134,6 +134,33 @@ function runClaimStorageContract(
     expect((await storage.getClaim(second.id))!.status).toBe('supported');
   });
 
+  it('supersedeClaim atomically inserts the replacement and flips the original', async ({ skip }) => {
+    if (!isAvailable()) skip();
+    const { storage, workspaceId } = ctx();
+
+    const original = makeClaim(workspaceId, { statement: '30s clock skew tolerated' });
+    await storage.saveClaim(original);
+
+    const view = await storage.getClaim(original.id);
+    const replacement = makeClaim(workspaceId, {
+      statement: '5s clock skew tolerated (measured)',
+    });
+    view!.status = 'superseded';
+    view!.supersededBy = replacement.id;
+    view!.updatedAt = new Date().toISOString();
+    await storage.supersedeClaim(view!, replacement);
+
+    // Replacement exists as a fresh asserted claim; original points at it.
+    // On Supabase this is exactly the path the immediate superseded_by FK
+    // would reject if the two writes were not one transaction.
+    const reloadedOriginal = await storage.getClaim(original.id);
+    expect(reloadedOriginal!.status).toBe('superseded');
+    expect(reloadedOriginal!.supersededBy).toBe(replacement.id);
+    const reloadedReplacement = await storage.getClaim(replacement.id);
+    expect(reloadedReplacement!.status).toBe('asserted');
+    expect(reloadedReplacement!.statement).toBe('5s clock skew tolerated (measured)');
+  });
+
   it('rejects stale saves (optimistic concurrency on the claim aggregate)', async ({ skip }) => {
     if (!isAvailable()) skip();
     const { storage, workspaceId } = ctx();
@@ -423,6 +450,7 @@ describe('SupabaseClaimStorage — cross-instance behavior', () => {
       },
       getClaims: ids => storageA.getClaims(ids),
       saveClaim: candidate => storageA.saveClaim(candidate),
+      supersedeClaim: (original, replacement) => storageA.supersedeClaim(original, replacement),
       queryClaims: query => storageA.queryClaims(query),
       addEdge: edge => storageA.addEdge(edge),
       listEdges: filter => storageA.listEdges(filter),

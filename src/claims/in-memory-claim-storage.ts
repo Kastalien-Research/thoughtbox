@@ -81,6 +81,35 @@ export class InMemoryClaimStorage implements ClaimStorage {
     this.readVersions.set(claim, expected + 1);
   }
 
+  async supersedeClaim(original: Claim, replacement: Claim): Promise<void> {
+    // Validate everything before mutating, then apply both writes with no
+    // await between them: single-threaded JS makes the apply atomic, so a
+    // rejected supersede leaves storage untouched.
+    if (this.claimVersions.has(replacement.id)) {
+      throw new Error(
+        `InMemoryClaimStorage.supersedeClaim failed: replacement ${replacement.id} already exists`,
+      );
+    }
+    const expected = this.readVersions.get(original);
+    const current = this.claimVersions.get(original.id);
+    if (expected === undefined || current === undefined) {
+      throw new Error(
+        `InMemoryClaimStorage.supersedeClaim failed: original ${original.id} was not read through this storage; reload and retry`,
+      );
+    }
+    if (current !== expected) {
+      throw new Error(
+        `InMemoryClaimStorage.supersedeClaim failed: concurrent update detected for claim ${original.id}; reload and retry`,
+      );
+    }
+    this.claims.set(replacement.id, copyClaim(replacement));
+    this.claimVersions.set(replacement.id, 1);
+    this.readVersions.set(replacement, 1);
+    this.claims.set(original.id, copyClaim(original));
+    this.claimVersions.set(original.id, expected + 1);
+    this.readVersions.set(original, expected + 1);
+  }
+
   async queryClaims(query: ClaimQuery): Promise<Claim[]> {
     const text = query.text?.toLowerCase();
     const matches: Claim[] = [];

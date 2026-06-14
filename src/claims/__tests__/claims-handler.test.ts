@@ -16,6 +16,7 @@ function delegateStorage(storage: ClaimStorage): ClaimStorage {
     getClaim: id => storage.getClaim(id),
     getClaims: ids => storage.getClaims(ids),
     saveClaim: claim => storage.saveClaim(claim),
+    supersedeClaim: (original, replacement) => storage.supersedeClaim(original, replacement),
     queryClaims: query => storage.queryClaims(query),
     addEdge: edge => storage.addEdge(edge),
     listEdges: filter => storage.listEdges(filter),
@@ -216,23 +217,22 @@ describe('ClaimsHandler', () => {
       expect(all[0]!.supersededBy).toBeUndefined();
     });
 
-    it('rolls the original back when inserting the replacement fails', async () => {
-      const claim = await assertClaim('insert-failure claim');
+    it('a failed supersedeClaim leaves the original untouched (atomic, no compensation)', async () => {
+      const claim = await assertClaim('atomic-supersede claim');
 
-      // The original's CAS succeeds; the replacement insert (a claim with a
-      // different id) blows up at the storage layer.
+      // supersedeClaim is all-or-nothing in storage; when it rejects, the
+      // handler must not have persisted a half-superseded original or a
+      // stray replacement.
       const failingStorage = delegateStorage(storage);
-      failingStorage.saveClaim = async candidate => {
-        if (candidate.id !== claim.id) throw new Error('replacement insert exploded');
-        return storage.saveClaim(candidate);
+      failingStorage.supersedeClaim = async () => {
+        throw new Error('transaction aborted');
       };
       const failingHandler = createClaimsHandler(failingStorage);
 
       await expect(
         failingHandler.handle(ALICE, 'supersede', { claimId: claim.id, statement: 'v2' }),
-      ).rejects.toThrow(/replacement insert exploded/);
+      ).rejects.toThrow(/transaction aborted/);
 
-      // Rolled back: no dangling superseded_by pointer, no extra claim.
       const restored = await storage.getClaim(claim.id);
       expect(restored!.status).toBe('asserted');
       expect(restored!.supersededBy).toBeUndefined();
