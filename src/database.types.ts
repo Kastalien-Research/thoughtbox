@@ -1745,11 +1745,11 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "runbook_cell_executions_instance_id_fkey"
-            columns: ["instance_id"]
+            foreignKeyName: "runbook_cell_executions_instance_tenant_fkey"
+            columns: ["instance_id", "tenant_workspace_id"]
             isOneToOne: false
             referencedRelation: "runbook_instances"
-            referencedColumns: ["id"]
+            referencedColumns: ["id", "tenant_workspace_id"]
           },
           {
             foreignKeyName: "runbook_cell_executions_tenant_workspace_id_fkey"
@@ -1811,11 +1811,11 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "runbook_fitness_ledger_instance_id_fkey"
-            columns: ["instance_id"]
+            foreignKeyName: "runbook_fitness_ledger_instance_tenant_fkey"
+            columns: ["instance_id", "tenant_workspace_id"]
             isOneToOne: false
             referencedRelation: "runbook_instances"
-            referencedColumns: ["id"]
+            referencedColumns: ["id", "tenant_workspace_id"]
           },
           {
             foreignKeyName: "runbook_fitness_ledger_tenant_workspace_id_fkey"

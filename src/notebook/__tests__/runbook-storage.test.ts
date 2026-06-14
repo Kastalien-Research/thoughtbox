@@ -565,4 +565,53 @@ describe("SupabaseRunbookStorage — tenant isolation", () => {
     expect(aggregate.instances).toBe(0);
     expect(aggregate.passRate).toBeNull();
   });
+
+  it("rejects attaching a child row to another tenant's instance (composite FK)", async ({
+    skip,
+  }) => {
+    if (!available) skip();
+    const tenantA = makeSupabaseRunbookStorage(TEST_WORKSPACE_ID);
+    const template = makeTemplate(`rbt-${randomUUID()}`);
+    await tenantA.saveTemplate(template);
+    const instance = makeInstance(template);
+    await tenantA.createInstance(instance);
+
+    // Raw service-role client bypasses the storage layer's tenant scoping and
+    // tries to write an execution + ledger row for tenant B that points at
+    // tenant A's instance. The (instance_id, tenant_workspace_id) FK
+    // (migration 20260613020000) must reject both: no instance exists at
+    // (A's id, tenant B).
+    const raw = createServiceClient();
+    const execInsert = await raw.from("runbook_cell_executions").insert({
+      instance_id: instance.instanceId,
+      seq: 1,
+      cell_id: "step",
+      tenant_workspace_id: TENANT_B_WORKSPACE_ID,
+      started_at: new Date().toISOString(),
+      agent_id: "agent-mallory",
+      inputs_digest: "sha256:abc",
+      status: "completed",
+      expectations: [],
+    });
+    expect(execInsert.error?.message).toMatch(/foreign key constraint/);
+
+    const ledgerInsert = await raw.from("runbook_fitness_ledger").insert({
+      template_id: template.templateId,
+      template_version: template.version,
+      instance_id: instance.instanceId,
+      cell_id: "step",
+      tenant_workspace_id: TENANT_B_WORKSPACE_ID,
+      tier: 1,
+      result: "pass",
+      pass: true,
+      expected: { source: { kind: "exitCode" }, op: "eq", value: 0 },
+      actual: 0,
+      agent_id: "agent-mallory",
+    });
+    expect(ledgerInsert.error?.message).toMatch(/foreign key constraint/);
+
+    // Tenant A's instance is untouched by the rejected writes.
+    expect(await tenantA.listCellExecutions(instance.instanceId)).toEqual([]);
+    expect(await tenantA.listFitnessRows(template.templateId)).toEqual([]);
+  });
 });
