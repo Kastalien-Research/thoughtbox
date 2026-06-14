@@ -141,6 +141,164 @@ export type Database = {
           },
         ]
       }
+      claim_edges: {
+        Row: {
+          created_at: string
+          created_by: string
+          from_claim: string
+          kind: string
+          tenant_workspace_id: string
+          to_claim: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          from_claim: string
+          kind: string
+          tenant_workspace_id: string
+          to_claim: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          from_claim?: string
+          kind?: string
+          tenant_workspace_id?: string
+          to_claim?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "claim_edges_from_claim_fkey"
+            columns: ["from_claim"]
+            isOneToOne: false
+            referencedRelation: "claims"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "claim_edges_tenant_workspace_id_fkey"
+            columns: ["tenant_workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "claim_edges_to_claim_fkey"
+            columns: ["to_claim"]
+            isOneToOne: false
+            referencedRelation: "claims"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      claim_subscriptions: {
+        Row: {
+          claim_id: string
+          created_at: string
+          created_by: string
+          subscriber: string
+          tenant_workspace_id: string
+        }
+        Insert: {
+          claim_id: string
+          created_at?: string
+          created_by: string
+          subscriber: string
+          tenant_workspace_id: string
+        }
+        Update: {
+          claim_id?: string
+          created_at?: string
+          created_by?: string
+          subscriber?: string
+          tenant_workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "claim_subscriptions_claim_id_fkey"
+            columns: ["claim_id"]
+            isOneToOne: false
+            referencedRelation: "claims"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "claim_subscriptions_tenant_workspace_id_fkey"
+            columns: ["tenant_workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      claims: {
+        Row: {
+          created_at: string
+          created_by: string
+          evidence_refs: Json
+          id: string
+          statement: string
+          status: string
+          status_changed_at: string
+          superseded_by: string | null
+          tenant_workspace_id: string
+          type: string
+          updated_at: string
+          version: number
+          workspace_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          evidence_refs?: Json
+          id: string
+          statement: string
+          status?: string
+          status_changed_at?: string
+          superseded_by?: string | null
+          tenant_workspace_id: string
+          type: string
+          updated_at?: string
+          version?: number
+          workspace_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          evidence_refs?: Json
+          id?: string
+          statement?: string
+          status?: string
+          status_changed_at?: string
+          superseded_by?: string | null
+          tenant_workspace_id?: string
+          type?: string
+          updated_at?: string
+          version?: number
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "claims_superseded_by_fkey"
+            columns: ["superseded_by"]
+            isOneToOne: false
+            referencedRelation: "claims"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "claims_tenant_workspace_id_fkey"
+            columns: ["tenant_workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "claims_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "hub_workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       entities: {
         Row: {
           access_count: number
@@ -2097,6 +2255,16 @@ export type Database = {
           function_bearer_secret_name?: string
           job_name?: string
           project_url_secret_name?: string
+        }
+        Returns: number
+      }
+      supersede_claim: {
+        Args: {
+          p_expected_version: number
+          p_original_id: string
+          p_replacement: Json
+          p_superseded_at: string
+          p_tenant_workspace_id: string
         }
         Returns: number
       }

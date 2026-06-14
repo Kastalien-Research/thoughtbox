@@ -12,10 +12,13 @@
  * - ulysses:       src/protocol/ulysses-tool.ts (ulyssesToolInputSchema)
  * - observability: src/observability/gateway-handler.ts (ObservabilityInputSchema)
  * - hub:           src/hub/operations.ts (HUB_OPERATIONS catalog)
+ * - claims:        src/claims/operations.ts (CLAIMS_OPERATIONS catalog)
  */
 
 export const TB_SDK_TYPES = `\`\`\`ts
 type HubProfile = "MANAGER" | "ARCHITECT" | "DEBUGGER" | "SECURITY" | "RESEARCHER" | "REVIEWER";
+type ClaimType = "assumption" | "decision" | "observation" | "requirement" | "outcome";
+type ClaimStatus = "asserted" | "supported" | "invalidated" | "superseded";
 
 interface TB {
   /** Submit a structured thought. Source: src/thought/tool.ts */
@@ -191,6 +194,33 @@ interface TB {
     postSystemMessage(args: { workspaceId: string; problemId: string; content: string; ref?: { sessionId?: string; thoughtNumber?: number; branchId?: string } }): Promise<unknown>;
     workspaceStatus(args: { workspaceId: string }): Promise<unknown>;
     workspaceDigest(args: { workspaceId: string }): Promise<unknown>;
+  };
+
+  /**
+   * Claim graph: typed, tenant-isolated assertions with dependency edges
+   * and explicit subscriptions (SPEC-AGX-SUBSTRATE). Identity is shared
+   * with tb.hub — register or quickJoin once, then mutations use that
+   * agentId implicitly (override per call via agentId). Invalidate and
+   * supersede preserve the claim (append-history; supersede sets a
+   * superseded_by pointer to the replacement). affected = transitive
+   * dependents via reverse depends_on edges (cycle-safe, depth-capped).
+   * Staleness primitives (pull, not push): verify = cheap revalidation of
+   * specific claim ids before acting on them; changedSince = digest of
+   * status transitions after a timestamp for session-start recall.
+   * Source: src/claims/operations.ts
+   */
+  claims: {
+    assert(args: { workspaceId: string; type: ClaimType; statement: string; evidenceRefs?: string[]; agentId?: string }): Promise<unknown>;
+    support(args: { claimId: string; evidenceRefs: string[]; agentId?: string }): Promise<unknown>;
+    invalidate(args: { claimId: string; agentId?: string }): Promise<unknown>;
+    supersede(args: { claimId: string; statement: string; type?: ClaimType; evidenceRefs?: string[]; agentId?: string }): Promise<unknown>;
+    link(args: { fromClaimId: string; toClaimId: string; kind: "depends_on" | "derives_from" | "contradicts"; agentId?: string }): Promise<unknown>;
+    subscribe(args: { claimId: string; subscriber?: string; agentId?: string }): Promise<unknown>;
+    unsubscribe(args: { claimId: string; subscriber?: string; agentId?: string }): Promise<unknown>;
+    query(args: { workspaceId: string; type?: ClaimType; status?: ClaimStatus; createdBy?: string; text?: string }): Promise<unknown>;
+    verify(args: { ids: string[] }): Promise<unknown>;
+    changedSince(args: { since: string; workspaceId?: string }): Promise<unknown>;
+    affected(args: { claimId: string; maxDepth?: number }): Promise<unknown>;
   };
 }
 \`\`\``;

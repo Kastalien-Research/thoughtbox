@@ -20,6 +20,7 @@ import {
 } from "../observability/operations.js";
 import { BRANCH_OPERATIONS } from "../branch/operations.js";
 import { HUB_OPERATIONS } from "../hub/operations.js";
+import { CLAIMS_OPERATIONS } from "../claims/operations.js";
 import { PEER_NOTEBOOK_TOOL } from "../peer-notebook/tool.js";
 
 export interface SearchCatalog {
@@ -247,6 +248,7 @@ export function buildSearchCatalog(): SearchCatalog {
       observability: indexOperations(OBSERVABILITY_OPERATIONS),
       branch: indexOperations(BRANCH_OPERATIONS),
       hub: indexOperations(HUB_OPERATIONS),
+      claims: indexOperations(CLAIMS_OPERATIONS),
     },
 
     prompts: [

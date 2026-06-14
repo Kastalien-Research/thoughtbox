@@ -230,12 +230,22 @@ export class NotebookHandler {
       targetCellId,
       result,
     });
+    // Machinery errors (snapshot_hash_mismatch, validator_crash, ...) can
+    // produce no stderr — no subprocess ever launched. Fall back to the
+    // expectation record's reason so the run verdict carries the real
+    // diagnostic instead of an empty trailer.
+    const error =
+      result.stderr !== ""
+        ? result.stderr
+        : record.result === "error"
+          ? (record.error ?? "")
+          : "";
     return {
       ...base,
       status: record.result === "error" ? "failed" : "completed",
       exitCode: result.exitCode,
       output: result.stdout,
-      error: result.stderr,
+      error,
       expectations: [record],
     };
   }
@@ -432,6 +442,31 @@ export class NotebookHandler {
           if (!target || target.type !== "code") {
             throw new Error(
               `validatorFor target ${validatorFor} not found or not a code cell`,
+            );
+          }
+          if (target.validatorFor !== undefined) {
+            throw new Error(
+              `validatorFor target ${validatorFor} is itself a validator cell; ` +
+                "validators never write structured output, so chained validators " +
+                "always error at run time — target a subject cell instead",
+            );
+          }
+          // Cells execute in document order, so a validator inserted before
+          // its target would always run before any output exists.
+          const targetIndex = notebook.cells.findIndex(
+            (c: Cell) => c.id === validatorFor,
+          );
+          const insertionIndex =
+            typeof position === "number" &&
+            position >= 0 &&
+            position <= notebook.cells.length
+              ? position
+              : notebook.cells.length;
+          if (insertionIndex <= targetIndex) {
+            throw new Error(
+              `validator cell would be inserted at position ${insertionIndex}, at or ` +
+                `before its target ${validatorFor} (position ${targetIndex}); cells run ` +
+                "in document order, so the validator must come after its target",
             );
           }
         }

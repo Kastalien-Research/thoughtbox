@@ -21,6 +21,7 @@ import type { UlyssesTool, UlyssesToolInput } from "../protocol/ulysses-tool.js"
 import type { ObservabilityGatewayHandler, ObservabilityInput } from "../observability/gateway-handler.js";
 import type { BranchHandler } from "../branch/index.js";
 import type { HubToolResult } from "../hub/hub-tool-handler.js";
+import type { ClaimsToolResult } from "../claims/claims-tool-handler.js";
 
 const MAX_LOGS = 100;
 const TIMEOUT_MS = 30_000;
@@ -44,6 +45,17 @@ export type ExecuteToolInput = z.infer<typeof executeToolInputSchema>;
  */
 export interface HubDispatcher {
   handle(input: { operation: string; [key: string]: unknown }): Promise<HubToolResult>;
+}
+
+/**
+ * Session-bound claims dispatch surface (SPEC-AGX-SUBSTRATE B2). Same
+ * shape as HubDispatcher; identity rides the session registry shared with
+ * the hub handler, so tb.claims mutations get an implicit agentId after
+ * the first tb.hub.register/quick_join. agentId remains overridable per
+ * call for multi-agent flows within one session.
+ */
+export interface ClaimsDispatcher {
+  handle(input: { operation: string; [key: string]: unknown }): Promise<ClaimsToolResult>;
 }
 
 export interface ExecuteToolDeps {
@@ -74,13 +86,20 @@ export interface ExecuteToolDeps {
    * returns a clear error instead of crashing.
    */
   hubDispatcher?: HubDispatcher;
+  /**
+   * Per-session dispatcher over the process-shared claim storage
+   * (SPEC-AGX-SUBSTRATE B2). Undefined when no claim storage was wired at
+   * server creation; `tb.claims.*` then returns a clear error instead of
+   * crashing.
+   */
+  claimsDispatcher?: ClaimsDispatcher;
 }
 
 export const EXECUTE_TOOL = {
   name: "thoughtbox_execute",
   description: `Run JavaScript using the \`tb\` SDK to chain Thoughtbox operations in a single call.
 
-**One state-mutating operation per call.** Submit only one \`tb.thought()\`, \`tb.ulysses()\`, \`tb.theseus()\`, or hub-mutating call (\`tb.hub.register()\`, \`tb.hub.createWorkspace()\`, \`tb.hub.createProblem()\`, \`tb.hub.mergeProposal()\`, etc.) per \`thoughtbox_execute\` invocation. Each response contains guidance (patterns, session state, protocol state) that should inform your next operation. Batching multiple state-mutating calls bypasses this feedback loop and produces lower-quality reasoning. Read-only operations (\`tb.session.*\`, \`tb.knowledge.*\`, \`tb.observability()\`, \`tb.branch.*\`, \`tb.hub.whoami()\`, \`tb.hub.listWorkspaces()\`, \`tb.hub.readChannel()\`, etc.) may be freely chained.
+**One state-mutating operation per call.** Submit only one \`tb.thought()\`, \`tb.ulysses()\`, \`tb.theseus()\`, hub-mutating call (\`tb.hub.register()\`, \`tb.hub.createWorkspace()\`, \`tb.hub.createProblem()\`, \`tb.hub.mergeProposal()\`, etc.), or claims-mutating call (\`tb.claims.assert()\`, \`tb.claims.invalidate()\`, \`tb.claims.supersede()\`, etc.) per \`thoughtbox_execute\` invocation. Each response contains guidance (patterns, session state, protocol state) that should inform your next operation. Batching multiple state-mutating calls bypasses this feedback loop and produces lower-quality reasoning. Read-only operations (\`tb.session.*\`, \`tb.knowledge.*\`, \`tb.observability()\`, \`tb.branch.*\`, \`tb.hub.whoami()\`, \`tb.hub.listWorkspaces()\`, \`tb.hub.readChannel()\`, \`tb.claims.query()\`, \`tb.claims.affected()\`, etc.) may be freely chained.
 
 ${TB_SDK_TYPES}
 
@@ -217,6 +236,24 @@ const HUB_SDK_METHODS: Record<string, string> = {
   workspaceDigest: "workspace_digest",
 };
 
+/**
+ * tb.claims method names mapped to claims operation names
+ * (canonical list: src/claims/operations.ts).
+ */
+const CLAIMS_SDK_METHODS: Record<string, string> = {
+  assert: "assert",
+  support: "support",
+  invalidate: "invalidate",
+  supersede: "supersede",
+  link: "link",
+  subscribe: "subscribe",
+  unsubscribe: "unsubscribe",
+  query: "query",
+  verify: "verify",
+  changedSince: "changed_since",
+  affected: "affected",
+};
+
 interface TbContext {
   sessionId?: string;
 }
@@ -224,7 +261,7 @@ interface TbContext {
 function buildTbObject(deps: ExecuteToolDeps, ctx: TbContext): Record<string, unknown> {
   const { thoughtTool, sessionTool, knowledgeTool, notebookTool,
           theseusTool, ulyssesTool, observabilityHandler, branchHandler,
-          hubDispatcher } = deps;
+          hubDispatcher, claimsDispatcher } = deps;
 
   const requireKnowledgeTool = (): KnowledgeTool => {
     if (!knowledgeTool) {
@@ -261,6 +298,23 @@ function buildTbObject(deps: ExecuteToolDeps, ctx: TbContext): Record<string, un
   for (const [method, operation] of Object.entries(HUB_SDK_METHODS)) {
     hub[method] = async (hubArgs: Record<string, unknown> = {}) =>
       unwrapHubResult(await requireHubDispatcher().handle({ operation, ...hubArgs }));
+  }
+
+  const requireClaimsDispatcher = (): ClaimsDispatcher => {
+    if (!claimsDispatcher) {
+      throw new Error(
+        "Claims operations are unavailable: no claim storage was wired into " +
+          "this server instance. tb.claims.* requires the server to be started " +
+          "with claim storage (see createMcpServer's claimStorage argument).",
+      );
+    }
+    return claimsDispatcher;
+  };
+
+  const claims: Record<string, (args?: Record<string, unknown>) => Promise<unknown>> = {};
+  for (const [method, operation] of Object.entries(CLAIMS_SDK_METHODS)) {
+    claims[method] = async (claimsArgs: Record<string, unknown> = {}) =>
+      unwrapHubResult(await requireClaimsDispatcher().handle({ operation, ...claimsArgs }));
   }
 
   return {
@@ -418,6 +472,8 @@ function buildTbObject(deps: ExecuteToolDeps, ctx: TbContext): Record<string, un
     },
 
     hub,
+
+    claims,
   };
 }
 

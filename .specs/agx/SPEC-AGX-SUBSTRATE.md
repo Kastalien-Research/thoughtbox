@@ -177,14 +177,20 @@ to be computable.
 
 **Operations (`tb.claims.*`):** `assert`, `support` (attach evidence), `invalidate`,
 `supersede`, `link`, `subscribe`, `unsubscribe`, `query` (by type/status/agent/text),
-`affected` (transitive dependents of a claim).
+`affected` (transitive dependents of a claim), `verify` (cheap revalidation: current status
+per claim id — the §11.1 staleness check at decision boundaries), `changed_since` (digest of
+status transitions after a timestamp — the §11.1 session-start/sync-point recall).
 
 **Propagation:** status changes publish through the existing hub Realtime publication
 mechanism. Subscribers receive (claim id, old→new status, actor). Awaiting runbook cells are
 marked runnable (§5). **Relevance routing v0 is explicit subscriptions only** — an agent or
 cell subscribes to the claims it depends on. Semantic/inferred routing is deferred (XL,
 Non-Goals); watch predicates over typed fields (e.g. "any `assumption` touching tag X") are a
-v1 candidate.
+v1 candidate. (B3 delivery: every status transition stamps `status_changed_at`; the `claims`
+table rides the `supabase_realtime` publication in hosted mode, and local mode emits an
+in-process `claim:status` event on the ThoughtEmitter — the channel B6 binds cells to.
+`claim_edges` is deliberately unpublished: edge creation changes no claim's status, and no
+edge-event reader exists yet.)
 
 **Migration sources, not new burdens (Principle 3):** the assumption registry
 (`.claude` skill: assumptions), spec frontmatter claims (`.schemas/spec-v1.json` — already
@@ -259,6 +265,12 @@ verify ledger" manually from prose JSON, leaving no durable record. As a runbook
 5. **Actuals from declared channels only:** exit code, JSON pointer into the structured output
    the cell writes to its `TB_OUTPUT_PATH` sidecar (the validator env-var-to-sidecar pattern),
    or artifact ref. Free-text stdout is never scraped.
+6. **Bindings survive the .src.md encoding.** `encode` persists each bound cell's id,
+   contract (with hash), `validatorFor`, and validator snapshot hash in a
+   `<!-- thoughtbox:cell {...} -->` comment between the filename heading and the code fence;
+   `decode` restores them, re-verifies the contract hash (tampered exports are rejected
+   loudly, same gate as run time), and refuses dangling or duplicate bindings. Notebooks
+   without bindings encode byte-identically to the legacy format.
 
 ## 6. Layer 3: Governed Capability Plane (EXISTS — deltas only)
 
