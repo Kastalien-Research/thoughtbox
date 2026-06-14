@@ -91,6 +91,7 @@ import { getNavigationCatalog as getInitNavigationCatalog, getNavigationStep as 
 import { getOperationsCatalog as getSessionOperationsCatalog, getOperation as getSessOp } from "./sessions/operations.js";
 import { getOperationsCatalog as getKnowledgeOperationsCatalog, getOperation as getKnowOp } from "./knowledge/operations.js";
 import { getOperationsCatalog as getHubOperationsCatalog, getOperation as getHubOp } from "./hub/operations.js";
+import { getClaimsOperationsCatalog, getClaimsOperation } from "./claims/operations.js";
 import { getOperation as getNbOp } from "./notebook/operations.js";
 import {
   SearchTool, SEARCH_TOOL,
@@ -1442,6 +1443,24 @@ async () => tb.thought({
   );
 
   server.registerResource(
+    "claims-operations",
+    "thoughtbox://claims/operations",
+    {
+      description: "Complete catalog of the 9 claim graph operations (assert, support, invalidate, supersede, link, subscribe, unsubscribe, query, affected) with schemas, examples, and vocabulary",
+      mimeType: "application/json",
+    },
+    async (uri) => ({
+      contents: [
+        {
+          uri: uri.toString(),
+          mimeType: "application/json",
+          text: getClaimsOperationsCatalog(),
+        },
+      ],
+    })
+  );
+
+  server.registerResource(
     "gateway-operations",
     "thoughtbox://gateway/operations",
     {
@@ -1507,6 +1526,17 @@ async () => tb.thought({
     async (uri, { op }) => {
       const opDef = getHubOp(op as string);
       if (!opDef) throw new Error(`Unknown hub operation: ${op}`);
+      return { contents: [{ uri: uri.href, mimeType: "application/json", text: JSON.stringify(opDef, null, 2) }] };
+    }
+  );
+
+  server.registerResource(
+    "claims-operation",
+    new ResourceTemplate("thoughtbox://claims/operations/{op}", { list: undefined }),
+    { description: "Individual claim graph operation schema and examples", mimeType: "application/json" },
+    async (uri, { op }) => {
+      const opDef = getClaimsOperation(op as string);
+      if (!opDef) throw new Error(`Unknown claims operation: ${op}`);
       return { contents: [{ uri: uri.href, mimeType: "application/json", text: JSON.stringify(opDef, null, 2) }] };
     }
   );
@@ -1861,6 +1891,12 @@ async () => tb.thought({
         mimeType: "application/json",
       },
       {
+        uri: "thoughtbox://claims/operations",
+        name: "Claims Operations Catalog",
+        description: "Complete catalog of the 9 claim graph operations with schemas, examples, and vocabulary",
+        mimeType: "application/json",
+      },
+      {
         uri: "thoughtbox://patterns-cookbook",
         name: "Thoughtbox Patterns Cookbook",
         description: "Guide to core reasoning patterns for thoughtbox tool",
@@ -2014,6 +2050,12 @@ async () => tb.thought({
           uriTemplate: "thoughtbox://hub/operations/{op}",
           name: "Hub Operation Detail",
           description: "Individual hub operation schema and examples",
+          mimeType: "application/json",
+        },
+        {
+          uriTemplate: "thoughtbox://claims/operations/{op}",
+          name: "Claims Operation Detail",
+          description: "Individual claim graph operation schema and examples",
           mimeType: "application/json",
         },
         {

@@ -40,6 +40,14 @@ function sanitizePath(userPath: string, allowedDir: string): string {
 }
 
 /**
+ * Result of executing a notebook cell, including the optional structured
+ * output the cell wrote to its TB_OUTPUT_PATH sidecar (raw JSON text).
+ */
+export interface CellExecutionResult extends ExecutionResult {
+  structuredOutput?: string;
+}
+
+/**
  * Notebook state manager
  * Manages in-memory notebook state and execution
  */
@@ -274,12 +282,18 @@ export class NotebookStateManager {
   }
 
   /**
-   * Execute a code cell
+   * Execute a code cell.
+   *
+   * Code cells receive a `TB_OUTPUT_PATH` env var pointing at a per-execution
+   * sidecar file (mirroring the validator's TB_OBSERVED_PATH/TB_VERDICT_PATH
+   * pattern). A cell that wants to expose structured output — the only
+   * channel outcome-contract `output` expectations may read — writes JSON to
+   * that path; free-text stdout is never scraped.
    */
   async executeCell(
     notebookId: string,
     cellId: string
-  ): Promise<ExecutionResult> {
+  ): Promise<CellExecutionResult> {
     const notebook = this.notebooks.get(notebookId);
     if (!notebook) {
       throw new Error(`Notebook ${notebookId} not found`);
@@ -306,17 +320,31 @@ export class NotebookStateManager {
     cell.output = undefined;
     cell.error = undefined;
 
-    let result: ExecutionResult;
+    let result: CellExecutionResult;
 
     try {
       if (cell.type === "package.json") {
         // Run pnpm install
         result = await installDependencies({ cwd: notebookDir });
       } else {
-        // Execute code cell
+        // Execute code cell with a fresh structured-output sidecar
+        const outputDir = path.join(notebookDir, "out");
+        await fs.mkdir(outputDir, { recursive: true });
+        const structuredOutputPath = path.join(outputDir, `${cellId}.output.json`);
+        await fs.rm(structuredOutputPath, { force: true });
+
         result = await executeCodeCell(cell.filename, cell.language, {
           cwd: notebookDir,
+          env: { TB_OUTPUT_PATH: structuredOutputPath },
         });
+
+        try {
+          const structuredOutput = await fs.readFile(structuredOutputPath, "utf8");
+          result = { ...result, structuredOutput };
+        } catch {
+          // Cell wrote no structured output — that is the common case.
+        }
+        await fs.rm(structuredOutputPath, { force: true }).catch(() => {});
       }
 
       // Update cell with results

@@ -295,3 +295,24 @@ export const CLAIMS_OPERATIONS: OperationDefinition[] = [
 export function getClaimsOperation(name: string): OperationDefinition | undefined {
   return CLAIMS_OPERATIONS.find(op => op.name === name);
 }
+
+/** Full catalog JSON for the thoughtbox://claims/operations resource. */
+export function getClaimsOperationsCatalog(): string {
+  return JSON.stringify(
+    {
+      version: '1.0.0',
+      vocabulary: CLAIMS_VOCABULARY,
+      operations: CLAIMS_OPERATIONS.map(op => ({
+        name: op.name,
+        title: op.title,
+        description: op.description,
+        category: op.category,
+        stage: op.stage,
+        inputs: op.inputSchema,
+        example: op.example,
+      })),
+    },
+    null,
+    2,
+  );
+}

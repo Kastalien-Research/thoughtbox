@@ -225,13 +225,17 @@ export function createClaimsHandler(storage: ClaimStorage): ClaimsHandler {
       updatedAt: now,
       statusChangedAt: now,
     };
-    await storage.saveClaim(replacement);
     const oldStatus = claim.status;
+    // Insert and CAS are one atomic step in storage: claims.superseded_by is
+    // an immediate FK, so the original cannot point at a replacement that
+    // does not exist yet, and a lost version race must leave nothing behind.
+    // Orchestrating the two writes here can only get one half right at a
+    // time, so the transaction lives in supersedeClaim.
     claim.status = 'superseded';
     claim.supersededBy = replacement.id;
     claim.updatedAt = now;
     claim.statusChangedAt = now;
-    await storage.saveClaim(claim);
+    await storage.supersedeClaim(claim, replacement);
     emitStatusChange(claim, oldStatus, agentId);
     return { superseded: claim, replacement };
   }
@@ -345,9 +349,9 @@ export function createClaimsHandler(storage: ClaimStorage): ClaimsHandler {
         visited.add(edge.fromClaim);
         next.push(edge.fromClaim);
       }
-      for (const claimId of next) {
-        const claim = await storage.getClaim(claimId);
-        if (claim) results.push({ claim, depth });
+      const claims = await storage.getClaims(next);
+      for (const claim of claims) {
+        results.push({ claim, depth });
       }
       frontier = next;
     }

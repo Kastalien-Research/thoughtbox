@@ -101,11 +101,27 @@ export interface ClaimEdgeFilter {
 export interface ClaimStorage {
   getClaim(claimId: string): Promise<Claim | null>;
   /**
-   * Batch point-lookup for tb.claims.verify (cheap revalidation).
-   * Missing ids are omitted; results are ordered by createdAt, id.
+   * Batch form of getClaim: one query per call, for level-wise graph
+   * traversal (tb.claims.affected) and cheap revalidation
+   * (tb.claims.verify). Returns found claims in `claimIds` order; missing
+   * ids are skipped. Returned instances carry CAS read versions like
+   * getClaim.
    */
   getClaims(claimIds: string[]): Promise<Claim[]>;
   saveClaim(claim: Claim): Promise<void>;
+  /**
+   * Atomically supersede `original` with `replacement`: insert the
+   * replacement and flip the original to 'superseded' (its `supersededBy`
+   * already pointing at `replacement.id`) in a single all-or-nothing step.
+   * `original` is CAS'd on its read version — a stale original (a lost
+   * concurrency race) throws with a 'concurrent update' message and writes
+   * nothing. A failure leaves neither the replacement inserted nor the
+   * original modified; there is no partially-applied state to compensate.
+   * The handler keeps the two writes in storage because claims.superseded_by
+   * is an immediate FK: only the storage layer can satisfy it within one
+   * transaction.
+   */
+  supersedeClaim(original: Claim, replacement: Claim): Promise<void>;
   queryClaims(query: ClaimQuery): Promise<Claim[]>;
   /**
    * Claims whose status changed strictly after `since` (ISO timestamp),

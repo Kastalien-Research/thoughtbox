@@ -98,11 +98,15 @@ export class SupabaseClaimStorage implements ClaimStorage {
       .from('claims')
       .select()
       .in('id', claimIds)
-      .eq('tenant_workspace_id', this.tenantWorkspaceId)
-      .order('created_at', { ascending: true })
-      .order('id', { ascending: true });
+      .eq('tenant_workspace_id', this.tenantWorkspaceId);
     if (error) this.fail('getClaims', error.message);
-    return (data ?? []).map(row => this.rowToClaim(row));
+    const byId = new Map((data ?? []).map(row => [row.id, this.rowToClaim(row)]));
+    const claims: Claim[] = [];
+    for (const claimId of claimIds) {
+      const claim = byId.get(claimId);
+      if (claim) claims.push(claim);
+    }
+    return claims;
   }
 
   async claimsChangedSince(since: string, workspaceId?: string): Promise<Claim[]> {
@@ -159,6 +163,41 @@ export class SupabaseClaimStorage implements ClaimStorage {
       );
     }
     this.versions.set(claim, expected + 1);
+  }
+
+  async supersedeClaim(original: Claim, replacement: Claim): Promise<void> {
+    const expected = this.versions.get(original);
+    if (expected === undefined) {
+      this.fail(
+        'supersedeClaim',
+        `original claim ${original.id} was not read through this storage; reload and retry`,
+      );
+    }
+    // One transaction in Postgres: insert the replacement, then CAS the
+    // original onto it. claims.superseded_by is an immediate FK, so the
+    // insert must precede the pointer update; the function rolls the insert
+    // back if the CAS loses its version race.
+    const { error } = await this.client.rpc('supersede_claim', {
+      p_tenant_workspace_id: this.tenantWorkspaceId,
+      p_original_id: original.id,
+      p_expected_version: expected,
+      p_superseded_at: original.updatedAt,
+      p_replacement: {
+        id: replacement.id,
+        workspace_id: replacement.workspaceId,
+        type: replacement.type,
+        statement: replacement.statement,
+        status: replacement.status,
+        evidence_refs: replacement.evidenceRefs,
+        created_by: replacement.createdBy,
+        created_at: replacement.createdAt,
+        updated_at: replacement.updatedAt,
+        status_changed_at: replacement.statusChangedAt,
+      } as unknown as Json,
+    });
+    if (error) this.fail('supersedeClaim', error.message);
+    this.versions.set(original, expected + 1);
+    this.versions.set(replacement, 1);
   }
 
   async queryClaims(query: ClaimQuery): Promise<Claim[]> {

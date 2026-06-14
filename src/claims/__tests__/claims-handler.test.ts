@@ -8,10 +8,27 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { createClaimsHandler, type ClaimsHandler } from '../claims-handler.js';
 import { InMemoryClaimStorage } from '../in-memory-claim-storage.js';
-import type { Claim } from '../types.js';
+import type { Claim, ClaimStorage } from '../types.js';
 import { thoughtEmitter, type ThoughtEmitterEvents } from '../../events/index.js';
 
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+/** Delegating wrapper so tests can interpose on individual storage calls. */
+function delegateStorage(storage: ClaimStorage): ClaimStorage {
+  return {
+    getClaim: id => storage.getClaim(id),
+    getClaims: ids => storage.getClaims(ids),
+    saveClaim: claim => storage.saveClaim(claim),
+    supersedeClaim: (original, replacement) => storage.supersedeClaim(original, replacement),
+    claimsChangedSince: (since, workspaceId) => storage.claimsChangedSince(since, workspaceId),
+    queryClaims: query => storage.queryClaims(query),
+    addEdge: edge => storage.addEdge(edge),
+    listEdges: filter => storage.listEdges(filter),
+    addSubscription: subscription => storage.addSubscription(subscription),
+    removeSubscription: (id, subscriber) => storage.removeSubscription(id, subscriber),
+    listSubscriptions: id => storage.listSubscriptions(id),
+  };
+}
 
 const WS = 'ws-test';
 const ALICE = 'agent-alice';
@@ -167,6 +184,64 @@ describe('ClaimsHandler', () => {
       await expect(
         handler.handle(BOB, 'invalidate', { claimId: 'claim-missing' }),
       ).rejects.toThrow(/Claim not found/);
+    });
+  });
+
+  describe('supersede atomicity', () => {
+    it('losing a concurrent CAS race leaves no orphaned replacement', async () => {
+      const claim = await assertClaim('raced claim');
+
+      // Interpose on getClaim: the moment supersede reads the original, a
+      // concurrent support (through the unwrapped handler) wins the version
+      // race, so supersede's CAS on the original must fail.
+      let injectRace = true;
+      const racingStorage = delegateStorage(storage);
+      racingStorage.getClaim = async claimId => {
+        const result = await storage.getClaim(claimId);
+        if (injectRace) {
+          injectRace = false;
+          await handler.handle(BOB, 'support', {
+            claimId,
+            evidenceRefs: ['ref-from-racing-agent'],
+          });
+        }
+        return result;
+      };
+      const racingHandler = createClaimsHandler(racingStorage);
+
+      await expect(
+        racingHandler.handle(ALICE, 'supersede', { claimId: claim.id, statement: 'v2' }),
+      ).rejects.toThrow(/concurrent update/);
+
+      // The lost race wrote nothing: no phantom "asserted" replacement, and
+      // the original carries the concurrent winner's state untouched.
+      const all = await storage.queryClaims({ workspaceId: WS });
+      expect(all.map(c => c.id)).toEqual([claim.id]);
+      expect(all[0]!.status).toBe('supported');
+      expect(all[0]!.supersededBy).toBeUndefined();
+    });
+
+    it('a failed supersedeClaim leaves the original untouched (atomic, no compensation)', async () => {
+      const claim = await assertClaim('atomic-supersede claim');
+
+      // supersedeClaim is all-or-nothing in storage; when it rejects, the
+      // handler must not have persisted a half-superseded original or a
+      // stray replacement.
+      const failingStorage = delegateStorage(storage);
+      failingStorage.supersedeClaim = async () => {
+        throw new Error('transaction aborted');
+      };
+      const failingHandler = createClaimsHandler(failingStorage);
+
+      await expect(
+        failingHandler.handle(ALICE, 'supersede', { claimId: claim.id, statement: 'v2' }),
+      ).rejects.toThrow(/transaction aborted/);
+
+      const restored = await storage.getClaim(claim.id);
+      expect(restored!.status).toBe('asserted');
+      expect(restored!.supersededBy).toBeUndefined();
+      expect(restored!.updatedAt).toBe(claim.updatedAt);
+      expect(await storage.queryClaims({ workspaceId: WS })).toHaveLength(1);
     });
   });
 
