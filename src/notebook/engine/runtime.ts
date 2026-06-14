@@ -24,6 +24,7 @@ import {
 } from "../contracts.js";
 import {
   hashTemplateCells,
+  verifyCellContracts,
   verifyTemplateContracts,
   type CellExecutionRecord,
   type FitnessLedgerRow,
@@ -368,6 +369,22 @@ export class InMemoryNotebookEngineRuntime {
       );
 
       const templateCells = this.templateCellSource?.(notebookId);
+      // Verify attached contract hashes BEFORE persisting a template version:
+      // a post-attach tampered contract is rejected here instead of saving a
+      // template + instance that executeAllCells would only later reject,
+      // leaving durable storage polluted with an unloadable version (Codex
+      // PR #402, P2).
+      if (templateCells !== undefined) {
+        yield* Effect.try({
+          try: () => verifyCellContracts(templateCells),
+          catch: (cause) =>
+            cause instanceof ContractHashMismatchError
+              ? new SnapshotMismatch({ expected: cause.expected, actual: cause.actual })
+              : new InvalidNotebookShape({
+                  reason: `Contract verification failed: ${errorMessage(cause)}`,
+                }),
+        });
+      }
       const durable =
         templateCells !== undefined
           ? yield* Effect.tryPromise({
@@ -508,6 +525,16 @@ export class InMemoryNotebookEngineRuntime {
       );
     }
 
+    // CONCURRENCY (v0): instance advance is single-writer per instance. This
+    // read -> executeCell -> append sequence is not atomic, so two concurrent
+    // advances of the SAME instance+cell would both run the cell's side
+    // effects before either appends; the loser then fails on the
+    // (instance_id, seq) unique constraint. That constraint is the durable
+    // backstop (never two rows at one seq), but it does not prevent the double
+    // side effect. v0 assumes one advancer per instance (an agent holding it,
+    // or a single cron tick); cross-replica concurrent same-instance advance
+    // is unsupported and is resolved with the advancer (B6/B8), where
+    // contention originates. Tracked in GH #403.
     const executions = await this.storage.listCellExecutions(input.instanceId);
     assertCellExecutable(template, executions, input.cellId);
     const templateCell = template.cells.find((cell) => cell.cellId === input.cellId)!;

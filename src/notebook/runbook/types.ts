@@ -226,16 +226,26 @@ export function templateCellsFromNotebook(
 }
 
 /**
- * Re-verify every attached contract hash on a template loaded from storage
+ * Re-verify every attached contract hash on a list of template cells
  * (Ulysses pattern at the durable layer). Throws ContractHashMismatchError
- * on tampering.
+ * on tampering. Used both to gate a notebook's cells before they are
+ * persisted as a template version and to re-check a template loaded from
+ * storage.
  */
-export function verifyTemplateContracts(template: RunbookTemplate): void {
-  for (const cell of template.cells) {
+export function verifyCellContracts(cells: RunbookTemplateCell[]): void {
+  for (const cell of cells) {
     if (cell.contract !== undefined) {
       verifyAttachedContract(cell.cellId, cell.contract);
     }
   }
+}
+
+/**
+ * Re-verify every attached contract hash on a template loaded from storage.
+ * Throws ContractHashMismatchError on tampering.
+ */
+export function verifyTemplateContracts(template: RunbookTemplate): void {
+  verifyCellContracts(template.cells);
 }
 
 /**

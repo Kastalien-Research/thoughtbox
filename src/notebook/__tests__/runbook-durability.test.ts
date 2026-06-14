@@ -183,6 +183,52 @@ describe("Durable runbook round-trip — InMemory storage (shared state restart)
     expect((await storage.getInstance(run3.run.runId))!.templateVersion).toBe(2);
     expect(await storage.listInstances(notebookId)).toHaveLength(3);
   }, 180_000);
+
+  it("rejects a post-attach tampered contract before persisting a template version or instance", async () => {
+    const state = createRunbookMemoryState();
+    const storage = new InMemoryRunbookStorage(state);
+    const handler = new NotebookHandler(undefined, {
+      runbookStorage: storage,
+      agentId: "agent-session-1",
+    });
+    await handler.init();
+
+    const created = await handler.handleCreateNotebook({
+      title: "Tampered durable runbook",
+      language: "javascript",
+    });
+    const notebookId = created.notebook.id as string;
+    const added = await handler.handleAddCell({
+      notebookId,
+      cellType: "code",
+      filename: "step.js",
+      content: 'console.log("ok");',
+      contract: {
+        schemaVersion: "outcome-contract.v0",
+        expectations: [{ source: { kind: "exitCode" }, op: "eq", value: 0 }],
+      },
+    });
+
+    // Tamper the stored contract without recompiling its hash.
+    const notebook = handler.getNotebook(notebookId)!;
+    const cell = notebook.cells.find((c) => c.id === added.cell.id)!;
+    if (cell.type !== "code" || cell.contract === undefined) throw new Error("setup broke");
+    (cell.contract.contract.expectations[0] as { value: unknown }).value = 1;
+
+    await expect(
+      handler.handleStartRun({ notebookId, mode: "runbook" }),
+    ).rejects.toThrow();
+
+    const listed = await handler.handleListRuns({ notebookId });
+    const failed = listed.runs[0] as { status: string; error: string };
+    expect(failed.status).toBe("failed");
+    expect(failed.error).toContain("hash mismatch");
+
+    // Verification gates beginDurableRun: durable storage stays clean — no
+    // template version, no instance (Codex PR #402, P2).
+    expect(await storage.listTemplateVersions(notebookId)).toEqual([]);
+    expect(await storage.listInstances(notebookId)).toEqual([]);
+  });
 });
 
 describe("Durable runbook round-trip — Supabase storage (local stack)", () => {
