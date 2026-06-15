@@ -241,7 +241,11 @@ verify ledger" manually from prose JSON, leaving no durable record. As a runbook
 
 1. **Per-cell contracts, document verdict derived.** An exec/code cell may declare an outcome
    contract. The document verdict passes iff every declared expectation was evaluated and
-   passed (a procedurally failed cell still fails the run). A runbook with zero declared
+   passed (an uncontracted procedurally failed cell still fails the run). Expected-failure
+   rule (adopted 2026-06-12, B5): a cell that exits nonzero but whose every declared
+   expectation passes is *expectation-satisfied* — a predicted failure that neither fails
+   nor halts the run; uncontracted failures and failed/errored expectations still halt
+   it. A runbook with zero declared
    contracts keeps its procedural verdict but carries `contractCoverage: 0` and a reason
    stating "procedural completion only — no outcome contracts declared", so fitness (B9)
    excludes contract-less runs from pass-rates.

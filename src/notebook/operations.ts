@@ -184,7 +184,12 @@ Both approaches create an identical in-memory notebook.`,
   {
     name: "notebook_run_cell",
     title: "Run Cell",
-    description: "Execute a code cell and capture output (stdout, stderr, exit code)",
+    description:
+      "Execute a code cell and capture output (stdout, stderr, exit code). " +
+      "With instanceId, execution is instance-aware and ordered: only the next " +
+      "unsatisfied cell of the pinned runbook template may run (out-of-order " +
+      "execution is rejected naming the expected next cell), and the execution " +
+      "appends an immutable record plus fitness ledger rows.",
     category: "execution",
     inputSchema: {
       type: "object",
@@ -196,6 +201,12 @@ Both approaches create an identical in-memory notebook.`,
         cellId: {
           type: "string",
           description: "Cell ID to execute",
+        },
+        instanceId: {
+          type: "string",
+          description:
+            "Optional runbook instance ID. Enforces document-order execution " +
+            "against the instance's append-only records (SPEC-AGX-SUBSTRATE §5).",
         },
       },
       required: ["notebookId", "cellId"],

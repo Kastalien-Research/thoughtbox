@@ -13,6 +13,7 @@ import {
 import {
   InMemoryNotebookEngineRuntime,
   type CellExecutionEvidence,
+  type CellExecutionGate,
 } from "./engine/runtime.js";
 import { templateCellsFromNotebook, type RunbookStorage } from "./runbook/types.js";
 import { getNotebookCapabilitiesJson } from "./engine/registry.js";
@@ -51,7 +52,7 @@ export class NotebookHandler {
     this.stateManager = new NotebookStateManager(tempDir);
     this.validatorService = new ValidatorService(this.stateManager);
     this.engineRuntime = new InMemoryNotebookEngineRuntime(
-      (notebookId) => this.executeAllCells(notebookId),
+      (notebookId, gate) => this.executeAllCells(notebookId, gate),
       undefined,
       {
         ...(options.runbookStorage !== undefined
@@ -73,19 +74,28 @@ export class NotebookHandler {
 
   /**
    * Execute every executable cell (package.json installs and code cells) in
-   * document order through the real subprocess execution path, stopping at
-   * the first failure; remaining executable cells are reported as skipped.
+   * document order through the real subprocess execution path, halting per
+   * the B5 rule; cells after the halt are reported as skipped.
    *
-   * Outcome-contract integration (SPEC-AGX-SUBSTRATE B4a):
+   * Outcome-contract integration (SPEC-AGX-SUBSTRATE B4a + B5):
    * - Before anything executes, every attached tier-1 contract hash is
    *   re-verified (Ulysses pattern); a mismatch throws and rejects the run.
    * - Cells with `validatorFor` are tier-2 assertion cells: they run through
    *   the existing ValidatorService (snapshot+hash, sidecar verdict) against
    *   the target cell's structured output instead of executing as steps.
-   *   Assertion cells record verdicts but never halt later cells.
+   * - Before each cell runs, the runtime gate's ordering assertion fires
+   *   (§5: a rejected cell never executes) and the execution start time is
+   *   captured onto the evidence for the durable record.
+   * - After each executed cell, the runtime's gate evaluates its declared
+   *   expectations, persists the durable record, and decides the halt: an
+   *   expectation-satisfied predicted failure (nonzero exit, every declared
+   *   expectation passes) CONTINUES; uncontracted failures and cells whose
+   *   expectations fail or error halt — including unsatisfied assertion
+   *   cells (§5 ordering: later cells cannot run past an unsatisfied cell).
    */
   private async executeAllCells(
     notebookId: string,
+    gate?: CellExecutionGate,
   ): Promise<CellExecutionEvidence[]> {
     const notebook = this.stateManager.getNotebook(notebookId);
     if (!notebook) {
@@ -105,10 +115,10 @@ export class NotebookHandler {
 
     const evidence: CellExecutionEvidence[] = [];
     const structuredOutputByCell = new Map<string, string>();
-    let failed = false;
+    let halted = false;
     for (const cell of executable) {
       const validatorFor = cell.type === "code" ? cell.validatorFor : undefined;
-      if (failed) {
+      if (halted) {
         evidence.push({
           cellId: cell.id,
           cellType: cell.type,
@@ -129,32 +139,47 @@ export class NotebookHandler {
         });
         continue;
       }
+      // Ordering is enforced BEFORE the cell runs (spec §5): a rejected cell
+      // never executes, so an ordering failure cannot drop the durable
+      // record of a cell that already ran.
+      gate?.assertExecutable(cell.id);
+      const startedAt = new Date().toISOString();
+      let cellEvidence: CellExecutionEvidence;
       if (cell.type === "code" && validatorFor !== undefined) {
-        evidence.push(
-          await this.runValidatorCell(notebookId, cell, structuredOutputByCell),
-        );
-        continue;
+        cellEvidence = {
+          ...(await this.runValidatorCell(notebookId, cell, structuredOutputByCell)),
+          startedAt,
+        };
+      } else {
+        const result = await this.stateManager.executeCell(notebookId, cell.id);
+        if (cell.type === "code" && result.structuredOutput !== undefined) {
+          structuredOutputByCell.set(cell.id, result.structuredOutput);
+        }
+        cellEvidence = {
+          cellId: cell.id,
+          cellType: cell.type,
+          filename: cell.filename,
+          startedAt,
+          status: result.success ? "completed" : "failed",
+          exitCode: result.exitCode,
+          output: result.stdout,
+          error: result.stderr,
+          ...(result.structuredOutput !== undefined
+            ? { structuredOutput: result.structuredOutput }
+            : {}),
+          ...(cell.type === "code" && cell.contract !== undefined
+            ? { contract: cell.contract }
+            : {}),
+        };
       }
-      const result = await this.stateManager.executeCell(notebookId, cell.id);
-      if (cell.type === "code" && result.structuredOutput !== undefined) {
-        structuredOutputByCell.set(cell.id, result.structuredOutput);
+      evidence.push(cellEvidence);
+      if (gate) {
+        const { disposition } = await gate.record(cellEvidence);
+        if (disposition === "halt") halted = true;
+      } else if (validatorFor === undefined && cellEvidence.status === "failed") {
+        // Ungated fallback (raw runtime usage): halt on procedural failure.
+        halted = true;
       }
-      evidence.push({
-        cellId: cell.id,
-        cellType: cell.type,
-        filename: cell.filename,
-        status: result.success ? "completed" : "failed",
-        exitCode: result.exitCode,
-        output: result.stdout,
-        error: result.stderr,
-        ...(result.structuredOutput !== undefined
-          ? { structuredOutput: result.structuredOutput }
-          : {}),
-        ...(cell.type === "code" && cell.contract !== undefined
-          ? { contract: cell.contract }
-          : {}),
-      });
-      if (!result.success) failed = true;
     }
     return evidence;
   }
@@ -560,10 +585,11 @@ export class NotebookHandler {
   }
 
   /**
-   * Handle notebook_run_cell tool call
+   * Handle notebook_run_cell tool call. With `instanceId`, execution is
+   * instance-aware: ordered per the pinned template (B5).
    */
   async handleRunCell(args: any): Promise<any> {
-    const { notebookId, cellId } = args;
+    const { notebookId, cellId, instanceId } = args;
 
     if (!notebookId || typeof notebookId !== "string") {
       throw new Error("notebookId is required and must be a string");
@@ -571,6 +597,13 @@ export class NotebookHandler {
 
     if (!cellId || typeof cellId !== "string") {
       throw new Error("cellId is required and must be a string");
+    }
+
+    if (instanceId !== undefined) {
+      if (typeof instanceId !== "string" || instanceId.length === 0) {
+        throw new Error("instanceId must be a non-empty string if provided");
+      }
+      return await this.runInstanceCell(notebookId, cellId, instanceId);
     }
 
     const result = await this.stateManager.executeCell(notebookId, cellId);
@@ -582,6 +615,61 @@ export class NotebookHandler {
         stderr: result.stderr,
         exitCode: result.exitCode,
         success: result.success,
+      },
+    };
+  }
+
+  /**
+   * Instance-aware single-cell execution (SPEC-AGX-SUBSTRATE B5 — spec §5
+   * "Ordering"). Only the next unsatisfied cell of the pinned template may
+   * execute; out-of-order attempts throw OutOfOrderExecutionError naming the
+   * expected next cell. The execution appends an immutable record and its
+   * ledger rows; `success` reports B5 satisfaction, so an expectation-
+   * satisfied predicted failure is a success.
+   */
+  private async runInstanceCell(
+    notebookId: string,
+    cellId: string,
+    instanceId: string,
+  ): Promise<any> {
+    const notebook = this.stateManager.getNotebook(notebookId);
+    if (!notebook) {
+      throw new Error(`Notebook ${notebookId} not found`);
+    }
+    const result = await this.engineRuntime.executeInstanceCell({
+      instanceId,
+      cellId,
+      expectedTemplateId: notebookId,
+      liveCells: templateCellsFromNotebook(notebook),
+      executeCell: async (id) => {
+        const execution = await this.stateManager.executeCell(notebookId, id);
+        return {
+          status: execution.success ? ("completed" as const) : ("failed" as const),
+          exitCode: execution.exitCode,
+          stdout: execution.stdout,
+          stderr: execution.stderr,
+          ...(execution.structuredOutput !== undefined
+            ? { structuredOutput: execution.structuredOutput }
+            : {}),
+        };
+      },
+    });
+    return {
+      success: result.satisfied,
+      execution: {
+        stdout: result.execution.stdout,
+        stderr: result.execution.stderr,
+        exitCode: result.execution.exitCode,
+        success: result.status === "completed",
+      },
+      instance: {
+        instanceId: result.instanceId,
+        seq: result.seq,
+        cellId: result.cellId,
+        satisfied: result.satisfied,
+        status: result.instanceStatus,
+        nextCellId: result.nextCellId,
+        expectations: result.expectations,
       },
     };
   }
