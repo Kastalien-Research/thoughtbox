@@ -441,3 +441,35 @@ design decisions for v0; the residual open questions are marked.
    the post-merge checklist *is* a runbook instance, no parallel non-substrate path exists.
    **Kill criterion:** H5 failure with all three chokepoints wired is a verdict on the
    substrate, not an awareness problem — believe the result.
+
+## 12. Capability Status (point-in-time)
+
+What an agent can and cannot yet do through `thoughtbox_execute`, as of **2026-06-15**
+(units B1–B5 merged via PRs #398–#402). This is derived status, not authority — the claims
+block and §9 are the pre-registration. Update the table as units land.
+
+**Available now:**
+
+| Capability (via `thoughtbox_execute`) | Surface | Claim / PR |
+|---|---|---|
+| Maintain a shared, typed premise-set across agents and sessions — assert/support/invalidate/supersede claims, link `depends_on` edges, query, and walk transitive dependents | `tb.claims.assert/support/invalidate/supersede/link/subscribe/unsubscribe/query/affected` | c1 / #398 |
+| Detect stale premises without any agent-to-agent message — batch revalidation and a status-change digest | `tb.claims.verify`, `tb.claims.changed_since` | c2 §11.1 / #400 |
+| Claim status transitions propagate over Supabase Realtime to subscribers (web clients today; awaiting runbook cells once B6 lands) | `supabase_realtime` publication on `claims` | c2 / #400 (full two-client agentic test deploy-gated) |
+| Author durable, versioned runbook templates; every run is an append-only instance, resumable by instance id | `tb.notebook.*` over `RunbookStorage` | c3 / #399 + #401 |
+| Contract-governed, ordered cell execution — document order enforced, predicted failures pass, real failures halt; tier-1 declarative + tier-2 validator outcome contracts, hash-verified | notebook engine (B5) | c3 / #399 + #402 |
+| Accrue a fitness ledger — hypothesis-vs-actual per template version, only machine-checked outcomes contribute | `runbook_fitness_ledger` aggregates | c7 / #401 |
+| Keep shell, filesystem, and code editing native and unmediated — the substrate wraps only trust-boundary verbs | (invariant; §10) | c10 |
+
+**Not yet — the unbuilt joins:**
+
+| Capability | Unlocked by | Claim |
+|---|---|---|
+| A runbook cell that **blocks on a claim and wakes itself** — `await` cell becomes runnable on claim satisfaction, executed on the next pull | **B6** (await↔claim binding) + **B8** (advancer) | c4 |
+| Pull advancement of an instance by agent or cron (`tb.runbook.advance`) | **B8** | c4 |
+| Cells executing under the agent's **brokered allowlist and budget** (no ambient authority) | **B7** | c6 |
+| Evidence-gated notebook→manifest **graduation** (reject below fitness threshold) | **B10** | c8 |
+| Local durable claims (FileSystem `ClaimStorage`) | deferred §11.5 (gated on H1/H2) | c1 |
+
+**Verified vs claimed:** c3, c7, c10 are met and evidenced; c1 is met for Supabase + InMemory (FS deferred by design); c2's mechanism is proven but its full two-live-client agentic test is deploy-gated; c5 (fresh-session instance resumption) has its substrate in #401 but is unverified pending **Experiment H2**; c4/c6/c8 are unbuilt. The two thesis experiments (**H1** coordination-beats-orchestrator, **H2** runbook resumption) are unrun.
+
+**Bottom line:** the two halves — claim graph and durable runbooks — are built and individually evidenced, but they are **not yet wired into each other**. The reactive payoff ("block on a claim, wake the runbook") is **c4 / B6 + B8**, and it is the first unbuilt thing. Deferred concurrency hazard in single-cell advance is tracked in GH #403, to be designed with B8.
