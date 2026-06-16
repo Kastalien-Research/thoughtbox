@@ -5,6 +5,7 @@ export default defineConfig({
     include: [
       'src/**/__tests__/**/*.test.ts',
       'scripts/**/__tests__/**/*.test.ts',
+      'plugins/**/__tests__/**/*.test.ts',
       'demo/**/*.ts',
     ],
     // Supabase integration tests share a single DB instance and use
