@@ -9,7 +9,7 @@ claims:
     statement: The thoughtbox-claude-code plugin registers the channel as an MCP server and declares it under the plugin `channels` field, so Claude Code launches the stdio channel server and renders its `notifications/claude/channel` events as <channel> blocks
     type: implementation
     behavioral: false
-    required_evidence: plugin.json contains an `mcpServers.thoughtbox-channel` entry (command node, args ${CLAUDE_PLUGIN_ROOT}/dist/thoughtbox-channel.js, env supplying THOUGHTBOX_URL) and a `channels` array referencing that server; the committed dist/thoughtbox-channel.js boots, declares the claude/channel experimental capability, and does not exit(1) when THOUGHTBOX_URL is provided; /plugin install succeeds
+    required_evidence: plugin.json contains an `mcpServers.thoughtbox-channel` entry (command node, args ${CLAUDE_PLUGIN_ROOT}/dist/thoughtbox-channel.js) and a `channels` array whose `server` matches that key; the channel derives base URL and API key from local Claude settings (THOUGHTBOX_URL is an optional override), so the committed dist/thoughtbox-channel.js boots, declares the claude/channel experimental capability, and stays idle instead of exit(1) when unconfigured; /plugin install succeeds
   - id: c2
     statement: In hosted (multi-tenant) mode the server persists protocol lifecycle events (ulysses_*/theseus_*) to a tenant-scoped Supabase table, where today they are neither broadcast nor stored
     type: implementation

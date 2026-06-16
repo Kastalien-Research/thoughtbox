@@ -16,19 +16,14 @@ import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import {
   extractApiKeyFromLocalConfig,
+  findThoughtboxBaseUrl,
   loadLocalThoughtboxConfig,
 } from "./cli/config.js";
 import { EventFilter } from "./event-filter.js";
 import { EventClient } from "./event-client.js";
 import type { ThoughtboxEvent } from "./event-types.js";
 
-const THOUGHTBOX_URL = process.env.THOUGHTBOX_URL;
 const THOUGHTBOX_SESSION = process.env.THOUGHTBOX_SESSION;
-
-if (!THOUGHTBOX_URL) {
-  console.error("THOUGHTBOX_URL is required");
-  process.exit(1);
-}
 
 const instructions = [
   "Thoughtbox protocol events arrive as <channel source=\"thoughtbox-channel\" ...>.",
@@ -119,29 +114,45 @@ async function pushEvent(event: ThoughtboxEvent): Promise<void> {
   }
 }
 
-async function resolveApiKey(): Promise<string | null> {
+interface ChannelConnection {
+  baseUrl: string;
+  apiKey: string;
+}
+
+/**
+ * Resolve the server base URL and API key. The URL comes from THOUGHTBOX_URL
+ * when set, otherwise from the MCP server `thoughtbox init` wrote to local
+ * Claude settings; the key always comes from local settings. Returns null
+ * (channel stays idle, never exits) when either is missing.
+ */
+async function resolveConnection(): Promise<ChannelConnection | null> {
   const projectDir = process.env.CLAUDE_PROJECT_DIR ?? process.cwd();
 
+  let baseUrl = process.env.THOUGHTBOX_URL ?? null;
+  let apiKey: string | null = null;
   try {
     const config = await loadLocalThoughtboxConfig(projectDir);
-    return extractApiKeyFromLocalConfig(config.settingsLocal);
+    apiKey = extractApiKeyFromLocalConfig(config.settingsLocal);
+    baseUrl = baseUrl ?? findThoughtboxBaseUrl(config.settingsLocal);
   } catch {
     return null;
   }
+
+  if (!baseUrl || !apiKey) return null;
+  return { baseUrl, apiKey };
 }
 
 async function start(): Promise<void> {
-  const baseUrl = THOUGHTBOX_URL!;
-
-  console.error(`[Channel] Connecting to ${baseUrl}`);
   await mcp.connect(new StdioServerTransport());
   console.error("[Channel] MCP stdio transport connected");
 
-  const apiKey = await resolveApiKey();
-  if (!apiKey) {
-    console.error("[Channel] Thoughtbox key not configured in local Claude settings; channel idle until thoughtbox init runs");
+  const connection = await resolveConnection();
+  if (!connection) {
+    console.error("[Channel] Thoughtbox URL/key not configured in local Claude settings; channel idle until thoughtbox init runs");
     return;
   }
+  const { baseUrl, apiKey } = connection;
+  console.error(`[Channel] Connecting to ${baseUrl}`);
 
   const eventClient = new EventClient({
     baseUrl,
