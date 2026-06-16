@@ -11,7 +11,7 @@ claims:
     behavioral: false
     required_evidence: plugin.json contains an `mcpServers.thoughtbox-channel` entry (command node, args ${CLAUDE_PLUGIN_ROOT}/dist/thoughtbox-channel.js) and a `channels` array whose `server` matches that key; the channel derives base URL and API key from local Claude settings (THOUGHTBOX_URL is an optional override), so the committed dist/thoughtbox-channel.js boots, declares the claude/channel experimental capability, and stays idle instead of exit(1) when unconfigured; /plugin install succeeds
   - id: c2
-    statement: In hosted (multi-tenant) mode the server persists protocol lifecycle events (ulysses_*/theseus_*) to a tenant-scoped Supabase table, where today they are neither broadcast nor stored
+    statement: In hosted (multi-tenant) mode the server appends the full protocol lifecycle event stream (ulysses_*/theseus_*) to a dedicated tenant-scoped Supabase table — distinct from protocol_history, which only stores a lossy operation-level subset and is never broadcast
     type: implementation
     behavioral: false
     required_evidence: a migration adds a protocol_events table with tenant_workspace_id + workspace-membership RLS following the hub-table pattern; the multi-tenant session branch in src/index.ts passes onProtocolEvent to createMcpServer and that handler writes a row per protocol event; a test confirms rows are written under the emitting workspace
@@ -82,11 +82,17 @@ B6/B8 (the reactive substrate) so the realtime transport is defined once, there.
 ## Components
 
 1. **Plugin wiring** (c1) — register `mcpServers.thoughtbox-channel` + a
-   `channels` entry in `plugin.json`, supplying `THOUGHTBOX_URL` via env with
-   `${CLAUDE_PLUGIN_ROOT}` expansion; ship the dist artifact (already committed).
+   `channels` entry in `plugin.json` whose `server` matches the mcpServers key;
+   the channel derives URL+key from local Claude settings (no hardcoded env);
+   ship the dist artifact (already committed).
 2. **Server persistence** (c2) — `protocol_events` migration (tenant-scoped +
-   RLS, hub-table pattern); wire `onProtocolEvent` in the multi-tenant branch to
-   persist each event.
+   RLS, claims/hub-table pattern); wire `onProtocolEvent` in the multi-tenant
+   branch to append each event. A dedicated table, **not** `protocol_history`:
+   that table is the session-keyed audit log with an operation-level
+   `event_type` (plan/outcome/reflect/checkpoint/+2 validator) constrained by a
+   CHECK — a lossy subset missing init/visa/complete and the ulysses/theseus
+   prefix. `protocol_events` mirrors the full nine-type `ThoughtboxEvent`
+   taxonomy the channel emits, so hosted pull equals local SSE byte-for-byte.
 3. **Pull endpoint** (c3) — `GET /protocol/events?changed_since=<cursor>`,
    authorized by API key, filtered by `tenant_workspace_id`.
 4. **Channel client transport selection** (c4) — SSE (local) vs polling (hosted),
