@@ -7,7 +7,9 @@
  * via the `claude/channel` notification surface.
  *
  * Configuration via environment variables:
- *   THOUGHTBOX_URL      - Thoughtbox HTTP server URL (required)
+ *   THOUGHTBOX_URL      - Optional override for the Thoughtbox HTTP server URL;
+ *                         when absent, derives from local Claude settings
+ *                         written by `thoughtbox init`
  *   THOUGHTBOX_SESSION  - Optional active Thoughtbox session id; when set,
  *                         only events for this session are forwarded
  */
@@ -95,6 +97,9 @@ async function pushEvent(event) {
         console.error("[Channel] Failed to push event:", err);
     }
 }
+function isMissingConfigError(error) {
+    return error?.code === "ENOENT";
+}
 /**
  * Resolve the server base URL and API key. The URL comes from THOUGHTBOX_URL
  * when set, otherwise from the MCP server `thoughtbox init` wrote to local
@@ -110,8 +115,12 @@ async function resolveConnection() {
         apiKey = extractApiKeyFromLocalConfig(config.settingsLocal);
         baseUrl = baseUrl ?? findThoughtboxBaseUrl(config.settingsLocal);
     }
-    catch {
-        return null;
+    catch (error) {
+        if (isMissingConfigError(error)) {
+            return null;
+        }
+        console.error("[Channel] Failed to load local Claude settings:", error);
+        throw error;
     }
     if (!baseUrl || !apiKey)
         return null;
