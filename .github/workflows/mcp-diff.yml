@@ -22,13 +22,27 @@ jobs:
         with:
           version: 9.15.4
 
+      # Diffs the public MCP surface (thoughtbox_search/execute/peer_notebook)
+      # exposed by the streamable-HTTP server (src/index.ts -> dist/index.js).
+      # THOUGHTBOX_STORAGE=memory keeps the server in local mode: no Supabase
+      # env required, /mcp serves unauthenticated, nothing persists.
       - uses: SamMorrowDrums/mcp-server-diff@v2
         with:
           setup_node: true
+          node_version: "22"
           install_command: pnpm install --frozen-lockfile
           build_command: pnpm build
-          start_command: node dist/channel/hub-channel.js
-        env:
-          THOUGHTBOX_AGENT_NAME: ci-diff
-          THOUGHTBOX_AGENT_PROFILE: REVIEWER
-          THOUGHTBOX_WORKSPACE_ID: ci-workspace
+          server_timeout: "20"
+          env_vars: |
+            THOUGHTBOX_STORAGE=memory
+            PORT=1731
+          configurations: |
+            [
+              {
+                "name": "streamable-http",
+                "transport": "streamable-http",
+                "start_command": "node dist/index.js",
+                "server_url": "http://localhost:1731/mcp",
+                "startup_wait_ms": 10000
+              }
+            ]
