@@ -56,18 +56,11 @@ export class PollingEventClient {
 
   async connect(): Promise<void> {
     this.closed = false;
-    // Prime the cursor to the current tail without emitting.
-    try {
-      while (true) {
-        const page = await this.fetchPage(this.cursor);
-        if (page.events.length === 0) break;
-        this.cursor = page.cursor;
-        if (page.events.length < PAGE_LIMIT) break;
-      }
-      this.config.onConnect?.();
-    } catch (error) {
-      this.reportError(error);
-    }
+    this.backoffMs = MIN_BACKOFF_MS;
+    await this.prime();
+    if (this.closed) return;
+    this.config.onConnect?.();
+    this.backoffMs = MIN_BACKOFF_MS;
     this.scheduleNext(this.config.pollIntervalMs ?? DEFAULT_POLL_INTERVAL_MS);
   }
 
@@ -120,9 +113,33 @@ export class PollingEventClient {
     });
   }
 
+  private async prime(): Promise<void> {
+    while (!this.closed) {
+      try {
+        await this.primeOnce();
+        return;
+      } catch (error) {
+        this.reportError(error);
+        const delay = this.backoffMs;
+        this.backoffMs = Math.min(this.backoffMs * BACKOFF_MULTIPLIER, MAX_BACKOFF_MS);
+        await new Promise((resolve) => setTimeout(resolve, delay));
+      }
+    }
+  }
+
+  private async primeOnce(): Promise<void> {
+    while (true) {
+      const page = await this.fetchPage(this.cursor);
+      if (page.events.length === 0) break;
+      this.cursor = page.cursor;
+      if (page.events.length < PAGE_LIMIT) break;
+    }
+  }
+
   private async fetchPage(cursor: number): Promise<PullResponse> {
     const params = new URLSearchParams();
     if (cursor > 0) params.set("changed_since", String(cursor));
+    if (this.config.sessionId) params.set("session_id", this.config.sessionId);
     params.set("limit", String(PAGE_LIMIT));
     const url = `${this.config.baseUrl}/protocol/events?${params.toString()}`;
 

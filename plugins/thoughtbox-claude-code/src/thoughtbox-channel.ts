@@ -34,6 +34,11 @@ const THOUGHTBOX_SESSION = process.env.THOUGHTBOX_SESSION;
 function selectTransport(baseUrl: string): "sse" | "poll" {
   const override = process.env.THOUGHTBOX_CHANNEL_MODE;
   if (override === "sse" || override === "poll") return override;
+  if (override !== undefined) {
+    console.error(
+      `[Channel] Warning: THOUGHTBOX_CHANNEL_MODE="${override}" is not supported; falling back to URL-based transport detection`,
+    );
+  }
   try {
     const host = new URL(baseUrl).hostname;
     return host === "localhost" || host === "127.0.0.1" || host === "::1"

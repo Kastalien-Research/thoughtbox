@@ -70,7 +70,7 @@ describe('PollingEventClient', () => {
     expect(received).toHaveLength(0); // primed, no replay of history
 
     await flush();
-    await new Promise((r) => setTimeout(r, 10)); // let one poll fire
+    await new Promise((r) => setTimeout(r, 20)); // let two polls fire
     client.close();
 
     expect(received).toHaveLength(1);
@@ -97,5 +97,25 @@ describe('PollingEventClient', () => {
     expect(String(url)).toContain('/protocol/events');
     const headers = (init?.headers ?? {}) as Record<string, string>;
     expect(headers.Authorization).toBe('Bearer tbx_secret');
+  });
+
+  it('adds the session_id query param when configured', async () => {
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(jsonResponse({ events: [], cursor: 0 }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const client = new PollingEventClient({
+      baseUrl: 'https://hosted.example',
+      apiKey: 'tbx_secret',
+      sessionId: 'session-123',
+      onEvent: () => {},
+    });
+    await client.connect();
+    client.close();
+
+    const [url] = fetchMock.mock.calls[0]!;
+    const params = new URL(String(url)).searchParams;
+    expect(params.get('session_id')).toBe('session-123');
   });
 });

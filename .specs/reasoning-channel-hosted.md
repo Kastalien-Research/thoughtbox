@@ -21,10 +21,10 @@ claims:
     behavioral: true
     required_evidence: GET /protocol/events (changed_since cursor) resolves the workspace via resolveRequestAuth and filters by tenant_workspace_id; an agentic/integration test shows workspace A's events are returned to A's key and a workspace-B key receives none of A's events (cross-tenant negative control)
   - id: c4
-    statement: The channel client selects its transport by configuration — in-process SSE against a local server, HTTP polling of the pull endpoint against a hosted server — and delivers identical channel notifications either way
+    statement: The channel client selects its transport by configuration — in-process SSE against a local server, HTTP polling of the pull endpoint against a hosted server with session-scoped query parameters when configured — and delivers identical channel notifications either way
     type: implementation
     behavioral: false
-    required_evidence: the channel client chooses SSE vs polling from config (URL host inference with an env override); unit tests cover both transports producing the same pushEvent calls; local SSE path is unchanged from current behavior
+    required_evidence: the channel client chooses SSE vs polling from config (URL host inference with an env override, warning on invalid overrides), forwarding session_id when configured and priming before emitting; unit tests cover both transports producing the same pushEvent calls; local SSE path is unchanged from current behavior
   - id: c5
     statement: The local-mode reasoning channel keeps working unchanged — the hosted path is additive and does not alter local /events SSE delivery or protocol enforcement
     type: governance
