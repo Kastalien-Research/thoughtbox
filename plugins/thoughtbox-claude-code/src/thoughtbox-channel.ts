@@ -23,9 +23,33 @@ import {
 } from "./cli/config.js";
 import { EventFilter } from "./event-filter.js";
 import { EventClient } from "./event-client.js";
+import { PollingEventClient } from "./polling-event-client.js";
 import type { ThoughtboxEvent } from "./event-types.js";
 
 const THOUGHTBOX_SESSION = process.env.THOUGHTBOX_SESSION;
+
+/**
+ * Pick the event transport. A local server serves the in-process /events SSE
+ * stream; a hosted (remote) server is multi-replica and only exposes the
+ * pull endpoint, so poll there. THOUGHTBOX_CHANNEL_MODE forces a transport.
+ */
+function selectTransport(baseUrl: string): "sse" | "poll" {
+  const override = process.env.THOUGHTBOX_CHANNEL_MODE;
+  if (override === "sse" || override === "poll") return override;
+  if (override !== undefined) {
+    console.error(
+      `[Channel] Warning: THOUGHTBOX_CHANNEL_MODE="${override}" is not supported; falling back to URL-based transport detection`,
+    );
+  }
+  try {
+    const host = new URL(baseUrl).hostname;
+    return host === "localhost" || host === "127.0.0.1" || host === "::1"
+      ? "sse"
+      : "poll";
+  } catch {
+    return "poll";
+  }
+}
 
 const instructions = [
   "Thoughtbox protocol events arrive as <channel source=\"thoughtbox-channel\" ...>.",
@@ -162,18 +186,24 @@ async function start(): Promise<void> {
     return;
   }
   const { baseUrl, apiKey } = connection;
-  console.error(`[Channel] Connecting to ${baseUrl}`);
+  const mode = selectTransport(baseUrl);
+  console.error(`[Channel] Connecting to ${baseUrl} (${mode})`);
 
-  const eventClient = new EventClient({
+  const clientConfig = {
     baseUrl,
     apiKey,
     ...(THOUGHTBOX_SESSION ? { sessionId: THOUGHTBOX_SESSION } : {}),
-    onEvent: (event) => void pushEvent(event),
-    onError: (err) => console.error("[Channel] SSE error:", err.message),
-    onConnect: () => console.error("[Channel] Connected to event stream"),
-  });
+    onEvent: (event: ThoughtboxEvent) => void pushEvent(event),
+    onError: (err: Error) => console.error(`[Channel] ${mode} error:`, err.message),
+    onConnect: () => console.error(`[Channel] Connected to event stream (${mode})`),
+  };
 
-  eventClient.connect().catch((err) => {
+  const client =
+    mode === "sse"
+      ? new EventClient(clientConfig)
+      : new PollingEventClient(clientConfig);
+
+  client.connect().catch((err) => {
     console.error("[Channel] Failed to connect event stream:", err);
   });
 }
