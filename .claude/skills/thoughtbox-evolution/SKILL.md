@@ -2,7 +2,7 @@
 name: thoughtbox:evolution
 description: A-Mem thought evolution — check which prior thoughts should be updated when a significant new insight arrives. Spawns a lightweight subagent to classify prior thoughts as UPDATE or NO_UPDATE, then applies revisions. Use during long reasoning sessions when you reach a synthesis, make a decision, or discover something that changes earlier assumptions. Triggers on "this changes what I thought earlier", "update prior reasoning", "evolve thoughts", or automatically on conclusion/synthesis thoughts in sessions >10 thoughts.
 user-invocable: true
-argument-hint: [the new insight that may require updating prior thoughts]
+argument-hint: "[the new insight that may require updating prior thoughts]"
 ---
 
 # Thought Evolution (A-Mem Pattern)

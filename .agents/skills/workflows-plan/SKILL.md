@@ -1,7 +1,7 @@
 ---
 name: workflows-plan
 description: Transform spec (with frontmatter claims) into an implementation plan with task decomposition and sub-agent assignment. Stage 3 of the development workflow.
-argument-hint: [spec path or feature description]
+argument-hint: "[spec path or feature description]"
 user-invocable: true
 ---
 

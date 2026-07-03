@@ -2,7 +2,7 @@
 name: thoughtbox:knowledge-query
 description: Cross-session knowledge retrieval from the Thoughtbox knowledge graph. Searches entities, traverses relations, retrieves observations, and synthesizes findings from past sessions. Use when you need to recall prior decisions, check what's already known about a topic, find related insights, or build on past work. Triggers on "what do we know about", "have we seen this before", "recall", "prior decisions about", "knowledge graph", or when starting work that might have prior context.
 user-invocable: true
-argument-hint: [topic or question to search for]
+argument-hint: "[topic or question to search for]"
 ---
 
 # Thoughtbox Knowledge Query

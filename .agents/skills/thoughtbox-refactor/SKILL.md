@@ -2,7 +2,7 @@
 name: thoughtbox:refactor
 description: Friction-gated refactoring using the Theseus protocol. Prevents scope creep and refactoring fugue state by enforcing file scope boundaries, visa-based expansion, checkpoint audits, and a brittleness counter. Use when refactoring code, restructuring modules, renaming across files, or any task where "structure changes but behavior must stay the same". Triggers on "refactor", "restructure", "rename across", "extract module", "move code", or when a change touches 3+ files without adding features.
 user-invocable: true
-argument-hint: [files to refactor and description of structural change]
+argument-hint: "[files to refactor and description of structural change]"
 ---
 
 # Theseus Refactoring Protocol

@@ -1,7 +1,7 @@
 ---
 name: workflow-reflection
 description: Finalize the workflow by reflecting on the process, moving ADRs, closing issues, and preparing for merge. Stage 8 of the development workflow.
-argument-hint: [optional reflection notes]
+argument-hint: "[optional reflection notes]"
 user-invocable: true
 ---
 
