@@ -195,7 +195,9 @@ contradiction candidates (negation, antonym, numeric mismatch) as
 
 - Do not implement peer runtime code in this control-plane persistence slice.
 - Do not add Supabase migrations outside the ADR-022 peer control-plane schema.
-- Do not build web app screens.
+- Do not build web app screens beyond the read-only inspection surface (the
+  c6 peers page is delivered; interactive approval/authoring screens remain
+  out of scope for this spec).
 - Do not make Cloud Run host KVM, smolvm, or other privileged execution.
 - Do not require the v0 runtime to expose public direct MCP.
 - Do not use legacy `src/observatory` as the deployed product surface.
