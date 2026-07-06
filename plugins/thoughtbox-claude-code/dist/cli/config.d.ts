@@ -23,6 +23,13 @@ export declare function mergeThoughtboxInitConfig(input: {
 };
 export declare function warnIfClaudeDirNotGitignored(cwd: string): Promise<string | null>;
 export declare function findThoughtboxMcpUrl(settingsLocal: JsonObject): string | null;
+/**
+ * Derive the Thoughtbox server base URL (origin) from the configured MCP
+ * server URL, stripping the `/mcp` path and the `?key=` query. Returns null
+ * when no MCP server is configured. Lets the channel target whichever server
+ * `thoughtbox init` configured without a hardcoded env var.
+ */
+export declare function findThoughtboxBaseUrl(settingsLocal: JsonObject): string | null;
 export declare function findOtelEndpoint(settingsLocal: JsonObject): string | null;
 export declare function extractApiKeyFromLocalConfig(settingsLocal: JsonObject): string | null;
 export declare function hasRequiredOtelConfig(settingsLocal: JsonObject): boolean;

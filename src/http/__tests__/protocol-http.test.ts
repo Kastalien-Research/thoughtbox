@@ -42,12 +42,12 @@ describe("protocol HTTP surface", () => {
       checkEnforcement: vi.fn(async () => ({ enforce: false })),
     };
 
-    createProtocolHttpSurface(() => handler).mount(app);
+    createProtocolHttpSurface({ getHandlers: () => [handler] }).mount(app);
 
     expect(listRoutes(app)).toContain("/protocol/enforcement");
   });
 
-  it("returns enforcement response from the shared handler", async () => {
+  it("returns enforcement response from the session handler", async () => {
     const app = express();
     app.use(express.json());
 
@@ -60,7 +60,7 @@ describe("protocol HTTP surface", () => {
       })),
     };
 
-    createProtocolHttpSurface(() => handler).mount(app);
+    createProtocolHttpSurface({ getHandlers: () => [handler] }).mount(app);
     const routeHandler = getRouteHandler(app, "/protocol/enforcement");
     expect(routeHandler).toBeTypeOf("function");
 
@@ -88,6 +88,38 @@ describe("protocol HTTP surface", () => {
       mutation: true,
       targetPath: "src/protocol/handler.ts",
       workspaceId: undefined,
+    });
+  });
+
+  it("honors a body workspaceId in local mode (no credential resolver)", async () => {
+    const app = express();
+    app.use(express.json());
+
+    const handler = {
+      checkEnforcement: vi.fn(async () => ({ enforce: false })),
+    };
+
+    createProtocolHttpSurface({ getHandlers: () => [handler] }).mount(app);
+    const routeHandler = getRouteHandler(app, "/protocol/enforcement");
+
+    const req = {
+      body: {
+        mutation: true,
+        targetPath: "src/x.ts",
+        workspaceId: "local-workspace",
+      },
+    } as Request;
+    const res = {
+      json: vi.fn(),
+      status: vi.fn().mockReturnThis(),
+    } as unknown as Response;
+
+    await routeHandler!(req, res);
+
+    expect(handler.checkEnforcement).toHaveBeenCalledWith({
+      mutation: true,
+      targetPath: "src/x.ts",
+      workspaceId: "local-workspace",
     });
   });
 });
