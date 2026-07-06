@@ -21,6 +21,9 @@ import {
 import { BRANCH_OPERATIONS } from "../branch/operations.js";
 import { HUB_OPERATIONS } from "../hub/operations.js";
 import { CLAIMS_OPERATIONS } from "../claims/operations.js";
+// --- tb.merge (SPEC-MERGE-EVIDENCE) — owned by merge-core ---
+import { MERGE_OPERATIONS } from "../merge/operations.js";
+// --- end tb.merge ---
 import { PEER_NOTEBOOK_TOOL } from "../peer-notebook/tool.js";
 
 export interface SearchCatalog {
@@ -249,6 +252,9 @@ export function buildSearchCatalog(): SearchCatalog {
       branch: indexOperations(BRANCH_OPERATIONS),
       hub: indexOperations(HUB_OPERATIONS),
       claims: indexOperations(CLAIMS_OPERATIONS),
+      // --- tb.merge (SPEC-MERGE-EVIDENCE) — owned by merge-core ---
+      merge: indexOperations(MERGE_OPERATIONS),
+      // --- end tb.merge ---
     },
 
     prompts: [

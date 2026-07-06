@@ -13,12 +13,14 @@
  * - observability: src/observability/gateway-handler.ts (ObservabilityInputSchema)
  * - hub:           src/hub/operations.ts (HUB_OPERATIONS catalog)
  * - claims:        src/claims/operations.ts (CLAIMS_OPERATIONS catalog)
+ * - merge:         src/merge/operations.ts (MERGE_OPERATIONS catalog)
  */
 
 export const TB_SDK_TYPES = `\`\`\`ts
 type HubProfile = "MANAGER" | "ARCHITECT" | "DEBUGGER" | "SECURITY" | "RESEARCHER" | "REVIEWER";
 type ClaimType = "assumption" | "decision" | "observation" | "requirement" | "outcome";
 type ClaimStatus = "asserted" | "supported" | "invalidated" | "superseded";
+type MergeStatus = "pending_evidence" | "blocked" | "pending_approval" | "approved" | "superseded";
 
 interface TB {
   /** Submit a structured thought. Source: src/thought/tool.ts */
@@ -222,6 +224,24 @@ interface TB {
     verify(args: { ids: string[] }): Promise<unknown>;
     changedSince(args: { since: string; workspaceId?: string }): Promise<unknown>;
     affected(args: { claimId: string; maxDepth?: number }): Promise<unknown>;
+  };
+
+  /**
+   * Merge evidence: collapse competing branches to a finalized decision
+   * (SPEC-MERGE-EVIDENCE). request creates an immutable merge commit,
+   * auto-generates + runs the evidence notebook, and returns the record as
+   * pending_approval (awaiting HUMAN approval in the web app) or blocked
+   * (evidence failed; terminal — issue a new request). Prose-only evidence
+   * forces verdict confidence to "low". There is NO approve method here:
+   * only the authenticated workspace owner can approve, via the web
+   * surface. baseRef "merge:<id>" supersedes that merge once this one is
+   * approved. Identity is shared with tb.hub (register/quickJoin once).
+   * Source: src/merge/operations.ts
+   */
+  merge: {
+    request(args: { workspaceId: string; branchIds: string[]; baseRef?: string; agentId?: string }): Promise<unknown>;
+    status(args: { mergeId: string }): Promise<unknown>;
+    list(args: { workspaceId: string; status?: MergeStatus }): Promise<unknown>;
   };
 }
 \`\`\``;
