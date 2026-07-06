@@ -15,7 +15,20 @@ import {
   type CellExecutionEvidence,
   type CellExecutionGate,
 } from "./engine/runtime.js";
-import { templateCellsFromNotebook, type RunbookStorage } from "./runbook/types.js";
+import {
+  hashTemplateCells,
+  notebookFromTemplate,
+  templateCellsFromNotebook,
+  verifyTemplateContracts,
+  type RunbookInstance,
+  type RunbookStorage,
+  type RunbookTemplate,
+} from "./runbook/types.js";
+import {
+  deriveInstanceStatus,
+  isExecutionSatisfied,
+  nextUnsatisfiedCell,
+} from "./runbook/ordering.js";
 import { getNotebookCapabilitiesJson } from "./engine/registry.js";
 import {
   NOTEBOOK_OPERATIONS,
@@ -47,8 +60,11 @@ export class NotebookHandler {
   private stateManager: NotebookStateManager;
   private validatorService: ValidatorService;
   private engineRuntime: InMemoryNotebookEngineRuntime;
+  /** Agent identity recorded on instances created via notebook_instantiate. */
+  private readonly agentId: string;
 
   constructor(tempDir?: string, options: NotebookHandlerOptions = {}) {
+    this.agentId = options.agentId ?? "local";
     this.stateManager = new NotebookStateManager(tempDir);
     this.validatorService = new ValidatorService(this.stateManager);
     this.engineRuntime = new InMemoryNotebookEngineRuntime(
@@ -975,6 +991,146 @@ export class NotebookHandler {
   }
 
   /**
+   * Handle notebook_instantiate tool call (SPEC-AGX-SUBSTRATE claim c5 —
+   * fresh-session instantiation and resumption, Experiment H2).
+   *
+   * Two shapes:
+   * - `{ templateId, templateVersion? }` — reconstruct the notebook from the
+   *   persisted template (latest version unless pinned) and create a NEW
+   *   instance pinning that version.
+   * - `{ instanceId }` — RESUME an existing instance: load its pinned
+   *   template version, reconstruct the notebook, and report the derived
+   *   status plus the next unsatisfied cell. No new instance is created and
+   *   no context beyond the instance id is required.
+   *
+   * The reconstructed notebook's id equals the templateId, so subsequent
+   * `notebook_run_cell { notebookId, cellId, instanceId }` calls execute
+   * through the ordered, append-only instance path unchanged. Contract
+   * hashes are re-verified on load (Ulysses pattern); if a notebook with
+   * that id is already loaded, its cells must hash-match the pinned
+   * template version or the call is rejected as drift.
+   */
+  async handleInstantiate(args: any): Promise<any> {
+    const { templateId, templateVersion, instanceId } = args;
+    if (instanceId !== undefined && (typeof instanceId !== "string" || !instanceId)) {
+      throw new Error("instanceId must be a non-empty string if provided");
+    }
+    if (templateId !== undefined && (typeof templateId !== "string" || !templateId)) {
+      throw new Error("templateId must be a non-empty string if provided");
+    }
+    if (
+      templateVersion !== undefined &&
+      (!Number.isInteger(templateVersion) || templateVersion < 1)
+    ) {
+      throw new Error("templateVersion must be a positive integer if provided");
+    }
+    if (templateId === undefined && instanceId === undefined) {
+      throw new Error(
+        "Either templateId (new instance) or instanceId (resume) is required",
+      );
+    }
+
+    const storage = this.engineRuntime.storage;
+    let template: RunbookTemplate | null;
+    let instance: RunbookInstance | null = null;
+
+    if (instanceId !== undefined) {
+      instance = await storage.getInstance(instanceId);
+      if (!instance) {
+        throw new Error(`Runbook instance ${instanceId} not found`);
+      }
+      if (templateId !== undefined && instance.templateId !== templateId) {
+        throw new Error(
+          `Instance ${instanceId} belongs to template ${instance.templateId}, ` +
+            `not ${templateId}`,
+        );
+      }
+      template = await storage.getTemplate(instance.templateId, instance.templateVersion);
+      if (!template) {
+        throw new Error(
+          `Template ${instance.templateId} version ${instance.templateVersion} ` +
+            `not found for instance ${instanceId}`,
+        );
+      }
+    } else {
+      template =
+        templateVersion !== undefined
+          ? await storage.getTemplate(templateId, templateVersion)
+          : await storage.getLatestTemplate(templateId);
+      if (!template) {
+        throw new Error(
+          templateVersion !== undefined
+            ? `Template ${templateId} version ${templateVersion} not found`
+            : `No template versions recorded for ${templateId} — a notebook's ` +
+              `cells are versioned by notebook_start_run`,
+        );
+      }
+    }
+
+    // Ulysses gate: a tampered persisted contract is rejected before any
+    // notebook materializes.
+    verifyTemplateContracts(template);
+
+    const existing = this.stateManager.getNotebook(template.templateId);
+    if (existing) {
+      if (hashTemplateCells(templateCellsFromNotebook(existing)) !== template.cellsHash) {
+        throw new Error(
+          `Notebook ${template.templateId} is already loaded with cells that ` +
+            `have drifted from template version ${template.version}; export or ` +
+            `run the live notebook instead of instantiating over it`,
+        );
+      }
+    } else {
+      await this.stateManager.materializeNotebook(notebookFromTemplate(template));
+    }
+
+    if (!instance) {
+      instance = {
+        instanceId: `rbi_${randomid()}`,
+        templateId: template.templateId,
+        templateVersion: template.version,
+        createdBy: this.agentId,
+        createdAt: new Date().toISOString(),
+      };
+      await storage.createInstance(instance);
+    }
+
+    const executions = await storage.listCellExecutions(instance.instanceId);
+    return {
+      success: true,
+      notebookId: template.templateId,
+      resumed: executions.length > 0,
+      instance: {
+        instanceId: instance.instanceId,
+        templateId: instance.templateId,
+        templateVersion: instance.templateVersion,
+        createdBy: instance.createdBy,
+        createdAt: instance.createdAt,
+        status: deriveInstanceStatus(template, executions),
+        nextCellId: nextUnsatisfiedCell(template, executions),
+        executedCells: executions.map((record) => ({
+          seq: record.seq,
+          cellId: record.cellId,
+          status: record.status,
+          satisfied: isExecutionSatisfied(record),
+        })),
+      },
+      template: {
+        templateId: template.templateId,
+        version: template.version,
+        cellsHash: template.cellsHash,
+        cells: template.cells.map((cell) => ({
+          cellId: cell.cellId,
+          cellType: cell.cellType,
+          filename: cell.filename,
+          hasContract: cell.contract !== undefined,
+          ...(cell.validatorFor !== undefined ? { validatorFor: cell.validatorFor } : {}),
+        })),
+      },
+    };
+  }
+
+  /**
    * Handle notebook_export tool call
    */
   async handleExportNotebook(args: any): Promise<any> {
@@ -1069,6 +1225,9 @@ export class NotebookHandler {
           break;
         case "fitness":
           result = await this.handleFitness(args);
+          break;
+        case "instantiate":
+          result = await this.handleInstantiate(args);
           break;
         default:
           throw new Error(`Unknown notebook operation: ${operation}`);

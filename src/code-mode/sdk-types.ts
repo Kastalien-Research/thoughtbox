@@ -104,6 +104,14 @@ interface TB {
      * from machine-checked expectation rows only. templateId = the source notebook id.
      */
     fitness(args: { templateId: string; templateVersion?: number; includeRows?: boolean }): Promise<unknown>;
+    /**
+     * Instantiate a runbook from a persisted template version, or resume an
+     * existing instance from its durable records alone (fresh-session path,
+     * SPEC-AGX-SUBSTRATE c5). Returns the notebookId (= templateId), the
+     * instance (with derived status and nextCellId), and the template cell map.
+     * Continue execution with runCell({ notebookId, cellId, instanceId }).
+     */
+    instantiate(args: { templateId?: string; templateVersion?: number; instanceId?: string }): Promise<unknown>;
   };
 
   /** Theseus Protocol: friction-gated refactoring. Source: src/protocol/theseus-tool.ts */

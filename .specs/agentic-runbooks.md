@@ -55,6 +55,12 @@ The model using Thoughtbox must be able to discover these capabilities without r
   returns per-template-version aggregates (instances, evaluated, passed, pass rate, error
   rate, distinct agents) and optionally the raw ledger rows (SPEC-AGX-SUBSTRATE §7 read path,
   added 2026-07-06)
+- Fresh sessions instantiate and resume runbooks from durable state alone:
+  `notebook_instantiate` / `tb.notebook.instantiate` reconstructs a live notebook from a
+  persisted template version (notebook id = templateId; contract hashes re-verified) and
+  either creates a new pinned instance or resumes an existing one from its instanceId,
+  reporting derived status and the next unsatisfied cell (SPEC-AGX-SUBSTRATE claim c5 /
+  Experiment H2 substrate, added 2026-07-06)
 
 ## Legacy Section Note
 

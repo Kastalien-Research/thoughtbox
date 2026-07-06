@@ -178,6 +178,28 @@ export class NotebookStateManager {
   }
 
   /**
+   * Register a fully-formed notebook (explicit id and cell ids) in this
+   * state manager and write its files to disk. Used by runbook template
+   * instantiation (SPEC-AGX-SUBSTRATE c5): a fresh session reconstructs a
+   * notebook from a persisted template, and the notebook id must equal the
+   * templateId so instance-aware execution accepts it. Throws when the id
+   * is already loaded — callers decide whether the existing notebook is
+   * the same template (hash check) or a conflict.
+   */
+  async materializeNotebook(notebook: Notebook): Promise<Notebook> {
+    if (this.notebooks.has(notebook.id)) {
+      throw new Error(`Notebook ${notebook.id} is already loaded`);
+    }
+    const notebookDir = path.join(this.tempDir, notebook.id);
+    await fs.mkdir(notebookDir, { recursive: true });
+    await fs.mkdir(path.join(notebookDir, "src"), { recursive: true });
+    await this.writeNotebookToDisk(notebook, notebookDir);
+    this.notebooks.set(notebook.id, notebook);
+    this.notebookDirs.set(notebook.id, notebookDir);
+    return notebook;
+  }
+
+  /**
    * Get a notebook by ID
    */
   getNotebook(notebookId: string): Notebook | undefined {

@@ -412,6 +412,39 @@ When 'expectedSnapshotHash' is provided, the operation refuses to run if the cel
     example: { artifactId: "nba_abc123" },
   },
   {
+    name: "notebook_instantiate",
+    title: "Instantiate Runbook From Template",
+    description:
+      "Reconstruct a live notebook from a persisted, versioned runbook template and " +
+      "create (or resume) an append-only instance — the fresh-session path " +
+      "(SPEC-AGX-SUBSTRATE claim c5 / Experiment H2). With templateId, the latest " +
+      "(or pinned) template version is materialized and a NEW instance is created. " +
+      "With instanceId, an existing instance is RESUMED from its durable records alone: " +
+      "the response reports derived status, executed cells, and the next unsatisfied cell. " +
+      "The notebook id equals the templateId, so notebook_run_cell with instanceId " +
+      "continues ordered execution unchanged. Contract hashes are re-verified on load.",
+    category: "evidence-engine",
+    inputSchema: {
+      type: "object",
+      properties: {
+        templateId: {
+          type: "string",
+          description:
+            "Runbook template ID (the source notebook's id). Required unless instanceId is given.",
+        },
+        templateVersion: {
+          type: "integer",
+          description: "Optional version pin; defaults to the latest version",
+        },
+        instanceId: {
+          type: "string",
+          description: "Existing instance ID to resume (no new instance is created)",
+        },
+      },
+    },
+    example: { templateId: "abc123" },
+  },
+  {
     name: "notebook_fitness",
     title: "Read Runbook Fitness",
     description:

@@ -459,6 +459,7 @@ block and §9 are the pre-registration. Update the table as units land.
 | Contract-governed, ordered cell execution — document order enforced, predicted failures pass, real failures halt; tier-1 declarative + tier-2 validator outcome contracts, hash-verified | notebook engine (B5) | c3 / #399 + #402 |
 | Accrue a fitness ledger — hypothesis-vs-actual per template version, only machine-checked outcomes contribute | `runbook_fitness_ledger` aggregates | c7 / #401 |
 | Read the fitness ledger back — per-version aggregates (instances, pass rate, error rate, distinct agents) and raw rows via the public tool surface | `tb.notebook.fitness` (`notebook_fitness`) | c7 read path (2026-07-06) |
+| Instantiate a runbook from a persisted template version in a FRESH session, or resume a half-executed instance from its instanceId alone (derived status + next unsatisfied cell; ordered execution continues via `notebook_run_cell`) | `tb.notebook.instantiate` (`notebook_instantiate`) | c5 substrate (2026-07-06); Experiment H2 remains the agentic verification |
 | Keep shell, filesystem, and code editing native and unmediated — the substrate wraps only trust-boundary verbs | (invariant; §10) | c10 |
 
 **Not yet — the unbuilt joins:**
