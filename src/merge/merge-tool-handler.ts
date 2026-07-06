@@ -1,6 +1,6 @@
 /**
  * Merge Tool Handler — wraps the merge domain handler for the Code Mode
- * surface (SPEC-MERGE-EVIDENCE c9), mirroring the claims tool handler:
+ * surface (SPEC-MERGE-CORE c9), mirroring the claims tool handler:
  *
  * - resolves the acting agentId per MCP session from the SHARED
  *   SessionIdentityRegistry (one tb.hub.register/quick_join grants the
@@ -12,7 +12,7 @@
 
 import type { SessionIdentityRegistry } from '../hub/session-identity.js';
 import type { MergeEvidenceGenerator } from './evidence-generator.js';
-import { createMergeHandler } from './merge-handler.js';
+import { createMergeHandler, type MergeClaimDiffFn } from './merge-handler.js';
 import { getMergeOperation } from './operations.js';
 import type { MergeCommitStorage } from './types.js';
 
@@ -35,6 +35,8 @@ export interface MergeToolHandler {
 export interface MergeToolHandlerOptions {
   mergeStorage: MergeCommitStorage;
   evidenceGenerator: MergeEvidenceGenerator;
+  /** Claim-level branch diff (SPEC-MERGE-CORE c9); optional until wired. */
+  claimDiff?: MergeClaimDiffFn;
   /** Shared with the hub tool handler so one registration covers both. */
   identityRegistry: SessionIdentityRegistry;
 }
@@ -43,6 +45,7 @@ export function createMergeToolHandler(options: MergeToolHandlerOptions): MergeT
   const mergeHandler = createMergeHandler({
     storage: options.mergeStorage,
     evidenceGenerator: options.evidenceGenerator,
+    ...(options.claimDiff !== undefined ? { claimDiff: options.claimDiff } : {}),
   });
   const identities = options.identityRegistry;
 

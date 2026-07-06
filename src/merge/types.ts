@@ -1,5 +1,5 @@
 /**
- * Merge-evidence domain types and storage contract (SPEC-MERGE-EVIDENCE).
+ * Merge-evidence domain types and storage contract (SPEC-MERGE-CORE).
  *
  * A merge commit is a finalized reasoning decision — a "collapse to
  * certainty" across competing branches — bound to an auto-generated,
@@ -23,7 +23,7 @@ export const VERDICT_CONFIDENCES = ['low', 'medium', 'high'] as const;
 export type VerdictConfidence = (typeof VERDICT_CONFIDENCES)[number];
 
 /**
- * The complete set of legal status transitions (SPEC-MERGE-EVIDENCE c1).
+ * The complete set of legal status transitions (SPEC-MERGE-CORE c1).
  * `blocked` and `superseded` are fully terminal; `approved` is terminal
  * except for supersession by a later approved merge.
  */
@@ -98,6 +98,41 @@ export const mergeVerdictSchema = z.object({
 /** baseRef prefix that references a prior merge commit and arms supersession. */
 export const MERGE_BASE_REF_PREFIX = 'merge:';
 
+/**
+ * Decision values the system generator emits (SPEC-MERGE-EVIDENCE
+ * MERGE_DECISION). `decision` stays a free string in the frozen schema;
+ * the state machine keys ONLY on the "block" value.
+ */
+export const MERGE_DECISION_BLOCK = 'block';
+
+/**
+ * Wire form of the merge record — the frozen snake_case subset the
+ * evidence generator consumes (SPEC-MERGE-EVIDENCE's
+ * MergeEvidenceRecordSchema is a passthrough superset of this).
+ */
+export interface MergeCommitWire {
+  id: string;
+  workspace_id: string;
+  parent_branch_ids: string[];
+  base_ref?: string;
+  requested_by: string;
+  status: MergeStatus;
+  created_at: string;
+}
+
+/** Map the camelCase domain record onto the generator's wire shape. */
+export function toMergeCommitWire(record: MergeCommit): MergeCommitWire {
+  return {
+    id: record.id,
+    workspace_id: record.workspaceId,
+    parent_branch_ids: [...record.parentBranchIds],
+    ...(record.baseRef !== undefined ? { base_ref: record.baseRef } : {}),
+    requested_by: record.requestedBy,
+    status: record.status,
+    created_at: record.createdAt,
+  };
+}
+
 export interface MergeCommit {
   id: string;
   /** Hub workspace (coordination space) the merge belongs to, like claims. */
@@ -150,7 +185,7 @@ export interface MergeCommitPatch {
 }
 
 /**
- * Storage contract for merge commits (SPEC-MERGE-EVIDENCE c8).
+ * Storage contract for merge commits (SPEC-MERGE-CORE c8).
  * Implemented by SupabaseMergeCommitStorage (deployed) and
  * InMemoryMergeCommitStorage (tests/local).
  *

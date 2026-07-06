@@ -1,5 +1,5 @@
 /**
- * InMemoryMergeCommitStorage tests (SPEC-MERGE-EVIDENCE c1/c5/c8):
+ * InMemoryMergeCommitStorage tests (SPEC-MERGE-CORE c1/c5/c8):
  * insert-only creation, copy semantics, ordering, CAS transitions, and —
  * critically — terminal-state immutability enforced at the storage layer.
  */

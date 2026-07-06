@@ -1,18 +1,18 @@
 /**
- * Merge domain handler (SPEC-MERGE-EVIDENCE) — routes tb.merge.*
- * operations over a MergeCommitStorage and drives the state machine:
+ * Merge domain handler (SPEC-MERGE-CORE) — routes tb.merge.* operations
+ * over a MergeCommitStorage and drives the state machine:
  *
- *   request -> pending_evidence -> (evidence pass) pending_approval
- *                               -> (evidence fail) blocked
+ *   request -> pending_evidence -> (decision != "block") pending_approval
+ *                               -> ("block" / crash / invalid verdict) blocked
  *
  * Approval is deliberately ABSENT here (spec c4): the only mutation that
  * can set status 'approved' is the authenticated human route
  * POST /api/merge/[id]/approve in apps/web. This handler exposes exactly
- * request / status / list.
+ * request / status / list / claim_diff.
  *
- * Generator output is treated adversarially (spec c2/c3): a throw,
- * schema-invalid verdict, or evidenceFailed !== false blocks the merge;
- * hasPassingExecutableEvidence !== true clamps confidence to 'low'.
+ * Generator output is treated adversarially (spec c2/c3): a throw or a
+ * schema-invalid verdict blocks the merge; decision "block" blocks the
+ * merge; empty evidenceRefs (prose-only) clamps confidence to 'low'.
  */
 
 import { randomUUID } from 'node:crypto';
@@ -20,8 +20,10 @@ import { z } from 'zod';
 import type { MergeEvidenceGenerator, MergeEvidenceResult } from './evidence-generator.js';
 import {
   MERGE_BASE_REF_PREFIX,
+  MERGE_DECISION_BLOCK,
   MERGE_STATUSES,
   mergeVerdictSchema,
+  toMergeCommitWire,
   type MergeCommit,
   type MergeCommitStorage,
   type MergeVerdict,
@@ -42,7 +44,25 @@ const listSchema = z.object({
   status: z.enum(MERGE_STATUSES).optional(),
 });
 
+const claimDiffSchema = z.object({
+  workspaceId: z.string().min(1),
+  branchA: z.string().min(1),
+  branchB: z.string().min(1),
+});
+
 const MUTATING_OPERATIONS = new Set(['request']);
+
+/**
+ * Claim-level branch diff seam (SPEC-MERGE-CORE c9). Implemented by
+ * SPEC-MERGE-EVIDENCE's diffBranchClaims (src/merge-evidence/claim-diff.ts)
+ * bound over the claim graph — see the warden join snippet in
+ * .specs/merge-core.md.
+ */
+export type MergeClaimDiffFn = (args: {
+  workspaceId: string;
+  branchA: string;
+  branchB: string;
+}) => Promise<unknown>;
 
 export interface MergeHandler {
   handle(
@@ -55,6 +75,8 @@ export interface MergeHandler {
 export interface MergeHandlerOptions {
   storage: MergeCommitStorage;
   evidenceGenerator: MergeEvidenceGenerator;
+  /** Optional until the merge-evidence module is wired (warden join). */
+  claimDiff?: MergeClaimDiffFn;
 }
 
 export function createMergeHandler(options: MergeHandlerOptions): MergeHandler {
@@ -62,26 +84,19 @@ export function createMergeHandler(options: MergeHandlerOptions): MergeHandler {
 
   /**
    * Validate + normalize generator output. Returns the verdict to persist
-   * (confidence clamped when there is no passing executable evidence) or
-   * null when the evidence must block the merge.
+   * (confidence clamped when there is no executable evidence) or null when
+   * the evidence must block the merge.
    */
-  function evaluateEvidence(result: MergeEvidenceResult): {
-    verdict: MergeVerdict | null;
-    blockedReason?: string;
-  } {
+  function evaluateEvidence(result: MergeEvidenceResult): MergeVerdict | null {
     const parsed = mergeVerdictSchema.safeParse(result.verdict);
-    if (!parsed.success) {
-      return { verdict: null, blockedReason: 'generator returned a schema-invalid verdict' };
-    }
-    if (result.evidenceFailed !== false) {
-      return { verdict: null, blockedReason: 'evidence notebook run failed' };
-    }
+    if (!parsed.success) return null;
+    if (parsed.data.decision === MERGE_DECISION_BLOCK) return null;
     const verdict = parsed.data;
-    if (result.hasPassingExecutableEvidence !== true) {
+    if (verdict.evidenceRefs.length === 0) {
       // Prose-only evidence is legal but confidence is FORCED low (c2).
       verdict.confidence = 'low';
     }
-    return { verdict };
+    return verdict;
   }
 
   async function request(agentId: string, args: Record<string, unknown>): Promise<MergeCommit> {
@@ -116,7 +131,7 @@ export function createMergeHandler(options: MergeHandlerOptions): MergeHandler {
 
     let result: MergeEvidenceResult | null = null;
     try {
-      result = await evidenceGenerator.generateMergeEvidence(record);
+      result = await evidenceGenerator.generateMergeEvidence(toMergeCommitWire(record));
     } catch {
       // Generator crash = failed evidence generation -> blocked (c3).
       result = null;
@@ -129,10 +144,11 @@ export function createMergeHandler(options: MergeHandlerOptions): MergeHandler {
       });
     }
 
-    const { verdict } = evaluateEvidence(result);
+    const verdict = evaluateEvidence(result);
     if (!verdict) {
-      // Failed evidence BLOCKS the merge (c3). The notebook + hash are
-      // still recorded: the failure itself is auditable evidence.
+      // Failed evidence BLOCKS the merge (c3). The notebook + hash (and a
+      // schema-valid blocking verdict) are still recorded: the failure
+      // itself is auditable evidence.
       return storage.transitionMergeCommit(record.id, 'pending_evidence', {
         status: 'blocked',
         evidenceNotebookId: result.notebookId,
@@ -165,6 +181,18 @@ export function createMergeHandler(options: MergeHandlerOptions): MergeHandler {
     return { merges, count: merges.length };
   }
 
+  async function claimDiff(args: Record<string, unknown>): Promise<unknown> {
+    const input = claimDiffSchema.parse(args);
+    if (!options.claimDiff) {
+      throw new Error(
+        'Claim diff is unavailable: the merge-evidence claim-diff seam is not ' +
+          'wired into this server instance (src/merge-evidence/claim-diff.ts, ' +
+          'see the warden join in .specs/merge-core.md).',
+      );
+    }
+    return options.claimDiff(input);
+  }
+
   return {
     async handle(agentId, operation, args) {
       if (MUTATING_OPERATIONS.has(operation) && !agentId) {
@@ -180,6 +208,8 @@ export function createMergeHandler(options: MergeHandlerOptions): MergeHandler {
           return status(args);
         case 'list':
           return list(args);
+        case 'claim_diff':
+          return claimDiff(args);
         default:
           throw new Error(`Unknown merge operation: ${operation}`);
       }

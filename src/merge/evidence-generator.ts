@@ -1,69 +1,70 @@
 /**
- * Merge evidence generator contract (SPEC-MERGE-EVIDENCE c7) — the
- * integration point between the merge state machine and the notebook-backed
- * evidence engine.
+ * Merge evidence generator seam (SPEC-MERGE-CORE c7) — the integration
+ * point between the merge state machine and the notebook-backed evidence
+ * engine (SPEC-MERGE-EVIDENCE, src/merge-evidence/generate.ts).
  *
  * Evidence notebooks are AUTO-GENERATED from the system template at
- * merge-request time; agents never hand-author merge evidence. The real
- * generator (notebook run with claim extraction, contradiction scan, and
- * validator cells) is a drop-in implementation of MergeEvidenceGenerator.
- * Until it lands, createStubMergeEvidenceGenerator() provides a
- * deterministic prose-only generator so the state machine is exercisable
- * standalone.
+ * merge-request time; agents never hand-author merge evidence. The seam's
+ * signature matches the real generator exactly:
+ *
+ *   generateMergeEvidence(wireRecord) -> { notebookId, verdict, hash }
+ *
+ * where wireRecord is the frozen snake_case record subset
+ * (MergeCommitWire) and the result may carry additive diagnostics
+ * (`details`) that merge-core never requires. The one-line swap for the
+ * warden once both branches land:
+ *
+ *   import { createMergeEvidenceGenerator } from "../merge-evidence/generate.js";
+ *   const evidenceGenerator = createMergeEvidenceGenerator({ notebooks, claims });
  *
  * The merge handler treats generator output adversarially (fail-safe):
- * - a throw, a schema-invalid verdict, or evidenceFailed !== false blocks
- *   the merge (spec c3);
- * - hasPassingExecutableEvidence !== true clamps verdict.confidence to
- *   'low' (spec c2), regardless of the confidence the generator claimed.
+ * - a throw or a schema-invalid verdict blocks the merge (SPEC-MERGE-CORE c3);
+ * - verdict.decision === "block" blocks the merge (c3);
+ * - empty verdict.evidenceRefs (prose-only) clamps confidence to 'low'
+ *   (c2), regardless of the confidence the generator claimed.
  */
 
 import { createHash } from 'node:crypto';
-import type { MergeCommit, MergeVerdict } from './types.js';
+import type { MergeCommitWire, MergeVerdict } from './types.js';
 
 export interface MergeEvidenceResult {
   /** Id of the auto-generated evidence notebook. */
   notebookId: string;
   /** Structured verdict (mergeVerdictSchema); re-validated by the handler. */
   verdict: MergeVerdict;
-  /** SHA-256 hex of the evidence notebook snapshot. */
+  /** Canonical SHA-256 hex of the evidence notebook snapshot. */
   hash: string;
-  /**
-   * True when the evidence notebook run failed (any executable evidence
-   * cell failed). A failed evidence notebook BLOCKS the merge.
-   */
-  evidenceFailed: boolean;
-  /**
-   * True only when at least one executable evidence cell ran and passed.
-   * False means prose-only evidence: legal, but confidence is forced low.
-   */
-  hasPassingExecutableEvidence: boolean;
+  /** Additive diagnostics (SPEC-MERGE-EVIDENCE); never required by merge-core. */
+  details?: unknown;
 }
 
 export interface MergeEvidenceGenerator {
-  generateMergeEvidence(record: MergeCommit): Promise<MergeEvidenceResult>;
+  generateMergeEvidence(record: MergeCommitWire): Promise<MergeEvidenceResult>;
 }
 
 /**
- * Deterministic prose-only stub (SPEC-MERGE-EVIDENCE c9 local path).
- * Produces no executable evidence, so every stub-backed merge reaches
- * pending_approval with confidence clamped to 'low'.
+ * Deterministic prose-only stub (SPEC-MERGE-CORE c9 local path).
+ * Produces no executable evidence (empty evidenceRefs), so every
+ * stub-backed merge reaches pending_approval with confidence clamped to
+ * 'low'. Replaced by SPEC-MERGE-EVIDENCE's createMergeEvidenceGenerator
+ * at integration (see module doc).
  */
 export function createStubMergeEvidenceGenerator(): MergeEvidenceGenerator {
   return {
-    async generateMergeEvidence(record: MergeCommit): Promise<MergeEvidenceResult> {
+    async generateMergeEvidence(record: MergeCommitWire): Promise<MergeEvidenceResult> {
       const verdict: MergeVerdict = {
-        decision:
-          `Prose-only stub verdict: collapse branches ` +
-          `[${record.parentBranchIds.join(', ')}] in workspace ${record.workspaceId}. ` +
-          `No executable evidence was run; a human must weigh the branches directly.`,
+        decision: 'merge',
         confidence: 'low',
-        mergedBranchIds: [...record.parentBranchIds],
+        mergedBranchIds: [...record.parent_branch_ids],
         rejectedBranchIds: [],
         supersededNodeIds: [],
         evidenceRefs: [],
         dissent: [],
-        conditions: ['Replace stub evidence with a real merge-evidence notebook run.'],
+        conditions: [
+          `Prose-only stub verdict for branches [${record.parent_branch_ids.join(', ')}] ` +
+            `in workspace ${record.workspace_id}: no executable evidence was run; ` +
+            `a human must weigh the branches directly.`,
+        ],
         reopenTriggers: ['Real evidence generator produces a contradicting verdict.'],
       };
       const hash = createHash('sha256')
@@ -73,8 +74,6 @@ export function createStubMergeEvidenceGenerator(): MergeEvidenceGenerator {
         notebookId: `stub-evidence-${record.id}`,
         verdict,
         hash,
-        evidenceFailed: false,
-        hasPassingExecutableEvidence: false,
       };
     },
   };

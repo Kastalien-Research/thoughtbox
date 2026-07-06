@@ -1,7 +1,7 @@
 /**
  * GET /api/merge?workspaceSlug=<slug>&status=<status?>
  *
- * Lists merge commits for the caller's workspace (SPEC-MERGE-EVIDENCE).
+ * Lists merge commits for the caller's workspace (SPEC-MERGE-CORE).
  * Any membership role may read; `status=pending_approval` is the review
  * inbox the web UI builds on.
  *

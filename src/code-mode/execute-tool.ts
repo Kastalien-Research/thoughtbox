@@ -59,10 +59,10 @@ export interface ClaimsDispatcher {
   handle(input: { operation: string; [key: string]: unknown }): Promise<ClaimsToolResult>;
 }
 
-// --- tb.merge (SPEC-MERGE-EVIDENCE) — owned by merge-core -------------------
+// --- tb.merge (SPEC-MERGE-CORE) — owned by merge-core -------------------
 
 /**
- * Session-bound merge dispatch surface (SPEC-MERGE-EVIDENCE c9). Same
+ * Session-bound merge dispatch surface (SPEC-MERGE-CORE c9). Same
  * shape as HubDispatcher/ClaimsDispatcher; identity rides the session
  * registry shared with the hub handler, so tb.merge.request gets an
  * implicit agentId after the first tb.hub.register/quick_join. Approval
@@ -109,10 +109,10 @@ export interface ExecuteToolDeps {
    * crashing.
    */
   claimsDispatcher?: ClaimsDispatcher;
-  // --- tb.merge (SPEC-MERGE-EVIDENCE) — owned by merge-core -----------------
+  // --- tb.merge (SPEC-MERGE-CORE) — owned by merge-core -----------------
   /**
    * Per-session dispatcher over the process-shared merge-commit storage
-   * (SPEC-MERGE-EVIDENCE c9). Undefined when no merge storage was wired at
+   * (SPEC-MERGE-CORE c9). Undefined when no merge storage was wired at
    * server creation; `tb.merge.*` then returns a clear error instead of
    * crashing.
    */
@@ -124,7 +124,7 @@ export const EXECUTE_TOOL = {
   name: "thoughtbox_execute",
   description: `Run JavaScript using the \`tb\` SDK to chain Thoughtbox operations in a single call.
 
-**One state-mutating operation per call.** Submit only one \`tb.thought()\`, \`tb.ulysses()\`, \`tb.theseus()\`, hub-mutating call (\`tb.hub.register()\`, \`tb.hub.createWorkspace()\`, \`tb.hub.createProblem()\`, \`tb.hub.mergeProposal()\`, etc.), claims-mutating call (\`tb.claims.assert()\`, \`tb.claims.invalidate()\`, \`tb.claims.supersede()\`, etc.), or merge-mutating call (\`tb.merge.request()\`) per \`thoughtbox_execute\` invocation. Each response contains guidance (patterns, session state, protocol state) that should inform your next operation. Batching multiple state-mutating calls bypasses this feedback loop and produces lower-quality reasoning. Read-only operations (\`tb.session.*\`, \`tb.knowledge.*\`, \`tb.observability()\`, \`tb.branch.*\`, \`tb.hub.whoami()\`, \`tb.hub.listWorkspaces()\`, \`tb.hub.readChannel()\`, \`tb.claims.query()\`, \`tb.claims.affected()\`, \`tb.merge.status()\`, \`tb.merge.list()\`, etc.) may be freely chained.
+**One state-mutating operation per call.** Submit only one \`tb.thought()\`, \`tb.ulysses()\`, \`tb.theseus()\`, hub-mutating call (\`tb.hub.register()\`, \`tb.hub.createWorkspace()\`, \`tb.hub.createProblem()\`, \`tb.hub.mergeProposal()\`, etc.), claims-mutating call (\`tb.claims.assert()\`, \`tb.claims.invalidate()\`, \`tb.claims.supersede()\`, etc.), or merge-mutating call (\`tb.merge.request()\`) per \`thoughtbox_execute\` invocation. Each response contains guidance (patterns, session state, protocol state) that should inform your next operation. Batching multiple state-mutating calls bypasses this feedback loop and produces lower-quality reasoning. Read-only operations (\`tb.session.*\`, \`tb.knowledge.*\`, \`tb.observability()\`, \`tb.branch.*\`, \`tb.hub.whoami()\`, \`tb.hub.listWorkspaces()\`, \`tb.hub.readChannel()\`, \`tb.claims.query()\`, \`tb.claims.affected()\`, \`tb.merge.status()\`, \`tb.merge.list()\`, \`tb.merge.claimDiff()\`, etc.) may be freely chained.
 
 ${TB_SDK_TYPES}
 
@@ -279,7 +279,7 @@ const CLAIMS_SDK_METHODS: Record<string, string> = {
   affected: "affected",
 };
 
-// --- tb.merge (SPEC-MERGE-EVIDENCE) — owned by merge-core -------------------
+// --- tb.merge (SPEC-MERGE-CORE) — owned by merge-core -------------------
 
 /**
  * tb.merge method names mapped to merge operation names
@@ -290,6 +290,7 @@ const MERGE_SDK_METHODS: Record<string, string> = {
   request: "request",
   status: "status",
   list: "list",
+  claimDiff: "claim_diff",
 };
 
 // --- end tb.merge ------------------------------------------------------------
@@ -357,7 +358,7 @@ function buildTbObject(deps: ExecuteToolDeps, ctx: TbContext): Record<string, un
       unwrapHubResult(await requireClaimsDispatcher().handle({ operation, ...claimsArgs }));
   }
 
-  // --- tb.merge (SPEC-MERGE-EVIDENCE) — owned by merge-core -----------------
+  // --- tb.merge (SPEC-MERGE-CORE) — owned by merge-core -----------------
   const requireMergeDispatcher = (): MergeDispatcher => {
     if (!mergeDispatcher) {
       throw new Error(
@@ -534,7 +535,7 @@ function buildTbObject(deps: ExecuteToolDeps, ctx: TbContext): Record<string, un
 
     claims,
 
-    // --- tb.merge (SPEC-MERGE-EVIDENCE) — owned by merge-core ---------------
+    // --- tb.merge (SPEC-MERGE-CORE) — owned by merge-core ---------------
     merge,
     // --- end tb.merge --------------------------------------------------------
   };

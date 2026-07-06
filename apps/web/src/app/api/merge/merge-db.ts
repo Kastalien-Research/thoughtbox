@@ -1,5 +1,5 @@
 /**
- * Shared types + helpers for the merge approval API (SPEC-MERGE-EVIDENCE).
+ * Shared types + helpers for the merge approval API (SPEC-MERGE-CORE).
  *
  * These routes are the ONLY approval surface for merge commits (spec c4):
  * tb.merge.* exposes request/status/list but no approve.

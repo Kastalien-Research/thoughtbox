@@ -1,5 +1,5 @@
 /**
- * GET /api/merge list route tests (SPEC-MERGE-EVIDENCE): auth,
+ * GET /api/merge list route tests (SPEC-MERGE-CORE): auth,
  * workspace scoping via membership, status validation, and response shape
  * for the pending-merges review inbox.
  */

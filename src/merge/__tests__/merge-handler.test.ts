@@ -1,8 +1,9 @@
 /**
- * Merge state-machine tests (SPEC-MERGE-EVIDENCE c1-c7):
+ * Merge state-machine tests (SPEC-MERGE-CORE c1-c7):
  * request -> pending_evidence -> pending_approval | blocked, prose-only
- * forced-low confidence, failed-evidence blocking, human-only approval
- * (no approve operation in tb), and supersession via new records.
+ * forced-low confidence, blocking verdicts, human-only approval (no
+ * approve operation in tb), supersession via new records, and the
+ * snake_case wire shape handed to the evidence generator.
  */
 
 import { describe, it, expect, beforeEach } from 'vitest';
@@ -13,13 +14,13 @@ import {
 } from '../evidence-generator.js';
 import { InMemoryMergeCommitStorage } from '../in-memory-merge-storage.js';
 import { createMergeHandler, type MergeHandler } from '../merge-handler.js';
-import type { MergeCommit, MergeVerdict } from '../types.js';
+import type { MergeCommit, MergeCommitWire, MergeVerdict } from '../types.js';
 
 const AGENT = 'agent-alice';
 
 function makeVerdict(overrides: Partial<MergeVerdict> = {}): MergeVerdict {
   return {
-    decision: 'collapse to branch-a',
+    decision: 'merge',
     confidence: 'high',
     mergedBranchIds: ['branch-a'],
     rejectedBranchIds: ['branch-b'],
@@ -36,13 +37,11 @@ function makeVerdict(overrides: Partial<MergeVerdict> = {}): MergeVerdict {
 
 function generatorReturning(result: Partial<MergeEvidenceResult>): MergeEvidenceGenerator {
   return {
-    async generateMergeEvidence(record: MergeCommit): Promise<MergeEvidenceResult> {
+    async generateMergeEvidence(record: MergeCommitWire): Promise<MergeEvidenceResult> {
       return {
         notebookId: `nb-${record.id}`,
         verdict: makeVerdict(),
         hash: 'deadbeef',
-        evidenceFailed: false,
-        hasPassingExecutableEvidence: true,
         ...result,
       };
     },
@@ -71,8 +70,29 @@ describe('merge state machine', () => {
     return createMergeHandler({ storage, evidenceGenerator: generator });
   }
 
+  describe('generator seam (c7)', () => {
+    it('hands the generator the frozen snake_case wire record', async () => {
+      let seen: MergeCommitWire | undefined;
+      const handler = handlerWith({
+        async generateMergeEvidence(record) {
+          seen = record;
+          return { notebookId: 'nb-1', verdict: makeVerdict(), hash: 'deadbeef' };
+        },
+      });
+      const record = await requestMerge(handler, { baseRef: 'thought:sess-1/12' });
+      expect(seen).toMatchObject({
+        id: record.id,
+        workspace_id: 'ws-1',
+        parent_branch_ids: ['branch-a', 'branch-b'],
+        base_ref: 'thought:sess-1/12',
+        requested_by: AGENT,
+        status: 'pending_evidence',
+      });
+    });
+  });
+
   describe('request -> pending_approval (evidence pass)', () => {
-    it('passing executable evidence reaches pending_approval keeping confidence', async () => {
+    it('a merge verdict with executable evidence reaches pending_approval keeping confidence', async () => {
       const handler = handlerWith(generatorReturning({}));
       const record = await requestMerge(handler);
       expect(record.status).toBe('pending_approval');
@@ -84,11 +104,10 @@ describe('merge state machine', () => {
       expect(record.decidedAt).toBeUndefined();
     });
 
-    it('prose-only evidence forces confidence low even when generator claims high (c2)', async () => {
+    it('prose-only evidence (empty evidenceRefs) forces confidence low even when generator claims high (c2)', async () => {
       const handler = handlerWith(
         generatorReturning({
           verdict: makeVerdict({ confidence: 'high', evidenceRefs: [] }),
-          hasPassingExecutableEvidence: false,
         }),
       );
       const record = await requestMerge(handler);
@@ -100,6 +119,7 @@ describe('merge state machine', () => {
       const handler = handlerWith(createStubMergeEvidenceGenerator());
       const record = await requestMerge(handler);
       expect(record.status).toBe('pending_approval');
+      expect(record.verdict!.decision).toBe('merge');
       expect(record.verdict!.confidence).toBe('low');
       expect(record.verdict!.mergedBranchIds).toEqual(['branch-a', 'branch-b']);
       expect(record.evidenceNotebookId).toBe(`stub-evidence-${record.id}`);
@@ -108,12 +128,17 @@ describe('merge state machine', () => {
   });
 
   describe('request -> blocked (evidence fail, c3)', () => {
-    it('a failed evidence notebook blocks the merge, keeping notebook + hash', async () => {
-      const handler = handlerWith(generatorReturning({ evidenceFailed: true }));
+    it('a blocking verdict (decision "block") blocks the merge, keeping notebook + hash + verdict', async () => {
+      const handler = handlerWith(
+        generatorReturning({
+          verdict: makeVerdict({ decision: 'block', confidence: 'high' }),
+        }),
+      );
       const record = await requestMerge(handler);
       expect(record.status).toBe('blocked');
       expect(record.evidenceNotebookId).toBe(`nb-${record.id}`);
       expect(record.evidenceHash).toBe('deadbeef');
+      expect(record.verdict!.decision).toBe('block');
       expect(record.decidedAt).toBeDefined();
     });
 
@@ -141,7 +166,9 @@ describe('merge state machine', () => {
     });
 
     it('a blocked merge cannot be approved (terminal, c5)', async () => {
-      const handler = handlerWith(generatorReturning({ evidenceFailed: true }));
+      const handler = handlerWith(
+        generatorReturning({ verdict: makeVerdict({ decision: 'block' }) }),
+      );
       const record = await requestMerge(handler);
       await expect(
         storage.transitionMergeCommit(record.id, 'pending_approval', {
@@ -176,6 +203,38 @@ describe('merge state machine', () => {
         count: number;
       };
       expect(list.count).toBe(1);
+    });
+  });
+
+  describe('claim diff (c9)', () => {
+    it('dispatches claim_diff to the wired seam', async () => {
+      let seenArgs: unknown;
+      const handler = createMergeHandler({
+        storage,
+        evidenceGenerator: createStubMergeEvidenceGenerator(),
+        claimDiff: async args => {
+          seenArgs = args;
+          return { branchA: args.branchA, branchB: args.branchB, added: [], removed: [] };
+        },
+      });
+      const diff = (await handler.handle(null, 'claim_diff', {
+        workspaceId: 'ws-1',
+        branchA: 'branch-a',
+        branchB: 'branch-b',
+      })) as { branchA: string };
+      expect(diff.branchA).toBe('branch-a');
+      expect(seenArgs).toEqual({ workspaceId: 'ws-1', branchA: 'branch-a', branchB: 'branch-b' });
+    });
+
+    it('returns a clear join-point error when the seam is not wired', async () => {
+      const handler = handlerWith(createStubMergeEvidenceGenerator());
+      await expect(
+        handler.handle(null, 'claim_diff', {
+          workspaceId: 'ws-1',
+          branchA: 'a',
+          branchB: 'b',
+        }),
+      ).rejects.toThrow(/claim-diff seam is not\s+wired|merge-evidence/);
     });
   });
 
@@ -255,7 +314,9 @@ describe('merge state machine', () => {
     it('list filters by status', async () => {
       const handler = handlerWith(createStubMergeEvidenceGenerator());
       await requestMerge(handler);
-      const blockedHandler = handlerWith(generatorReturning({ evidenceFailed: true }));
+      const blockedHandler = handlerWith(
+        generatorReturning({ verdict: makeVerdict({ decision: 'block' }) }),
+      );
       await requestMerge(blockedHandler);
 
       const pending = (await handler.handle(null, 'list', {

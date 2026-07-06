@@ -228,7 +228,7 @@ interface TB {
 
   /**
    * Merge evidence: collapse competing branches to a finalized decision
-   * (SPEC-MERGE-EVIDENCE). request creates an immutable merge commit,
+   * (SPEC-MERGE-CORE). request creates an immutable merge commit,
    * auto-generates + runs the evidence notebook, and returns the record as
    * pending_approval (awaiting HUMAN approval in the web app) or blocked
    * (evidence failed; terminal — issue a new request). Prose-only evidence
@@ -242,6 +242,8 @@ interface TB {
     request(args: { workspaceId: string; branchIds: string[]; baseRef?: string; agentId?: string }): Promise<unknown>;
     status(args: { mergeId: string }): Promise<unknown>;
     list(args: { workspaceId: string; status?: MergeStatus }): Promise<unknown>;
+    /** Claim-level branch diff (added/removed/shared/superseded/contradicting). Claims belong to a branch via the "branch:<branchId>" evidenceRef convention. */
+    claimDiff(args: { workspaceId: string; branchA: string; branchB: string }): Promise<unknown>;
   };
 }
 \`\`\``;

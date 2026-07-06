@@ -1,5 +1,5 @@
 /**
- * POST /api/merge/[id]/approve tests (SPEC-MERGE-EVIDENCE c4/c5/c6):
+ * POST /api/merge/[id]/approve tests (SPEC-MERGE-CORE c4/c5/c6):
  * the ONLY approval surface. Human session + owner role required; CAS
  * guard makes blocked/approved records immutable (409, no write);
  * approving a merge with base_ref "merge:<id>" supersedes that commit.

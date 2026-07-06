@@ -1,6 +1,6 @@
 /**
  * POST /api/merge/[id]/approve — the ONLY approval surface for merge
- * commits (SPEC-MERGE-EVIDENCE c4). Human-only: requires an authenticated
+ * commits (SPEC-MERGE-CORE c4). Human-only: requires an authenticated
  * user session with 'owner' membership in the merge's tenant workspace.
  * No agent, peer, or validator auto-approval exists in v1.
  *

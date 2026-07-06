@@ -1,5 +1,5 @@
 /**
- * Merge tool wiring tests (SPEC-MERGE-EVIDENCE c9): the shared-session
+ * Merge tool wiring tests (SPEC-MERGE-CORE c9): the shared-session
  * identity convention from tb.hub/tb.claims applies to tb.merge — one
  * register/quick_join grants the session identity, explicit agentId is
  * accepted only for agents registered in the same session.

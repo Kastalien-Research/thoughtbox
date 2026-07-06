@@ -1,6 +1,6 @@
 /**
  * SupabaseMergeCommitStorage — Postgres-backed merge-commit storage
- * (SPEC-MERGE-EVIDENCE c8).
+ * (SPEC-MERGE-CORE c8).
  *
  * Implements the MergeCommitStorage contract over public.merge_commits,
  * scoped to a single tenant workspace like SupabaseClaimStorage:

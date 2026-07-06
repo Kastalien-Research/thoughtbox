@@ -1,6 +1,6 @@
 /**
  * Fake Supabase server client for merge API route tests
- * (SPEC-MERGE-EVIDENCE c4/c5). Chainable, thenable query builder with
+ * (SPEC-MERGE-CORE c4/c5). Chainable, thenable query builder with
  * per-table response queues and recorded calls for assertions.
  */
 

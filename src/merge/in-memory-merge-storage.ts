@@ -1,6 +1,6 @@
 /**
  * InMemoryMergeCommitStorage — volatile merge-commit storage for tests and
- * local mode (SPEC-MERGE-EVIDENCE c8).
+ * local mode (SPEC-MERGE-CORE c8).
  *
  * Mirrors SupabaseMergeCommitStorage semantics: structural copies on
  * read/write (no shared references), insert-only creation, and

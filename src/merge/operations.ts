@@ -1,5 +1,5 @@
 /**
- * Operations catalog for merge evidence (SPEC-MERGE-EVIDENCE c9).
+ * Operations catalog for merge evidence (SPEC-MERGE-CORE c9).
  *
  * Defines the 3 tb.merge.* operations with schemas and examples,
  * mirroring the claims catalog pattern (src/claims/operations.ts).
@@ -95,6 +95,24 @@ export const MERGE_OPERATIONS: OperationDefinition[] = [
       required: ['workspaceId'],
     },
     example: { workspaceId: 'ws-abc123', status: 'pending_approval' },
+  },
+  {
+    name: 'claim_diff',
+    title: 'Branch Claim Diff',
+    description:
+      'Claim-level diff between two branches in a workspace: added, removed, shared, superseded claims and crossing contradicts edges (SPEC-MERGE-EVIDENCE diffBranchClaims; the same computation feeding merge-evidence notebooks). A claim belongs to a branch when an evidenceRef is "branch:<branchId>" or prefixed "branch:<branchId>/". Read-only.',
+    category: 'merge',
+    stage: 2,
+    inputSchema: {
+      type: 'object',
+      properties: {
+        workspaceId: { type: 'string', description: 'Hub workspace ID' },
+        branchA: { type: 'string', description: 'First branch id' },
+        branchB: { type: 'string', description: 'Second branch id' },
+      },
+      required: ['workspaceId', 'branchA', 'branchB'],
+    },
+    example: { workspaceId: 'ws-abc123', branchA: 'branch-auth-rewrite', branchB: 'branch-auth-patch' },
   },
 ];
 

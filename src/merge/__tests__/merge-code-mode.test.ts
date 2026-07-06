@@ -1,5 +1,5 @@
 /**
- * End-to-end Code Mode tests for tb.merge.* (SPEC-MERGE-EVIDENCE c9):
+ * End-to-end Code Mode tests for tb.merge.* (SPEC-MERGE-CORE c9):
  * request/status/list driven through thoughtbox_execute with the stub
  * evidence generator, sharing session identity with tb.hub.
  */
