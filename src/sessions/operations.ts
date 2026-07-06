@@ -24,7 +24,7 @@ export const SESSION_TOOL: Tool = {
     properties: {
       operation: {
         type: "string",
-        enum: ["session_list", "session_get", "session_search", "session_resume", "session_resume_latest", "session_export", "session_analyze", "session_extract_learnings"],
+        enum: ["session_list", "session_get", "session_search", "session_resume", "session_resume_latest", "session_query_thoughts", "session_export", "session_analyze", "session_extract_learnings"],
         description: "The session operation to execute",
       },
       args: {
@@ -148,6 +148,46 @@ export const SESSION_OPERATIONS: OperationDefinition[] = [
       required: [],
     },
     example: {},
+  },
+  {
+    name: "session_query_thoughts",
+    title: "Query Thoughts",
+    description: "Structured queries over a session's thought graph. Exactly one mode per call: by type (cipher char H/E/C/Q/R/P/O/A/X or full thoughtType name), by inclusive range (start+end), by reference (thoughts whose text cites S{n}), or revision history (original thought plus its revisions, chronological). Replaces the former thoughtbox://thoughts, thoughtbox://references, and thoughtbox://revisions resource templates.",
+    category: "session-retrieval",
+    inputSchema: {
+      type: "object",
+      properties: {
+        sessionId: {
+          type: "string",
+          description: "The session to query",
+        },
+        type: {
+          type: "string",
+          description: "Filter by thought type: cipher char (H/E/C/Q/R/P/O/A/X) or thoughtType name (reasoning, decision_frame, ...)",
+        },
+        start: {
+          type: "number",
+          description: "Range query: inclusive start thought number (requires end)",
+        },
+        end: {
+          type: "number",
+          description: "Range query: inclusive end thought number (requires start)",
+        },
+        referencesThought: {
+          type: "number",
+          description: "Find all thoughts that reference thought S{n} in their text",
+        },
+        revisionsOf: {
+          type: "number",
+          description: "Get revision history for thought n (original + revisions)",
+        },
+      },
+      required: ["sessionId"],
+    },
+    example: {
+      sessionId: "abc-123-def-456",
+      type: "decision_frame",
+    },
   },
   {
     name: "session_export",

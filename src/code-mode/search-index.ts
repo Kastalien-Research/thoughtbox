@@ -373,30 +373,6 @@ export function buildSearchCatalog(): SearchCatalog {
         description: "Interleaved thinking guides",
         mimeType: "text/markdown",
       },
-      {
-        name: "Thoughts By Type",
-        uriTemplate: "thoughtbox://thoughts/{sessionId}/{type}",
-        description: "Query thoughts by semantic type (H/E/C/Q/R/P/O/A/X)",
-        mimeType: "application/json",
-      },
-      {
-        name: "Thought Range",
-        uriTemplate: "thoughtbox://thoughts/{sessionId}/range/{start}-{end}",
-        description: "Retrieve thoughts in specified range [start, end] inclusive",
-        mimeType: "application/json",
-      },
-      {
-        name: "Thought References",
-        uriTemplate: "thoughtbox://references/{sessionId}/{thoughtNumber}",
-        description: "Find all thoughts that reference a specific thought number",
-        mimeType: "application/json",
-      },
-      {
-        name: "Revision History",
-        uriTemplate: "thoughtbox://revisions/{sessionId}/{thoughtNumber}",
-        description: "Get complete revision history for a thought",
-        mimeType: "application/json",
-      },
     ],
   };
 

@@ -44,7 +44,6 @@ import {
   FileSystemKnowledgeStorage,
 } from "./knowledge/index.js";
 import { ThoughtHandler } from "./thought-handler.js";
-import { ThoughtQueryHandler } from "./resources/thought-query-handler.js";
 
 import { KnowledgeTool } from "./knowledge/tool.js";
 import { SessionTool } from "./sessions/tool.js";
@@ -1043,73 +1042,6 @@ Use \`console.log()\` for debugging — output captured in response logs.`;
   );
 
 
-
-  // SPEC-001: Thought query resource templates
-  const thoughtQueryHandler = new ThoughtQueryHandler(storage);
-
-  server.registerResource(
-    "thoughts-by-type",
-    new ResourceTemplate("thoughtbox://thoughts/{sessionId}/{type}", { list: undefined }),
-    { description: "Query thoughts by semantic type (H/E/C/Q/R/P/O/A/X)", mimeType: "application/json" },
-    async (uri) => {
-      const result = await thoughtQueryHandler.handleQuery(uri.toString());
-      return {
-        contents: [{
-          uri: uri.toString(),
-          mimeType: "application/json",
-          text: JSON.stringify(result, null, 2),
-        }],
-      };
-    }
-  );
-
-  server.registerResource(
-    "thought-range",
-    new ResourceTemplate("thoughtbox://thoughts/{sessionId}/range/{start}-{end}", { list: undefined }),
-    { description: "Retrieve thoughts in specified range [start, end] inclusive", mimeType: "application/json" },
-    async (uri) => {
-      const result = await thoughtQueryHandler.handleQuery(uri.toString());
-      return {
-        contents: [{
-          uri: uri.toString(),
-          mimeType: "application/json",
-          text: JSON.stringify(result, null, 2),
-        }],
-      };
-    }
-  );
-
-  server.registerResource(
-    "thought-references",
-    new ResourceTemplate("thoughtbox://references/{sessionId}/{thoughtNumber}", { list: undefined }),
-    { description: "Find all thoughts that reference a specific thought number", mimeType: "application/json" },
-    async (uri) => {
-      const result = await thoughtQueryHandler.handleQuery(uri.toString());
-      return {
-        contents: [{
-          uri: uri.toString(),
-          mimeType: "application/json",
-          text: JSON.stringify(result, null, 2),
-        }],
-      };
-    }
-  );
-
-  server.registerResource(
-    "revision-history",
-    new ResourceTemplate("thoughtbox://revisions/{sessionId}/{thoughtNumber}", { list: undefined }),
-    { description: "Get complete revision history for a thought", mimeType: "application/json" },
-    async (uri) => {
-      const result = await thoughtQueryHandler.handleQuery(uri.toString());
-      return {
-        contents: [{
-          uri: uri.toString(),
-          mimeType: "application/json",
-          text: JSON.stringify(result, null, 2),
-        }],
-      };
-    }
-  );
 
   // Knowledge graph resources (Phase 1)
   server.registerResource(

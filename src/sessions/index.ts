@@ -61,6 +61,9 @@ export class SessionHandler {
         case "resume_latest":
           result = await this.handlers.handleResumeLatest(args);
           break;
+        case "query_thoughts":
+          result = await this.handlers.handleQueryThoughts(args);
+          break;
         case "export":
           result = await this.handlers.handleExport(args);
           break;

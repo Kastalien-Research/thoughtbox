@@ -56,6 +56,8 @@ interface TB {
     resume(sessionId: string): Promise<unknown>;
     /** Resume the most recently updated session in this workspace (no ID needed). */
     resumeLatest(args?: { tags?: string[] }): Promise<unknown>;
+    /** Structured thought-graph queries: exactly one of type | start+end | referencesThought | revisionsOf. */
+    queryThoughts(args: { sessionId: string; type?: string; start?: number; end?: number; referencesThought?: number; revisionsOf?: number }): Promise<unknown>;
     export(sessionId: string, format?: "markdown" | "cipher" | "json"): Promise<unknown>;
     analyze(sessionId: string): Promise<unknown>;
     extractLearnings(sessionId: string, args?: Record<string, unknown>): Promise<unknown>;

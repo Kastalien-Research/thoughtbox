@@ -1,18 +1,18 @@
 /**
- * Thought Query Handler
+ * Thought graph queries (folded from the SPEC-001 resource templates).
  *
- * Implements resource templates for querying the thought graph:
- * - thoughtbox://thoughts/{sessionId}/{type} - Filter by thought type
- * - thoughtbox://thoughts/{sessionId}/range/{start}-{end} - Get thought range
- * - thoughtbox://references/{sessionId}/{thoughtNumber} - Find references to a thought
- * - thoughtbox://revisions/{sessionId}/{thoughtNumber} - Get revision history
- *
- * SPEC-001: Resource Templates for Thought Graph Queries
+ * Formerly served as four resource templates
+ * (thoughtbox://thoughts/{sessionId}/{type}, .../range/{start}-{end},
+ * thoughtbox://references/..., thoughtbox://revisions/...); now exposed as
+ * the session_query_thoughts operation on tb.session.
  */
 
-import type { ThoughtboxStorage, ThoughtNode, ThoughtData } from "../persistence/index.js";
+import type {
+  ThoughtboxStorage,
+  ThoughtNode,
+} from "../persistence/index.js";
 
-export interface QueryResult {
+export interface ThoughtQueryResult {
   sessionId: string;
   query: string;
   thoughts: Array<{
@@ -26,41 +26,50 @@ export interface QueryResult {
   count: number;
 }
 
-export class ThoughtQueryHandler {
+export interface ThoughtQueryArgs {
+  sessionId: string;
+  /** Cipher char (H/E/C/Q/R/P/O/A/X) or full thoughtType name */
+  type?: string;
+  /** Range query: inclusive start (requires end) */
+  start?: number;
+  /** Range query: inclusive end (requires start) */
+  end?: number;
+  /** Find thoughts whose text references S{n} */
+  referencesThought?: number;
+  /** Revision history for thought n (original + its revisions) */
+  revisionsOf?: number;
+}
+
+export class ThoughtQuery {
   constructor(private storage: ThoughtboxStorage) {}
 
-  /**
-   * Main entry point - parse URI and route to appropriate query
-   */
-  async handleQuery(uri: string): Promise<QueryResult> {
-    const parsed = this.parseURI(uri);
+  async query(args: ThoughtQueryArgs): Promise<ThoughtQueryResult> {
+    const { sessionId } = args;
+    if (!sessionId) throw new Error("session_query_thoughts requires sessionId");
 
-    switch (parsed.template) {
-      case "thoughts-by-type":
-        return this.queryByType(parsed.params.sessionId, parsed.params.type);
-
-      case "thought-range":
-        return this.getRange(
-          parsed.params.sessionId,
-          parsed.params.start,
-          parsed.params.end
-        );
-
-      case "thought-references":
-        return this.getReferences(
-          parsed.params.sessionId,
-          parsed.params.thoughtNumber
-        );
-
-      case "revision-history":
-        return this.getRevisionHistory(
-          parsed.params.sessionId,
-          parsed.params.thoughtNumber
-        );
-
-      default:
-        throw new Error(`Unknown template: ${parsed.template}`);
+    const modes = [
+      args.type !== undefined,
+      args.start !== undefined || args.end !== undefined,
+      args.referencesThought !== undefined,
+      args.revisionsOf !== undefined,
+    ].filter(Boolean).length;
+    if (modes !== 1) {
+      throw new Error(
+        "session_query_thoughts requires exactly one of: type, start+end, referencesThought, revisionsOf"
+      );
     }
+
+    if (args.type !== undefined) return this.queryByType(sessionId, args.type);
+    if (args.referencesThought !== undefined) {
+      return this.getReferences(sessionId, args.referencesThought);
+    }
+    if (args.revisionsOf !== undefined) {
+      return this.getRevisionHistory(sessionId, args.revisionsOf);
+    }
+    if (args.start === undefined || args.end === undefined) {
+      throw new Error("Range query requires both start and end");
+    }
+    return this.getRange(sessionId, args.start, args.end);
   }
 
   /**
@@ -69,7 +78,7 @@ export class ThoughtQueryHandler {
    * (reasoning, decision_frame, action_report, belief_snapshot,
    *  assumption_update, context_snapshot, progress).
    */
-  private async queryByType(sessionId: string, type: string): Promise<QueryResult> {
+  private async queryByType(sessionId: string, type: string): Promise<ThoughtQueryResult> {
     const isCipherChar = type.length === 1 && /^[HECQRPOAX]$/.test(type);
     const linkedExport = await this.storage.toLinkedExport(sessionId);
 
@@ -101,7 +110,7 @@ export class ThoughtQueryHandler {
     sessionId: string,
     start: number,
     end: number
-  ): Promise<QueryResult> {
+  ): Promise<ThoughtQueryResult> {
     if (start < 1 || end < start) {
       throw new Error(`Invalid range: ${start}-${end}. Start must be >= 1 and end >= start`);
     }
@@ -127,7 +136,7 @@ export class ThoughtQueryHandler {
   private async getReferences(
     sessionId: string,
     thoughtNumber: number
-  ): Promise<QueryResult> {
+  ): Promise<ThoughtQueryResult> {
     const linkedExport = await this.storage.toLinkedExport(sessionId);
 
     // Parse cipher references: [SN], SN-SN patterns, or S1,S2 in refs field
@@ -156,7 +165,7 @@ export class ThoughtQueryHandler {
   private async getRevisionHistory(
     sessionId: string,
     thoughtNumber: number
-  ): Promise<QueryResult> {
+  ): Promise<ThoughtQueryResult> {
     const linkedExport = await this.storage.toLinkedExport(sessionId);
 
     // Find original thought
@@ -174,7 +183,6 @@ export class ThoughtQueryHandler {
 
     // Find all revisions of this thought
     // Revisions have revisesNode pointing to what they revise
-    // Need to find nodes where revisesNode === original.id
     for (const node of linkedExport.nodes) {
       if (node.revisesNode === original.id) {
         revisions.push(node);
@@ -194,66 +202,6 @@ export class ThoughtQueryHandler {
       thoughts: revisions.map(this.nodeToThought),
       count: revisions.length,
     };
-  }
-
-  /**
-   * Parse resource template URI
-   */
-  private parseURI(uri: string): {
-    template: string;
-    params: Record<string, any>;
-  } {
-    const patterns: Record<string, RegExp> = {
-      "thoughts-by-type": /^thoughtbox:\/\/thoughts\/([^\/]+)\/([A-Za-z_]+)$/,
-      "thought-range": /^thoughtbox:\/\/thoughts\/([^\/]+)\/range\/(\d+)-(\d+)$/,
-      "thought-references": /^thoughtbox:\/\/references\/([^\/]+)\/(\d+)$/,
-      "revision-history": /^thoughtbox:\/\/revisions\/([^\/]+)\/(\d+)$/,
-    };
-
-    for (const [template, pattern] of Object.entries(patterns)) {
-      const match = uri.match(pattern);
-      if (match) {
-        return {
-          template,
-          params: this.extractParams(template, match),
-        };
-      }
-    }
-
-    throw new Error(`No template matches URI: ${uri}`);
-  }
-
-  /**
-   * Extract parameters from regex match based on template type
-   */
-  private extractParams(
-    template: string,
-    match: RegExpMatchArray
-  ): Record<string, any> {
-    switch (template) {
-      case "thoughts-by-type":
-        return {
-          sessionId: match[1],
-          type: match[2],
-        };
-
-      case "thought-range":
-        return {
-          sessionId: match[1],
-          start: parseInt(match[2]),
-          end: parseInt(match[3]),
-        };
-
-      case "thought-references":
-      case "revision-history":
-        return {
-          sessionId: match[1],
-          thoughtNumber: parseInt(match[2]),
-        };
-
-      default:
-        throw new Error(`Unknown template: ${template}`);
-    }
   }
 
   /**
@@ -283,5 +231,4 @@ export class ThoughtQueryHandler {
     const match = thought.match(/^S\d+\|([HECQRPOAX])\|/);
     return match ? match[1] : undefined;
   }
-
 }

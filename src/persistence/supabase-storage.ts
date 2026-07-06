@@ -33,7 +33,7 @@ type RunRow = Database['public']['Tables']['runs']['Row'];
 type RunInsert = Database['public']['Tables']['runs']['Insert'];
 type RunUpdate = Database['public']['Tables']['runs']['Update'];
 type ThoughtRow = Database['public']['Tables']['thoughts']['Row'];
-import { RevisionIndexBuilder } from '../revision/revision-index.js';
+import { RevisionIndexBuilder } from './revision-index.js';
 
 export interface SupabaseStorageConfig {
   supabaseUrl: string;

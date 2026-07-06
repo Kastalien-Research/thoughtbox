@@ -85,7 +85,7 @@ describe("thoughtbox_search", () => {
     });
     const output = JSON.parse(result.content[0].text);
     expect(output.result.length).toBeGreaterThan(0);
-    expect(output.result.some((t: string) => t.includes("{sessionId}"))).toBe(true);
+    expect(output.result.some((t: string) => t.includes("{op}"))).toBe(true);
   });
 
   it("returns durationMs in response envelope", async () => {

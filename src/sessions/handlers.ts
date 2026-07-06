@@ -13,6 +13,7 @@ import {
   type ExtractedLearning,
 } from "../persistence/index.js";
 import { ThoughtHandler } from "../thought-handler.js";
+import { ThoughtQuery, type ThoughtQueryArgs } from "./thought-query.js";
 
 export interface SessionHandlerDeps {
   storage: ThoughtboxStorage;
@@ -22,10 +23,20 @@ export interface SessionHandlerDeps {
 export class SessionHandlers {
   private storage: ThoughtboxStorage;
   private thoughtHandler: ThoughtHandler;
+  private thoughtQuery: ThoughtQuery;
 
   constructor(deps: SessionHandlerDeps) {
     this.storage = deps.storage;
     this.thoughtHandler = deps.thoughtHandler;
+    this.thoughtQuery = new ThoughtQuery(deps.storage);
+  }
+
+  /**
+   * Structured thought-graph queries (folded SPEC-001 resource templates):
+   * by type, by range, by reference, or revision history.
+   */
+  async handleQueryThoughts(args: ThoughtQueryArgs) {
+    return this.thoughtQuery.query(args);
   }
 
   /**

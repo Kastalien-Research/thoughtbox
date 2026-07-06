@@ -24,7 +24,7 @@ import type {
   RevisionMetadata,
   AuditManifest,
 } from './types.js';
-import { RevisionIndexBuilder } from '../revision/revision-index.js';
+import { RevisionIndexBuilder } from './revision-index.js';
 
 // =============================================================================
 // LinkedThoughtStore - Doubly-linked list storage for reasoning chains
