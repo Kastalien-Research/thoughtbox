@@ -1,0 +1,46 @@
+{
+  "branch": "chore/demolition-repo-infra",
+  "summary": "Demolition track A — repo/infra kills (rebuild night, all kills adversarially verified). Removes the SIL orchestrator (re-pointing pnpm test:behavioral at the live devils-advocate surface via the kept run-agent harness), the agentic-test harness, the legacy tests/ directory (converting the two surviving LangSmith eval tests to vitest under src/evaluation/__tests__/), one-off scripts (debug/, demo/, proxies, push-secrets.sh, db-migrate.sh), the hazardous duplicate apps/web/supabase/ migration lineage plus GTM planning cruft, the orphaned plugin cli/http.ts, 50+ dead spec files (keeping SPEC-CORE-002 Layer A, SPEC-BRANCH-WORKERS, old-specs/, letta-specific/), the agent-runner Terraform resources (12 destroyed via targeted terraform destroy; supabase secrets consumed by the live MCP service relocated to mcp-service.tf; plan clean; /health 200 before and after), and the process-thought-queue edge function (undeployed from prod, owner-approved). Also: CLAUDE.md session-routing amendment (single-instance Cloud Run replaces Memorystore), v1-initiative Phase 6.1/c16 struck, server.json synced to 1.2.2, marketplace.json synced to 0.1.6, workflows.db regeneration verified from schema.sql/seed.sql.",
+  "claims": [
+    {
+      "id": "c1",
+      "statement": "pnpm test:behavioral still runs against a live agent surface after the SIL orchestrator deletion.",
+      "evidence_type": "command",
+      "evidence_path": "scripts/agents/test-behavioral-contracts.ts",
+      "evidence_description": "pnpm test:behavioral:variance --budget 0.25 executed two live devils-advocate runs and exited 0 with 'VARIANCE PASSED'."
+    },
+    {
+      "id": "c2",
+      "statement": "The converted LangSmith eval tests pass under vitest.",
+      "evidence_type": "test",
+      "evidence_path": "src/evaluation/__tests__/",
+      "evidence_description": "npx vitest run on dataset-manager.test.ts + experiment-runner.test.ts: 20/20 passed."
+    },
+    {
+      "id": "c3",
+      "statement": "Terraform destroy touched only agent-runner resources; the production MCP service was unaffected.",
+      "evidence_type": "command",
+      "evidence_path": "infra/gcp/",
+      "evidence_description": "State snapshotted before destroy (kept out of git). Targeted destroy removed exactly 12 resources (job, scheduler, invoker binding, 4 agent-only secrets + 4 accessor bindings, branch protection). Post-change terraform plan: 'No changes.' https://mcp.kastalienresearch.ai/health returned 200 before and after."
+    },
+    {
+      "id": "c4",
+      "statement": "process-thought-queue is undeployed from the prod Supabase project; tb-branch is untouched.",
+      "evidence_type": "command",
+      "evidence_path": "supabase/functions/",
+      "evidence_description": "supabase functions delete process-thought-queue --project-ref akjccuoncxlvrrtkvtno succeeded (twice — a concurrent agent's bare 'functions deploy' resurrected it once); final functions list shows only tb-branch ACTIVE."
+    },
+    {
+      "id": "c5",
+      "statement": "Full quality gates pass with only the known pre-existing environmental failures.",
+      "evidence_type": "command",
+      "evidence_path": "package.json",
+      "evidence_description": "pnpm check:types, check:lint, build:local green; vitest full run has only the 2 known branch-workers environmental failures (intelligence-pipeline's third was deleted with its target); apps/web tsc --noEmit green and 36/36 web tests pass."
+    }
+  ],
+  "specs": [
+    ".specs/deployment/v1-initiative.md",
+    ".specs/SPEC-CORE-002-code-mode-thoughtbox.md",
+    ".specs/monorepo-merge/INTEGRATION-MAP.md"
+  ]
+}
