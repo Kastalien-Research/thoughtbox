@@ -1,29 +1,39 @@
 #!/usr/bin/env npx tsx
 /**
- * Behavioral Contract Tests for SIL Agents
+ * Behavioral Contract Tests
  *
- * Tests that the improvement reasoner (SIL-006) actually reasons,
- * not just returns hardcoded values.
+ * Runs the behavioral contract verification suite (VARIANCE, CONTENT_COUPLED,
+ * LLM_JUDGES) against a LIVE agent surface: the devils-advocate agent
+ * definition executed through the shared run-agent harness.
+ *
+ * These tests FAIL if the agent surface returns hardcoded or input-ignoring
+ * output instead of actually reasoning about the finding it was given.
  *
  * Usage:
- *   npx tsx scripts/agents/test-behavioral-contracts.ts
- *
- * These tests will FAIL if the agent returns hardcoded values.
+ *   npx tsx scripts/agents/test-behavioral-contracts.ts [--budget 1]
+ *   npx tsx scripts/agents/test-behavioral-contracts.ts --variance-only
  */
 
-import { analyzeDiscovery } from "./sil-006-improvement-reasoner.js";
 import {
   runBehavioralVerification,
   formatVerificationReport,
 } from "./behavioral-contracts.js";
-import { Discovery, ImprovementPlan } from "./types.js";
+import { agentPath, runAgentFile } from "./run-agent-util.js";
 
 // ============================================================================
 // Test Inputs
 // ============================================================================
 
-// Two very different discoveries - must produce different outputs
-const performanceDiscovery: Discovery = {
+interface Finding {
+  id: string;
+  type: string;
+  description: string;
+  severity: string;
+  source: string;
+}
+
+// Two very different findings - must produce different assessments
+const performanceFinding: Finding = {
   id: "perf-001",
   type: "performance",
   description:
@@ -32,7 +42,7 @@ const performanceDiscovery: Discovery = {
   source: "src/controllers/users.ts:45",
 };
 
-const securityDiscovery: Discovery = {
+const securityFinding: Finding = {
   id: "sec-001",
   type: "security",
   description:
@@ -41,45 +51,61 @@ const securityDiscovery: Discovery = {
   source: "src/controllers/search.ts:23",
 };
 
+function buildPrompt(finding: Finding): string {
+  return [
+    `Assess the following ${finding.type} finding (id: ${finding.id}, severity: ${finding.severity}, source: ${finding.source}).`,
+    ``,
+    `Finding: ${finding.description}`,
+    ``,
+    `Respond with a short adversarial assessment: restate the specific finding,`,
+    `rate feasibility of a fix (1-10) and risk of the fix (1-10), and explain WHY`,
+    `those ratings apply to THIS finding. Do not read or modify any files; reason`,
+    `from the finding text alone.`,
+  ].join("\n");
+}
+
+function budgetArg(): number | undefined {
+  const i = process.argv.indexOf("--budget");
+  if (i < 0 || i + 1 >= process.argv.length) return undefined;
+  const n = Number(process.argv[i + 1]);
+  return isNaN(n) ? undefined : n;
+}
+
+// Live surface under test: the devils-advocate agent definition run through
+// the shared harness (scripts/agents/run-agent-util.ts).
+const assess = async (finding: Finding): Promise<string> => {
+  return runAgentFile({
+    agentFile: agentPath("devils-advocate"),
+    prompt: buildPrompt(finding),
+    budget: budgetArg(),
+  });
+};
+
 // ============================================================================
 // Test Runner
 // ============================================================================
 
 async function runTests() {
-  console.log("=== Behavioral Contract Tests for SIL-006 ===\n");
-
-  // Create a wrapper function that matches the contract signature
-  const analyzeWrapper = async (discovery: Discovery): Promise<ImprovementPlan> => {
-    return analyzeDiscovery(discovery, {
-      verbose: false,
-      maxTurns: 30, // Limit turns for testing
-    });
-  };
+  console.log("=== Behavioral Contract Tests (devils-advocate via run-agent harness) ===\n");
 
   console.log("Test Inputs:");
-  console.log(`  Input 1: ${performanceDiscovery.type} - ${performanceDiscovery.id}`);
-  console.log(`  Input 2: ${securityDiscovery.type} - ${securityDiscovery.id}`);
+  console.log(`  Input 1: ${performanceFinding.type} - ${performanceFinding.id}`);
+  console.log(`  Input 2: ${securityFinding.type} - ${securityFinding.id}`);
   console.log("");
 
   try {
-    const report = await runBehavioralVerification<Discovery, ImprovementPlan>(
-      "ImprovementReasoner.analyze",
-      analyzeWrapper,
+    const report = await runBehavioralVerification<Finding, string>(
+      "devils-advocate.assess",
+      assess,
       {
-        input1: performanceDiscovery,
-        input2: securityDiscovery,
-        marker: performanceDiscovery.description, // Must reference this
+        input1: performanceFinding,
+        input2: securityFinding,
+        marker: performanceFinding.description, // Must reference this
       },
-      // Extract the assessment field to check for variance
-      (plan) => ({
-        feasibility: plan.approaches[0]?.assessment.feasibility,
-        risk: plan.approaches[0]?.assessment.risk,
-        recommendedApproach: plan.recommendedApproach,
-      }),
-      // Extract all text for content coupling check
-      (plan) =>
-        JSON.stringify(plan) +
-        plan.approaches.map((a) => a.assessment.rationale).join(" ")
+      // Field to check for variance: the assessment text itself
+      (text) => text.trim(),
+      // All text for content coupling check
+      (text) => text
     );
 
     console.log("\n" + formatVerificationReport(report));
@@ -109,21 +135,16 @@ async function runTests() {
 async function runVarianceOnly() {
   console.log("=== VARIANCE Test Only ===\n");
 
-  const result1 = await analyzeDiscovery(performanceDiscovery, { verbose: true });
-  console.log("\nResult 1:", JSON.stringify(result1.approaches[0]?.assessment, null, 2));
+  const result1 = await assess(performanceFinding);
+  console.log("\nResult 1 (preview):", result1.substring(0, 300));
 
-  const result2 = await analyzeDiscovery(securityDiscovery, { verbose: true });
-  console.log("\nResult 2:", JSON.stringify(result2.approaches[0]?.assessment, null, 2));
+  const result2 = await assess(securityFinding);
+  console.log("\nResult 2 (preview):", result2.substring(0, 300));
 
-  const assess1 = result1.approaches[0]?.assessment;
-  const assess2 = result2.approaches[0]?.assessment;
-
-  if (
-    assess1.feasibility === assess2.feasibility &&
-    assess1.risk === assess2.risk
-  ) {
+  if (result1.trim() === result2.trim()) {
     console.log("\n VARIANCE FAILED: Identical assessments for different inputs!");
     console.log("This is the exact bug that BCV is designed to catch.");
+    process.exit(1);
   } else {
     console.log("\n VARIANCE PASSED: Assessments differ as expected.");
   }
