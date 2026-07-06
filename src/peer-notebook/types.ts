@@ -84,6 +84,44 @@ export interface ManifestDraftSource {
   sourceType?: "file" | "cell";
 }
 
+/**
+ * Manifest runtime.entry prefix marking a graduated-notebook entry: the code
+ * after the prefix is the filename of a code cell in the graduating notebook,
+ * executed by the runtime provider from the manifest's captured code snapshot
+ * (never from live notebook state).
+ */
+export const NOTEBOOK_ENTRY_PREFIX = "notebook:";
+
+/** Cell filename named by a `notebook:` runtime entry, or null for registry entries. */
+export function notebookEntryFilename(entry: string | undefined): string | null {
+  if (!entry || !entry.startsWith(NOTEBOOK_ENTRY_PREFIX)) {
+    return null;
+  }
+  const filename = entry.slice(NOTEBOOK_ENTRY_PREFIX.length);
+  return filename.length > 0 ? filename : null;
+}
+
+export interface PeerNotebookSnapshotCell {
+  filename: string;
+  source: string;
+}
+
+/**
+ * Executable code snapshot captured at graduation for manifests whose
+ * runtime.entry names a notebook cell (`notebook:<filename>`). The snapshot is
+ * the immutable execution source: invocations materialize it into a scratch
+ * directory and run the entry cell through the notebook execution engine, so
+ * a graduated peer keeps working after the authoring notebook session is gone.
+ */
+export interface PeerNotebookCodeSnapshot {
+  notebookId: string;
+  entryFilename: string;
+  language: "javascript" | "typescript";
+  cells: PeerNotebookSnapshotCell[];
+  packageJson?: string;
+  tsconfigJson?: string;
+}
+
 export interface CompiledPeerManifest {
   manifest: PeerManifest;
   canonicalJson: string;
@@ -92,6 +130,8 @@ export interface CompiledPeerManifest {
   compiledFrom: {
     sourceName: string;
     sourceType: "file" | "cell";
+    /** Present only for graduated manifests with a `notebook:` runtime entry. */
+    notebook?: PeerNotebookCodeSnapshot;
   };
 }
 

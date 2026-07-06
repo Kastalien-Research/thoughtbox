@@ -3,6 +3,7 @@ import type {
   ArtifactKind,
   JsonObject,
   JsonValue,
+  PeerNotebookCodeSnapshot,
   RuntimeProviderName,
 } from "./types.js";
 
@@ -24,6 +25,11 @@ export interface RuntimeInvocationInput {
   args: JsonObject;
   /** Executable entry name from manifest runtime.entry (required by local-process). */
   entry?: string;
+  /**
+   * Graduated-notebook code snapshot from the manifest record
+   * (compiledFrom.notebook); present when entry is `notebook:<filename>`.
+   */
+  notebook?: PeerNotebookCodeSnapshot;
   brokerProxyUrl: string;
   scopedToken: string;
   budgets: {

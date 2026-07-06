@@ -1,6 +1,15 @@
 import { spawn, type ChildProcess } from "node:child_process";
+import { randomUUID } from "node:crypto";
+import * as fs from "node:fs/promises";
+import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import {
+  executeCodeCell,
+  writeCodeCellToDisk,
+  writePackageJsonToDisk,
+  writeTsconfigToDisk,
+} from "../notebook/execution.js";
 import type {
   RuntimeArtifactOutput,
   RuntimeInvocationInput,
@@ -8,8 +17,8 @@ import type {
   RuntimeProvider,
   RuntimeProviderDescription,
 } from "./runtime-provider.js";
-import type { JsonValue } from "./types.js";
-import { PeerNotebookError } from "./types.js";
+import type { JsonValue, PeerNotebookCodeSnapshot } from "./types.js";
+import { notebookEntryFilename, PeerNotebookError } from "./types.js";
 
 const PROVIDER_DIR = path.dirname(fileURLToPath(import.meta.url));
 const SCRIPT_EXTENSION = import.meta.url.endsWith(".ts") ? ".ts" : ".js";
@@ -37,9 +46,20 @@ export interface LocalProcessRuntimeProviderOptions {
  *   events match the mock contract fixture path. In-child broker calls are
  *   out of scope for v1.
  * - Entry scripts resolve from a fixed registry keyed by manifest
- *   runtime.entry; manifests cannot point at arbitrary filesystem paths.
+ *   runtime.entry, OR — for graduated notebooks — from the immutable code
+ *   snapshot captured on the manifest record at graduation
+ *   (`runtime.entry: "notebook:<cellFilename>"`). Manifests can never point
+ *   at arbitrary filesystem paths.
+ * - Notebook entries execute through the notebook execution engine
+ *   (src/notebook/execution.ts): the snapshot is materialized into a scratch
+ *   directory, the entry cell reads its invocation payload JSON from
+ *   TB_PEER_INPUT_PATH and writes `{ result, artifacts }` JSON to
+ *   TB_PEER_OUTPUT_PATH.
  * - The manifest budget (budgets.maxDurationMs) is enforced on the child via
  *   SIGTERM, escalating to SIGKILL; cancel() kills the child the same way.
+ *   For notebook entries the engine enforces the same budget via its timeout;
+ *   cancel() rejects the invocation immediately but the cell process is only
+ *   reaped by the engine timeout (v1 gap, acceptable for development-only).
  * - cancel() also covers the pre-spawn window: invocations are tracked from
  *   the moment invoke() is entered, and a cancel arriving while the broker
  *   round trips are still in flight preempts the spawn entirely.
@@ -49,6 +69,7 @@ export class LocalProcessRuntimeProvider implements RuntimeProvider {
   private readonly children = new Map<string, ChildProcess>();
   private readonly activeInvocations = new Set<string>();
   private readonly cancelledInvocations = new Set<string>();
+  private readonly notebookCancels = new Map<string, () => void>();
 
   constructor(options: LocalProcessRuntimeProviderOptions = {}) {
     this.entries = { ...BUILTIN_ENTRIES, ...options.entries };
@@ -67,11 +88,12 @@ export class LocalProcessRuntimeProvider implements RuntimeProvider {
   async invoke(input: RuntimeInvocationInput): Promise<RuntimeInvocationResult> {
     this.activeInvocations.add(input.invocationId);
     try {
-      const scriptPath = this.resolveEntryScript(input);
+      const entryCellFilename = notebookEntryFilename(input.entry);
+      const scriptPath = entryCellFilename === null ? this.resolveEntryScript(input) : null;
       const artifactContent = await fetchInputArtifact(input);
       this.throwIfCancelledBeforeSpawn(input.invocationId);
 
-      if (input.tool === "extract_claims") {
+      if (input.tool === "extract_claims" && entryCellFilename === null) {
         // Pilot-parity denied probe: traced as denied_outbound_call exactly as
         // the mock contract fixture path records it.
         await input.brokerProxy.callTool("thoughtbox.knowledge.queryGraph", { query: "denied pilot probe" });
@@ -84,10 +106,14 @@ export class LocalProcessRuntimeProvider implements RuntimeProvider {
         args: input.args,
         artifactContent,
       });
-      return await this.runEntryProcess(input, scriptPath, payload);
+      if (entryCellFilename !== null) {
+        return await this.runNotebookEntry(input, entryCellFilename, payload);
+      }
+      return await this.runEntryProcess(input, scriptPath as string, payload);
     } finally {
       this.activeInvocations.delete(input.invocationId);
       this.cancelledInvocations.delete(input.invocationId);
+      this.notebookCancels.delete(input.invocationId);
     }
   }
 
@@ -96,6 +122,12 @@ export class LocalProcessRuntimeProvider implements RuntimeProvider {
     if (child) {
       this.cancelledInvocations.add(input.invocationId);
       terminate(child);
+      return;
+    }
+    const rejectNotebookRun = this.notebookCancels.get(input.invocationId);
+    if (rejectNotebookRun) {
+      this.cancelledInvocations.add(input.invocationId);
+      rejectNotebookRun();
       return;
     }
     if (this.activeInvocations.has(input.invocationId)) {
@@ -110,7 +142,10 @@ export class LocalProcessRuntimeProvider implements RuntimeProvider {
   }
 
   resolvesEntry(entry: string): boolean {
-    return Object.hasOwn(this.entries, entry);
+    // Notebook entries resolve from the manifest's own graduation snapshot,
+    // not the fixed registry; the graduation flow validates that the named
+    // cell exists in the graduating notebook.
+    return notebookEntryFilename(entry) !== null || Object.hasOwn(this.entries, entry);
   }
 
   async heartbeat(): Promise<void> {}
@@ -209,23 +244,151 @@ export class LocalProcessRuntimeProvider implements RuntimeProvider {
       child.stdin?.end();
     });
   }
+
+  /**
+   * Execute a graduated notebook's entry cell from the manifest's code
+   * snapshot: materialize the snapshot into a scratch directory using the
+   * notebook execution engine's disk layout (src/<filename>, package.json,
+   * tsconfig.json), hand the invocation payload to the cell via
+   * TB_PEER_INPUT_PATH, run the cell through executeCodeCell under the
+   * manifest budget, and read `{ result, artifacts }` from TB_PEER_OUTPUT_PATH.
+   */
+  private async runNotebookEntry(
+    input: RuntimeInvocationInput,
+    entryCellFilename: string,
+    payload: string,
+  ): Promise<RuntimeInvocationResult> {
+    const snapshot = this.requireNotebookSnapshot(input, entryCellFilename);
+    const workDir = await fs.mkdtemp(path.join(os.tmpdir(), "tb-peer-run-"));
+
+    try {
+      if (snapshot.tsconfigJson) {
+        await writeTsconfigToDisk(workDir, snapshot.tsconfigJson);
+      }
+      if (snapshot.packageJson) {
+        await writePackageJsonToDisk(workDir, snapshot.packageJson);
+      }
+      for (const cell of snapshot.cells) {
+        await writeCodeCellToDisk(workDir, cell.filename, cell.source);
+      }
+
+      const inputPath = path.join(workDir, `peer-input-${randomUUID()}.json`);
+      const outputPath = path.join(workDir, `peer-output-${randomUUID()}.json`);
+      await fs.writeFile(inputPath, payload, "utf8");
+
+      const timeoutMs = input.budgets.maxDurationMs;
+      const cancelSignal = new Promise<never>((_, reject) => {
+        this.notebookCancels.set(input.invocationId, () => {
+          reject(new Error(`Peer process cancelled for invocation ${input.invocationId}`));
+        });
+      });
+
+      const execution = await Promise.race([
+        executeCodeCell(entryCellFilename, snapshot.language, {
+          cwd: workDir,
+          env: { TB_PEER_INPUT_PATH: inputPath, TB_PEER_OUTPUT_PATH: outputPath },
+          timeout: timeoutMs,
+        }),
+        cancelSignal,
+      ]);
+
+      if (this.cancelledInvocations.has(input.invocationId)) {
+        throw new Error(`Peer process cancelled for invocation ${input.invocationId}`);
+      }
+      if (!execution.success) {
+        // The engine reports its budget SIGTERM as exitCode -1 plus this
+        // stderr marker (src/notebook/execution.ts executeCommand).
+        if (/Execution timed out after \d+ms/.test(execution.stderr)) {
+          throw new PeerNotebookError(
+            "timeout",
+            `Peer notebook cell exceeded budget maxDurationMs=${timeoutMs} for invocation ${input.invocationId}`,
+          );
+        }
+        throw new Error(
+          `Peer notebook cell ${entryCellFilename} exited with ${execution.exitCode ?? "unknown"} ` +
+            `for invocation ${input.invocationId}: ${(execution.stderr || execution.stdout).slice(0, STDERR_LIMIT)}`,
+        );
+      }
+
+      let resultJson: string;
+      try {
+        resultJson = await fs.readFile(outputPath, "utf8");
+      } catch {
+        throw new PeerNotebookError(
+          "invalid_result",
+          `Peer notebook cell ${entryCellFilename} wrote no result to TB_PEER_OUTPUT_PATH for invocation ${input.invocationId}`,
+        );
+      }
+      return parseRuntimeResult(resultJson);
+    } finally {
+      this.notebookCancels.delete(input.invocationId);
+      await fs.rm(workDir, { recursive: true, force: true }).catch(() => {});
+    }
+  }
+
+  private requireNotebookSnapshot(
+    input: RuntimeInvocationInput,
+    entryCellFilename: string,
+  ): PeerNotebookCodeSnapshot {
+    const snapshot = input.notebook;
+    if (!snapshot) {
+      throw new PeerNotebookError(
+        "invalid_args",
+        `Peer ${input.peerId} runtime.entry "${input.entry}" requires the graduation code snapshot, ` +
+          "but the manifest record carries none (compiledFrom.notebook is absent)",
+      );
+    }
+    if (snapshot.entryFilename !== entryCellFilename) {
+      throw new PeerNotebookError(
+        "invalid_args",
+        `Peer ${input.peerId} runtime.entry "${input.entry}" does not match the graduation snapshot ` +
+          `entry cell "${snapshot.entryFilename}"`,
+      );
+    }
+    if (!snapshot.cells.some(cell => cell.filename === entryCellFilename)) {
+      throw new PeerNotebookError(
+        "invalid_args",
+        `Peer ${input.peerId} graduation snapshot has no code cell named "${entryCellFilename}"`,
+      );
+    }
+    return snapshot;
+  }
 }
 
 async function fetchInputArtifact(input: RuntimeInvocationInput): Promise<JsonValue | null> {
-  const textArtifactId = input.args.textArtifactId;
-  if (input.tool === "extract_claims" && typeof textArtifactId !== "string") {
+  const inputArtifactId = resolveInputArtifactId(input);
+  if (input.tool === "extract_claims" && inputArtifactId === null) {
     throw new PeerNotebookError("invalid_args", "extract_claims requires textArtifactId");
   }
-  if (typeof textArtifactId !== "string") {
+  if (inputArtifactId === null) {
     return null;
   }
 
-  const read = await input.brokerProxy.callTool("artifact.get", { artifactId: textArtifactId });
+  const read = await input.brokerProxy.callTool("artifact.get", { artifactId: inputArtifactId });
   if (!read.ok) {
     throw new PeerNotebookError("outbound_denied", read.error.message);
   }
   const body = read.result as { artifact?: { content?: JsonValue } };
   return body.artifact?.content ?? null;
+}
+
+/**
+ * Input-artifact convention: the invocation's single brokered input is named
+ * by an arg ending in "ArtifactId" (textArtifactId for the claim-extractor
+ * pilot, claimsArtifactId for contradiction-scan, ...). textArtifactId keeps
+ * priority for pilot parity; otherwise the lexicographically first match wins
+ * so the fetch is deterministic.
+ */
+function resolveInputArtifactId(input: RuntimeInvocationInput): string | null {
+  const direct = input.args.textArtifactId;
+  if (typeof direct === "string") {
+    return direct;
+  }
+  const candidateKeys = Object.keys(input.args)
+    .filter(key => key.endsWith("ArtifactId") && typeof input.args[key] === "string")
+    .sort();
+  const key = candidateKeys[0];
+  return key === undefined ? null : (input.args[key] as string);
 }
 
 function scriptCommand(scriptPath: string): { command: string; commandArgs: string[] } {
