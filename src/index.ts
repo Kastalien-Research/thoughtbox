@@ -44,6 +44,7 @@ import {
   createProtocolHttpSurface,
   type ProtocolEnforcementHandler,
 } from "./http/protocol-http.js";
+import { createSupabaseProtocolHandler } from "./protocol/index.js";
 import { resolveRequestAuth } from "./auth/resolve-request-auth.js";
 import { ensureStaticWorkspace } from "./auth/static-workspace.js";
 import { mountOtlpRoutes } from "./otel/index.js";
@@ -459,6 +460,10 @@ async function startHttpServer() {
           transport,
           server,
           workspaceId: workspaceId!,
+          // Hosted enforcement never consults live session handlers: the
+          // /protocol/enforcement route below resolves protocol state
+          // per-workspace straight from Supabase, so it works even when no
+          // MCP session for that workspace is alive in this container.
           protocolHandler: null,
         });
         transport.onclose = () => {
@@ -562,15 +567,64 @@ async function startHttpServer() {
   );
 
   // ---------------------------------------------------------------------------
-  // Hub Event SSE Endpoint — pushes HubEvents to Channel subscribers
+  // Protocol enforcement surface (`POST /protocol/enforcement`) — mounted in
+  // BOTH modes. This is the hook-facing gate behind protocol_gate.sh.
+  //
+  // Hosted (multi-tenant): a single storage-backed ProtocolHandler resolves
+  // protocol_sessions/protocol_scope from Supabase per authenticated
+  // workspace. No live in-process session handler is required, so the gate
+  // holds across container restarts and for sessions served by other
+  // instances. Requests must carry a tbx_* API key or OAuth JWT; the
+  // resolved workspace — never the request body — decides the scope.
+  //
+  // Local: every live MCP session's protocol handler is consulted and a
+  // block from any of them wins (per-session in-memory protocol state means
+  // no single handler sees all active protocol sessions).
   // ---------------------------------------------------------------------------
 
-  const protocolHttpSurface = createProtocolHttpSurface(() => {
-    for (const entry of sessions.values()) {
-      if (entry.protocolHandler) return entry.protocolHandler;
+  const hostedEnforcementHandler: ProtocolEnforcementHandler | null =
+    isMultiTenant
+      ? createSupabaseProtocolHandler({
+          supabaseUrl: process.env.SUPABASE_URL!,
+          serviceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY!,
+        })
+      : null;
+
+  const resolveEnforcementWorkspace = async (req: Request): Promise<string> => {
+    const authHeader = req.headers.authorization as string | undefined;
+    const token = authHeader?.startsWith("Bearer ")
+      ? authHeader.slice(7)
+      : undefined;
+    if (token && !token.startsWith("tbx_")) {
+      const claims = await verifyOAuthToken(token);
+      return claims.workspace_id;
     }
-    return null;
-  });
+    // tbx_* Bearer key or ?key= query param.
+    return resolveRequestAuth(req);
+  };
+
+  const protocolHttpSurface = createProtocolHttpSurface(
+    isMultiTenant
+      ? {
+          getHandlers: () =>
+            hostedEnforcementHandler ? [hostedEnforcementHandler] : [],
+          resolveWorkspaceId: resolveEnforcementWorkspace,
+        }
+      : {
+          getHandlers: () =>
+            [...sessions.values()]
+              .map((entry) => entry.protocolHandler)
+              .filter(
+                (handler): handler is ProtocolEnforcementHandler =>
+                  handler !== null,
+              ),
+        },
+  );
+  protocolHttpSurface.mount(app);
+
+  // ---------------------------------------------------------------------------
+  // Hub Event SSE Endpoint — pushes HubEvents to Channel subscribers
+  // ---------------------------------------------------------------------------
 
   // Local-mode hub HTTP surface (`POST /hub/api`). Its thought store
   // delegates to real filesystem session storage scoped to the local
@@ -586,7 +640,6 @@ async function startHttpServer() {
 
     eventStream.mount(app);
     hubApiSurface.mount(app);
-    protocolHttpSurface.mount(app);
   }
 
   // ---------------------------------------------------------------------------

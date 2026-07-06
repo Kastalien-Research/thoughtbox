@@ -3,7 +3,7 @@
  * Uses Supabase as the persistence backend with workspace isolation (ADR-013).
  */
 
-import type { SupabaseClient } from '@supabase/supabase-js';
+import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import type { Database, Json } from '../database.types.js';
 import type { ThoughtboxEvent, OnThoughtboxEvent } from '../events/types.js';
 import type { ValidatorService } from '../notebook/validator.js';
@@ -25,6 +25,27 @@ import {
   type ProtocolEnforcementInput,
   type ProtocolEnforcementResult,
 } from './types.js';
+
+/**
+ * Build a Supabase-backed ProtocolHandler for hosted enforcement lookups.
+ *
+ * Used by the multi-tenant `/protocol/enforcement` route: checkEnforcement
+ * resolves protocol_sessions/protocol_scope per `input.workspaceId` straight
+ * from storage, so no per-session in-process handler (and no validator
+ * service) is required for enforcement decisions.
+ */
+export function createSupabaseProtocolHandler(options: {
+  supabaseUrl: string;
+  serviceRoleKey: string;
+  onEvent?: OnThoughtboxEvent;
+}): ProtocolHandler {
+  const client = createClient<Database>(
+    options.supabaseUrl,
+    options.serviceRoleKey,
+    { auth: { persistSession: false, autoRefreshToken: false } },
+  );
+  return new ProtocolHandler(client, options.onEvent);
+}
 
 export class ProtocolHandler {
   private workspaceId: string | null = null;

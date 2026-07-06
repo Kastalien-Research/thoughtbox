@@ -1,4 +1,4 @@
-export { ProtocolHandler } from './handler.js';
+export { ProtocolHandler, createSupabaseProtocolHandler } from './handler.js';
 export { InMemoryProtocolHandler } from './in-memory-handler.js';
 
 export {
