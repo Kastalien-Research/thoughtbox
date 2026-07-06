@@ -98,6 +98,12 @@ interface TB {
     listRuns(args?: { notebookId?: string }): Promise<unknown>;
     cancelRun(args: { runId: string; reason?: string }): Promise<unknown>;
     getArtifact(args: { artifactId: string }): Promise<unknown>;
+    /**
+     * Read the fitness ledger for a runbook template (SPEC-AGX-SUBSTRATE §7):
+     * per-version aggregates (instances, pass rate, error rate, distinct agents)
+     * from machine-checked expectation rows only. templateId = the source notebook id.
+     */
+    fitness(args: { templateId: string; templateVersion?: number; includeRows?: boolean }): Promise<unknown>;
   };
 
   /** Theseus Protocol: friction-gated refactoring. Source: src/protocol/theseus-tool.ts */

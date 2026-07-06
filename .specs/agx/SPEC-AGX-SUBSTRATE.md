@@ -458,6 +458,7 @@ block and §9 are the pre-registration. Update the table as units land.
 | Author durable, versioned runbook templates; every run is an append-only instance, resumable by instance id | `tb.notebook.*` over `RunbookStorage` | c3 / #399 + #401 |
 | Contract-governed, ordered cell execution — document order enforced, predicted failures pass, real failures halt; tier-1 declarative + tier-2 validator outcome contracts, hash-verified | notebook engine (B5) | c3 / #399 + #402 |
 | Accrue a fitness ledger — hypothesis-vs-actual per template version, only machine-checked outcomes contribute | `runbook_fitness_ledger` aggregates | c7 / #401 |
+| Read the fitness ledger back — per-version aggregates (instances, pass rate, error rate, distinct agents) and raw rows via the public tool surface | `tb.notebook.fitness` (`notebook_fitness`) | c7 read path (2026-07-06) |
 | Keep shell, filesystem, and code editing native and unmediated — the substrate wraps only trust-boundary verbs | (invariant; §10) | c10 |
 
 **Not yet — the unbuilt joins:**

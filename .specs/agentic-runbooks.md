@@ -51,6 +51,10 @@ The model using Thoughtbox must be able to discover these capabilities without r
 - `thoughtbox://notebook/capabilities` summarizes modes, templates, required inputs, expected outputs, and example operation sequences
 - `list_mcp_assets` describes notebooks as an evidence engine, not only a scratchpad
 - Code Mode SDK types include `tb.notebook.persist`, `startRun`, `getRun`, `listRuns`, `cancelRun`, and `getArtifact`
+- The fitness ledger is readable, not write-only: `notebook_fitness` / `tb.notebook.fitness`
+  returns per-template-version aggregates (instances, evaluated, passed, pass rate, error
+  rate, distinct agents) and optionally the raw ledger rows (SPEC-AGX-SUBSTRATE §7 read path,
+  added 2026-07-06)
 
 ## Legacy Section Note
 

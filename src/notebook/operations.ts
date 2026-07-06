@@ -412,6 +412,37 @@ When 'expectedSnapshotHash' is provided, the operation refuses to run if the cel
     example: { artifactId: "nba_abc123" },
   },
   {
+    name: "notebook_fitness",
+    title: "Read Runbook Fitness",
+    description:
+      "Read the fitness ledger for a runbook template (SPEC-AGX-SUBSTRATE §7). " +
+      "Returns per-version aggregates — instances, evaluated/passed expectation counts, " +
+      "pass rate, error rate, distinct agents — computed from machine-checked ledger rows " +
+      "only. Without templateVersion, aggregates for every recorded version are returned. " +
+      "The templateId is the notebook id that produced the template (notebook_start_run " +
+      "versions a notebook's cells automatically).",
+    category: "evidence-engine",
+    inputSchema: {
+      type: "object",
+      properties: {
+        templateId: {
+          type: "string",
+          description: "Runbook template ID (the source notebook's id)",
+        },
+        templateVersion: {
+          type: "integer",
+          description: "Optional template version; omit for aggregates across all versions",
+        },
+        includeRows: {
+          type: "boolean",
+          description: "Include the raw fitness ledger rows in the response",
+        },
+      },
+      required: ["templateId"],
+    },
+    example: { templateId: "abc123", templateVersion: 1 },
+  },
+  {
     name: "notebook_export",
     title: "Export Notebook",
     description: `Export a notebook to .src.md format.

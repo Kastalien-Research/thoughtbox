@@ -911,6 +911,57 @@ export class NotebookHandler {
     return { success: true, run };
   }
 
+  /**
+   * Handle notebook_fitness tool call (SPEC-AGX-SUBSTRATE §7 read path).
+   *
+   * Reads the fitness ledger for a runbook template and returns per-version
+   * aggregates. Only machine-checked expectation evaluations contribute —
+   * pass rate counts rows that reached a pass/fail verdict; error and
+   * skipped rows are carried separately and never inflate it.
+   */
+  async handleFitness(args: any): Promise<any> {
+    const { templateId, templateVersion, includeRows } = args;
+    if (!templateId || typeof templateId !== "string") {
+      throw new Error("templateId is required and must be a string");
+    }
+    if (
+      templateVersion !== undefined &&
+      (!Number.isInteger(templateVersion) || templateVersion < 1)
+    ) {
+      throw new Error("templateVersion must be a positive integer if provided");
+    }
+    if (includeRows !== undefined && typeof includeRows !== "boolean") {
+      throw new Error("includeRows must be a boolean if provided");
+    }
+
+    const storage = this.engineRuntime.storage;
+    const versions = await storage.listTemplateVersions(templateId);
+    if (versions.length === 0) {
+      throw new Error(
+        `No template versions recorded for ${templateId} — run the notebook ` +
+          `(notebook_start_run) to version its cells and accrue fitness first`,
+      );
+    }
+    if (templateVersion !== undefined && !versions.includes(templateVersion)) {
+      throw new Error(
+        `Template ${templateId} has no version ${templateVersion}; ` +
+          `recorded versions: ${versions.join(", ")}`,
+      );
+    }
+
+    const targetVersions = templateVersion !== undefined ? [templateVersion] : versions;
+    const aggregates = [];
+    for (const version of targetVersions) {
+      aggregates.push(await storage.getFitnessAggregate(templateId, version));
+    }
+
+    const result: any = { success: true, templateId, versions, aggregates };
+    if (includeRows === true) {
+      result.rows = await storage.listFitnessRows(templateId, templateVersion);
+    }
+    return result;
+  }
+
   async handleGetArtifact(args: any): Promise<any> {
     const { artifactId } = args;
     if (!artifactId || typeof artifactId !== "string") {
@@ -1015,6 +1066,9 @@ export class NotebookHandler {
           break;
         case "get_artifact":
           result = await this.handleGetArtifact(args);
+          break;
+        case "fitness":
+          result = await this.handleFitness(args);
           break;
         default:
           throw new Error(`Unknown notebook operation: ${operation}`);
