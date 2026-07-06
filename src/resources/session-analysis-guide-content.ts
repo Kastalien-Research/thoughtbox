@@ -70,7 +70,6 @@ Use the structural metrics to guide your analysis:
 |--------|----------------|
 | High \`revisionRate\` | Look for anti-patterns - what needed correction |
 | Low \`linearityScore\` | Look for branch exploration patterns |
-| \`critiqueRequests\` > 0 | Check critique responses for quality signals |
 | \`isComplete\` = true | Session reached natural conclusion |
 | \`hasConvergence\` = true | Branching resolved to a decision |
 

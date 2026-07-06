@@ -39,7 +39,7 @@ The Hub is the coordination layer. Agents register with role-specific profiles, 
 
 Every thought is a node in a graph — numbered, timestamped, linked to its predecessors, and persisted across sessions. This creates an auditable trail of how conclusions were reached.
 
-Agents can think forward, plan backward, branch into parallel explorations, revise earlier conclusions, and request autonomous critique via MCP sampling. Each pattern is a first-class operation:
+Agents can think forward, plan backward, branch into parallel explorations, and revise earlier conclusions. Each pattern is a first-class operation:
 
 | Pattern | Description | Use Case |
 |---------|-------------|----------|
@@ -47,7 +47,6 @@ Agents can think forward, plan backward, branch into parallel explorations, revi
 | **Backward** | Start at goal (N), work back to start (1) | Planning, system design, working from known goals |
 | **Branching** | Fork into parallel explorations (A, B, C...) | Comparing alternatives, A/B scenarios |
 | **Revision** | Update earlier thoughts with new information | Error correction, refined understanding |
-| **Critique** | Autonomous LLM review via MCP sampling | Self-checking, quality gates |
 
 Each thought carries a semantic `thoughtType` (`reasoning`, `decision_frame`, `action_report`, `belief_snapshot`, `assumption_update`, `context_snapshot`, `progress`) that classifies *what kind* of thought it is, orthogonal to the process pattern used.
 
@@ -250,8 +249,6 @@ src/
 │   ├── tool-handler.ts     # Init tool operations
 │   └── state-manager.ts    # Session state persistence
 ├── sessions/               # Session management
-├── sampling/               # Autonomous critique via MCP sampling
-│   └── handler.ts          # SamplingHandler for LLM critique requests
 ├── persistence/            # Storage layer
 │   ├── storage.ts          # InMemoryStorage with LinkedThoughtStore
 │   ├── filesystem-storage.ts  # FileSystemStorage with atomic writes

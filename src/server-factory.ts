@@ -58,7 +58,6 @@ import {
 } from "./init/index.js";
 import { ThoughtHandler } from "./thought-handler.js";
 import { ThoughtboxEventEmitter } from "./events/index.js";
-import { SamplingHandler } from "./sampling/index.js";
 import { ThoughtQueryHandler } from "./resources/thought-query-handler.js";
 
 import { KnowledgeTool } from "./knowledge/tool.js";
@@ -336,12 +335,6 @@ Use \`console.log()\` for debugging — output captured in response logs.`;
     storage,
     sessionId // MCP session ID for isolation
   );
-
-  // Wire up SamplingHandler for autonomous critique (Phase 3: Sampling Loops)
-  // Uses deferred pattern - protocol.request() only works when transport is connected
-  // By the time thoughtbox tool is called with critique=true, transport is already connected
-  const samplingHandler = new SamplingHandler(server.server as any);
-  thoughtHandler.setSamplingHandler(samplingHandler);
 
   // SIL-104: Wire up event emitter for external event stream (JSONL)
   // Configuration via environment variables:

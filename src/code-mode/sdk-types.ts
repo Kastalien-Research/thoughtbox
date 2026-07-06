@@ -36,7 +36,6 @@ interface TB {
     includeGuide?: boolean;
     sessionTitle?: string;
     sessionTags?: string[];
-    critique?: boolean;
     verbose?: boolean;
     confidence?: "high" | "medium" | "low";
     options?: Array<{ label: string; selected: boolean; reason?: string }>;

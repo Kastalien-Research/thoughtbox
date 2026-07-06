@@ -170,18 +170,6 @@ export interface ThoughtData {
   contentHash?: string;
   parentHash?: string;
 
-  /**
-   * Autonomous critique metadata (Phase 3: Sampling Loops)
-   * Generated when critique parameter is enabled in thoughtbox tool
-   */
-  critique?: {
-    /** The critique text from the sampled model */
-    text: string;
-    /** Model that generated the critique */
-    model: string;
-    /** ISO 8601 timestamp when critique was generated */
-    timestamp: string;
-  };
 }
 
 /**
@@ -397,16 +385,11 @@ export interface AuditManifest {
     partiallyReversible: number;
   };
   gaps: Array<{
-    type: 'decision_without_action' | 'critique_override';
+    type: 'decision_without_action';
     thoughtNumber: number;
     description: string;
   }>;
   assumptionFlips: number;
-  critiques: {
-    generated: number;
-    addressed: number;
-    overridden: number;
-  };
 }
 
 // =============================================================================
@@ -513,7 +496,6 @@ export interface SessionAnalysis {
     thoughtDensity: number;     // Thoughts per minute
   };
   quality: {
-    critiqueRequests: number;   // Thoughts with critique: true
     hasConvergence: boolean;    // Main chain continues after branches
     isComplete: boolean;        // Final thought has nextThoughtNeeded: false
   };
@@ -693,16 +675,6 @@ export interface ThoughtboxStorage {
    * Get all thoughts for a branch
    */
   getBranch(sessionId: string, branchId: string): Promise<ThoughtData[]>;
-
-  /**
-   * Update a thought with critique metadata (Phase 3: Sampling Loops)
-   * Called after sampling API returns critique results
-   */
-  updateThoughtCritique(
-    sessionId: string,
-    thoughtNumber: number,
-    critique: { text: string; model: string; timestamp: string }
-  ): Promise<void>;
 
   // ---------------------------------------------------------------------------
   // Export Operations

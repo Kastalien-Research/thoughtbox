@@ -463,7 +463,6 @@ export class SessionHandlers {
           thoughtDensity: 0,
         },
         quality: {
-          critiqueRequests: 0,
           hasConvergence: false,
           isComplete: false,
         },
@@ -498,7 +497,6 @@ export class SessionHandlers {
     const thoughtDensity = durationMinutes > 0 ? thoughts.length / durationMinutes : 0;
 
     // Quality indicators
-    const critiqueRequests = thoughts.filter((t) => t.critique).length;
     const lastThought = thoughts[thoughts.length - 1];
 
     // True convergence: main-chain thoughts exist AFTER branch thoughts
@@ -533,7 +531,6 @@ export class SessionHandlers {
         thoughtDensity: Math.round(thoughtDensity * 100) / 100,
       },
       quality: {
-        critiqueRequests,
         hasConvergence,
         isComplete,
       },
@@ -639,7 +636,6 @@ export class SessionHandlers {
           revisions: analysis.metadata.revisionCount,
           duration: analysis.metadata.duration,
           linearityScore: analysis.structure.linearityScore,
-          critiqueUsage: analysis.quality.critiqueRequests,
         },
       };
 

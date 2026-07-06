@@ -61,7 +61,6 @@ function makeManifest(sessionId: string): AuditManifest {
       },
     ],
     assumptionFlips: 1,
-    critiques: { generated: 0, addressed: 0, overridden: 0 },
   };
 }
 

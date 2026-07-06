@@ -839,17 +839,6 @@ export class InMemoryStorage implements ThoughtboxStorage {
     return nodes.map(node => node.data);
   }
 
-  async updateThoughtCritique(
-    sessionId: string,
-    thoughtNumber: number,
-    critique: { text: string; model: string; timestamp: string }
-  ): Promise<void> {
-    const node = this.linkedStore.getThoughtByNumber(sessionId, thoughtNumber);
-    if (node) {
-      node.data.critique = critique;
-    }
-  }
-
   // ===========================================================================
   // Export Operations
   // ===========================================================================

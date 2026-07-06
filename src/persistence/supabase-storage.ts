@@ -212,7 +212,6 @@ export class SupabaseStorage implements ThoughtboxStorage {
     if (row.agent_name) thought.agentName = row.agent_name;
     if (row.content_hash) thought.contentHash = row.content_hash;
     if (row.parent_hash) thought.parentHash = row.parent_hash;
-    if (row.critique) thought.critique = row.critique as ThoughtData['critique'];
 
     return thought;
   }
@@ -243,7 +242,6 @@ export class SupabaseStorage implements ThoughtboxStorage {
       agent_name: thought.agentName ?? null,
       content_hash: thought.contentHash ?? null,
       parent_hash: thought.parentHash ?? null,
-      critique: thought.critique ?? null,
     };
   }
 
@@ -548,23 +546,6 @@ export class SupabaseStorage implements ThoughtboxStorage {
 
     if (error) throw new Error(`Failed to get branch: ${error.message}`);
     return (data || []).map((row) => this.rowToThought(row as ThoughtRow));
-  }
-
-  async updateThoughtCritique(
-    sessionId: string,
-    thoughtNumber: number,
-    critique: { text: string; model: string; timestamp: string },
-  ): Promise<void> {
-    const client = this.ensureClient();
-    const { error } = await client
-      .from('thoughts')
-      .update({ critique })
-      .eq('session_id', sessionId)
-      .eq('workspace_id', this.workspaceId)
-      .eq('thought_number', thoughtNumber)
-      .is('branch_id', null);
-
-    if (error) throw new Error(`Failed to update critique: ${error.message}`);
   }
 
   // ===========================================================================

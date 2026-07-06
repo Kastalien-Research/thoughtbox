@@ -76,8 +76,7 @@ The server consists of several interconnected components:
 3. **Resource Embedding**: Responses include contextual documentation as embedded resources
 4. **Streamable HTTP**: Single transport via Express with per-session server instances
 5. **Lazy Initialization**: Resources created on-demand, not at startup
-6. **Autonomous Critique**: Optional LLM sampling for thought analysis via MCP sampling API
-7. **Persistent Sessions**: File-based storage with atomic writes and project isolation
+6. **Persistent Sessions**: File-based storage with atomic writes and project isolation
 
 ## Tool Surface
 

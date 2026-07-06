@@ -179,29 +179,6 @@ describe('generateAuditData', () => {
     ).toHaveLength(0);
   });
 
-  it('detects critique overrides', () => {
-    const thoughts = [
-      thought({
-        thoughtNumber: 1,
-        thoughtType: 'reasoning',
-        critique: {
-          text: 'Consider edge cases for authentication flow',
-          model: 'test',
-          timestamp: new Date().toISOString(),
-        },
-      }),
-      thought({ thoughtNumber: 2, thoughtType: 'reasoning' }),
-    ];
-    thoughts[1].thought =
-      'Moving on to the database schema design';
-    const result = generateAuditData('sess-1', thoughts);
-    expect(result.critiques.generated).toBe(1);
-    expect(result.critiques.overridden).toBe(1);
-    expect(
-      result.gaps.some((g) => g.type === 'critique_override')
-    ).toBe(true);
-  });
-
   it('counts assumption flips', () => {
     const thoughts = [
       thought({
