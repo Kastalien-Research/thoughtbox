@@ -34,7 +34,12 @@ claims:
     statement: The deployed product inspection surface is the Next.js web app reading Supabase peer rows, not the legacy src/observatory server
     type: governance
     behavioral: false
-    required_evidence: DIAGRAMS.md and spec define the web app read model without depending on src/observatory
+    required_evidence: DIAGRAMS.md and spec define the web app read model without depending on src/observatory. First delivered surface is the read-only peers page at apps/web/src/app/w/[workspaceSlug]/peers/page.tsx, reading peer_notebooks, peer_manifests, and peer_invocations through the authed workspace-member RLS policies
+  - id: c7
+    statement: A graduated notebook's own code cells are executable through the runtime provider - graduation captures an immutable code snapshot on the manifest record and the local-process provider runs the snapshot's entry cell through the notebook execution engine, so graduation is invocability, not ceremony
+    type: implementation
+    behavioral: true
+    required_evidence: Manifests whose runtime.entry is "notebook:<cellFilename>" graduate with compiledFrom.notebook (PeerNotebookCodeSnapshot in src/peer-notebook/types.ts) - the notebook's code cells (manifest cell excluded), package.json cell, tsconfig, and language, captured as data by buildNotebookCodeSnapshot in src/peer-notebook/handler.ts. The broker threads the snapshot into RuntimeInvocationInput.notebook; LocalProcessRuntimeProvider.runNotebookEntry materializes it into a scratch directory and executes the entry cell via executeCodeCell/writeCodeCellToDisk from src/notebook/execution.ts under the manifest budget, with the peer cell protocol TB_PEER_INPUT_PATH -> TB_PEER_OUTPUT_PATH. Graduation rejects notebook entries whose cell is missing and package.json cells declaring dependencies (v1 dependency-free boundary). Evidence is src/peer-notebook/__tests__/graduation-execution.test.ts - author -> graduate -> approve -> invoke from a FRESH handler session sharing only the repository, real cell output, trace events, plus the negative paths - exercised by the first graduated peer, contradiction-scan (src/peer-notebook/peers/contradiction-scan-notebook.ts)
 links:
   - docs/decisions/archive/adr/staging/ADR-022.json
   - .specs/mcp-peer-notebooks/DIAGRAMS.md
@@ -152,6 +157,39 @@ registered claim-extractor entry, supersession, malformed JSON, missing
 manifest cell, schema violation, unregistered entry, missing entry, wrong
 provider, notebookId mismatch, unknown notebook) and the durable graduation
 test in `src/peer-notebook/__tests__/supabase-repository.test.ts`.
+
+Implementation note: the graduation-execution slice (c7) closes the loop the
+5.4 note left open - graduated notebooks are now runnable, not just compiled.
+A manifest may declare `runtime.entry: "notebook:<cellFilename>"`. At
+graduation, `buildNotebookCodeSnapshot` (`src/peer-notebook/handler.ts`)
+captures the notebook's executable surface as pure data onto the manifest
+record (`compiledFrom.notebook`, type `PeerNotebookCodeSnapshot`): every code
+cell except `peer.manifest.json`, the package.json cell, the tsconfig, and the
+language. The snapshot is immutable execution source - invocations never read
+live notebook state, so the peer works from any later session once approved.
+The broker threads the snapshot into `RuntimeInvocationInput.notebook`, and
+`LocalProcessRuntimeProvider.runNotebookEntry` materializes it into a scratch
+directory and executes the entry cell THROUGH the notebook execution engine
+(`writeCodeCellToDisk`/`writePackageJsonToDisk`/`writeTsconfigToDisk`/
+`executeCodeCell` from `src/notebook/execution.ts`) under the manifest budget.
+Peer cell protocol: the cell reads `{ invocationId, tool, args,
+artifactContent }` JSON from `TB_PEER_INPUT_PATH` and writes
+`{ result, artifacts }` JSON to `TB_PEER_OUTPUT_PATH` (the sidecar-file analog
+of the builtin stdin/stdout protocol, matching the engine's TB_OUTPUT_PATH
+pattern). Boundaries: notebook peers are dependency-free in v1 (a package.json
+cell declaring dependencies is rejected at graduation - no install step runs
+at invoke time); the brokered input artifact is named by an arg ending in
+`ArtifactId` (`textArtifactId` keeps pilot priority); `cancel()` during a
+notebook-cell run rejects the invocation immediately but the child is only
+reaped by the engine's budget timeout (development-only provider, documented
+gap); the RuntimeProvider contract seam is unchanged, so the deferred smolvm
+unit can implement the same snapshot execution behind real isolation. The
+first graduated peer is contradiction-scan
+(`src/peer-notebook/peers/contradiction-scan-notebook.ts`): authored as
+notebook cells, it takes a claims artifact and returns deterministic
+contradiction candidates (negation, antonym, numeric mismatch) as
+`contradictions.json` - the merge-evidence flow's candidate feed. Evidence:
+`src/peer-notebook/__tests__/graduation-execution.test.ts`.
 
 ## Non-Goals
 

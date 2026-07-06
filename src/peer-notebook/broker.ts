@@ -131,6 +131,7 @@ export class PeerBroker {
           tool: input.tool,
           args: input.args,
           entry: manifest.manifest.runtime.entry,
+          notebook: manifest.compiledFrom.notebook,
           brokerProxyUrl: "memory://broker-proxy",
           scopedToken,
           budgets: manifest.manifest.budgets,
