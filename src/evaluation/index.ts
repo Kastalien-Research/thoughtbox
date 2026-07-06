@@ -4,10 +4,15 @@
  *
  * Unified evaluation system built on LangSmith.
  *
- * Phase 1: Trace listener + types + config
- * Phase 2: Datasets + evaluators
- * Phase 3: Experiment runner
- * Phase 4 (current): Online monitoring
+ * Kept layers:
+ * - Layer 1: LangSmith trace listener (initEvaluation)
+ * - Layer 2: DatasetManager
+ * - Layer 4: ExperimentRunner (evaluator-agnostic)
+ *
+ * Removed (2026-07): the built-in heuristic evaluators (Layer 3) and the
+ * OnlineMonitor (Layer 5). They scored thought volume, not task outcomes.
+ * Evaluators are now caller-supplied; the causal-lift instrument lives in
+ * scripts/eval-run.ts.
  *
  * Quick Start:
  * ```ts
@@ -19,13 +24,11 @@
  */
 
 import { thoughtEmitter } from "../events/index.js";
-import type { ThoughtEmitterEvents } from "../events/index.js";
-import { loadLangSmithConfig, isLangSmithEnabled } from "./langsmith-config.js";
+import { loadLangSmithConfig } from "./langsmith-config.js";
 import { getSharedClient } from "./client.js";
 import { DatasetManager } from "./dataset-manager.js";
 import { ExperimentRunner } from "./experiment-runner.js";
 import { LangSmithTraceListener } from "./trace-listener.js";
-import { OnlineMonitor } from "./online-monitor.js";
 
 // Types
 export type {
@@ -34,15 +37,11 @@ export type {
   EvalTask,
   CollectionTask,
   DeploymentTask,
-  EvaluatorName,
+  Evaluator,
+  EvaluatorArgs,
   RunExperimentOptions,
   ExperimentRunResult,
   RegressionCheckResult,
-  MemoryDesignArchiveEntry,
-  MonitoringAlert,
-  AlertSeverity,
-  AlertType,
-  MonitorConfig,
 } from "./types.js";
 
 // Client
@@ -60,19 +59,6 @@ export type { TraceListenerOptions } from "./trace-listener.js";
 
 // Experiment runner
 export { ExperimentRunner } from "./experiment-runner.js";
-
-// Online monitor
-export { OnlineMonitor } from "./online-monitor.js";
-
-// Evaluators
-export {
-  sessionQualityEvaluator,
-  memoryQualityEvaluator,
-  dgmFitnessEvaluator,
-  reasoningCoherenceEvaluator,
-  getEvaluator,
-  getAllEvaluators,
-} from "./evaluators/index.js";
 
 /**
  * Initialize the evaluation system.
@@ -132,55 +118,11 @@ export function initExperimentRunner(): ExperimentRunner {
 }
 
 /**
- * Log a monitoring alert as a structured stderr line so production
- * alerts emitted by OnlineMonitor are visible in Cloud Run logs.
+ * @deprecated The OnlineMonitor (Layer 5) was removed — it scored thought
+ * volume, not outcomes. This no-op shim exists only so the call site in
+ * src/index.ts keeps compiling until it is removed; delete this function
+ * together with that call site.
  */
-function logMonitoringAlert(alert: ThoughtEmitterEvents["monitoring:alert"]): void {
-  console.error(`[Evaluation] monitoring:alert ${JSON.stringify(alert)}`);
-}
-
-let alertSinkAttached = false;
-
-/**
- * Detach the monitoring:alert stderr sink from the ThoughtEmitter singleton.
- *
- * Mirrors resetClient: intended for test teardown so the process-level
- * listener does not leak across test files.
- */
-export function resetAlertSink(): void {
-  thoughtEmitter.off("monitoring:alert", logMonitoringAlert);
-  alertSinkAttached = false;
-}
-
-/**
- * Initialize Layer 5 online monitoring.
- *
- * Subscribes to session events and scores production sessions
- * using the same evaluator pipeline as offline experiments.
- * Also attaches a stderr sink for monitoring:alert events so
- * regressions and anomalies surface in process logs.
- *
- * Requires a trace listener instance to look up LangSmith run IDs.
- * Returns null if LangSmith is not configured.
- */
-export function initMonitoring(
-  traceListener?: LangSmithTraceListener,
-): OnlineMonitor | null {
-  const config = loadLangSmithConfig();
-  if (!config) {
-    console.error("[Evaluation] LangSmith not configured. Online monitoring disabled.");
-    return null;
-  }
-
-  const client = getSharedClient(config);
-  const monitor = new OnlineMonitor(config, client, { traceListener });
-  monitor.attach(thoughtEmitter);
-
-  if (!alertSinkAttached) {
-    alertSinkAttached = true;
-    thoughtEmitter.on("monitoring:alert", logMonitoringAlert);
-  }
-
-  console.error("[Evaluation] Online monitoring enabled");
-  return monitor;
+export function initMonitoring(_traceListener?: LangSmithTraceListener): null {
+  return null;
 }

@@ -1,6 +1,39 @@
+---
+spec_id: SPEC-EVAL-001
+title: Unified Evaluation System (LangSmith Backbone)
+status: active
+date: 2026-07-06
+branch: feat/eval-causal-lift-rig
+claims:
+  - id: c1
+    statement: The evaluation module ships no built-in evaluators; ExperimentRunner and DatasetManager are evaluator-agnostic chassis that accept caller-supplied evaluator functions.
+    type: implementation
+    behavioral: false
+    required_evidence: src/evaluation/ contains no evaluators/ directory or online-monitor; ExperimentRunner accepts Evaluator[] in RunExperimentOptions.
+  - id: c2
+    statement: A skipped regression check never reports passed — when LangSmith is unconfigured or the experiment yields no result, runRegressionCheck returns passed=false, skipped=true.
+    type: behavioral
+    behavioral: true
+    required_evidence: src/evaluation/__tests__/regression-check.test.ts green under vitest.
+  - id: c3
+    statement: scripts/eval-run.ts provides a causal-lift instrument — core_outcomes and negative_controls LangSmith datasets, a thoughtbox condition and a scratchpad baseline condition over the probe harness, a pairwise LLM judge, and an overthinking_tax evaluator on negative controls.
+    type: implementation
+    behavioral: false
+    required_evidence: scripts/eval-run.ts CLI with datasets/run/smoke commands building on scripts/probes/harness.ts.
+  - id: c4
+    statement: The instrument can execute an end-to-end small-N smoke experiment with scored results landing in LangSmith.
+    type: behavioral
+    behavioral: true
+    required_evidence: agentic_test — a smoke run producing experiments with feedback in LangSmith.
+links:
+  - .specs/evaluation/thoughtbox-eval-strategy.md
+  - scripts/eval-run.ts
+  - scripts/probes/harness.ts
+---
+
 # SPEC-EVAL-001: Unified Evaluation System (LangSmith Backbone)
 
-> **Status**: Draft
+> **Status**: Active (revised)
 > **Priority**: P0 (Foundation)
 > **Dependencies**: Observatory (implemented), ThoughtEmitter (implemented)
 > **Author**: glassBead
@@ -9,6 +42,20 @@
 ## Summary
 
 Unify five disconnected evaluation subsystems (Observatory, Benchmarks, DGM fitness, Eval skill, AgentOps tracing) into a single closed-loop evaluation system built on LangSmith. This enables ALMA-style memory design meta-learning by providing real performance scores, experiment comparison, and automated feedback.
+
+> **Revision (2026-07-06)**: Layers 3 (built-in heuristic evaluators) and 5
+> (OnlineMonitor) were **removed**. The four heuristic evaluators
+> (sessionQuality, memoryQuality, dgmFitness, reasoningCoherence) scored
+> thought *volume* (e.g. `depthScore = thoughtCount / 12`) — quantifying the
+> dead "externalized single-agent chain-of-thought" thesis rather than task
+> outcomes. The DGM archive bridge types went with them. What remains is the
+> evaluator-agnostic chassis: Layer 1 trace listener (`initEvaluation`),
+> Layer 2 `DatasetManager`, Layer 4 `ExperimentRunner` (caller-supplied
+> evaluators, honest regression gate). The measurement strategy is now
+> causal lift — model+Thoughtbox vs. scratchpad baseline on outcome-scored
+> tasks — per `.specs/evaluation/thoughtbox-eval-strategy.md`, instrumented
+> by `scripts/eval-run.ts`. Sections below describing Layers 3 and 5 are
+> retained as historical context and marked REMOVED.
 
 ## Problem Statement
 
@@ -152,7 +199,9 @@ interface DeploymentTask extends CollectionTask {
 }
 ```
 
-### Layer 3: Custom Evaluators
+### Layer 3: Custom Evaluators — REMOVED (2026-07-06)
+
+> Removed: these heuristics scored thought volume, not outcomes. Evaluators are now caller-supplied (see scripts/eval-run.ts).
 
 **Purpose**: Score traces on multiple dimensions.
 
@@ -194,7 +243,9 @@ interface RunExperimentOptions {
 2. Compares scores against baselines
 3. Returns real pass/fail with evidence
 
-### Layer 5: Online Monitoring
+### Layer 5: Online Monitoring — REMOVED (2026-07-06)
+
+> Removed with the heuristic evaluators it depended on. The `monitoring:alert` ThoughtEmitter event type remains defined but nothing emits it.
 
 **Purpose**: Score production sessions in real-time and detect regressions.
 
@@ -305,4 +356,4 @@ interface RunExperimentOptions {
 
 ---
 
-**Last Updated**: 2026-02-11
+**Last Updated**: 2026-07-06

@@ -103,21 +103,23 @@ async function runTests() {
     assertEqual(result, null, "Disabled runner should return null");
   });
 
-  await test("runExperiment resolves evaluators by name", async () => {
+  await test("runExperiment passes caller-supplied evaluators through", async () => {
     const { mockEvaluate, getLastOptions } = createMockEvaluate([]);
     const runner = new ExperimentRunner(createConfig(), undefined, mockEvaluate as any);
 
+    const evalA = () => ({ key: "a", score: 1 });
+    const evalB = () => ({ key: "b", score: 0 });
     await runner.runExperiment({
       datasetName: "test-ds",
       target: async (input) => input,
-      evaluators: ["sessionQuality", "dgmFitness"],
+      evaluators: [evalA as any, evalB as any],
     });
 
     const opts = getLastOptions();
-    assertEqual(opts.evaluators.length, 2, "Should resolve 2 evaluators");
+    assertEqual(opts.evaluators.length, 2, "Should pass 2 evaluators through");
   });
 
-  await test("runExperiment defaults to all evaluators when none specified", async () => {
+  await test("runExperiment defaults to no evaluators when none specified", async () => {
     const { mockEvaluate, getLastOptions } = createMockEvaluate([]);
     const runner = new ExperimentRunner(createConfig(), undefined, mockEvaluate as any);
 
@@ -127,7 +129,7 @@ async function runTests() {
     });
 
     const opts = getLastOptions();
-    assertEqual(opts.evaluators.length, 4, "Should use all 4 evaluators by default");
+    assertEqual(opts.evaluators.length, 0, "Runner ships no built-in evaluators");
   });
 
   await test("runExperiment passes correct options to evaluate()", async () => {
@@ -233,15 +235,18 @@ async function runTests() {
         example: { id: "ex-1", inputs: {} },
         evaluationResults: {
           results: [
-            { key: "sessionQuality", score: 0.9 },
-            { key: "reasoningCoherence", score: 0.8 },
+            { key: "task_success", score: 0.9 },
+            { key: "pairwise_win_rate", score: 0.8 },
           ],
         },
       },
     ]);
 
     const runner = new ExperimentRunner(createConfig(), undefined, mockEvaluate as any);
-    const check = await runner.runRegressionCheck("regression-ds", async (input) => input);
+    const check = await runner.runRegressionCheck("regression-ds", async (input) => input, {
+      task_success: 0.5,
+      pairwise_win_rate: 0.5,
+    });
 
     assertEqual(check.passed, true, "Should pass above thresholds");
     assertEqual(check.skipped, false, "Should not be skipped when experiment ran");
@@ -255,20 +260,23 @@ async function runTests() {
         example: { id: "ex-1", inputs: {} },
         evaluationResults: {
           results: [
-            { key: "sessionQuality", score: 0.2 },
-            { key: "reasoningCoherence", score: 0.9 },
+            { key: "task_success", score: 0.2 },
+            { key: "pairwise_win_rate", score: 0.9 },
           ],
         },
       },
     ]);
 
     const runner = new ExperimentRunner(createConfig(), undefined, mockEvaluate as any);
-    const check = await runner.runRegressionCheck("regression-ds", async (input) => input);
+    const check = await runner.runRegressionCheck("regression-ds", async (input) => input, {
+      task_success: 0.5,
+      pairwise_win_rate: 0.5,
+    });
 
     assertEqual(check.passed, false, "Should fail below thresholds");
     assertEqual(check.skipped, false, "Should not be skipped when experiment ran");
-    assert(check.failedEvaluators.includes("sessionQuality"), "sessionQuality should fail");
-    assert(!check.failedEvaluators.includes("reasoningCoherence"), "reasoningCoherence should pass");
+    assert(check.failedEvaluators.includes("task_success"), "task_success should fail");
+    assert(!check.failedEvaluators.includes("pairwise_win_rate"), "pairwise_win_rate should pass");
   });
 
   await test("runRegressionCheck on unconfigured runner is skipped and NOT passed", async () => {

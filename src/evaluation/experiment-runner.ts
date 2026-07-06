@@ -2,8 +2,8 @@
  * ExperimentRunner — Layer 4 of the Evaluation System
  * SPEC: SPEC-EVAL-001
  *
- * Wires datasets + evaluators into LangSmith's evaluate() function
- * to run reproducible evaluation experiments.
+ * Wires datasets + caller-supplied evaluators into LangSmith's evaluate()
+ * function to run reproducible evaluation experiments.
  *
  * Usage:
  * ```ts
@@ -13,35 +13,32 @@
  * const result = await runner.runExperiment({
  *   datasetName: 'thoughtbox-regression',
  *   target: async (input) => myAgent(input),
+ *   evaluators: [myEvaluator],
  * });
  * ```
  */
 
 import { Client } from "langsmith";
 import { evaluate as langsmithEvaluate } from "langsmith/evaluation";
-import type { EvaluationResult } from "langsmith/evaluation";
-import type { Run } from "langsmith/schemas";
 import type { Example } from "langsmith/schemas";
 import type {
   LangSmithConfig,
   RunExperimentOptions,
   ExperimentRunResult,
   RegressionCheckResult,
-  EvaluatorName,
+  Evaluator,
 } from "./types.js";
-import { getEvaluator, getAllEvaluators } from "./evaluators/index.js";
-import type { Evaluator } from "./evaluators/utils.js";
 
 type EvaluateFn = typeof langsmithEvaluate;
 
 /**
  * Layer 4 experiment runner for LangSmith.
  *
+ * Evaluator-agnostic: callers supply their own evaluator functions
+ * (see scripts/eval-run.ts for the causal-lift rig's evaluators).
  * Orchestrates evaluation experiments by:
- * 1. Resolving evaluators by name
- * 2. Calling LangSmith evaluate() with the target function
- * 3. Collecting and aggregating results
- * 4. Optionally updating the DGM fitness archive
+ * 1. Calling LangSmith evaluate() with the target function
+ * 2. Collecting and aggregating results
  */
 export class ExperimentRunner {
   private readonly client: Client | null;
@@ -80,24 +77,29 @@ export class ExperimentRunner {
   /**
    * Run an evaluation experiment against a LangSmith dataset.
    *
-   * Resolves evaluators, calls LangSmith evaluate(), collects results,
-   * and computes aggregate scores.
+   * Calls LangSmith evaluate() with the caller's target and evaluators,
+   * collects results, and computes aggregate scores.
    */
   async runExperiment(options: RunExperimentOptions): Promise<ExperimentRunResult | null> {
     return this.safe("runExperiment", null, async () => {
       const startTime = Date.now();
 
-      // Resolve evaluators
-      const resolvedEvaluators = this.resolveEvaluators(options.evaluators);
+      // Caller-supplied evaluators — the runner ships none of its own
+      const resolvedEvaluators: Evaluator[] = options.evaluators ?? [];
 
       // Wrap the target to match LangSmith's expected signature
       const target = async (inputs: Record<string, any>): Promise<Record<string, any>> => {
         return options.target(inputs);
       };
 
+      // Evaluate the whole dataset by name, or an explicit example subset
+      const data = options.exampleIds
+        ? await this.resolveExamples(options.datasetName, options.exampleIds)
+        : options.datasetName;
+
       // Call LangSmith evaluate()
       const experimentResults = await this.evaluateFn(target, {
-        data: options.datasetName,
+        data,
         evaluators: resolvedEvaluators as any[],
         metadata: {
           ...options.metadata,
@@ -205,27 +207,24 @@ export class ExperimentRunner {
   /**
    * Run a regression check suitable for gatekeeper integration.
    *
-   * Runs all evaluators and returns pass/fail with details. When the check
-   * cannot run (LangSmith unconfigured, or the experiment produced no
-   * result), the check is reported as skipped AND not passed — a disabled
-   * gate must never read as a passing gate.
+   * Runs the supplied evaluators and returns pass/fail against the supplied
+   * thresholds (keyed by evaluator key). When the check cannot run
+   * (LangSmith unconfigured, or the experiment produced no result), the
+   * check is reported as skipped AND not passed — a disabled gate must
+   * never read as a passing gate.
    */
   async runRegressionCheck(
     datasetName: string,
     target: RunExperimentOptions["target"],
     thresholds?: Record<string, number>,
+    evaluators?: Evaluator[],
   ): Promise<RegressionCheckResult> {
-    const defaultThresholds: Record<string, number> = {
-      sessionQuality: 0.5,
-      memoryQuality: 0.4,
-      dgmFitness: 0.3,
-      reasoningCoherence: 0.5,
-      ...thresholds,
-    };
+    const effectiveThresholds: Record<string, number> = { ...thresholds };
 
     const result = await this.runExperiment({
       datasetName,
       target,
+      evaluators,
       experimentPrefix: "thoughtbox-regression",
       description: "Regression check for evaluation gatekeeper",
     });
@@ -243,7 +242,7 @@ export class ExperimentRunner {
     }
 
     const failedEvaluators: string[] = [];
-    for (const [key, threshold] of Object.entries(defaultThresholds)) {
+    for (const [key, threshold] of Object.entries(effectiveThresholds)) {
       const score = result.aggregateScores[key];
       if (score !== undefined && score < threshold) {
         failedEvaluators.push(key);
@@ -262,14 +261,14 @@ export class ExperimentRunner {
   }
 
   /**
-   * Resolve evaluator names to evaluator functions.
-   * Defaults to all four evaluators if none specified.
+   * Fetch a specific subset of dataset examples by ID (for small-N runs).
    */
-  private resolveEvaluators(names?: EvaluatorName[]): Evaluator[] {
-    if (!names || names.length === 0) {
-      return getAllEvaluators();
+  private async resolveExamples(datasetName: string, exampleIds: string[]): Promise<Example[]> {
+    const examples: Example[] = [];
+    for await (const example of this.client!.listExamples({ datasetName, exampleIds })) {
+      examples.push(example);
     }
-    return names.map((name) => getEvaluator(name));
+    return examples;
   }
 
   /**
