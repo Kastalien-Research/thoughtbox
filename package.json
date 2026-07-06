@@ -59,7 +59,8 @@
     "test:behavioral": "tsx scripts/agents/test-behavioral-contracts.ts",
     "test:behavioral:variance": "tsx scripts/agents/test-behavioral-contracts.ts --variance-only",
     "check:lint": "oxlint -c oxlint.json src/",
-    "check:types": "tsc --noEmit"
+    "check:types": "tsc --noEmit",
+    "eval:run": "tsx scripts/eval-run.ts"
   },
   "engines": {
     "node": ">=22.0.0"

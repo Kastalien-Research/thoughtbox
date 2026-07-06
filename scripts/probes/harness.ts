@@ -65,6 +65,12 @@ export interface ProbeOptions {
   maxTurns?: number;
   /** Model override; defaults to the SDK/session default. */
   model?: string;
+  /**
+   * Wire the agent to the Thoughtbox MCP tools (default true).
+   * Set false for baseline conditions (e.g. plain-scratchpad) that must run
+   * the same task WITHOUT Thoughtbox — used by scripts/eval-run.ts.
+   */
+  thoughtbox?: boolean;
   /** Optional pass/fail check. Throw to fail; return to pass. */
   assert?: (result: ProbeResult) => void | Promise<void>;
 }
@@ -86,6 +92,8 @@ export interface ProbeResult {
   /** Every tool call the agent made, for inspection. */
   toolCalls: ToolCallRecord[];
   turns: number;
+  /** Wall-clock duration of the agent run in milliseconds. */
+  durationMs: number;
   usage: { inputTokens?: number; outputTokens?: number; totalCostUsd?: number };
   /** Set only when `assert` was provided. */
   passed?: boolean;
@@ -153,9 +161,11 @@ function ingestMessage(
  * extras) and bounded by `maxTurns`.
  */
 export async function runProbe(opts: ProbeOptions): Promise<ProbeResult> {
-  assertThoughtboxAvailable();
+  const useThoughtbox = opts.thoughtbox !== false;
+  if (useThoughtbox) assertThoughtboxAvailable();
 
   const acc = { text: "", toolCalls: [] as ToolCallRecord[], tbOps: new Set<string>() };
+  const startedAt = Date.now();
   const result: ProbeResult = {
     name: opts.name,
     completed: false,
@@ -163,6 +173,7 @@ export async function runProbe(opts: ProbeOptions): Promise<ProbeResult> {
     tbOperations: [],
     toolCalls: acc.toolCalls,
     turns: 0,
+    durationMs: 0,
     usage: {},
   };
 
@@ -172,7 +183,9 @@ export async function runProbe(opts: ProbeOptions): Promise<ProbeResult> {
       options: {
         // No `mcpServers` / `strictMcpConfig`: rely on the CLI auto-loading the
         // approved `thoughtbox-cloud-run` server from the repo's `.mcp.json`.
-        allowedTools: ["ToolSearch", ...THOUGHTBOX_TOOLS, ...(opts.allowedTools ?? [])],
+        allowedTools: useThoughtbox
+          ? ["ToolSearch", ...THOUGHTBOX_TOOLS, ...(opts.allowedTools ?? [])]
+          : [...(opts.allowedTools ?? [])],
         permissionMode: "bypassPermissions",
         allowDangerouslySkipPermissions: true,
         maxTurns: opts.maxTurns ?? 20,
@@ -197,6 +210,7 @@ export async function runProbe(opts: ProbeOptions): Promise<ProbeResult> {
 
   result.finalText = acc.text.trim();
   result.tbOperations = [...acc.tbOps];
+  result.durationMs = Date.now() - startedAt;
 
   if (opts.assert) {
     try {
