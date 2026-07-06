@@ -66,6 +66,17 @@ function ObservabilityIcon() {
   )
 }
 
+function KnowledgeIcon() {
+  return (
+    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <circle cx="6" cy="6" r="2.25" strokeWidth={2} />
+      <circle cx="18" cy="7" r="2.25" strokeWidth={2} />
+      <circle cx="12" cy="17" r="2.25" strokeWidth={2} />
+      <path strokeLinecap="round" strokeWidth={2} d="M7.4 8l3.4 6.9M16.8 9l-3.5 6M8.2 6.3l7.6.5" />
+    </svg>
+  )
+}
+
 function ConnectIcon() {
   return (
     <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -89,6 +100,7 @@ export function WorkspaceSidebar({ workspaceSlug }: { workspaceSlug: string }) {
   const mainNavItems: NavItem[] = [
     { label: 'Dashboard', href: `${base}/dashboard`, icon: <DashboardIcon /> },
     { label: 'Sessions', href: `${base}/sessions`, icon: <RunsIcon /> },
+    { label: 'Knowledge', href: `${base}/knowledge`, icon: <KnowledgeIcon /> },
     { label: 'Observability', href: `${base}/observability`, icon: <ObservabilityIcon /> },
     { label: 'API Keys', href: `${base}/api-keys`, icon: <KeyIcon /> },
   ]
