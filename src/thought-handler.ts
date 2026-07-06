@@ -12,8 +12,6 @@ import {
   thoughtEmitter,
   type Thought as EmittedThought,
 } from "./events/index.js";
-// SIL-104: Event stream for external consumers
-import type { ThoughtboxEventEmitter } from "./events/index.js";
 
 export interface ThoughtData {
   thought: string;
@@ -63,9 +61,6 @@ export class ThoughtHandler {
   private currentSessionId: string | null = null;  // Reasoning session ID (persistent)
   private initialized: boolean = false;
 
-  // SIL-104: Event emitter for external consumers (JSONL stream)
-  private eventEmitter: ThoughtboxEventEmitter | null = null;
-
   // Processing queue to serialize concurrent thought operations
   // Prevents race conditions when multiple thoughts arrive simultaneously
   private processingQueue: Promise<void> = Promise.resolve();
@@ -98,14 +93,6 @@ export class ThoughtHandler {
     if (this.initialized) return;
     await this.storage.initialize();
     this.initialized = true;
-  }
-
-  /**
-   * SIL-104: Set the event emitter for external JSONL event stream
-   * Uses deferred initialization pattern - emitter is set after server setup
-   */
-  setEventEmitter(emitter: ThoughtboxEventEmitter): void {
-    this.eventEmitter = emitter;
   }
 
   /**
@@ -215,15 +202,6 @@ export class ThoughtHandler {
     // Export to filesystem
     const exporter = new SessionExporter();
     const exportPath = await exporter.export(exportData, sessionId, destination);
-
-    // SIL-104: Emit export_requested event to external event stream
-    if (this.eventEmitter?.isEnabled()) {
-      this.eventEmitter.emitExportRequested({
-        sessionId,
-        exportPath,
-        nodeCount: exportData.nodes.length,
-      });
-    }
 
     return {
       path: exportPath,
@@ -723,15 +701,6 @@ export class ThoughtHandler {
               console.warn('[ThoughtEmitter] Session start emit failed:', e instanceof Error ? e.message : e);
             }
           }
-
-          // SIL-104: Emit session_created event
-          if (this.eventEmitter?.isEnabled()) {
-            this.eventEmitter.emitSessionCreated({
-              sessionId: session.id,
-              title: session.title,
-              tags: session.tags,
-            });
-          }
         }
       }
 
@@ -910,29 +879,6 @@ export class ThoughtHandler {
           }
         }
 
-        // SIL-104: Emit thought_added and branch_created events
-        if (this.eventEmitter?.isEnabled()) {
-          // Track if thoughtNumber was auto-assigned (SIL-102)
-          const wasAutoAssigned = (input as Record<string, unknown>).thoughtNumber === undefined;
-
-          // Emit thought_added for all thoughts
-          this.eventEmitter.emitThoughtAdded({
-            sessionId: this.currentSessionId!,
-            thoughtNumber: validatedInput.thoughtNumber,
-            wasAutoAssigned,
-            thoughtPreview: validatedInput.thought.slice(0, 100) + (validatedInput.thought.length > 100 ? '...' : ''),
-          });
-
-          // Emit branch_created for new branches
-          if (willCreateNewBranch) {
-            this.eventEmitter.emitBranchCreated({
-              sessionId: this.currentSessionId!,
-              branchId: validatedInput.branchId!,
-              fromThoughtNumber: validatedInput.branchFromThought!,
-            });
-          }
-        }
-
       } else {
         // No active session - update in-memory state only
         this.thoughtHistory.push(validatedInput);
@@ -990,16 +936,6 @@ export class ThoughtHandler {
           } catch (e) {
             console.warn('[ThoughtEmitter] Session end emit failed:', e instanceof Error ? e.message : e);
           }
-        }
-
-        // SIL-104: Emit session_completed event to external event stream
-        if (this.eventEmitter?.isEnabled()) {
-          this.eventEmitter.emitSessionCompleted({
-            sessionId: this.currentSessionId,
-            finalThoughtCount: this.thoughtHistory.length,
-            branchCount: Object.keys(this.branches).length,
-            auditManifest,
-          });
         }
 
         // Auto-export before session ends

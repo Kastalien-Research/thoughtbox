@@ -57,7 +57,6 @@ import {
   type IInitHandler,
 } from "./init/index.js";
 import { ThoughtHandler } from "./thought-handler.js";
-import { ThoughtboxEventEmitter } from "./events/index.js";
 import { ThoughtQueryHandler } from "./resources/thought-query-handler.js";
 
 import { KnowledgeTool } from "./knowledge/tool.js";
@@ -335,17 +334,6 @@ Use \`console.log()\` for debugging — output captured in response logs.`;
     storage,
     sessionId // MCP session ID for isolation
   );
-
-  // SIL-104: Wire up event emitter for external event stream (JSONL)
-  // Configuration via environment variables:
-  //   THOUGHTBOX_EVENTS_ENABLED=true - Enable event emission
-  //   THOUGHTBOX_EVENTS_DEST=stderr|stdout|<filepath> - Where to write events
-  const eventEmitter = new ThoughtboxEventEmitter({
-    enabled: process.env.THOUGHTBOX_EVENTS_ENABLED === 'true',
-    destination: process.env.THOUGHTBOX_EVENTS_DEST || 'stderr',
-    includeMcpSessionId: true,
-  }, sessionId);
-  thoughtHandler.setEventEmitter(eventEmitter);
 
   const notebookHandler = new NotebookHandler(
     undefined,

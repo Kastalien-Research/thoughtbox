@@ -185,8 +185,6 @@ Thought 6: [SYNTHESIS] "Use PostgreSQL for transactions, MongoDB for analytics"
 | `THOUGHTBOX_OBSERVATORY_CORS` | CORS origins for Observatory (comma-separated) | (none) |
 | `THOUGHTBOX_AGENT_ID` | Pre-assigned Hub agent ID | (none) |
 | `THOUGHTBOX_AGENT_NAME` | Pre-assigned Hub agent name | (none) |
-| `THOUGHTBOX_EVENTS_ENABLED` | Enable event emission | `false` |
-| `THOUGHTBOX_EVENTS_DEST` | Event destination | `stderr` |
 | `SUPABASE_URL` | Supabase project URL (required for `supabase` storage) | (none) |
 | `SUPABASE_SERVICE_ROLE_KEY` | Supabase service role key (required for `supabase` storage) | (none) |
 | `PORT` | HTTP server port | `1731` |
