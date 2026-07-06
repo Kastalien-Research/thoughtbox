@@ -9,6 +9,7 @@ export const NotebookModeSchema = S.Literal(
   "skill_certification",
   "scenario_factory",
   "system_audit",
+  "merge_evidence",
 );
 export type NotebookMode = typeof NotebookModeSchema.Type;
 
@@ -171,6 +172,17 @@ export const SystemAuditNotebookSchema = S.Struct({
   }),
 });
 
+export const MergeEvidenceNotebookSchema = S.Struct({
+  ...NotebookBaseSchema,
+  _tag: S.Literal("MergeEvidenceNotebook"),
+  mode: S.Literal("merge_evidence"),
+  merge: S.Struct({
+    mergeId: S.String,
+    workspaceId: S.String,
+    parentBranchIds: S.Array(S.String),
+  }),
+});
+
 export const NotebookDocumentSchema = S.Union(
   RunbookNotebookSchema,
   SimulationNotebookSchema,
@@ -180,6 +192,7 @@ export const NotebookDocumentSchema = S.Union(
   SkillCertificationNotebookSchema,
   ScenarioFactoryNotebookSchema,
   SystemAuditNotebookSchema,
+  MergeEvidenceNotebookSchema,
 );
 export type NotebookDocument = typeof NotebookDocumentSchema.Type;
 
@@ -258,6 +271,20 @@ export const NotebookOutputSchema = S.Union(
     _tag: S.Literal("SystemAuditResult"),
     mode: S.Literal("system_audit"),
     findings: S.Array(JsonRecordSchema),
+  }),
+  S.Struct({
+    /**
+     * Execution result of a merge-evidence run: same derivation semantics as
+     * RunbookVerdict (declared expectations decide; §5.1). The frozen-schema
+     * merge verdict JSON is assembled by generateMergeEvidence
+     * (src/merge-evidence/) FROM this result — it is not this output.
+     */
+    _tag: S.Literal("MergeEvidenceRunResult"),
+    mode: S.Literal("merge_evidence"),
+    pass: S.Boolean,
+    reason: S.String,
+    contractCoverage: S.Number,
+    evidence: S.optional(S.Unknown),
   }),
 );
 export type NotebookOutput = typeof NotebookOutputSchema.Type;

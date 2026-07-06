@@ -130,6 +130,32 @@ export const NOTEBOOK_MODE_REGISTRY: Record<NotebookMode, NotebookModeDescriptor
       { operation: "notebook_validate", args: { notebookId: "<id>", cellId: "<validatorCellId>" } },
     ],
   },
+  merge_evidence: {
+    mode: "merge_evidence",
+    runStatus: "implemented",
+    title: "Merge Evidence Notebook",
+    whenToUse:
+      "AUTO-GENERATED at merge-request time by generateMergeEvidence (src/merge-evidence/): the replayable evidence packet attached to a reasoning merge. Agents never hand-author merge evidence notebooks.",
+    requiredInputs: [
+      "merge record (workspace id, parent branch ids, base ref)",
+      "per-branch claim sets",
+      "contradicts edges in the claim graph",
+      "validator cells attached to the branches (optional)",
+    ],
+    expectedOutputs: [
+      "input capture",
+      "per-branch extracted claims",
+      "contradiction scan",
+      "validator verdicts",
+      "frozen-schema merge verdict JSON",
+      "evidence hash",
+    ],
+    templates: ["merge-evidence"],
+    exampleSequence: [
+      { operation: "notebook_start_run", args: { notebookId: "<id>", mode: "merge_evidence" } },
+      { operation: "notebook_get_run", args: { runId: "<runId>" } },
+    ],
+  },
 };
 
 export function listNotebookModes(): NotebookModeDescriptor[] {
@@ -148,7 +174,7 @@ export function getNotebookCapabilitiesJson(): string {
         "Notebook Evidence Engine capabilities: executable, replayable notebooks with prose, code, validators, structured outputs, and durable run artifacts.",
       lowLevelPredicatePrimitive: "notebook_validate",
       execution:
-        "Runs execute synchronously in-process through real cell subprocesses. Only runbook mode derives a verdict today; modes marked specified reject notebook_start_run.",
+        "Runs execute synchronously in-process through real cell subprocesses. Modes marked implemented derive a real verdict from notebook_start_run; modes marked specified reject it.",
       observatoryScope:
         "Observatory integration is out of scope. Outputs are local-first notebook exports and run artifacts.",
       modes: listNotebookModes(),
