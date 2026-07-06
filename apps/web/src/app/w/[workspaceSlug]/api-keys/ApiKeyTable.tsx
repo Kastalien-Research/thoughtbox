@@ -5,7 +5,13 @@ import { formatDistanceToNow } from 'date-fns'
 import type { ApiKeyRow } from '@/lib/types/api-keys'
 import { revokeApiKeyAction, type RevokeKeyState } from './actions'
 
-function RevokeButton({ keyId }: { keyId: string }) {
+function RevokeButton({
+  keyId,
+  workspaceSlug,
+}: {
+  keyId: string
+  workspaceSlug: string
+}) {
   const [confirming, setConfirming] = useState(false)
   const [state, formAction, pending] = useActionState<RevokeKeyState, FormData>(
     revokeApiKeyAction,
@@ -28,6 +34,7 @@ function RevokeButton({ keyId }: { keyId: string }) {
   return (
     <form action={formAction} className="flex items-center gap-2">
       <input type="hidden" name="keyId" value={keyId} />
+      <input type="hidden" name="workspaceSlug" value={workspaceSlug} />
       <span className="text-xs text-red-600">Revoke?</span>
       <button
         type="submit"
@@ -51,7 +58,13 @@ function RevokeButton({ keyId }: { keyId: string }) {
   )
 }
 
-export function ApiKeyTable({ keys }: { keys: ApiKeyRow[] }) {
+export function ApiKeyTable({
+  keys,
+  workspaceSlug,
+}: {
+  keys: ApiKeyRow[]
+  workspaceSlug: string
+}) {
   if (keys.length === 0) {
     return (
       <div className="overflow-hidden rounded-2xl border border-foreground/10 bg-foreground/[0.03] shadow-sm">
@@ -118,7 +131,9 @@ export function ApiKeyTable({ keys }: { keys: ApiKeyRow[] }) {
                     : 'Never'}
                 </td>
                 <td className="whitespace-nowrap px-6 py-4 text-right text-sm">
-                  {!isRevoked && <RevokeButton keyId={key.id} />}
+                  {!isRevoked && (
+                    <RevokeButton keyId={key.id} workspaceSlug={workspaceSlug} />
+                  )}
                   {isRevoked && key.revoked_at && (
                     <span className="text-xs text-foreground">
                       {formatDistanceToNow(new Date(key.revoked_at), { addSuffix: true })}
