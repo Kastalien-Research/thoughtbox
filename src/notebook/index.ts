@@ -30,6 +30,7 @@ import {
   nextUnsatisfiedCell,
 } from "./runbook/ordering.js";
 import { getNotebookCapabilitiesJson } from "./engine/registry.js";
+import type { NotebookDocumentStorage } from "../persistence/notebook-document-storage.js";
 import {
   NOTEBOOK_OPERATIONS,
   getOperation,
@@ -49,6 +50,14 @@ export interface NotebookHandlerOptions {
    * SupabaseRunbookStorage here.
    */
   runbookStorage?: RunbookStorage;
+  /**
+   * Durable notebook-document persistence behind notebook_persist
+   * (spec H4). When absent, notebook_persist keeps its honest in-process
+   * artifact behavior and reports persistence "in_memory". Local mode
+   * injects FileSystemNotebookDocumentStorage; deployments inject
+   * SupabaseNotebookDocumentStorage.
+   */
+  documentStorage?: NotebookDocumentStorage;
   /** Executing agent identity recorded on instances/executions/ledger rows. */
   agentId?: string;
 }
@@ -62,9 +71,12 @@ export class NotebookHandler {
   private engineRuntime: InMemoryNotebookEngineRuntime;
   /** Agent identity recorded on instances created via notebook_instantiate. */
   private readonly agentId: string;
+  /** Durable notebook-document backend; undefined = in-memory artifact only. */
+  private readonly documentStorage: NotebookDocumentStorage | undefined;
 
   constructor(tempDir?: string, options: NotebookHandlerOptions = {}) {
     this.agentId = options.agentId ?? "local";
+    this.documentStorage = options.documentStorage;
     this.stateManager = new NotebookStateManager(tempDir);
     this.validatorService = new ValidatorService(this.stateManager);
     this.engineRuntime = new InMemoryNotebookEngineRuntime(
@@ -386,32 +398,60 @@ export class NotebookHandler {
   }
 
   /**
-   * Handle notebook_load tool call
+   * Handle notebook_load tool call.
+   *
+   * Sources (exactly one): `path` (filesystem .src.md), `content` (raw
+   * .src.md string), or `notebookId` (restore a document persisted via
+   * notebook_persist through the configured durable backend — the notebook
+   * re-materializes under its ORIGINAL id, so persist → restart → load
+   * round-trips identity).
    */
   async handleLoadNotebook(args: any): Promise<any> {
-    const { path, content } = args;
+    const { path, content, notebookId } = args;
 
-    // Validate: exactly one of path or content required
+    // Validate: exactly one source required
     const hasPath = path !== undefined && typeof path === "string";
     const hasContent = content !== undefined && typeof content === "string";
+    const hasNotebookId = notebookId !== undefined && typeof notebookId === "string";
 
-    if (!hasPath && !hasContent) {
-      throw new Error("Either 'path' or 'content' parameter is required");
-    }
-
-    if (hasPath && hasContent) {
+    const sourceCount = [hasPath, hasContent, hasNotebookId].filter(Boolean).length;
+    if (sourceCount === 0) {
       throw new Error(
-        "Cannot provide both 'path' and 'content' parameters. Choose one."
+        "One of 'path', 'content', or 'notebookId' (persisted restore) is required",
+      );
+    }
+    if (sourceCount > 1) {
+      throw new Error(
+        "Provide exactly one of 'path', 'content', or 'notebookId'. Choose one.",
       );
     }
 
-    // Load notebook from appropriate source
-    const notebook = await this.stateManager.loadNotebook(
-      hasPath ? { path } : { content }
-    );
+    let notebook;
+    let restored = false;
+    if (hasNotebookId) {
+      if (!this.documentStorage) {
+        throw new Error(
+          "No durable notebook persistence is configured; load by 'path' or 'content' instead",
+        );
+      }
+      const doc = await this.documentStorage.load(notebookId);
+      if (!doc) {
+        throw new Error(
+          `No persisted notebook ${notebookId} found in ${this.documentStorage.backend} storage`,
+        );
+      }
+      notebook = await this.stateManager.loadNotebook(
+        { content: doc.content },
+        { id: doc.notebookId },
+      );
+      restored = true;
+    } else {
+      notebook = await this.stateManager.loadNotebook(hasPath ? { path } : { content });
+    }
 
     return {
       success: true,
+      ...(restored ? { restoredFrom: this.documentStorage!.backend } : {}),
       notebook: {
         id: notebook.id,
         title: notebook.cells.find((c) => c.type === "title")?.text || "Untitled",
@@ -848,19 +888,45 @@ export class NotebookHandler {
   /**
    * Handle notebook_persist tool call.
    *
-   * First slice persistence stores the exported notebook as an in-process
-   * artifact. Supabase-backed persistence will implement the same public
-   * operation through the NotebookStore boundary.
+   * Always stores the exported notebook as an in-process artifact (replay
+   * within this process). With a durable document backend configured
+   * (FileSystemNotebookDocumentStorage locally,
+   * SupabaseNotebookDocumentStorage deployed), the document additionally
+   * persists durably — upsert by notebookId, latest wins — and the response
+   * reports that backend as `persistence`. Without one, the honest label
+   * stays "in_memory". Restore across restarts with
+   * `notebook_load { notebookId }`.
    */
   async handlePersist(args: any): Promise<any> {
     const { notebookId } = args;
     if (!notebookId || typeof notebookId !== "string") {
       throw new Error("notebookId is required and must be a string");
     }
+    const notebook = this.stateManager.getNotebook(notebookId);
+    if (!notebook) {
+      throw new Error(`Notebook ${notebookId} not found`);
+    }
     const content = await this.stateManager.exportNotebook(notebookId);
-    return await import("effect").then(({ Effect }) =>
+    const artifactResult = await import("effect").then(({ Effect }) =>
       Effect.runPromise(this.engineRuntime.persistNotebook(notebookId, content)),
     );
+    if (!this.documentStorage) {
+      return artifactResult;
+    }
+    const persistedAt = new Date().toISOString();
+    await this.documentStorage.save({
+      notebookId,
+      title:
+        notebook.cells.find((c: Cell) => c.type === "title")?.text ?? "Untitled",
+      language: notebook.language,
+      content,
+      persistedAt,
+    });
+    return {
+      ...artifactResult,
+      persistence: this.documentStorage.backend,
+      persistedAt,
+    };
   }
 
   /**

@@ -75,7 +75,8 @@ interface TB {
   notebook: {
     create(args: { title: string; language: "javascript" | "typescript"; template?: "sequential-feynman" | "evidence-runbook" | "evidence-simulation" | "evidence-eval-workbook" | "evidence-failure-capsule" | "evidence-adr-pack" | "evidence-skill-certification" | "evidence-scenario-factory" | "evidence-system-audit" }): Promise<unknown>;
     list(): Promise<unknown>;
-    load(args: { path?: string; content?: string }): Promise<unknown>;
+    /** Exactly one source: path (filesystem), content (raw .src.md), or notebookId (restore a persisted document under its original id). */
+    load(args: { path?: string; content?: string; notebookId?: string }): Promise<unknown>;
     addCell(args: { notebookId: string; cellType: "title" | "markdown" | "code"; content: string; filename?: string; position?: number }): Promise<unknown>;
     updateCell(args: { notebookId: string; cellId: string; content: string }): Promise<unknown>;
     /** With instanceId, execution is instance-aware and ordered (only the next unsatisfied cell may run). */
@@ -90,7 +91,7 @@ interface TB {
      * to process.env.TB_VERDICT_PATH (use the auto-materialised tb-validate helper).
      */
     validate(args: { notebookId: string; cellId: string; observed: unknown; expectedSnapshotHash?: string }): Promise<unknown>;
-    /** Persist the current notebook as a replayable artifact. */
+    /** Persist the notebook: in-process artifact always; durably (file_system/supabase, upsert by id) when a document backend is configured — the response's 'persistence' field names the backend. Restore with load({ notebookId }). */
     persist(args: { notebookId: string }): Promise<unknown>;
     /** Execute the notebook's cells and derive a mode-specific verdict from real results: runbook = pass/fail RunbookVerdict, eval = EvalScorecard (score = passed/evaluated over declared expectations). */
     startRun(args: { notebookId: string; mode: "runbook" | "eval"; inputs?: Record<string, unknown> }): Promise<unknown>;

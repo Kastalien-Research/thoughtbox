@@ -71,6 +71,31 @@ The model using Thoughtbox must be able to discover these capabilities without r
   reporting derived status and the next unsatisfied cell (SPEC-AGX-SUBSTRATE claim c5 /
   Experiment H2 substrate, added 2026-07-06)
 
+## Durable Document Persistence (Amended 2026-07-06 — supersedes the legacy schema sketch below)
+
+`notebook_persist` is durable behind the dual-backend architecture decision
+(H4):
+
+- The persisted unit is the notebook's canonical `.src.md` encoding (contract
+  and validator bindings survive via `thoughtbox:cell` comments) plus metadata
+  (title, language, persistedAt). Notebooks are living documents: `save` is an
+  **upsert keyed by notebookId** — deliberately unlike the append-only runbook
+  substrate (templates/instances/ledger), which stays in `RunbookStorage`.
+- Backends implement `NotebookDocumentStorage`
+  (`src/persistence/notebook-document-storage.ts`):
+  `FileSystemNotebookDocumentStorage` (local/self-hosted; `<id>.src.md` +
+  `<id>.meta.json` under a base dir) and `SupabaseNotebookDocumentStorage`
+  (deployed; `public.notebooks` table, tenant-scoped by `tenant_workspace_id`
+  with primary key `(tenant_workspace_id, id)` — the hub/runbook tenancy
+  pattern, NOT the legacy project-JWT sketch below).
+- Restore: `notebook_load { notebookId }` re-materializes the persisted
+  document under its ORIGINAL id across process restarts.
+- Honesty rule: with no backend configured, `notebook_persist` keeps its
+  in-process artifact behavior and reports `persistence: "in_memory"`; with a
+  backend it reports the backend name. The `notebooks` table migration ships
+  separately, gated on the DB-parity ruling — if dropped, the Supabase backend
+  fails loudly on a missing relation and default deployments stay in_memory.
+
 ## Legacy Section Note
 
 Sections below this amendment predate the Notebook Evidence Engine framing. Where they mention `@effect/workflow`, manifest-only runbooks, or Observatory-facing behavior, this amendment supersedes them for v1: use Supabase run records plus the Cloud Run runner boundary, and keep Observatory out of scope.

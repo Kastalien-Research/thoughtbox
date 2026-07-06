@@ -68,12 +68,17 @@ export class NotebookTool {
     const originalOperation = operation.replace("notebook_", "");
 
     if (operation === "notebook_load") {
-      const { path, content } = args as any;
-      if (!path && !content) {
-        throw new Error("Either 'path' or 'content' parameter is required");
+      const { path, content, notebookId } = args as any;
+      const sources = [path, content, notebookId].filter(Boolean).length;
+      if (sources === 0) {
+        throw new Error(
+          "One of 'path', 'content', or 'notebookId' (persisted restore) is required",
+        );
       }
-      if (path && content) {
-        throw new Error("Cannot provide both 'path' and 'content' parameters. Choose one.");
+      if (sources > 1) {
+        throw new Error(
+          "Provide exactly one of 'path', 'content', or 'notebookId'. Choose one.",
+        );
       }
     }
 

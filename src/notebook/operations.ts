@@ -73,12 +73,13 @@ export const NOTEBOOK_OPERATIONS: OperationDefinition[] = [
     title: "Load Notebook",
     description: `Load a notebook from .src.md format.
 
-Accepts either a filesystem path OR content string (exactly one required).
+Accepts exactly one source:
 
-- STDIO mode: Provide 'path' to read from local filesystem
-- HTTP mode: Provide 'content' string (e.g., from previous export)
-
-Both approaches create an identical in-memory notebook.`,
+- 'path': read a .src.md file from the local filesystem (STDIO mode)
+- 'content': raw .src.md string (HTTP mode, e.g. from a previous export)
+- 'notebookId': restore a document persisted via notebook_persist from the
+  configured durable backend (file_system or supabase); the notebook
+  re-materializes under its ORIGINAL id, surviving process restarts.`,
     category: "notebook-management",
     inputSchema: {
       type: "object",
@@ -91,8 +92,17 @@ Both approaches create an identical in-memory notebook.`,
           type: "string",
           description: "Raw .src.md file content as string (option 2)",
         },
+        notebookId: {
+          type: "string",
+          description:
+            "Persisted notebook id to restore from durable storage (option 3)",
+        },
       },
-      oneOf: [{ required: ["path"] }, { required: ["content"] }],
+      oneOf: [
+        { required: ["path"] },
+        { required: ["content"] },
+        { required: ["notebookId"] },
+      ],
     },
     example: {
       path: "/path/to/notebook.src.md",
@@ -318,7 +328,7 @@ When 'expectedSnapshotHash' is provided, the operation refuses to run if the cel
   {
     name: "notebook_persist",
     title: "Persist Notebook Artifact",
-    description: "Persist the current notebook document as an in-process artifact for replay/export. Supabase persistence is the durable production follow-up; this operation establishes the public contract.",
+    description: "Persist the current notebook document. Always stores an in-process artifact for replay/export; with a durable backend configured (FileSystem locally, Supabase deployed) the document also persists durably — upsert by notebookId, latest wins — and the response's 'persistence' field names the backend (otherwise it stays the honest 'in_memory'). Restore across restarts with notebook_load { notebookId }.",
     category: "evidence-engine",
     inputSchema: {
       type: "object",

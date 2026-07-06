@@ -143,10 +143,16 @@ export class NotebookStateManager {
   }
 
   /**
-   * Load a notebook from path or content
+   * Load a notebook from path or content.
+   *
+   * `options.id` pins the loaded notebook's id (decode otherwise generates a
+   * fresh one) — used by the durable notebook_persist restore path so a
+   * persisted document re-materializes under its original id across
+   * process restarts.
    */
   async loadNotebook(
-    source: { path: string } | { content: string }
+    source: { path: string } | { content: string },
+    options: { id?: string } = {}
   ): Promise<Notebook> {
     let notebookContent: string;
 
@@ -161,6 +167,9 @@ export class NotebookStateManager {
 
     // Decode from .src.md format
     const notebook = decode(notebookContent);
+    if (options.id !== undefined) {
+      notebook.id = options.id;
+    }
 
     // Create notebook directory
     const notebookDir = path.join(this.tempDir, notebook.id);
