@@ -1,39 +1,14 @@
 /**
  * Unit tests for ExperimentRunner (Layer 4)
  *
- * Run with: npx tsx tests/unit/experiment-runner.test.ts
+ * Converted from tests/unit/experiment-runner.test.ts (hand-rolled tsx runner)
+ * to vitest.
  */
 
-import { ExperimentRunner } from "../../src/evaluation/experiment-runner.js";
-import { getSharedClient, resetClient } from "../../src/evaluation/client.js";
-import type { LangSmithConfig, RunExperimentOptions, ExperimentRunResult } from "../../src/evaluation/types.js";
-
-async function test(name: string, fn: () => Promise<void> | void) {
-  try {
-    await fn();
-    console.log(`\u2705 ${name}`);
-  } catch (error) {
-    console.error(`\u274c ${name}`);
-    console.error(`   ${error instanceof Error ? error.message : error}`);
-    process.exitCode = 1;
-  }
-}
-
-function assert(condition: boolean, message: string) {
-  if (!condition) throw new Error(message);
-}
-
-function assertEqual<T>(actual: T, expected: T, message: string) {
-  if (actual !== expected) {
-    throw new Error(`${message}: expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`);
-  }
-}
-
-function assertApprox(actual: number, expected: number, message: string, epsilon = 1e-9) {
-  if (Math.abs(actual - expected) > epsilon) {
-    throw new Error(`${message}: expected ~${expected}, got ${actual}`);
-  }
-}
+import { describe, it, expect } from "vitest";
+import { ExperimentRunner } from "../experiment-runner.js";
+import { getSharedClient, resetClient } from "../client.js";
+import type { LangSmithConfig } from "../types.js";
 
 function createConfig(): LangSmithConfig {
   return {
@@ -81,29 +56,27 @@ function createMockEvaluate(mockResults: Array<{
   return { mockEvaluate, getCallCount: () => callCount, getLastOptions: () => lastOptions };
 }
 
-async function runTests() {
-  console.log("\n\ud83e\uddea ExperimentRunner Tests\n");
-
-  await test("isEnabled returns false when config missing", async () => {
+describe("ExperimentRunner", () => {
+  it("isEnabled returns false when config missing", () => {
     const runner = new ExperimentRunner(null);
-    assertEqual(runner.isEnabled(), false, "Runner should be disabled");
+    expect(runner.isEnabled()).toBe(false);
   });
 
-  await test("isEnabled returns true when config provided", async () => {
+  it("isEnabled returns true when config provided", () => {
     const runner = new ExperimentRunner(createConfig());
-    assertEqual(runner.isEnabled(), true, "Runner should be enabled");
+    expect(runner.isEnabled()).toBe(true);
   });
 
-  await test("runExperiment returns null when disabled", async () => {
+  it("runExperiment returns null when disabled", async () => {
     const runner = new ExperimentRunner(null);
     const result = await runner.runExperiment({
       datasetName: "test-ds",
       target: async (input) => input,
     });
-    assertEqual(result, null, "Disabled runner should return null");
+    expect(result).toBeNull();
   });
 
-  await test("runExperiment resolves evaluators by name", async () => {
+  it("runExperiment resolves evaluators by name", async () => {
     const { mockEvaluate, getLastOptions } = createMockEvaluate([]);
     const runner = new ExperimentRunner(createConfig(), undefined, mockEvaluate as any);
 
@@ -114,10 +87,10 @@ async function runTests() {
     });
 
     const opts = getLastOptions();
-    assertEqual(opts.evaluators.length, 2, "Should resolve 2 evaluators");
+    expect(opts.evaluators.length).toBe(2);
   });
 
-  await test("runExperiment defaults to all evaluators when none specified", async () => {
+  it("runExperiment defaults to all evaluators when none specified", async () => {
     const { mockEvaluate, getLastOptions } = createMockEvaluate([]);
     const runner = new ExperimentRunner(createConfig(), undefined, mockEvaluate as any);
 
@@ -127,10 +100,10 @@ async function runTests() {
     });
 
     const opts = getLastOptions();
-    assertEqual(opts.evaluators.length, 4, "Should use all 4 evaluators by default");
+    expect(opts.evaluators.length).toBe(4);
   });
 
-  await test("runExperiment passes correct options to evaluate()", async () => {
+  it("runExperiment passes correct options to evaluate()", async () => {
     const { mockEvaluate, getLastOptions } = createMockEvaluate([]);
     const runner = new ExperimentRunner(createConfig(), undefined, mockEvaluate as any);
 
@@ -145,15 +118,15 @@ async function runTests() {
     });
 
     const opts = getLastOptions();
-    assertEqual(opts.data, "my-dataset", "Dataset name should pass through");
-    assertEqual(opts.experimentPrefix, "custom-prefix", "Prefix should pass through");
-    assertEqual(opts.description, "A test experiment", "Description should pass through");
-    assertEqual(opts.maxConcurrency, 2, "Max concurrency should pass through");
-    assertEqual(opts.metadata.memoryDesignId, "memory-v1", "Memory design ID in metadata");
-    assertEqual(opts.metadata.source, "thoughtbox-experiment-runner", "Source in metadata");
+    expect(opts.data).toBe("my-dataset");
+    expect(opts.experimentPrefix).toBe("custom-prefix");
+    expect(opts.description).toBe("A test experiment");
+    expect(opts.maxConcurrency).toBe(2);
+    expect(opts.metadata.memoryDesignId).toBe("memory-v1");
+    expect(opts.metadata.source).toBe("thoughtbox-experiment-runner");
   });
 
-  await test("runExperiment computes aggregate scores", async () => {
+  it("runExperiment computes aggregate scores", async () => {
     const { mockEvaluate } = createMockEvaluate([
       {
         run: { outputs: { result: "a" } },
@@ -183,15 +156,15 @@ async function runTests() {
       target: async (input) => input,
     });
 
-    assert(result !== null, "Result should not be null");
-    assertEqual(result!.totalExamples, 2, "Should have 2 examples");
-    assertApprox(result!.aggregateScores.sessionQuality, 0.6, "Mean of 0.8 and 0.4");
-    assertApprox(result!.aggregateScores.reasoningCoherence, 0.8, "Mean of 0.6 and 1.0");
-    assertEqual(result!.experimentName, "test-experiment-001", "Experiment name from results");
-    assertEqual(result!.datasetName, "test-ds", "Dataset name preserved");
+    expect(result).not.toBeNull();
+    expect(result!.totalExamples).toBe(2);
+    expect(result!.aggregateScores.sessionQuality).toBeCloseTo(0.6, 9);
+    expect(result!.aggregateScores.reasoningCoherence).toBeCloseTo(0.8, 9);
+    expect(result!.experimentName).toBe("test-experiment-001");
+    expect(result!.datasetName).toBe("test-ds");
   });
 
-  await test("runExperiment handles empty dataset", async () => {
+  it("runExperiment handles empty dataset", async () => {
     const { mockEvaluate } = createMockEvaluate([]);
     const runner = new ExperimentRunner(createConfig(), undefined, mockEvaluate as any);
 
@@ -200,34 +173,34 @@ async function runTests() {
       target: async (input) => input,
     });
 
-    assert(result !== null, "Result should not be null");
-    assertEqual(result!.totalExamples, 0, "Should have 0 examples");
-    assertEqual(Object.keys(result!.aggregateScores).length, 0, "No aggregate scores");
+    expect(result).not.toBeNull();
+    expect(result!.totalExamples).toBe(0);
+    expect(Object.keys(result!.aggregateScores).length).toBe(0);
   });
 
-  await test("runCollectionExperiment sets no memoryDesignId", async () => {
+  it("runCollectionExperiment sets no memoryDesignId", async () => {
     const { mockEvaluate, getLastOptions } = createMockEvaluate([]);
     const runner = new ExperimentRunner(createConfig(), undefined, mockEvaluate as any);
 
     await runner.runCollectionExperiment("coll-ds", async (input) => input);
 
     const opts = getLastOptions();
-    assertEqual(opts.metadata.memoryDesignId, undefined, "No memoryDesignId for collection");
-    assert(opts.experimentPrefix.includes("collection"), "Prefix should indicate collection");
+    expect(opts.metadata.memoryDesignId).toBeUndefined();
+    expect(opts.experimentPrefix).toContain("collection");
   });
 
-  await test("runDeploymentExperiment sets memoryDesignId", async () => {
+  it("runDeploymentExperiment sets memoryDesignId", async () => {
     const { mockEvaluate, getLastOptions } = createMockEvaluate([]);
     const runner = new ExperimentRunner(createConfig(), undefined, mockEvaluate as any);
 
     await runner.runDeploymentExperiment("deploy-ds", "memory-v2", async (input) => input);
 
     const opts = getLastOptions();
-    assertEqual(opts.metadata.memoryDesignId, "memory-v2", "memoryDesignId should be set");
-    assert(opts.experimentPrefix.includes("deployment"), "Prefix should indicate deployment");
+    expect(opts.metadata.memoryDesignId).toBe("memory-v2");
+    expect(opts.experimentPrefix).toContain("deployment");
   });
 
-  await test("runRegressionCheck returns pass when above thresholds", async () => {
+  it("runRegressionCheck returns pass when above thresholds", async () => {
     const { mockEvaluate } = createMockEvaluate([
       {
         example: { id: "ex-1", inputs: {} },
@@ -243,13 +216,13 @@ async function runTests() {
     const runner = new ExperimentRunner(createConfig(), undefined, mockEvaluate as any);
     const check = await runner.runRegressionCheck("regression-ds", async (input) => input);
 
-    assertEqual(check.passed, true, "Should pass above thresholds");
-    assertEqual(check.skipped, false, "Should not be skipped when experiment ran");
-    assertEqual(check.failedEvaluators.length, 0, "No failed evaluators");
-    assert(check.details.includes("passed"), "Details should say passed");
+    expect(check.passed).toBe(true);
+    expect(check.skipped).toBe(false);
+    expect(check.failedEvaluators.length).toBe(0);
+    expect(check.details).toContain("passed");
   });
 
-  await test("runRegressionCheck returns fail when below thresholds", async () => {
+  it("runRegressionCheck returns fail when below thresholds", async () => {
     const { mockEvaluate } = createMockEvaluate([
       {
         example: { id: "ex-1", inputs: {} },
@@ -265,40 +238,33 @@ async function runTests() {
     const runner = new ExperimentRunner(createConfig(), undefined, mockEvaluate as any);
     const check = await runner.runRegressionCheck("regression-ds", async (input) => input);
 
-    assertEqual(check.passed, false, "Should fail below thresholds");
-    assertEqual(check.skipped, false, "Should not be skipped when experiment ran");
-    assert(check.failedEvaluators.includes("sessionQuality"), "sessionQuality should fail");
-    assert(!check.failedEvaluators.includes("reasoningCoherence"), "reasoningCoherence should pass");
+    expect(check.passed).toBe(false);
+    expect(check.skipped).toBe(false);
+    expect(check.failedEvaluators).toContain("sessionQuality");
+    expect(check.failedEvaluators).not.toContain("reasoningCoherence");
   });
 
-  await test("runRegressionCheck on unconfigured runner is skipped and NOT passed", async () => {
+  it("runRegressionCheck on unconfigured runner is skipped and NOT passed", async () => {
     const runner = new ExperimentRunner(null);
     const check = await runner.runRegressionCheck("regression-ds", async (input) => input);
 
-    assertEqual(check.passed, false, "A skipped gate must not report passed");
-    assertEqual(check.skipped, true, "Should be marked skipped when LangSmith unconfigured");
-    assertEqual(check.failedEvaluators.length, 0, "No evaluators ran");
-    assertEqual(Object.keys(check.scores).length, 0, "No scores when skipped");
-    assert(check.details.includes("not configured"), "Details should explain why it was skipped");
+    expect(check.passed).toBe(false);
+    expect(check.skipped).toBe(true);
+    expect(check.failedEvaluators.length).toBe(0);
+    expect(Object.keys(check.scores).length).toBe(0);
+    expect(check.details).toContain("not configured");
   });
 
-  await test("shared client is reused across instances", async () => {
+  it("shared client is reused across instances", () => {
     resetClient();
     const config = createConfig();
     const client1 = getSharedClient(config);
     const client2 = getSharedClient(config);
-    assert(client1 === client2, "Same config should return same client instance");
+    expect(client1).toBe(client2);
 
     // Different config should create new client
     const client3 = getSharedClient({ ...config, apiKey: "different-key" });
-    assert(client1 !== client3, "Different config should create new client");
+    expect(client1).not.toBe(client3);
     resetClient();
   });
-
-  console.log("\n\u2728 ExperimentRunner tests complete\n");
-}
-
-runTests().catch((err) => {
-  console.error("Test runner failed:", err);
-  process.exit(1);
 });

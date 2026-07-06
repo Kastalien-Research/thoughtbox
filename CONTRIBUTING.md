@@ -104,42 +104,17 @@ Co-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>
 
 ## Testing
 
-### Agentic Tests
-
-We use the Claude Agent SDK for behavioral testing. These tests spawn fresh agents with MCP client connections to verify tool behavior semantically.
-
 ```bash
-# Run all behavioral tests
+# Unit and integration tests (vitest)
 pnpm test
 
-# Test a specific tool
-pnpm run test:tool -- thick_read
-
-# Quick test (skip rebuild)
-pnpm run test:quick -- thoughtbox
+# Behavioral contract tests (live agent-in-the-loop, requires API access)
+pnpm test:behavioral
 ```
 
-### Test Structure
-
-Tests are defined in `scripts/agentic-test.ts` using natural language specifications:
-
-```typescript
-const TOOL_TESTS: Record<string, string> = {
-  thick_read: `
-    Behavioral tests for thick_read tool:
-    1. Basic file reading - read a known file, verify content returned
-    2. Git context - read a tracked file, verify recentCommits populated
-    3. Depth levels - test shallow, standard, deep modes
-    ...
-  `,
-};
-```
-
-### Writing New Tests
-
-1. Add test specifications to `TOOL_TESTS` in `scripts/agentic-test.ts`
-2. Focus on behavioral outcomes, not implementation details
-3. Let the agent determine pass/fail semantically
+Unit tests live in `src/**/__tests__/` and `src/**/*.test.ts`. Behavioral
+contract tests (`scripts/agents/test-behavioral-contracts.ts`) verify that
+agent surfaces actually reason about their inputs.
 
 ## Pull Request Process
 

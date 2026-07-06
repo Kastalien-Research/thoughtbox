@@ -1,34 +1,15 @@
 /**
  * Unit tests for DatasetManager (Layer 2)
  *
- * Run with: npx tsx tests/unit/dataset-manager.test.ts
+ * Converted from tests/unit/dataset-manager.test.ts (hand-rolled tsx runner)
+ * to vitest.
  */
 
-import { DatasetManager } from "../../src/evaluation/dataset-manager.js";
-import type { CollectionTask, DeploymentTask, LangSmithConfig } from "../../src/evaluation/types.js";
+import { describe, it, expect } from "vitest";
+import { DatasetManager } from "../dataset-manager.js";
+import type { CollectionTask, DeploymentTask, LangSmithConfig } from "../types.js";
 
 type KV = Record<string, unknown>;
-
-async function test(name: string, fn: () => Promise<void> | void) {
-  try {
-    await fn();
-    console.log(`✅ ${name}`);
-  } catch (error) {
-    console.error(`❌ ${name}`);
-    console.error(`   ${error instanceof Error ? error.message : error}`);
-    process.exitCode = 1;
-  }
-}
-
-function assert(condition: boolean, message: string) {
-  if (!condition) throw new Error(message);
-}
-
-function assertEqual<T>(actual: T, expected: T, message: string) {
-  if (actual !== expected) {
-    throw new Error(`${message}: expected ${expected}, got ${actual}`);
-  }
-}
 
 async function* fromArray<T>(items: T[]): AsyncIterable<T> {
   for (const item of items) {
@@ -66,17 +47,15 @@ function createDeploymentTask(id: string): DeploymentTask {
   };
 }
 
-async function runTests() {
-  console.log("\n🧪 DatasetManager Tests\n");
-
-  await test("isEnabled returns false when config missing", async () => {
+describe("DatasetManager", () => {
+  it("isEnabled returns false when config missing", async () => {
     const manager = new DatasetManager(null);
-    assertEqual(manager.isEnabled(), false, "Manager should be disabled");
+    expect(manager.isEnabled()).toBe(false);
     const datasets = await manager.listDatasets();
-    assertEqual(datasets.length, 0, "Disabled manager should return no datasets");
+    expect(datasets.length).toBe(0);
   });
 
-  await test("ensureDataset reads existing dataset", async () => {
+  it("ensureDataset reads existing dataset", async () => {
     let readCalled = false;
     const mockClient = {
       hasDataset: async () => true,
@@ -95,12 +74,12 @@ async function runTests() {
     const manager = new DatasetManager(createConfig(), mockClient);
     const ds = await manager.ensureDataset("eval-collection", "desc");
 
-    assert(ds !== null, "Dataset should be returned");
-    assertEqual(ds?.name, "eval-collection", "Should read expected dataset");
-    assert(readCalled, "readDataset should be called");
+    expect(ds).not.toBeNull();
+    expect(ds?.name).toBe("eval-collection");
+    expect(readCalled).toBe(true);
   });
 
-  await test("ensureDataset creates missing dataset", async () => {
+  it("ensureDataset creates missing dataset", async () => {
     let createdName = "";
     const mockClient = {
       hasDataset: async () => false,
@@ -117,11 +96,11 @@ async function runTests() {
     const manager = new DatasetManager(createConfig(), mockClient);
     const ds = await manager.ensureDataset("eval-deployment", "Deployment dataset");
 
-    assert(ds !== null, "Dataset should be created");
-    assertEqual(createdName, "eval-deployment", "Expected createDataset name");
+    expect(ds).not.toBeNull();
+    expect(createdName).toBe("eval-deployment");
   });
 
-  await test("addCollectionExamples uploads mapped collection tasks", async () => {
+  it("addCollectionExamples uploads mapped collection tasks", async () => {
     let uploadCount = 0;
     const mockClient = {
       hasDataset: async () => false,
@@ -130,8 +109,8 @@ async function runTests() {
       listDatasets: () => fromArray([]),
       createExamples: async (uploads: Array<{ metadata?: KV; split?: string | string[] }>) => {
         uploadCount = uploads.length;
-        assertEqual(uploads[0].split as string, "collection", "Collection split expected");
-        assertEqual(uploads[0].metadata?.taskType as string, "collection", "Task type expected");
+        expect(uploads[0].split as string).toBe("collection");
+        expect(uploads[0].metadata?.taskType as string).toBe("collection");
         return [];
       },
       listExamples: () => fromArray([]),
@@ -143,11 +122,11 @@ async function runTests() {
       createCollectionTask("c2"),
     ]);
 
-    assertEqual(uploadCount, 2, "Should upload 2 examples");
-    assertEqual(count, 2, "Should report uploaded count");
+    expect(uploadCount).toBe(2);
+    expect(count).toBe(2);
   });
 
-  await test("addDeploymentExamples uploads mapped deployment tasks", async () => {
+  it("addDeploymentExamples uploads mapped deployment tasks", async () => {
     let uploadCount = 0;
     const mockClient = {
       hasDataset: async () => false,
@@ -156,8 +135,8 @@ async function runTests() {
       listDatasets: () => fromArray([]),
       createExamples: async (uploads: Array<{ metadata?: KV; split?: string | string[] }>) => {
         uploadCount = uploads.length;
-        assertEqual(uploads[0].split as string, "deployment", "Deployment split expected");
-        assertEqual(uploads[0].metadata?.taskType as string, "deployment", "Task type expected");
+        expect(uploads[0].split as string).toBe("deployment");
+        expect(uploads[0].metadata?.taskType as string).toBe("deployment");
         return [];
       },
       listExamples: () => fromArray([]),
@@ -168,11 +147,11 @@ async function runTests() {
       createDeploymentTask("d1"),
     ]);
 
-    assertEqual(uploadCount, 1, "Should upload 1 example");
-    assertEqual(count, 1, "Should report uploaded count");
+    expect(uploadCount).toBe(1);
+    expect(count).toBe(1);
   });
 
-  await test("listDatasets and getDatasetExamples return iterable data", async () => {
+  it("listDatasets and getDatasetExamples return iterable data", async () => {
     const mockClient = {
       hasDataset: async () => false,
       readDataset: async () => ({ id: "x", name: "x", description: "x" }),
@@ -194,16 +173,8 @@ async function runTests() {
     const datasets = await manager.listDatasets({ nameContains: "ds" });
     const examples = await manager.getDatasetExamples("collection-ds");
 
-    assertEqual(datasets.length, 2, "Should list two datasets");
-    assertEqual(examples.length, 2, "Should list two examples");
-    assertEqual(datasets[0].name, "collection-ds", "Expected first dataset");
+    expect(datasets.length).toBe(2);
+    expect(examples.length).toBe(2);
+    expect(datasets[0].name).toBe("collection-ds");
   });
-
-  console.log("\n✨ DatasetManager tests complete\n");
-}
-
-runTests().catch((err) => {
-  console.error("Test runner failed:", err);
-  process.exit(1);
 });
-

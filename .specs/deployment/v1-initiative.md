@@ -20,10 +20,10 @@ claims:
     behavioral: false
     required_evidence: terraform plan shows no diff against live service; cloud-run-service.yaml deleted; PR documents the import.
   - id: c4
-    statement: Cloud Run maxScale is pinned to 1 until MCP transport-session state is externalized (claim c16), at which point it may be raised.
+    statement: Cloud Run maxScale is pinned to 1; transport sessions are in-process by design (owner decision 2026-07-06, superseding the Memorystore/externalization direction).
     type: governance
     behavioral: false
-    required_evidence: Terraform sets max_instance_count = 1 with a comment referencing c16.
+    required_evidence: Terraform sets max_instance_count = 1.
   - id: c5
     statement: A staging-to-prod Supabase migration pipeline exists — PRs apply migrations to staging; merging to main (the gate is PR review) applies them to production via the Supabase branching integration; CI monitors prod branch health and ledger-vs-files drift and fails loudly; no migrations reach prod outside this path.
     type: governance
@@ -79,11 +79,6 @@ claims:
     type: behavioral
     behavioral: true
     required_evidence: Deployed page screenshot/walkthrough backed by rows created through a real peer invocation.
-  - id: c16
-    statement: MCP transport-session state is externalized so any instance can serve any session, after which maxScale is raised above 1.
-    type: behavioral
-    behavioral: true
-    required_evidence: Kill-the-instance test - an in-flight client session continues against a fresh instance; maxScale raised in Terraform in the same PR.
 links:
   - .specs/production-overview/PRODUCTION-SYSTEM-MAP.md
   - .specs/hub-deployed/SCOPE-LAYER-2-SUPABASE-HUB-STORAGE.md
@@ -108,7 +103,7 @@ This is the initiative spec referenced by CLAUDE.md ("Decided Architecture (v1 d
   - Hub event delivery uses **Supabase Realtime** (Pro plan; cost tolerance high).
   - Hosted hub access is **`tb.hub.*` via `thoughtbox_execute` only**; `/hub/api` remains a local-mode surface.
   - **Single-operator v1**; schema and identity design must be multi-tenant-ready (tenant scoping + nullable user identity columns from day one) because multi-tenant SaaS follows soon.
-  - **maxScale pinned to 1** until transport sessions are externalized (Phase 6). Cloud Memorystore remains the decided direction for transport-session routing but is **not implemented today** (the Redis API is not even enabled on the project); it is deferred to Phase 6, where the Redis-vs-Supabase decision is revisited with a working spike.
+  - **maxScale pinned to 1**; transport sessions stay in-process. (Decision revised 2026-07-06: the Cloud Memorystore/Redis externalization direction is dropped — single-instance Cloud Run is the v1 session-routing answer.)
   - Production data is real and must be preserved. Staging is the destructive-testing surface. All schema changes flow branch → PR → staging → gated prod promotion. No direct `db push` to prod from local checkouts.
 
 ## 2. Verified current state (discovery 2026-06-10)
@@ -185,7 +180,7 @@ Sequenced per `.specs/mcp-peer-notebooks/` units and gated by `peer-notebook-del
 
 ### Phase 6 — Scale-out (post-v1, pre-multi-tenant)
 
-- **6.1 Externalize transport sessions.** Spike both candidates: Cloud Memorystore (decided direction; requires enabling the API, VPC connector, client code) vs a Supabase-backed session-routing table (no new infrastructure; latency to be measured). Decide on evidence, implement, kill-test (instance death mid-session), then raise maxScale in Terraform in the same PR. → **c16**
+- **6.1 (STRUCK 2026-07-06.)** Transport-session externalization (Cloud Memorystore vs Supabase routing table, former claim c16) is dropped: session routing is single-instance Cloud Run (maxScale=1) with in-process transport sessions.
 - **6.2 Multi-tenant identity enrichment.** Extend OAuth token claims with user identity; populate `hub_agents.user_id`; per-user consent in the OAuth authorize flow. Prerequisite for SaaS, not for v1.
 
 ### Cross-cutting: docs and stale-claims cleanup (rolling)
@@ -209,4 +204,4 @@ Fold into whichever PR touches the area: `apps/web/README.md` (claims Cloud Run;
 
 ## 5. Acceptance
 
-v1 is done when claims c1–c15 hold with their required evidence (c16 is post-v1). The standing definition of honest behavior: **every operation either does the real thing or returns an explicit error — no canned outputs, no advertised-but-absent capabilities, no gates that pass when disabled.**
+v1 is done when claims c1–c15 hold with their required evidence. The standing definition of honest behavior: **every operation either does the real thing or returns an explicit error — no canned outputs, no advertised-but-absent capabilities, no gates that pass when disabled.**
