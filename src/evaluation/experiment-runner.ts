@@ -112,11 +112,23 @@ export class ExperimentRunner {
         maxConcurrency: options.maxConcurrency ?? 4,
       });
 
-      // Collect all results by iterating the async iterator
+      // Collect all result rows. langsmith's ExperimentResults exhausts its
+      // own async iterator during processData() (processedCount is left at
+      // results.length), so after evaluate() resolves the iterator yields
+      // nothing — read the materialized `results` array first and fall back
+      // to iteration only when it is absent (e.g. test doubles).
+      const materialized = (experimentResults as { results?: unknown[] }).results;
+      const rows: any[] = [];
+      if (materialized && materialized.length > 0) {
+        rows.push(...materialized);
+      } else {
+        for await (const row of experimentResults) rows.push(row);
+      }
+
       const exampleResults: ExperimentRunResult["exampleResults"] = [];
       const scoreAccumulator: Record<string, { sum: number; count: number }> = {};
 
-      for await (const row of experimentResults) {
+      for (const row of rows) {
         const rowResults: ExperimentRunResult["exampleResults"][0]["evaluationResults"] = [];
 
         if (row.evaluationResults?.results) {
