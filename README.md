@@ -243,9 +243,6 @@ src/
 │   ├── search-index.ts     # Frozen catalog of operations/prompts/resources
 │   └── sdk-types.ts        # TypeScript definitions for the tb SDK
 ├── thought/                # Thought operations and tool definitions
-├── init/                   # Init workflow and state management
-│   ├── tool-handler.ts     # Init tool operations
-│   └── state-manager.ts    # Session state persistence
 ├── sessions/               # Session management
 ├── persistence/            # Storage layer
 │   ├── storage.ts          # InMemoryStorage with LinkedThoughtStore

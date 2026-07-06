@@ -54,6 +54,8 @@ interface TB {
     get(sessionId: string): Promise<unknown>;
     search(query: string, limit?: number): Promise<unknown>;
     resume(sessionId: string): Promise<unknown>;
+    /** Resume the most recently updated session in this workspace (no ID needed). */
+    resumeLatest(args?: { tags?: string[] }): Promise<unknown>;
     export(sessionId: string, format?: "markdown" | "cipher" | "json"): Promise<unknown>;
     analyze(sessionId: string): Promise<unknown>;
     extractLearnings(sessionId: string, args?: Record<string, unknown>): Promise<unknown>;

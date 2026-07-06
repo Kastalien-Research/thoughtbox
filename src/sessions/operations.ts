@@ -24,7 +24,7 @@ export const SESSION_TOOL: Tool = {
     properties: {
       operation: {
         type: "string",
-        enum: ["session_list", "session_get", "session_search", "session_resume", "session_export", "session_analyze", "session_extract_learnings"],
+        enum: ["session_list", "session_get", "session_search", "session_resume", "session_resume_latest", "session_export", "session_analyze", "session_extract_learnings"],
         description: "The session operation to execute",
       },
       args: {
@@ -130,6 +130,24 @@ export const SESSION_OPERATIONS: OperationDefinition[] = [
     example: {
       sessionId: "abc-123-def-456",
     },
+  },
+  {
+    name: "session_resume_latest",
+    title: "Resume Latest Session",
+    description: "Resume the most recently updated session in the current workspace without knowing its ID. Convenience wrapper around session_list + session_resume; optionally filter by tags. Returns the same payload as session_resume, or { success: false } when the workspace has no sessions.",
+    category: "session-management",
+    inputSchema: {
+      type: "object",
+      properties: {
+        tags: {
+          type: "array",
+          items: { type: "string" },
+          description: "Optional tag filter; latest session matching ALL tags is resumed",
+        },
+      },
+      required: [],
+    },
+    example: {},
   },
   {
     name: "session_export",

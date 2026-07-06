@@ -201,6 +201,30 @@ export class SessionHandlers {
   }
 
   /**
+   * Resume the most recently updated session in the current workspace.
+   * Convenience wrapper: list (sorted by updatedAt desc) then resume.
+   */
+  async handleResumeLatest(args: { tags?: string[] } = {}): Promise<
+    | Awaited<ReturnType<SessionHandlers["handleResume"]>>
+    | { success: false; message: string }
+  > {
+    const sessions = await this.storage.listSessions({
+      limit: 1,
+      sortBy: "updatedAt",
+      sortOrder: "desc",
+      tags: args.tags,
+    });
+    if (sessions.length === 0) {
+      return {
+        success: false,
+        message:
+          "No sessions found in this workspace. Start one with tb.thought({ thought, nextThoughtNeeded: true }).",
+      };
+    }
+    return this.handleResume({ sessionId: sessions[0].id });
+  }
+
+  /**
    * Export a session to various formats
    * SPEC-003: Includes cross-reference resolution
    */

@@ -51,10 +51,6 @@ import {
   KnowledgeHandler,
   FileSystemKnowledgeStorage,
 } from "./knowledge/index.js";
-import {
-  createInitFlow,
-  type IInitHandler,
-} from "./init/index.js";
 import { ThoughtHandler } from "./thought-handler.js";
 import { ThoughtQueryHandler } from "./resources/thought-query-handler.js";
 
@@ -85,7 +81,6 @@ import { SUBAGENT_SUMMARIZE_CONTENT } from "./resources/subagent-summarize-conte
 import { EVOLUTION_CHECK_CONTENT } from "./resources/evolution-check-content.js";
 import { BEHAVIORAL_TESTS } from "./resources/behavioral-tests-content.js";
 import { SKILL_DEFINITIONS, getSkillCatalog, getSkill } from "./resources/skills/index.js";
-import { getNavigationCatalog as getInitNavigationCatalog, getNavigationStep as getInitStep } from "./init/operations.js";
 import { getOperationsCatalog as getSessionOperationsCatalog, getOperation as getSessOp } from "./sessions/operations.js";
 import { getOperationsCatalog as getKnowledgeOperationsCatalog, getOperation as getKnowOp } from "./knowledge/operations.js";
 import { getOperationsCatalog as getHubOperationsCatalog, getOperation as getHubOp } from "./hub/operations.js";
@@ -417,31 +412,9 @@ Use \`console.log()\` for debugging — output captured in response logs.`;
     logger.error("Failed to initialize persistence layer:", err);
   }
 
-  // Initialize init flow (fire-and-forget)
-  // handleInit() has fallback for when initHandler is null
-  let initHandler: IInitHandler | null = null;
-
   // ADR-015: Protocol handler reference for project scoping.
-  // Declared here so createInitFlow's .then() callback can capture the reference.
   // Assigned later in the synchronous protocol tools block.
   let protocolHandler: ProtocolHandler | InMemoryProtocolHandler | null = null;
-
-  try {
-    const { handler, stats, errors } = await createInitFlow();
-    initHandler = handler;
-    logger.info(
-      `Init flow index built: ${stats.sessionsIndexed} sessions, ${stats.projectsFound} projects, ${stats.tasksFound} tasks (${stats.buildTimeMs}ms)`
-    );
-    if (errors.length > 0) {
-      logger.warn(
-        `Init flow index encountered ${errors.length} errors during build`
-      );
-    }
-  } catch (err) {
-    logger.error("Failed to initialize init flow:", err);
-  }
-
-
 
   // =============================================================================
   // Tool Registration (all tools enabled at startup)
@@ -1381,24 +1354,6 @@ async () => tb.thought({
 
 
   server.registerResource(
-    "init-operations",
-    "thoughtbox://init/operations",
-    {
-      description: "Catalog of init navigation steps (list_sessions, load_context, start_new). Resource navigation only: each step is performed by reading thoughtbox://init URIs, not by calling a tool.",
-      mimeType: "application/json",
-    },
-    async (uri) => ({
-      contents: [
-        {
-          uri: uri.toString(),
-          mimeType: "application/json",
-          text: getInitNavigationCatalog(),
-        },
-      ],
-    })
-  );
-
-  server.registerResource(
     "knowledge-operations",
     "thoughtbox://knowledge/operations",
     {
@@ -1476,17 +1431,6 @@ async () => tb.thought({
         },
       ],
     })
-  );
-
-  server.registerResource(
-    "init-operation",
-    new ResourceTemplate("thoughtbox://init/operations/{op}", { list: undefined }),
-    { description: "Individual init navigation step (URI template, path parameters, example URI)", mimeType: "application/json" },
-    async (uri, { op }) => {
-      const opDef = getInitStep(op as string);
-      if (!opDef) throw new Error(`Unknown init navigation step: ${op}`);
-      return { contents: [{ uri: uri.href, mimeType: "application/json", text: JSON.stringify(opDef, null, 2) }] };
-    }
   );
 
   server.registerResource(
@@ -1570,101 +1514,6 @@ async () => tb.thought({
     })
   );
 
-
-
-  // Init flow resources using path segments
-  const str = (val: string | string[] | undefined): string | undefined =>
-    Array.isArray(val) ? val[0] : val;
-
-  const asMode = (val: string | undefined): "new" | "continue" | undefined =>
-    val === "new" || val === "continue" ? val : undefined;
-
-  const handleInit = (params: {
-    mode?: "new" | "continue";
-    project?: string;
-    task?: string;
-    aspect?: string;
-  }) => {
-    if (!initHandler) {
-      return {
-        uri: "thoughtbox://init",
-        mimeType: "text/markdown",
-        text: `# Thoughtbox Init\n\nSession index not available. You can start using tools directly.\n\n## Available Tools\n\n- \`thoughtbox_search\` — Query the operation/prompt/resource catalog\n- \`thoughtbox_execute\` — Run JavaScript against the \`tb\` SDK (thoughts, sessions, knowledge, notebooks)\n- \`thoughtbox_peer_notebook\` — Seed artifacts and invoke the brokered claim-extractor peer`,
-      };
-    }
-    return initHandler.handle(params);
-  };
-
-  server.registerResource(
-    "init",
-    "thoughtbox://init",
-    {
-      description:
-        "START HERE: Initialize Thoughtbox session before using other tools. Loads context from previous sessions and guides you through project/task selection.",
-      mimeType: "text/markdown",
-    },
-    async () => ({
-      contents: [handleInit({})],
-    })
-  );
-
-  server.registerResource(
-    "init-mode",
-    new ResourceTemplate("thoughtbox://init/{mode}", { list: undefined }),
-    { description: "Init flow mode selection", mimeType: "text/markdown" },
-    async (_uri, params) => ({
-      contents: [handleInit({ mode: asMode(str(params.mode)) })],
-    })
-  );
-
-  server.registerResource(
-    "init-project",
-    new ResourceTemplate("thoughtbox://init/{mode}/{project}", { list: undefined }),
-    { description: "Init flow project selection", mimeType: "text/markdown" },
-    async (_uri, params) => ({
-      contents: [
-        handleInit({
-          mode: asMode(str(params.mode)),
-          project: str(params.project),
-        }),
-      ],
-    })
-  );
-
-  server.registerResource(
-    "init-task",
-    new ResourceTemplate("thoughtbox://init/{mode}/{project}/{task}", {
-      list: undefined,
-    }),
-    { description: "Init flow task selection", mimeType: "text/markdown" },
-    async (_uri, params) => ({
-      contents: [
-        handleInit({
-          mode: asMode(str(params.mode)),
-          project: str(params.project),
-          task: str(params.task),
-        }),
-      ],
-    })
-  );
-
-  server.registerResource(
-    "init-aspect",
-    new ResourceTemplate("thoughtbox://init/{mode}/{project}/{task}/{aspect}", {
-      list: undefined,
-    }),
-    { description: "Init flow context loaded", mimeType: "text/markdown" },
-    async (_uri, params) => ({
-      contents: [
-        handleInit({
-          mode: asMode(str(params.mode)),
-          project: str(params.project),
-          task: str(params.task),
-          aspect: str(params.aspect),
-        }),
-      ],
-    })
-  );
 
 
   // Skills catalog resource (static)
@@ -1822,13 +1671,6 @@ async () => tb.thought({
   server.server.setRequestHandler(ListResourcesRequestSchema, async () => ({
     resources: [
       {
-        uri: "thoughtbox://init",
-        name: "Thoughtbox Init Flow",
-        description:
-          "START HERE FIRST: Read this resource before using any Thoughtbox tools. Initializes session context and loads previous work for continuity.",
-        mimeType: "text/markdown",
-      },
-      {
         uri: "system://status",
         name: "Notebook Server Status",
         description: "Health snapshot of the notebook server",
@@ -1862,12 +1704,6 @@ async () => tb.thought({
         uri: "thoughtbox://gateway/operations",
         name: "Gateway Operations Catalog",
         description: "Complete catalog of operations available through the Code Mode gateway, grouped by tb SDK module (thought, session, knowledge, notebook, theseus, ulysses, observability, branch, hub)",
-        mimeType: "application/json",
-      },
-      {
-        uri: "thoughtbox://init/operations",
-        name: "Init Navigation Catalog",
-        description: "Catalog of init navigation steps (list_sessions, load_context, start_new). Resource navigation only: each step is performed by reading thoughtbox://init URIs, not by calling a tool.",
         mimeType: "application/json",
       },
       {
@@ -1981,30 +1817,6 @@ async () => tb.thought({
     ListResourceTemplatesRequestSchema,
     async () => ({
       resourceTemplates: [
-        {
-          uriTemplate: "thoughtbox://init/{mode}",
-          name: "Init Mode Selection",
-          description: "Select new or continue mode",
-          mimeType: "text/markdown",
-        },
-        {
-          uriTemplate: "thoughtbox://init/{mode}/{project}",
-          name: "Init Project Selection",
-          description: "Select project for context",
-          mimeType: "text/markdown",
-        },
-        {
-          uriTemplate: "thoughtbox://init/{mode}/{project}/{task}",
-          name: "Init Task Selection",
-          description: "Select task within project",
-          mimeType: "text/markdown",
-        },
-        {
-          uriTemplate: "thoughtbox://init/{mode}/{project}/{task}/{aspect}",
-          name: "Init Context Loaded",
-          description: "Context loaded - ready to work",
-          mimeType: "text/markdown",
-        },
         // Skill resource templates
         {
           uriTemplate: "thoughtbox://skills/{name}",
@@ -2018,12 +1830,6 @@ async () => tb.thought({
           uriTemplate: "thoughtbox://gateway/operations/{op}",
           name: "Gateway Operation Detail",
           description: "Individual operation schema from the Code Mode gateway catalog, looked up by name across tb SDK modules",
-          mimeType: "application/json",
-        },
-        {
-          uriTemplate: "thoughtbox://init/operations/{op}",
-          name: "Init Navigation Step Detail",
-          description: "Individual init navigation step (URI template, path parameters, example URI)",
           mimeType: "application/json",
         },
         {

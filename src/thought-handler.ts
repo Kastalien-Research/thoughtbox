@@ -170,19 +170,6 @@ export class ThoughtHandler {
   }
 
   /**
-   * Auto-export session to filesystem when it closes
-   * @returns Path to exported file
-   */
-  private async autoExportSession(sessionId: string): Promise<string> {
-    // Get linked export data from storage
-    const exportData = await (this.storage as any).toLinkedExport(sessionId);
-
-    // Export to filesystem
-    const exporter = new SessionExporter();
-    return exporter.export(exportData, sessionId);
-  }
-
-  /**
    * Export a reasoning session to filesystem as linked JSON
    * Public method for manual export via tool
    */
@@ -645,11 +632,6 @@ export class ThoughtHandler {
       // If caller provides a sessionTitle while a session is active,
       // they intend to start a new session. Close the current one first.
       if (this.currentSessionId && validatedInput.sessionTitle) {
-        try {
-          await this.autoExportSession(this.currentSessionId);
-        } catch {
-          // Export failure is non-fatal
-        }
         this.currentSessionId = null;
         this.thoughtHistory = [];
         this.branches = {};
@@ -938,62 +920,33 @@ export class ThoughtHandler {
           }
         }
 
-        // Auto-export before session ends
-        try {
-          const exportPath = await this.autoExportSession(this.currentSessionId);
-          const closingSessionId = this.currentSessionId;
-          this.currentSessionId = null;
+        // Session is durably persisted by storage; no legacy filesystem
+        // double-write on close. Manual exports: tb.session.export(sessionId).
+        const closingSessionId = this.currentSessionId;
+        this.currentSessionId = null;
 
-          // Include export info in response
-          return {
-            content: [
-              {
-                type: "text",
-                text: JSON.stringify(
-                  {
-                    thoughtNumber: validatedInput.thoughtNumber,
-                    totalThoughts: validatedInput.totalThoughts,
-                    nextThoughtNeeded: validatedInput.nextThoughtNeeded,
-                    branches: Object.keys(this.branches),
-                    thoughtHistoryLength: this.thoughtHistory.length,
-                    sessionId: null,
-                    sessionClosed: true,
-                    closedSessionId: closingSessionId,
-                    exportPath,
-                    ...(auditManifest && { auditManifest }),
-                  },
-                  null,
-                  2
-                ),
-              },
-            ],
-          };
-        } catch (err) {
-          // Export failed - session remains open to prevent data loss
-          const exportError = (err as Error).message;
-          console.error(`Auto-export failed: ${exportError}`);
-
-          return {
-            content: [
-              {
-                type: "text",
-                text: JSON.stringify(
-                  {
-                    thoughtNumber: validatedInput.thoughtNumber,
-                    totalThoughts: validatedInput.totalThoughts,
-                    nextThoughtNeeded: validatedInput.nextThoughtNeeded,
-                    branches: Object.keys(this.branches),
-                    thoughtHistoryLength: this.thoughtHistory.length,
-                    sessionId: this.currentSessionId,
-                    warning: `Auto-export failed: ${exportError}. Session remains open to prevent data loss. You can manually export via tb.session.export(sessionId) in thoughtbox_execute.`,
-                  },
-                  null,
-                  2
-                ),
-              },
-            ],
-          };
-        }
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify(
+                {
+                  thoughtNumber: validatedInput.thoughtNumber,
+                  totalThoughts: validatedInput.totalThoughts,
+                  nextThoughtNeeded: validatedInput.nextThoughtNeeded,
+                  branches: Object.keys(this.branches),
+                  thoughtHistoryLength: this.thoughtHistory.length,
+                  sessionId: null,
+                  sessionClosed: true,
+                  closedSessionId: closingSessionId,
+                  ...(auditManifest && { auditManifest }),
+                },
+                null,
+                2
+              ),
+            },
+          ],
+        };
       }
 
       if (!this.disableThoughtLogging) {

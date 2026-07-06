@@ -11,7 +11,8 @@ const KeyMomentSchema = z.object({
 export const sessionToolInputSchema = z.object({
   operation: z.enum([
     "session_list", "session_get", "session_search", "session_resume",
-    "session_export", "session_analyze", "session_extract_learnings",
+    "session_resume_latest", "session_export", "session_analyze",
+    "session_extract_learnings",
   ]),
   sessionId: z.string().optional().describe("Session ID for get/resume/export/analyze/extract_learnings"),
   limit: z.number().optional().describe("Maximum results to return"),

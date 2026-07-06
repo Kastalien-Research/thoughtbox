@@ -339,6 +339,8 @@ function buildTbObject(deps: ExecuteToolDeps, ctx: TbContext): Record<string, un
         unwrapToolResult(await sessionTool.handle({ operation: "session_search", query, limit })),
       resume: async (sessionId: string) =>
         unwrapToolResult(await sessionTool.handle({ operation: "session_resume", sessionId })),
+      resumeLatest: async (args?: { tags?: string[] }) =>
+        unwrapToolResult(await sessionTool.handle({ operation: "session_resume_latest", ...args } as SessionToolInput)),
       export: async (sessionId: string, format?: "markdown" | "cipher" | "json") =>
         unwrapToolResult(await sessionTool.handle({ operation: "session_export", sessionId, format })),
       analyze: async (sessionId: string) =>

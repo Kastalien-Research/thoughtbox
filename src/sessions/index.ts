@@ -58,6 +58,9 @@ export class SessionHandler {
         case "resume":
           result = await this.handlers.handleResume(args);
           break;
+        case "resume_latest":
+          result = await this.handlers.handleResumeLatest(args);
+          break;
         case "export":
           result = await this.handlers.handleExport(args);
           break;
