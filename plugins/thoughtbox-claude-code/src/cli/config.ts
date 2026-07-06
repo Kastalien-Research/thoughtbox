@@ -153,6 +153,22 @@ export function findThoughtboxMcpUrl(settingsLocal: JsonObject): string | null {
   return typeof url === 'string' ? url : null;
 }
 
+/**
+ * Derive the Thoughtbox server base URL (origin) from the configured MCP
+ * server URL, stripping the `/mcp` path and the `?key=` query. Returns null
+ * when no MCP server is configured. Lets the channel target whichever server
+ * `thoughtbox init` configured without a hardcoded env var.
+ */
+export function findThoughtboxBaseUrl(settingsLocal: JsonObject): string | null {
+  const mcpUrl = findThoughtboxMcpUrl(settingsLocal);
+  if (!mcpUrl) return null;
+  try {
+    return new URL(mcpUrl).origin;
+  } catch {
+    return null;
+  }
+}
+
 export function findOtelEndpoint(settingsLocal: JsonObject): string | null {
   const env = ensureObject(settingsLocal.env, 'env');
   const endpoint = env.OTEL_EXPORTER_OTLP_ENDPOINT;

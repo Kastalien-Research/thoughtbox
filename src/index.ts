@@ -27,6 +27,10 @@ import { InMemoryClaimStorage } from "./claims/in-memory-claim-storage.js";
 import { createSupabaseClaimStorageProvider } from "./claims/supabase-claim-storage.js";
 import { InMemoryRunbookStorage } from "./notebook/runbook/in-memory-runbook-storage.js";
 import { createSupabaseRunbookStorageProvider } from "./notebook/runbook/supabase-runbook-storage.js";
+import {
+  createSupabaseProtocolEventStorageProvider,
+  type ProtocolEventStorage,
+} from "./protocol/protocol-event-storage.js";
 import { initEvaluation, initMonitoring } from "./evaluation/index.js";
 import { createHubHandler, type HubEvent } from "./hub/hub-handler.js";
 import {
@@ -212,6 +216,18 @@ async function startHttpServer() {
       })
     : null;
   const localRunbookStorage = isMultiTenant ? null : new InMemoryRunbookStorage();
+
+  // Hosted protocol-event log (SPEC-REASONING-CHANNEL-HOSTED c2): in
+  // multi-tenant mode the protocol lifecycle stream is appended to a
+  // tenant-scoped Supabase table so the reasoning channel can pull it
+  // (changed_since) across Cloud Run replicas. Local mode keeps the
+  // in-process /events SSE broadcast and needs no durable log.
+  const tenantProtocolEventStorage = isMultiTenant
+    ? createSupabaseProtocolEventStorageProvider({
+        supabaseUrl: process.env.SUPABASE_URL!,
+        serviceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      })
+    : null;
 
   // Local-mode hub thought store: ONE storage instance shared by /hub/api
   // and every local MCP session's tb.hub dispatcher. Per-session
@@ -408,6 +424,7 @@ async function startHttpServer() {
         const storage = factory.getStorage(workspaceId);
         const knowledgeStorage = factory.getKnowledgeStorage(workspaceId);
 
+        const protocolEventStorage = tenantProtocolEventStorage!(workspaceId);
         const server = await createMcpServer({
           sessionId,
           storage,
@@ -418,6 +435,15 @@ async function startHttpServer() {
           dataDir,
           knowledgeStorage,
           workspaceId,
+          // Persist protocol lifecycle events to the tenant-scoped log so the
+          // reasoning channel can pull them across replicas (c2). Fire-and-
+          // forget: a log write must never block a protocol transition.
+          onProtocolEvent: (event) => {
+            void protocolEventStorage.append(event).catch((err: unknown) => {
+              const message = err instanceof Error ? err.message : String(err);
+              console.error(`[ProtocolEvents] append failed: ${message}`);
+            });
+          },
           config: {
             disableThoughtLogging:
               (process.env.DISABLE_THOUGHT_LOGGING || "").toLowerCase() === "true",
@@ -571,6 +597,44 @@ async function startHttpServer() {
     mountOtlpRoutes(app, {
       supabaseUrl: process.env.SUPABASE_URL!,
       serviceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    });
+
+    // Reasoning-channel pull endpoint (SPEC-REASONING-CHANNEL-HOSTED c3):
+    // returns protocol events with id > changed_since for the caller's
+    // workspace, oldest first. The API key resolves the workspace, so a key
+    // can never read another tenant's events. Hosted only — local mode uses
+    // the in-process /events SSE stream.
+    app.get("/protocol/events", async (req: Request, res: Response) => {
+      let workspaceId: string;
+      try {
+        workspaceId = await resolveRequestAuth(req);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "Authentication failed";
+        res.status(401).json({ error: message });
+        return;
+      }
+
+      const parsePositiveInt = (value: unknown): number | undefined => {
+        if (typeof value !== "string") return undefined;
+        const parsed = Number.parseInt(value, 10);
+        return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
+      };
+
+      const cursor = parsePositiveInt(req.query.changed_since) ?? 0;
+      const limit = parsePositiveInt(req.query.limit);
+
+      try {
+        const events = await tenantProtocolEventStorage!(workspaceId).changedSince(
+          cursor,
+          limit,
+        );
+        const nextCursor =
+          events.length > 0 ? events[events.length - 1]!.cursor : cursor;
+        res.json({ events, cursor: nextCursor });
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        res.status(500).json({ error: message });
+      }
     });
   }
 
