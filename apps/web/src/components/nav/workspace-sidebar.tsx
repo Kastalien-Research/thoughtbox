@@ -88,6 +88,18 @@ function MergesIcon() {
   )
 }
 
+function RepoIcon() {
+  return (
+    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <circle cx="7" cy="5" r="2.25" strokeWidth={2} />
+      <circle cx="7" cy="12" r="2.25" strokeWidth={2} />
+      <circle cx="7" cy="19" r="2.25" strokeWidth={2} />
+      <path strokeLinecap="round" strokeWidth={2} d="M7 7.25v2.5M7 14.25v2.5M9 11l7-1.5a3 3 0 003-3V6" />
+      <circle cx="19" cy="4.5" r="1.75" strokeWidth={2} />
+    </svg>
+  )
+}
+
 function ConnectIcon() {
   return (
     <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -113,6 +125,7 @@ export function WorkspaceSidebar({ workspaceSlug }: { workspaceSlug: string }) {
     { label: 'Sessions', href: `${base}/sessions`, icon: <RunsIcon /> },
     { label: 'Knowledge', href: `${base}/knowledge`, icon: <KnowledgeIcon /> },
     { label: 'Merges', href: `${base}/merges`, icon: <MergesIcon /> },
+    { label: 'Repo', href: `${base}/repo`, icon: <RepoIcon /> },
     { label: 'Observability', href: `${base}/observability`, icon: <ObservabilityIcon /> },
     { label: 'API Keys', href: `${base}/api-keys`, icon: <KeyIcon /> },
   ]
