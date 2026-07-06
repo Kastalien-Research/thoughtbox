@@ -25,14 +25,6 @@ import {
   getInterleavedThinkingContent,
   getInterleavedGuideForUri,
   getInterleavedResourceTemplates,
-  SPEC_DESIGNER_PROMPT,
-  getSpecDesignerContent,
-  SPEC_VALIDATOR_PROMPT,
-  getSpecValidatorContent,
-  SPEC_ORCHESTRATOR_PROMPT,
-  getSpecOrchestratorContent,
-  SPECIFICATION_SUITE_PROMPT,
-  getSpecificationSuiteContent,
 } from "./prompts/index.js";
 import { THOUGHTBOX_CIPHER } from "./resources/thoughtbox-cipher-content.js";
 import { PARALLEL_VERIFICATION_CONTENT } from "./prompts/contents/parallel-verification.js";
@@ -77,10 +69,6 @@ import {
   ObservabilityGatewayHandler,
 } from "./observability/index.js";
 import { BranchHandler } from "./branch/index.js";
-import { SUBAGENT_SUMMARIZE_CONTENT } from "./resources/subagent-summarize-content.js";
-import { EVOLUTION_CHECK_CONTENT } from "./resources/evolution-check-content.js";
-import { BEHAVIORAL_TESTS } from "./resources/behavioral-tests-content.js";
-import { SKILL_DEFINITIONS, getSkillCatalog, getSkill } from "./resources/skills/index.js";
 import { getOperationsCatalog as getSessionOperationsCatalog, getOperation as getSessOp } from "./sessions/operations.js";
 import { getOperationsCatalog as getKnowledgeOperationsCatalog, getOperation as getKnowOp } from "./knowledge/operations.js";
 import { getOperationsCatalog as getHubOperationsCatalog, getOperation as getHubOp } from "./hub/operations.js";
@@ -218,13 +206,14 @@ function getPeerNotebookPilotResourceContent(): string {
     scope: {
       persistence: "in-memory by default; Supabase-backed in hosted workspace mode",
       runtimeProviders: ["local-process (development-only, no isolation boundary)"],
+      graduation: "graduated notebooks execute as brokered peers; claim-extractor is the reference peer",
       deferred: [
         "web app peer views",
         "smolvm provider (production isolation)",
         "public direct runtime MCP",
       ],
     },
-    pilotPeer: {
+    examplePeer: {
       peerId: "claim-extractor",
       exposedTool: "extract_claims",
       args: { textArtifactId: "artifact id returned by peer_artifact_seed" },
@@ -297,7 +286,7 @@ export async function createMcpServer(args: CreateMcpServerArgs = {}): Promise<M
 Three tools:
 - \`thoughtbox_search\`: Write JavaScript to query the operation/prompt/resource catalog
 - \`thoughtbox_execute\`: Write JavaScript using the \`tb\` SDK to chain operations
-- \`thoughtbox_peer_notebook\`: Seed artifacts and invoke the brokered claim-extractor peer
+- \`thoughtbox_peer_notebook\`: Seed artifacts and invoke brokered graduated peers (e.g. claim-extractor)
 
 Workflow: search to discover available operations, then execute code against them.
 Use \`console.log()\` for debugging — output captured in response logs.`;
@@ -712,364 +701,6 @@ Use \`console.log()\` for debugging — output captured in response logs.`;
     }
   );
 
-  // Subagent Summarize prompt - RLM-style context isolation pattern
-  // Accessible in Claude Code as /mcp__thoughtbox__subagent-summarize
-  server.registerPrompt(
-    "subagent-summarize",
-    {
-      description: "Get instructions for using Claude Code's Task tool to retrieve and summarize Thoughtbox sessions with context isolation. Reduces context consumption by 10-40x.",
-      argsSchema: {
-        request: z.string().optional().describe("What you want to do with Thoughtbox sessions (e.g., 'summarize session abc-123', 'search for authentication discussions', 'synthesize all sessions about architecture')"),
-      },
-    },
-    async (args) => {
-      const request = args.request || "";
-
-      // Build contextual header based on the request
-      let contextHeader = `# ACTION REQUIRED: Execute Subagent Query
-
-**User Request**: "${request || "retrieve and summarize Thoughtbox sessions"}"
-
-## YOUR TASK
-
-You MUST now spawn a sub-agent using the Task tool to fulfill this request. This achieves context isolation - the sub-agent retrieves the data and returns only a summary, keeping your context clean.
-
-**Execute this Task tool call NOW:**
-
-\`\`\`json
-{
-  "tool": "Task",
-  "subagent_type": "general-purpose",
-  "description": "${request ? request.slice(0, 50) : "Query Thoughtbox sessions"}",
-  "prompt": "${request ? `Task: ${request}` : "Retrieve and summarize Thoughtbox session data."}\\n\\nSteps:\\n1. Call mcp__thoughtbox__thoughtbox_execute with code using the tb SDK:\\n   - async () => tb.session.list() to see available sessions\\n   - async () => tb.session.get('<SESSION_ID>') to retrieve a specific session\\n   - async () => tb.session.search('<QUERY>') to find relevant sessions\\n2. Process the data according to the request\\n\\nReturn ONLY your findings/summary. Do not include raw thought content."
-}
-\`\`\`
-
----
-
-## Why This Pattern?
-
-`;
-
-      return {
-        messages: [
-          {
-            role: "user" as const,
-            content: {
-              type: "text" as const,
-              text: contextHeader + SUBAGENT_SUMMARIZE_CONTENT
-            },
-          },
-        ],
-      };
-    }
-  );
-
-  // Evolution Check prompt - A-Mem retroactive linking pattern
-  // Accessible in Claude Code as /mcp__thoughtbox__evolution-check
-  // ALSO accessible as resource at thoughtbox://prompts/evolution-check (unified pattern)
-  server.registerPrompt(
-    "evolution-check",
-    {
-      description: "Get instructions for checking which prior thoughts should be updated when a new insight is added. Uses sub-agent pattern for context isolation. Based on A-Mem paper.",
-      argsSchema: {
-        newThought: z.string().optional().describe("The new thought/insight that was just added"),
-        sessionId: z.string().optional().describe("Session ID containing prior thoughts to check"),
-        priorThoughts: z.string().optional().describe("Prior thoughts formatted as 'S1: ...\\nS2: ...' (alternative to sessionId)"),
-      },
-    },
-    async (args) => {
-      const newThought = args.newThought || "[YOUR NEW THOUGHT HERE]";
-      const priorThoughts = args.priorThoughts || "[PRIOR THOUGHTS - retrieve with session.get or pass directly]";
-
-      // Build contextual header with concrete Task tool invocation
-      const contextHeader = `# ACTION REQUIRED: Spawn Evolution Checker
-
-**New Thought**: "${newThought.slice(0, 100)}${newThought.length > 100 ? '...' : ''}"
-
-## YOUR TASK
-
-Spawn a Haiku sub-agent to evaluate which prior thoughts should be updated based on this new insight.
-
-**Execute this Task tool call NOW:**
-
-\`\`\`json
-{
-  "tool": "Task",
-  "subagent_type": "general-purpose",
-  "model": "haiku",
-  "description": "Check evolution candidates",
-  "prompt": "Evaluate which prior thoughts should be updated.\\n\\nNEW INSIGHT:\\n${newThought.replace(/"/g, '\\"').replace(/\n/g, '\\n')}\\n\\nPRIOR THOUGHTS:\\n${priorThoughts.replace(/"/g, '\\"').replace(/\n/g, '\\n')}\\n\\nFor each thought, respond ONLY with:\\nS1: [UPDATE|NO_UPDATE] - [brief reason if UPDATE]\\nS2: [UPDATE|NO_UPDATE] - [brief reason if UPDATE]\\n...\\n\\nBe selective. Only suggest UPDATE if the new insight meaningfully enriches context."
-}
-\`\`\`
-
-## Then Apply Revisions
-
-For each thought marked UPDATE, use:
-
-\`\`\`typescript
-// Via the thoughtbox_execute tool:
-async () => tb.thought({
-  thought: "[REVISED content with new context]",
-  thoughtType: "reasoning",
-  thoughtNumber: [N],
-  totalThoughts: [total],
-  nextThoughtNeeded: false,
-  isRevision: true,
-  revisesThought: [N]
-})
-\`\`\`
-
----
-
-## Full Pattern Documentation
-
-`;
-
-      return {
-        messages: [
-          {
-            role: "user" as const,
-            content: {
-              type: "text" as const,
-              text: contextHeader + EVOLUTION_CHECK_CONTENT
-            },
-          },
-        ],
-      };
-    }
-  );
-
-  // =============================================================================
-  // Behavioral Test Prompts (serve as /mcp__thoughtbox__test_* slash commands)
-  // =============================================================================
-  // These behavioral tests can be invoked as slash commands in Claude Code.
-  // The agent executes the tests directly and reports results.
-
-  server.registerPrompt(
-    "test-thoughtbox",
-    {
-      description: BEHAVIORAL_TESTS.thoughtbox.description,
-    },
-    async () => ({
-      messages: [
-        {
-          role: "user" as const,
-          content: { type: "text" as const, text: BEHAVIORAL_TESTS.thoughtbox.content },
-        },
-      ],
-    })
-  );
-
-  server.registerPrompt(
-    "test-notebook",
-    {
-      description: BEHAVIORAL_TESTS.notebook.description,
-    },
-    async () => ({
-      messages: [
-        {
-          role: "user" as const,
-          content: { type: "text" as const, text: BEHAVIORAL_TESTS.notebook.content },
-        },
-      ],
-    })
-  );
-
-  server.registerPrompt(
-    "test-memory",
-    {
-      description: BEHAVIORAL_TESTS.memory.description,
-    },
-    async () => ({
-      messages: [
-        {
-          role: "user" as const,
-          content: { type: "text" as const, text: BEHAVIORAL_TESTS.memory.content },
-        },
-      ],
-    })
-  );
-
-  // Specification workflow prompts
-  server.registerPrompt(
-    "spec-designer",
-    {
-      description: SPEC_DESIGNER_PROMPT.description,
-      argsSchema: {
-        prompt: z.string().describe(SPEC_DESIGNER_PROMPT.arguments[0].description),
-        output_folder: z.string().optional().describe(SPEC_DESIGNER_PROMPT.arguments[1].description),
-        depth: z.string().optional().describe(SPEC_DESIGNER_PROMPT.arguments[2].description),
-        max_specs: z.string().optional().describe(SPEC_DESIGNER_PROMPT.arguments[3].description),
-        plan_only: z.string().optional().describe(SPEC_DESIGNER_PROMPT.arguments[4].description),
-      },
-    },
-    async (toolArgs) => {
-      if (!toolArgs.prompt) {
-        throw new Error("Missing required argument: prompt");
-      }
-      const content = getSpecDesignerContent({
-        prompt: toolArgs.prompt,
-        output_folder: toolArgs.output_folder,
-        depth: toolArgs.depth,
-        max_specs: toolArgs.max_specs,
-        plan_only: toolArgs.plan_only,
-      });
-      return {
-        messages: [
-          {
-            role: "user" as const,
-            content: { type: "text" as const, text: content },
-          },
-        ],
-      };
-    }
-  );
-
-  server.registerPrompt(
-    "spec-validator",
-    {
-      description: SPEC_VALIDATOR_PROMPT.description,
-      argsSchema: {
-        spec_path: z.string().describe(SPEC_VALIDATOR_PROMPT.arguments[0].description),
-        strict: z.string().optional().describe(SPEC_VALIDATOR_PROMPT.arguments[1].description),
-        deep: z.string().optional().describe(SPEC_VALIDATOR_PROMPT.arguments[2].description),
-        report_only: z.string().optional().describe(SPEC_VALIDATOR_PROMPT.arguments[3].description),
-      },
-    },
-    async (toolArgs) => {
-      if (!toolArgs.spec_path) {
-        throw new Error("Missing required argument: spec_path");
-      }
-      const content = getSpecValidatorContent({
-        spec_path: toolArgs.spec_path,
-        strict: toolArgs.strict,
-        deep: toolArgs.deep,
-        report_only: toolArgs.report_only,
-      });
-      return {
-        messages: [
-          {
-            role: "user" as const,
-            content: { type: "text" as const, text: content },
-          },
-        ],
-      };
-    }
-  );
-
-  server.registerPrompt(
-    "spec-orchestrator",
-    {
-      description: SPEC_ORCHESTRATOR_PROMPT.description,
-      argsSchema: {
-        spec_folder: z.string().describe(SPEC_ORCHESTRATOR_PROMPT.arguments[0].description),
-        budget: z.string().optional().describe(SPEC_ORCHESTRATOR_PROMPT.arguments[1].description),
-        max_iterations: z.string().optional().describe(SPEC_ORCHESTRATOR_PROMPT.arguments[2].description),
-        plan_only: z.string().optional().describe(SPEC_ORCHESTRATOR_PROMPT.arguments[3].description),
-      },
-    },
-    async (toolArgs) => {
-      if (!toolArgs.spec_folder) {
-        throw new Error("Missing required argument: spec_folder");
-      }
-      const content = getSpecOrchestratorContent({
-        spec_folder: toolArgs.spec_folder,
-        budget: toolArgs.budget,
-        max_iterations: toolArgs.max_iterations,
-        plan_only: toolArgs.plan_only,
-      });
-      return {
-        messages: [
-          {
-            role: "user" as const,
-            content: { type: "text" as const, text: content },
-          },
-        ],
-      };
-    }
-  );
-
-  server.registerPrompt(
-    "specification-suite",
-    {
-      description: SPECIFICATION_SUITE_PROMPT.description,
-      argsSchema: {
-        prompt_or_spec_path: z.string().describe(SPECIFICATION_SUITE_PROMPT.arguments[0].description),
-        output_folder: z.string().optional().describe(SPECIFICATION_SUITE_PROMPT.arguments[1].description),
-        depth: z.string().optional().describe(SPECIFICATION_SUITE_PROMPT.arguments[2].description),
-        budget: z.string().optional().describe(SPECIFICATION_SUITE_PROMPT.arguments[3].description),
-        plan_only: z.string().optional().describe(SPECIFICATION_SUITE_PROMPT.arguments[4].description),
-        skip_design: z.string().optional().describe(SPECIFICATION_SUITE_PROMPT.arguments[5].description),
-        skip_validation: z.string().optional().describe(SPECIFICATION_SUITE_PROMPT.arguments[6].description),
-      },
-    },
-    async (toolArgs) => {
-      if (!toolArgs.prompt_or_spec_path) {
-        throw new Error("Missing required argument: prompt_or_spec_path");
-      }
-      const content = getSpecificationSuiteContent({
-        prompt_or_spec_path: toolArgs.prompt_or_spec_path,
-        output_folder: toolArgs.output_folder,
-        depth: toolArgs.depth,
-        budget: toolArgs.budget,
-        plan_only: toolArgs.plan_only,
-        skip_design: toolArgs.skip_design,
-        skip_validation: toolArgs.skip_validation,
-      });
-      return {
-        messages: [
-          {
-            role: "user" as const,
-            content: { type: "text" as const, text: content },
-          },
-        ],
-      };
-    }
-  );
-
-  // Thoughtbox Skills — registered as both prompts and resources (unified pattern)
-  // Accessible as prompts: skill-onboard, skill-research, etc.
-  // Accessible as resources: thoughtbox://skills/onboard, thoughtbox://skills/research, etc.
-  for (const skill of SKILL_DEFINITIONS) {
-    const argsSchema: Record<string, z.ZodTypeAny> = {};
-    for (const arg of skill.args) {
-      argsSchema[arg.name] = arg.required
-        ? z.string().describe(arg.description)
-        : z.string().optional().describe(arg.description);
-    }
-
-    server.registerPrompt(
-      `skill-${skill.name}`,
-      {
-        description: skill.description,
-        argsSchema,
-      },
-      async (args) => {
-        const argSummary = Object.entries(args)
-          .filter(([, v]) => v !== undefined && v !== "")
-          .map(([k, v]) => `**${k}**: ${v}`)
-          .join("\n");
-
-        const header = argSummary
-          ? `# Execute: ${skill.title}\n\n${argSummary}\n\n---\n\n`
-          : "";
-
-        return {
-          messages: [
-            {
-              role: "user" as const,
-              content: {
-                type: "text" as const,
-                text: header + skill.content,
-              },
-            },
-          ],
-        };
-      }
-    );
-  }
-
   // Register static resources using McpServer's registerResource API
   server.registerResource(
     "status",
@@ -1129,7 +760,7 @@ async () => tb.thought({
     "peer-notebook-pilot",
     "thoughtbox://peer-notebook/pilot",
     {
-      description: "Mock peer notebook pilot surface: artifact seed, claim-extractor invocation, invocation/trace/artifact reads",
+      description: "Peer notebook surface: artifact seed, graduated-peer invocation, invocation/trace/artifact reads",
       mimeType: "application/json",
     },
     async (uri) => ({
@@ -1229,109 +860,6 @@ async () => tb.thought({
       ],
     })
   );
-
-  // Unified prompt/resource: evolution-check
-  // Same content as the prompt, but addressable via URI
-  // This implements the unified pattern where prompts ARE resources
-  server.registerResource(
-    "evolution-check-prompt",
-    "thoughtbox://prompts/evolution-check",
-    {
-      description: "A-Mem retroactive linking pattern: check which prior thoughts should be updated when a new insight is added (same as evolution-check prompt)",
-      mimeType: "text/markdown",
-    },
-    async (uri) => ({
-      contents: [
-        {
-          uri: uri.toString(),
-          mimeType: "text/markdown",
-          text: EVOLUTION_CHECK_CONTENT,
-        },
-      ],
-    })
-  );
-
-  // Unified prompt/resource: subagent-summarize
-  // Same content as the prompt, but addressable via URI
-  server.registerResource(
-    "subagent-summarize-prompt",
-    "thoughtbox://prompts/subagent-summarize",
-    {
-      description: "RLM-style context isolation pattern: retrieve and summarize sessions without polluting conversation context (same as subagent-summarize prompt)",
-      mimeType: "text/markdown",
-    },
-    async (uri) => ({
-      contents: [
-        {
-          uri: uri.toString(),
-          mimeType: "text/markdown",
-          text: SUBAGENT_SUMMARIZE_CONTENT,
-        },
-      ],
-    })
-  );
-
-  // =============================================================================
-  // Behavioral Test Resources (unified with prompts above)
-  // =============================================================================
-  // Same content as the test prompts, but also addressable via URI.
-  // This implements the unified pattern where prompts ARE resources.
-
-  server.registerResource(
-    "test-thoughtbox",
-    BEHAVIORAL_TESTS.thoughtbox.uri,
-    {
-      description: BEHAVIORAL_TESTS.thoughtbox.description,
-      mimeType: "text/markdown",
-    },
-    async (uri) => ({
-      contents: [
-        {
-          uri: uri.toString(),
-          mimeType: "text/markdown",
-          text: BEHAVIORAL_TESTS.thoughtbox.content,
-        },
-      ],
-    })
-  );
-
-  server.registerResource(
-    "test-notebook",
-    BEHAVIORAL_TESTS.notebook.uri,
-    {
-      description: BEHAVIORAL_TESTS.notebook.description,
-      mimeType: "text/markdown",
-    },
-    async (uri) => ({
-      contents: [
-        {
-          uri: uri.toString(),
-          mimeType: "text/markdown",
-          text: BEHAVIORAL_TESTS.notebook.content,
-        },
-      ],
-    })
-  );
-
-  server.registerResource(
-    "test-memory",
-    BEHAVIORAL_TESTS.memory.uri,
-    {
-      description: BEHAVIORAL_TESTS.memory.description,
-      mimeType: "text/markdown",
-    },
-    async (uri) => ({
-      contents: [
-        {
-          uri: uri.toString(),
-          mimeType: "text/markdown",
-          text: BEHAVIORAL_TESTS.memory.content,
-        },
-      ],
-    })
-  );
-
-
 
   server.registerResource(
     "session-operations",
@@ -1516,64 +1044,6 @@ async () => tb.thought({
 
 
 
-  // Skills catalog resource (static)
-  server.registerResource(
-    "skills-catalog",
-    "thoughtbox://skills",
-    {
-      description:
-        "Catalog of all Thoughtbox workflow skills with descriptions and usage",
-      mimeType: "text/markdown",
-    },
-    async (uri) => ({
-      contents: [
-        {
-          uri: uri.toString(),
-          mimeType: "text/markdown",
-          text: getSkillCatalog(),
-        },
-      ],
-    })
-  );
-
-  // Skills resource template — individual skill content
-  server.registerResource(
-    "skill-content",
-    new ResourceTemplate("thoughtbox://skills/{name}", { list: undefined }),
-    {
-      description:
-        "Individual skill workflow guide. Available skills: onboard, research, decision, debug, refactor, session-review, knowledge-query, evolution",
-      mimeType: "text/markdown",
-    },
-    async (uri, params) => {
-      const name = typeof params === "object" && params !== null
-        ? String((params as Record<string, unknown>).name ?? "")
-        : "";
-      const skill = getSkill(name);
-      if (!skill) {
-        const available = SKILL_DEFINITIONS.map((s) => s.name).join(", ");
-        return {
-          contents: [
-            {
-              uri: uri.toString(),
-              mimeType: "text/markdown",
-              text: `# Skill Not Found\n\n**Error**: No skill named "${name}".\n\n**Available skills**: ${available}\n\nUse \`thoughtbox://skills\` to see the full catalog.`,
-            },
-          ],
-        };
-      }
-      return {
-        contents: [
-          {
-            uri: uri.toString(),
-            mimeType: "text/markdown",
-            text: skill.content,
-          },
-        ],
-      };
-    }
-  );
-
   // SPEC-001: Thought query resource templates
   const thoughtQueryHandler = new ThoughtQueryHandler(storage);
 
@@ -1690,8 +1160,8 @@ async () => tb.thought({
       },
       {
         uri: "thoughtbox://peer-notebook/pilot",
-        name: "Peer Notebook Pilot",
-        description: "Mock peer notebook pilot surface: artifact seed, claim-extractor invocation, invocation/trace/artifact reads",
+        name: "Peer Notebook",
+        description: "Peer notebook surface: artifact seed, graduated-peer invocation, invocation/trace/artifact reads",
         mimeType: "application/json",
       },
       {
@@ -1757,42 +1227,6 @@ async () => tb.thought({
           "Workflow for parallel hypothesis exploration using Thoughtbox branching",
         mimeType: "text/markdown",
       },
-      // Unified prompt/resource pattern - prompts are also readable as resources
-      {
-        uri: "thoughtbox://prompts/evolution-check",
-        name: "Evolution Check Pattern (A-Mem)",
-        description:
-          "Check which prior thoughts should be updated when a new insight is added. Same content as evolution-check prompt.",
-        mimeType: "text/markdown",
-      },
-      {
-        uri: "thoughtbox://prompts/subagent-summarize",
-        name: "Subagent Summarize Pattern (RLM)",
-        description:
-          "Context isolation pattern for retrieving sessions. Same content as subagent-summarize prompt.",
-        mimeType: "text/markdown",
-      },
-      // Skill resources (unified prompt/resource pattern)
-      {
-        uri: "thoughtbox://skills",
-        name: "Thoughtbox Skills Catalog",
-        description:
-          "Catalog of all Thoughtbox workflow skills: onboard, research, decision, debug, refactor, session-review, knowledge-query, evolution",
-        mimeType: "text/markdown",
-      },
-      // Behavioral test resources (unified with test prompts)
-      {
-        uri: BEHAVIORAL_TESTS.thoughtbox.uri,
-        name: "Behavioral Tests: Thoughtbox",
-        description: BEHAVIORAL_TESTS.thoughtbox.description,
-        mimeType: "text/markdown",
-      },
-      {
-        uri: BEHAVIORAL_TESTS.notebook.uri,
-        name: "Behavioral Tests: Notebook",
-        description: BEHAVIORAL_TESTS.notebook.description,
-        mimeType: "text/markdown",
-      },
       // Knowledge graph resources (Phase 1)
       {
         uri: "thoughtbox://knowledge/stats",
@@ -1800,15 +1234,6 @@ async () => tb.thought({
         description: "Entity and relation counts for the knowledge graph",
         mimeType: "application/json",
       },
-
-      {
-        uri: BEHAVIORAL_TESTS.memory.uri,
-        name: "Behavioral Tests: Memory",
-        description: BEHAVIORAL_TESTS.memory.description,
-        mimeType: "text/markdown",
-      },
-
-
     ],
   }));
 
@@ -1817,14 +1242,6 @@ async () => tb.thought({
     ListResourceTemplatesRequestSchema,
     async () => ({
       resourceTemplates: [
-        // Skill resource templates
-        {
-          uriTemplate: "thoughtbox://skills/{name}",
-          name: "Skill Guide",
-          description:
-            "Individual skill workflow guide. Available: onboard, research, decision, debug, refactor, session-review, knowledge-query, evolution",
-          mimeType: "text/markdown",
-        },
         // Per-operation resource templates (Fix #4)
         {
           uriTemplate: "thoughtbox://gateway/operations/{op}",

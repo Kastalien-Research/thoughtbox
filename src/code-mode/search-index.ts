@@ -263,68 +263,6 @@ export function buildSearchCatalog(): SearchCatalog {
           "Use this Thoughtbox server as a reasoning workspace to alternate between internal reasoning steps and external tool/action invocation. Enables structured multi-phase execution with tooling inventory, sufficiency assessment, strategy development, and execution.",
         args: ["task", "thoughts_limit", "clear_folder"],
       },
-      {
-        name: "subagent-summarize",
-        description:
-          "Get instructions for using Claude Code's Task tool to retrieve and summarize Thoughtbox sessions with context isolation. Reduces context consumption by 10-40x.",
-        args: ["request"],
-      },
-      {
-        name: "evolution-check",
-        description:
-          "Get instructions for checking which prior thoughts should be updated when a new insight is added. Uses sub-agent pattern for context isolation. Based on A-Mem paper.",
-        args: ["newThought", "sessionId", "priorThoughts"],
-      },
-      {
-        name: "test-thoughtbox",
-        description:
-          "Behavioral tests for tb.thought via thoughtbox_execute (15 tests covering forward/backward thinking, branching, revisions, linked structure)",
-        args: [],
-      },
-      {
-        name: "test-notebook",
-        description:
-          "Behavioral tests for tb.notebook via thoughtbox_execute (8 tests covering creation, cells, execution, export)",
-        args: [],
-      },
-      {
-        name: "test-memory",
-        description:
-          "Behavioral tests for tb.knowledge via thoughtbox_execute (12 tests covering entities, observations, relations, graph traversal, stats)",
-        args: [],
-      },
-      {
-        name: "spec-designer",
-        description:
-          "Design and produce implementation specifications through structured cognitive loops. Creates specs from prompts using OODA loop building blocks.",
-        args: ["prompt", "output_folder", "depth", "max_specs", "plan_only"],
-      },
-      {
-        name: "spec-validator",
-        description:
-          "Systematically validate specification documents against current codebase and project architecture. Identifies gaps, contradictions, and feasibility issues.",
-        args: ["spec_path", "strict", "deep", "report_only"],
-      },
-      {
-        name: "spec-orchestrator",
-        description:
-          "Coordinate implementation of multiple specification documents from a folder. Manages dependencies, tracks progress, and prevents implementation spirals using Operations Research principles.",
-        args: ["spec_folder", "budget", "max_iterations", "plan_only"],
-      },
-      {
-        name: "specification-suite",
-        description:
-          "Chain the design, validate, orchestrate lifecycle into one command. Moves from blank prompt to implemented, validated specs.",
-        args: [
-          "prompt_or_spec_path",
-          "output_folder",
-          "depth",
-          "budget",
-          "plan_only",
-          "skip_design",
-          "skip_validation",
-        ],
-      },
     ],
 
     resources: [
@@ -341,9 +279,9 @@ export function buildSearchCatalog(): SearchCatalog {
         mimeType: "application/json",
       },
       {
-        name: "Peer Notebook Pilot",
+        name: "Peer Notebook",
         uri: "thoughtbox://peer-notebook/pilot",
-        description: "Peer notebook pilot surface and operation quick reference",
+        description: "Peer notebook surface (graduated peers) and operation quick reference",
         mimeType: "application/json",
       },
       {
@@ -397,45 +335,10 @@ export function buildSearchCatalog(): SearchCatalog {
         mimeType: "text/markdown",
       },
       {
-        name: "Evolution Check Pattern (A-Mem)",
-        uri: "thoughtbox://prompts/evolution-check",
-        description:
-          "Check which prior thoughts should be updated when a new insight is added. Same content as evolution-check prompt.",
-        mimeType: "text/markdown",
-      },
-      {
-        name: "Subagent Summarize Pattern (RLM)",
-        uri: "thoughtbox://prompts/subagent-summarize",
-        description:
-          "Context isolation pattern for retrieving sessions. Same content as subagent-summarize prompt.",
-        mimeType: "text/markdown",
-      },
-      {
-        name: "Behavioral Tests: Thoughtbox",
-        uri: "thoughtbox://tests/thoughtbox",
-        description:
-          "Behavioral tests for tb.thought via thoughtbox_execute (15 tests covering forward/backward thinking, branching, revisions, linked structure)",
-        mimeType: "text/markdown",
-      },
-      {
-        name: "Behavioral Tests: Notebook",
-        uri: "thoughtbox://tests/notebook",
-        description:
-          "Behavioral tests for tb.notebook via thoughtbox_execute (8 tests covering creation, cells, execution, export)",
-        mimeType: "text/markdown",
-      },
-      {
         name: "Knowledge Graph Statistics",
         uri: "thoughtbox://knowledge/stats",
         description: "Entity and relation counts for the knowledge graph",
         mimeType: "application/json",
-      },
-      {
-        name: "Behavioral Tests: Memory",
-        uri: "thoughtbox://tests/memory",
-        description:
-          "Behavioral tests for tb.knowledge via thoughtbox_execute (12 tests covering entities, observations, relations, graph traversal, stats)",
-        mimeType: "text/markdown",
       },
     ],
 
