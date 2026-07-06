@@ -15,6 +15,52 @@ data "google_project" "current" {
   project_id = var.project_id
 }
 
+# ===============
+# Secret Manager
+# ===============
+# Secrets consumed by the MCP service via secret_key_ref below. These were
+# originally declared in execution.tf (agent-runner); the agent-runner job,
+# scheduler, and its github/anthropic secrets were destroyed in the 2026-07
+# demolition pass. The service's runtime SA (agent_runner, iam.tf) needs
+# secretAccessor on each. The remaining service secrets (langsmith-api-key,
+# oauth-jwt-secret, supabase-service-role-key, tb-branch-signing-secret) and
+# their IAM bindings were created out-of-band with gcloud and are not yet
+# Terraform-managed.
+
+resource "google_secret_manager_secret" "supabase_url" {
+  secret_id = "supabase-url"
+  replication {
+    auto {}
+  }
+}
+
+resource "google_secret_manager_secret" "supabase_anon_key" {
+  secret_id = "supabase-anon-key"
+  replication {
+    auto {}
+  }
+}
+
+resource "google_secret_manager_secret" "supabase_jwt_secret" {
+  secret_id = "supabase-jwt-secret"
+  replication {
+    auto {}
+  }
+}
+
+# Grant the MCP service's runtime SA access to read exactly these secrets.
+resource "google_secret_manager_secret_iam_member" "agent_runner_access" {
+  for_each = toset([
+    "supabase-url",
+    "supabase-anon-key",
+    "supabase-jwt-secret"
+  ])
+
+  secret_id = each.key
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${google_service_account.agent_runner.email}"
+}
+
 resource "google_cloud_run_v2_service" "thoughtbox_mcp" {
   name     = "thoughtbox-mcp"
   location = var.region
