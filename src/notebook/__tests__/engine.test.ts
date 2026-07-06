@@ -131,9 +131,9 @@ describe("Notebook Evidence Engine domain", () => {
 });
 
 describe("Notebook Evidence Engine visibility", () => {
-  it("lists all eight notebook modes in the capabilities resource", () => {
+  it("lists all nine notebook modes in the capabilities resource", () => {
     const modes = listNotebookModes();
-    expect(modes).toHaveLength(8);
+    expect(modes).toHaveLength(9);
 
     const capabilities = JSON.parse(getNotebookCapabilitiesJson());
     expect(capabilities.lowLevelPredicatePrimitive).toBe("notebook_validate");
@@ -146,16 +146,17 @@ describe("Notebook Evidence Engine visibility", () => {
       "skill_certification",
       "scenario_factory",
       "system_audit",
+      "merge_evidence",
     ]);
   });
 
-  it("marks only runbook as implemented; the rest are specified", () => {
+  it("marks runbook and merge_evidence as implemented; the rest are specified", () => {
+    const implemented = new Set(["runbook", "merge_evidence"]);
     const statuses = Object.fromEntries(
       listNotebookModes().map((m) => [m.mode, m.runStatus]),
     );
-    expect(statuses.runbook).toBe("implemented");
     for (const [mode, status] of Object.entries(statuses)) {
-      if (mode !== "runbook") expect(status).toBe("specified");
+      expect(status).toBe(implemented.has(mode) ? "implemented" : "specified");
     }
   });
 });
