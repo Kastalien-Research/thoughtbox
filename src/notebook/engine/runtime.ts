@@ -260,14 +260,17 @@ export class InMemoryNotebookEngineRuntime {
           }),
       });
 
-      if (parsedMode !== "runbook") {
+      // Registry-driven gate (extensible): a mode registered as "specified"
+      // rejects with an explicit not-implemented error; "implemented" modes
+      // must have a verdict builder in buildRunVerdict below.
+      if (descriptor.runStatus !== "implemented") {
         return yield* Effect.fail(
           new NotebookModeNotImplemented({
             mode: parsedMode,
             reason:
-              `Verdict derivation for mode "${parsedMode}" is not implemented; ` +
-              `only "runbook" runs execute today. Use notebook_run_cell ` +
-              `and notebook_validate for cell-level evidence in other modes.`,
+              `Verdict derivation for mode "${parsedMode}" is not implemented. ` +
+              `Use notebook_run_cell and notebook_validate for cell-level ` +
+              `evidence in this mode.`,
           }),
         );
       }
@@ -293,6 +296,7 @@ export class InMemoryNotebookEngineRuntime {
       const runBody = this.makeRunBody({
         runId,
         notebookId: input.notebookId,
+        mode: parsedMode,
         startedAt,
         inputs: input.inputs ?? {},
       });
@@ -348,20 +352,22 @@ export class InMemoryNotebookEngineRuntime {
   }
 
   /**
-   * The run body shared by every runbook run. With a templateCellSource
-   * wired (the real handler path), the durable instance is created BEFORE
-   * any cell executes and the gate persists each cell's record as it
-   * completes — a run that dies mid-way leaves durable records for every
-   * cell that did execute (B5 partial-run durability). Without one (raw
-   * runtime usage), the legacy run-end persistence applies.
+   * The run body shared by every implemented mode (runbook and eval — they
+   * differ only in verdict derivation, dispatched via buildRunVerdict). With
+   * a templateCellSource wired (the real handler path), the durable instance
+   * is created BEFORE any cell executes and the gate persists each cell's
+   * record as it completes — a run that dies mid-way leaves durable records
+   * for every cell that did execute (B5 partial-run durability). Without one
+   * (raw runtime usage), the legacy run-end persistence applies.
    */
   private makeRunBody(args: {
     runId: string;
     notebookId: string;
+    mode: NotebookMode;
     startedAt: string;
     inputs: Record<string, unknown>;
   }) {
-    const { runId, notebookId, startedAt, inputs } = args;
+    const { runId, notebookId, mode, startedAt, inputs } = args;
     return Effect.gen(this, function* () {
       const inputsArtifact = yield* this.putArtifact(
         `${runId}-inputs.json`,
@@ -416,10 +422,19 @@ export class InMemoryNotebookEngineRuntime {
         JSON.stringify(evidence, null, 2),
       );
       const runArtifacts = [inputsArtifact, evidenceArtifact];
-      const { verdict, records } = buildRunbookVerdict(evidence, {
-        readArtifact: (name) => this.readRunArtifact(runArtifacts, name),
-        claimResolver: this.claimResolver,
-        ...(durable !== undefined ? { precomputedRecords: durable.recordsByCell } : {}),
+      const { verdict, records } = yield* Effect.try({
+        try: () =>
+          buildRunVerdict(mode, evidence, {
+            readArtifact: (name) => this.readRunArtifact(runArtifacts, name),
+            claimResolver: this.claimResolver,
+            ...(durable !== undefined
+              ? { precomputedRecords: durable.recordsByCell }
+              : {}),
+          }),
+        catch: (cause) =>
+          new InvalidNotebookShape({
+            reason: `Verdict derivation failed: ${errorMessage(cause)}`,
+          }),
       });
 
       yield* Effect.tryPromise({
@@ -933,62 +948,13 @@ function buildRunbookVerdict(
   evidence: CellExecutionEvidence[],
   context: VerdictDerivationContext,
 ): { verdict: NotebookOutput; records: ExpectationRecord[] } {
-  const recordsByCell = new Map<string, ExpectationRecord[]>();
-  const allRecords: ExpectationRecord[] = [];
-  const coveredCellIds = new Set<string>();
-
-  for (const cell of evidence) {
-    const precomputed = context.precomputedRecords?.get(cell.cellId);
-    // Precomputed gate records cover tier-2 and non-artifact tier-1 (the gate
-    // could not see post-run artifacts). Evaluate the deferred artifact-backed
-    // expectations now, with the full run artifacts available, and merge —
-    // so an artifact assertion participates in the verdict instead of erroring
-    // (Codex PR #402, P2). Cells without precomputed records (non-durable
-    // runs) are evaluated whole here, where every artifact already exists.
-    const cellRecords =
-      precomputed !== undefined
-        ? [
-            ...precomputed,
-            ...evaluateEvidenceExpectations(cell, context, {
-              tier1Filter: (expectation) => expectation.source.kind === "artifact",
-              includeTier2: false,
-            }),
-          ]
-        : evaluateEvidenceExpectations(cell, context);
-    if (cell.expectations && cell.validatorFor !== undefined) {
-      coveredCellIds.add(cell.validatorFor);
-    }
-    if (cell.contract) {
-      coveredCellIds.add(cell.cellId);
-    }
-    if (cellRecords.length > 0) {
-      recordsByCell.set(cell.cellId, cellRecords);
-      allRecords.push(...cellRecords);
-    }
-  }
-
-  const subjectCodeCells = evidence.filter(
-    (cell) => cell.cellType === "code" && cell.validatorFor === undefined,
+  const { recordsByCell, allRecords, contractCoverage } = collectRunRecords(
+    evidence,
+    context,
   );
-  const contractCoverage =
-    subjectCodeCells.length === 0
-      ? 0
-      : subjectCodeCells.filter((cell) => coveredCellIds.has(cell.cellId)).length /
-        subjectCodeCells.length;
 
-  // §5.1 expected-failure rule (B5): a failed cell whose every declared
-  // expectation passed is expectation-satisfied and does not fail the run.
-  const isPredictedFailure = (cell: CellExecutionEvidence): boolean => {
-    if (cell.status !== "failed") return false;
-    const cellRecords = recordsByCell.get(cell.cellId);
-    return (
-      cellRecords !== undefined &&
-      cellRecords.length > 0 &&
-      cellRecords.every((record) => record.result === "pass")
-    );
-  };
   const failed = evidence.filter(
-    (cell) => cell.status === "failed" && !isPredictedFailure(cell),
+    (cell) => cell.status === "failed" && !isPredictedFailure(cell, recordsByCell),
   );
   const completedCode = evidence.filter(
     (cell) => cell.status === "completed" && cell.cellType === "code",
@@ -1047,24 +1013,184 @@ function buildRunbookVerdict(
       pass,
       reason,
       contractCoverage,
-      evidence: evidence.map((cell) => ({
-        cellId: cell.cellId,
-        cellType: cell.cellType,
-        filename: cell.filename,
-        status: cell.status,
-        exitCode: cell.exitCode,
-        output: truncate(cell.output),
-        error: truncate(cell.error),
-        ...(cell.contract !== undefined
-          ? { contractHash: cell.contract.contractHash }
-          : {}),
-        ...(recordsByCell.has(cell.cellId)
-          ? { expectations: recordsByCell.get(cell.cellId) }
-          : {}),
-      })),
+      evidence: cellEvidenceSummary(evidence, recordsByCell),
     },
     records: allRecords,
   };
+}
+
+/**
+ * Derive the eval scorecard from real per-cell execution results. An eval
+ * run is scored, not passed/failed: score = passed / evaluated over the
+ * run's declared, machine-checked expectations (tier-1 contracts and tier-2
+ * validator/grader cells — the same record model as runbook verdicts, so
+ * eval graders accrue fitness ledger rows identically). `error` and
+ * `skipped` expectations never count as evaluated; a run with zero declared
+ * expectations scores 0 with an explicit note — procedural completion is
+ * never a synthetic score.
+ */
+function buildEvalScorecard(
+  evidence: CellExecutionEvidence[],
+  context: VerdictDerivationContext,
+): { verdict: NotebookOutput; records: ExpectationRecord[] } {
+  const { recordsByCell, allRecords, contractCoverage } = collectRunRecords(
+    evidence,
+    context,
+  );
+
+  const passed = allRecords.filter((record) => record.result === "pass").length;
+  const failedExpectations = allRecords.filter(
+    (record) => record.result === "fail",
+  ).length;
+  const evaluated = passed + failedExpectations;
+  const errors = allRecords.filter((record) => record.result === "error").length;
+  const skipped = allRecords.filter((record) => record.result === "skipped").length;
+  const proceduralFailures = evidence.filter(
+    (cell) => cell.status === "failed" && !isPredictedFailure(cell, recordsByCell),
+  ).length;
+
+  const metrics: Record<string, unknown> = {
+    expectationsDeclared: allRecords.length,
+    evaluated,
+    passed,
+    failed: failedExpectations,
+    errors,
+    skipped,
+    contractCoverage,
+    proceduralFailures,
+    cellsExecuted: evidence.filter((cell) => cell.status !== "skipped").length,
+    cellsSkipped: evidence.filter((cell) => cell.status === "skipped").length,
+    ...(allRecords.length === 0
+      ? {
+          note:
+            "no declared expectations (tier-1 contracts or tier-2 validators); " +
+            "nothing was scored",
+        }
+      : {}),
+  };
+
+  return {
+    verdict: {
+      _tag: "EvalScorecard",
+      mode: "eval",
+      score: evaluated === 0 ? 0 : passed / evaluated,
+      metrics,
+      evidence: cellEvidenceSummary(evidence, recordsByCell),
+    },
+    records: allRecords,
+  };
+}
+
+/**
+ * Dispatch verdict derivation for an implemented mode. Exhaustive over
+ * NotebookMode — registering a new implemented mode without a builder here
+ * is a compile error, which is the registry's extensibility contract.
+ */
+function buildRunVerdict(
+  mode: NotebookMode,
+  evidence: CellExecutionEvidence[],
+  context: VerdictDerivationContext,
+): { verdict: NotebookOutput; records: ExpectationRecord[] } {
+  switch (mode) {
+    case "runbook":
+      return buildRunbookVerdict(evidence, context);
+    case "eval":
+      return buildEvalScorecard(evidence, context);
+  }
+}
+
+/** Shared expectation-record collection for verdict builders. */
+function collectRunRecords(
+  evidence: CellExecutionEvidence[],
+  context: VerdictDerivationContext,
+): {
+  recordsByCell: Map<string, ExpectationRecord[]>;
+  allRecords: ExpectationRecord[];
+  contractCoverage: number;
+} {
+  const recordsByCell = new Map<string, ExpectationRecord[]>();
+  const allRecords: ExpectationRecord[] = [];
+  const coveredCellIds = new Set<string>();
+
+  for (const cell of evidence) {
+    const precomputed = context.precomputedRecords?.get(cell.cellId);
+    // Precomputed gate records cover tier-2 and non-artifact tier-1 (the gate
+    // could not see post-run artifacts). Evaluate the deferred artifact-backed
+    // expectations now, with the full run artifacts available, and merge —
+    // so an artifact assertion participates in the verdict instead of erroring
+    // (Codex PR #402, P2). Cells without precomputed records (non-durable
+    // runs) are evaluated whole here, where every artifact already exists.
+    const cellRecords =
+      precomputed !== undefined
+        ? [
+            ...precomputed,
+            ...evaluateEvidenceExpectations(cell, context, {
+              tier1Filter: (expectation) => expectation.source.kind === "artifact",
+              includeTier2: false,
+            }),
+          ]
+        : evaluateEvidenceExpectations(cell, context);
+    if (cell.expectations && cell.validatorFor !== undefined) {
+      coveredCellIds.add(cell.validatorFor);
+    }
+    if (cell.contract) {
+      coveredCellIds.add(cell.cellId);
+    }
+    if (cellRecords.length > 0) {
+      recordsByCell.set(cell.cellId, cellRecords);
+      allRecords.push(...cellRecords);
+    }
+  }
+
+  const subjectCodeCells = evidence.filter(
+    (cell) => cell.cellType === "code" && cell.validatorFor === undefined,
+  );
+  const contractCoverage =
+    subjectCodeCells.length === 0
+      ? 0
+      : subjectCodeCells.filter((cell) => coveredCellIds.has(cell.cellId)).length /
+        subjectCodeCells.length;
+
+  return { recordsByCell, allRecords, contractCoverage };
+}
+
+/**
+ * §5.1 expected-failure rule (B5): a failed cell whose every declared
+ * expectation passed is expectation-satisfied and does not fail the run.
+ */
+function isPredictedFailure(
+  cell: CellExecutionEvidence,
+  recordsByCell: Map<string, ExpectationRecord[]>,
+): boolean {
+  if (cell.status !== "failed") return false;
+  const cellRecords = recordsByCell.get(cell.cellId);
+  return (
+    cellRecords !== undefined &&
+    cellRecords.length > 0 &&
+    cellRecords.every((record) => record.result === "pass")
+  );
+}
+
+/** Per-cell evidence summary carried on every verdict (runbook and eval). */
+function cellEvidenceSummary(
+  evidence: CellExecutionEvidence[],
+  recordsByCell: Map<string, ExpectationRecord[]>,
+): Array<Record<string, unknown>> {
+  return evidence.map((cell) => ({
+    cellId: cell.cellId,
+    cellType: cell.cellType,
+    filename: cell.filename,
+    status: cell.status,
+    exitCode: cell.exitCode,
+    output: truncate(cell.output),
+    error: truncate(cell.error),
+    ...(cell.contract !== undefined
+      ? { contractHash: cell.contract.contractHash }
+      : {}),
+    ...(recordsByCell.has(cell.cellId)
+      ? { expectations: recordsByCell.get(cell.cellId) }
+      : {}),
+  }));
 }
 
 function truncate(text: string): string {

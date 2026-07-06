@@ -17,6 +17,16 @@ export interface NotebookModeDescriptor {
   exampleSequence: Array<{ operation: string; args: Record<string, unknown> }>;
 }
 
+/**
+ * Engine mode registry. Every entry corresponds to a NotebookMode literal
+ * (domain.ts) and — when runStatus is "implemented" — a verdict builder in
+ * runtime.ts. The six speculative stub modes were removed 2026-07-06; their
+ * .src.md files survive as plain notebook_create authoring templates
+ * (evidence-simulation, evidence-failure-capsule, evidence-adr-pack,
+ * evidence-skill-certification, evidence-scenario-factory,
+ * evidence-system-audit). The registry is extensible: register a new mode by
+ * adding its literal, schemas, descriptor, and verdict builder.
+ */
 export const NOTEBOOK_MODE_REGISTRY: Record<NotebookMode, NotebookModeDescriptor> = {
   runbook: {
     mode: "runbook",
@@ -32,102 +42,22 @@ export const NOTEBOOK_MODE_REGISTRY: Record<NotebookMode, NotebookModeDescriptor
       { operation: "notebook_start_run", args: { notebookId: "<id>", mode: "runbook" } },
     ],
   },
-  simulation: {
-    mode: "simulation",
-    runStatus: "specified",
-    title: "Monte Carlo Simulation Notebook",
-    whenToUse:
-      "Use when stochastic or parameterized experiments should influence reasoning with repeatable seeds and aggregates.",
-    requiredInputs: ["simulation kernel", "seed", "run count", "parameter ranges"],
-    expectedOutputs: ["summary statistics", "sample artifact", "interpretation"],
-    templates: ["evidence-simulation"],
-    exampleSequence: [
-      { operation: "notebook_create", args: { title: "Simulation", language: "typescript", template: "evidence-simulation" } },
-      { operation: "notebook_run_cell", args: { notebookId: "<id>", cellId: "<cellId>" } },
-    ],
-  },
   eval: {
     mode: "eval",
-    runStatus: "specified",
+    runStatus: "implemented",
     title: "Executable Evaluation Workbook",
     whenToUse:
       "Use when a model, tool, claim, or workflow needs a scored executable evaluation rather than narrative judgment.",
-    requiredInputs: ["dataset", "grader cells", "score schema"],
-    expectedOutputs: ["scorecard", "metrics", "grader evidence"],
+    requiredInputs: ["graded cells (tier-1 contracts and/or tier-2 validator cells)"],
+    expectedOutputs: [
+      "EvalScorecard (score = passed/evaluated over declared expectations)",
+      "per-expectation metrics",
+      "cell evidence",
+    ],
     templates: ["evidence-eval-workbook"],
     exampleSequence: [
       { operation: "notebook_create", args: { title: "Eval Workbook", language: "typescript", template: "evidence-eval-workbook" } },
-      { operation: "notebook_validate", args: { notebookId: "<id>", cellId: "<validatorCellId>" } },
-    ],
-  },
-  failure_capsule: {
-    mode: "failure_capsule",
-    runStatus: "specified",
-    title: "Failure Capsule / Debugging Lab",
-    whenToUse:
-      "Use when a bug, production incident, or agent failure should become replayable and regression-testable.",
-    requiredInputs: ["symptom", "reproduction", "observed evidence", "fix validator"],
-    expectedOutputs: ["reproduction result", "fix verdict", "regression artifact"],
-    templates: ["evidence-failure-capsule"],
-    exampleSequence: [
-      { operation: "notebook_create", args: { title: "Failure Capsule", language: "typescript", template: "evidence-failure-capsule" } },
-      { operation: "notebook_validate", args: { notebookId: "<id>", cellId: "<validatorCellId>" } },
-    ],
-  },
-  adr_evidence: {
-    mode: "adr_evidence",
-    runStatus: "specified",
-    title: "Executable ADR Evidence Pack",
-    whenToUse:
-      "Use when an architectural hypothesis needs executable evidence attached to the ADR lifecycle.",
-    requiredInputs: ["ADR id", "hypothesis", "prediction", "validation cells"],
-    expectedOutputs: ["validated/rejected/inconclusive outcome", "evidence record"],
-    templates: ["evidence-adr-pack"],
-    exampleSequence: [
-      { operation: "notebook_create", args: { title: "ADR Evidence", language: "typescript", template: "evidence-adr-pack" } },
-      { operation: "notebook_validate", args: { notebookId: "<id>", cellId: "<validatorCellId>" } },
-    ],
-  },
-  skill_certification: {
-    mode: "skill_certification",
-    runStatus: "specified",
-    title: "Skill Certification Harness",
-    whenToUse:
-      "Use when a reusable skill needs positive, adversarial, and negative-control proof obligations.",
-    requiredInputs: ["skill name", "case matrix", "certification validators"],
-    expectedOutputs: ["certification verdict", "case-level evidence"],
-    templates: ["evidence-skill-certification"],
-    exampleSequence: [
-      { operation: "notebook_create", args: { title: "Skill Certification", language: "typescript", template: "evidence-skill-certification" } },
-      { operation: "notebook_validate", args: { notebookId: "<id>", cellId: "<validatorCellId>" } },
-    ],
-  },
-  scenario_factory: {
-    mode: "scenario_factory",
-    runStatus: "specified",
-    title: "Dataset And Scenario Factory",
-    whenToUse:
-      "Use when tests or evals need parameterized, schema-validated generated scenarios.",
-    requiredInputs: ["scenario schema", "generation parameters", "validation cells"],
-    expectedOutputs: ["generated dataset artifact", "schema validation summary"],
-    templates: ["evidence-scenario-factory"],
-    exampleSequence: [
-      { operation: "notebook_create", args: { title: "Scenario Factory", language: "typescript", template: "evidence-scenario-factory" } },
-      { operation: "notebook_validate", args: { notebookId: "<id>", cellId: "<validatorCellId>" } },
-    ],
-  },
-  system_audit: {
-    mode: "system_audit",
-    runStatus: "specified",
-    title: "Living System Audit",
-    whenToUse:
-      "Use when repo, protocol, or infrastructure invariants should be checked repeatedly and reported as issue-ready findings.",
-    requiredInputs: ["invariant set", "audit cells", "finding schema"],
-    expectedOutputs: ["audit findings", "pass/fail summary", "evidence artifacts"],
-    templates: ["evidence-system-audit"],
-    exampleSequence: [
-      { operation: "notebook_create", args: { title: "System Audit", language: "typescript", template: "evidence-system-audit" } },
-      { operation: "notebook_validate", args: { notebookId: "<id>", cellId: "<validatorCellId>" } },
+      { operation: "notebook_start_run", args: { notebookId: "<id>", mode: "eval" } },
     ],
   },
 };
@@ -148,7 +78,7 @@ export function getNotebookCapabilitiesJson(): string {
         "Notebook Evidence Engine capabilities: executable, replayable notebooks with prose, code, validators, structured outputs, and durable run artifacts.",
       lowLevelPredicatePrimitive: "notebook_validate",
       execution:
-        "Runs execute synchronously in-process through real cell subprocesses. Only runbook mode derives a verdict today; modes marked specified reject notebook_start_run.",
+        "Runs execute synchronously in-process through real cell subprocesses. Modes marked implemented derive real verdicts; modes marked specified reject notebook_start_run.",
       observatoryScope:
         "Observatory integration is out of scope. Outputs are local-first notebook exports and run artifacts.",
       modes: listNotebookModes(),
@@ -172,7 +102,9 @@ export function getNotebookCapabilitiesMarkdown(): string {
 
 Thoughtbox notebooks are an evidence engine: executable Markdown artifacts that combine prose, code, deterministic validators, structured outputs, and replayable runs.
 
-Use \`notebook_validate\` as the low-level predicate primitive. Use \`notebook_start_run\` to execute a runbook's cells and derive a pass/fail verdict from the real results. Modes marked **specified** below are designed but not yet runnable through \`notebook_start_run\` — it rejects them explicitly; use \`notebook_run_cell\` and \`notebook_validate\` for cell-level evidence in those modes.
+Use \`notebook_validate\` as the low-level predicate primitive. Use \`notebook_start_run\` to execute a notebook's cells and derive a mode-specific verdict from the real results (a pass/fail RunbookVerdict, or an EvalScorecard scored over declared expectations). Any mode marked **specified** below is designed but not yet runnable through \`notebook_start_run\` — it rejects explicitly; use \`notebook_run_cell\` and \`notebook_validate\` for cell-level evidence in those modes.
+
+Additional evidence-flavoured authoring templates (simulation, failure capsule, ADR pack, skill certification, scenario factory, system audit) remain available through \`notebook_create\`'s \`template\` parameter as plain scaffolds without engine-run verdicts.
 
 Runs execute synchronously in-process. Observatory integration is intentionally out of scope.
 

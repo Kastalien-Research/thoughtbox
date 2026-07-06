@@ -460,6 +460,7 @@ block and §9 are the pre-registration. Update the table as units land.
 | Accrue a fitness ledger — hypothesis-vs-actual per template version, only machine-checked outcomes contribute | `runbook_fitness_ledger` aggregates | c7 / #401 |
 | Read the fitness ledger back — per-version aggregates (instances, pass rate, error rate, distinct agents) and raw rows via the public tool surface | `tb.notebook.fitness` (`notebook_fitness`) | c7 read path (2026-07-06) |
 | Instantiate a runbook from a persisted template version in a FRESH session, or resume a half-executed instance from its instanceId alone (derived status + next unsatisfied cell; ordered execution continues via `notebook_run_cell`) | `tb.notebook.instantiate` (`notebook_instantiate`) | c5 substrate (2026-07-06); Experiment H2 remains the agentic verification |
+| Run scored executable evals through the same durable path as runbooks — EvalScorecard = passed/evaluated over declared expectations; zero expectations scores 0, never a synthetic pass; graders accrue fitness ledger rows identically (the six verdict-less stub modes were removed 2026-07-06; their templates remain plain scaffolds) | `notebook_start_run { mode: "eval" }` | c7-adjacent (typed outcomes only, Principle 6) |
 | Keep shell, filesystem, and code editing native and unmediated — the substrate wraps only trust-boundary verbs | (invariant; §10) | c10 |
 
 **Not yet — the unbuilt joins:**

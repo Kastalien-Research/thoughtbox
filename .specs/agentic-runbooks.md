@@ -17,18 +17,27 @@ Observatory integration is out of scope. Outputs remain local-first notebook exp
 
 ## Modes
 
-The supported notebook modes are:
+**Amended 2026-07-06.** The engine now recognizes exactly the modes it can run
+— every registered mode has a real verdict derivation in `notebook_start_run`:
 
-| Mode | Purpose |
-|---|---|
-| `runbook` | Reusable agent workflows with ordered steps and deterministic validators |
-| `simulation` | Seeded Monte Carlo or parameterized simulation notebooks |
-| `eval` | Executable evaluation workbooks with datasets, graders, and scorecards |
-| `failure_capsule` | Replayable debugging labs for bugs, incidents, and agent failures |
-| `adr_evidence` | Executable evidence packs for ADR hypotheses and predictions |
-| `skill_certification` | Positive, adversarial, and negative-control harnesses for reusable skills |
-| `scenario_factory` | Parameterized generation of tests, eval datasets, or regression scenarios |
-| `system_audit` | Recurring repo, protocol, or infrastructure invariant checks |
+| Mode | Purpose | Verdict |
+|---|---|---|
+| `runbook` | Reusable agent workflows with ordered steps and deterministic validators | `RunbookVerdict` — pass/fail over declared expectations (§5.1 semantics in SPEC-AGX-SUBSTRATE) |
+| `eval` | Executable evaluation workbooks scored over declared expectations | `EvalScorecard` — `score = passed / evaluated` over tier-1 contract + tier-2 validator records; zero declared expectations scores 0 with an explicit note, never a synthetic pass |
+
+Eval runs flow through the same durable path as runbooks (template versioning,
+append-only instances, fitness ledger rows), so eval graders accrue fitness
+identically.
+
+The six former speculative stub modes (`simulation`, `failure_capsule`,
+`adr_evidence`, `skill_certification`, `scenario_factory`, `system_audit`)
+were **removed from the engine's mode enum** — they had no verdict derivation
+and rejected every run. Their `.src.md` files survive unchanged as plain
+`notebook_create` authoring templates (`evidence-simulation`,
+`evidence-failure-capsule`, `evidence-adr-pack`, `evidence-skill-certification`,
+`evidence-scenario-factory`, `evidence-system-audit`). The mode registry stays
+extensible: a new mode registers its enum literal, document/output schemas,
+registry descriptor, and verdict builder.
 
 ## Effect-Backed Domain Core
 

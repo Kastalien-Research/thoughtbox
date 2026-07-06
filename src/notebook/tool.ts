@@ -39,13 +39,7 @@ export const notebookToolInputSchema = z.object({
   expectedSnapshotHash: z.string().optional().describe("Optional integrity hash for notebook_validate; refuses to run on mismatch"),
   mode: z.enum([
     "runbook",
-    "simulation",
     "eval",
-    "failure_capsule",
-    "adr_evidence",
-    "skill_certification",
-    "scenario_factory",
-    "system_audit",
   ]).optional().describe("Notebook Evidence Engine mode (notebook_start_run)"),
   inputs: z.record(z.unknown()).optional().describe("Mode-specific JSON inputs for notebook_start_run"),
   runId: z.string().optional().describe("Notebook run ID"),

@@ -108,12 +108,35 @@ describe("Notebook Evidence Engine domain", () => {
       _tag: "RunningRun",
       runId: "run",
       notebookId: "nb",
-      mode: "system_audit",
+      mode: "eval",
       status: "running",
       createdAt: "2026-04-30T00:00:00.000Z",
       startedAt: "2026-04-30T00:00:00.000Z",
     });
     expect(describeRunStatus(run)).toBe("running");
+  });
+
+  it("rejects removed stub modes at the schema boundary", () => {
+    for (const removed of [
+      "simulation",
+      "failure_capsule",
+      "adr_evidence",
+      "skill_certification",
+      "scenario_factory",
+      "system_audit",
+    ]) {
+      expect(() =>
+        S.decodeUnknownSync(NotebookRunSchema)({
+          _tag: "RunningRun",
+          runId: "run",
+          notebookId: "nb",
+          mode: removed,
+          status: "running",
+          createdAt: "2026-04-30T00:00:00.000Z",
+          startedAt: "2026-04-30T00:00:00.000Z",
+        }),
+      ).toThrow();
+    }
   });
 
   it("rejects queued runs — no external dispatcher exists", () => {
@@ -131,31 +154,21 @@ describe("Notebook Evidence Engine domain", () => {
 });
 
 describe("Notebook Evidence Engine visibility", () => {
-  it("lists all eight notebook modes in the capabilities resource", () => {
+  it("lists the engine-runnable modes in the capabilities resource", () => {
     const modes = listNotebookModes();
-    expect(modes).toHaveLength(8);
+    expect(modes).toHaveLength(2);
 
     const capabilities = JSON.parse(getNotebookCapabilitiesJson());
     expect(capabilities.lowLevelPredicatePrimitive).toBe("notebook_validate");
     expect(capabilities.modes.map((m: { mode: string }) => m.mode)).toEqual([
       "runbook",
-      "simulation",
       "eval",
-      "failure_capsule",
-      "adr_evidence",
-      "skill_certification",
-      "scenario_factory",
-      "system_audit",
     ]);
   });
 
-  it("marks only runbook as implemented; the rest are specified", () => {
-    const statuses = Object.fromEntries(
-      listNotebookModes().map((m) => [m.mode, m.runStatus]),
-    );
-    expect(statuses.runbook).toBe("implemented");
-    for (const [mode, status] of Object.entries(statuses)) {
-      if (mode !== "runbook") expect(status).toBe("specified");
+  it("marks every registered mode as implemented — no stub entries remain", () => {
+    for (const mode of listNotebookModes()) {
+      expect(mode.runStatus).toBe("implemented");
     }
   });
 });
@@ -308,26 +321,146 @@ describe("Notebook Evidence Engine runs", () => {
     expect(evidence[0]!.status).toBe("completed");
   });
 
-  it("rejects non-runbook modes with an explicit not-implemented error", async () => {
+  it("rejects removed and unknown modes with an explicit error", async () => {
     const handler = new NotebookHandler();
     await handler.init();
 
     const created = await handler.handleCreateNotebook({
-      title: "Eval evidence",
-      language: "typescript",
-      template: "evidence-eval-workbook",
+      title: "No such mode",
+      language: "javascript",
     });
 
+    // Removed stub modes are unknown to the registry — same failure shape as
+    // any other unknown mode. Their templates remain plain authoring scaffolds.
     await expect(
       handler.handleStartRun({
         notebookId: created.notebook.id,
-        mode: "eval",
-        inputs: { datasetName: "demo" },
+        mode: "simulation",
       }),
-    ).rejects.toThrow(/not implemented/i);
+    ).rejects.toThrow(/Unknown notebook mode/i);
 
     const listed = await handler.handleListRuns({ notebookId: created.notebook.id });
     expect(listed.runs).toHaveLength(0);
+  });
+
+  it("derives an eval scorecard from declared expectations (contracts + validators)", async () => {
+    const handler = new NotebookHandler();
+    await handler.init();
+
+    const created = await handler.handleCreateNotebook({
+      title: "Eval scorecard",
+      language: "javascript",
+    });
+    const notebookId = created.notebook.id as string;
+
+    // Graded cell 1: tier-1 contract, one passing and one failing expectation.
+    await handler.handleAddCell({
+      notebookId,
+      cellType: "code",
+      filename: "case1.js",
+      content:
+        `import { writeFileSync } from "node:fs";\n` +
+        `writeFileSync(process.env.TB_OUTPUT_PATH, JSON.stringify({ answer: 41 }));\n`,
+      contract: {
+        schemaVersion: "outcome-contract.v0",
+        expectations: [
+          { source: { kind: "exitCode" }, op: "eq", value: 0 },
+          { source: { kind: "output", pointer: "/answer" }, op: "eq", value: 42 },
+        ],
+      },
+    });
+    // Graded cell 2: subject + tier-2 grader (validator cell) that passes.
+    const subject = await handler.handleAddCell({
+      notebookId,
+      cellType: "code",
+      filename: "case2.js",
+      content:
+        `import { writeFileSync } from "node:fs";\n` +
+        `writeFileSync(process.env.TB_OUTPUT_PATH, JSON.stringify({ ok: true }));\n`,
+    });
+    await handler.handleAddCell({
+      notebookId,
+      cellType: "code",
+      filename: "grade2.js",
+      content:
+        `import { observed, pass, fail } from "./tb-validate.js";\n` +
+        `observed.ok ? pass("ok") : fail("not ok");\n`,
+      validatorFor: subject.cell.id,
+    });
+
+    const runResult = await handler.handleStartRun({ notebookId, mode: "eval" });
+    expect(runResult.run.status).toBe("completed");
+    expect(runResult.run.mode).toBe("eval");
+    const scorecard = runResult.run.outputs[0];
+    expect(scorecard._tag).toBe("EvalScorecard");
+    expect(scorecard.mode).toBe("eval");
+    // case1: exitCode pass + answer fail (41 != 42) halts the run there —
+    // the failing expectation is real, so case2's grader is skipped.
+    expect(scorecard.metrics.evaluated).toBe(2);
+    expect(scorecard.metrics.passed).toBe(1);
+    expect(scorecard.metrics.failed).toBe(1);
+    expect(scorecard.score).toBe(0.5);
+    expect(scorecard.metrics.skipped).toBe(1);
+  });
+
+  it("scores a fully passing eval 1.0 and accrues fitness ledger rows", async () => {
+    const handler = new NotebookHandler();
+    await handler.init();
+
+    const created = await handler.handleCreateNotebook({
+      title: "Eval pass",
+      language: "javascript",
+    });
+    const notebookId = created.notebook.id as string;
+    await handler.handleAddCell({
+      notebookId,
+      cellType: "code",
+      filename: "case.js",
+      content:
+        `import { writeFileSync } from "node:fs";\n` +
+        `writeFileSync(process.env.TB_OUTPUT_PATH, JSON.stringify({ answer: 42 }));\n`,
+      contract: {
+        schemaVersion: "outcome-contract.v0",
+        expectations: [
+          { source: { kind: "output", pointer: "/answer" }, op: "eq", value: 42 },
+        ],
+      },
+    });
+
+    const runResult = await handler.handleStartRun({ notebookId, mode: "eval" });
+    expect(runResult.run.status).toBe("completed");
+    const scorecard = runResult.run.outputs[0];
+    expect(scorecard.score).toBe(1);
+    expect(scorecard.metrics.evaluated).toBe(1);
+
+    // Eval graders write the same machine-checked fitness rows as runbooks.
+    const fitness = await handler.handleFitness({ templateId: notebookId });
+    expect(fitness.aggregates[0].evaluated).toBe(1);
+    expect(fitness.aggregates[0].passRate).toBe(1);
+  });
+
+  it("scores an expectation-less eval 0 with an explicit note", async () => {
+    const handler = new NotebookHandler();
+    await handler.init();
+
+    const created = await handler.handleCreateNotebook({
+      title: "Eval unscored",
+      language: "javascript",
+    });
+    const notebookId = created.notebook.id as string;
+    await handler.handleAddCell({
+      notebookId,
+      cellType: "code",
+      filename: "plain.js",
+      content: 'console.log("ran fine, proves nothing");',
+    });
+
+    const runResult = await handler.handleStartRun({ notebookId, mode: "eval" });
+    expect(runResult.run.status).toBe("completed");
+    const scorecard = runResult.run.outputs[0];
+    expect(scorecard.score).toBe(0);
+    expect(scorecard.metrics.evaluated).toBe(0);
+    expect(String(scorecard.metrics.note)).toContain("nothing was scored");
   });
 });
 

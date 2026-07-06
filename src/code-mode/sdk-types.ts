@@ -92,8 +92,8 @@ interface TB {
     validate(args: { notebookId: string; cellId: string; observed: unknown; expectedSnapshotHash?: string }): Promise<unknown>;
     /** Persist the current notebook as a replayable artifact. */
     persist(args: { notebookId: string }): Promise<unknown>;
-    /** Execute the notebook's cells and derive a verdict from real results. Only runbook mode is implemented; other modes return an explicit error. */
-    startRun(args: { notebookId: string; mode: "runbook" | "simulation" | "eval" | "failure_capsule" | "adr_evidence" | "skill_certification" | "scenario_factory" | "system_audit"; inputs?: Record<string, unknown> }): Promise<unknown>;
+    /** Execute the notebook's cells and derive a mode-specific verdict from real results: runbook = pass/fail RunbookVerdict, eval = EvalScorecard (score = passed/evaluated over declared expectations). */
+    startRun(args: { notebookId: string; mode: "runbook" | "eval"; inputs?: Record<string, unknown> }): Promise<unknown>;
     getRun(args: { runId: string }): Promise<unknown>;
     listRuns(args?: { notebookId?: string }): Promise<unknown>;
     cancelRun(args: { runId: string; reason?: string }): Promise<unknown>;

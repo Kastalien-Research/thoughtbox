@@ -332,7 +332,7 @@ When 'expectedSnapshotHash' is provided, the operation refuses to run if the cel
   {
     name: "notebook_start_run",
     title: "Start Notebook Evidence Run",
-    description: "Execute a notebook's cells in-process and derive a verdict from the real results. Only runbook mode is implemented; other modes return an explicit not-implemented error. See thoughtbox://notebook/capabilities.",
+    description: "Execute a notebook's cells in-process and derive a mode-specific verdict from the real results: runbook yields a pass/fail RunbookVerdict, eval yields an EvalScorecard scored over declared expectations. See thoughtbox://notebook/capabilities.",
     category: "evidence-engine",
     inputSchema: {
       type: "object",
@@ -341,7 +341,7 @@ When 'expectedSnapshotHash' is provided, the operation refuses to run if the cel
         mode: {
           type: "string",
           enum: listNotebookModes().map((mode) => mode.mode),
-          description: "Evidence engine mode. Only runbook executes today; see thoughtbox://notebook/capabilities for per-mode status.",
+          description: "Evidence engine mode; see thoughtbox://notebook/capabilities for per-mode status.",
         },
         inputs: {
           type: "object",
