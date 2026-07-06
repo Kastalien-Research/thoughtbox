@@ -1,13 +1,16 @@
 /**
- * GET /api/merge?workspaceSlug=<slug>&status=<status?>
+ * GET /api/merge?workspaceId=<uuid>&status=<status?>
  *
  * Lists merge commits for the caller's workspace (SPEC-MERGE-CORE).
- * Any membership role may read; `status=pending_approval` is the review
- * inbox the web UI builds on.
+ * Contract shared with the web UI fetch layer
+ * (apps/web/src/lib/merge/api.ts): `workspaceId` is the tenant workspace
+ * uuid (public.workspaces.id); the response is a `{ merges: [...] }`
+ * envelope of raw snake_case rows. Any membership role may read;
+ * `status=pending_approval` is the review inbox the UI builds on.
  *
  * Responses:
  * - 200 { merges: MergeCommitRow[] }
- * - 400 { error } — missing/invalid workspaceSlug or status
+ * - 400 { error } — missing workspaceId or invalid status
  * - 401 { error } — unauthenticated
  * - 404 { error } — workspace not found or caller is not a member
  */
@@ -31,9 +34,9 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Not authenticated." }, { status: 401 });
   }
 
-  const workspaceSlug = request.nextUrl.searchParams.get("workspaceSlug")?.trim() ?? "";
-  if (workspaceSlug.length === 0) {
-    return NextResponse.json({ error: "workspaceSlug is required." }, { status: 400 });
+  const workspaceId = request.nextUrl.searchParams.get("workspaceId")?.trim() ?? "";
+  if (workspaceId.length === 0) {
+    return NextResponse.json({ error: "workspaceId is required." }, { status: 400 });
   }
   const statusParam = request.nextUrl.searchParams.get("status");
   if (statusParam !== null && !MERGE_STATUSES.includes(statusParam as MergeStatus)) {
@@ -43,24 +46,15 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const { data: workspace, error: workspaceError } = await supabase
-    .from("workspaces")
-    .select("id")
-    .eq("slug", workspaceSlug)
-    .maybeSingle();
-  if (workspaceError || !workspace) {
-    return NextResponse.json({ error: "Workspace not found." }, { status: 404 });
-  }
-
-  const role = await getMembershipRole(supabase, workspace.id, user.id);
+  const role = await getMembershipRole(supabase, workspaceId, user.id);
   if (!role) {
-    // Do not leak workspace existence to non-members.
+    // Not found for non-members too: do not leak workspace existence.
     return NextResponse.json({ error: "Workspace not found." }, { status: 404 });
   }
 
   let query = fromMergeCommits(supabase)
     .select("*")
-    .eq("tenant_workspace_id", workspace.id);
+    .eq("tenant_workspace_id", workspaceId);
   if (statusParam !== null) {
     query = query.eq("status", statusParam);
   }

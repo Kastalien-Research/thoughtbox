@@ -353,14 +353,17 @@ There is **no** `tb.merge.approve`, by design (c4).
 Both routes run under the authenticated Supabase session client (RLS
 applies) in `apps/web/src/app/api/merge/`.
 
-### `GET /api/merge?workspaceSlug=<slug>&status=<status?>`
+### `GET /api/merge?workspaceId=<uuid>&status=<status?>`
 
 Lists merge commits for the caller's workspace (any membership role).
-`status` is optional (e.g. `pending_approval` for the review inbox).
+`workspaceId` is the tenant workspace uuid (`public.workspaces.id`) —
+the contract shared with the web UI fetch layer
+(`apps/web/src/lib/merge/api.ts`). `status` is optional
+(e.g. `pending_approval` for the review inbox).
 
 - `200` → `{ "merges": MergeCommitRow[] }` — raw snake_case rows as in
-  the data-model table above.
-- `400` missing/invalid `workspaceSlug` or `status` → `{ "error": string }`
+  the data-model table above (the fetch layer accepts this envelope).
+- `400` missing `workspaceId` or invalid `status` → `{ "error": string }`
 - `401` unauthenticated → `{ "error": string }`
 - `404` workspace not found or caller is not a member → `{ "error": string }`
 
