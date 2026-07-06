@@ -60,7 +60,6 @@ interface TB {
     queryThoughts(args: { sessionId: string; type?: string; start?: number; end?: number; referencesThought?: number; revisionsOf?: number }): Promise<unknown>;
     export(sessionId: string, format?: "markdown" | "cipher" | "json"): Promise<unknown>;
     analyze(sessionId: string): Promise<unknown>;
-    extractLearnings(sessionId: string, args?: Record<string, unknown>): Promise<unknown>;
   };
 
   /** Knowledge graph. Source: src/knowledge/tool.ts */

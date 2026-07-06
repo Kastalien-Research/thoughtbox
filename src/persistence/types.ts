@@ -470,59 +470,6 @@ export interface ScratchpadNote {
 }
 
 // =============================================================================
-// Session Analysis Types (for session toolhost)
-// =============================================================================
-
-/**
- * Session analysis result with objective metrics
- * Used by the session toolhost `analyze` operation
- */
-export interface SessionAnalysis {
-  sessionId: string;
-  metadata: {
-    title: string;
-    tags: string[] | undefined;
-    thoughtCount: number;
-    branchCount: number;
-    revisionCount: number;
-    duration: number;           // Milliseconds from first to last thought
-    createdAt: string;          // ISO 8601
-    lastUpdatedAt: string;      // ISO 8601
-  };
-  structure: {
-    linearityScore: number;     // 0-1, higher = more linear reasoning
-    revisionRate: number;       // Revisions / total thoughts
-    maxDepth: number;           // Count of distinct branch IDs
-    thoughtDensity: number;     // Thoughts per minute
-  };
-  quality: {
-    hasConvergence: boolean;    // Main chain continues after branches
-    isComplete: boolean;        // Final thought has nextThoughtNeeded: false
-  };
-}
-
-/**
- * Extracted learning from a session for DGM evolution
- * Used by the session toolhost `extract_learnings` operation
- */
-export interface ExtractedLearning {
-  type: 'pattern' | 'anti-pattern' | 'signal';
-  content: string;              // Markdown or JSON content
-  targetPath: string;           // Suggested file path for DGM evolution
-  metadata: {
-    sourceSession: string;      // Session ID
-    sourceThoughts: number[];   // Thought numbers involved
-    extractedAt: string;        // ISO 8601
-    behaviorCharacteristics?: {
-      specificity: number;      // 1-10: How specific vs general
-      applicability: number;    // 1-10: How broadly applicable
-      complexity: number;       // 1-10: How complex to implement
-      maturity: number;         // 1-10: How proven/tested
-    };
-  };
-}
-
-// =============================================================================
 // Storage Interface
 // =============================================================================
 

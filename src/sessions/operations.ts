@@ -18,13 +18,13 @@ export interface OperationDefinition {
 
 export const SESSION_TOOL: Tool = {
   name: "session",
-  description: "Toolhost for managing Thoughtbox reasoning sessions. List, search, retrieve, resume, export, analyze, and extract learnings from sessions.",
+  description: "Toolhost for managing Thoughtbox reasoning sessions. List, search, retrieve, resume, export, and analyze sessions.",
   inputSchema: {
     type: "object",
     properties: {
       operation: {
         type: "string",
-        enum: ["session_list", "session_get", "session_search", "session_resume", "session_resume_latest", "session_query_thoughts", "session_export", "session_analyze", "session_extract_learnings"],
+        enum: ["session_list", "session_get", "session_search", "session_resume", "session_resume_latest", "session_query_thoughts", "session_export", "session_analyze"],
         description: "The session operation to execute",
       },
       args: {
@@ -238,48 +238,6 @@ export const SESSION_OPERATIONS: OperationDefinition[] = [
       sessionId: "abc-123-def-456",
     },
   },
-  {
-    name: "session_extract_learnings",
-    title: "Extract Learnings",
-    description: "Extract patterns, anti-patterns, and fitness signals from a reasoning session for the DGM evolution system. Patterns and anti-patterns require client-identified key moments; signals are generated automatically.",
-    category: "session-analysis",
-    inputSchema: {
-      type: "object",
-      properties: {
-        sessionId: {
-          type: "string",
-          description: "The ID of the session to extract learnings from",
-        },
-        keyMoments: {
-          type: "array",
-          items: {
-            type: "object",
-            properties: {
-              thoughtNumber: { type: "number", description: "The thought number of this key moment" },
-              type: { type: "string", enum: ["decision", "pivot", "insight", "revision", "branch"], description: "Type of key moment" },
-              significance: { type: "number", description: "Significance rating 1-10" },
-              summary: { type: "string", description: "Brief summary of why this moment is significant" },
-            },
-            required: ["thoughtNumber", "type"],
-          },
-          description: "Key moments identified by the client (required for pattern extraction)",
-        },
-        targetTypes: {
-          type: "array",
-          items: { type: "string", enum: ["pattern", "anti-pattern", "signal"] },
-          description: "Types of learnings to extract. 'signal' is generated automatically; 'pattern' and 'anti-pattern' require keyMoments.",
-        },
-      },
-      required: ["sessionId"],
-    },
-    example: {
-      sessionId: "abc-123-def-456",
-      keyMoments: [
-        { thoughtNumber: 3, type: "decision", significance: 8, summary: "Chose toolhost pattern over separate tools" },
-      ],
-      targetTypes: ["pattern", "signal"],
-    },
-  },
 ];
 
 /**
@@ -322,7 +280,7 @@ export function getOperationsCatalog(): string {
         },
         {
           name: "session-analysis",
-          description: "Analyze session structure and extract learnings for DGM evolution",
+          description: "Analyze session structure and quality metrics",
         },
       ],
     },

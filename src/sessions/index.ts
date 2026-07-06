@@ -70,9 +70,6 @@ export class SessionHandler {
         case "analyze":
           result = await this.handlers.handleAnalyze(args);
           break;
-        case "extract_learnings":
-          result = await this.handlers.handleExtractLearnings(args);
-          break;
         default:
           throw new Error(`Unknown session operation: ${operation}`);
       }

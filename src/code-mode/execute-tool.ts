@@ -347,10 +347,6 @@ function buildTbObject(deps: ExecuteToolDeps, ctx: TbContext): Record<string, un
         unwrapToolResult(await sessionTool.handle({ operation: "session_export", sessionId, format })),
       analyze: async (sessionId: string) =>
         unwrapToolResult(await sessionTool.handle({ operation: "session_analyze", sessionId })),
-      extractLearnings: async (sessionId: string, args?: Record<string, unknown>) =>
-        unwrapToolResult(await sessionTool.handle({
-          operation: "session_extract_learnings", sessionId, ...args,
-        } as SessionToolInput)),
     },
 
     knowledge: {

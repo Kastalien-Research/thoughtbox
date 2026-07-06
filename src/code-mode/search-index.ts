@@ -325,7 +325,7 @@ export function buildSearchCatalog(): SearchCatalog {
         name: "Session Analysis Process Guide",
         uri: "thoughtbox://session-analysis-guide",
         description:
-          "Process guide for qualitative analysis of reasoning sessions (key moments, extract learnings)",
+          "Process guide for qualitative analysis of reasoning sessions (key moments, record learnings)",
         mimeType: "text/markdown",
       },
       {
