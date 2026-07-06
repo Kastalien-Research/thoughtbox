@@ -1481,6 +1481,47 @@ export type Database = {
           },
         ]
       }
+      protocol_events: {
+        Row: {
+          created_at: string
+          data: Json
+          event_timestamp: string
+          id: number
+          session_id: string | null
+          source: string
+          tenant_workspace_id: string
+          type: string
+        }
+        Insert: {
+          created_at?: string
+          data?: Json
+          event_timestamp: string
+          id?: never
+          session_id?: string | null
+          source?: string
+          tenant_workspace_id: string
+          type: string
+        }
+        Update: {
+          created_at?: string
+          data?: Json
+          event_timestamp?: string
+          id?: never
+          session_id?: string | null
+          source?: string
+          tenant_workspace_id?: string
+          type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "protocol_events_tenant_workspace_id_fkey"
+            columns: ["tenant_workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       protocol_history: {
         Row: {
           created_at: string
@@ -1852,6 +1893,13 @@ export type Database = {
           ts?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "runbook_fitness_ledger_instance_pinning_fkey"
+            columns: ["instance_id", "template_id", "template_version"]
+            isOneToOne: false
+            referencedRelation: "runbook_instances"
+            referencedColumns: ["id", "template_id", "template_version"]
+          },
           {
             foreignKeyName: "runbook_fitness_ledger_instance_tenant_fkey"
             columns: ["instance_id", "tenant_workspace_id"]

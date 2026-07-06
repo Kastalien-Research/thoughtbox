@@ -58,6 +58,16 @@ import { hashJson } from "../../peer-notebook/manifest.js";
 const MAX_ARTIFACT_BYTES = 1_000_000;
 const MAX_EVIDENCE_OUTPUT_CHARS = 2_000;
 
+/**
+ * Modes whose notebook_start_run executes cells and derives a real verdict.
+ * merge_evidence shares the runbook execution body (ordered cells, contracts,
+ * validators, B5 gate); its output is retagged as MergeEvidenceRunResult.
+ */
+const IMPLEMENTED_RUN_MODES: ReadonlySet<NotebookMode> = new Set([
+  "runbook",
+  "merge_evidence",
+]);
+
 export const PROCEDURAL_ONLY_NOTE =
   "procedural completion only — no outcome contracts declared";
 
@@ -387,14 +397,15 @@ export class InMemoryNotebookEngineRuntime {
           }),
       });
 
-      if (parsedMode !== "runbook") {
+      if (!IMPLEMENTED_RUN_MODES.has(parsedMode)) {
         return yield* Effect.fail(
           new NotebookModeNotImplemented({
             mode: parsedMode,
             reason:
               `Verdict derivation for mode "${parsedMode}" is not implemented; ` +
-              `only "runbook" runs execute today. Use notebook_run_cell ` +
-              `and notebook_validate for cell-level evidence in other modes.`,
+              `implemented modes: ${[...IMPLEMENTED_RUN_MODES].join(", ")}. ` +
+              `Use notebook_run_cell and notebook_validate for cell-level ` +
+              `evidence in other modes.`,
           }),
         );
       }
@@ -452,6 +463,22 @@ export class InMemoryNotebookEngineRuntime {
         ),
       );
 
+      // merge_evidence shares the runbook run body; retag its output so the
+      // run record carries a mode-true MergeEvidenceRunResult.
+      const output: NotebookOutput =
+        parsedMode === "merge_evidence" && verdict._tag === "RunbookVerdict"
+          ? {
+              _tag: "MergeEvidenceRunResult",
+              mode: "merge_evidence",
+              pass: verdict.pass,
+              reason: verdict.reason,
+              contractCoverage: verdict.contractCoverage,
+              ...(verdict.evidence !== undefined
+                ? { evidence: verdict.evidence }
+                : {}),
+            }
+          : verdict;
+
       const completedAt = new Date().toISOString();
       const completed: NotebookRun = {
         _tag: "CompletedRun",
@@ -462,7 +489,7 @@ export class InMemoryNotebookEngineRuntime {
         createdAt,
         startedAt,
         completedAt,
-        outputs: [verdict],
+        outputs: [output],
         artifacts: runArtifacts,
       };
       this.runs.set(runId, completed);
