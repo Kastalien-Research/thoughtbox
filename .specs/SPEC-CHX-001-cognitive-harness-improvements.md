@@ -41,7 +41,7 @@ But some of that cost is removable without losing the structural benefits. Speci
 - Changes to MCP transport / latency optimization (round-trip cost is acceptable).
 - New thought types beyond what already exists.
 - Web UI for live session viewing (orthogonal product surface).
-- Cipher vocabulary changes (`src/multi-agent/cipher-extension.ts` is fine as-is).
+- Cipher vocabulary changes (`src/resources/thoughtbox-cipher-content.ts (multi-agent section)` is fine as-is).
 
 ## Recommendations
 
@@ -181,7 +181,7 @@ This recommendation pairs with #11 (structured returns).
 
 ### #6 — Cipher mode as explicit toggle
 
-**Status today**: Cipher notation exists (`src/multi-agent/cipher-extension.ts`, exported via `session_export({format: "cipher"})` per `src/code-mode/sdk-types.ts:52`). The onboarding docs recommend switching to cipher around thought 20 for compression. **In practice, the source session never switched.** At T1 the agent planned to: "Switch to cipher notation around T30 to compress." The switch never happened across 146 thoughts.
+**Status today**: Cipher notation exists (`src/resources/thoughtbox-cipher-content.ts (multi-agent section)`, exported via `session_export({format: "cipher"})` per `src/code-mode/sdk-types.ts:52`). The onboarding docs recommend switching to cipher around thought 20 for compression. **In practice, the source session never switched.** At T1 the agent planned to: "Switch to cipher notation around T30 to compress." The switch never happened across 146 thoughts.
 
 **Why it creates friction**: Mid-flow notation switching breaks reasoning rhythm. Choosing per-thought to write in cipher vs prose is itself a cognitive cost. Without an explicit mode toggle that wraps cipher-formatting around plain content, the agent defaults to prose.
 
@@ -327,7 +327,7 @@ Total: 39-55 hours across 9 PRs.
 - **New thought types**. The seven types are right.
 - **Branch merge semantics**. Branches today are documentation; a future spec could add explicit merge-back operations, but the source session did not surface friction here.
 - **Session resumption flow**. Worked seamlessly after subagent dispatches.
-- **Cipher vocabulary**. The notation in `src/multi-agent/cipher-extension.ts` is fine; problem is mode toggle (#6), not vocabulary.
+- **Cipher vocabulary**. The notation in `src/resources/thoughtbox-cipher-content.ts (multi-agent section)` is fine; problem is mode toggle (#6), not vocabulary.
 
 ## Validation
 

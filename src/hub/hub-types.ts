@@ -274,27 +274,3 @@ export interface HubStorage {
    */
   appendMessage(workspaceId: string, problemId: string, message: ChannelMessage): Promise<number>;
 }
-
-// =============================================================================
-// Proxy Capability Types (from ADR Section 4)
-// =============================================================================
-
-export interface ClientCapabilities {
-  tasks?: {
-    list?: Record<string, unknown>;
-    cancel?: Record<string, unknown>;
-    requests?: {
-      sampling?: { createMessage?: Record<string, unknown> };
-      elicitation?: { create?: Record<string, unknown> };
-      tools?: { call?: Record<string, unknown> };
-    };
-  };
-  resources?: {
-    subscribe?: boolean;
-  };
-}
-
-export interface ProxyCapabilities {
-  supportsTasks: boolean;
-  supportsSubscribe: boolean;
-}

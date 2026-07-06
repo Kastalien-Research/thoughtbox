@@ -264,7 +264,6 @@ src/
 │   ├── hub-handler.ts      # Hub operation dispatcher
 │   └── operations.ts       # 28-operation catalog
 ├── channel/                # Hub event channels and SSE streaming
-├── multi-agent/            # Agent attribution, content hashing, conflict detection
 ├── protocol/               # Ulysses and Theseus protocol tools
 ├── knowledge/              # Knowledge graph memory
 ├── auth/                   # API key authentication

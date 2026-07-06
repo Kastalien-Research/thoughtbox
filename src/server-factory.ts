@@ -35,7 +35,6 @@ import {
   getSpecificationSuiteContent,
 } from "./prompts/index.js";
 import { THOUGHTBOX_CIPHER } from "./resources/thoughtbox-cipher-content.js";
-import { getExtendedCipher } from "./multi-agent/cipher-extension.js";
 import { PARALLEL_VERIFICATION_CONTENT } from "./prompts/contents/parallel-verification.js";
 import {
   getSessionAnalysisGuideContent,
@@ -1220,7 +1219,7 @@ async () => tb.thought({
         {
           uri: uri.toString(),
           mimeType: "text/markdown",
-          text: getExtendedCipher(THOUGHTBOX_CIPHER),
+          text: THOUGHTBOX_CIPHER,
         },
       ],
     })
