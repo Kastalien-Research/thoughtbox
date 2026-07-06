@@ -27,6 +27,7 @@ import {
 } from "../contracts.js";
 import { hashJson } from "../../peer-notebook/manifest.js";
 import type { Notebook } from "../types.js";
+import type { AwaitCondition } from "./await.js";
 
 // ---------------------------------------------------------------------------
 // Template (versioned like code — spec §5)
@@ -40,8 +41,10 @@ import type { Notebook } from "../types.js";
  */
 export interface RunbookTemplateCell {
   cellId: string;
-  cellType: "code" | "package.json";
+  cellType: "code" | "package.json" | "await";
+  /** Empty string for await cells (nothing is written to disk for them). */
   filename: string;
+  /** Empty string for await cells (they execute nothing). */
   source: string;
   /** Compiled tier-1 outcome contract (zod → canonicalize → sha256). */
   contract?: AttachedContract;
@@ -49,6 +52,11 @@ export interface RunbookTemplateCell {
   validatorFor?: string;
   /** Authoring-time validator snapshot hash (Ulysses pattern). */
   validatorSnapshotHash?: string;
+  /**
+   * B6: the claim predicate an await cell blocks on. Present iff
+   * cellType is "await".
+   */
+  awaitClaim?: AwaitCondition;
 }
 
 export interface RunbookTemplate {
@@ -103,6 +111,53 @@ export interface CellExecutionRecord {
 }
 
 export type RunbookInstanceStatus = "created" | "in_progress" | "completed" | "failed";
+
+// ---------------------------------------------------------------------------
+// Advance reservations (SPEC-AGX-SUBSTRATE B8 — GH #403 double-execute guard)
+// ---------------------------------------------------------------------------
+
+/**
+ * A compare-and-swap claim on one advance step: BEFORE an advancer runs an
+ * exec cell's side effects, it must atomically reserve `(instanceId, seq)`.
+ * Exactly one concurrent advancer wins the reservation (unique natural key
+ * on both backends — a Map check-and-set with no interleaving await points
+ * in memory, a unique-constraint conditional insert on Postgres); losers
+ * receive AdvanceReservationConflictError WITHOUT having run any side
+ * effect. The winner then executes the cell and appends its execution
+ * record at the reserved seq.
+ *
+ * Reservations are append-only like everything else here (no update/delete
+ * path). A reservation whose seq has no matching execution record marks an
+ * in-flight — or crashed — advance; tb.runbook.advance surfaces it as
+ * `in_flight` (with holder + age) instead of double-running, and only an
+ * explicit force skips past it.
+ */
+export interface AdvanceReservation {
+  instanceId: string;
+  /** The execution seq this reservation claims (1-based, unique per instance). */
+  seq: number;
+  cellId: string;
+  /** Hub agentId (or "local") of the reserving advancer. */
+  agentId: string;
+  reservedAt: string;
+}
+
+/** Typed loss of the advance CAS — the step is already held. No side effects ran. */
+export class AdvanceReservationConflictError extends Error {
+  override readonly name = "AdvanceReservationConflictError";
+
+  constructor(
+    readonly instanceId: string,
+    readonly seq: number,
+    detail?: string,
+  ) {
+    super(
+      `advance reservation (${instanceId}, seq ${seq}) already held — ` +
+        `another advancer owns this step; no side effects were run` +
+        (detail ? ` (${detail})` : ""),
+    );
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Fitness ledger (spec §7, claim c7)
@@ -178,6 +233,16 @@ export interface RunbookStorage {
   /** All execution records for an instance, ordered by seq ascending. */
   listCellExecutions(instanceId: string): Promise<CellExecutionRecord[]>;
 
+  /**
+   * Atomically reserve one advance step (B8 CAS — GH #403). Throws
+   * AdvanceReservationConflictError when (instanceId, seq) is already
+   * reserved; any other failure throws a backend error. MUST be atomic with
+   * respect to concurrent reservations of the same key.
+   */
+  reserveAdvance(reservation: AdvanceReservation): Promise<void>;
+  /** All reservations for an instance, ordered by seq ascending. */
+  listAdvanceReservations(instanceId: string): Promise<AdvanceReservation[]>;
+
   appendFitnessRows(rows: FitnessLedgerRow[]): Promise<void>;
   listFitnessRows(
     templateId: string,
@@ -205,6 +270,18 @@ export function templateCellsFromNotebook(
 ): RunbookTemplateCell[] {
   const cells: RunbookTemplateCell[] = [];
   for (const cell of notebook.cells) {
+    if (cell.type === "await") {
+      // B6: await cells are part of template order but execute nothing —
+      // no filename/source; the claim predicate is the whole cell.
+      cells.push({
+        cellId: cell.id,
+        cellType: "await",
+        filename: "",
+        source: "",
+        awaitClaim: { claimId: cell.claimId, until: [...cell.until] },
+      });
+      continue;
+    }
     if (cell.type !== "code" && cell.type !== "package.json") continue;
     cells.push({
       cellId: cell.id,

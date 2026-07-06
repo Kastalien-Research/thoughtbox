@@ -1703,6 +1703,48 @@ export type Database = {
           },
         ]
       }
+      runbook_advance_reservations: {
+        Row: {
+          agent_id: string
+          cell_id: string
+          instance_id: string
+          reserved_at: string
+          seq: number
+          tenant_workspace_id: string
+        }
+        Insert: {
+          agent_id: string
+          cell_id: string
+          instance_id: string
+          reserved_at?: string
+          seq: number
+          tenant_workspace_id: string
+        }
+        Update: {
+          agent_id?: string
+          cell_id?: string
+          instance_id?: string
+          reserved_at?: string
+          seq?: number
+          tenant_workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "runbook_advance_reservations_instance_tenant_fkey"
+            columns: ["instance_id", "tenant_workspace_id"]
+            isOneToOne: false
+            referencedRelation: "runbook_instances"
+            referencedColumns: ["id", "tenant_workspace_id"]
+          },
+          {
+            foreignKeyName: "runbook_advance_reservations_tenant_workspace_id_fkey"
+            columns: ["tenant_workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       runbook_cell_executions: {
         Row: {
           agent_id: string

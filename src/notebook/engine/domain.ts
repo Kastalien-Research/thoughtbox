@@ -77,11 +77,29 @@ export const CodeCellSchema = S.Struct({
   outputName: S.optional(S.String),
 });
 
+/**
+ * Await cell (SPEC-AGX-SUBSTRATE B6 — claim c4): a claim subscription plus a
+ * predicate over the claim's current status ("claim X reaches one of
+ * `until`"). Satisfaction marks the cell runnable; it executes nothing.
+ * Evaluated pull-only by the advancer (tb.runbook.advance, B8).
+ */
+export const AwaitCellSchema = S.Struct({
+  ...CellBaseSchema,
+  _tag: S.Literal("AwaitCell"),
+  type: S.Literal("await"),
+  role: S.Literal("await"),
+  claimId: S.String,
+  until: S.Array(
+    S.Literal("asserted", "supported", "invalidated", "superseded"),
+  ),
+});
+
 export const NotebookCellSchema = S.Union(
   TitleCellSchema,
   MarkdownCellSchema,
   PackageJsonCellSchema,
   CodeCellSchema,
+  AwaitCellSchema,
 );
 export type NotebookCell = typeof NotebookCellSchema.Type;
 

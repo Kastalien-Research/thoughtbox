@@ -451,6 +451,26 @@ function buildTbObject(deps: ExecuteToolDeps, ctx: TbContext): Record<string, un
         } as NotebookToolInput)),
     },
 
+    // -------------------------------------------------------------------
+    // tb.runbook.* — reactive runbook advancement (SPEC-AGX-SUBSTRATE
+    // B6 await↔claim binding + B8 pull-based advancer). Dispatches through
+    // the notebook toolhost. Owned by flagship-b6b8 (append-only block).
+    // -------------------------------------------------------------------
+    runbook: {
+      advance: async (args: Record<string, unknown>) =>
+        unwrapToolResult(await notebookTool.handle({
+          operation: "notebook_advance", ...args,
+        } as NotebookToolInput)),
+      status: async (args: Record<string, unknown>) =>
+        unwrapToolResult(await notebookTool.handle({
+          operation: "notebook_instance_status", ...args,
+        } as NotebookToolInput)),
+      addAwaitCell: async (args: Record<string, unknown>) =>
+        flattenNotebookResult(unwrapToolResult(await notebookTool.handle({
+          operation: "notebook_add_cell", cellType: "await", ...args,
+        } as NotebookToolInput))),
+    },
+
     theseus: async (input: TheseusToolInput) =>
       unwrapToolResult(await theseusTool.handle(input)),
 

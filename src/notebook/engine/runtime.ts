@@ -27,6 +27,8 @@ import {
   hashTemplateCells,
   verifyCellContracts,
   verifyTemplateContracts,
+  AdvanceReservationConflictError,
+  type AdvanceReservation,
   type CellExecutionRecord,
   type FitnessLedgerRow,
   type RunbookInstanceStatus,
@@ -40,6 +42,15 @@ import {
   isExecutionSatisfied,
   nextUnsatisfiedCell,
 } from "../runbook/ordering.js";
+import {
+  awaitCellSubscriber,
+  awaitExpectationRecord,
+  describeAwaitCondition,
+  isAwaitConditionMet,
+  type AwaitClaimBinding,
+  type AwaitClaimStatus,
+  type AwaitCondition,
+} from "../runbook/await.js";
 import { ensureTemplateVersion } from "../runbook/template-versioning.js";
 import { InMemoryRunbookStorage } from "../runbook/in-memory-runbook-storage.js";
 import { hashJson } from "../../peer-notebook/manifest.js";
@@ -68,7 +79,8 @@ export interface NotebookRunRuntimeResult {
  */
 export interface CellExecutionEvidence {
   cellId: string;
-  cellType: "code" | "package.json";
+  cellType: "code" | "package.json" | "await";
+  /** For await cells: "await:<claimId>" (nothing exists on disk for them). */
   filename: string;
   /** ISO timestamp captured when the cell's execution began; absent for skipped cells. */
   startedAt?: string;
@@ -115,6 +127,29 @@ export interface CellExecutionGate {
    */
   assertExecutable(cellId: string): void;
   record(evidence: CellExecutionEvidence): Promise<CellGateResult>;
+  /**
+   * B6: register the durable claim subscription for an await cell the run
+   * parked at (subscriber "runbook:<instanceId>/<cellId>"). Idempotent.
+   * Called INSTEAD of `record` — an unsatisfied await appends no execution
+   * record, so the instance derives "in_progress" (parked), never "failed".
+   * Callers must only park cells whose claim EXISTS (currentStatus !==
+   * null from evaluateAwait) — a subscription needs a subscribable claim.
+   */
+  park(cellId: string, condition: AwaitCondition): Promise<void>;
+  /**
+   * B6: pull the subscribed claim's current status for an await cell.
+   * Returns the evaluation record (pass when satisfied), the claim's
+   * current status (null = claim not found or binding unavailable), and
+   * whether the run may proceed past the cell. Never executes anything.
+   */
+  evaluateAwait(
+    cellId: string,
+    condition: AwaitCondition,
+  ): Promise<{
+    satisfied: boolean;
+    currentStatus: AwaitClaimStatus | null;
+    record: ExpectationRecord;
+  }>;
 }
 
 /**
@@ -154,6 +189,93 @@ export interface NotebookEngineRuntimeOptions {
   templateCellSource?: (notebookId: string) => RunbookTemplateCell[] | undefined;
   /** Executing agent identity recorded on instances/executions/ledger rows. */
   agentId?: string;
+  /**
+   * B6: narrow claim read/subscribe surface for await cells. When absent,
+   * an await cell can never be satisfied — runs and advances park at it
+   * with a "claim binding unavailable" reason (never an error, never a
+   * failure: parked instances are resumable once claims are wired).
+   */
+  claimBinding?: AwaitClaimBinding;
+}
+
+/** Pull-based advance input (SPEC-AGX-SUBSTRATE B8 — tb.runbook.advance). */
+export interface AdvanceInstanceInput {
+  instanceId: string;
+  /** Guard: the instance must belong to this template (the notebook id). */
+  expectedTemplateId?: string;
+  /** Live notebook cell snapshot, hash-checked against the pinned template version. */
+  liveCells?: RunbookTemplateCell[];
+  /**
+   * Executes exactly one exec cell through the real execution path. May be
+   * omitted when only await cells need advancing (e.g. a fresh session that
+   * has not reloaded the notebook yet); reaching an exec cell without an
+   * executor throws.
+   */
+  executeCell?: (cellId: string) => Promise<InstanceCellExecution>;
+  /** Cap on exec-cell executions in this advance call (default: unlimited). */
+  maxCells?: number;
+  /**
+   * Skip past a reservation that has no matching execution record (a
+   * crashed or still-running advancer). EXPLICIT double-execute acceptance:
+   * if the original holder is still alive, its side effects run too. Off by
+   * default — without force, such an instance reports `in_flight`.
+   */
+  force?: boolean;
+}
+
+export type AdvanceOutcome =
+  /** Every template cell is satisfied. */
+  | "completed"
+  /** Stopped at an unsatisfied await cell; subscription registered. */
+  | "parked"
+  /** An executed cell was unsatisfied (instance derives "failed"). */
+  | "halted"
+  /**
+   * The CAS lost: another advancer holds the next step's reservation (or a
+   * prior advancer died holding it). No side effects were run for that step.
+   */
+  | "in_flight"
+  /** Executed maxCells exec cells and stopped; more remain. */
+  | "advanced";
+
+/** One cell this advance call satisfied or executed. */
+export interface AdvanceStep {
+  cellId: string;
+  seq: number;
+  kind: "exec" | "await";
+  status: "completed" | "failed";
+  satisfied: boolean;
+  expectations: ExpectationRecord[];
+}
+
+export interface AdvanceInstanceResult {
+  instanceId: string;
+  templateId: string;
+  templateVersion: number;
+  outcome: AdvanceOutcome;
+  /** Derived from the append-only records after this advance. */
+  instanceStatus: RunbookInstanceStatus;
+  /** Next unsatisfied cell after this advance; null = all satisfied. */
+  nextCellId: string | null;
+  steps: AdvanceStep[];
+  /** Present when outcome is "parked". */
+  awaiting?: {
+    cellId: string;
+    claimId: string;
+    until: readonly AwaitClaimStatus[];
+    currentStatus: AwaitClaimStatus | null;
+    /** claim_subscriptions.subscriber ref registered for the parked cell. */
+    subscriber: string;
+    /** Set when parking was due to a missing claim binding, not claim state. */
+    reason?: string;
+  };
+  /** Present when outcome is "in_flight". */
+  inFlight?: {
+    cellId: string;
+    seq: number;
+    agentId: string;
+    reservedAt: string;
+  };
 }
 
 /** Mutable per-run context threading the gate's durable writes (B5). */
@@ -212,6 +334,8 @@ export class InMemoryNotebookEngineRuntime {
     notebookId: string,
   ) => RunbookTemplateCell[] | undefined;
   private readonly agentId: string;
+  /** B6: claim read/subscribe surface for await cells (see options doc). */
+  private readonly claimBinding?: AwaitClaimBinding;
 
   constructor(
     private readonly executeNotebook: NotebookCellExecutor,
@@ -223,6 +347,9 @@ export class InMemoryNotebookEngineRuntime {
       this.templateCellSource = options.templateCellSource;
     }
     this.agentId = options.agentId ?? "local";
+    if (options.claimBinding !== undefined) {
+      this.claimBinding = options.claimBinding;
+    }
   }
 
   persistNotebook(notebookId: string, content: string) {
@@ -491,54 +618,26 @@ export class InMemoryNotebookEngineRuntime {
   async executeInstanceCell(
     input: InstanceCellExecutionInput,
   ): Promise<InstanceCellExecutionResult> {
-    const instance = await this.storage.getInstance(input.instanceId);
-    if (!instance) {
-      throw new Error(`Runbook instance ${input.instanceId} not found`);
-    }
-    if (
-      input.expectedTemplateId !== undefined &&
-      instance.templateId !== input.expectedTemplateId
-    ) {
-      throw new Error(
-        `instance ${input.instanceId} belongs to template ${instance.templateId}, ` +
-          `not ${input.expectedTemplateId}`,
-      );
-    }
-    const template = await this.storage.getTemplate(
-      instance.templateId,
-      instance.templateVersion,
-    );
-    if (!template) {
-      throw new Error(
-        `template ${instance.templateId} version ${instance.templateVersion} ` +
-          `not found for instance ${input.instanceId}`,
-      );
-    }
-    verifyTemplateContracts(template);
-    if (
-      input.liveCells !== undefined &&
-      hashTemplateCells(input.liveCells) !== template.cellsHash
-    ) {
-      throw new Error(
-        `notebook cells have drifted from template ${template.templateId} ` +
-          `version ${template.version} pinned by instance ${input.instanceId}; ` +
-          `start a new run to version the current cells`,
-      );
-    }
+    const template = await this.resolvePinnedTemplate(input);
 
-    // CONCURRENCY (v0): instance advance is single-writer per instance. This
-    // read -> executeCell -> append sequence is not atomic, so two concurrent
-    // advances of the SAME instance+cell would both run the cell's side
-    // effects before either appends; the loser then fails on the
-    // (instance_id, seq) unique constraint. That constraint is the durable
-    // backstop (never two rows at one seq), but it does not prevent the double
-    // side effect. v0 assumes one advancer per instance (an agent holding it,
-    // or a single cron tick); cross-replica concurrent same-instance advance
-    // is unsupported and is resolved with the advancer (B6/B8), where
-    // contention originates. Tracked in GH #403.
+    // CONCURRENCY (v0 single-cell path): this read -> executeCell -> append
+    // sequence is not atomic; the (instance_id, seq) unique constraint is
+    // the durable backstop (never two rows at one seq), but a concurrent
+    // same-cell run can double the side effect. Concurrent advancement is
+    // the advancer's job — tb.runbook.advance (advanceInstance below) is the
+    // CAS-guarded path (B8, GH #403); this direct path remains single-writer
+    // by convention for agents that hold the instance exclusively.
     const executions = await this.storage.listCellExecutions(input.instanceId);
     assertCellExecutable(template, executions, input.cellId);
     const templateCell = template.cells.find((cell) => cell.cellId === input.cellId)!;
+    if (templateCell.cellType === "await") {
+      throw new Error(
+        `cell ${input.cellId} is an await cell ` +
+          `(${templateCell.awaitClaim !== undefined ? describeAwaitCondition(templateCell.awaitClaim) : "no condition"}); ` +
+          `await cells execute nothing — use tb.runbook.advance to evaluate ` +
+          `the subscribed claim and advance past it`,
+      );
+    }
     if (templateCell.validatorFor !== undefined) {
       throw new Error(
         `cell ${input.cellId} is a tier-2 validator for ${templateCell.validatorFor}; ` +
@@ -549,22 +648,7 @@ export class InMemoryNotebookEngineRuntime {
 
     const startedAt = new Date().toISOString();
     const result = await input.executeCell(input.cellId);
-    const records: ExpectationRecord[] =
-      templateCell.contract !== undefined
-        ? templateCell.contract.contract.expectations.map((expectation) =>
-            evaluateExpectation(expectation, {
-              cellId: input.cellId,
-              cellStatus: result.status,
-              exitCode: result.exitCode,
-              ...(result.structuredOutput !== undefined
-                ? { structuredOutputRaw: result.structuredOutput }
-                : {}),
-              ...(this.claimResolver !== undefined
-                ? { claimResolver: this.claimResolver }
-                : {}),
-            }),
-          )
-        : [];
+    const records = this.evaluateContractExpectations(templateCell, result);
     const record: CellExecutionRecord = {
       instanceId: input.instanceId,
       // Explicit max over recorded seqs — never an implicit dependency on
@@ -599,6 +683,346 @@ export class InMemoryNotebookEngineRuntime {
         stderr: result.stderr,
       },
     };
+  }
+
+  /**
+   * Pull-based instance advancement (SPEC-AGX-SUBSTRATE B8 — claim c4,
+   * tb.runbook.advance). Repeatedly takes the next unsatisfied template
+   * cell and:
+   *
+   * - **await cell (B6):** pulls the subscribed claim's CURRENT status
+   *   through the claim binding. Satisfied → appends a normal execution
+   *   record (status "completed", one pass expectation documenting the
+   *   observed status) and continues; the (instance_id, seq) unique
+   *   constraint dedupes concurrent satisfied-await appends (side-effect
+   *   free, so a lost append is simply re-read). Unsatisfied → registers
+   *   the claim subscription ("runbook:<instanceId>/<cellId>") and returns
+   *   `parked` — no record is appended, the instance derives "in_progress".
+   * - **exec cell (GH #403 CAS):** RESERVES `(instanceId, seq)` via
+   *   storage.reserveAdvance BEFORE any side effect. Exactly one concurrent
+   *   advancer wins the reservation; losers return `in_flight` without
+   *   executing anything. The winner executes the cell, appends its record
+   *   at the reserved seq, and writes its ledger rows. A reservation with
+   *   no matching execution record (crashed advancer) also reports
+   *   `in_flight`; only an explicit `force` skips past it.
+   *
+   * There is no push path, no timer, and no suspended process: every state
+   * change here happens inside this explicit call (claim c4).
+   */
+  async advanceInstance(input: AdvanceInstanceInput): Promise<AdvanceInstanceResult> {
+    const template = await this.resolvePinnedTemplate(input);
+    const steps: AdvanceStep[] = [];
+    const maxCells = input.maxCells ?? Number.POSITIVE_INFINITY;
+    let execCount = 0;
+    // Every iteration either returns or grows the instance's executions
+    // (append or observed-concurrent-append), so template length bounds
+    // progress; the cap is a defensive backstop, not a control flow.
+    const maxIterations = 10_000;
+
+    for (let iteration = 0; iteration < maxIterations; iteration++) {
+      const executions = await this.storage.listCellExecutions(input.instanceId);
+      const nextCellId = nextUnsatisfiedCell(template, executions);
+      if (nextCellId === null) {
+        return this.advanceResult(input.instanceId, template, executions, {
+          outcome: "completed",
+          steps,
+        });
+      }
+      const templateCell = template.cells.find((cell) => cell.cellId === nextCellId)!;
+      const maxExecutedSeq = executions.reduce(
+        (max, prior) => Math.max(max, prior.seq),
+        0,
+      );
+      const reservations = await this.storage.listAdvanceReservations(
+        input.instanceId,
+      );
+      const pending = reservations.filter((r) => r.seq > maxExecutedSeq);
+
+      if (templateCell.cellType === "await") {
+        const condition = templateCell.awaitClaim;
+        if (condition === undefined) {
+          throw new Error(
+            `await cell ${nextCellId} in template ${template.templateId} ` +
+              `version ${template.version} carries no claim condition — ` +
+              `corrupt template`,
+          );
+        }
+        const subscriber = awaitCellSubscriber(input.instanceId, nextCellId);
+        if (this.claimBinding === undefined) {
+          return this.advanceResult(input.instanceId, template, executions, {
+            outcome: "parked",
+            steps,
+            awaiting: {
+              cellId: nextCellId,
+              claimId: condition.claimId,
+              until: condition.until,
+              currentStatus: null,
+              subscriber,
+              reason:
+                "claim binding unavailable: no claim storage is wired into " +
+                "this server instance, so the awaited claim cannot be read",
+            },
+          });
+        }
+        const currentStatus = await this.claimBinding.getClaimStatus(
+          condition.claimId,
+        );
+        if (!isAwaitConditionMet(condition, currentStatus)) {
+          // B6 binding: the parked cell durably subscribes to the claim so
+          // propagation (Realtime in hosted mode) can surface the wake-up.
+          // A claim that does not exist yet cannot be subscribed to — the
+          // instance still parks; a later advance retries the read.
+          if (currentStatus !== null) {
+            await this.claimBinding.subscribe(
+              condition.claimId,
+              subscriber,
+              this.agentId,
+            );
+          }
+          return this.advanceResult(input.instanceId, template, executions, {
+            outcome: "parked",
+            steps,
+            awaiting: {
+              cellId: nextCellId,
+              claimId: condition.claimId,
+              until: condition.until,
+              currentStatus,
+              subscriber,
+              ...(currentStatus === null
+                ? { reason: `claim ${condition.claimId} not found` }
+                : {}),
+            },
+          });
+        }
+        // Satisfied: append the durable satisfaction record. No side effects
+        // ran, so a duplicate-seq conflict (another advancer recorded the
+        // same satisfaction, or executed ahead of us) is benign — re-read.
+        const record: CellExecutionRecord = {
+          instanceId: input.instanceId,
+          seq: maxExecutedSeq + 1,
+          cellId: nextCellId,
+          startedAt: new Date().toISOString(),
+          agentId: this.agentId,
+          inputsDigest: hashJson({}),
+          status: "completed",
+          expectations: [
+            awaitExpectationRecord(nextCellId, condition, currentStatus),
+          ],
+        };
+        try {
+          await this.storage.appendCellExecution(record);
+        } catch {
+          continue; // benign lost race — no side effects; re-read and retry
+        }
+        steps.push({
+          cellId: nextCellId,
+          seq: record.seq,
+          kind: "await",
+          status: "completed",
+          satisfied: true,
+          expectations: record.expectations,
+        });
+        continue;
+      }
+
+      // Exec / package.json cell.
+      if (execCount >= maxCells) {
+        return this.advanceResult(input.instanceId, template, executions, {
+          outcome: "advanced",
+          steps,
+        });
+      }
+      if (templateCell.validatorFor !== undefined) {
+        throw new Error(
+          `cell ${nextCellId} is a tier-2 validator for ${templateCell.validatorFor}; ` +
+            `validator cells evaluate during batch runs (notebook_start_run) — ` +
+            `advance cannot execute them`,
+        );
+      }
+      if (pending.length > 0 && input.force !== true) {
+        const holder = pending[0]!;
+        return this.advanceResult(input.instanceId, template, executions, {
+          outcome: "in_flight",
+          steps,
+          inFlight: {
+            cellId: holder.cellId,
+            seq: holder.seq,
+            agentId: holder.agentId,
+            reservedAt: holder.reservedAt,
+          },
+        });
+      }
+      if (input.executeCell === undefined) {
+        throw new Error(
+          `advance reached exec cell ${nextCellId} but no executor is ` +
+            `available — load the notebook (template ${template.templateId}) ` +
+            `in this session and advance again`,
+        );
+      }
+
+      // GH #403 CAS: reserve the step BEFORE side effects. With force, the
+      // candidate seq skips past dead reservations (explicit double-execute
+      // acceptance documented on AdvanceInstanceInput.force).
+      const maxReservedSeq = reservations.reduce(
+        (max, prior) => Math.max(max, prior.seq),
+        0,
+      );
+      const seq = Math.max(maxExecutedSeq, maxReservedSeq) + 1;
+      const reservation: AdvanceReservation = {
+        instanceId: input.instanceId,
+        seq,
+        cellId: nextCellId,
+        agentId: this.agentId,
+        reservedAt: new Date().toISOString(),
+      };
+      try {
+        await this.storage.reserveAdvance(reservation);
+      } catch (cause) {
+        if (cause instanceof AdvanceReservationConflictError) {
+          // Lost the CAS — a concurrent advancer owns this step. NO side
+          // effects were run on this path.
+          return this.advanceResult(input.instanceId, template, executions, {
+            outcome: "in_flight",
+            steps,
+            inFlight: {
+              cellId: nextCellId,
+              seq,
+              agentId: "unknown (lost reservation race)",
+              reservedAt: reservation.reservedAt,
+            },
+          });
+        }
+        throw cause;
+      }
+
+      // Reservation won: this advancer exclusively owns seq. Side effects
+      // run at most once across all concurrent advancers of this step.
+      execCount += 1;
+      const startedAt = new Date().toISOString();
+      const result = await input.executeCell(nextCellId);
+      const records = this.evaluateContractExpectations(templateCell, result);
+      const record: CellExecutionRecord = {
+        instanceId: input.instanceId,
+        seq,
+        cellId: nextCellId,
+        startedAt,
+        agentId: this.agentId,
+        inputsDigest: hashJson({}),
+        status: result.status,
+        expectations: records,
+      };
+      await this.storage.appendCellExecution(record);
+      await this.storage.appendFitnessRows(
+        this.ledgerRowsFromRecords(template, input.instanceId, records),
+      );
+      const satisfied = isExecutionSatisfied(record);
+      steps.push({
+        cellId: nextCellId,
+        seq,
+        kind: "exec",
+        status: result.status,
+        satisfied,
+        expectations: records,
+      });
+      if (!satisfied) {
+        return this.advanceResult(
+          input.instanceId,
+          template,
+          [...executions, record],
+          { outcome: "halted", steps },
+        );
+      }
+    }
+    throw new Error(
+      `advanceInstance exceeded ${maxIterations} iterations for instance ` +
+        `${input.instanceId} — aborting as a defensive backstop`,
+    );
+  }
+
+  /** Shared result assembly for every advance exit path. */
+  private advanceResult(
+    instanceId: string,
+    template: RunbookTemplate,
+    executions: CellExecutionRecord[],
+    partial: Pick<AdvanceInstanceResult, "outcome" | "steps"> &
+      Partial<Pick<AdvanceInstanceResult, "awaiting" | "inFlight">>,
+  ): AdvanceInstanceResult {
+    return {
+      instanceId,
+      templateId: template.templateId,
+      templateVersion: template.version,
+      instanceStatus: deriveInstanceStatus(template, executions),
+      nextCellId: nextUnsatisfiedCell(template, executions),
+      ...partial,
+    };
+  }
+
+  /**
+   * Shared instance→pinned-template resolution (single-cell execution and
+   * advance): existence, template-ownership guard, contract re-verification
+   * (Ulysses), and live-cell drift check.
+   */
+  private async resolvePinnedTemplate(input: {
+    instanceId: string;
+    expectedTemplateId?: string;
+    liveCells?: RunbookTemplateCell[];
+  }): Promise<RunbookTemplate> {
+    const instance = await this.storage.getInstance(input.instanceId);
+    if (!instance) {
+      throw new Error(`Runbook instance ${input.instanceId} not found`);
+    }
+    if (
+      input.expectedTemplateId !== undefined &&
+      instance.templateId !== input.expectedTemplateId
+    ) {
+      throw new Error(
+        `instance ${input.instanceId} belongs to template ${instance.templateId}, ` +
+          `not ${input.expectedTemplateId}`,
+      );
+    }
+    const template = await this.storage.getTemplate(
+      instance.templateId,
+      instance.templateVersion,
+    );
+    if (!template) {
+      throw new Error(
+        `template ${instance.templateId} version ${instance.templateVersion} ` +
+          `not found for instance ${input.instanceId}`,
+      );
+    }
+    verifyTemplateContracts(template);
+    if (
+      input.liveCells !== undefined &&
+      hashTemplateCells(input.liveCells) !== template.cellsHash
+    ) {
+      throw new Error(
+        `notebook cells have drifted from template ${template.templateId} ` +
+          `version ${template.version} pinned by instance ${input.instanceId}; ` +
+          `start a new run to version the current cells`,
+      );
+    }
+    return template;
+  }
+
+  /** Tier-1 contract evaluation over one executed cell's declared channels. */
+  private evaluateContractExpectations(
+    templateCell: RunbookTemplateCell,
+    result: InstanceCellExecution,
+  ): ExpectationRecord[] {
+    if (templateCell.contract === undefined) return [];
+    return templateCell.contract.contract.expectations.map((expectation) =>
+      evaluateExpectation(expectation, {
+        cellId: templateCell.cellId,
+        cellStatus: result.status,
+        exitCode: result.exitCode,
+        ...(result.structuredOutput !== undefined
+          ? { structuredOutputRaw: result.structuredOutput }
+          : {}),
+        ...(this.claimResolver !== undefined
+          ? { claimResolver: this.claimResolver }
+          : {}),
+      }),
+    );
   }
 
   /**
@@ -708,6 +1132,39 @@ export class InMemoryNotebookEngineRuntime {
           disposition: isExecutionSatisfied(record) ? "continue" : "halt",
         };
       },
+      // B6: durable subscription for the await cell this run parked at. No
+      // execution record is appended for it (the instance stays parked, not
+      // failed), so the run resumes later via tb.runbook.advance.
+      park: async (cellId, condition) => {
+        if (this.claimBinding === undefined) return;
+        await this.claimBinding.subscribe(
+          condition.claimId,
+          awaitCellSubscriber(durable.instanceId, cellId),
+          this.agentId,
+        );
+      },
+      // B6: pull-only claim evaluation for an await cell reached mid-run.
+      evaluateAwait: async (cellId, condition) => {
+        if (this.claimBinding === undefined) {
+          return {
+            satisfied: false,
+            currentStatus: null,
+            record: awaitExpectationRecord(cellId, condition, null, {
+              unavailableReason:
+                "claim binding unavailable: no claim storage is wired into " +
+                "this server instance, so the awaited claim cannot be read",
+            }),
+          };
+        }
+        const currentStatus = await this.claimBinding.getClaimStatus(
+          condition.claimId,
+        );
+        return {
+          satisfied: isAwaitConditionMet(condition, currentStatus),
+          currentStatus,
+          record: awaitExpectationRecord(cellId, condition, currentStatus),
+        };
+      },
     };
   }
 
@@ -796,14 +1253,27 @@ export class InMemoryNotebookEngineRuntime {
     );
   }
 
-  /** One ledger row per machine-checked expectation evaluation (spec §7). */
+  /**
+   * One ledger row per machine-checked expectation evaluation (spec §7).
+   * Await-cell evaluations are EXCLUDED: they are coordination state, not a
+   * hypothesis-vs-actual outcome — spec §7 scopes fitness to executed
+   * exec/assert cells, and counting await satisfactions would inflate
+   * pass-rates with rows no template author hypothesized.
+   */
   private ledgerRowsFromRecords(
-    template: Pick<RunbookTemplate, "templateId" | "version">,
+    template: Pick<RunbookTemplate, "templateId" | "version" | "cells">,
     instanceId: string,
     records: ExpectationRecord[],
   ): FitnessLedgerRow[] {
+    const awaitCellIds = new Set(
+      template.cells
+        .filter((cell) => cell.cellType === "await")
+        .map((cell) => cell.cellId),
+    );
     const ts = new Date().toISOString();
-    return records.map((record) => ({
+    return records
+      .filter((record) => !awaitCellIds.has(record.cellId))
+      .map((record) => ({
       templateId: template.templateId,
       templateVersion: template.version,
       instanceId,

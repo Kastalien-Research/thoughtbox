@@ -22,6 +22,8 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import type { Database, Json } from "../../database.types.js";
 import {
   aggregateFitness,
+  AdvanceReservationConflictError,
+  type AdvanceReservation,
   type CellExecutionRecord,
   type CellExecutionStatus,
   type FitnessAggregate,
@@ -38,6 +40,7 @@ type Tables = Database["public"]["Tables"];
 type TemplateRow = Tables["runbook_templates"]["Row"];
 type InstanceRow = Tables["runbook_instances"]["Row"];
 type ExecutionRow = Tables["runbook_cell_executions"]["Row"];
+type ReservationRow = Tables["runbook_advance_reservations"]["Row"];
 type LedgerRow = Tables["runbook_fitness_ledger"]["Row"];
 
 export interface SupabaseRunbookStorageConfig {
@@ -259,6 +262,62 @@ export class SupabaseRunbookStorage implements RunbookStorage {
       .order("seq", { ascending: true });
     if (error) this.fail("listCellExecutions", error.message);
     return (data ?? []).map((row) => this.rowToExecution(row));
+  }
+
+  // -------------------------------------------------------------------------
+  // Advance reservations (B8 CAS — GH #403)
+  // -------------------------------------------------------------------------
+
+  private rowToReservation(row: ReservationRow): AdvanceReservation {
+    return {
+      instanceId: row.instance_id,
+      seq: row.seq,
+      cellId: row.cell_id,
+      agentId: row.agent_id,
+      reservedAt: toIso(row.reserved_at),
+    };
+  }
+
+  /**
+   * Conditional insert against the (instance_id, seq) primary key: Postgres
+   * guarantees exactly one of any set of concurrent inserts commits; every
+   * loser observes 23505 and surfaces the typed conflict WITHOUT having run
+   * any side effect. The table is insert-only (UPDATE/DELETE revoked by
+   * migration 20260615000000), so a reservation can never be stolen.
+   */
+  async reserveAdvance(reservation: AdvanceReservation): Promise<void> {
+    const { error } = await this.client.from("runbook_advance_reservations").insert({
+      instance_id: reservation.instanceId,
+      seq: reservation.seq,
+      cell_id: reservation.cellId,
+      tenant_workspace_id: this.tenantWorkspaceId,
+      agent_id: reservation.agentId,
+      reserved_at: reservation.reservedAt,
+    });
+    if (error) {
+      if (error.code === "23505") {
+        throw new AdvanceReservationConflictError(
+          reservation.instanceId,
+          reservation.seq,
+          `tenant ${this.tenantWorkspaceId}`,
+        );
+      }
+      if (error.code === "23503") {
+        this.fail("reserveAdvance", `instance ${reservation.instanceId} not found`);
+      }
+      this.fail("reserveAdvance", error.message);
+    }
+  }
+
+  async listAdvanceReservations(instanceId: string): Promise<AdvanceReservation[]> {
+    const { data, error } = await this.client
+      .from("runbook_advance_reservations")
+      .select()
+      .eq("instance_id", instanceId)
+      .eq("tenant_workspace_id", this.tenantWorkspaceId)
+      .order("seq", { ascending: true });
+    if (error) this.fail("listAdvanceReservations", error.message);
+    return (data ?? []).map((row) => this.rowToReservation(row));
   }
 
   // -------------------------------------------------------------------------
