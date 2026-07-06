@@ -9,6 +9,14 @@
 --     level (e.g. pg_net, wrappers, rls_auto_enable). These vary by project
 --     creation date and are outside our control plane.
 --
+-- IMPORTANT: every ORDER BY over a text-typed sort key MUST pin COLLATE "C".
+-- Catalog `name` / `sql_identifier` columns always sort in C order, but text
+-- expressions (e.g. conrelid::regclass::text) sort under the database default
+-- collation, which differs across Postgres builds (staging PG17 uses C.UTF-8;
+-- the CLI's PG15 local stack uses en_US.UTF-8 — they disagree on
+-- 'claims' vs 'claim_subscriptions'). An unpinned text sort makes the hash
+-- environment-dependent even when the schema is byte-identical.
+--
 -- Re-runnable from the Supabase SQL editor or any psql session.
 
 WITH
@@ -41,7 +49,7 @@ constraints AS (
       'name', conname,
       'def', pg_get_constraintdef(oid)
     )
-    ORDER BY conrelid::regclass::text, conname
+    ORDER BY conrelid::regclass::text COLLATE "C", conname
   ) AS j
   FROM pg_constraint
   WHERE connamespace = 'public'::regnamespace
@@ -78,7 +86,7 @@ app_functions AS (
       'name', p.proname,
       'sig', pg_get_function_identity_arguments(p.oid)
     )
-    ORDER BY n.nspname, p.proname, pg_get_function_identity_arguments(p.oid)
+    ORDER BY n.nspname, p.proname, pg_get_function_identity_arguments(p.oid) COLLATE "C"
   ) AS j
   FROM pg_proc p
   JOIN pg_namespace n ON p.pronamespace = n.oid
