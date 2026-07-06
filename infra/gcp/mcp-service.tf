@@ -7,9 +7,10 @@
 # the trigger stamps) are ignored below. Everything else changing outside
 # Terraform is drift.
 #
-# maxScale is pinned to 1 until MCP transport-session state is externalized
-# (SPEC-V1-INITIATIVE:c4 / c16): transport sessions live in an in-process Map
-# and session affinity is only best-effort.
+# maxScale is pinned to 1 by design (SPEC-V1-INITIATIVE:c4, owner decision
+# 2026-07-06): session routing is single-instance Cloud Run with transport
+# sessions held in an in-process Map. The former Memorystore/externalization
+# direction (old claim c16) is dropped.
 
 data "google_project" "current" {
   project_id = var.project_id
