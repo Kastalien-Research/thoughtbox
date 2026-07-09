@@ -52,7 +52,3 @@ export type { SupabaseNotebookDocumentStorageConfig } from './supabase-notebook-
 
 // Session exporter
 export { SessionExporter } from './export.js';
-
-// Migration utilities
-export { migrateExports, listExports } from './migration.js';
-export type { MigrationResult, MigrationSessionDetail, MigrationOptions } from './migration.js';

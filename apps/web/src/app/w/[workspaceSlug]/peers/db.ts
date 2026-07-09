@@ -1,79 +1,32 @@
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
+import type { Database } from '@/lib/supabase/database.types'
 
-// Read-only Supabase access for the peers page. The peer control-plane
-// tables are not yet in the generated lib/supabase/database.types.ts, so this
-// route ships its own minimal typed view of the rows it reads (workspace
-// member read access is granted by the peer_* RLS policies in the
-// 20260430010000_create_peer_notebook_control_plane migration).
+// Read-only Supabase access for the peers page, typed against the generated
+// Database type (workspace member read access is granted by the peer_* RLS
+// policies in the 20260430010000_create_peer_notebook_control_plane
+// migration). The manifest/error columns are `Json` in the generated types;
+// the page narrows them to the structured views below at the query boundary.
 
-export type PeerNotebookRow = {
-  id: string
-  workspace_id: string
-  slug: string
-  display_name: string
-  description: string | null
-  status: string
-  active_manifest_id: string | null
-  created_at: string
-  updated_at: string
-}
+type Tables = Database['public']['Tables']
 
-export type PeerManifestRow = {
-  id: string
-  workspace_id: string
-  peer_id: string
-  version: number
-  schema_version: string
+export type PeerNotebookRow = Tables['peer_notebooks']['Row']
+
+export type PeerManifestRow = Omit<Tables['peer_manifests']['Row'], 'manifest'> & {
   manifest: {
     runtime?: { provider?: string; entry?: string }
     exposes?: { tools?: Array<{ name?: string }> }
   } | null
-  manifest_hash: string
-  status: string
-  approved_at: string | null
-  created_at: string
 }
 
-export type PeerInvocationRow = {
-  id: string
-  workspace_id: string
-  peer_id: string
-  manifest_hash: string
-  tool_name: string
-  status: string
-  runtime_provider: string
-  duration_ms: number | null
+export type PeerInvocationRow = Omit<Tables['peer_invocations']['Row'], 'error'> & {
   error: { message?: string } | null
-  created_at: string
-}
-
-type TableOf<Row> = {
-  Row: Row
-  Insert: Partial<Row>
-  Update: Partial<Row>
-  Relationships: []
-}
-
-type PeersDatabase = {
-  public: {
-    Tables: {
-      workspaces: TableOf<{ id: string; slug: string }>
-      peer_notebooks: TableOf<PeerNotebookRow>
-      peer_manifests: TableOf<PeerManifestRow>
-      peer_invocations: TableOf<PeerInvocationRow>
-    }
-    Views: { [_ in never]: never }
-    Functions: { [_ in never]: never }
-    Enums: { [_ in never]: never }
-    CompositeTypes: { [_ in never]: never }
-  }
 }
 
 export async function createPeersReadClient() {
   const cookieStore = await cookies()
 
-  return createServerClient<PeersDatabase>(
+  return createServerClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {

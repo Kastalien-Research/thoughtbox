@@ -46,8 +46,10 @@ export default async function PeersPage({ params }: Props) {
   ])
 
   const peers: PeerNotebookRow[] = peersResult.data ?? []
-  const manifests: PeerManifestRow[] = manifestsResult.data ?? []
-  const invocations: PeerInvocationRow[] = invocationsResult.data ?? []
+  // manifest/error are `Json` in the generated types; narrow to the
+  // structured views the page renders (see ./db.ts).
+  const manifests = (manifestsResult.data ?? []) as PeerManifestRow[]
+  const invocations = (invocationsResult.data ?? []) as PeerInvocationRow[]
 
   const peerSlugById = new Map(peers.map(peer => [peer.id, peer.slug]))
   const manifestsByPeer = new Map<string, PeerManifestRow[]>()

@@ -111,6 +111,26 @@ describe('SupabaseProtocolEventStorage', () => {
     expect(bEvents[0]!.data.session_id).toBe('session-b');
   });
 
+  it('narrows to one session when sessionId is passed, unchanged when absent', async () => {
+    if (!available) return;
+    const storage = storageFor(TENANT_A);
+
+    await storage.append(evt('ulysses_init', 's1'));
+    await storage.append(evt('ulysses_init', 's2'));
+    await storage.append(evt('ulysses_outcome', 's1', { S: 1 }));
+
+    const all = await storage.changedSince(0);
+    expect(all).toHaveLength(3);
+
+    const s1Only = await storage.changedSince(0, undefined, 's1');
+    expect(s1Only.map((e) => e.data.session_id)).toEqual(['s1', 's1']);
+    expect(s1Only.map((e) => e.type)).toEqual(['ulysses_init', 'ulysses_outcome']);
+
+    const s2Only = await storage.changedSince(0, undefined, 's2');
+    expect(s2Only).toHaveLength(1);
+    expect(s2Only[0]!.data.session_id).toBe('s2');
+  });
+
   it('honors the limit and pages forward by cursor', async () => {
     if (!available) return;
     const storage = storageFor(TENANT_A);

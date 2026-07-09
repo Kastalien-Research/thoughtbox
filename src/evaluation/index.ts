@@ -116,13 +116,3 @@ export function initExperimentRunner(): ExperimentRunner {
 
   return new ExperimentRunner(config, getSharedClient(config));
 }
-
-/**
- * @deprecated The OnlineMonitor (Layer 5) was removed — it scored thought
- * volume, not outcomes. This no-op shim exists only so the call site in
- * src/index.ts keeps compiling until it is removed; delete this function
- * together with that call site.
- */
-export function initMonitoring(_traceListener?: LangSmithTraceListener): null {
-  return null;
-}

@@ -13,9 +13,10 @@ import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/
 import { createMcpServer } from "./server-factory.js";
 import {
   FileSystemStorage,
+  FileSystemNotebookDocumentStorage,
   InMemoryStorage,
   SupabaseStorage,
-  migrateExports,
+  createSupabaseNotebookDocumentStorageProvider,
   type ThoughtboxStorage,
 } from "./persistence/index.js";
 import { SupabaseKnowledgeStorage } from "./knowledge/index.js";
@@ -27,11 +28,13 @@ import { InMemoryClaimStorage } from "./claims/in-memory-claim-storage.js";
 import { createSupabaseClaimStorageProvider } from "./claims/supabase-claim-storage.js";
 import { InMemoryRunbookStorage } from "./notebook/runbook/in-memory-runbook-storage.js";
 import { createSupabaseRunbookStorageProvider } from "./notebook/runbook/supabase-runbook-storage.js";
+import { InMemoryMergeCommitStorage } from "./merge/in-memory-merge-storage.js";
+import { createSupabaseMergeStorageProvider } from "./merge/supabase-merge-storage.js";
 import {
   createSupabaseProtocolEventStorageProvider,
   type ProtocolEventStorage,
 } from "./protocol/protocol-event-storage.js";
-import { initEvaluation, initMonitoring } from "./evaluation/index.js";
+import { initEvaluation } from "./evaluation/index.js";
 import { createHubHandler, type HubEvent } from "./hub/hub-handler.js";
 import {
   createThoughtStoreAdapter,
@@ -139,22 +142,6 @@ async function createStorage(): Promise<StorageBundle> {
   });
   await fsStorage.initialize();
 
-  // Auto-migrate existing exports if any
-  try {
-    const migrationResult = await migrateExports({
-      destDir: baseDir,
-      skipExisting: true,
-      dryRun: false,
-    });
-    if (migrationResult.migrated > 0) {
-      console.error(
-        `[Storage] Migrated ${migrationResult.migrated} sessions from exports`
-      );
-    }
-  } catch (err) {
-    console.error("[Storage] Migration check failed (non-fatal):", err);
-  }
-
   const factory: StorageFactory = {
     getStorage: () => new FileSystemStorage({
       basePath: baseDir,
@@ -218,6 +205,31 @@ async function startHttpServer() {
     : null;
   const localRunbookStorage = isMultiTenant ? null : new InMemoryRunbookStorage();
 
+  // Merge-commit storage (SPEC-MERGE-CORE c8): tenant-scoped
+  // SupabaseMergeCommitStorage when hosted; a single process-shared
+  // InMemoryMergeCommitStorage locally, mirroring the claims wiring.
+  // tb.merge.* is unavailable without it.
+  const tenantMergeStorage = isMultiTenant
+    ? createSupabaseMergeStorageProvider({
+        supabaseUrl: process.env.SUPABASE_URL!,
+        serviceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      })
+    : null;
+  const localMergeStorage = isMultiTenant ? null : new InMemoryMergeCommitStorage();
+
+  // Durable notebook documents (persist/restore seam): tenant-scoped
+  // SupabaseNotebookDocumentStorage when hosted; FileSystemNotebookDocumentStorage
+  // under <dataDir>/notebooks locally.
+  const tenantNotebookDocumentStorage = isMultiTenant
+    ? createSupabaseNotebookDocumentStorageProvider({
+        supabaseUrl: process.env.SUPABASE_URL!,
+        serviceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      })
+    : null;
+  const localNotebookDocumentStorage = isMultiTenant
+    ? null
+    : new FileSystemNotebookDocumentStorage(path.join(dataDir, "notebooks"));
+
   // Hosted protocol-event log (SPEC-REASONING-CHANNEL-HOSTED c2): in
   // multi-tenant mode the protocol lifecycle stream is appended to a
   // tenant-scoped Supabase table so the reasoning channel can pull it
@@ -246,8 +258,7 @@ async function startHttpServer() {
   }
 
   // Initialize LangSmith evaluation tracing (no-op if LANGSMITH_API_KEY not set)
-  const traceListener = initEvaluation();
-  initMonitoring(traceListener ?? undefined);
+  initEvaluation();
 
   const host = process.env.HOST || "0.0.0.0";
   const app = createMcpExpressApp({
@@ -433,6 +444,8 @@ async function startHttpServer() {
           hubStorage: tenantHubStorage!(workspaceId),
           claimStorage: tenantClaimStorage!(workspaceId),
           runbookStorage: tenantRunbookStorage!(workspaceId),
+          mergeStorage: tenantMergeStorage!(workspaceId),
+          notebookDocumentStorage: tenantNotebookDocumentStorage!(workspaceId),
           dataDir,
           knowledgeStorage,
           workspaceId,
@@ -504,6 +517,8 @@ async function startHttpServer() {
         hubStorage,
         claimStorage: localClaimStorage!,
         runbookStorage: localRunbookStorage!,
+        mergeStorage: localMergeStorage!,
+        notebookDocumentStorage: localNotebookDocumentStorage!,
         hubThoughtStore: localHubThoughtStore,
         dataDir,
         knowledgeStorage,
@@ -675,11 +690,18 @@ async function startHttpServer() {
 
       const cursor = parsePositiveInt(req.query.changed_since) ?? 0;
       const limit = parsePositiveInt(req.query.limit);
+      // Optional session narrowing — the plugin polling client scopes its
+      // pull to one reasoning session. Absent, behavior is unchanged.
+      const sessionId =
+        typeof req.query.session_id === "string" && req.query.session_id.length > 0
+          ? req.query.session_id
+          : undefined;
 
       try {
         const events = await tenantProtocolEventStorage!(workspaceId).changedSince(
           cursor,
           limit,
+          sessionId,
         );
         const nextCursor =
           events.length > 0 ? events[events.length - 1]!.cursor : cursor;
