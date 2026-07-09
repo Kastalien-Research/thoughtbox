@@ -7,9 +7,10 @@ import { Context, Data, Match, Schema as S } from "effect";
  * system_audit) were removed 2026-07-06; their .src.md files remain as plain
  * authoring templates. The registry stays extensible: adding a mode means
  * adding its literal here, its document/output schemas below, a registry
- * descriptor (registry.ts), and a verdict builder (runtime.ts).
+ * descriptor (registry.ts), and a verdict builder (runtime.ts) —
+ * merge_evidence (PR #413) is the worked example.
  */
-export const NotebookModeSchema = S.Literal("runbook", "eval");
+export const NotebookModeSchema = S.Literal("runbook", "eval", "merge_evidence");
 export type NotebookMode = typeof NotebookModeSchema.Type;
 
 export const JsonRecordSchema = S.Record({
@@ -111,9 +112,21 @@ export const EvalNotebookSchema = S.Struct({
   }),
 });
 
+export const MergeEvidenceNotebookSchema = S.Struct({
+  ...NotebookBaseSchema,
+  _tag: S.Literal("MergeEvidenceNotebook"),
+  mode: S.Literal("merge_evidence"),
+  merge: S.Struct({
+    mergeId: S.String,
+    workspaceId: S.String,
+    parentBranchIds: S.Array(S.String),
+  }),
+});
+
 export const NotebookDocumentSchema = S.Union(
   RunbookNotebookSchema,
   EvalNotebookSchema,
+  MergeEvidenceNotebookSchema,
 );
 export type NotebookDocument = typeof NotebookDocumentSchema.Type;
 
@@ -160,6 +173,20 @@ export const NotebookOutputSchema = S.Union(
      */
     score: S.Number,
     metrics: JsonRecordSchema,
+    evidence: S.optional(S.Unknown),
+  }),
+  S.Struct({
+    /**
+     * Execution result of a merge-evidence run: same derivation semantics as
+     * RunbookVerdict (declared expectations decide; §5.1). The frozen-schema
+     * merge verdict JSON is assembled by generateMergeEvidence
+     * (src/merge-evidence/) FROM this result — it is not this output.
+     */
+    _tag: S.Literal("MergeEvidenceRunResult"),
+    mode: S.Literal("merge_evidence"),
+    pass: S.Boolean,
+    reason: S.String,
+    contractCoverage: S.Number,
     evidence: S.optional(S.Unknown),
   }),
 );

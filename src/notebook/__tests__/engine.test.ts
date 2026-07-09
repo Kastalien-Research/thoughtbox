@@ -156,13 +156,14 @@ describe("Notebook Evidence Engine domain", () => {
 describe("Notebook Evidence Engine visibility", () => {
   it("lists the engine-runnable modes in the capabilities resource", () => {
     const modes = listNotebookModes();
-    expect(modes).toHaveLength(2);
+    expect(modes).toHaveLength(3);
 
     const capabilities = JSON.parse(getNotebookCapabilitiesJson());
     expect(capabilities.lowLevelPredicatePrimitive).toBe("notebook_validate");
     expect(capabilities.modes.map((m: { mode: string }) => m.mode)).toEqual([
       "runbook",
       "eval",
+      "merge_evidence",
     ]);
   });
 

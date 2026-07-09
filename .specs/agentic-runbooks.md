@@ -24,10 +24,11 @@ Observatory integration is out of scope. Outputs remain local-first notebook exp
 |---|---|---|
 | `runbook` | Reusable agent workflows with ordered steps and deterministic validators | `RunbookVerdict` — pass/fail over declared expectations (§5.1 semantics in SPEC-AGX-SUBSTRATE) |
 | `eval` | Executable evaluation workbooks scored over declared expectations | `EvalScorecard` — `score = passed / evaluated` over tier-1 contract + tier-2 validator records; zero declared expectations scores 0 with an explicit note, never a synthetic pass |
+| `merge_evidence` | Auto-generated evidence packet for a reasoning merge (`.specs/merge-evidence.md`; agents never hand-author these) | `MergeEvidenceRunResult` — runbook derivation semantics, retagged; the frozen-schema merge verdict JSON is assembled from it by `generateMergeEvidence` |
 
-Eval runs flow through the same durable path as runbooks (template versioning,
-append-only instances, fitness ledger rows), so eval graders accrue fitness
-identically.
+Eval and merge-evidence runs flow through the same durable path as runbooks
+(template versioning, append-only instances, fitness ledger rows), so their
+machine-checked expectations accrue fitness identically.
 
 The six former speculative stub modes (`simulation`, `failure_capsule`,
 `adr_evidence`, `skill_certification`, `scenario_factory`, `system_audit`)
@@ -37,7 +38,8 @@ and rejected every run. Their `.src.md` files survive unchanged as plain
 `evidence-failure-capsule`, `evidence-adr-pack`, `evidence-skill-certification`,
 `evidence-scenario-factory`, `evidence-system-audit`). The mode registry stays
 extensible: a new mode registers its enum literal, document/output schemas,
-registry descriptor, and verdict builder.
+registry descriptor, and verdict builder — `merge_evidence` (PR #413) is the
+worked example.
 
 ## Effect-Backed Domain Core
 

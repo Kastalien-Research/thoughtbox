@@ -352,8 +352,9 @@ export class InMemoryNotebookEngineRuntime {
   }
 
   /**
-   * The run body shared by every implemented mode (runbook and eval — they
-   * differ only in verdict derivation, dispatched via buildRunVerdict). With
+   * The run body shared by every implemented mode (runbook, eval, and
+   * merge_evidence differ only in verdict derivation, dispatched via
+   * buildRunVerdict). With
    * a templateCellSource wired (the real handler path), the durable instance
    * is created BEFORE any cell executes and the gate persists each cell's
    * record as it completes — a run that dies mid-way leaves durable records
@@ -1096,6 +1097,28 @@ function buildRunVerdict(
       return buildRunbookVerdict(evidence, context);
     case "eval":
       return buildEvalScorecard(evidence, context);
+    case "merge_evidence": {
+      // merge_evidence shares the runbook derivation (ordered cells,
+      // contracts, validators, §5.1 semantics); the output is retagged so
+      // the run record carries a mode-true MergeEvidenceRunResult. The
+      // frozen-schema merge verdict JSON is assembled by
+      // generateMergeEvidence (src/merge-evidence/) FROM this result.
+      const { verdict, records } = buildRunbookVerdict(evidence, context);
+      if (verdict._tag !== "RunbookVerdict") {
+        throw new Error("runbook derivation returned a non-runbook verdict");
+      }
+      return {
+        verdict: {
+          _tag: "MergeEvidenceRunResult",
+          mode: "merge_evidence",
+          pass: verdict.pass,
+          reason: verdict.reason,
+          contractCoverage: verdict.contractCoverage,
+          ...(verdict.evidence !== undefined ? { evidence: verdict.evidence } : {}),
+        },
+        records,
+      };
+    }
   }
 }
 

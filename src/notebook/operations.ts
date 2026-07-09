@@ -46,6 +46,7 @@ export const NOTEBOOK_OPERATIONS: OperationDefinition[] = [
             "evidence-skill-certification",
             "evidence-scenario-factory",
             "evidence-system-audit",
+            "merge-evidence",
           ],
           description: "Optional: Load a pre-structured template. Evidence templates are documented at thoughtbox://notebook/capabilities.",
         },
@@ -342,7 +343,7 @@ When 'expectedSnapshotHash' is provided, the operation refuses to run if the cel
   {
     name: "notebook_start_run",
     title: "Start Notebook Evidence Run",
-    description: "Execute a notebook's cells in-process and derive a mode-specific verdict from the real results: runbook yields a pass/fail RunbookVerdict, eval yields an EvalScorecard scored over declared expectations. See thoughtbox://notebook/capabilities.",
+    description: "Execute a notebook's cells in-process and derive a mode-specific verdict from the real results: runbook yields a pass/fail RunbookVerdict, eval yields an EvalScorecard scored over declared expectations, merge_evidence yields a MergeEvidenceRunResult (runbook semantics, retagged). See thoughtbox://notebook/capabilities.",
     category: "evidence-engine",
     inputSchema: {
       type: "object",
@@ -351,7 +352,7 @@ When 'expectedSnapshotHash' is provided, the operation refuses to run if the cel
         mode: {
           type: "string",
           enum: listNotebookModes().map((mode) => mode.mode),
-          description: "Evidence engine mode; see thoughtbox://notebook/capabilities for per-mode status.",
+          description: "Evidence engine mode. See thoughtbox://notebook/capabilities for per-mode implemented/specified status.",
         },
         inputs: {
           type: "object",

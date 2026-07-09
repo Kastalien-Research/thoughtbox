@@ -33,6 +33,14 @@ export type {
   PeerGraduationNotebookCell,
   PeerGraduationNotebookSource,
 } from "./handler.js";
+export {
+  CONTRADICTION_SCAN_CELL_SOURCE,
+  CONTRADICTION_SCAN_DOC_MARKDOWN,
+  CONTRADICTION_SCAN_ENTRY_FILENAME,
+  CONTRADICTION_SCAN_PEER_ID,
+  CONTRADICTION_SCAN_TOOL_NAME,
+  contradictionScanManifest,
+} from "./peers/contradiction-scan-notebook.js";
 export { PEER_NOTEBOOK_TOOL, PeerNotebookTool, peerNotebookToolInputSchema } from "./tool.js";
 export type { PeerNotebookToolInput } from "./tool.js";
 export type {
@@ -47,13 +55,15 @@ export type {
   PeerManifest,
   PeerManifestRecord,
   PeerManifestStatus,
+  PeerNotebookCodeSnapshot,
   PeerNotebookRecord,
+  PeerNotebookSnapshotCell,
   PeerNotebookStatus,
   PeerToolManifest,
   PeerTraceEventRecord,
   RuntimeProviderName,
 } from "./types.js";
-export { PeerNotebookError } from "./types.js";
+export { NOTEBOOK_ENTRY_PREFIX, notebookEntryFilename, PeerNotebookError } from "./types.js";
 export type {
   RuntimeArtifactOutput,
   RuntimeInvocationInput,

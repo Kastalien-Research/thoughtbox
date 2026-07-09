@@ -73,7 +73,7 @@ interface TB {
 
   /** Notebook Evidence Engine. Source: src/notebook/tool.ts */
   notebook: {
-    create(args: { title: string; language: "javascript" | "typescript"; template?: "sequential-feynman" | "evidence-runbook" | "evidence-simulation" | "evidence-eval-workbook" | "evidence-failure-capsule" | "evidence-adr-pack" | "evidence-skill-certification" | "evidence-scenario-factory" | "evidence-system-audit" }): Promise<unknown>;
+    create(args: { title: string; language: "javascript" | "typescript"; template?: "sequential-feynman" | "evidence-runbook" | "evidence-simulation" | "evidence-eval-workbook" | "evidence-failure-capsule" | "evidence-adr-pack" | "evidence-skill-certification" | "evidence-scenario-factory" | "evidence-system-audit" | "merge-evidence" }): Promise<unknown>;
     list(): Promise<unknown>;
     /** Exactly one source: path (filesystem), content (raw .src.md), or notebookId (restore a persisted document under its original id). */
     load(args: { path?: string; content?: string; notebookId?: string }): Promise<unknown>;
@@ -93,8 +93,8 @@ interface TB {
     validate(args: { notebookId: string; cellId: string; observed: unknown; expectedSnapshotHash?: string }): Promise<unknown>;
     /** Persist the notebook: in-process artifact always; durably (file_system/supabase, upsert by id) when a document backend is configured — the response's 'persistence' field names the backend. Restore with load({ notebookId }). */
     persist(args: { notebookId: string }): Promise<unknown>;
-    /** Execute the notebook's cells and derive a mode-specific verdict from real results: runbook = pass/fail RunbookVerdict, eval = EvalScorecard (score = passed/evaluated over declared expectations). */
-    startRun(args: { notebookId: string; mode: "runbook" | "eval"; inputs?: Record<string, unknown> }): Promise<unknown>;
+    /** Execute the notebook's cells and derive a mode-specific verdict from real results: runbook = pass/fail RunbookVerdict, eval = EvalScorecard (score = passed/evaluated over declared expectations), merge_evidence = MergeEvidenceRunResult (runbook semantics, retagged). */
+    startRun(args: { notebookId: string; mode: "runbook" | "eval" | "merge_evidence"; inputs?: Record<string, unknown> }): Promise<unknown>;
     getRun(args: { runId: string }): Promise<unknown>;
     listRuns(args?: { notebookId?: string }): Promise<unknown>;
     cancelRun(args: { runId: string; reason?: string }): Promise<unknown>;

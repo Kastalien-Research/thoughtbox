@@ -29,6 +29,7 @@ export const notebookToolInputSchema = z.object({
     "evidence-skill-certification",
     "evidence-scenario-factory",
     "evidence-system-audit",
+    "merge-evidence",
   ]).optional().describe("Template for create"),
   path: z.string().optional().describe("Filesystem path for load/export"),
   content: z.string().optional().describe("Content for load (raw .src.md) or add_cell/update_cell"),
@@ -40,6 +41,7 @@ export const notebookToolInputSchema = z.object({
   mode: z.enum([
     "runbook",
     "eval",
+    "merge_evidence",
   ]).optional().describe("Notebook Evidence Engine mode (notebook_start_run)"),
   inputs: z.record(z.unknown()).optional().describe("Mode-specific JSON inputs for notebook_start_run"),
   runId: z.string().optional().describe("Notebook run ID"),
