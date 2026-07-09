@@ -43,6 +43,10 @@ function makeManifest(sessionId: string): AuditManifest {
       context_snapshot: 0,
       progress: 0,
       action_receipt: 0,
+      finding: 0,
+      synthesis: 0,
+      question: 0,
+      conclusion: 0,
     },
     decisions: { total: 1, byConfidence: { high: 1, medium: 0, low: 0 } },
     actions: {

@@ -35,6 +35,16 @@ The verification step itself was useful and I'd recommend any future agent doing
 
 ### A1. Widen `thoughtType` enum (or add free-form `subtype`)
 
+> **Status: SHIPPED (2026-07-09, feat/agent-user-feedback-fixes).** The minimal
+> suggestion was implemented: `finding`, `synthesis`, `question`, `conclusion`
+> added to the enum in `src/thought/tool.ts`, `src/thought/operations.ts`,
+> `src/thought-handler.ts`, `src/persistence/types.ts`,
+> `src/events/thought-emitter.ts`, `src/audit/manifest-generator.ts`,
+> `src/code-mode/sdk-types.ts`, and the apps/web session-view mirrors. The
+> `thoughts.thought_type` CHECK constraint is extended by migration
+> `supabase/migrations/20260709120000_add_inquiry_thoughttypes.sql`. The
+> free-form `subtype` variant was NOT implemented.
+
 **Where**: `src/thought/tool.ts` (Zod schema, lines ~75-78 per the `2026-04-28-systemic-flaws-audit.md` reference) and the corresponding handler validators in `src/thought-handler.ts`.
 
 **Current enum**: `reasoning | decision_frame | action_report | belief_snapshot | assumption_update | context_snapshot | progress`.

@@ -30,7 +30,7 @@ export interface Thought {
   revisesThought?: number;
   branchId?: string;
   branchFromThought?: number;
-  thoughtType?: 'reasoning' | 'decision_frame' | 'action_report' | 'belief_snapshot' | 'assumption_update' | 'context_snapshot' | 'progress' | 'action_receipt';
+  thoughtType?: 'reasoning' | 'decision_frame' | 'action_report' | 'belief_snapshot' | 'assumption_update' | 'context_snapshot' | 'progress' | 'action_receipt' | 'finding' | 'synthesis' | 'question' | 'conclusion';
   confidence?: 'high' | 'medium' | 'low';
   options?: Array<{ label: string; selected: boolean; reason?: string }>;
   actionResult?: { success: boolean; reversible: 'yes' | 'no' | 'partial'; tool: string; target: string; sideEffects?: string[] };

@@ -32,7 +32,8 @@ export type RawThoughtRecord = {
   branchFromThought?: number
 
   thoughtType?: 'reasoning' | 'decision_frame' | 'action_report' |
-    'belief_snapshot' | 'assumption_update' | 'context_snapshot' | 'progress'
+    'belief_snapshot' | 'assumption_update' | 'context_snapshot' | 'progress' |
+    'finding' | 'synthesis' | 'question' | 'conclusion'
 
   confidence?: 'high' | 'medium' | 'low'
   options?: { label: string; selected: boolean; reason?: string }[]
@@ -169,6 +170,10 @@ export type ThoughtDisplayType =
   | 'assumption_update'
   | 'context_snapshot'
   | 'progress'
+  | 'finding'
+  | 'synthesis'
+  | 'question'
+  | 'conclusion'
 
 export type ThoughtRowVM = {
   id: string

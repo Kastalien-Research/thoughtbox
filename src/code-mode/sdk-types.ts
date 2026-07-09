@@ -26,7 +26,7 @@ interface TB {
   /** Submit a structured thought. Source: src/thought/tool.ts */
   thought(input: {
     thought: string;
-    thoughtType: "reasoning" | "decision_frame" | "action_report" | "belief_snapshot" | "assumption_update" | "context_snapshot" | "progress";
+    thoughtType: "reasoning" | "decision_frame" | "action_report" | "belief_snapshot" | "assumption_update" | "context_snapshot" | "progress" | "finding" | "synthesis" | "question" | "conclusion";
     nextThoughtNeeded: boolean;
     thoughtNumber?: number;
     totalThoughts?: number;

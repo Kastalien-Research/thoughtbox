@@ -56,6 +56,23 @@ describe('generateAuditData', () => {
     expect(result.thoughtCounts.action_report).toBe(1);
   });
 
+  it('counts inquiry-session thought types (finding/synthesis/question/conclusion)', () => {
+    const thoughts = [
+      thought({ thoughtNumber: 1, thoughtType: 'question' }),
+      thought({ thoughtNumber: 2, thoughtType: 'finding' }),
+      thought({ thoughtNumber: 3, thoughtType: 'finding' }),
+      thought({ thoughtNumber: 4, thoughtType: 'synthesis' }),
+      thought({ thoughtNumber: 5, thoughtType: 'conclusion' }),
+    ];
+    const result = generateAuditData('sess-2', thoughts);
+    expect(result.thoughtCounts.total).toBe(5);
+    expect(result.thoughtCounts.question).toBe(1);
+    expect(result.thoughtCounts.finding).toBe(2);
+    expect(result.thoughtCounts.synthesis).toBe(1);
+    expect(result.thoughtCounts.conclusion).toBe(1);
+    expect(result.thoughtCounts.reasoning).toBe(0);
+  });
+
   it('aggregates decision confidence levels', () => {
     const thoughts = [
       thought({

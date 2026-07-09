@@ -26,6 +26,10 @@ export function computeSessionSummary(
     assumption_update: 0,
     context_snapshot: 0,
     progress: 0,
+    finding: 0,
+    synthesis: 0,
+    question: 0,
+    conclusion: 0,
   }
 
   const branchIds = new Set<string>()
