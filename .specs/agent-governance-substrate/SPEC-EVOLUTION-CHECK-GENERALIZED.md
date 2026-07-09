@@ -1,6 +1,7 @@
 # SPEC: Evolution-Check Generalized — Governance as Search-Space Narrowing
 
 **Status**: DRAFT — research artifact, not accepted
+**Note (2026-07)**: References below to `SPEC-THOUGHTBOX-SLEEP-TIME.md` point at a spec removed in the demolition pass (owner-approved sleep-time kill; the `process-thought-queue` edge function was undeployed). Those implementation deltas are historical; see git history.
 **Source session**: `316ec05c-e2c0-4960-8322-05caf9708736`
 **Primary reference**: Thoughtbox resource `thoughtbox://prompts/evolution-check` (existing A-Mem-based pattern); A-Mem paper arXiv:2502.12110; Letta Skill Learning (Dec 2025); XSkill (arXiv 2603.12056v2).
 

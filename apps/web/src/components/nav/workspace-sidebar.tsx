@@ -66,6 +66,48 @@ function ObservabilityIcon() {
   )
 }
 
+function KnowledgeIcon() {
+  return (
+    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <circle cx="6" cy="6" r="2.25" strokeWidth={2} />
+      <circle cx="18" cy="7" r="2.25" strokeWidth={2} />
+      <circle cx="12" cy="17" r="2.25" strokeWidth={2} />
+      <path strokeLinecap="round" strokeWidth={2} d="M7.4 8l3.4 6.9M16.8 9l-3.5 6M8.2 6.3l7.6.5" />
+    </svg>
+  )
+}
+
+function MergesIcon() {
+  return (
+    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <circle cx="6" cy="5" r="2.25" strokeWidth={2} />
+      <circle cx="6" cy="19" r="2.25" strokeWidth={2} />
+      <circle cx="18" cy="12" r="2.25" strokeWidth={2} />
+      <path strokeLinecap="round" strokeWidth={2} d="M6 7.5v9M7.9 6.2L15.8 11M7.9 17.8L15.8 13" />
+    </svg>
+  )
+}
+
+function RepoIcon() {
+  return (
+    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <circle cx="7" cy="5" r="2.25" strokeWidth={2} />
+      <circle cx="7" cy="12" r="2.25" strokeWidth={2} />
+      <circle cx="7" cy="19" r="2.25" strokeWidth={2} />
+      <path strokeLinecap="round" strokeWidth={2} d="M7 7.25v2.5M7 14.25v2.5M9 11l7-1.5a3 3 0 003-3V6" />
+      <circle cx="19" cy="4.5" r="1.75" strokeWidth={2} />
+    </svg>
+  )
+}
+
+function PeersIcon() {
+  return (
+    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+    </svg>
+  )
+}
+
 function ConnectIcon() {
   return (
     <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -89,6 +131,10 @@ export function WorkspaceSidebar({ workspaceSlug }: { workspaceSlug: string }) {
   const mainNavItems: NavItem[] = [
     { label: 'Dashboard', href: `${base}/dashboard`, icon: <DashboardIcon /> },
     { label: 'Sessions', href: `${base}/sessions`, icon: <RunsIcon /> },
+    { label: 'Knowledge', href: `${base}/knowledge`, icon: <KnowledgeIcon /> },
+    { label: 'Merges', href: `${base}/merges`, icon: <MergesIcon /> },
+    { label: 'Repo', href: `${base}/repo`, icon: <RepoIcon /> },
+    { label: 'Peers', href: `${base}/peers`, icon: <PeersIcon /> },
     { label: 'Observability', href: `${base}/observability`, icon: <ObservabilityIcon /> },
     { label: 'API Keys', href: `${base}/api-keys`, icon: <KeyIcon /> },
   ]

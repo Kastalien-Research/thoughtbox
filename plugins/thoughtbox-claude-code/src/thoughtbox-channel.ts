@@ -7,7 +7,9 @@
  * via the `claude/channel` notification surface.
  *
  * Configuration via environment variables:
- *   THOUGHTBOX_URL      - Thoughtbox HTTP server URL (required)
+ *   THOUGHTBOX_URL      - Optional override for the Thoughtbox HTTP server URL;
+ *                         when absent, derives from local Claude settings
+ *                         written by `thoughtbox init`
  *   THOUGHTBOX_SESSION  - Optional active Thoughtbox session id; when set,
  *                         only events for this session are forwarded
  */
@@ -16,18 +18,37 @@ import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import {
   extractApiKeyFromLocalConfig,
+  findThoughtboxBaseUrl,
   loadLocalThoughtboxConfig,
 } from "./cli/config.js";
 import { EventFilter } from "./event-filter.js";
 import { EventClient } from "./event-client.js";
+import { PollingEventClient } from "./polling-event-client.js";
 import type { ThoughtboxEvent } from "./event-types.js";
 
-const THOUGHTBOX_URL = process.env.THOUGHTBOX_URL;
 const THOUGHTBOX_SESSION = process.env.THOUGHTBOX_SESSION;
 
-if (!THOUGHTBOX_URL) {
-  console.error("THOUGHTBOX_URL is required");
-  process.exit(1);
+/**
+ * Pick the event transport. A local server serves the in-process /events SSE
+ * stream; a hosted (remote) server is multi-replica and only exposes the
+ * pull endpoint, so poll there. THOUGHTBOX_CHANNEL_MODE forces a transport.
+ */
+function selectTransport(baseUrl: string): "sse" | "poll" {
+  const override = process.env.THOUGHTBOX_CHANNEL_MODE;
+  if (override === "sse" || override === "poll") return override;
+  if (override !== undefined) {
+    console.error(
+      `[Channel] Warning: THOUGHTBOX_CHANNEL_MODE="${override}" is not supported; falling back to URL-based transport detection`,
+    );
+  }
+  try {
+    const host = new URL(baseUrl).hostname;
+    return host === "localhost" || host === "127.0.0.1" || host === "::1"
+      ? "sse"
+      : "poll";
+  } catch {
+    return "poll";
+  }
 }
 
 const instructions = [
@@ -119,40 +140,70 @@ async function pushEvent(event: ThoughtboxEvent): Promise<void> {
   }
 }
 
-async function resolveApiKey(): Promise<string | null> {
+interface ChannelConnection {
+  baseUrl: string;
+  apiKey: string;
+}
+
+function isMissingConfigError(error: unknown): boolean {
+  return (error as NodeJS.ErrnoException)?.code === "ENOENT";
+}
+
+/**
+ * Resolve the server base URL and API key. The URL comes from THOUGHTBOX_URL
+ * when set, otherwise from the MCP server `thoughtbox init` wrote to local
+ * Claude settings; the key always comes from local settings. Returns null
+ * (channel stays idle, never exits) when either is missing.
+ */
+async function resolveConnection(): Promise<ChannelConnection | null> {
   const projectDir = process.env.CLAUDE_PROJECT_DIR ?? process.cwd();
 
+  let baseUrl = process.env.THOUGHTBOX_URL ?? null;
+  let apiKey: string | null = null;
   try {
     const config = await loadLocalThoughtboxConfig(projectDir);
-    return extractApiKeyFromLocalConfig(config.settingsLocal);
-  } catch {
-    return null;
+    apiKey = extractApiKeyFromLocalConfig(config.settingsLocal);
+    baseUrl = baseUrl ?? findThoughtboxBaseUrl(config.settingsLocal);
+  } catch (error) {
+    if (isMissingConfigError(error)) {
+      return null;
+    }
+    console.error("[Channel] Failed to load local Claude settings:", error);
+    throw error;
   }
+
+  if (!baseUrl || !apiKey) return null;
+  return { baseUrl, apiKey };
 }
 
 async function start(): Promise<void> {
-  const baseUrl = THOUGHTBOX_URL!;
-
-  console.error(`[Channel] Connecting to ${baseUrl}`);
   await mcp.connect(new StdioServerTransport());
   console.error("[Channel] MCP stdio transport connected");
 
-  const apiKey = await resolveApiKey();
-  if (!apiKey) {
-    console.error("[Channel] Thoughtbox key not configured in local Claude settings; channel idle until thoughtbox init runs");
+  const connection = await resolveConnection();
+  if (!connection) {
+    console.error("[Channel] Thoughtbox URL/key not configured in local Claude settings; channel idle until thoughtbox init runs");
     return;
   }
+  const { baseUrl, apiKey } = connection;
+  const mode = selectTransport(baseUrl);
+  console.error(`[Channel] Connecting to ${baseUrl} (${mode})`);
 
-  const eventClient = new EventClient({
+  const clientConfig = {
     baseUrl,
     apiKey,
     ...(THOUGHTBOX_SESSION ? { sessionId: THOUGHTBOX_SESSION } : {}),
-    onEvent: (event) => void pushEvent(event),
-    onError: (err) => console.error("[Channel] SSE error:", err.message),
-    onConnect: () => console.error("[Channel] Connected to event stream"),
-  });
+    onEvent: (event: ThoughtboxEvent) => void pushEvent(event),
+    onError: (err: Error) => console.error(`[Channel] ${mode} error:`, err.message),
+    onConnect: () => console.error(`[Channel] Connected to event stream (${mode})`),
+  };
 
-  eventClient.connect().catch((err) => {
+  const client =
+    mode === "sse"
+      ? new EventClient(clientConfig)
+      : new PollingEventClient(clientConfig);
+
+  client.connect().catch((err) => {
     console.error("[Channel] Failed to connect event stream:", err);
   });
 }

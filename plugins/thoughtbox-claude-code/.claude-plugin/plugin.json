@@ -1,11 +1,22 @@
 {
   "name": "thoughtbox-claude-code",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "Thoughtbox observability, protocol enforcement, and CLI for Claude Code",
   "author": {
     "name": "Kastalien Research"
   },
   "repository": "https://github.com/kastalien-research/thoughtbox",
   "license": "MIT",
-  "keywords": ["thoughtbox", "observability", "otlp", "protocols"]
+  "keywords": ["thoughtbox", "observability", "otlp", "protocols"],
+  "mcpServers": {
+    "thoughtbox-channel": {
+      "command": "node",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/dist/thoughtbox-channel.js"]
+    }
+  },
+  "channels": [
+    {
+      "server": "thoughtbox-channel"
+    }
+  ]
 }

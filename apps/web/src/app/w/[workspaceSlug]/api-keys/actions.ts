@@ -86,10 +86,27 @@ export async function revokeApiKeyAction(
     return { error: "Missing key ID." };
   }
 
+  const workspaceSlug =
+    (formData.get("workspaceSlug") as string | null)?.trim() ?? "";
+  if (workspaceSlug.length === 0) {
+    return { error: "Workspace is required." };
+  }
+
+  const { data: workspace, error: workspaceError } = await supabase
+    .from("workspaces")
+    .select("id")
+    .eq("slug", workspaceSlug)
+    .single();
+
+  if (workspaceError || !workspace) {
+    return { error: "Workspace not found." };
+  }
+
   const { error: updateError } = await supabase
     .from("api_keys")
     .update({ status: "revoked", revoked_at: new Date().toISOString() })
     .eq("id", keyId)
+    .eq("workspace_id", workspace.id)
     .eq("status", "active");
 
   if (updateError) {
@@ -100,17 +117,24 @@ export async function revokeApiKeyAction(
   return { success: true };
 }
 
-export async function listApiKeys(): Promise<ApiKeyRow[]> {
+export async function listApiKeys(workspaceSlug: string): Promise<ApiKeyRow[]> {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return [];
+
+  const { data: workspace } = await supabase
+    .from("workspaces")
+    .select("id")
+    .eq("slug", workspaceSlug)
+    .single();
+  if (!workspace) return [];
 
   const { data, error } = await supabase
     .from("api_keys")
     .select(
       "id, name, prefix, status, last_used_at, created_at, revoked_at",
     )
-    .eq("created_by_user_id", user.id)
+    .eq("workspace_id", workspace.id)
     .order("created_at", { ascending: false });
 
   if (error) return [];

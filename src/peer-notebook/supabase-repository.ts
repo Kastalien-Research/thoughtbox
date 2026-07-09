@@ -429,7 +429,7 @@ export class SupabasePeerNotebookRepository implements PeerNotebookRepository {
       manifest,
       manifestHash: row.manifest_hash,
       status: row.status as PeerManifestStatus,
-      compiledFrom: row.compiled_from as PeerManifestRecord["compiledFrom"],
+      compiledFrom: row.compiled_from as unknown as PeerManifestRecord["compiledFrom"],
       approvedAt: row.approved_at,
       createdAt: row.created_at,
     };

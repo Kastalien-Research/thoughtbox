@@ -12,7 +12,24 @@
  */
 
 import Anthropic from "@anthropic-ai/sdk";
-import { BehavioralContractResult, BehavioralVerificationReport } from "./types.js";
+
+// ============================================================================
+// Contract Result Types
+// ============================================================================
+
+export interface BehavioralContractResult {
+  contract: "VARIANCE" | "CONTENT_COUPLED" | "TRACE_EXISTS" | "LLM_JUDGES";
+  passed: boolean;
+  details: string;
+  failureReason?: string;
+}
+
+export interface BehavioralVerificationReport {
+  functionName: string;
+  timestamp: Date;
+  results: BehavioralContractResult[];
+  allPassed: boolean;
+}
 
 // ============================================================================
 // VARIANCE: Different inputs must produce different outputs

@@ -5,7 +5,7 @@ import { compilePeerManifestDraft } from "./manifest.js";
 import { createBrokerProxyTargets, type BrokerProxyTargetDeps } from "./proxy-targets.js";
 import { InMemoryPeerNotebookRepository, type PeerNotebookRepository } from "./repositories.js";
 import type { RuntimeProvider } from "./runtime-provider.js";
-import { PeerNotebookError } from "./types.js";
+import { notebookEntryFilename, PeerNotebookError } from "./types.js";
 import type {
   CompiledPeerManifest,
   JsonObject,
@@ -15,6 +15,7 @@ import type {
   PeerManifest,
   PeerManifestRecord,
   PeerManifestStatus,
+  PeerNotebookCodeSnapshot,
   PeerNotebookRecord,
   PeerTraceEventRecord,
   RuntimeProviderName,
@@ -53,6 +54,10 @@ export interface PeerGraduationNotebookCell {
 export interface PeerGraduationNotebook {
   id: string;
   cells: PeerGraduationNotebookCell[];
+  /** Notebook language; drives how a `notebook:` entry cell executes. */
+  language?: string;
+  /** Optional tsconfig captured into the graduation code snapshot. */
+  "tsconfig.json"?: string;
 }
 
 /** Read-only notebook lookup used by peer_graduate_notebook. */
@@ -262,6 +267,15 @@ export class PeerNotebookHandler {
       );
     }
     this.validateGraduatedRuntimeBinding(compiled.manifest);
+
+    // A `notebook:` runtime entry graduates with an immutable code snapshot on
+    // the manifest record: the notebook's executable cells, captured now, are
+    // what the runtime provider will execute — never live notebook state, so
+    // the peer keeps working after the authoring session is gone.
+    const entryCellFilename = notebookEntryFilename(compiled.manifest.runtime.entry);
+    if (entryCellFilename !== null) {
+      compiled.compiledFrom.notebook = buildNotebookCodeSnapshot(notebook, entryCellFilename);
+    }
 
     return this.persistDraft(workspaceId, compiled, input, { supersedeGraduatedDrafts: true });
   }
@@ -623,6 +637,74 @@ function manifestDraftSourcesFromNotebook(notebook: PeerGraduationNotebook): Man
     sources.push({ name: cell.filename, content: cell.source, sourceType: "cell" });
   }
   return sources;
+}
+
+/**
+ * Capture the executable code snapshot for a `notebook:` runtime entry.
+ * Included: every code cell except the manifest cell, the package.json cell,
+ * and the notebook tsconfig. Cell text is captured as data — nothing executes
+ * at graduation. v1 boundary: notebook peers must be dependency-free (node
+ * builtins only); the local-process provider materializes the snapshot into a
+ * scratch directory without running an install step.
+ */
+function buildNotebookCodeSnapshot(
+  notebook: PeerGraduationNotebook,
+  entryCellFilename: string,
+): PeerNotebookCodeSnapshot {
+  const cells: PeerNotebookCodeSnapshot["cells"] = [];
+  let packageJson: string | undefined;
+  for (const cell of notebook.cells) {
+    if (cell.type === "package.json" && typeof cell.source === "string") {
+      packageJson = cell.source;
+      continue;
+    }
+    if (cell.type !== "code") continue;
+    if (typeof cell.filename !== "string" || typeof cell.source !== "string") continue;
+    if (cell.filename === MANIFEST_CELL_FILENAME) continue;
+    cells.push({ filename: cell.filename, source: cell.source });
+  }
+
+  if (!cells.some(cell => cell.filename === entryCellFilename)) {
+    throw new PeerNotebookError(
+      "manifest_compile_error",
+      `Graduated manifest names runtime.entry "notebook:${entryCellFilename}" ` +
+        `but notebook ${notebook.id} has no code cell named "${entryCellFilename}"`,
+    );
+  }
+
+  if (packageJson !== undefined) {
+    let dependencies: Record<string, unknown> = {};
+    try {
+      const parsed = JSON.parse(packageJson) as { dependencies?: Record<string, unknown> };
+      dependencies = parsed.dependencies ?? {};
+    } catch {
+      throw new PeerNotebookError(
+        "manifest_compile_error",
+        `Notebook ${notebook.id} package.json cell is not valid JSON`,
+      );
+    }
+    if (Object.keys(dependencies).length > 0) {
+      throw new PeerNotebookError(
+        "manifest_compile_error",
+        `Notebook ${notebook.id} package.json declares dependencies ` +
+          `(${Object.keys(dependencies).join(", ")}); notebook peers must be dependency-free in v1`,
+      );
+    }
+  }
+
+  const language: PeerNotebookCodeSnapshot["language"] =
+    notebook.language === "typescript" || (notebook.language === undefined && entryCellFilename.endsWith(".ts"))
+      ? "typescript"
+      : "javascript";
+
+  return {
+    notebookId: notebook.id,
+    entryFilename: entryCellFilename,
+    language,
+    cells,
+    ...(packageJson !== undefined ? { packageJson } : {}),
+    ...(notebook["tsconfig.json"] !== undefined ? { tsconfigJson: notebook["tsconfig.json"] } : {}),
+  };
 }
 
 function previewText(text: string): string {
