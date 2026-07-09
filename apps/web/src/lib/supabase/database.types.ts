@@ -7,11 +7,6 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instantiate createClient with right options
-  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
-  __InternalSupabase: {
-    PostgrestVersion: "14.4"
-  }
   public: {
     Tables: {
       api_keys: {
@@ -800,6 +795,117 @@ export type Database = {
           },
           {
             foreignKeyName: "hub_workspaces_tenant_workspace_id_fkey"
+            columns: ["tenant_workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      merge_commits: {
+        Row: {
+          approved_by: string | null
+          base_ref: string | null
+          created_at: string
+          decided_at: string | null
+          evidence_hash: string | null
+          evidence_notebook_id: string | null
+          id: string
+          parent_branch_ids: Json
+          requested_by: string
+          status: string
+          superseded_by: string | null
+          tenant_workspace_id: string
+          verdict: Json | null
+          workspace_id: string
+        }
+        Insert: {
+          approved_by?: string | null
+          base_ref?: string | null
+          created_at?: string
+          decided_at?: string | null
+          evidence_hash?: string | null
+          evidence_notebook_id?: string | null
+          id: string
+          parent_branch_ids?: Json
+          requested_by: string
+          status?: string
+          superseded_by?: string | null
+          tenant_workspace_id: string
+          verdict?: Json | null
+          workspace_id: string
+        }
+        Update: {
+          approved_by?: string | null
+          base_ref?: string | null
+          created_at?: string
+          decided_at?: string | null
+          evidence_hash?: string | null
+          evidence_notebook_id?: string | null
+          id?: string
+          parent_branch_ids?: Json
+          requested_by?: string
+          status?: string
+          superseded_by?: string | null
+          tenant_workspace_id?: string
+          verdict?: Json | null
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "merge_commits_superseded_by_fkey"
+            columns: ["superseded_by"]
+            isOneToOne: false
+            referencedRelation: "merge_commits"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "merge_commits_tenant_workspace_id_fkey"
+            columns: ["tenant_workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "merge_commits_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "hub_workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      notebooks: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          language: string
+          persisted_at: string
+          tenant_workspace_id: string
+          title: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id: string
+          language: string
+          persisted_at?: string
+          tenant_workspace_id: string
+          title: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          language?: string
+          persisted_at?: string
+          tenant_workspace_id?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notebooks_tenant_workspace_id_fkey"
             columns: ["tenant_workspace_id"]
             isOneToOne: false
             referencedRelation: "workspaces"
@@ -1724,6 +1830,48 @@ export type Database = {
           },
         ]
       }
+      runbook_advance_reservations: {
+        Row: {
+          agent_id: string
+          cell_id: string
+          instance_id: string
+          reserved_at: string
+          seq: number
+          tenant_workspace_id: string
+        }
+        Insert: {
+          agent_id: string
+          cell_id: string
+          instance_id: string
+          reserved_at?: string
+          seq: number
+          tenant_workspace_id: string
+        }
+        Update: {
+          agent_id?: string
+          cell_id?: string
+          instance_id?: string
+          reserved_at?: string
+          seq?: number
+          tenant_workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "runbook_advance_reservations_instance_tenant_fkey"
+            columns: ["instance_id", "tenant_workspace_id"]
+            isOneToOne: false
+            referencedRelation: "runbook_instances"
+            referencedColumns: ["id", "tenant_workspace_id"]
+          },
+          {
+            foreignKeyName: "runbook_advance_reservations_tenant_workspace_id_fkey"
+            columns: ["tenant_workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       runbook_cell_executions: {
         Row: {
           agent_id: string
@@ -2428,3 +2576,4 @@ export const Constants = {
     Enums: {},
   },
 } as const
+
