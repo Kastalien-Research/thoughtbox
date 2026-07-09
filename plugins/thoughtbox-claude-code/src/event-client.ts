@@ -5,7 +5,11 @@
  * parsed ThoughtboxEvent objects. Reconnects with exponential backoff.
  */
 
-import type { ThoughtboxEvent } from "./event-types.js";
+import {
+  extractSessionId,
+  type ThoughtboxEvent,
+  type WireThoughtboxEvent,
+} from "./event-types.js";
 
 export interface EventClientConfig {
   baseUrl: string;
@@ -91,8 +95,17 @@ export class EventClient {
         for (const line of lines) {
           if (line.startsWith("data: ")) {
             try {
-              const event = JSON.parse(line.slice(6)) as ThoughtboxEvent;
-              this.config.onEvent(event);
+              // Server events are workspace-scoped (top-level workspaceId,
+              // session id inside data.session_id) — normalize to the
+              // sessionId the EventFilter and formatters key on.
+              const raw = JSON.parse(line.slice(6)) as WireThoughtboxEvent;
+              this.config.onEvent({
+                source: raw.source,
+                type: raw.type,
+                sessionId: extractSessionId(raw),
+                timestamp: raw.timestamp,
+                data: raw.data ?? {},
+              });
             } catch {
               // Ignore unparseable events
             }

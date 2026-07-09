@@ -4,6 +4,7 @@
  * Connects to the Thoughtbox /events SSE endpoint and emits
  * parsed ThoughtboxEvent objects. Reconnects with exponential backoff.
  */
+import { extractSessionId, } from "./event-types.js";
 const MIN_BACKOFF_MS = 1000;
 const MAX_BACKOFF_MS = 30_000;
 const BACKOFF_MULTIPLIER = 2;
@@ -67,8 +68,17 @@ export class EventClient {
                 for (const line of lines) {
                     if (line.startsWith("data: ")) {
                         try {
-                            const event = JSON.parse(line.slice(6));
-                            this.config.onEvent(event);
+                            // Server events are workspace-scoped (top-level workspaceId,
+                            // session id inside data.session_id) — normalize to the
+                            // sessionId the EventFilter and formatters key on.
+                            const raw = JSON.parse(line.slice(6));
+                            this.config.onEvent({
+                                source: raw.source,
+                                type: raw.type,
+                                sessionId: extractSessionId(raw),
+                                timestamp: raw.timestamp,
+                                data: raw.data ?? {},
+                            });
                         }
                         catch {
                             // Ignore unparseable events

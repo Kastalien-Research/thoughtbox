@@ -11,6 +11,7 @@
  * emitting, so a fresh channel reacts to NEW protocol events rather than
  * replaying completed sessions.
  */
+import { extractSessionId } from "./event-types.js";
 const DEFAULT_POLL_INTERVAL_MS = 3000;
 const PAGE_LIMIT = 200;
 const MIN_BACKOFF_MS = 1000;
@@ -27,21 +28,12 @@ export class PollingEventClient {
     }
     async connect() {
         this.closed = false;
-        // Prime the cursor to the current tail without emitting.
-        try {
-            while (true) {
-                const page = await this.fetchPage(this.cursor);
-                if (page.events.length === 0)
-                    break;
-                this.cursor = page.cursor;
-                if (page.events.length < PAGE_LIMIT)
-                    break;
-            }
-            this.config.onConnect?.();
-        }
-        catch (error) {
-            this.reportError(error);
-        }
+        this.backoffMs = MIN_BACKOFF_MS;
+        await this.prime();
+        if (this.closed)
+            return;
+        this.config.onConnect?.();
+        this.backoffMs = MIN_BACKOFF_MS;
         this.scheduleNext(this.config.pollIntervalMs ?? DEFAULT_POLL_INTERVAL_MS);
     }
     close() {
@@ -83,7 +75,7 @@ export class PollingEventClient {
         }
     }
     emit(event) {
-        const sessionId = typeof event.data.session_id === "string" ? event.data.session_id : "";
+        const sessionId = extractSessionId(event);
         this.config.onEvent({
             source: event.source,
             type: event.type,
@@ -92,10 +84,36 @@ export class PollingEventClient {
             data: event.data,
         });
     }
+    async prime() {
+        while (!this.closed) {
+            try {
+                await this.primeOnce();
+                return;
+            }
+            catch (error) {
+                this.reportError(error);
+                const delay = this.backoffMs;
+                this.backoffMs = Math.min(this.backoffMs * BACKOFF_MULTIPLIER, MAX_BACKOFF_MS);
+                await new Promise((resolve) => setTimeout(resolve, delay));
+            }
+        }
+    }
+    async primeOnce() {
+        while (true) {
+            const page = await this.fetchPage(this.cursor);
+            if (page.events.length === 0)
+                break;
+            this.cursor = page.cursor;
+            if (page.events.length < PAGE_LIMIT)
+                break;
+        }
+    }
     async fetchPage(cursor) {
         const params = new URLSearchParams();
         if (cursor > 0)
             params.set("changed_since", String(cursor));
+        if (this.config.sessionId)
+            params.set("session_id", this.config.sessionId);
         params.set("limit", String(PAGE_LIMIT));
         const url = `${this.config.baseUrl}/protocol/events?${params.toString()}`;
         const response = await fetch(url, {

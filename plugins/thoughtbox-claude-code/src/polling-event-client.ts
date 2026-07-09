@@ -12,7 +12,7 @@
  * replaying completed sessions.
  */
 
-import type { ThoughtboxEvent } from "./event-types.js";
+import { extractSessionId, type ThoughtboxEvent } from "./event-types.js";
 
 export interface PollingEventClientConfig {
   baseUrl: string;
@@ -102,8 +102,7 @@ export class PollingEventClient {
   }
 
   private emit(event: PulledEvent): void {
-    const sessionId =
-      typeof event.data.session_id === "string" ? event.data.session_id : "";
+    const sessionId = extractSessionId(event);
     this.config.onEvent({
       source: event.source,
       type: event.type,
