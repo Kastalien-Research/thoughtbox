@@ -24,9 +24,13 @@
 
 import { describe, it, expect, beforeAll } from "vitest";
 import { randomUUID } from "node:crypto";
+import * as os from "node:os";
+import * as path from "node:path";
+import { mkdtempSync } from "node:fs";
 import { NotebookHandler } from "../index.js";
 import { InMemoryNotebookEngineRuntime } from "../engine/runtime.js";
 import { InMemoryRunbookStorage } from "../runbook/in-memory-runbook-storage.js";
+import { SqliteRunbookStorage } from "../runbook/sqlite-runbook-storage.js";
 import { SupabaseRunbookStorage } from "../runbook/supabase-runbook-storage.js";
 import {
   AdvanceReservationConflictError,
@@ -42,8 +46,9 @@ import {
 } from "../runbook/types.js";
 import { awaitCellSubscriber } from "../runbook/await.js";
 import { InMemoryClaimStorage } from "../../claims/in-memory-claim-storage.js";
+import { SqliteClaimStorage } from "../../claims/sqlite-claim-storage.js";
 import { createRunbookClaimBinding } from "../../claims/runbook-binding.js";
-import type { Claim, ClaimStatus } from "../../claims/types.js";
+import type { Claim, ClaimStatus, ClaimStorage } from "../../claims/types.js";
 import {
   ensureTestWorkspace,
   isSupabaseAvailable,
@@ -75,7 +80,7 @@ function makeClaim(id: string, status: ClaimStatus = "asserted"): Claim {
 }
 
 async function setClaimStatus(
-  claims: InMemoryClaimStorage,
+  claims: ClaimStorage,
   claimId: string,
   status: ClaimStatus,
 ): Promise<void> {
@@ -567,6 +572,105 @@ function reservationContract(
 }
 
 reservationContract("InMemory", async () => new InMemoryRunbookStorage());
+
+function freshAwaitDbDir(): string {
+  return mkdtempSync(path.join(os.tmpdir(), "tb-await-"));
+}
+
+reservationContract(
+  "SQLite",
+  async () => new SqliteRunbookStorage(path.join(freshAwaitDbDir(), "runbooks.db")),
+);
+
+describe("GH #403 double-execute guard — concurrent advance (SQLite)", () => {
+  it("two advancers over the same database file execute side effects exactly once", async () => {
+    // Each advancer gets its OWN SqliteRunbookStorage handle over the same
+    // file — the two-process local shape; only the (instance_id, seq)
+    // primary key arbitrates the reservation.
+    const dbPath = path.join(freshAwaitDbDir(), "runbooks.db");
+    const { sideEffects, outcomes } = await raceTwoAdvancers(
+      new SqliteRunbookStorage(dbPath),
+      () => new SqliteRunbookStorage(dbPath),
+    );
+    expect(sideEffects).toBe(1);
+    expect(outcomes).toEqual(["completed", "in_flight"]);
+  });
+});
+
+describe("In-flight await survives a restart (SQLite)", () => {
+  it("an instance parked at an await resumes through NEW storage instances over the same files", async () => {
+    const dbDir = freshAwaitDbDir();
+    const runbookDbPath = path.join(dbDir, "runbooks.db");
+    const claimsDbPath = path.join(dbDir, "claims.db");
+
+    // --- Before the restart: park at the await. ---
+    const storageBefore = new SqliteRunbookStorage(runbookDbPath);
+    const claimsBefore = new SqliteClaimStorage(claimsDbPath);
+    const claimId = `clm-${randomUUID()}`;
+    await claimsBefore.saveClaim(makeClaim(claimId, "asserted"));
+    const { instance } = await seedInstance(storageBefore, [
+      execCell("step1"),
+      awaitCell("wait1", claimId, ["supported"]),
+      execCell("step2"),
+    ]);
+
+    const executedBefore: string[] = [];
+    const runtimeBefore = new InMemoryNotebookEngineRuntime(async () => [], undefined, {
+      storage: storageBefore,
+      claimBinding: createRunbookClaimBinding(claimsBefore),
+      agentId: AGENT,
+    });
+    const parked = await runtimeBefore.advanceInstance({
+      instanceId: instance.instanceId,
+      executeCell: makeExecutor(executedBefore),
+    });
+    expect(parked.outcome).toBe("parked");
+    expect(executedBefore).toEqual(["step1"]);
+    storageBefore.close();
+    claimsBefore.close();
+
+    // --- The restart: fresh storage instances over the same files. ---
+    const storageAfter = new SqliteRunbookStorage(runbookDbPath);
+    const claimsAfter = new SqliteClaimStorage(claimsDbPath);
+
+    // The parked subscription survived.
+    expect(
+      (await claimsAfter.listSubscriptions(claimId)).map((s) => s.subscriber),
+    ).toEqual([awaitCellSubscriber(instance.instanceId, "wait1")]);
+
+    // Still parked while unsatisfied — nothing re-executes after the restart.
+    const executedAfter: string[] = [];
+    const runtimeAfter = new InMemoryNotebookEngineRuntime(async () => [], undefined, {
+      storage: storageAfter,
+      claimBinding: createRunbookClaimBinding(claimsAfter),
+      agentId: AGENT,
+    });
+    const stillParked = await runtimeAfter.advanceInstance({
+      instanceId: instance.instanceId,
+      executeCell: makeExecutor(executedAfter),
+    });
+    expect(stillParked.outcome).toBe("parked");
+    expect(executedAfter).toEqual([]);
+
+    // Satisfy the claim; the next advance records the satisfaction and
+    // executes the cells behind the await — the in-flight await genuinely
+    // outlived the process.
+    await setClaimStatus(claimsAfter, claimId, "supported");
+    const resumed = await runtimeAfter.advanceInstance({
+      instanceId: instance.instanceId,
+      executeCell: makeExecutor(executedAfter),
+    });
+    expect(resumed.outcome).toBe("completed");
+    expect(resumed.instanceStatus).toBe("completed");
+    expect(executedAfter).toEqual(["step2"]);
+    const records = await storageAfter.listCellExecutions(instance.instanceId);
+    expect(records.map((r) => [r.seq, r.cellId, r.status])).toEqual([
+      [1, "step1", "completed"],
+      [2, "wait1", "completed"],
+      [3, "step2", "completed"],
+    ]);
+  });
+});
 
 let supabaseAvailable = false;
 beforeAll(async () => {
