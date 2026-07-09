@@ -26,7 +26,7 @@ interface TB {
   /** Submit a structured thought. Source: src/thought/tool.ts */
   thought(input: {
     thought: string;
-    thoughtType: "reasoning" | "decision_frame" | "action_report" | "belief_snapshot" | "assumption_update" | "context_snapshot" | "progress";
+    thoughtType: "reasoning" | "decision_frame" | "action_report" | "belief_snapshot" | "assumption_update" | "context_snapshot" | "progress" | "finding" | "synthesis" | "question" | "conclusion";
     nextThoughtNeeded: boolean;
     thoughtNumber?: number;
     totalThoughts?: number;
@@ -50,24 +50,34 @@ interface TB {
     agentName?: string;
   }): Promise<unknown>;
 
-  /** Session management. Source: src/sessions/tool.ts */
+  /**
+   * Session management. Source: src/sessions/tool.ts
+   * Positional methods (get, search, resume, export, analyze) equally accept
+   * a single named-args object, e.g. export({ sessionId, format }).
+   */
   session: {
     list(args?: { limit?: number; offset?: number; tags?: string[] }): Promise<unknown>;
     get(sessionId: string): Promise<unknown>;
+    get(args: { sessionId: string }): Promise<unknown>;
     search(query: string, limit?: number): Promise<unknown>;
+    search(args: { query: string; limit?: number }): Promise<unknown>;
     resume(sessionId: string): Promise<unknown>;
+    resume(args: { sessionId: string }): Promise<unknown>;
     /** Resume the most recently updated session in this workspace (no ID needed). */
     resumeLatest(args?: { tags?: string[] }): Promise<unknown>;
     /** Structured thought-graph queries: exactly one of type | start+end | referencesThought | revisionsOf. */
     queryThoughts(args: { sessionId: string; type?: string; start?: number; end?: number; referencesThought?: number; revisionsOf?: number }): Promise<unknown>;
     export(sessionId: string, format?: "markdown" | "cipher" | "json"): Promise<unknown>;
+    export(args: { sessionId: string; format?: "markdown" | "cipher" | "json" }): Promise<unknown>;
     analyze(sessionId: string): Promise<unknown>;
+    analyze(args: { sessionId: string }): Promise<unknown>;
   };
 
   /** Knowledge graph. Source: src/knowledge/tool.ts */
   knowledge: {
     createEntity(args: { name: string; type: "Insight" | "Concept" | "Workflow" | "Decision" | "Agent"; label: string; properties?: Record<string, unknown>; created_by?: string; visibility?: "public" | "agent-private" | "user-private" | "team-private" }): Promise<unknown>;
     getEntity(entityId: string): Promise<unknown>;
+    getEntity(args: { entityId: string } | { entity_id: string }): Promise<unknown>;
     listEntities(args?: { types?: string[]; name_pattern?: string; created_after?: string; created_before?: string; limit?: number; offset?: number }): Promise<unknown>;
     addObservation(args: { entity_id: string; content: string; source_session?: string; added_by?: string }): Promise<unknown>;
     createRelation(args: { from_id: string; to_id: string; relation_type: "RELATES_TO" | "BUILDS_ON" | "CONTRADICTS" | "EXTRACTED_FROM" | "APPLIED_IN" | "LEARNED_BY" | "DEPENDS_ON" | "SUPERSEDES" | "MERGED_FROM"; properties?: Record<string, unknown> }): Promise<unknown>;
@@ -261,6 +271,23 @@ interface TB {
     status(args: { instanceId: string }): Promise<unknown>;
     /** Author an await cell (dispatches to notebook_add_cell with cellType "await"). */
     addAwaitCell(args: { notebookId: string; claimId: string; until: ClaimStatus | ClaimStatus[]; position?: number }): Promise<unknown>;
+  };
+
+  /**
+   * Durable named variables (RLM-lite): store a JSON-serialisable value in
+   * one thoughtbox_execute call and read it back in a later call within the
+   * SAME MCP session, without threading it through your context window.
+   * In-memory only — variables are lost when the session ends; nothing is
+   * persisted. get() throws a clear error for unset names. Freely chainable
+   * (does not count as the call's one state-mutating operation). Methods
+   * also accept named-args form, e.g. set({ name, value }).
+   * Source: src/code-mode/vars-operations.ts
+   */
+  vars: {
+    set(name: string, value: unknown): Promise<{ name: string; bytes: number }>;
+    get(name: string): Promise<unknown>;
+    list(): Promise<{ vars: Array<{ name: string; bytes: number }>; count: number }>;
+    delete(name: string): Promise<{ deleted: boolean }>;
   };
 
   // --- tb.merge (SPEC-MERGE-CORE) — owned by merge-core -----------------

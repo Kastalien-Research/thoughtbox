@@ -11,6 +11,10 @@ const ALL_TYPES: ThoughtDisplayType[] = [
   'assumption_update',
   'context_snapshot',
   'progress',
+  'finding',
+  'synthesis',
+  'question',
+  'conclusion',
 ]
 
 type ViewMode = 'full' | 'decisions'

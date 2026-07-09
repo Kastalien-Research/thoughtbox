@@ -26,6 +26,8 @@ import { MERGE_OPERATIONS } from "../merge/operations.js";
 // --- end tb.merge ---
 // tb.runbook.* (SPEC-AGX-SUBSTRATE B6+B8) — owned by flagship-b6b8
 import { RUNBOOK_OPERATIONS } from "../notebook/runbook/operations.js";
+// tb.vars.* — durable named session variables (RLM-lite)
+import { VARS_OPERATIONS } from "./vars-operations.js";
 import { PEER_NOTEBOOK_TOOL } from "../peer-notebook/tool.js";
 import {
   STATIC_RESOURCES,
@@ -263,6 +265,8 @@ export function buildSearchCatalog(): SearchCatalog {
       // --- end tb.merge ---
       // tb.runbook.* (SPEC-AGX-SUBSTRATE B6+B8) — owned by flagship-b6b8
       runbook: indexOperations(RUNBOOK_OPERATIONS),
+      // tb.vars.* — durable named session variables (RLM-lite)
+      vars: indexOperations(VARS_OPERATIONS),
     },
 
     prompts: [

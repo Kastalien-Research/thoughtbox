@@ -76,7 +76,8 @@ export class ThoughtQuery {
    * Query thoughts by type.
    * Accepts cipher chars (H/E/C/Q/R/P/O/A/X) or full thoughtType names
    * (reasoning, decision_frame, action_report, belief_snapshot,
-   *  assumption_update, context_snapshot, progress).
+   *  assumption_update, context_snapshot, progress, action_receipt,
+   *  finding, synthesis, question, conclusion).
    */
   private async queryByType(sessionId: string, type: string): Promise<ThoughtQueryResult> {
     const isCipherChar = type.length === 1 && /^[HECQRPOAX]$/.test(type);

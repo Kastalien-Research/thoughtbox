@@ -12,7 +12,7 @@ export const THOUGHT_OPERATIONS: OperationDefinition[] = [
     name: "thoughtbox_thought",
     title: "Record Thought",
     description:
-      "Submit a structured thought to the active reasoning session. Supports branching, revision, typed metadata (decision frames, action reports, belief snapshots, assumption updates, context snapshots, progress), and multi-agent attribution.",
+      "Submit a structured thought to the active reasoning session. Supports branching, revision, typed metadata (decision frames, action reports, belief snapshots, assumption updates, context snapshots, progress), payload-free inquiry types (finding, synthesis, question, conclusion), and multi-agent attribution.",
     category: "reasoning",
     inputSchema: {
       type: "object",
@@ -45,8 +45,13 @@ export const THOUGHT_OPERATIONS: OperationDefinition[] = [
             "assumption_update",
             "context_snapshot",
             "progress",
+            "finding",
+            "synthesis",
+            "question",
+            "conclusion",
           ],
-          description: "The structured type of this thought",
+          description:
+            "The structured type of this thought. Inquiry-session types (finding, synthesis, question, conclusion) carry no extra payload, like reasoning.",
         },
         isRevision: {
           type: "boolean",

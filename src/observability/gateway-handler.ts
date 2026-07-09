@@ -194,11 +194,23 @@ export class ObservabilityGatewayHandler {
     );
   }
 
+  /**
+   * session_cost is hosted-mode only by design: cost aggregation runs
+   * server-side in Postgres via the otel_session_cost RPC (SUM/COUNT GROUP
+   * BY model), and there is no local OTEL event store to aggregate over.
+   * Local/self-hosted servers get the explicit error below instead of a
+   * silent empty result.
+   */
   private async handleSessionCost(
     args: { sessionId?: string },
   ) {
     if (!this.otelStorage) {
-      throw new Error('OTEL queries require Supabase configuration');
+      throw new Error(
+        'session_cost is unavailable in local mode: cost aggregation runs ' +
+          'server-side via the Supabase otel_session_cost RPC and requires ' +
+          'SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY (hosted mode). There ' +
+          'is no local OTEL event store.',
+      );
     }
     return this.otelStorage.querySessionCost(
       this.workspaceId,

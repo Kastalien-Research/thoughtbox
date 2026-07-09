@@ -211,31 +211,30 @@ export class OtelEventStorage {
       }
     }
 
-    let query = this.supabase
-      .from('otel_events')
-      .select('event_attrs, metric_value')
-      .eq('workspace_id', workspaceId)
-      .eq('event_type', 'metric')
-      .eq('event_name', 'claude_code.cost.usage');
-
-    if (otelSessionIds) {
-      query = query.in('session_id', otelSessionIds);
-    }
-
-    const { data, error } = await query;
-    if (error) {
-      throw new Error(`Cost query failed: ${error.message}`);
-    }
-
+    // Server-side aggregation via the otel_session_cost RPC (migration
+    // 20260327142217): SUM/COUNT GROUP BY model runs in Postgres, so memory
+    // stays bounded as otel_events grows. This replaces the previous
+    // select-every-cost-event + client-side GROUP BY. The RPC takes a single
+    // otel session id, so a thoughtbox session that spans multiple otel
+    // sessions (multiple runs) issues one call per otel session id and merges
+    // the per-model aggregates — bounded by models x runs, not event count.
     const aggregates = new Map<string, CostEntry>();
-    for (const row of data ?? []) {
-      const attrs = (row.event_attrs ?? {}) as Record<string, unknown>;
-      const model = typeof attrs.model === 'string' ? attrs.model : 'unknown';
-      const metricValue = typeof row.metric_value === 'number' ? row.metric_value : 0;
-      const existing = aggregates.get(model) || { model, total_cost: 0, data_points: 0 };
-      existing.total_cost += metricValue;
-      existing.data_points += 1;
-      aggregates.set(model, existing);
+    const targets: Array<string | null> = otelSessionIds ?? [null];
+    for (const otelSessionId of targets) {
+      const { data, error } = await this.supabase.rpc('otel_session_cost', {
+        p_workspace_id: workspaceId,
+        ...(otelSessionId !== null ? { p_session_id: otelSessionId } : {}),
+      });
+      if (error) {
+        throw new Error(`Cost query failed: ${error.message}`);
+      }
+      for (const row of data ?? []) {
+        const existing = aggregates.get(row.model)
+          || { model: row.model, total_cost: 0, data_points: 0 };
+        existing.total_cost += row.total_cost;
+        existing.data_points += Number(row.data_points);
+        aggregates.set(row.model, existing);
+      }
     }
 
     const costs = Array.from(aggregates.values());

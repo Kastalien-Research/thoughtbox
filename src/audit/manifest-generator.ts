@@ -24,6 +24,10 @@ export interface AuditData {
     context_snapshot: number;
     progress: number;
     action_receipt: number;
+    finding: number;
+    synthesis: number;
+    question: number;
+    conclusion: number;
   };
 
   decisions: {
@@ -64,6 +68,10 @@ const THOUGHT_TYPES: ThoughtType[] = [
   'context_snapshot',
   'progress',
   'action_receipt',
+  'finding',
+  'synthesis',
+  'question',
+  'conclusion',
 ];
 
 function countByType(
@@ -86,6 +94,10 @@ function countByType(
     context_snapshot: counts['context_snapshot'],
     progress: counts['progress'],
     action_receipt: counts['action_receipt'],
+    finding: counts['finding'],
+    synthesis: counts['synthesis'],
+    question: counts['question'],
+    conclusion: counts['conclusion'],
   };
 }
 

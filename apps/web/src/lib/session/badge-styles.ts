@@ -25,6 +25,10 @@ export const THOUGHT_TYPE_BADGE: Record<ThoughtDisplayType, string> = {
   assumption_update: 'bg-amber-500/15 text-amber-300 ring-1 ring-amber-500/20',
   context_snapshot: 'bg-background text-foreground ring-1 ring-ring/20',
   reasoning: 'bg-background text-foreground ring-1 ring-ring',
+  finding: 'bg-emerald-500/15 text-emerald-300 ring-1 ring-emerald-500/20',
+  synthesis: 'bg-teal-500/15 text-teal-300 ring-1 ring-teal-500/20',
+  question: 'bg-cyan-500/15 text-cyan-300 ring-1 ring-cyan-500/20',
+  conclusion: 'bg-indigo-500/15 text-indigo-300 ring-1 ring-indigo-500/20',
 }
 
 export const THOUGHT_TYPE_LABEL: Record<ThoughtDisplayType, string> = {
@@ -35,6 +39,10 @@ export const THOUGHT_TYPE_LABEL: Record<ThoughtDisplayType, string> = {
   assumption_update: 'Assumption',
   context_snapshot: 'Context',
   reasoning: 'Reasoning',
+  finding: 'Finding',
+  synthesis: 'Synthesis',
+  question: 'Question',
+  conclusion: 'Conclusion',
 }
 
 export const REVISION_BADGE =

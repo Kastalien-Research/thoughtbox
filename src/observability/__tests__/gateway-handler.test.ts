@@ -32,7 +32,7 @@ describe('ObservabilityGatewayHandler', () => {
       expect(parsePayload(result).error).toBe('OTEL queries require Supabase configuration');
     });
 
-    it('session_cost returns an error result when Supabase is not configured', async () => {
+    it('session_cost returns an explicit documented local-mode error', async () => {
       const handler = new ObservabilityGatewayHandler({ storage: new InMemoryStorage() });
 
       const result = await handler.handle({
@@ -41,7 +41,10 @@ describe('ObservabilityGatewayHandler', () => {
       });
 
       expect(result.isError).toBe(true);
-      expect(parsePayload(result).error).toBe('OTEL queries require Supabase configuration');
+      const error = parsePayload(result).error as string;
+      expect(error).toContain('session_cost is unavailable in local mode');
+      expect(error).toContain('otel_session_cost');
+      expect(error).toContain('SUPABASE_URL');
     });
 
     it('session_timeline returns an error result when sessionId is missing', async () => {

@@ -27,6 +27,8 @@ describe("thoughtbox_search", () => {
       "theseus",
       "thought",
       "ulysses",
+      // tb.vars.* — durable named session variables (RLM-lite)
+      "vars",
     ]);
   });
 

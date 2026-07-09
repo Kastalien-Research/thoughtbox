@@ -32,7 +32,7 @@ export interface ThoughtData {
   // SIL-101: Verbose response mode - when false (default), return minimal response
   verbose?: boolean;
   // Operations mode: structured thought type for auditability filtering
-  thoughtType?: 'reasoning' | 'decision_frame' | 'action_report' | 'belief_snapshot' | 'assumption_update' | 'context_snapshot' | 'progress' | 'action_receipt';
+  thoughtType?: 'reasoning' | 'decision_frame' | 'action_report' | 'belief_snapshot' | 'assumption_update' | 'context_snapshot' | 'progress' | 'action_receipt' | 'finding' | 'synthesis' | 'question' | 'conclusion';
   // AUDIT-001: Structured metadata fields (discriminated by thoughtType)
   confidence?: 'high' | 'medium' | 'low';
   options?: Array<{ label: string; selected: boolean; reason?: string }>;
@@ -382,7 +382,14 @@ export class ThoughtHandler {
     data: Record<string, unknown>
   ): void {
     switch (thoughtType) {
+      // reasoning and the inquiry-session types (finding, synthesis,
+      // question, conclusion) carry no payload beyond the base `thought`
+      // field, so they need no structured-field validation.
       case 'reasoning':
+      case 'finding':
+      case 'synthesis':
+      case 'question':
+      case 'conclusion':
         break;
       case 'decision_frame':
         this.validateDecisionFrame(data);
@@ -409,7 +416,8 @@ export class ThoughtHandler {
         throw new Error(
           `Unknown thoughtType: '${thoughtType as string}'. ` +
           "Valid types: reasoning, decision_frame, action_report, " +
-          "belief_snapshot, assumption_update, context_snapshot, progress."
+          "belief_snapshot, assumption_update, context_snapshot, progress, " +
+          "action_receipt, finding, synthesis, question, conclusion."
         );
     }
   }

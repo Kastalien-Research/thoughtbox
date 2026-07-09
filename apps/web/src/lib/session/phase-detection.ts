@@ -133,6 +133,10 @@ function generateLabel(
       assumption_update: 'Assumption Phase',
       context_snapshot: 'Context Phase',
       progress: 'Progress Phase',
+      finding: 'Finding Phase',
+      synthesis: 'Synthesis Phase',
+      question: 'Question Phase',
+      conclusion: 'Conclusion Phase',
     }
     return labels[dominant[0]] || 'Phase'
   }
