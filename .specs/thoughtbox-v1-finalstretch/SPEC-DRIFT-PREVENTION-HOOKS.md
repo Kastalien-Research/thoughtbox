@@ -167,18 +167,39 @@ the verification history of the current turn.** This spec fills that gap.
 
 ### 8. Server Endpoints
 
-The hosted Thoughtbox server must expose:
+IMPLEMENTED as a mountable surface in `src/http/drift-http.ts`
+(`createDriftHttpSurface`), mounted in both server modes. Paths live under
+`/drift/*` rather than the originally drafted `/cli/*` — setup/diagnostic
+`/cli` routes are a collapsed artifact boundary this repo is moving away
+from, and this surface is a workspace-scoped data plane, not CLI plumbing.
+Auth mirrors `POST /protocol/enforcement` (PR #412): hosted mode resolves
+the workspace from the caller's `tbx_*` API key or OAuth JWT and rejects
+unauthenticated requests with 401; the request can never choose another
+tenant's scope. Local mode scopes everything to the static local-dev
+workspace, like the hub surface.
 
-1. `POST /cli/session-thought` — append a thought to the active session
-   for the authenticated user. Accepts `{thoughtType, content, tags}`.
-2. `GET /cli/session-decisions?sessionId=&limit=` — return recent
-   `decision_frame` thoughts for the given Claude Code session. Cached at
-   the server for ≤2s to meet the latency bound in requirement §3.4.
-3. `POST /cli/session-thought-revise` — revise a thought, used by
-   `promote-to-decision` to change `thoughtType`.
-4. `POST /cli/judge-contradiction` — optional endpoint wrapping the LLM
-   judge for `detect-flip`. Alternative: the hook calls Anthropic's API
-   directly with the user's own key. Implementation choice deferred.
+1. `POST /drift/session-thought` — append a thought to the drift session
+   bound to a Claude Code session. Accepts `{claudeSessionId, thoughtType,
+   content, tags?, reviseLatestUserTurn?, assumptionChange?}` with
+   `thoughtType` restricted to `context_snapshot`, `assumption_update`,
+   `decision_frame`. The drift session is found (or created) by the
+   `claude-session:<id>` session tag. Duplicate submissions of the same
+   content within the recent window return the existing thought
+   (`deduped: true`) — the idempotency required by §2.6.
+2. `GET /drift/session-decisions?claudeSessionId=&limit=` — return recent
+   `decision_frame` thoughts plus `assumption_update` thoughts with
+   `newStatus: "refuted"` for the given Claude Code session, recency
+   first. Limit defaults to 10, max 25. Cached at the server for ≤2s to
+   meet the latency bound in requirement §3.4; writes through
+   `/drift/session-thought` invalidate the cache.
+3. The drafted `POST /cli/session-thought-revise` endpoint is subsumed by
+   `reviseLatestUserTurn` on the append endpoint: `promote-to-decision`
+   posts an `assumption_update` recorded with `isRevision: true /
+   revisesThought: N` against the captured user-turn thought, which is the
+   revision record the acceptance criteria require. No separate revise
+   endpoint exists.
+4. `POST /cli/judge-contradiction` — NOT IMPLEMENTED. Deferred with the
+   optional `detect-flip` hook (§6).
 
 ### 9. Configuration
 
