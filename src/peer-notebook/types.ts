@@ -222,6 +222,7 @@ export class PeerNotebookError extends Error {
       | "manifest_not_found"
       | "manifest_not_active"
       | "notebook_not_found"
+      | "graduation_below_threshold"
       | "manifest_duplicate"
       | "invalid_manifest_transition"
       | "tool_not_found"
