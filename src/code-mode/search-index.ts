@@ -21,6 +21,8 @@ import {
 import { BRANCH_OPERATIONS } from "../branch/operations.js";
 import { HUB_OPERATIONS } from "../hub/operations.js";
 import { CLAIMS_OPERATIONS } from "../claims/operations.js";
+// tb.runbook.* (SPEC-AGX-SUBSTRATE B6+B8) — owned by flagship-b6b8
+import { RUNBOOK_OPERATIONS } from "../notebook/runbook/operations.js";
 import { PEER_NOTEBOOK_TOOL } from "../peer-notebook/tool.js";
 import {
   STATIC_RESOURCES,
@@ -253,6 +255,8 @@ export function buildSearchCatalog(): SearchCatalog {
       branch: indexOperations(BRANCH_OPERATIONS),
       hub: indexOperations(HUB_OPERATIONS),
       claims: indexOperations(CLAIMS_OPERATIONS),
+      // tb.runbook.* (SPEC-AGX-SUBSTRATE B6+B8) — owned by flagship-b6b8
+      runbook: indexOperations(RUNBOOK_OPERATIONS),
     },
 
     prompts: [

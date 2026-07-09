@@ -19,6 +19,7 @@ describe("thoughtbox_search", () => {
       "knowledge",
       "notebook",
       "observability",
+      "runbook",
       "session",
       "theseus",
       "thought",

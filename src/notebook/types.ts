@@ -51,11 +51,28 @@ export const CodeCellSchema = z.object({
   validatorSnapshotHash: z.string().optional(),
 });
 
+/**
+ * Await cell (SPEC-AGX-SUBSTRATE B6 — claim c4): a claim subscription plus a
+ * predicate over the claim's current status. It executes nothing; the
+ * pull-based advancer (tb.runbook.advance) marks it satisfied when the
+ * subscribed claim's status is one of `until`. Status literals mirror
+ * ClaimStatus (src/claims/types.ts) — see src/notebook/runbook/await.ts.
+ */
+export const AwaitCellSchema = z.object({
+  id: z.string(),
+  type: z.literal("await"),
+  claimId: z.string().min(1),
+  until: z
+    .array(z.enum(["asserted", "supported", "invalidated", "superseded"]))
+    .min(1),
+});
+
 export const CellSchema = z.union([
   TitleCellSchema,
   MarkdownCellSchema,
   PackageJsonCellSchema,
   CodeCellSchema,
+  AwaitCellSchema,
 ]);
 
 // Notebook Schema
@@ -78,6 +95,7 @@ export type TitleCell = z.infer<typeof TitleCellSchema>;
 export type MarkdownCell = z.infer<typeof MarkdownCellSchema>;
 export type PackageJsonCell = z.infer<typeof PackageJsonCellSchema>;
 export type CodeCell = z.infer<typeof CodeCellSchema>;
+export type AwaitCell = z.infer<typeof AwaitCellSchema>;
 export type Cell = z.infer<typeof CellSchema>;
 
 export type NotebookMetadata = z.infer<typeof NotebookMetadataSchema>;

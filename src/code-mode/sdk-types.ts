@@ -225,5 +225,25 @@ interface TB {
     changedSince(args: { since: string; workspaceId?: string }): Promise<unknown>;
     affected(args: { claimId: string; maxDepth?: number }): Promise<unknown>;
   };
+
+  /**
+   * Reactive runbooks (SPEC-AGX-SUBSTRATE B6+B8): pull-based advancement of
+   * durable runbook instances, with await cells bound to claims. An await
+   * cell parks the instance until its claim's CURRENT status is in \`until\`;
+   * advance() re-checks the claim and executes the cells behind it. Exec
+   * cells advance behind a compare-and-swap reservation, so concurrent
+   * advancers execute side effects exactly once (losers get outcome
+   * "in_flight"). advance() is state-mutating — one call per
+   * thoughtbox_execute; status() is read-only and chains freely.
+   * Source: src/notebook/runbook/operations.ts
+   */
+  runbook: {
+    /** Outcomes: completed | parked (awaiting claim) | halted (cell failed) | in_flight (another advancer holds the step) | advanced (maxCells reached). */
+    advance(args: { instanceId: string; maxCells?: number; force?: boolean }): Promise<unknown>;
+    /** Read-only: derived status, next cell, awaited claim, execution records, pending reservations. Works from a fresh session with only the instance id. */
+    status(args: { instanceId: string }): Promise<unknown>;
+    /** Author an await cell (dispatches to notebook_add_cell with cellType "await"). */
+    addAwaitCell(args: { notebookId: string; claimId: string; until: ClaimStatus | ClaimStatus[]; position?: number }): Promise<unknown>;
+  };
 }
 \`\`\``;
