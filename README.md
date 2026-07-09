@@ -39,7 +39,7 @@ The Hub is the coordination layer. Agents register with role-specific profiles, 
 
 Every thought is a node in a graph — numbered, timestamped, linked to its predecessors, and persisted across sessions. This creates an auditable trail of how conclusions were reached.
 
-Agents can think forward, plan backward, branch into parallel explorations, revise earlier conclusions, and request autonomous critique via MCP sampling. Each pattern is a first-class operation:
+Agents can think forward, plan backward, branch into parallel explorations, and revise earlier conclusions. Each pattern is a first-class operation:
 
 | Pattern | Description | Use Case |
 |---------|-------------|----------|
@@ -47,7 +47,6 @@ Agents can think forward, plan backward, branch into parallel explorations, revi
 | **Backward** | Start at goal (N), work back to start (1) | Planning, system design, working from known goals |
 | **Branching** | Fork into parallel explorations (A, B, C...) | Comparing alternatives, A/B scenarios |
 | **Revision** | Update earlier thoughts with new information | Error correction, refined understanding |
-| **Critique** | Autonomous LLM review via MCP sampling | Self-checking, quality gates |
 
 Each thought carries a semantic `thoughtType` (`reasoning`, `decision_frame`, `action_report`, `belief_snapshot`, `assumption_update`, `context_snapshot`, `progress`) that classifies *what kind* of thought it is, orthogonal to the process pattern used.
 
@@ -186,8 +185,6 @@ Thought 6: [SYNTHESIS] "Use PostgreSQL for transactions, MongoDB for analytics"
 | `THOUGHTBOX_OBSERVATORY_CORS` | CORS origins for Observatory (comma-separated) | (none) |
 | `THOUGHTBOX_AGENT_ID` | Pre-assigned Hub agent ID | (none) |
 | `THOUGHTBOX_AGENT_NAME` | Pre-assigned Hub agent name | (none) |
-| `THOUGHTBOX_EVENTS_ENABLED` | Enable event emission | `false` |
-| `THOUGHTBOX_EVENTS_DEST` | Event destination | `stderr` |
 | `SUPABASE_URL` | Supabase project URL (required for `supabase` storage) | (none) |
 | `SUPABASE_SERVICE_ROLE_KEY` | Supabase service role key (required for `supabase` storage) | (none) |
 | `PORT` | HTTP server port | `1731` |
@@ -246,12 +243,7 @@ src/
 │   ├── search-index.ts     # Frozen catalog of operations/prompts/resources
 │   └── sdk-types.ts        # TypeScript definitions for the tb SDK
 ├── thought/                # Thought operations and tool definitions
-├── init/                   # Init workflow and state management
-│   ├── tool-handler.ts     # Init tool operations
-│   └── state-manager.ts    # Session state persistence
 ├── sessions/               # Session management
-├── sampling/               # Autonomous critique via MCP sampling
-│   └── handler.ts          # SamplingHandler for LLM critique requests
 ├── persistence/            # Storage layer
 │   ├── storage.ts          # InMemoryStorage with LinkedThoughtStore
 │   ├── filesystem-storage.ts  # FileSystemStorage with atomic writes
@@ -269,7 +261,6 @@ src/
 │   ├── hub-handler.ts      # Hub operation dispatcher
 │   └── operations.ts       # 28-operation catalog
 ├── channel/                # Hub event channels and SSE streaming
-├── multi-agent/            # Agent attribution, content hashing, conflict detection
 ├── protocol/               # Ulysses and Theseus protocol tools
 ├── knowledge/              # Knowledge graph memory
 ├── auth/                   # API key authentication

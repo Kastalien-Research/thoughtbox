@@ -10,3 +10,26 @@ export interface ThoughtboxEvent {
     timestamp: string;
     data: Record<string, unknown>;
 }
+/**
+ * Raw event shape on the wire — both the local /events SSE stream and the
+ * hosted GET /protocol/events pull endpoint. Server events are
+ * workspace-scoped: they carry a top-level `workspaceId` (never a top-level
+ * `sessionId`), and the Thoughtbox session id travels inside
+ * `data.session_id` (the protocol handler prepends it to every event's
+ * data). Transports normalize this into ThoughtboxEvent via
+ * {@link extractSessionId} so EventFilter and the channel formatters can
+ * key on sessionId.
+ */
+export interface WireThoughtboxEvent {
+    source: ThoughtboxEvent['source'];
+    type: ThoughtboxEvent['type'];
+    sessionId?: string;
+    workspaceId?: string;
+    timestamp: string;
+    data?: Record<string, unknown>;
+}
+/** Derive the session id from a wire event; '' when unattributed. */
+export declare function extractSessionId(raw: {
+    sessionId?: unknown;
+    data?: Record<string, unknown>;
+}): string;

@@ -54,6 +54,14 @@ npx tsx scripts/probes/thought-roundtrip.probe.ts
 Flags: `--since <min>` backfills recent activity, `--once` prints one snapshot
 and exits, `--interval <sec>` sets the poll cadence (default 2s).
 
+## Causal-lift instrument
+
+`scripts/eval-run.ts` builds on this harness to run LangSmith experiments
+(SPEC-EVAL-001): the same task under a `thoughtbox` condition and a no-tool
+`scratchpad` baseline (`runProbe({ thoughtbox: false })`), with a pairwise
+LLM judge and an `overthinking_tax` metric on negative controls. See
+`npx tsx scripts/eval-run.ts` for commands.
+
 ## Write a new probe
 
 Create `scripts/probes/<name>.probe.ts`:

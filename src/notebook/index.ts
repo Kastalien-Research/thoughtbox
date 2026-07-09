@@ -15,8 +15,27 @@ import {
   type CellExecutionEvidence,
   type CellExecutionGate,
 } from "./engine/runtime.js";
-import { templateCellsFromNotebook, type RunbookStorage } from "./runbook/types.js";
+import {
+  hashTemplateCells,
+  notebookFromTemplate,
+  templateCellsFromNotebook,
+  verifyTemplateContracts,
+  type RunbookInstance,
+  type RunbookStorage,
+  type RunbookTemplate,
+} from "./runbook/types.js";
+import {
+  deriveInstanceStatus,
+  isExecutionSatisfied,
+  nextUnsatisfiedCell,
+} from "./runbook/ordering.js";
+import {
+  isAwaitClaimStatus,
+  type AwaitClaimBinding,
+  type AwaitClaimStatus,
+} from "./runbook/await.js";
 import { getNotebookCapabilitiesJson } from "./engine/registry.js";
+import type { NotebookDocumentStorage } from "../persistence/notebook-document-storage.js";
 import {
   NOTEBOOK_OPERATIONS,
   getOperation,
@@ -36,8 +55,22 @@ export interface NotebookHandlerOptions {
    * SupabaseRunbookStorage here.
    */
   runbookStorage?: RunbookStorage;
+  /**
+   * Durable notebook-document persistence behind notebook_persist
+   * (spec H4). When absent, notebook_persist keeps its honest in-process
+   * artifact behavior and reports persistence "in_memory". Local mode
+   * injects FileSystemNotebookDocumentStorage; deployments inject
+   * SupabaseNotebookDocumentStorage.
+   */
+  documentStorage?: NotebookDocumentStorage;
   /** Executing agent identity recorded on instances/executions/ledger rows. */
   agentId?: string;
+  /**
+   * B6: narrow claim read/subscribe surface for await cells (adapted from
+   * ClaimStorage by createRunbookClaimBinding in src/claims). Without it,
+   * await cells park with a "claim binding unavailable" reason.
+   */
+  claimBinding?: AwaitClaimBinding;
 }
 
 /**
@@ -47,8 +80,14 @@ export class NotebookHandler {
   private stateManager: NotebookStateManager;
   private validatorService: ValidatorService;
   private engineRuntime: InMemoryNotebookEngineRuntime;
+  /** Agent identity recorded on instances created via notebook_instantiate. */
+  private readonly agentId: string;
+  /** Durable notebook-document backend; undefined = in-memory artifact only. */
+  private readonly documentStorage: NotebookDocumentStorage | undefined;
 
   constructor(tempDir?: string, options: NotebookHandlerOptions = {}) {
+    this.agentId = options.agentId ?? "local";
+    this.documentStorage = options.documentStorage;
     this.stateManager = new NotebookStateManager(tempDir);
     this.validatorService = new ValidatorService(this.stateManager);
     this.engineRuntime = new InMemoryNotebookEngineRuntime(
@@ -59,6 +98,9 @@ export class NotebookHandler {
           ? { storage: options.runbookStorage }
           : {}),
         ...(options.agentId !== undefined ? { agentId: options.agentId } : {}),
+        ...(options.claimBinding !== undefined
+          ? { claimBinding: options.claimBinding }
+          : {}),
         templateCellSource: (notebookId) => {
           const notebook = this.stateManager.getNotebook(notebookId);
           return notebook ? templateCellsFromNotebook(notebook) : undefined;
@@ -102,8 +144,8 @@ export class NotebookHandler {
       throw new Error(`Notebook ${notebookId} not found`);
     }
     const executable = notebook.cells.filter(
-      (cell: Cell): cell is Extract<Cell, { type: "code" | "package.json" }> =>
-        cell.type === "code" || cell.type === "package.json",
+      (cell: Cell): cell is Extract<Cell, { type: "code" | "package.json" | "await" }> =>
+        cell.type === "code" || cell.type === "package.json" || cell.type === "await",
     );
 
     // Ulysses gate: re-verify every contract hash before executing anything.
@@ -117,6 +159,82 @@ export class NotebookHandler {
     const structuredOutputByCell = new Map<string, string>();
     let halted = false;
     for (const cell of executable) {
+      // Await cell (B6): pull-only claim evaluation — executes nothing.
+      // Satisfied → recorded like any satisfied cell and the run continues;
+      // unsatisfied → the run HALTS parked (skipped evidence, durable claim
+      // subscription, NO execution record — the instance derives
+      // "in_progress" and resumes later via tb.runbook.advance).
+      if (cell.type === "await") {
+        const condition = { claimId: cell.claimId, until: [...cell.until] };
+        const filename = `await:${cell.claimId}`;
+        if (halted) {
+          evidence.push({
+            cellId: cell.id,
+            cellType: "await",
+            filename,
+            status: "skipped",
+            exitCode: null,
+            output: "",
+            error: "",
+          });
+          continue;
+        }
+        gate?.assertExecutable(cell.id);
+        const startedAt = new Date().toISOString();
+        if (gate === undefined) {
+          // Ungated raw runs have no claim access: park, never fail.
+          evidence.push({
+            cellId: cell.id,
+            cellType: "await",
+            filename,
+            status: "skipped",
+            exitCode: null,
+            output: "",
+            error:
+              `instance parked: awaiting claim ${cell.claimId} — ` +
+              `no durable gate/claim binding available in this run`,
+          });
+          halted = true;
+          continue;
+        }
+        const evaluation = await gate.evaluateAwait(cell.id, condition);
+        if (evaluation.satisfied) {
+          const cellEvidence: CellExecutionEvidence = {
+            cellId: cell.id,
+            cellType: "await",
+            filename,
+            startedAt,
+            status: "completed",
+            exitCode: null,
+            output: String(evaluation.record.actual ?? ""),
+            error: "",
+            expectations: [evaluation.record],
+          };
+          evidence.push(cellEvidence);
+          const { disposition } = await gate.record(cellEvidence);
+          if (disposition === "halt") halted = true;
+          continue;
+        }
+        // Parked: skipped evidence carrying the evaluation record (for the
+        // verdict), durable subscription (only when the claim exists — a
+        // missing claim cannot be subscribed to), and NO gate.record call.
+        evidence.push({
+          cellId: cell.id,
+          cellType: "await",
+          filename,
+          startedAt,
+          status: "skipped",
+          exitCode: null,
+          output: "",
+          error: evaluation.record.error ?? "instance parked at await cell",
+          expectations: [evaluation.record],
+        });
+        if (evaluation.currentStatus !== null) {
+          await gate.park(cell.id, condition);
+        }
+        halted = true;
+        continue;
+      }
       const validatorFor = cell.type === "code" ? cell.validatorFor : undefined;
       if (halted) {
         evidence.push({
@@ -370,32 +488,60 @@ export class NotebookHandler {
   }
 
   /**
-   * Handle notebook_load tool call
+   * Handle notebook_load tool call.
+   *
+   * Sources (exactly one): `path` (filesystem .src.md), `content` (raw
+   * .src.md string), or `notebookId` (restore a document persisted via
+   * notebook_persist through the configured durable backend — the notebook
+   * re-materializes under its ORIGINAL id, so persist → restart → load
+   * round-trips identity).
    */
   async handleLoadNotebook(args: any): Promise<any> {
-    const { path, content } = args;
+    const { path, content, notebookId } = args;
 
-    // Validate: exactly one of path or content required
+    // Validate: exactly one source required
     const hasPath = path !== undefined && typeof path === "string";
     const hasContent = content !== undefined && typeof content === "string";
+    const hasNotebookId = notebookId !== undefined && typeof notebookId === "string";
 
-    if (!hasPath && !hasContent) {
-      throw new Error("Either 'path' or 'content' parameter is required");
-    }
-
-    if (hasPath && hasContent) {
+    const sourceCount = [hasPath, hasContent, hasNotebookId].filter(Boolean).length;
+    if (sourceCount === 0) {
       throw new Error(
-        "Cannot provide both 'path' and 'content' parameters. Choose one."
+        "One of 'path', 'content', or 'notebookId' (persisted restore) is required",
+      );
+    }
+    if (sourceCount > 1) {
+      throw new Error(
+        "Provide exactly one of 'path', 'content', or 'notebookId'. Choose one.",
       );
     }
 
-    // Load notebook from appropriate source
-    const notebook = await this.stateManager.loadNotebook(
-      hasPath ? { path } : { content }
-    );
+    let notebook;
+    let restored = false;
+    if (hasNotebookId) {
+      if (!this.documentStorage) {
+        throw new Error(
+          "No durable notebook persistence is configured; load by 'path' or 'content' instead",
+        );
+      }
+      const doc = await this.documentStorage.load(notebookId);
+      if (!doc) {
+        throw new Error(
+          `No persisted notebook ${notebookId} found in ${this.documentStorage.backend} storage`,
+        );
+      }
+      notebook = await this.stateManager.loadNotebook(
+        { content: doc.content },
+        { id: doc.notebookId },
+      );
+      restored = true;
+    } else {
+      notebook = await this.stateManager.loadNotebook(hasPath ? { path } : { content });
+    }
 
     return {
       success: true,
+      ...(restored ? { restoredFrom: this.documentStorage!.backend } : {}),
       notebook: {
         id: notebook.id,
         title: notebook.cells.find((c) => c.type === "title")?.text || "Untitled",
@@ -512,6 +658,41 @@ export class NotebookHandler {
         break;
       }
 
+      case "await": {
+        // B6 authoring: an await cell binds the runbook to a claim predicate.
+        const { claimId, until } = args;
+        if (!claimId || typeof claimId !== "string") {
+          throw new Error("claimId is required for await cells");
+        }
+        const untilArray: unknown[] = Array.isArray(until)
+          ? until
+          : typeof until === "string"
+            ? [until]
+            : [];
+        if (untilArray.length === 0) {
+          throw new Error(
+            'until is required for await cells: one or more claim statuses of "asserted", "supported", "invalidated", "superseded"',
+          );
+        }
+        const untilStatuses: AwaitClaimStatus[] = [];
+        for (const status of untilArray) {
+          if (!isAwaitClaimStatus(status)) {
+            throw new Error(
+              `invalid await status ${JSON.stringify(status)}: must be one of ` +
+                '"asserted", "supported", "invalidated", "superseded"',
+            );
+          }
+          untilStatuses.push(status);
+        }
+        cell = {
+          id: randomid(),
+          type: "await",
+          claimId,
+          until: untilStatuses,
+        };
+        break;
+      }
+
       default:
         throw new Error(`Unsupported cell type: ${cellType}`);
     }
@@ -539,6 +720,9 @@ export class NotebookHandler {
         ...(codeCell?.validatorFor !== undefined
           ? { validatorFor: codeCell.validatorFor }
           : {}),
+        ...(cell.type === "await"
+          ? { claimId: cell.claimId, until: cell.until }
+          : {}),
       },
     };
   }
@@ -564,6 +748,13 @@ export class NotebookHandler {
     const cell = this.stateManager.getCell(notebookId, cellId);
     if (!cell) {
       throw new Error(`Cell ${cellId} not found in notebook ${notebookId}`);
+    }
+
+    if (cell.type === "await") {
+      throw new Error(
+        "await cells have no content to update; remove and re-add the cell " +
+          "to change its claim binding",
+      );
     }
 
     const updates: any = {};
@@ -748,9 +939,140 @@ export class NotebookHandler {
             filename: cell.filename,
             status: cell.status,
           };
+        } else if (cell.type === "await") {
+          return {
+            ...base,
+            claimId: cell.claimId,
+            until: cell.until,
+          };
         }
         return base;
       }),
+    };
+  }
+
+  /**
+   * Handle runbook_advance (tb.runbook.advance — SPEC-AGX-SUBSTRATE B8,
+   * claim c4). Pull-based: evaluates the next unsatisfied cell(s) of the
+   * instance's pinned template — await cells against their subscribed
+   * claim's CURRENT status, exec cells through the real execution path
+   * behind the GH #403 CAS reservation. The notebook id is derived from the
+   * instance (templateId IS the notebook id); when the notebook is not
+   * loaded in this session, awaits still advance but reaching an exec cell
+   * asks the caller to load the notebook first.
+   */
+  async handleAdvance(args: any): Promise<any> {
+    const { instanceId, maxCells, force } = args;
+    if (!instanceId || typeof instanceId !== "string") {
+      throw new Error("instanceId is required and must be a string");
+    }
+    if (maxCells !== undefined && (!Number.isInteger(maxCells) || maxCells < 1)) {
+      throw new Error("maxCells must be a positive integer if provided");
+    }
+    if (force !== undefined && typeof force !== "boolean") {
+      throw new Error("force must be a boolean if provided");
+    }
+    const instance = await this.engineRuntime.storage.getInstance(instanceId);
+    if (!instance) {
+      throw new Error(`Runbook instance ${instanceId} not found`);
+    }
+    const notebookId = instance.templateId;
+    const notebook = this.stateManager.getNotebook(notebookId);
+
+    const result = await this.engineRuntime.advanceInstance({
+      instanceId,
+      expectedTemplateId: notebookId,
+      ...(notebook !== null && notebook !== undefined
+        ? {
+            liveCells: templateCellsFromNotebook(notebook),
+            executeCell: async (id: string) => {
+              const execution = await this.stateManager.executeCell(notebookId, id);
+              return {
+                status: execution.success
+                  ? ("completed" as const)
+                  : ("failed" as const),
+                exitCode: execution.exitCode,
+                stdout: execution.stdout,
+                stderr: execution.stderr,
+                ...(execution.structuredOutput !== undefined
+                  ? { structuredOutput: execution.structuredOutput }
+                  : {}),
+              };
+            },
+          }
+        : {}),
+      ...(maxCells !== undefined ? { maxCells } : {}),
+      ...(force !== undefined ? { force } : {}),
+    });
+    return { success: true, advance: result };
+  }
+
+  /**
+   * Handle runbook_status (tb.runbook.status): read-only snapshot of an
+   * instance — derived status, next unsatisfied cell, execution records,
+   * pending advance reservations, and (when the next cell is an await) the
+   * claim it blocks on. Safe to call from a fresh session with only the
+   * instance id (claim c5's resume entry point).
+   */
+  async handleInstanceStatus(args: any): Promise<any> {
+    const { instanceId } = args;
+    if (!instanceId || typeof instanceId !== "string") {
+      throw new Error("instanceId is required and must be a string");
+    }
+    const storage = this.engineRuntime.storage;
+    const instance = await storage.getInstance(instanceId);
+    if (!instance) {
+      throw new Error(`Runbook instance ${instanceId} not found`);
+    }
+    const template = await storage.getTemplate(
+      instance.templateId,
+      instance.templateVersion,
+    );
+    if (!template) {
+      throw new Error(
+        `template ${instance.templateId} version ${instance.templateVersion} ` +
+          `not found for instance ${instanceId}`,
+      );
+    }
+    const executions = await storage.listCellExecutions(instanceId);
+    const reservations = await storage.listAdvanceReservations(instanceId);
+    const maxExecutedSeq = executions.reduce(
+      (max, prior) => Math.max(max, prior.seq),
+      0,
+    );
+    const nextCellId = nextUnsatisfiedCell(template, executions);
+    const nextCell =
+      nextCellId !== null
+        ? template.cells.find((cell) => cell.cellId === nextCellId)
+        : undefined;
+    return {
+      success: true,
+      instance: {
+        instanceId,
+        templateId: instance.templateId,
+        templateVersion: instance.templateVersion,
+        status: deriveInstanceStatus(template, executions),
+        nextCellId,
+        ...(nextCell?.cellType === "await" && nextCell.awaitClaim !== undefined
+          ? { awaiting: nextCell.awaitClaim }
+          : {}),
+        executions: executions.map((record) => ({
+          seq: record.seq,
+          cellId: record.cellId,
+          status: record.status,
+          agentId: record.agentId,
+          startedAt: record.startedAt,
+          expectations: record.expectations,
+        })),
+        pendingReservations: reservations
+          .filter((r) => r.seq > maxExecutedSeq)
+          .map((r) => ({
+            seq: r.seq,
+            cellId: r.cellId,
+            agentId: r.agentId,
+            reservedAt: r.reservedAt,
+          })),
+      },
     };
   }
 
@@ -832,19 +1154,45 @@ export class NotebookHandler {
   /**
    * Handle notebook_persist tool call.
    *
-   * First slice persistence stores the exported notebook as an in-process
-   * artifact. Supabase-backed persistence will implement the same public
-   * operation through the NotebookStore boundary.
+   * Always stores the exported notebook as an in-process artifact (replay
+   * within this process). With a durable document backend configured
+   * (FileSystemNotebookDocumentStorage locally,
+   * SupabaseNotebookDocumentStorage deployed), the document additionally
+   * persists durably — upsert by notebookId, latest wins — and the response
+   * reports that backend as `persistence`. Without one, the honest label
+   * stays "in_memory". Restore across restarts with
+   * `notebook_load { notebookId }`.
    */
   async handlePersist(args: any): Promise<any> {
     const { notebookId } = args;
     if (!notebookId || typeof notebookId !== "string") {
       throw new Error("notebookId is required and must be a string");
     }
+    const notebook = this.stateManager.getNotebook(notebookId);
+    if (!notebook) {
+      throw new Error(`Notebook ${notebookId} not found`);
+    }
     const content = await this.stateManager.exportNotebook(notebookId);
-    return await import("effect").then(({ Effect }) =>
+    const artifactResult = await import("effect").then(({ Effect }) =>
       Effect.runPromise(this.engineRuntime.persistNotebook(notebookId, content)),
     );
+    if (!this.documentStorage) {
+      return artifactResult;
+    }
+    const persistedAt = new Date().toISOString();
+    await this.documentStorage.save({
+      notebookId,
+      title:
+        notebook.cells.find((c: Cell) => c.type === "title")?.text ?? "Untitled",
+      language: notebook.language,
+      content,
+      persistedAt,
+    });
+    return {
+      ...artifactResult,
+      persistence: this.documentStorage.backend,
+      persistedAt,
+    };
   }
 
   /**
@@ -911,6 +1259,57 @@ export class NotebookHandler {
     return { success: true, run };
   }
 
+  /**
+   * Handle notebook_fitness tool call (SPEC-AGX-SUBSTRATE §7 read path).
+   *
+   * Reads the fitness ledger for a runbook template and returns per-version
+   * aggregates. Only machine-checked expectation evaluations contribute —
+   * pass rate counts rows that reached a pass/fail verdict; error and
+   * skipped rows are carried separately and never inflate it.
+   */
+  async handleFitness(args: any): Promise<any> {
+    const { templateId, templateVersion, includeRows } = args;
+    if (!templateId || typeof templateId !== "string") {
+      throw new Error("templateId is required and must be a string");
+    }
+    if (
+      templateVersion !== undefined &&
+      (!Number.isInteger(templateVersion) || templateVersion < 1)
+    ) {
+      throw new Error("templateVersion must be a positive integer if provided");
+    }
+    if (includeRows !== undefined && typeof includeRows !== "boolean") {
+      throw new Error("includeRows must be a boolean if provided");
+    }
+
+    const storage = this.engineRuntime.storage;
+    const versions = await storage.listTemplateVersions(templateId);
+    if (versions.length === 0) {
+      throw new Error(
+        `No template versions recorded for ${templateId} — run the notebook ` +
+          `(notebook_start_run) to version its cells and accrue fitness first`,
+      );
+    }
+    if (templateVersion !== undefined && !versions.includes(templateVersion)) {
+      throw new Error(
+        `Template ${templateId} has no version ${templateVersion}; ` +
+          `recorded versions: ${versions.join(", ")}`,
+      );
+    }
+
+    const targetVersions = templateVersion !== undefined ? [templateVersion] : versions;
+    const aggregates = [];
+    for (const version of targetVersions) {
+      aggregates.push(await storage.getFitnessAggregate(templateId, version));
+    }
+
+    const result: any = { success: true, templateId, versions, aggregates };
+    if (includeRows === true) {
+      result.rows = await storage.listFitnessRows(templateId, templateVersion);
+    }
+    return result;
+  }
+
   async handleGetArtifact(args: any): Promise<any> {
     const { artifactId } = args;
     if (!artifactId || typeof artifactId !== "string") {
@@ -921,6 +1320,146 @@ export class NotebookHandler {
       throw new Error(`Notebook artifact ${artifactId} not found`);
     }
     return { success: true, artifact: artifact.ref, content: artifact.content };
+  }
+
+  /**
+   * Handle notebook_instantiate tool call (SPEC-AGX-SUBSTRATE claim c5 —
+   * fresh-session instantiation and resumption, Experiment H2).
+   *
+   * Two shapes:
+   * - `{ templateId, templateVersion? }` — reconstruct the notebook from the
+   *   persisted template (latest version unless pinned) and create a NEW
+   *   instance pinning that version.
+   * - `{ instanceId }` — RESUME an existing instance: load its pinned
+   *   template version, reconstruct the notebook, and report the derived
+   *   status plus the next unsatisfied cell. No new instance is created and
+   *   no context beyond the instance id is required.
+   *
+   * The reconstructed notebook's id equals the templateId, so subsequent
+   * `notebook_run_cell { notebookId, cellId, instanceId }` calls execute
+   * through the ordered, append-only instance path unchanged. Contract
+   * hashes are re-verified on load (Ulysses pattern); if a notebook with
+   * that id is already loaded, its cells must hash-match the pinned
+   * template version or the call is rejected as drift.
+   */
+  async handleInstantiate(args: any): Promise<any> {
+    const { templateId, templateVersion, instanceId } = args;
+    if (instanceId !== undefined && (typeof instanceId !== "string" || !instanceId)) {
+      throw new Error("instanceId must be a non-empty string if provided");
+    }
+    if (templateId !== undefined && (typeof templateId !== "string" || !templateId)) {
+      throw new Error("templateId must be a non-empty string if provided");
+    }
+    if (
+      templateVersion !== undefined &&
+      (!Number.isInteger(templateVersion) || templateVersion < 1)
+    ) {
+      throw new Error("templateVersion must be a positive integer if provided");
+    }
+    if (templateId === undefined && instanceId === undefined) {
+      throw new Error(
+        "Either templateId (new instance) or instanceId (resume) is required",
+      );
+    }
+
+    const storage = this.engineRuntime.storage;
+    let template: RunbookTemplate | null;
+    let instance: RunbookInstance | null = null;
+
+    if (instanceId !== undefined) {
+      instance = await storage.getInstance(instanceId);
+      if (!instance) {
+        throw new Error(`Runbook instance ${instanceId} not found`);
+      }
+      if (templateId !== undefined && instance.templateId !== templateId) {
+        throw new Error(
+          `Instance ${instanceId} belongs to template ${instance.templateId}, ` +
+            `not ${templateId}`,
+        );
+      }
+      template = await storage.getTemplate(instance.templateId, instance.templateVersion);
+      if (!template) {
+        throw new Error(
+          `Template ${instance.templateId} version ${instance.templateVersion} ` +
+            `not found for instance ${instanceId}`,
+        );
+      }
+    } else {
+      template =
+        templateVersion !== undefined
+          ? await storage.getTemplate(templateId, templateVersion)
+          : await storage.getLatestTemplate(templateId);
+      if (!template) {
+        throw new Error(
+          templateVersion !== undefined
+            ? `Template ${templateId} version ${templateVersion} not found`
+            : `No template versions recorded for ${templateId} — a notebook's ` +
+              `cells are versioned by notebook_start_run`,
+        );
+      }
+    }
+
+    // Ulysses gate: a tampered persisted contract is rejected before any
+    // notebook materializes.
+    verifyTemplateContracts(template);
+
+    const existing = this.stateManager.getNotebook(template.templateId);
+    if (existing) {
+      if (hashTemplateCells(templateCellsFromNotebook(existing)) !== template.cellsHash) {
+        throw new Error(
+          `Notebook ${template.templateId} is already loaded with cells that ` +
+            `have drifted from template version ${template.version}; export or ` +
+            `run the live notebook instead of instantiating over it`,
+        );
+      }
+    } else {
+      await this.stateManager.materializeNotebook(notebookFromTemplate(template));
+    }
+
+    if (!instance) {
+      instance = {
+        instanceId: `rbi_${randomid()}`,
+        templateId: template.templateId,
+        templateVersion: template.version,
+        createdBy: this.agentId,
+        createdAt: new Date().toISOString(),
+      };
+      await storage.createInstance(instance);
+    }
+
+    const executions = await storage.listCellExecutions(instance.instanceId);
+    return {
+      success: true,
+      notebookId: template.templateId,
+      resumed: executions.length > 0,
+      instance: {
+        instanceId: instance.instanceId,
+        templateId: instance.templateId,
+        templateVersion: instance.templateVersion,
+        createdBy: instance.createdBy,
+        createdAt: instance.createdAt,
+        status: deriveInstanceStatus(template, executions),
+        nextCellId: nextUnsatisfiedCell(template, executions),
+        executedCells: executions.map((record) => ({
+          seq: record.seq,
+          cellId: record.cellId,
+          status: record.status,
+          satisfied: isExecutionSatisfied(record),
+        })),
+      },
+      template: {
+        templateId: template.templateId,
+        version: template.version,
+        cellsHash: template.cellsHash,
+        cells: template.cells.map((cell) => ({
+          cellId: cell.cellId,
+          cellType: cell.cellType,
+          filename: cell.filename,
+          hasContract: cell.contract !== undefined,
+          ...(cell.validatorFor !== undefined ? { validatorFor: cell.validatorFor } : {}),
+        })),
+      },
+    };
   }
 
   /**
@@ -1015,6 +1554,20 @@ export class NotebookHandler {
           break;
         case "get_artifact":
           result = await this.handleGetArtifact(args);
+          break;
+        case "fitness":
+          result = await this.handleFitness(args);
+          break;
+        case "instantiate":
+          result = await this.handleInstantiate(args);
+          break;
+        // tb.runbook.* (SPEC-AGX-SUBSTRATE B6+B8) — dispatched through the
+        // notebook toolhost as notebook_advance / notebook_instance_status.
+        case "advance":
+          result = await this.handleAdvance(args);
+          break;
+        case "instance_status":
+          result = await this.handleInstanceStatus(args);
           break;
         default:
           throw new Error(`Unknown notebook operation: ${operation}`);

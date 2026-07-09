@@ -13,8 +13,46 @@
  */
 
 import { EventEmitter } from "events";
-import type { Thought, Session } from "./thought-schemas.js";
 import type { ClaimStatus } from "../claims/types.js";
+
+/**
+ * A single reasoning step as carried on emitted events.
+ * Plain TS shape (formerly a zod schema in thought-schemas.ts).
+ */
+export interface Thought {
+  id: string;
+  thoughtNumber: number;
+  totalThoughts: number;
+  thought: string;
+  nextThoughtNeeded: boolean;
+  timestamp: string;
+  isRevision?: boolean;
+  revisesThought?: number;
+  branchId?: string;
+  branchFromThought?: number;
+  thoughtType?: 'reasoning' | 'decision_frame' | 'action_report' | 'belief_snapshot' | 'assumption_update' | 'context_snapshot' | 'progress' | 'action_receipt';
+  confidence?: 'high' | 'medium' | 'low';
+  options?: Array<{ label: string; selected: boolean; reason?: string }>;
+  actionResult?: { success: boolean; reversible: 'yes' | 'no' | 'partial'; tool: string; target: string; sideEffects?: string[] };
+  beliefs?: { entities: Array<{ name: string; state: string }>; constraints?: string[]; risks?: string[] };
+  assumptionChange?: { text: string; oldStatus: string; newStatus: 'believed' | 'uncertain' | 'refuted'; trigger?: string; downstream?: number[] };
+  contextData?: { toolsAvailable?: string[]; systemPromptHash?: string; modelId?: string; constraints?: string[]; dataSourcesAccessed?: string[] };
+  progressData?: { task: string; status: 'pending' | 'in_progress' | 'done' | 'blocked'; note?: string };
+  receiptData?: { toolName: string; expected: string; actual: string; match: boolean; residual?: string; durationMs?: number };
+}
+
+/** Session status for emitted session events */
+export type SessionStatus = 'active' | 'completed' | 'abandoned';
+
+/** A reasoning session as carried on emitted events */
+export interface Session {
+  id: string;
+  title?: string;
+  tags: string[];
+  createdAt: string;
+  completedAt?: string;
+  status: SessionStatus;
+}
 
 /**
  * Agent role type for multi-agent collaboration

@@ -8,10 +8,16 @@ export const notebookToolInputSchema = z.object({
     "notebook_install_deps", "notebook_list_cells", "notebook_get_cell",
     "notebook_export", "notebook_validate", "notebook_persist",
     "notebook_start_run", "notebook_get_run", "notebook_list_runs",
-    "notebook_cancel_run", "notebook_get_artifact",
+    "notebook_cancel_run", "notebook_get_artifact", "notebook_fitness",
+    "notebook_instantiate",
+    // tb.runbook.* (SPEC-AGX-SUBSTRATE B6+B8) — owned by flagship-b6b8
+    "notebook_advance", "notebook_instance_status",
   ]),
   notebookId: z.string().optional().describe("Notebook ID"),
   cellId: z.string().optional().describe("Cell ID"),
+  templateId: z.string().optional().describe("Runbook template ID — the source notebook's id (notebook_fitness, notebook_instantiate)"),
+  templateVersion: z.number().int().optional().describe("Runbook template version (notebook_fitness, notebook_instantiate)"),
+  includeRows: z.boolean().optional().describe("Include raw fitness ledger rows (notebook_fitness)"),
   title: z.string().optional().describe("Notebook title for create"),
   language: z.enum(["javascript", "typescript"]).optional().describe("Language for create"),
   template: z.enum([
@@ -24,23 +30,28 @@ export const notebookToolInputSchema = z.object({
     "evidence-skill-certification",
     "evidence-scenario-factory",
     "evidence-system-audit",
+    "merge-evidence",
   ]).optional().describe("Template for create"),
   path: z.string().optional().describe("Filesystem path for load/export"),
   content: z.string().optional().describe("Content for load (raw .src.md) or add_cell/update_cell"),
-  cellType: z.enum(["title", "markdown", "code"]).optional().describe("Cell type for add_cell"),
+  cellType: z.enum(["title", "markdown", "code", "await"]).optional().describe("Cell type for add_cell"),
   filename: z.string().optional().describe("Filename for code cells"),
   position: z.number().int().optional().describe("Insert position for add_cell (0-indexed)"),
+  // tb.runbook.* args (SPEC-AGX-SUBSTRATE B6+B8) — owned by flagship-b6b8
+  instanceId: z.string().optional().describe("Runbook instance ID (instance-aware run_cell, runbook advance/status, resume for notebook_instantiate)"),
+  claimId: z.string().optional().describe("Claim the await cell subscribes to (add_cell with cellType await)"),
+  until: z.union([
+    z.enum(["asserted", "supported", "invalidated", "superseded"]),
+    z.array(z.enum(["asserted", "supported", "invalidated", "superseded"])).min(1),
+  ]).optional().describe("Claim status(es) that satisfy the await cell"),
+  maxCells: z.number().int().min(1).optional().describe("Cap on exec-cell executions per notebook_advance call"),
+  force: z.boolean().optional().describe("notebook_advance: skip a dead in-flight reservation (explicit double-execute acceptance)"),
   observed: z.unknown().optional().describe("JSON-serialisable value piped into a validator cell (notebook_validate)"),
   expectedSnapshotHash: z.string().optional().describe("Optional integrity hash for notebook_validate; refuses to run on mismatch"),
   mode: z.enum([
     "runbook",
-    "simulation",
     "eval",
-    "failure_capsule",
-    "adr_evidence",
-    "skill_certification",
-    "scenario_factory",
-    "system_audit",
+    "merge_evidence",
   ]).optional().describe("Notebook Evidence Engine mode (notebook_start_run)"),
   inputs: z.record(z.unknown()).optional().describe("Mode-specific JSON inputs for notebook_start_run"),
   runId: z.string().optional().describe("Notebook run ID"),
@@ -69,12 +80,17 @@ export class NotebookTool {
     const originalOperation = operation.replace("notebook_", "");
 
     if (operation === "notebook_load") {
-      const { path, content } = args as any;
-      if (!path && !content) {
-        throw new Error("Either 'path' or 'content' parameter is required");
+      const { path, content, notebookId } = args as any;
+      const sources = [path, content, notebookId].filter(Boolean).length;
+      if (sources === 0) {
+        throw new Error(
+          "One of 'path', 'content', or 'notebookId' (persisted restore) is required",
+        );
       }
-      if (path && content) {
-        throw new Error("Cannot provide both 'path' and 'content' parameters. Choose one.");
+      if (sources > 1) {
+        throw new Error(
+          "Provide exactly one of 'path', 'content', or 'notebookId'. Choose one.",
+        );
       }
     }
 

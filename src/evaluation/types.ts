@@ -2,13 +2,18 @@
  * Evaluation System — Shared Type Definitions
  * SPEC: SPEC-EVAL-001
  *
- * Types used across all evaluation layers:
+ * Types used across the evaluation layers:
  * - Trace recording (Layer 1)
  * - Datasets (Layer 2)
- * - Evaluators (Layer 3)
- * - Experiment runner (Layer 4)
- * - Online monitoring (Layer 5)
+ * - Experiment runner (Layer 4, evaluator-agnostic)
+ *
+ * The former Layer 3 heuristic evaluators and Layer 5 online monitor were
+ * removed: they scored thought volume, not outcomes. Evaluators are now
+ * supplied by callers (see scripts/eval-run.ts for the causal-lift rig).
  */
+
+import type { Run, Example } from "langsmith/schemas";
+import type { EvaluationResult } from "langsmith/evaluation";
 
 // =============================================================================
 // Configuration
@@ -90,31 +95,29 @@ export interface DeploymentTask extends EvalTask {
 }
 
 // =============================================================================
-// Evaluator Types (Layer 3)
+// Evaluator Types
 // =============================================================================
 
 /**
- * Result from a single evaluator run against a trace.
+ * Arguments passed to a per-run evaluator — one arm of LangSmith's EvaluatorT
+ * union, explicitly typed so destructuring works without implicit `any`.
  */
-export interface EvaluatorResult {
-  /** Evaluator name (e.g., "sessionQuality", "reasoningCoherence") */
-  key: string;
-  /** Numeric score, typically 0.0–1.0 */
-  score: number;
-  /** Human-readable explanation of the score */
-  comment?: string;
-  /** Additional metadata */
-  metadata?: Record<string, unknown>;
+export interface EvaluatorArgs {
+  run: Run;
+  example: Example;
+  inputs: Record<string, any>;
+  outputs: Record<string, any>;
+  referenceOutputs?: Record<string, any>;
+  attachments?: Record<string, any>;
 }
 
 /**
- * Available evaluator names.
+ * A per-run evaluator function. The evaluation module ships no built-in
+ * evaluators — callers define their own and pass them to ExperimentRunner.
  */
-export type EvaluatorName =
-  | "sessionQuality"
-  | "memoryQuality"
-  | "dgmFitness"
-  | "reasoningCoherence";
+export type Evaluator = (
+  args: EvaluatorArgs,
+) => EvaluationResult | Promise<EvaluationResult>;
 
 // =============================================================================
 // Experiment Types (Layer 4)
@@ -127,8 +130,13 @@ export type EvaluatorName =
 export interface RunExperimentOptions {
   /** LangSmith dataset name to evaluate against */
   datasetName: string;
-  /** Which evaluators to run (defaults to all four) */
-  evaluators?: EvaluatorName[];
+  /**
+   * Explicit example IDs to evaluate (subset of the dataset). Used for
+   * small-N smoke runs; omit to evaluate the whole dataset.
+   */
+  exampleIds?: string[];
+  /** Evaluators to run against each example (caller-supplied; default none) */
+  evaluators?: Evaluator[];
   /** The target function that processes each example */
   target: (input: Record<string, any>) => Promise<Record<string, any>>;
   /** Experiment name prefix (LangSmith generates suffix) */
@@ -195,88 +203,4 @@ export interface RegressionCheckResult {
   failedEvaluators: string[];
   /** Human-readable explanation of the outcome */
   details: string;
-}
-
-// =============================================================================
-// DGM Archive Types (Layer 4 → DGM bridge)
-// =============================================================================
-
-/**
- * Entry in the DGM memory design quality-diversity archive.
- * Bridges evaluation results into the DGM fitness landscape.
- */
-export interface MemoryDesignArchiveEntry {
-  /** Unique memory design identifier */
-  designId: string;
-  /** Fitness scores from evaluators */
-  fitness: {
-    sessionQuality: number;
-    memoryQuality: number;
-    reasoningCoherence: number;
-  };
-  /** Behavioral descriptors for niche placement */
-  descriptors: {
-    thoughtDepth: number;
-    branchingFactor: number;
-    contextUtilization: number;
-  };
-  /** Number of times this design has been evaluated */
-  visitCount: number;
-  /** LangSmith experiment IDs where this design was tested */
-  experimentIds: string[];
-  /** ISO 8601 timestamp of last evaluation */
-  lastEvaluated: string;
-}
-
-// =============================================================================
-// Monitoring Types (Layer 5)
-// =============================================================================
-
-/**
- * Configuration for the online session monitor.
- */
-export interface MonitorConfig {
-  /** Minimum thought count for scoring production sessions (default: 5) */
-  minThoughts?: number;
-  /** Session tags that always trigger scoring regardless of thought count */
-  alwaysScoreTags?: string[];
-  /** Minimum scored sessions before enabling regression detection (default: 10) */
-  minSamplesForBaseline?: number;
-  /** Number of recent sessions for rolling baseline (default: 20) */
-  rollingWindowSize?: number;
-  /** Stddev multiplier for anomaly/regression detection (default: 2) */
-  stddevThreshold?: number;
-  /** Alert cooldown per metric in ms (default: 1_800_000 = 30 min) */
-  alertCooldownMs?: number;
-}
-
-/**
- * Alert severity levels for monitoring events.
- */
-export type AlertSeverity = "info" | "warning" | "critical";
-
-/**
- * Alert types for monitoring events.
- */
-export type AlertType = "regression" | "anomaly" | "budget_exceeded";
-
-/**
- * Monitoring alert emitted via ThoughtEmitter.
- * Surfaces evaluation concerns in real-time.
- */
-export interface MonitoringAlert {
-  /** Type of alert */
-  type: AlertType;
-  /** Severity level */
-  severity: AlertSeverity;
-  /** Which metric triggered the alert */
-  metric: string;
-  /** Current value of the metric */
-  currentValue: number;
-  /** Threshold that was exceeded */
-  threshold: number;
-  /** Human-readable alert message */
-  message: string;
-  /** ISO 8601 timestamp */
-  timestamp: string;
 }

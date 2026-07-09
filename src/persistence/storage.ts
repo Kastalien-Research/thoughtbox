@@ -24,7 +24,7 @@ import type {
   RevisionMetadata,
   AuditManifest,
 } from './types.js';
-import { RevisionIndexBuilder } from '../revision/revision-index.js';
+import { RevisionIndexBuilder } from './revision-index.js';
 
 // =============================================================================
 // LinkedThoughtStore - Doubly-linked list storage for reasoning chains
@@ -837,17 +837,6 @@ export class InMemoryStorage implements ThoughtboxStorage {
     // Get branch nodes from linked store
     const nodes = this.linkedStore.getBranchNodes(sessionId, branchId);
     return nodes.map(node => node.data);
-  }
-
-  async updateThoughtCritique(
-    sessionId: string,
-    thoughtNumber: number,
-    critique: { text: string; model: string; timestamp: string }
-  ): Promise<void> {
-    const node = this.linkedStore.getThoughtByNumber(sessionId, thoughtNumber);
-    if (node) {
-      node.data.critique = critique;
-    }
   }
 
   // ===========================================================================

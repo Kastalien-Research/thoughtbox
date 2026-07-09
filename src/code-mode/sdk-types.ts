@@ -38,7 +38,6 @@ interface TB {
     includeGuide?: boolean;
     sessionTitle?: string;
     sessionTags?: string[];
-    critique?: boolean;
     verbose?: boolean;
     confidence?: "high" | "medium" | "low";
     options?: Array<{ label: string; selected: boolean; reason?: string }>;
@@ -57,9 +56,12 @@ interface TB {
     get(sessionId: string): Promise<unknown>;
     search(query: string, limit?: number): Promise<unknown>;
     resume(sessionId: string): Promise<unknown>;
+    /** Resume the most recently updated session in this workspace (no ID needed). */
+    resumeLatest(args?: { tags?: string[] }): Promise<unknown>;
+    /** Structured thought-graph queries: exactly one of type | start+end | referencesThought | revisionsOf. */
+    queryThoughts(args: { sessionId: string; type?: string; start?: number; end?: number; referencesThought?: number; revisionsOf?: number }): Promise<unknown>;
     export(sessionId: string, format?: "markdown" | "cipher" | "json"): Promise<unknown>;
     analyze(sessionId: string): Promise<unknown>;
-    extractLearnings(sessionId: string, args?: Record<string, unknown>): Promise<unknown>;
   };
 
   /** Knowledge graph. Source: src/knowledge/tool.ts */
@@ -75,9 +77,10 @@ interface TB {
 
   /** Notebook Evidence Engine. Source: src/notebook/tool.ts */
   notebook: {
-    create(args: { title: string; language: "javascript" | "typescript"; template?: "sequential-feynman" | "evidence-runbook" | "evidence-simulation" | "evidence-eval-workbook" | "evidence-failure-capsule" | "evidence-adr-pack" | "evidence-skill-certification" | "evidence-scenario-factory" | "evidence-system-audit" }): Promise<unknown>;
+    create(args: { title: string; language: "javascript" | "typescript"; template?: "sequential-feynman" | "evidence-runbook" | "evidence-simulation" | "evidence-eval-workbook" | "evidence-failure-capsule" | "evidence-adr-pack" | "evidence-skill-certification" | "evidence-scenario-factory" | "evidence-system-audit" | "merge-evidence" }): Promise<unknown>;
     list(): Promise<unknown>;
-    load(args: { path?: string; content?: string }): Promise<unknown>;
+    /** Exactly one source: path (filesystem), content (raw .src.md), or notebookId (restore a persisted document under its original id). */
+    load(args: { path?: string; content?: string; notebookId?: string }): Promise<unknown>;
     addCell(args: { notebookId: string; cellType: "title" | "markdown" | "code"; content: string; filename?: string; position?: number }): Promise<unknown>;
     updateCell(args: { notebookId: string; cellId: string; content: string }): Promise<unknown>;
     /** With instanceId, execution is instance-aware and ordered (only the next unsatisfied cell may run). */
@@ -92,14 +95,28 @@ interface TB {
      * to process.env.TB_VERDICT_PATH (use the auto-materialised tb-validate helper).
      */
     validate(args: { notebookId: string; cellId: string; observed: unknown; expectedSnapshotHash?: string }): Promise<unknown>;
-    /** Persist the current notebook as a replayable artifact. */
+    /** Persist the notebook: in-process artifact always; durably (file_system/supabase, upsert by id) when a document backend is configured — the response's 'persistence' field names the backend. Restore with load({ notebookId }). */
     persist(args: { notebookId: string }): Promise<unknown>;
-    /** Execute the notebook's cells and derive a verdict from real results. Only runbook mode is implemented; other modes return an explicit error. */
-    startRun(args: { notebookId: string; mode: "runbook" | "simulation" | "eval" | "failure_capsule" | "adr_evidence" | "skill_certification" | "scenario_factory" | "system_audit"; inputs?: Record<string, unknown> }): Promise<unknown>;
+    /** Execute the notebook's cells and derive a mode-specific verdict from real results: runbook = pass/fail RunbookVerdict, eval = EvalScorecard (score = passed/evaluated over declared expectations), merge_evidence = MergeEvidenceRunResult (runbook semantics, retagged). */
+    startRun(args: { notebookId: string; mode: "runbook" | "eval" | "merge_evidence"; inputs?: Record<string, unknown> }): Promise<unknown>;
     getRun(args: { runId: string }): Promise<unknown>;
     listRuns(args?: { notebookId?: string }): Promise<unknown>;
     cancelRun(args: { runId: string; reason?: string }): Promise<unknown>;
     getArtifact(args: { artifactId: string }): Promise<unknown>;
+    /**
+     * Read the fitness ledger for a runbook template (SPEC-AGX-SUBSTRATE §7):
+     * per-version aggregates (instances, pass rate, error rate, distinct agents)
+     * from machine-checked expectation rows only. templateId = the source notebook id.
+     */
+    fitness(args: { templateId: string; templateVersion?: number; includeRows?: boolean }): Promise<unknown>;
+    /**
+     * Instantiate a runbook from a persisted template version, or resume an
+     * existing instance from its durable records alone (fresh-session path,
+     * SPEC-AGX-SUBSTRATE c5). Returns the notebookId (= templateId), the
+     * instance (with derived status and nextCellId), and the template cell map.
+     * Continue execution with runCell({ notebookId, cellId, instanceId }).
+     */
+    instantiate(args: { templateId?: string; templateVersion?: number; instanceId?: string }): Promise<unknown>;
   };
 
   /** Theseus Protocol: friction-gated refactoring. Source: src/protocol/theseus-tool.ts */
@@ -227,6 +244,27 @@ interface TB {
   };
 
   /**
+   * Reactive runbooks (SPEC-AGX-SUBSTRATE B6+B8): pull-based advancement of
+   * durable runbook instances, with await cells bound to claims. An await
+   * cell parks the instance until its claim's CURRENT status is in \`until\`;
+   * advance() re-checks the claim and executes the cells behind it. Exec
+   * cells advance behind a compare-and-swap reservation, so concurrent
+   * advancers execute side effects exactly once (losers get outcome
+   * "in_flight"). advance() is state-mutating — one call per
+   * thoughtbox_execute; status() is read-only and chains freely.
+   * Source: src/notebook/runbook/operations.ts
+   */
+  runbook: {
+    /** Outcomes: completed | parked (awaiting claim) | halted (cell failed) | in_flight (another advancer holds the step) | advanced (maxCells reached). */
+    advance(args: { instanceId: string; maxCells?: number; force?: boolean }): Promise<unknown>;
+    /** Read-only: derived status, next cell, awaited claim, execution records, pending reservations. Works from a fresh session with only the instance id. */
+    status(args: { instanceId: string }): Promise<unknown>;
+    /** Author an await cell (dispatches to notebook_add_cell with cellType "await"). */
+    addAwaitCell(args: { notebookId: string; claimId: string; until: ClaimStatus | ClaimStatus[]; position?: number }): Promise<unknown>;
+  };
+
+  // --- tb.merge (SPEC-MERGE-CORE) — owned by merge-core -----------------
+  /**
    * Merge evidence: collapse competing branches to a finalized decision
    * (SPEC-MERGE-CORE). request creates an immutable merge commit,
    * auto-generates + runs the evidence notebook, and returns the record as
@@ -245,5 +283,6 @@ interface TB {
     /** Claim-level branch diff (added/removed/shared/superseded/contradicting). Claims belong to a branch via the "branch:<branchId>" evidenceRef convention. */
     claimDiff(args: { workspaceId: string; branchA: string; branchB: string }): Promise<unknown>;
   };
+  // --- end tb.merge -------------------------------------------------------
 }
 \`\`\``;

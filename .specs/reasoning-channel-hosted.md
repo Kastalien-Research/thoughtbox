@@ -24,7 +24,7 @@ claims:
     statement: The channel client selects its transport by configuration — in-process SSE against a local server, HTTP polling of the pull endpoint against a hosted server with session-scoped query parameters when configured — and delivers identical channel notifications either way
     type: implementation
     behavioral: false
-    required_evidence: the channel client chooses SSE vs polling from config (URL host inference with an env override, warning on invalid overrides), forwarding session_id when configured and priming before emitting; unit tests cover both transports producing the same pushEvent calls; local SSE path is unchanged from current behavior
+    required_evidence: the channel client chooses SSE vs polling from config (URL host inference with an env override, warning on invalid overrides), forwarding session_id when configured and priming before emitting; both transports normalize the workspace-scoped wire shape (top-level workspaceId, session id in data.session_id) into the ThoughtboxEvent sessionId the EventFilter keys on, so a THOUGHTBOX_SESSION filter matches protocol events instead of silently dropping everything, and the filter warns (once) when it drops an event with no session attribution; unit tests cover both transports producing the same pushEvent calls
   - id: c5
     statement: The local-mode reasoning channel keeps working unchanged — the hosted path is additive and does not alter local /events SSE delivery or protocol enforcement
     type: governance

@@ -1,6 +1,6 @@
 {
   "name": "thoughtbox-claude-code",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "description": "Thoughtbox observability, protocol enforcement, and CLI for Claude Code",
   "author": {
     "name": "Kastalien Research"

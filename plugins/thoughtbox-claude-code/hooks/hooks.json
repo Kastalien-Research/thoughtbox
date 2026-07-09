@@ -22,7 +22,7 @@
         ]
       },
       {
-        "matcher": "mcp__thoughtbox-cloud-run__thoughtbox_execute",
+        "matcher": "^mcp__.*__thoughtbox_execute$",
         "hooks": [
           {
             "type": "command",

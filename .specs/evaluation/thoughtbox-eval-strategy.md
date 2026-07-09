@@ -1,8 +1,32 @@
 # Thoughtbox Evaluation Strategy
 
-**Date:** 2026-03-22
-**Status:** Draft
+**Date:** 2026-03-22 (updated 2026-07-06)
+**Status:** Active — minimal causal-lift cut implemented (`scripts/eval-run.ts`)
 **Context:** LangSmith-based evaluation framework for measuring causal lift of Thoughtbox
+
+## Implementation status (2026-07-06)
+
+The minimal cut of this strategy is implemented as `scripts/eval-run.ts`
+(SPEC-EVAL-001 claims c3/c4), built on `scripts/probes/harness.ts` and the
+evaluator-agnostic `DatasetManager`/`ExperimentRunner` chassis:
+
+- **Datasets (2 of 6)**: `thoughtbox_core_outcomes` and
+  `thoughtbox_negative_controls`, seeded with 6 labeled examples each
+  (`task_family`, `difficulty`, `negative_control`, `should_use_thoughtbox`
+  metadata; hidden rubric in reference outputs).
+- **Conditions (2 of 4)**: `thoughtbox` (agent wired to the live Code Mode
+  server) and `scratchpad` (same model/task, no tools). The no-tool and
+  ablation conditions are future work.
+- **Pairwise LLM judge**: "which would you ship?" comparative evaluator via
+  `evaluateComparative`, randomized order, rubric-informed.
+- **`overthinking_tax`**: per-example USD cost delta (latency/token deltas in
+  evaluatorInfo) on negative controls, thoughtbox vs. scratchpad baseline.
+- **Smoke path**: `npx tsx scripts/eval-run.ts smoke --n 2` runs the full
+  pipeline end-to-end with scored results in LangSmith.
+
+Everything else in this document (remaining four datasets, ablations,
+diagnostic scoreboard, online evals, annotation queues, dataset flywheel)
+remains strategy, not implementation.
 
 ---
 

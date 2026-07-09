@@ -127,5 +127,3 @@ async () => {
 - Haiku subagent: ~400 tokens per check
 - Your context: ~50 tokens (just the UPDATE/NO_UPDATE list)
 - Break-even: always cheaper than manual review for sessions >3 thoughts
-
-See `thoughtbox://prompts/evolution-check` for the full pattern reference.

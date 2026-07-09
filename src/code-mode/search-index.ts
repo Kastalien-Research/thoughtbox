@@ -24,7 +24,13 @@ import { CLAIMS_OPERATIONS } from "../claims/operations.js";
 // --- tb.merge (SPEC-MERGE-CORE) — owned by merge-core ---
 import { MERGE_OPERATIONS } from "../merge/operations.js";
 // --- end tb.merge ---
+// tb.runbook.* (SPEC-AGX-SUBSTRATE B6+B8) — owned by flagship-b6b8
+import { RUNBOOK_OPERATIONS } from "../notebook/runbook/operations.js";
 import { PEER_NOTEBOOK_TOOL } from "../peer-notebook/tool.js";
+import {
+  STATIC_RESOURCES,
+  RESOURCE_TEMPLATES,
+} from "../resources/static-registry.js";
 
 export interface SearchCatalog {
   publicTools: Array<{
@@ -255,6 +261,8 @@ export function buildSearchCatalog(): SearchCatalog {
       // --- tb.merge (SPEC-MERGE-CORE) — owned by merge-core ---
       merge: indexOperations(MERGE_OPERATIONS),
       // --- end tb.merge ---
+      // tb.runbook.* (SPEC-AGX-SUBSTRATE B6+B8) — owned by flagship-b6b8
+      runbook: indexOperations(RUNBOOK_OPERATIONS),
     },
 
     prompts: [
@@ -269,238 +277,21 @@ export function buildSearchCatalog(): SearchCatalog {
           "Use this Thoughtbox server as a reasoning workspace to alternate between internal reasoning steps and external tool/action invocation. Enables structured multi-phase execution with tooling inventory, sufficiency assessment, strategy development, and execution.",
         args: ["task", "thoughts_limit", "clear_folder"],
       },
-      {
-        name: "subagent-summarize",
-        description:
-          "Get instructions for using Claude Code's Task tool to retrieve and summarize Thoughtbox sessions with context isolation. Reduces context consumption by 10-40x.",
-        args: ["request"],
-      },
-      {
-        name: "evolution-check",
-        description:
-          "Get instructions for checking which prior thoughts should be updated when a new insight is added. Uses sub-agent pattern for context isolation. Based on A-Mem paper.",
-        args: ["newThought", "sessionId", "priorThoughts"],
-      },
-      {
-        name: "test-thoughtbox",
-        description:
-          "Behavioral tests for tb.thought via thoughtbox_execute (15 tests covering forward/backward thinking, branching, revisions, linked structure)",
-        args: [],
-      },
-      {
-        name: "test-notebook",
-        description:
-          "Behavioral tests for tb.notebook via thoughtbox_execute (8 tests covering creation, cells, execution, export)",
-        args: [],
-      },
-      {
-        name: "test-memory",
-        description:
-          "Behavioral tests for tb.knowledge via thoughtbox_execute (12 tests covering entities, observations, relations, graph traversal, stats)",
-        args: [],
-      },
-      {
-        name: "spec-designer",
-        description:
-          "Design and produce implementation specifications through structured cognitive loops. Creates specs from prompts using OODA loop building blocks.",
-        args: ["prompt", "output_folder", "depth", "max_specs", "plan_only"],
-      },
-      {
-        name: "spec-validator",
-        description:
-          "Systematically validate specification documents against current codebase and project architecture. Identifies gaps, contradictions, and feasibility issues.",
-        args: ["spec_path", "strict", "deep", "report_only"],
-      },
-      {
-        name: "spec-orchestrator",
-        description:
-          "Coordinate implementation of multiple specification documents from a folder. Manages dependencies, tracks progress, and prevents implementation spirals using Operations Research principles.",
-        args: ["spec_folder", "budget", "max_iterations", "plan_only"],
-      },
-      {
-        name: "specification-suite",
-        description:
-          "Chain the design, validate, orchestrate lifecycle into one command. Moves from blank prompt to implemented, validated specs.",
-        args: [
-          "prompt_or_spec_path",
-          "output_folder",
-          "depth",
-          "budget",
-          "plan_only",
-          "skip_design",
-          "skip_validation",
-        ],
-      },
     ],
 
-    resources: [
-      {
-        name: "Notebook Server Status",
-        uri: "system://status",
-        description: "Health snapshot of the notebook server",
-        mimeType: "application/json",
-      },
-      {
-        name: "Notebook Operations Catalog",
-        uri: "thoughtbox://notebook/operations",
-        description: "Complete catalog of notebook operations with schemas and examples",
-        mimeType: "application/json",
-      },
-      {
-        name: "Peer Notebook Pilot",
-        uri: "thoughtbox://peer-notebook/pilot",
-        description: "Peer notebook pilot surface and operation quick reference",
-        mimeType: "application/json",
-      },
-      {
-        name: "Session Operations Catalog",
-        uri: "thoughtbox://session/operations",
-        description: "Complete catalog of session operations with schemas and examples",
-        mimeType: "application/json",
-      },
-      {
-        name: "Knowledge Operations Catalog",
-        uri: "thoughtbox://knowledge/operations",
-        description: "Complete catalog of knowledge graph operations with schemas and examples",
-        mimeType: "application/json",
-      },
-      {
-        name: "Hub Operations Catalog",
-        uri: "thoughtbox://hub/operations",
-        description: "Complete catalog of all 28 hub operations organized by category with stage metadata and vocabulary",
-        mimeType: "application/json",
-      },
-      {
-        name: "Thoughtbox Patterns Cookbook",
-        uri: "thoughtbox://patterns-cookbook",
-        description: "Guide to core reasoning patterns for thoughtbox tool",
-        mimeType: "text/markdown",
-      },
-      {
-        name: "Server Architecture Guide",
-        uri: "thoughtbox://architecture",
-        description:
-          "Interactive notebook explaining Thoughtbox MCP server architecture and implementation patterns",
-        mimeType: "text/markdown",
-      },
-      {
-        name: "Thoughtbox Cipher Notation",
-        uri: "thoughtbox://cipher",
-        description: "Token-efficient notation system for long reasoning chains",
-        mimeType: "text/markdown",
-      },
-      {
-        name: "Session Analysis Process Guide",
-        uri: "thoughtbox://session-analysis-guide",
-        description:
-          "Process guide for qualitative analysis of reasoning sessions (key moments, extract learnings)",
-        mimeType: "text/markdown",
-      },
-      {
-        name: "Parallel Verification Guide",
-        uri: "thoughtbox://guidance/parallel-verification",
-        description: "Workflow for parallel hypothesis exploration using Thoughtbox branching",
-        mimeType: "text/markdown",
-      },
-      {
-        name: "Evolution Check Pattern (A-Mem)",
-        uri: "thoughtbox://prompts/evolution-check",
-        description:
-          "Check which prior thoughts should be updated when a new insight is added. Same content as evolution-check prompt.",
-        mimeType: "text/markdown",
-      },
-      {
-        name: "Subagent Summarize Pattern (RLM)",
-        uri: "thoughtbox://prompts/subagent-summarize",
-        description:
-          "Context isolation pattern for retrieving sessions. Same content as subagent-summarize prompt.",
-        mimeType: "text/markdown",
-      },
-      {
-        name: "Behavioral Tests: Thoughtbox",
-        uri: "thoughtbox://tests/thoughtbox",
-        description:
-          "Behavioral tests for tb.thought via thoughtbox_execute (15 tests covering forward/backward thinking, branching, revisions, linked structure)",
-        mimeType: "text/markdown",
-      },
-      {
-        name: "Behavioral Tests: Notebook",
-        uri: "thoughtbox://tests/notebook",
-        description:
-          "Behavioral tests for tb.notebook via thoughtbox_execute (8 tests covering creation, cells, execution, export)",
-        mimeType: "text/markdown",
-      },
-      {
-        name: "Knowledge Graph Statistics",
-        uri: "thoughtbox://knowledge/stats",
-        description: "Entity and relation counts for the knowledge graph",
-        mimeType: "application/json",
-      },
-      {
-        name: "Behavioral Tests: Memory",
-        uri: "thoughtbox://tests/memory",
-        description:
-          "Behavioral tests for tb.knowledge via thoughtbox_execute (12 tests covering entities, observations, relations, graph traversal, stats)",
-        mimeType: "text/markdown",
-      },
-    ],
+    resources: STATIC_RESOURCES.map((def) => ({
+      name: def.name,
+      uri: def.uri,
+      description: def.description,
+      mimeType: def.mimeType,
+    })),
 
-    resourceTemplates: [
-      {
-        name: "Session Operation Detail",
-        uriTemplate: "thoughtbox://session/operations/{op}",
-        description: "Individual session operation schema and examples",
-        mimeType: "application/json",
-      },
-      {
-        name: "Knowledge Operation Detail",
-        uriTemplate: "thoughtbox://knowledge/operations/{op}",
-        description: "Individual knowledge graph operation schema and examples",
-        mimeType: "application/json",
-      },
-      {
-        name: "Hub Operation Detail",
-        uriTemplate: "thoughtbox://hub/operations/{op}",
-        description: "Individual hub operation schema and examples",
-        mimeType: "application/json",
-      },
-      {
-        name: "Notebook Operation Detail",
-        uriTemplate: "thoughtbox://notebook/operations/{op}",
-        description: "Individual notebook operation schema and examples",
-        mimeType: "application/json",
-      },
-      {
-        name: "Interleaved Thinking Guides",
-        uriTemplate: "thoughtbox://interleaved/{guide}",
-        description: "Interleaved thinking guides",
-        mimeType: "text/markdown",
-      },
-      {
-        name: "Thoughts By Type",
-        uriTemplate: "thoughtbox://thoughts/{sessionId}/{type}",
-        description: "Query thoughts by semantic type (H/E/C/Q/R/P/O/A/X)",
-        mimeType: "application/json",
-      },
-      {
-        name: "Thought Range",
-        uriTemplate: "thoughtbox://thoughts/{sessionId}/range/{start}-{end}",
-        description: "Retrieve thoughts in specified range [start, end] inclusive",
-        mimeType: "application/json",
-      },
-      {
-        name: "Thought References",
-        uriTemplate: "thoughtbox://references/{sessionId}/{thoughtNumber}",
-        description: "Find all thoughts that reference a specific thought number",
-        mimeType: "application/json",
-      },
-      {
-        name: "Revision History",
-        uriTemplate: "thoughtbox://revisions/{sessionId}/{thoughtNumber}",
-        description: "Get complete revision history for a thought",
-        mimeType: "application/json",
-      },
-    ],
+    resourceTemplates: RESOURCE_TEMPLATES.map((def) => ({
+      name: def.name,
+      uriTemplate: def.uriTemplate,
+      description: def.description,
+      mimeType: def.mimeType,
+    })),
   };
 
   annotateCatalog(catalog);
