@@ -2,24 +2,28 @@
  * RunbookStorage contract suite (SPEC-AGX-SUBSTRATE B4b — claim c3 instance
  * half + claim c7 fitness ledger).
  *
- * Runs the shared contract against both backends — InMemoryRunbookStorage
- * and SupabaseRunbookStorage (local stack) — then covers Supabase-specific
- * guarantees: database-level append-only enforcement (revoked UPDATE/DELETE
- * grants) and tenant isolation. Supabase tests skip gracefully when the
- * local stack is not running (src/__tests__/supabase-test-helpers).
+ * Runs the shared contract against all three backends —
+ * InMemoryRunbookStorage, SqliteRunbookStorage (local durable), and
+ * SupabaseRunbookStorage (local stack) — then covers backend-specific
+ * guarantees: SQLite restart survival over the same database file; Supabase
+ * database-level append-only enforcement (revoked UPDATE/DELETE grants) and
+ * tenant isolation. Supabase tests skip gracefully when the local stack is
+ * not running (src/__tests__/supabase-test-helpers).
  *
  * Because the runbook tables revoke DELETE even from service_role, tests
  * never clean these tables up — every test uses fresh random ids instead.
- *
- * A FileSystemRunbookStorage is deliberately absent (deferred per spec §11.5).
  */
 
-import { describe, it, expect, beforeAll } from "vitest";
+import { describe, it, expect, beforeAll, beforeEach } from "vitest";
 import { randomUUID } from "node:crypto";
+import * as os from "node:os";
+import * as path from "node:path";
+import { mkdtempSync } from "node:fs";
 import {
   InMemoryRunbookStorage,
   createRunbookMemoryState,
 } from "../runbook/in-memory-runbook-storage.js";
+import { SqliteRunbookStorage } from "../runbook/sqlite-runbook-storage.js";
 import { SupabaseRunbookStorage } from "../runbook/supabase-runbook-storage.js";
 import {
   aggregateFitness,
@@ -429,6 +433,80 @@ describe("RunbookStorage contract — InMemoryRunbookStorage", () => {
     expect(await after.getTemplate(template.templateId, 1)).toEqual(template);
     expect(await after.getInstance(instance.instanceId)).toEqual(instance);
     expect(await after.listCellExecutions(instance.instanceId)).toHaveLength(1);
+  });
+});
+
+// =============================================================================
+// SQLite backend (local durable)
+// =============================================================================
+
+function freshRunbookDbPath(): string {
+  return path.join(mkdtempSync(path.join(os.tmpdir(), "tb-runbooks-")), "runbooks.db");
+}
+
+describe("RunbookStorage contract — SqliteRunbookStorage", () => {
+  let context: ContractContext;
+
+  beforeEach(() => {
+    context = { storage: new SqliteRunbookStorage(freshRunbookDbPath()) };
+  });
+
+  runRunbookStorageContract(
+    () => context,
+    () => true,
+  );
+});
+
+describe("SqliteRunbookStorage — restart survival", () => {
+  it("templates, instances, executions, reservations, and ledger rows survive a restart", async () => {
+    const dbPath = freshRunbookDbPath();
+    const before = new SqliteRunbookStorage(dbPath);
+
+    const template = makeTemplate(`rbt-${randomUUID()}`);
+    await before.saveTemplate(template);
+    const instance = makeInstance(template);
+    await before.createInstance(instance);
+    await before.reserveAdvance({
+      instanceId: instance.instanceId,
+      seq: 1,
+      cellId: "step",
+      agentId: "agent-alice",
+      reservedAt: new Date().toISOString(),
+    });
+    const execution = makeExecution(instance.instanceId, 1);
+    await before.appendCellExecution(execution);
+    await before.appendFitnessRows([makeLedgerRow(template, instance.instanceId)]);
+    before.close();
+
+    // New storage instance over the same database file — a process restart.
+    const after = new SqliteRunbookStorage(dbPath);
+    const loadedTemplate = await after.getTemplate(template.templateId, 1);
+    expect(loadedTemplate).toEqual(template);
+    // Contract hashes still verify after the restart round-trip.
+    expect(() => verifyTemplateContracts(loadedTemplate!)).not.toThrow();
+    expect(await after.getInstance(instance.instanceId)).toEqual(instance);
+    expect(await after.listCellExecutions(instance.instanceId)).toEqual([execution]);
+    expect(
+      (await after.listAdvanceReservations(instance.instanceId)).map((r) => r.seq),
+    ).toEqual([1]);
+    expect(await after.listFitnessRows(template.templateId, 1)).toHaveLength(1);
+
+    // The append-only guarantees pick up where they left off: the reserved
+    // and executed seq stays taken across the restart.
+    await expect(
+      after.appendCellExecution(makeExecution(instance.instanceId, 1)),
+    ).rejects.toThrow(/append-only/);
+    await expect(
+      after.reserveAdvance({
+        instanceId: instance.instanceId,
+        seq: 1,
+        cellId: "step",
+        agentId: "agent-bob",
+        reservedAt: new Date().toISOString(),
+      }),
+    ).rejects.toThrow(/already held/);
+    await after.appendCellExecution(makeExecution(instance.instanceId, 2));
+    expect(await after.listCellExecutions(instance.instanceId)).toHaveLength(2);
   });
 });
 

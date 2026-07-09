@@ -1,7 +1,7 @@
 /**
  * InMemoryRunbookStorage — volatile durable-runbook storage for tests and
- * local mode (SPEC-AGX-SUBSTRATE B4b, §11.5: Supabase + InMemory first; a
- * FileSystemRunbookStorage is deferred until H1/H2 pass).
+ * THOUGHTBOX_STORAGE=memory (SPEC-AGX-SUBSTRATE B4b). Durable local mode
+ * uses SqliteRunbookStorage; deployed mode uses SupabaseRunbookStorage.
  *
  * Mirrors SupabaseRunbookStorage semantics: structural copies on read and
  * write (no shared references), append-only templates/instances/executions/

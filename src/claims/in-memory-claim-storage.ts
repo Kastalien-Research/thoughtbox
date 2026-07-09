@@ -1,7 +1,7 @@
 /**
- * InMemoryClaimStorage — volatile claim graph storage for tests and local
- * mode (SPEC-AGX-SUBSTRATE B1, §11.5: Supabase + InMemory first; a
- * FileSystemClaimStorage is deferred until H1/H2 pass).
+ * InMemoryClaimStorage — volatile claim graph storage for tests and
+ * THOUGHTBOX_STORAGE=memory (SPEC-AGX-SUBSTRATE B1). Durable local mode
+ * uses SqliteClaimStorage; deployed mode uses SupabaseClaimStorage.
  *
  * Mirrors SupabaseClaimStorage semantics: structural copies on read/write
  * (no shared references), optimistic concurrency on the claim aggregate,

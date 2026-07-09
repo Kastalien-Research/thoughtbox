@@ -84,9 +84,9 @@ export interface ClaimEdgeFilter {
 
 /**
  * Storage contract for the claim graph. Implemented by
- * SupabaseClaimStorage (deployed) and InMemoryClaimStorage (tests/local).
- * A FileSystemClaimStorage is deliberately deferred until the H1/H2
- * experiments pass (spec §11.5).
+ * SupabaseClaimStorage (deployed), SqliteClaimStorage (local durable —
+ * `<dataDir>/claims.db`), and InMemoryClaimStorage
+ * (tests/THOUGHTBOX_STORAGE=memory).
  *
  * Semantics every implementation must honor:
  * - `saveClaim` inserts on first save of an instance and performs an

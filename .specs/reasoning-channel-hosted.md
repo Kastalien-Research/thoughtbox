@@ -66,7 +66,14 @@ philosophy ("agents pull: `verify` is the cheap staleness check, `changed_since`
 the digest", `SPEC-AGX-SUBSTRATE` §11.1). Push/Realtime delivery is deferred to
 B6/B8 (the reactive substrate) so the realtime transport is defined once, there.
 
-- **Local mode**: unchanged. In-process `/events` SSE; channel subscribes via SSE.
+- **Local mode**: in-process `/events` SSE; channel subscribes via SSE.
+  **Amended 2026-07-09 (additive):** default local mode (fs) ALSO appends the
+  same stream to a durable SQLite log (`SqliteProtocolEventStorage`,
+  `<dataDir>/protocol-events.db`) and serves the identical pull contract at
+  `GET /protocol/events` (no auth, matching the unauthenticated local SSE
+  surface), so event history survives restarts and the polling transport works
+  locally. SSE delivery is unchanged; `THOUGHTBOX_STORAGE=memory` keeps the
+  SSE-only volatile posture.
 - **Hosted mode**: protocol events persist to a tenant-scoped `protocol_events`
   table; the channel polls a tenant-scoped pull endpoint; tenant isolation is by
   construction (API key → workspace → filtered query), not by realtime RLS.

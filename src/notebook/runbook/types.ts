@@ -204,10 +204,9 @@ export interface FitnessAggregate {
 }
 
 // ---------------------------------------------------------------------------
-// Storage contract — implemented by SupabaseRunbookStorage (deployed) and
-// InMemoryRunbookStorage (tests/local). A FileSystemRunbookStorage is
-// deliberately deferred until H1/H2 pass (spec §11.5: contract-suite-first,
-// Supabase-first, FS gated on evidence).
+// Storage contract — implemented by SupabaseRunbookStorage (deployed),
+// SqliteRunbookStorage (local durable — `<dataDir>/runbooks.db`), and
+// InMemoryRunbookStorage (tests/THOUGHTBOX_STORAGE=memory).
 // ---------------------------------------------------------------------------
 
 export interface RunbookStorage {
