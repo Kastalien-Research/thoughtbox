@@ -1,8 +1,8 @@
 "use server";
 
-import { randomBytes } from "node:crypto";
 import bcrypt from "bcryptjs";
 import { revalidatePath } from "next/cache";
+import { generateApiKey } from "@/lib/api-keys/generate";
 import { createClient } from "@/lib/supabase/server";
 import type { ApiKeyRow } from "@/lib/types/api-keys";
 
@@ -51,8 +51,7 @@ export async function createApiKeyAction(
     return { error: "Name must be 64 characters or fewer." };
   }
 
-  const keyPrefix = randomBytes(6).toString("base64url");
-  const plainKey = `tbx_${keyPrefix}_${randomBytes(24).toString("base64url")}`;
+  const { prefix: keyPrefix, plainKey } = generateApiKey();
   const keyHash = await bcrypt.hash(plainKey, 12);
 
   const { error: insertError } = await supabase.from("api_keys").insert({
