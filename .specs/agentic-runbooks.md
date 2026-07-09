@@ -94,9 +94,11 @@ The model using Thoughtbox must be able to discover these capabilities without r
   document under its ORIGINAL id across process restarts.
 - Honesty rule: with no backend configured, `notebook_persist` keeps its
   in-process artifact behavior and reports `persistence: "in_memory"`; with a
-  backend it reports the backend name. The `notebooks` table migration ships
-  separately, gated on the DB-parity ruling — if dropped, the Supabase backend
-  fails loudly on a missing relation and default deployments stay in_memory.
+  backend it reports the backend name. The `notebooks` table migration
+  (`supabase/migrations/20260709010000_create_notebooks_table.sql`) shipped as
+  a separate final commit once the DB-parity ruling came back GREEN — without
+  it, the Supabase backend fails loudly on a missing relation and default
+  deployments stay in_memory.
 
 ## Legacy Section Note
 
