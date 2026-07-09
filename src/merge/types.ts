@@ -186,8 +186,9 @@ export interface MergeCommitPatch {
 
 /**
  * Storage contract for merge commits (SPEC-MERGE-CORE c8).
- * Implemented by SupabaseMergeCommitStorage (deployed) and
- * InMemoryMergeCommitStorage (tests/local).
+ * Implemented by SupabaseMergeCommitStorage (deployed),
+ * SqliteMergeCommitStorage (local durable — `<dataDir>/merges.db`), and
+ * InMemoryMergeCommitStorage (tests/THOUGHTBOX_STORAGE=memory).
  *
  * Semantics every implementation must honor:
  * - `createMergeCommit` is insert-only: re-creating an existing id throws.
