@@ -212,6 +212,22 @@ and supersede semantics are vitest-evidenced (`src/claims/__tests__/standing-fac
 Skill/handoff integrations are deliberately NOT built here — the shim is the reader/writer
 those artifacts adopt.
 
+Keyed uniqueness is RECONCILE-BASED, not constraint-based (fix, 2026-07-09): the claim store
+has no uniqueness constraint on the fact key, so two concurrent `write`s of one
+(workspace, key) can both pass the pre-check and both assert (the original TOCTOU). `write`
+is therefore assert-then-reconcile: after asserting, it re-queries live facts for the key and
+keeps the deterministic winner — oldest by (`createdAt`, claim id ascending) — retiring every
+other live claim via `tb.claims.invalidate` (the one handler transition that removes liveness
+without minting a new claim; handler `supersede` always creates a fresh replacement, which
+would itself be a new live duplicate). A writer whose own claim lost gets the same
+"already exists" error as a sequential duplicate write (first-writer-wins; `write` stays
+create-only), and the winner is never touched, so a key with a live fact can never reconcile
+to zero. `read`/`list` (and `supersede`, before flipping) run the same reconcile lazily when
+they observe >1 live fact for a key, so `list` never returns a duplicate key and pre-fix
+duplicates self-heal. Race and heal behavior is vitest-evidenced in the same test file.
+Follow-up if standing facts become load-bearing: a partial unique index on the fact key
+(live statuses only) upgrades uniqueness from reconcile-based to constraint-based.
+
 ## 5. Layer 2: Reactive Runbooks (EVOLVES the notebook subsystem)
 
 The prior Notebook Evidence Engine spec (`.specs/agentic-runbooks.md`, draft, largely

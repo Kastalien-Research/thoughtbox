@@ -25,6 +25,19 @@
  * lowercase [a-z0-9._-] so the case-insensitive substring match of
  * tb.claims.query finds exactly one key family; the closing `]` prevents
  * prefix collisions ("db" never matches "[fact:db-pool]").
+ *
+ * Keyed uniqueness is RECONCILE-BASED, not constraint-based: the claim
+ * store has no partial unique index on the fact key, so two concurrent
+ * `write`s of the same key can both pass the pre-check and both assert.
+ * `write` therefore asserts first and reconciles after: the DETERMINISTIC
+ * winner is the oldest live claim (createdAt, then claim id ascending);
+ * every other live claim for the key is retired, and a writer whose own
+ * claim lost gets the same "already exists" error a sequential duplicate
+ * write gets (first-writer-wins — write is create-only). `read`/`list`
+ * run the same reconcile lazily whenever they observe more than one live
+ * claim for a key, self-healing residual visibility windows and pre-fix
+ * duplicates. Reconcile never touches the winner, so a key that had a
+ * live fact can never end up with zero.
  */
 
 import type { Claim, ClaimType } from './types.js';
@@ -101,6 +114,37 @@ export function decodeFactStatement(
   return { key: match[1]!, statement: match[2]! };
 }
 
+/**
+ * Actor identity stamped on reconcile mutations that run inside the
+ * agent-less reads (`read`/`list`). The retirement is mechanical
+ * (duplicate cleanup), not an agent's judgment, so it gets a fixed
+ * system identity rather than borrowing whoever happened to read.
+ */
+const RECONCILE_ACTOR = 'standing-facts-reconcile';
+
+/**
+ * Deterministic winner order for duplicate live facts: oldest first
+ * (createdAt), claim id ascending as the tiebreak. Every reconciler —
+ * writer-side or reader-side, on any process — computes the same winner
+ * from the same set, so concurrent reconciles converge instead of
+ * fighting.
+ */
+function compareFactClaims(a: Claim, b: Claim): number {
+  return a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id);
+}
+
+/**
+ * A reconcile loser whose retirement fails because a concurrent actor
+ * already moved it (retired via supersede, or a CAS conflict from a
+ * racing reconciler) is a benign race: the claim is no longer (or is
+ * about to stop being) a live duplicate, and the next read re-checks.
+ * Anything else — storage failure, missing claim — must propagate.
+ */
+function isBenignReconcileRace(error: unknown): boolean {
+  if (!(error instanceof Error)) return false;
+  return /already superseded/.test(error.message) || /concurrent update/.test(error.message);
+}
+
 export function createStandingFacts(claims: ClaimsHandler): StandingFactsShim {
   function toFact(claim: Claim): StandingFact | null {
     const decoded = decodeFactStatement(claim.statement);
@@ -111,9 +155,8 @@ export function createStandingFacts(claims: ClaimsHandler): StandingFactsShim {
   /**
    * All live fact claims for a key. Query narrows by the encoded prefix
    * (case-insensitive substring), then the exact prefix + liveness are
-   * re-checked here. Multiple live claims for one key can only arise from
-   * writes that bypassed this shim; newest-first lets the reader converge
-   * on the latest assertion instead of failing.
+   * re-checked here. Sorted winner-first (oldest, id tiebreak): index 0
+   * is the claim reconcile keeps.
    */
   async function liveFactClaims(workspaceId: string, key: string): Promise<Claim[]> {
     const prefix = `[fact:${key}] `;
@@ -123,18 +166,53 @@ export function createStandingFacts(claims: ClaimsHandler): StandingFactsShim {
     })) as { claims: Claim[] };
     return result.claims
       .filter(claim => claim.statement.startsWith(prefix) && LIVE_STATUSES.has(claim.status))
-      .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+      .sort(compareFactClaims);
+  }
+
+  /**
+   * Collapse duplicate live facts for a key down to the deterministic
+   * winner; returns the winner (or null when the key has no live fact).
+   *
+   * Losers are retired through `tb.claims.invalidate` — the one
+   * ClaimsHandler transition that removes a claim from live status
+   * without minting a new claim (`tb.claims.supersede` always creates a
+   * fresh replacement, which would itself be a new live duplicate of the
+   * key). The winner is never touched, so reconcile can never leave the
+   * key with zero live facts. A partial unique index on the fact key is
+   * the constraint-based upgrade if standing facts become load-bearing.
+   */
+  async function reconcileLiveFacts(
+    actor: string,
+    workspaceId: string,
+    key: string,
+  ): Promise<Claim | null> {
+    const [winner, ...losers] = await liveFactClaims(workspaceId, key);
+    if (!winner) return null;
+    for (const loser of losers) {
+      try {
+        await claims.handle(actor, 'invalidate', { claimId: loser.id });
+      } catch (error) {
+        if (!isBenignReconcileRace(error)) throw error;
+      }
+    }
+    return winner;
+  }
+
+  function alreadyExistsError(key: string, workspaceId: string, claimId: string): Error {
+    return new Error(
+      `Standing fact "${key}" already exists in workspace ${workspaceId} ` +
+        `(claim ${claimId}); use supersede to revise it`,
+    );
   }
 
   return {
     async write(agentId, input) {
       const key = normalizeFactKey(input.key);
+      // Cheap pre-check for the friendly common-case error. NOT the
+      // guarantee: two concurrent writers can both pass it.
       const [existing] = await liveFactClaims(input.workspaceId, key);
       if (existing) {
-        throw new Error(
-          `Standing fact "${key}" already exists in workspace ${input.workspaceId} ` +
-            `(claim ${existing.id}); use supersede to revise it`,
-        );
+        throw alreadyExistsError(key, input.workspaceId, existing.id);
       }
       const claim = (await claims.handle(agentId, 'assert', {
         workspaceId: input.workspaceId,
@@ -142,12 +220,26 @@ export function createStandingFacts(claims: ClaimsHandler): StandingFactsShim {
         statement: encodeFactStatement(key, input.statement),
         ...(input.evidenceRefs !== undefined ? { evidenceRefs: input.evidenceRefs } : {}),
       })) as Claim;
+      // Assert-then-reconcile: re-query AFTER asserting so a concurrent
+      // duplicate is visible, then keep only the deterministic winner. If
+      // our own claim lost, reconcile already retired it — surface the
+      // same error a sequential duplicate write gets (first-writer-wins,
+      // matching write's create-only contract).
+      const winner = await reconcileLiveFacts(agentId, input.workspaceId, key);
+      if (winner && winner.id !== claim.id) {
+        throw alreadyExistsError(key, input.workspaceId, winner.id);
+      }
       return { key, statement: input.statement, claim };
     },
 
     async read(workspaceId, key) {
-      const [claim] = await liveFactClaims(workspaceId, normalizeFactKey(key));
-      return claim ? toFact(claim) : null;
+      const normalized = normalizeFactKey(key);
+      const live = await liveFactClaims(workspaceId, normalized);
+      if (live.length > 1) {
+        const winner = await reconcileLiveFacts(RECONCILE_ACTOR, workspaceId, normalized);
+        return winner ? toFact(winner) : null;
+      }
+      return live[0] ? toFact(live[0]) : null;
     },
 
     async list(workspaceId) {
@@ -155,9 +247,23 @@ export function createStandingFacts(claims: ClaimsHandler): StandingFactsShim {
         workspaceId,
         text: '[fact:',
       })) as { claims: Claim[] };
-      const facts: StandingFact[] = [];
+      const liveByKey = new Map<string, Claim[]>();
       for (const claim of result.claims) {
         if (!LIVE_STATUSES.has(claim.status)) continue;
+        const decoded = decodeFactStatement(claim.statement);
+        if (!decoded) continue;
+        const group = liveByKey.get(decoded.key);
+        if (group) group.push(claim);
+        else liveByKey.set(decoded.key, [claim]);
+      }
+      const facts: StandingFact[] = [];
+      for (const [key, group] of liveByKey) {
+        let claim: Claim | null = group.sort(compareFactClaims)[0]!;
+        if (group.length > 1) {
+          // Lazy heal: list never returns two facts with the same key.
+          claim = await reconcileLiveFacts(RECONCILE_ACTOR, workspaceId, key);
+        }
+        if (!claim) continue;
         const fact = toFact(claim);
         if (fact) facts.push(fact);
       }
@@ -166,7 +272,10 @@ export function createStandingFacts(claims: ClaimsHandler): StandingFactsShim {
 
     async supersede(agentId, input) {
       const key = normalizeFactKey(input.key);
-      const [existing] = await liveFactClaims(input.workspaceId, key);
+      // Heal duplicates BEFORE flipping: superseding the winner while a
+      // duplicate stayed live would leave that older duplicate outranking
+      // the fresh replacement at the next reconcile.
+      const existing = await reconcileLiveFacts(agentId, input.workspaceId, key);
       if (!existing) {
         throw new Error(
           `No live standing fact "${key}" in workspace ${input.workspaceId} to supersede; ` +
