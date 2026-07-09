@@ -296,4 +296,64 @@ REFS:   [S1] ref step  +[S1] build on  ^[S1] revise  ×[S1] invalidate
 CONF:   (!) high  (~) med  (?) low  (p=N) specific
 
 FORMAT: ID|TYPE|REFS|content
+\`\`\`
+
+---
+
+## Multi-Agent Extension
+
+When several agents reason in one workspace, the cipher's formal-logic
+vocabulary pairs with two real coordination surfaces inside
+\`thoughtbox_execute\`: **\`tb.claims.*\`** (durable claim graph) and
+**\`tb.hub.*\`** (workspaces, problems, proposals, channels).
+
+### Derivation Operators
+
+| Symbol | Meaning | Example |
+|--------|---------|---------|
+| \`⊢\` | proves / syntactic entailment (turnstile) | \`P₁, P₂ ⊢ C\` (premises P₁ and P₂ prove conclusion C) |
+| \`⊨\` | semantic entailment / models | \`M ⊨ φ\` (model M satisfies formula φ) |
+
+### Claim Prefixes → tb.claims
+
+Use the prefixes in thought text for human/agent readability, and mirror
+load-bearing claims into the claim graph so other agents can find them:
+
+| Prefix | Meaning | Durable form |
+|--------|---------|--------------|
+| \`CLAIM:\` | Assert a proposition | \`tb.claims.assert({ text, ... })\` |
+| \`PREMISE:\` | Support for a claim | \`tb.claims.support({ claimId, evidence })\` |
+| \`REFUTE:\` | Counter a claim | \`tb.claims.invalidate({ claimId, reason })\` |
+
+A claim that only exists in prose is invisible to other agents. A claim in
+the graph can be queried (\`tb.claims.query\`), linked, superseded, and its
+downstream dependents surfaced (\`tb.claims.affected\`).
+
+### Multi-Agent Derivation Format
+
+\`\`\`
+CLAIM: proposition text
+PREMISE: [ref] supporting evidence
+PREMISE: [ref] additional evidence
+P₁, P₂ ⊢ C   (formal derivation)
+\`\`\`
+
+### Handling Disagreement
+
+Conflicts are **not detected automatically** — surfacing a contradiction is
+the agents' job:
+
+1. Before asserting, check for existing claims on the same subject with
+   \`tb.claims.query\`.
+2. To contest another agent's claim, record the counter-evidence with
+   \`tb.claims.invalidate\` (or assert a competing claim and \`tb.claims.link\`
+   the two), and say so in the shared channel via \`tb.hub\` so the other
+   agent sees it.
+3. Use \`tb.claims.affected\` to find conclusions built on a claim you just
+   invalidated — those need revisiting.
+
+\`\`\`
+Agent-A CLAIM: X causes Y
+Agent-B REFUTE: [S3] ⊖ Agent-A/CLAIM bc counter-evidence
+         → tb.claims.invalidate + hub channel note
 \`\`\``;

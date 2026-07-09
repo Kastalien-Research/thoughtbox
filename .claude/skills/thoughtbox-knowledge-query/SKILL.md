@@ -66,7 +66,7 @@ async () => {
 
 ### Phase 3: Retrieve Session Context (If Needed)
 
-For deep dives, retrieve the full session that produced an insight. Use the subagent-summarize pattern to avoid context pollution:
+For deep dives, retrieve the full session that produced an insight. Spawn a subagent to avoid context pollution:
 
 ```
 Spawn a subagent with:

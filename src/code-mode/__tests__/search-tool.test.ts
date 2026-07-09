@@ -65,16 +65,16 @@ describe("thoughtbox_search", () => {
 
   it("searches prompts by name", async () => {
     const result = await tool.handle({
-      code: `async () => catalog.prompts.filter(p => p.name.includes('spec'))`,
+      code: `async () => catalog.prompts.filter(p => p.name.includes('interleaved'))`,
     });
     const output = JSON.parse(result.content[0].text);
-    expect(output.result.length).toBeGreaterThanOrEqual(3);
-    expect(output.result.some((p: { name: string }) => p.name === "spec-designer")).toBe(true);
+    expect(output.result.length).toBeGreaterThanOrEqual(1);
+    expect(output.result.some((p: { name: string }) => p.name === "interleaved-thinking")).toBe(true);
   });
 
   it("searches resources by URI pattern", async () => {
     const result = await tool.handle({
-      code: `async () => catalog.resources.filter(r => r.uri.includes('tests'))`,
+      code: `async () => catalog.resources.filter(r => r.uri.includes('operations'))`,
     });
     const output = JSON.parse(result.content[0].text);
     expect(output.result.length).toBeGreaterThanOrEqual(2);
@@ -86,7 +86,7 @@ describe("thoughtbox_search", () => {
     });
     const output = JSON.parse(result.content[0].text);
     expect(output.result.length).toBeGreaterThan(0);
-    expect(output.result.some((t: string) => t.includes("{sessionId}"))).toBe(true);
+    expect(output.result.some((t: string) => t.includes("{op}"))).toBe(true);
   });
 
   it("returns durationMs in response envelope", async () => {

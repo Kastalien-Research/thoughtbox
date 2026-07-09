@@ -26,9 +26,6 @@ export type {
   SessionExport,
   ExportOptions,
   AuditManifest,
-  // Session analysis types (for session toolhost)
-  SessionAnalysis,
-  ExtractedLearning,
 } from './types.js';
 
 // Storage implementations

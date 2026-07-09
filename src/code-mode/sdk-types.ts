@@ -36,7 +36,6 @@ interface TB {
     includeGuide?: boolean;
     sessionTitle?: string;
     sessionTags?: string[];
-    critique?: boolean;
     verbose?: boolean;
     confidence?: "high" | "medium" | "low";
     options?: Array<{ label: string; selected: boolean; reason?: string }>;
@@ -55,9 +54,12 @@ interface TB {
     get(sessionId: string): Promise<unknown>;
     search(query: string, limit?: number): Promise<unknown>;
     resume(sessionId: string): Promise<unknown>;
+    /** Resume the most recently updated session in this workspace (no ID needed). */
+    resumeLatest(args?: { tags?: string[] }): Promise<unknown>;
+    /** Structured thought-graph queries: exactly one of type | start+end | referencesThought | revisionsOf. */
+    queryThoughts(args: { sessionId: string; type?: string; start?: number; end?: number; referencesThought?: number; revisionsOf?: number }): Promise<unknown>;
     export(sessionId: string, format?: "markdown" | "cipher" | "json"): Promise<unknown>;
     analyze(sessionId: string): Promise<unknown>;
-    extractLearnings(sessionId: string, args?: Record<string, unknown>): Promise<unknown>;
   };
 
   /** Knowledge graph. Source: src/knowledge/tool.ts */

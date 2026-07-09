@@ -10,11 +10,11 @@
  *
  * This guide teaches the calling agent how to perform qualitative analysis
  * on a reasoning session. The server provides objective structural metrics;
- * this guide helps the client identify key moments and extract learnings.
+ * this guide helps the client identify key moments and record learnings.
  */
 export const SESSION_ANALYSIS_GUIDE = `# Session Analysis Process
 
-You have received structural metrics for a reasoning session. To perform qualitative analysis and extract learnings, follow this process:
+You have received structural metrics for a reasoning session. To perform qualitative analysis and record learnings, follow this process:
 
 ## Step 1: Review Session Content
 
@@ -37,30 +37,17 @@ For each key moment identified, consider:
 - **Novelty**: Was this a new approach or standard reasoning?
 - **Transferability**: Could this pattern apply to other problems?
 
-## Step 4: Extract Learnings
+## Step 4: Record Learnings
 
-Call \`tb.session.extractLearnings\` via \`thoughtbox_execute\` with your identified key moments:
+Persist what you found using surviving surfaces:
 
-\`\`\`javascript
-async () => tb.session.extractLearnings("<session-id>", {
-  keyMoments: [
-    {
-      thoughtNumber: 5,
-      type: "decision",
-      significance: 8,
-      summary: "Chose hybrid approach over pure options"
-    }
-  ],
-  targetTypes: ["pattern", "anti-pattern", "signal"]
-})
-\`\`\`
-
-## Step 5: Generate Artifacts
-
-The extractLearnings operation will generate:
-- **Patterns**: From decisions and insights (for DGM experiments)
-- **Anti-patterns**: From revisions (what didn't work)
-- **Signals**: Session-level success/failure metrics
+- **Durable insights** — create knowledge entities:
+  \`tb.knowledge.createEntity({ name, type: "Insight", label, properties })\`
+  and link them with \`tb.knowledge.createRelation\`.
+- **Corroborating evidence** — \`tb.knowledge.addObservation({ entity_id, content })\`.
+- **Session-level summary** — record a concluding thought
+  (\`thoughtType: "reasoning"\`) in your own working session referencing the
+  analyzed session ID.
 
 ## Quality Indicators in Metrics
 
@@ -70,7 +57,6 @@ Use the structural metrics to guide your analysis:
 |--------|----------------|
 | High \`revisionRate\` | Look for anti-patterns - what needed correction |
 | Low \`linearityScore\` | Look for branch exploration patterns |
-| \`critiqueRequests\` > 0 | Check critique responses for quality signals |
 | \`isComplete\` = true | Session reached natural conclusion |
 | \`hasConvergence\` = true | Branching resolved to a decision |
 
@@ -93,27 +79,6 @@ When scanning thoughts, look for these signals:
 - Connections: "This is related to", "similar to"
 - Realizations: "I see now", "the key insight"
 
-## Writing Effective Learnings
-
-When providing key moments to \`tb.session.extractLearnings\`:
-
-1. **Be specific**: Include the exact thought number
-2. **Rate significance**: 1-10 scale helps prioritize
-3. **Summarize why**: Brief explanation aids future retrieval
-4. **Choose correct type**: decision, pivot, insight, revision, or branch
-
-## Evolution Integration
-
-Extracted learnings feed into the DGM evolution system:
-
-- **Patterns** become experimental entries in \`.claude/rules/evolution/experiments/\`
-- **Anti-patterns** document what to avoid
-- **Signals** append to \`.claude/rules/evolution/signals.jsonl\`
-
-Over time, successful patterns gain fitness and may be promoted to main rules.
-
-> **Note on paths**: The \`.claude/rules/evolution/\` paths refer to the Claude Code memory system directory structure, not Thoughtbox internal paths. These are filesystem paths where the calling Claude Code agent stores learnings for its own memory system. Thoughtbox extracts the learnings; the agent decides where to persist them.
-
 ---
 
 *This guide is available via the thoughtbox://session-analysis-guide resource.*
@@ -131,7 +96,7 @@ export function getSessionAnalysisResourceTemplates() {
         name: "session-analysis-guide",
         title: "Session Analysis Process Guide",
         description:
-          "Process guide for qualitative analysis of reasoning sessions. Teaches how to identify key moments and extract learnings for the DGM evolution system.",
+          "Process guide for qualitative analysis of reasoning sessions. Teaches how to identify key moments and record learnings to the knowledge graph.",
         mimeType: "text/markdown",
         annotations: {
           audience: ["assistant"],

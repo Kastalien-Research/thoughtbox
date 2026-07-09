@@ -45,16 +45,15 @@ interface SearchCatalog {
   resourceTemplates: Array<{ name: string; uriTemplate: string; description: string; mimeType: string }>;
 }
 
-Modules in catalog.operations: session, thought, knowledge, notebook, theseus, ulysses, observability, branch, hub
+Modules in catalog.operations: session, thought, knowledge, notebook, theseus, ulysses, observability, branch, hub, claims, runbook
 Public MCP tools in catalog.publicTools: thoughtbox_search, thoughtbox_execute, thoughtbox_peer_notebook
-The legacy init entrypoint is intentionally absent from the Code Mode catalog.
 
 Examples:
 - List all modules: \`async () => Object.keys(catalog.operations)\`
 - List public tools: \`async () => catalog.publicTools\`
 - Find session operations: \`async () => catalog.operations.session\`
 - Search by keyword: \`async () => { const q = "entity"; return Object.entries(catalog.operations).flatMap(([mod, ops]) => Object.entries(ops).filter(([_, op]) => op.description.toLowerCase().includes(q)).map(([name, op]) => ({ module: mod, name, title: op.title }))) }\`
-- Find prompts: \`async () => catalog.prompts.filter(p => p.name.includes('spec'))\`
+- Find prompts: \`async () => catalog.prompts.filter(p => p.name.includes('interleaved'))\`
 - List resources: \`async () => catalog.resources.map(r => ({ name: r.name, uri: r.uri }))\``,
   inputSchema: searchToolInputSchema,
   annotations: {

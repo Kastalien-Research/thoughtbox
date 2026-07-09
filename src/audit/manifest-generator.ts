@@ -5,7 +5,7 @@
 import type { ThoughtData } from '../persistence/types.js';
 
 export interface AuditGap {
-  type: 'decision_without_action' | 'critique_override';
+  type: 'decision_without_action';
   thoughtNumber: number;
   description: string;
 }
@@ -51,12 +51,6 @@ export interface AuditData {
   };
 
   gaps: AuditGap[];
-
-  critiques: {
-    generated: number;
-    addressed: number;
-    overridden: number;
-  };
 }
 
 type ThoughtType = ThoughtData['thoughtType'];
@@ -195,67 +189,10 @@ function detectGaps(thoughts: ThoughtData[]): AuditGap[] {
   return gaps;
 }
 
-function extractCritiqueWords(text: string): string[] {
-  return text
-    .split(/\s+/)
-    .map((w) => w.replace(/[^a-zA-Z]/g, '').toLowerCase())
-    .filter((w) => w.length >= 4);
-}
-
-function analyzeCritiques(
-  thoughts: ThoughtData[]
-): { critiques: AuditData['critiques']; gaps: AuditGap[] } {
-  let generated = 0;
-  let addressed = 0;
-  let overridden = 0;
-  const gaps: AuditGap[] = [];
-
-  for (let i = 0; i < thoughts.length; i++) {
-    const t = thoughts[i];
-    if (!t.critique?.text) continue;
-    generated++;
-
-    const nextThought = thoughts[i + 1];
-    if (!nextThought) {
-      overridden++;
-      gaps.push({
-        type: 'critique_override',
-        thoughtNumber: t.thoughtNumber,
-        description: `Critique at thought ${t.thoughtNumber} was not addressed (no following thought)`,
-      });
-      continue;
-    }
-
-    const critiqueWords = extractCritiqueWords(t.critique.text);
-    const nextText = nextThought.thought.toLowerCase();
-    const referenced = critiqueWords.some((w) =>
-      nextText.includes(w)
-    );
-
-    if (referenced) {
-      addressed++;
-    } else {
-      overridden++;
-      gaps.push({
-        type: 'critique_override',
-        thoughtNumber: t.thoughtNumber,
-        description: `Critique at thought ${t.thoughtNumber} was not addressed in following thought`,
-      });
-    }
-  }
-
-  return {
-    critiques: { generated, addressed, overridden },
-    gaps,
-  };
-}
-
 export function generateAuditData(
   sessionId: string,
   thoughts: ThoughtData[]
 ): AuditData {
-  const critiqueResult = analyzeCritiques(thoughts);
-  const decisionGaps = detectGaps(thoughts);
   return {
     sessionId,
     generatedAt: new Date().toISOString(),
@@ -263,8 +200,7 @@ export function generateAuditData(
     decisions: aggregateDecisions(thoughts),
     actions: aggregateActions(thoughts),
     assumptions: countAssumptions(thoughts),
-    gaps: [...decisionGaps, ...critiqueResult.gaps],
-    critiques: critiqueResult.critiques,
+    gaps: detectGaps(thoughts),
   };
 }
 
@@ -283,6 +219,5 @@ export function toAuditManifest(
     actions: data.actions,
     gaps: data.gaps,
     assumptionFlips: data.assumptions.flips,
-    critiques: data.critiques,
   };
 }

@@ -68,7 +68,6 @@ export const thoughtToolInputSchema = z.object({
   sessionTags: z.array(z.string()).optional().describe("Tags for a new reasoning session"),
   
   // Autonomous/Advanced
-  critique: z.boolean().optional().describe("Request an autonomous critique of this thought"),
   verbose: z.boolean().optional().describe("Return verbose response including the structured metadata mapping"),
   
   // Type discriminators & Metadata

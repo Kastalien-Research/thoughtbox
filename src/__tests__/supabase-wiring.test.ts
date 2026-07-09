@@ -41,7 +41,6 @@ describe('H6: createStorage() wiring', () => {
     expect(typeof iface.getThought).toBe('function');
     expect(typeof iface.saveBranchThought).toBe('function');
     expect(typeof iface.getBranch).toBe('function');
-    expect(typeof iface.updateThoughtCritique).toBe('function');
     expect(typeof iface.exportSession).toBe('function');
     expect(typeof iface.toLinkedExport).toBe('function');
     expect(typeof iface.validateSessionIntegrity).toBe('function');

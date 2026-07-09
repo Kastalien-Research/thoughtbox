@@ -828,26 +828,6 @@ export class FileSystemStorage implements ThoughtboxStorage {
     return nodes.map(node => node.data);
   }
 
-  async updateThoughtCritique(
-    sessionId: string,
-    thoughtNumber: number,
-    critique: { text: string; model: string; timestamp: string }
-  ): Promise<void> {
-    // 1. Update in-memory LinkedThoughtStore
-    const node = this.linkedStore.getThoughtByNumber(sessionId, thoughtNumber);
-    if (!node) return;
-
-    node.data.critique = critique;
-
-    // 2. Write updated thought file to disk (atomic)
-    const session = this.sessions.get(sessionId);
-    if (session) {
-      const sessionDir = this.getSessionDir(sessionId, session.partitionPath);
-      const thoughtPath = this.getThoughtPath(sessionDir, thoughtNumber);
-      await this.atomicWriteJson(thoughtPath, node);
-    }
-  }
-
   private async updateManifestThought(sessionId: string, thoughtNumber: number): Promise<void> {
     const session = this.sessions.get(sessionId);
     if (!session) return;

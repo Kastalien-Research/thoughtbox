@@ -58,14 +58,17 @@ export class SessionHandler {
         case "resume":
           result = await this.handlers.handleResume(args);
           break;
+        case "resume_latest":
+          result = await this.handlers.handleResumeLatest(args);
+          break;
+        case "query_thoughts":
+          result = await this.handlers.handleQueryThoughts(args);
+          break;
         case "export":
           result = await this.handlers.handleExport(args);
           break;
         case "analyze":
           result = await this.handlers.handleAnalyze(args);
-          break;
-        case "extract_learnings":
-          result = await this.handlers.handleExtractLearnings(args);
           break;
         default:
           throw new Error(`Unknown session operation: ${operation}`);

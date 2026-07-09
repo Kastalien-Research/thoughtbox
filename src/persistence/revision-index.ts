@@ -8,7 +8,7 @@
  * Design Decision D2: Separate chains for separate thoughts
  */
 
-import type { ThoughtNode, RevisionMetadata } from "../persistence/types.js";
+import type { ThoughtNode, RevisionMetadata } from "./types.js";
 
 export class RevisionIndexBuilder {
   /**

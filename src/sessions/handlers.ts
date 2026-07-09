@@ -9,10 +9,37 @@ import {
   type Session,
   type SessionFilter,
   type ThoughtData,
-  type SessionAnalysis,
-  type ExtractedLearning,
 } from "../persistence/index.js";
 import { ThoughtHandler } from "../thought-handler.js";
+import { ThoughtQuery, type ThoughtQueryArgs } from "./thought-query.js";
+
+/**
+ * Session analysis result with objective metrics
+ * (session_analyze operation; moved here from persistence/types.ts)
+ */
+export interface SessionAnalysis {
+  sessionId: string;
+  metadata: {
+    title: string;
+    tags: string[] | undefined;
+    thoughtCount: number;
+    branchCount: number;
+    revisionCount: number;
+    duration: number;           // Milliseconds from first to last thought
+    createdAt: string;          // ISO 8601
+    lastUpdatedAt: string;      // ISO 8601
+  };
+  structure: {
+    linearityScore: number;     // 0-1, higher = more linear reasoning
+    revisionRate: number;       // Revisions / total thoughts
+    maxDepth: number;           // Count of distinct branch IDs
+    thoughtDensity: number;     // Thoughts per minute
+  };
+  quality: {
+    hasConvergence: boolean;    // Main chain continues after branches
+    isComplete: boolean;        // Final thought has nextThoughtNeeded: false
+  };
+}
 
 export interface SessionHandlerDeps {
   storage: ThoughtboxStorage;
@@ -22,10 +49,20 @@ export interface SessionHandlerDeps {
 export class SessionHandlers {
   private storage: ThoughtboxStorage;
   private thoughtHandler: ThoughtHandler;
+  private thoughtQuery: ThoughtQuery;
 
   constructor(deps: SessionHandlerDeps) {
     this.storage = deps.storage;
     this.thoughtHandler = deps.thoughtHandler;
+    this.thoughtQuery = new ThoughtQuery(deps.storage);
+  }
+
+  /**
+   * Structured thought-graph queries (folded SPEC-001 resource templates):
+   * by type, by range, by reference, or revision history.
+   */
+  async handleQueryThoughts(args: ThoughtQueryArgs) {
+    return this.thoughtQuery.query(args);
   }
 
   /**
@@ -198,6 +235,30 @@ export class SessionHandlers {
       message: `Session resumed. Continue reasoning from thought ${nextThought}. Use thoughtbox tool with thoughtNumber: ${nextThought} to continue.`,
       ...(restoration && { restoration }),
     };
+  }
+
+  /**
+   * Resume the most recently updated session in the current workspace.
+   * Convenience wrapper: list (sorted by updatedAt desc) then resume.
+   */
+  async handleResumeLatest(args: { tags?: string[] } = {}): Promise<
+    | Awaited<ReturnType<SessionHandlers["handleResume"]>>
+    | { success: false; message: string }
+  > {
+    const sessions = await this.storage.listSessions({
+      limit: 1,
+      sortBy: "updatedAt",
+      sortOrder: "desc",
+      tags: args.tags,
+    });
+    if (sessions.length === 0) {
+      return {
+        success: false,
+        message:
+          "No sessions found in this workspace. Start one with tb.thought({ thought, nextThoughtNeeded: true }).",
+      };
+    }
+    return this.handleResume({ sessionId: sessions[0].id });
   }
 
   /**
@@ -463,7 +524,6 @@ export class SessionHandlers {
           thoughtDensity: 0,
         },
         quality: {
-          critiqueRequests: 0,
           hasConvergence: false,
           isComplete: false,
         },
@@ -498,7 +558,6 @@ export class SessionHandlers {
     const thoughtDensity = durationMinutes > 0 ? thoughts.length / durationMinutes : 0;
 
     // Quality indicators
-    const critiqueRequests = thoughts.filter((t) => t.critique).length;
     const lastThought = thoughts[thoughts.length - 1];
 
     // True convergence: main-chain thoughts exist AFTER branch thoughts
@@ -533,136 +592,9 @@ export class SessionHandlers {
         thoughtDensity: Math.round(thoughtDensity * 100) / 100,
       },
       quality: {
-        critiqueRequests,
         hasConvergence,
         isComplete,
       },
     };
   }
-
-  /**
-   * Extract learnings from a session for DGM evolution
-   */
-  async handleExtractLearnings(args: {
-    sessionId: string;
-    keyMoments?: Array<{ thoughtNumber: number; type: string; significance?: number; summary?: string }>;
-    targetTypes?: Array<'pattern' | 'anti-pattern' | 'signal'>;
-  }): Promise<{
-    sessionId: string;
-    extractedCount: number;
-    note?: string;
-    learnings: ExtractedLearning[];
-  }> {
-    const keyMoments = args.keyMoments ?? [];
-    const targetTypes = args.targetTypes ?? ['signal'];
-
-    const analysis = await this.handleAnalyze({ sessionId: args.sessionId });
-    const thoughts = await this.storage.getThoughts(args.sessionId);
-
-    const learnings: ExtractedLearning[] = [];
-    const now = new Date().toISOString();
-
-    // Extract patterns from client-identified key moments
-    if (targetTypes.includes('pattern')) {
-      const patternMoments = keyMoments.filter(
-        (m) => m.type === 'decision' || m.type === 'insight' || m.type === 'pivot'
-      );
-
-      for (const moment of patternMoments.slice(0, 5)) {
-        const thought = thoughts.find((t) => t.thoughtNumber === moment.thoughtNumber);
-        if (!thought) continue;
-
-        learnings.push({
-          type: 'pattern',
-          content: `### ${analysis.metadata.title}: Thought ${moment.thoughtNumber}
-
-- **Context**: ${moment.type} in reasoning session
-- **Significance**: ${moment.significance ?? 'unrated'}/10
-- **Pattern**: ${thought.thought.substring(0, 500)}
-- **Summary**: ${moment.summary ?? 'No summary provided'}
-- **Source**: Session ${analysis.sessionId}
-- **BCs**: specificity=5, applicability=5, complexity=3, maturity=1
-`,
-          targetPath: `.claude/rules/evolution/experiments/${analysis.sessionId.substring(0, 8)}-thought-${moment.thoughtNumber}.md`,
-          metadata: {
-            sourceSession: analysis.sessionId,
-            sourceThoughts: [moment.thoughtNumber],
-            extractedAt: now,
-            behaviorCharacteristics: {
-              specificity: 5,
-              applicability: 5,
-              complexity: 3,
-              maturity: 1,
-            },
-          },
-        });
-      }
-    }
-
-    // Extract anti-patterns from revisions
-    if (targetTypes.includes('anti-pattern')) {
-      const revisions = keyMoments.filter((m) => m.type === 'revision');
-
-      for (const revision of revisions.slice(0, 3)) {
-        const thought = thoughts.find((t) => t.thoughtNumber === revision.thoughtNumber);
-        if (!thought) continue;
-
-        learnings.push({
-          type: 'anti-pattern',
-          content: `### Anti-Pattern: Revision in ${analysis.metadata.title}
-
-- **Original thought**: ${thought.revisesThought}
-- **What changed**: ${thought.thought.substring(0, 300)}
-- **Summary**: ${revision.summary ?? 'No summary provided'}
-- **Lesson**: Initial reasoning was incorrect/incomplete
-- **Source**: Session ${analysis.sessionId}
-`,
-          targetPath: `.claude/rules/evolution/experiments/anti-${analysis.sessionId.substring(0, 8)}-thought-${thought.revisesThought}.md`,
-          metadata: {
-            sourceSession: analysis.sessionId,
-            sourceThoughts: [revision.thoughtNumber, thought.revisesThought || 0],
-            extractedAt: now,
-          },
-        });
-      }
-    }
-
-    // Generate objective fitness signal
-    if (targetTypes.includes('signal')) {
-      const signal = {
-        timestamp: now,
-        session: analysis.sessionId,
-        signal: analysis.quality.isComplete ? 'success' : 'incomplete',
-        metrics: {
-          thoughts: analysis.metadata.thoughtCount,
-          branches: analysis.metadata.branchCount,
-          revisions: analysis.metadata.revisionCount,
-          duration: analysis.metadata.duration,
-          linearityScore: analysis.structure.linearityScore,
-          critiqueUsage: analysis.quality.critiqueRequests,
-        },
-      };
-
-      learnings.push({
-        type: 'signal',
-        content: JSON.stringify(signal),
-        targetPath: `.claude/rules/evolution/signals.jsonl`,
-        metadata: {
-          sourceSession: analysis.sessionId,
-          sourceThoughts: [],
-          extractedAt: now,
-        },
-      });
-    }
-
-    return {
-      sessionId: args.sessionId,
-      extractedCount: learnings.length,
-      note: keyMoments.length === 0 && targetTypes.includes('pattern')
-        ? "No patterns extracted. Provide keyMoments to extract patterns."
-        : undefined,
-      learnings,
-    };
-  }
-
 }

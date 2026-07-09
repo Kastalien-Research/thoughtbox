@@ -12,9 +12,6 @@ import {
   thoughtEmitter,
   type Thought as EmittedThought,
 } from "./events/index.js";
-import { SamplingHandler } from "./sampling/index.js";
-// SIL-104: Event stream for external consumers
-import type { ThoughtboxEventEmitter } from "./events/index.js";
 
 export interface ThoughtData {
   thought: string;
@@ -32,8 +29,6 @@ export interface ThoughtData {
   // Session metadata (used at thoughtNumber=1 for auto-create)
   sessionTitle?: string;
   sessionTags?: string[];
-  // Request autonomous critique of this thought (Phase 3: Sampling Loops)
-  critique?: boolean;
   // SIL-101: Verbose response mode - when false (default), return minimal response
   verbose?: boolean;
   // Operations mode: structured thought type for auditability filtering
@@ -65,12 +60,6 @@ export class ThoughtHandler {
   private storage: ThoughtboxStorage;
   private currentSessionId: string | null = null;  // Reasoning session ID (persistent)
   private initialized: boolean = false;
-
-  // Sampling handler for autonomous critique (Phase 3)
-  private samplingHandler: SamplingHandler | null = null;
-
-  // SIL-104: Event emitter for external consumers (JSONL stream)
-  private eventEmitter: ThoughtboxEventEmitter | null = null;
 
   // Processing queue to serialize concurrent thought operations
   // Prevents race conditions when multiple thoughts arrive simultaneously
@@ -104,22 +93,6 @@ export class ThoughtHandler {
     if (this.initialized) return;
     await this.storage.initialize();
     this.initialized = true;
-  }
-
-  /**
-   * Set the sampling handler for autonomous critique
-   * Uses deferred initialization pattern - handler is set after transport connects
-   */
-  setSamplingHandler(handler: SamplingHandler): void {
-    this.samplingHandler = handler;
-  }
-
-  /**
-   * SIL-104: Set the event emitter for external JSONL event stream
-   * Uses deferred initialization pattern - emitter is set after server setup
-   */
-  setEventEmitter(emitter: ThoughtboxEventEmitter): void {
-    this.eventEmitter = emitter;
   }
 
   /**
@@ -197,19 +170,6 @@ export class ThoughtHandler {
   }
 
   /**
-   * Auto-export session to filesystem when it closes
-   * @returns Path to exported file
-   */
-  private async autoExportSession(sessionId: string): Promise<string> {
-    // Get linked export data from storage
-    const exportData = await (this.storage as any).toLinkedExport(sessionId);
-
-    // Export to filesystem
-    const exporter = new SessionExporter();
-    return exporter.export(exportData, sessionId);
-  }
-
-  /**
    * Export a reasoning session to filesystem as linked JSON
    * Public method for manual export via tool
    */
@@ -229,15 +189,6 @@ export class ThoughtHandler {
     // Export to filesystem
     const exporter = new SessionExporter();
     const exportPath = await exporter.export(exportData, sessionId, destination);
-
-    // SIL-104: Emit export_requested event to external event stream
-    if (this.eventEmitter?.isEnabled()) {
-      this.eventEmitter.emitExportRequested({
-        sessionId,
-        exportPath,
-        nodeCount: exportData.nodes.length,
-      });
-    }
 
     return {
       path: exportPath,
@@ -403,8 +354,6 @@ export class ThoughtHandler {
       // Session metadata
       sessionTitle: data.sessionTitle as string | undefined,
       sessionTags: data.sessionTags as string[] | undefined,
-      // Sampling critique
-      critique: data.critique as boolean | undefined,
       // SIL-101: Verbose mode (default false)
       verbose: data.verbose as boolean | undefined,
       // Operations mode: structured thought type
@@ -683,11 +632,6 @@ export class ThoughtHandler {
       // If caller provides a sessionTitle while a session is active,
       // they intend to start a new session. Close the current one first.
       if (this.currentSessionId && validatedInput.sessionTitle) {
-        try {
-          await this.autoExportSession(this.currentSessionId);
-        } catch {
-          // Export failure is non-fatal
-        }
         this.currentSessionId = null;
         this.thoughtHistory = [];
         this.branches = {};
@@ -739,15 +683,6 @@ export class ThoughtHandler {
               console.warn('[ThoughtEmitter] Session start emit failed:', e instanceof Error ? e.message : e);
             }
           }
-
-          // SIL-104: Emit session_created event
-          if (this.eventEmitter?.isEnabled()) {
-            this.eventEmitter.emitSessionCreated({
-              sessionId: session.id,
-              title: session.title,
-              tags: session.tags,
-            });
-          }
         }
       }
 
@@ -766,9 +701,6 @@ export class ThoughtHandler {
       const isNewBranch = validatedInput.branchFromThought &&
                           validatedInput.branchId &&
                           !this.branches[validatedInput.branchId];
-
-      // Critique result (populated if critique requested and sampling succeeds)
-      let critiqueResult: { text: string; model: string; timestamp: string } | null = null;
 
       // Persist to storage if session is active
       if (this.currentSessionId) {
@@ -929,67 +861,6 @@ export class ThoughtHandler {
           }
         }
 
-        // SIL-104: Emit thought_added and branch_created events
-        if (this.eventEmitter?.isEnabled()) {
-          // Track if thoughtNumber was auto-assigned (SIL-102)
-          const wasAutoAssigned = (input as Record<string, unknown>).thoughtNumber === undefined;
-
-          // Emit thought_added for all thoughts
-          this.eventEmitter.emitThoughtAdded({
-            sessionId: this.currentSessionId!,
-            thoughtNumber: validatedInput.thoughtNumber,
-            wasAutoAssigned,
-            thoughtPreview: validatedInput.thought.slice(0, 100) + (validatedInput.thought.length > 100 ? '...' : ''),
-          });
-
-          // Emit branch_created for new branches
-          if (willCreateNewBranch) {
-            this.eventEmitter.emitBranchCreated({
-              sessionId: this.currentSessionId!,
-              branchId: validatedInput.branchId!,
-              fromThoughtNumber: validatedInput.branchFromThought!,
-            });
-          }
-        }
-
-        // Request critique if enabled and sampling handler available
-        if (validatedInput.critique && this.samplingHandler) {
-          try {
-            // Build context from in-memory history (last 5 thoughts, excluding current)
-            const context = this.thoughtHistory
-              .filter(t => (t.thoughtNumber ?? 0) < validatedInput.thoughtNumber && !t.branchId)
-              .slice(-5)
-              .map(({ critique: _, ...rest }) => ({
-                ...rest,
-                timestamp: new Date().toISOString(),
-              })) as PersistentThoughtData[];
-
-            const critiqueText = await this.samplingHandler.requestCritique(
-              validatedInput.thought,
-              context
-            );
-
-            critiqueResult = {
-              text: critiqueText,
-              model: 'claude-sonnet-4-5-20250929',
-              timestamp: new Date().toISOString(),
-            };
-
-            // Persist critique in background (fire-and-forget)
-            this.storage.updateThoughtCritique(
-              this.currentSessionId,
-              validatedInput.thoughtNumber,
-              { ...critiqueResult }
-            ).catch(err => console.error('[Thoughtbox] Critique persistence failed:', err));
-          } catch (error: unknown) {
-            // Graceful degradation - don't fail thought if critique fails
-            // error.code === -32601 means sampling not supported by client
-            const err = error as { code?: number; message?: string };
-            if (err.code !== -32601) {
-              console.error('[Thoughtbox] Critique request failed:', err.message || error);
-            }
-          }
-        }
       } else {
         // No active session - update in-memory state only
         this.thoughtHistory.push(validatedInput);
@@ -1049,74 +920,33 @@ export class ThoughtHandler {
           }
         }
 
-        // SIL-104: Emit session_completed event to external event stream
-        if (this.eventEmitter?.isEnabled()) {
-          this.eventEmitter.emitSessionCompleted({
-            sessionId: this.currentSessionId,
-            finalThoughtCount: this.thoughtHistory.length,
-            branchCount: Object.keys(this.branches).length,
-            auditManifest,
-          });
-        }
+        // Session is durably persisted by storage; no legacy filesystem
+        // double-write on close. Manual exports: tb.session.export(sessionId).
+        const closingSessionId = this.currentSessionId;
+        this.currentSessionId = null;
 
-        // Auto-export before session ends
-        try {
-          const exportPath = await this.autoExportSession(this.currentSessionId);
-          const closingSessionId = this.currentSessionId;
-          this.currentSessionId = null;
-
-          // Include export info in response
-          return {
-            content: [
-              {
-                type: "text",
-                text: JSON.stringify(
-                  {
-                    thoughtNumber: validatedInput.thoughtNumber,
-                    totalThoughts: validatedInput.totalThoughts,
-                    nextThoughtNeeded: validatedInput.nextThoughtNeeded,
-                    branches: Object.keys(this.branches),
-                    thoughtHistoryLength: this.thoughtHistory.length,
-                    sessionId: null,
-                    sessionClosed: true,
-                    closedSessionId: closingSessionId,
-                    exportPath,
-                    ...(critiqueResult && { critique: critiqueResult }),
-                    ...(auditManifest && { auditManifest }),
-                  },
-                  null,
-                  2
-                ),
-              },
-            ],
-          };
-        } catch (err) {
-          // Export failed - session remains open to prevent data loss
-          const exportError = (err as Error).message;
-          console.error(`Auto-export failed: ${exportError}`);
-
-          return {
-            content: [
-              {
-                type: "text",
-                text: JSON.stringify(
-                  {
-                    thoughtNumber: validatedInput.thoughtNumber,
-                    totalThoughts: validatedInput.totalThoughts,
-                    nextThoughtNeeded: validatedInput.nextThoughtNeeded,
-                    branches: Object.keys(this.branches),
-                    thoughtHistoryLength: this.thoughtHistory.length,
-                    sessionId: this.currentSessionId,
-                    warning: `Auto-export failed: ${exportError}. Session remains open to prevent data loss. You can manually export via tb.session.export(sessionId) in thoughtbox_execute.`,
-                    ...(critiqueResult && { critique: critiqueResult }),
-                  },
-                  null,
-                  2
-                ),
-              },
-            ],
-          };
-        }
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify(
+                {
+                  thoughtNumber: validatedInput.thoughtNumber,
+                  totalThoughts: validatedInput.totalThoughts,
+                  nextThoughtNeeded: validatedInput.nextThoughtNeeded,
+                  branches: Object.keys(this.branches),
+                  thoughtHistoryLength: this.thoughtHistory.length,
+                  sessionId: null,
+                  sessionClosed: true,
+                  closedSessionId: closingSessionId,
+                  ...(auditManifest && { auditManifest }),
+                },
+                null,
+                2
+              ),
+            },
+          ],
+        };
       }
 
       if (!this.disableThoughtLogging) {
@@ -1173,7 +1003,6 @@ export class ThoughtHandler {
       if (validatedInput.branchFromThought) verbosePayload.branchFromThought = validatedInput.branchFromThought;
       if (validatedInput.isRevision) verbosePayload.isRevision = validatedInput.isRevision;
       if (validatedInput.revisesThought) verbosePayload.revisesThought = validatedInput.revisesThought;
-      if (critiqueResult) verbosePayload.critique = critiqueResult;
 
       const content: Array<any> = [
         {
