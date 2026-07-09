@@ -1,19 +1,23 @@
 /**
  * ClaimStorage contract suite (SPEC-AGX-SUBSTRATE B1, claim c1).
  *
- * Runs the shared contract against both backends — InMemoryClaimStorage
- * and SupabaseClaimStorage (local stack) — then covers Supabase-specific
- * guarantees: cross-instance optimistic concurrency, idempotent appends
- * across instances, and tenant isolation. Supabase tests skip gracefully
- * when the local stack is not running (src/__tests__/supabase-test-helpers).
- *
- * A FileSystemClaimStorage is deliberately absent (deferred per spec §11.5).
+ * Runs the shared contract against all three backends — InMemoryClaimStorage,
+ * SqliteClaimStorage (local durable), and SupabaseClaimStorage (local stack) —
+ * then covers backend-specific guarantees: SQLite restart survival and
+ * cross-instance concurrency over the same database file; Supabase
+ * cross-instance optimistic concurrency, idempotent appends across
+ * instances, and tenant isolation. Supabase tests skip gracefully when the
+ * local stack is not running (src/__tests__/supabase-test-helpers).
  */
 
 import { describe, it, expect, beforeAll, beforeEach } from 'vitest';
 import { randomUUID } from 'node:crypto';
+import * as os from 'node:os';
+import * as path from 'node:path';
+import { mkdtempSync } from 'node:fs';
 import { createClaimsHandler } from '../claims-handler.js';
 import { InMemoryClaimStorage } from '../in-memory-claim-storage.js';
+import { SqliteClaimStorage } from '../sqlite-claim-storage.js';
 import { SupabaseClaimStorage } from '../supabase-claim-storage.js';
 import { SupabaseHubStorage } from '../../hub/supabase-hub-storage.js';
 import type { Claim, ClaimEdge, ClaimStorage, ClaimSubscription } from '../types.js';
@@ -328,6 +332,159 @@ describe('ClaimStorage contract — InMemoryClaimStorage', () => {
   });
 
   runClaimStorageContract(() => context, () => true);
+});
+
+// =============================================================================
+// Contract: SqliteClaimStorage (local durable backend)
+// =============================================================================
+
+function freshClaimDbPath(): string {
+  return path.join(mkdtempSync(path.join(os.tmpdir(), 'tb-claims-')), 'claims.db');
+}
+
+describe('ClaimStorage contract — SqliteClaimStorage', () => {
+  let context: ContractContext;
+
+  beforeEach(() => {
+    context = {
+      storage: new SqliteClaimStorage(freshClaimDbPath()),
+      workspaceId: `ws-${randomUUID()}`,
+    };
+  });
+
+  runClaimStorageContract(() => context, () => true);
+});
+
+describe('SqliteClaimStorage — restart survival and cross-instance behavior', () => {
+  let dbPath: string;
+  let workspaceId: string;
+
+  beforeEach(() => {
+    dbPath = freshClaimDbPath();
+    workspaceId = `ws-${randomUUID()}`;
+  });
+
+  it('claims, edges, and subscriptions survive a restart (new storage on the same file)', async () => {
+    const before = new SqliteClaimStorage(dbPath);
+    const base = makeClaim(workspaceId, { statement: 'restart-durable claim' });
+    const dependent = makeClaim(workspaceId, { statement: 'dependent claim' });
+    await before.saveClaim(base);
+    await before.saveClaim(dependent);
+    await before.addEdge(makeEdge(dependent.id, base.id));
+    // The B6 await-cell subscription shape: a parked runbook cell's durable
+    // subscription row must survive the server restarting mid-await.
+    const awaitSubscriber = `runbook:rbi-${randomUUID()}/wait1`;
+    await before.addSubscription(makeSubscription(base.id, awaitSubscriber));
+    before.close();
+
+    const after = new SqliteClaimStorage(dbPath);
+    expect(await after.getClaim(base.id)).toEqual(base);
+    expect(await after.queryClaims({ workspaceId })).toHaveLength(2);
+    expect(await after.listEdges({ toClaim: base.id })).toHaveLength(1);
+    expect(
+      (await after.listSubscriptions(base.id)).map(sub => sub.subscriber),
+    ).toEqual([awaitSubscriber]);
+
+    // The reloaded claim carries a live CAS version: status transitions
+    // continue where they left off.
+    const reloaded = await after.getClaim(base.id);
+    reloaded!.status = 'supported';
+    reloaded!.statusChangedAt = new Date().toISOString();
+    reloaded!.updatedAt = reloaded!.statusChangedAt;
+    await after.saveClaim(reloaded!);
+    expect((await after.getClaim(base.id))!.status).toBe('supported');
+  });
+
+  it('stale save from a second instance over the same file fails fast', async () => {
+    const writerA = new SqliteClaimStorage(dbPath);
+    const writerB = new SqliteClaimStorage(dbPath);
+
+    const claim = makeClaim(workspaceId);
+    await writerA.saveClaim(claim);
+
+    const viewA = await writerA.getClaim(claim.id);
+    const viewB = await writerB.getClaim(claim.id);
+
+    viewA!.status = 'supported';
+    viewA!.updatedAt = new Date().toISOString();
+    await writerA.saveClaim(viewA!);
+
+    viewB!.status = 'invalidated';
+    viewB!.updatedAt = new Date().toISOString();
+    await expect(writerB.saveClaim(viewB!)).rejects.toThrow(/concurrent update/);
+    expect((await writerA.getClaim(claim.id))!.status).toBe('supported');
+  });
+
+  it('supersede losing a cross-instance CAS race leaves no orphaned replacement', async () => {
+    const storageA = new SqliteClaimStorage(dbPath);
+    const storageB = new SqliteClaimStorage(dbPath);
+
+    const claim = makeClaim(workspaceId);
+    await storageA.saveClaim(claim);
+
+    // Same interposition as the Supabase race test: as soon as the supersede
+    // running through instance A reads the claim, instance B wins the
+    // version race with a concurrent status update.
+    let injectRace = true;
+    const racingStorage: ClaimStorage = {
+      getClaim: async claimId => {
+        const result = await storageA.getClaim(claimId);
+        if (injectRace) {
+          injectRace = false;
+          const viewB = await storageB.getClaim(claimId);
+          viewB!.status = 'supported';
+          viewB!.evidenceRefs = ['ref-from-racing-instance'];
+          viewB!.updatedAt = new Date().toISOString();
+          await storageB.saveClaim(viewB!);
+        }
+        return result;
+      },
+      getClaims: ids => storageA.getClaims(ids),
+      saveClaim: candidate => storageA.saveClaim(candidate),
+      supersedeClaim: (original, replacement) => storageA.supersedeClaim(original, replacement),
+      queryClaims: query => storageA.queryClaims(query),
+      addEdge: edge => storageA.addEdge(edge),
+      listEdges: filter => storageA.listEdges(filter),
+      addSubscription: subscription => storageA.addSubscription(subscription),
+      removeSubscription: (id, subscriber) => storageA.removeSubscription(id, subscriber),
+      listSubscriptions: id => storageA.listSubscriptions(id),
+    };
+    const racingHandler = createClaimsHandler(racingStorage);
+
+    await expect(
+      racingHandler.handle('agent-alice', 'supersede', {
+        claimId: claim.id,
+        statement: 'replacement that must not be orphaned',
+      }),
+    ).rejects.toThrow(/concurrent update/);
+
+    // The lost race committed nothing: only the original row exists, with
+    // the racing instance's update intact and no superseded_by pointer.
+    const rows = await storageB.queryClaims({ workspaceId });
+    expect(rows.map(row => row.id)).toEqual([claim.id]);
+    expect(rows[0]!.status).toBe('supported');
+    expect(rows[0]!.supersededBy).toBeUndefined();
+  });
+
+  it('edge and subscription appends from two instances are idempotent and all retained', async () => {
+    const writerA = new SqliteClaimStorage(dbPath);
+    const writerB = new SqliteClaimStorage(dbPath);
+
+    const base = makeClaim(workspaceId);
+    await writerA.saveClaim(base);
+    const dependent = makeClaim(workspaceId, { statement: 'dependent' });
+    await writerA.saveClaim(dependent);
+
+    const edge = makeEdge(dependent.id, base.id);
+    await writerA.addEdge(edge);
+    await writerB.addEdge(edge); // at-least-once retry through another instance
+    await writerA.addSubscription(makeSubscription(base.id, 'agent-a'));
+    await writerB.addSubscription(makeSubscription(base.id, 'agent-b'));
+
+    const reader = new SqliteClaimStorage(dbPath);
+    expect(await reader.listEdges({ toClaim: base.id })).toHaveLength(1);
+    expect(await reader.listSubscriptions(base.id)).toHaveLength(2);
+  });
 });
 
 // =============================================================================
