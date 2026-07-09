@@ -1,4 +1,12 @@
 import { randomUUID } from "node:crypto";
+import {
+  evaluateGraduationGate,
+  resolveGraduationGateMode,
+  type GraduationGateDecision,
+  type GraduationGateMode,
+  type GraduationThresholds,
+} from "../notebook/runbook/graduation-gate.js";
+import type { RunbookStorage } from "../notebook/runbook/types.js";
 import { createPeerBroker } from "./broker.js";
 import { LocalProcessRuntimeProvider } from "./local-process-runtime-provider.js";
 import { compilePeerManifestDraft } from "./manifest.js";
@@ -63,6 +71,24 @@ export interface PeerGraduationNotebook {
 /** Read-only notebook lookup used by peer_graduate_notebook. */
 export interface PeerGraduationNotebookSource {
   getNotebook(notebookId: string): PeerGraduationNotebook | undefined;
+  /**
+   * B10: fitness-ledger access for the evidence gate. NotebookHandler
+   * satisfies this structurally, so production wiring (notebookSource = the
+   * notebook handler) reads real ledger evidence with no extra plumbing.
+   * Absent, the gate treats evidence as unavailable — enforce mode rejects,
+   * shadow mode records the would-have-blocked.
+   */
+  getRunbookStorage?(): RunbookStorage;
+}
+
+/**
+ * B10 evidence gate configuration. Mode resolution: this option beats the
+ * THOUGHTBOX_GRADUATION_GATE env var beats the shadow default (see
+ * graduation-gate.ts for the ELG tier semantics).
+ */
+export interface PeerGraduationGateOptions {
+  mode?: GraduationGateMode;
+  thresholds?: Partial<GraduationThresholds>;
 }
 
 export interface PeerNotebookHandlerOptions {
@@ -85,6 +111,12 @@ export interface PeerNotebookHandlerOptions {
    * handlers yield target_unavailable errors at call time, never crashes.
    */
   proxyTargetDeps?: BrokerProxyTargetDeps;
+  /**
+   * B10 evidence-gated graduation policy. Absent, the gate still runs in
+   * shadow mode (or the mode named by THOUGHTBOX_GRADUATION_GATE) with
+   * default thresholds.
+   */
+  graduationGate?: PeerGraduationGateOptions;
 }
 
 export interface PeerArtifactSeedInput {
@@ -233,7 +265,12 @@ export class PeerNotebookHandler {
    */
   async graduateNotebook(
     input: PeerGraduateNotebookInput,
-  ): Promise<{ manifest: PeerManifestRecord; supersededManifestIds: string[] }> {
+  ): Promise<{
+    manifest: PeerManifestRecord;
+    supersededManifestIds: string[];
+    /** B10: the evidence-gate decision this graduation was made under. */
+    gateDecision: GraduationGateDecision;
+  }> {
     const workspaceId = this.resolveWorkspaceId();
     await this.bootstrapWorkspace(workspaceId);
 
@@ -277,7 +314,36 @@ export class PeerNotebookHandler {
       compiled.compiledFrom.notebook = buildNotebookCodeSnapshot(notebook, entryCellFilename);
     }
 
-    return this.persistDraft(workspaceId, compiled, input, { supersedeGraduatedDrafts: true });
+    // B10 evidence gate (claim c8): graduation reads the fitness ledger via
+    // the notebook source's runbook storage. Only enforce mode blocks; the
+    // shadow default records a would-have-blocked decision on the result
+    // (and stderr) with zero change to graduation behavior.
+    const gateDecision = await evaluateGraduationGate({
+      templateId: notebook.id,
+      storage: notebookSource.getRunbookStorage?.(),
+      mode: resolveGraduationGateMode(this.options.graduationGate?.mode),
+      thresholds: this.options.graduationGate?.thresholds,
+    });
+    if (!gateDecision.pass) {
+      if (gateDecision.enforced) {
+        throw new PeerNotebookError(
+          "graduation_below_threshold",
+          `Graduation of notebook ${notebook.id} rejected: fitness evidence below threshold — ` +
+            gateDecision.deficits.join("; "),
+          JSON.parse(JSON.stringify(gateDecision)) as JsonObject,
+        );
+      }
+      console.error(
+        `[graduation-gate] ${gateDecision.mode}: graduation of notebook ${notebook.id} ` +
+          `${gateDecision.mode === "shadow" ? "WOULD HAVE BEEN BLOCKED" : "is below threshold"} — ` +
+          gateDecision.deficits.join("; "),
+      );
+    }
+
+    const persisted = await this.persistDraft(workspaceId, compiled, input, {
+      supersedeGraduatedDrafts: true,
+    });
+    return { ...persisted, gateDecision };
   }
 
   /**

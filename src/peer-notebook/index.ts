@@ -29,6 +29,7 @@ export type {
   PeerInvokeToolInput,
   PeerManifestCreateInput,
   PeerGraduateNotebookInput,
+  PeerGraduationGateOptions,
   PeerGraduationNotebook,
   PeerGraduationNotebookCell,
   PeerGraduationNotebookSource,

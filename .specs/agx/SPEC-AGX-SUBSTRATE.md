@@ -327,6 +327,7 @@ merged 2026-06-11).
    message-human), not toward mediating the agent body (claim c10). New verbs arrive
    primarily via graduation (§7), not specification.
 3. **Evidence-gated graduation** (claim c8): graduation reads the fitness ledger.
+   (Delivered 2026-07-09 — B10, §7 delivery notes; shadow-mode default, enforce opt-in.)
 
 ## 7. Selection Pipeline: Fitness Ledger and Graduation
 
@@ -346,6 +347,31 @@ This is the answer to "where do remote-control verbs come from": behaviors are p
 runbooks under full observability, evaluated against pre-registered outcomes, and the proven
 ones are promoted into governed, manifest-described capabilities.
 
+**B10 delivery notes (2026-07-09 — as built):**
+
+1. **The gate reads the real ledger.** `graduateNotebook` evaluates the graduating notebook's
+   fitness via the notebook source's runbook storage (`templateId` = notebook id, latest
+   template version's `getFitnessAggregate`). No storage wired, or no template version ever
+   persisted, counts as ABSENT evidence, never as a pass. Policy lives in
+   `src/notebook/runbook/graduation-gate.ts`; the graduation wiring in
+   `src/peer-notebook/handler.ts`.
+2. **Threshold policy is the ELG tier ladder** (SPEC-ENVIRONMENTAL-LEARNING-GATES, folded in
+   here): `advisory` (evaluate + log only) → `shadow` (warn + record `wouldHaveBlocked`,
+   never block — the validator tier and the gate's probation state) → `enforce` (reject with
+   an error naming each missing piece of evidence, code `graduation_below_threshold`).
+   **Default is `shadow`**, per the ELG keystone: gates are information-destroying, so
+   promotion to a live block is a deliberate act backed by shadow-window data — switch via
+   the `graduationGate` handler option or `THOUGHTBOX_GRADUATION_GATE=enforce`. Every
+   graduation result carries the full `gateDecision` record (mode, aggregate, thresholds,
+   deficits), so shadow mode leaves an auditable would-have-blocked trail with zero behavior
+   change.
+3. **Thresholds (v0 defaults):** ≥3 evidenced instances, machine-checked pass rate ≥0.9,
+   ≥1 distinct agent (`DEFAULT_GRADUATION_THRESHOLDS`; per-deployment override via handler
+   option). A never-run notebook under `enforce` is rejected with the explanation naming the
+   empty ledger. Accept/reject/shadow paths are vitest-evidenced
+   (`src/peer-notebook/__tests__/graduation-gate.test.ts`,
+   `src/notebook/__tests__/graduation-gate.test.ts`).
+
 ## 8. Build Inventory and Relative Complexity
 
 Scale: **S** ≤ 1 agent-day · **M** = one PR-sized unit (2–5 agent-days, a Phase-4/5-slice
@@ -364,7 +390,7 @@ Phases 4+5 (≈9 M-units) shipped in about a week of agent-team time.
 | B7 | Brokered `exec`-cell execution (generalize broker beyond peers) | SPEC-CONTROL-PLANE broker | **M/L** | Med | Authority model resolved to manifest reuse (§11.2): approved templates carry declared authority; drafts run under declared ∩ executor |
 | B8 | Advancer v0 (advance-on-open + cron tick) | B4–B6 | **S** | Low | Explicitly not a workflow engine |
 | B9 | Fitness ledger + aggregates | B4 | **S/M** | Low | Schema + queries |
-| B10 | Evidence-gated graduation | #389 graduation, B9 | **M** | Med | Threshold policy design |
+| B10 | Evidence-gated graduation | #389 graduation, B9 | **M** | Med | Delivered 2026-07-09 — ELG tier ladder, shadow default (§7 delivery notes) |
 | B11 | Migration shims: assumption registry & handoff standing-facts → claims | B1–B2 | **S** | Low | Principle 3 delivery |
 | — | Semantic relevance routing / watch predicates | B3 | **XL** | — | Deferred; v0 is explicit subscription |
 | — | MAP-Elites descriptor archive | B9 | **XL** | — | Deferred; needs fitness history first |
