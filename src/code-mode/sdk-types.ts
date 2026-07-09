@@ -273,6 +273,23 @@ interface TB {
     addAwaitCell(args: { notebookId: string; claimId: string; until: ClaimStatus | ClaimStatus[]; position?: number }): Promise<unknown>;
   };
 
+  /**
+   * Durable named variables (RLM-lite): store a JSON-serialisable value in
+   * one thoughtbox_execute call and read it back in a later call within the
+   * SAME MCP session, without threading it through your context window.
+   * In-memory only — variables are lost when the session ends; nothing is
+   * persisted. get() throws a clear error for unset names. Freely chainable
+   * (does not count as the call's one state-mutating operation). Methods
+   * also accept named-args form, e.g. set({ name, value }).
+   * Source: src/code-mode/vars-operations.ts
+   */
+  vars: {
+    set(name: string, value: unknown): Promise<{ name: string; bytes: number }>;
+    get(name: string): Promise<unknown>;
+    list(): Promise<{ vars: Array<{ name: string; bytes: number }>; count: number }>;
+    delete(name: string): Promise<{ deleted: boolean }>;
+  };
+
   // --- tb.merge (SPEC-MERGE-CORE) — owned by merge-core -----------------
   /**
    * Merge evidence: collapse competing branches to a finalized decision

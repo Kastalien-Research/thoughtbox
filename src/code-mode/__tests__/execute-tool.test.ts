@@ -459,6 +459,94 @@ describe("thoughtbox_execute named-vs-positional coercion (feedback A3)", () => 
   });
 });
 
+describe("thoughtbox_execute tb.vars (RLM-lite session variables)", () => {
+  it("a value set in one execute call is readable in a later call on the same session", async () => {
+    const { tool } = createHarness();
+
+    const setResult = await tool.handle({
+      code: `async () => tb.vars.set("survey", { models: ["a", "b"], scores: [0.9, 0.4] })`,
+    });
+    const setOutput = JSON.parse(setResult.content[0].text);
+    expect(setOutput.error).toBeUndefined();
+    expect(setOutput.result.name).toBe("survey");
+    expect(setOutput.result.bytes).toBeGreaterThan(0);
+
+    // Separate handle() call = separate vm context; the variable must survive.
+    const getResult = await tool.handle({
+      code: `async () => tb.vars.get("survey")`,
+    });
+    const getOutput = JSON.parse(getResult.content[0].text);
+    expect(getOutput.error).toBeUndefined();
+    expect(getOutput.result).toEqual({ models: ["a", "b"], scores: [0.9, 0.4] });
+  });
+
+  it("variables are isolated between ExecuteTool instances (sessions)", async () => {
+    const { tool: sessionA } = createHarness();
+    const { tool: sessionB } = createHarness();
+
+    await sessionA.handle({ code: `async () => tb.vars.set("secret", 42)` });
+    const result = await sessionB.handle({ code: `async () => tb.vars.get("secret")` });
+    const output = JSON.parse(result.content[0].text);
+    expect(output.result).toBeNull();
+    expect(output.error).toContain("no such variable in this MCP session");
+  });
+
+  it("get of an unset name throws a clear error pointing at tb.vars.list()", async () => {
+    const { tool } = createHarness();
+    const result = await tool.handle({ code: `async () => tb.vars.get("nope")` });
+    const output = JSON.parse(result.content[0].text);
+    expect(output.error).toContain("tb.vars.get('nope')");
+    expect(output.error).toContain("tb.vars.list()");
+  });
+
+  it("rejects non-JSON-serialisable values with a clear error", async () => {
+    const { tool } = createHarness();
+    const result = await tool.handle({
+      code: `async () => tb.vars.set("fn", () => 1)`,
+    });
+    const output = JSON.parse(result.content[0].text);
+    expect(output.error).toContain("tb.vars.set('fn')");
+    expect(output.error).toContain("JSON-serialisable");
+  });
+
+  it("supports named-args form, list, and delete", async () => {
+    const { tool } = createHarness();
+    const result = await tool.handle({
+      code: `async () => {
+        await tb.vars.set({ name: "x", value: [1, 2, 3] });
+        await tb.vars.set("y", "hello");
+        const listed = await tb.vars.list();
+        const deleted = await tb.vars.delete("x");
+        const deletedAgain = await tb.vars.delete("x");
+        const after = await tb.vars.list();
+        return { listed, deleted, deletedAgain, after };
+      }`,
+    });
+    const output = JSON.parse(result.content[0].text);
+    expect(output.error).toBeUndefined();
+    expect(output.result.listed.count).toBe(2);
+    expect(output.result.listed.vars.map((v: { name: string }) => v.name).sort()).toEqual(["x", "y"]);
+    expect(output.result.deleted).toEqual({ deleted: true });
+    expect(output.result.deletedAgain).toEqual({ deleted: false });
+    expect(output.result.after.count).toBe(1);
+  });
+
+  it("stored values are deep copies — later mutation of the source does not leak", async () => {
+    const { tool } = createHarness();
+    const result = await tool.handle({
+      code: `async () => {
+        const obj = { n: 1 };
+        await tb.vars.set("snapshot", obj);
+        obj.n = 999;
+        return await tb.vars.get("snapshot");
+      }`,
+    });
+    const output = JSON.parse(result.content[0].text);
+    expect(output.error).toBeUndefined();
+    expect(output.result).toEqual({ n: 1 });
+  });
+});
+
 describe("thoughtbox_execute tb.hub", () => {
   it("register makes the agentId implicit for subsequent calls", async () => {
     const { tool } = await createHubHarness();
