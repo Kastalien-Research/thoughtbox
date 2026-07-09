@@ -5,6 +5,9 @@
  * (or the experiment yields no result), runRegressionCheck must report
  * skipped=true and passed=false so callers can distinguish "gate ran and
  * passed" from "gate did not run".
+ *
+ * The runner is evaluator-agnostic: thresholds are supplied by the caller,
+ * keyed by evaluator feedback key.
  */
 import { describe, it, expect } from "vitest";
 import { ExperimentRunner } from "../experiment-runner.js";
@@ -17,6 +20,11 @@ function createConfig(): LangSmithConfig {
     project: "test-project",
   };
 }
+
+const THRESHOLDS = {
+  task_success: 0.5,
+  pairwise_win_rate: 0.5,
+};
 
 type MockRow = {
   example: { id: string; inputs: Record<string, unknown> };
@@ -44,7 +52,7 @@ function createMockEvaluate(rows: MockRow[]) {
 describe("runRegressionCheck gate honesty", () => {
   it("reports skipped and NOT passed when LangSmith is unconfigured", async () => {
     const runner = new ExperimentRunner(null);
-    const check = await runner.runRegressionCheck("regression-ds", async (input) => input);
+    const check = await runner.runRegressionCheck("regression-ds", async (input) => input, THRESHOLDS);
 
     expect(check.passed).toBe(false);
     expect(check.skipped).toBe(true);
@@ -59,7 +67,7 @@ describe("runRegressionCheck gate honesty", () => {
       throw new Error("LangSmith API unavailable");
     };
     const runner = new ExperimentRunner(createConfig(), undefined, failingEvaluate as never);
-    const check = await runner.runRegressionCheck("regression-ds", async (input) => input);
+    const check = await runner.runRegressionCheck("regression-ds", async (input) => input, THRESHOLDS);
 
     expect(check.passed).toBe(false);
     expect(check.skipped).toBe(true);
@@ -72,14 +80,14 @@ describe("runRegressionCheck gate honesty", () => {
         example: { id: "ex-1", inputs: {} },
         evaluationResults: {
           results: [
-            { key: "sessionQuality", score: 0.9 },
-            { key: "reasoningCoherence", score: 0.8 },
+            { key: "task_success", score: 0.9 },
+            { key: "pairwise_win_rate", score: 0.8 },
           ],
         },
       },
     ]);
     const runner = new ExperimentRunner(createConfig(), undefined, mockEvaluate as never);
-    const check = await runner.runRegressionCheck("regression-ds", async (input) => input);
+    const check = await runner.runRegressionCheck("regression-ds", async (input) => input, THRESHOLDS);
 
     expect(check.passed).toBe(true);
     expect(check.skipped).toBe(false);
@@ -92,17 +100,17 @@ describe("runRegressionCheck gate honesty", () => {
         example: { id: "ex-1", inputs: {} },
         evaluationResults: {
           results: [
-            { key: "sessionQuality", score: 0.2 },
-            { key: "reasoningCoherence", score: 0.9 },
+            { key: "task_success", score: 0.2 },
+            { key: "pairwise_win_rate", score: 0.9 },
           ],
         },
       },
     ]);
     const runner = new ExperimentRunner(createConfig(), undefined, mockEvaluate as never);
-    const check = await runner.runRegressionCheck("regression-ds", async (input) => input);
+    const check = await runner.runRegressionCheck("regression-ds", async (input) => input, THRESHOLDS);
 
     expect(check.passed).toBe(false);
     expect(check.skipped).toBe(false);
-    expect(check.failedEvaluators).toContain("sessionQuality");
+    expect(check.failedEvaluators).toContain("task_success");
   });
 });

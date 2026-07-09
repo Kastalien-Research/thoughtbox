@@ -75,9 +75,10 @@ interface TB {
 
   /** Notebook Evidence Engine. Source: src/notebook/tool.ts */
   notebook: {
-    create(args: { title: string; language: "javascript" | "typescript"; template?: "sequential-feynman" | "evidence-runbook" | "evidence-simulation" | "evidence-eval-workbook" | "evidence-failure-capsule" | "evidence-adr-pack" | "evidence-skill-certification" | "evidence-scenario-factory" | "evidence-system-audit" }): Promise<unknown>;
+    create(args: { title: string; language: "javascript" | "typescript"; template?: "sequential-feynman" | "evidence-runbook" | "evidence-simulation" | "evidence-eval-workbook" | "evidence-failure-capsule" | "evidence-adr-pack" | "evidence-skill-certification" | "evidence-scenario-factory" | "evidence-system-audit" | "merge-evidence" }): Promise<unknown>;
     list(): Promise<unknown>;
-    load(args: { path?: string; content?: string }): Promise<unknown>;
+    /** Exactly one source: path (filesystem), content (raw .src.md), or notebookId (restore a persisted document under its original id). */
+    load(args: { path?: string; content?: string; notebookId?: string }): Promise<unknown>;
     addCell(args: { notebookId: string; cellType: "title" | "markdown" | "code"; content: string; filename?: string; position?: number }): Promise<unknown>;
     updateCell(args: { notebookId: string; cellId: string; content: string }): Promise<unknown>;
     /** With instanceId, execution is instance-aware and ordered (only the next unsatisfied cell may run). */
@@ -92,14 +93,28 @@ interface TB {
      * to process.env.TB_VERDICT_PATH (use the auto-materialised tb-validate helper).
      */
     validate(args: { notebookId: string; cellId: string; observed: unknown; expectedSnapshotHash?: string }): Promise<unknown>;
-    /** Persist the current notebook as a replayable artifact. */
+    /** Persist the notebook: in-process artifact always; durably (file_system/supabase, upsert by id) when a document backend is configured — the response's 'persistence' field names the backend. Restore with load({ notebookId }). */
     persist(args: { notebookId: string }): Promise<unknown>;
-    /** Execute the notebook's cells and derive a verdict from real results. Only runbook mode is implemented; other modes return an explicit error. */
-    startRun(args: { notebookId: string; mode: "runbook" | "simulation" | "eval" | "failure_capsule" | "adr_evidence" | "skill_certification" | "scenario_factory" | "system_audit"; inputs?: Record<string, unknown> }): Promise<unknown>;
+    /** Execute the notebook's cells and derive a mode-specific verdict from real results: runbook = pass/fail RunbookVerdict, eval = EvalScorecard (score = passed/evaluated over declared expectations), merge_evidence = MergeEvidenceRunResult (runbook semantics, retagged). */
+    startRun(args: { notebookId: string; mode: "runbook" | "eval" | "merge_evidence"; inputs?: Record<string, unknown> }): Promise<unknown>;
     getRun(args: { runId: string }): Promise<unknown>;
     listRuns(args?: { notebookId?: string }): Promise<unknown>;
     cancelRun(args: { runId: string; reason?: string }): Promise<unknown>;
     getArtifact(args: { artifactId: string }): Promise<unknown>;
+    /**
+     * Read the fitness ledger for a runbook template (SPEC-AGX-SUBSTRATE §7):
+     * per-version aggregates (instances, pass rate, error rate, distinct agents)
+     * from machine-checked expectation rows only. templateId = the source notebook id.
+     */
+    fitness(args: { templateId: string; templateVersion?: number; includeRows?: boolean }): Promise<unknown>;
+    /**
+     * Instantiate a runbook from a persisted template version, or resume an
+     * existing instance from its durable records alone (fresh-session path,
+     * SPEC-AGX-SUBSTRATE c5). Returns the notebookId (= templateId), the
+     * instance (with derived status and nextCellId), and the template cell map.
+     * Continue execution with runCell({ notebookId, cellId, instanceId }).
+     */
+    instantiate(args: { templateId?: string; templateVersion?: number; instanceId?: string }): Promise<unknown>;
   };
 
   /** Theseus Protocol: friction-gated refactoring. Source: src/protocol/theseus-tool.ts */

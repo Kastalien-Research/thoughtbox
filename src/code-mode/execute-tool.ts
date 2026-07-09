@@ -449,6 +449,14 @@ function buildTbObject(deps: ExecuteToolDeps, ctx: TbContext): Record<string, un
         unwrapToolResult(await notebookTool.handle({
           operation: "notebook_get_artifact", ...args,
         } as NotebookToolInput)),
+      fitness: async (args: Record<string, unknown>) =>
+        unwrapToolResult(await notebookTool.handle({
+          operation: "notebook_fitness", ...args,
+        } as NotebookToolInput)),
+      instantiate: async (args: Record<string, unknown>) =>
+        unwrapToolResult(await notebookTool.handle({
+          operation: "notebook_instantiate", ...args,
+        } as NotebookToolInput)),
     },
 
     // -------------------------------------------------------------------

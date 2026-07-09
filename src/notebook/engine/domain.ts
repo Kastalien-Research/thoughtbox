@@ -1,16 +1,16 @@
 import { Context, Data, Match, Schema as S } from "effect";
 
-export const NotebookModeSchema = S.Literal(
-  "runbook",
-  "simulation",
-  "eval",
-  "failure_capsule",
-  "adr_evidence",
-  "skill_certification",
-  "scenario_factory",
-  "system_audit",
-  "merge_evidence",
-);
+/**
+ * Engine-runnable notebook modes. Every literal here has a real verdict
+ * derivation in the run engine — the six speculative stub modes (simulation,
+ * failure_capsule, adr_evidence, skill_certification, scenario_factory,
+ * system_audit) were removed 2026-07-06; their .src.md files remain as plain
+ * authoring templates. The registry stays extensible: adding a mode means
+ * adding its literal here, its document/output schemas below, a registry
+ * descriptor (registry.ts), and a verdict builder (runtime.ts) —
+ * merge_evidence (PR #413) is the worked example.
+ */
+export const NotebookModeSchema = S.Literal("runbook", "eval", "merge_evidence");
 export type NotebookMode = typeof NotebookModeSchema.Type;
 
 export const JsonRecordSchema = S.Record({
@@ -120,17 +120,6 @@ export const RunbookNotebookSchema = S.Struct({
   parameters: S.optional(JsonRecordSchema),
 });
 
-export const SimulationNotebookSchema = S.Struct({
-  ...NotebookBaseSchema,
-  _tag: S.Literal("SimulationNotebook"),
-  mode: S.Literal("simulation"),
-  simulation: S.Struct({
-    runs: S.Number,
-    seed: S.String,
-    parameters: JsonRecordSchema,
-  }),
-});
-
 export const EvalNotebookSchema = S.Struct({
   ...NotebookBaseSchema,
   _tag: S.Literal("EvalNotebook"),
@@ -138,55 +127,6 @@ export const EvalNotebookSchema = S.Struct({
   eval: S.Struct({
     datasetName: S.String,
     scoreName: S.String,
-  }),
-});
-
-export const FailureCapsuleNotebookSchema = S.Struct({
-  ...NotebookBaseSchema,
-  _tag: S.Literal("FailureCapsuleNotebook"),
-  mode: S.Literal("failure_capsule"),
-  failure: S.Struct({
-    symptom: S.String,
-    reproduction: S.String,
-  }),
-});
-
-export const AdrEvidenceNotebookSchema = S.Struct({
-  ...NotebookBaseSchema,
-  _tag: S.Literal("AdrEvidenceNotebook"),
-  mode: S.Literal("adr_evidence"),
-  adr: S.Struct({
-    adrId: S.String,
-    hypothesis: S.String,
-  }),
-});
-
-export const SkillCertificationNotebookSchema = S.Struct({
-  ...NotebookBaseSchema,
-  _tag: S.Literal("SkillCertificationNotebook"),
-  mode: S.Literal("skill_certification"),
-  skill: S.Struct({
-    name: S.String,
-    version: S.String,
-  }),
-});
-
-export const ScenarioFactoryNotebookSchema = S.Struct({
-  ...NotebookBaseSchema,
-  _tag: S.Literal("ScenarioFactoryNotebook"),
-  mode: S.Literal("scenario_factory"),
-  scenario: S.Struct({
-    schemaName: S.String,
-    count: S.Number,
-  }),
-});
-
-export const SystemAuditNotebookSchema = S.Struct({
-  ...NotebookBaseSchema,
-  _tag: S.Literal("SystemAuditNotebook"),
-  mode: S.Literal("system_audit"),
-  audit: S.Struct({
-    invariantSet: S.String,
   }),
 });
 
@@ -203,13 +143,7 @@ export const MergeEvidenceNotebookSchema = S.Struct({
 
 export const NotebookDocumentSchema = S.Union(
   RunbookNotebookSchema,
-  SimulationNotebookSchema,
   EvalNotebookSchema,
-  FailureCapsuleNotebookSchema,
-  AdrEvidenceNotebookSchema,
-  SkillCertificationNotebookSchema,
-  ScenarioFactoryNotebookSchema,
-  SystemAuditNotebookSchema,
   MergeEvidenceNotebookSchema,
 );
 export type NotebookDocument = typeof NotebookDocumentSchema.Type;
@@ -247,48 +181,17 @@ export const NotebookOutputSchema = S.Union(
     evidence: S.optional(S.Unknown),
   }),
   S.Struct({
-    _tag: S.Literal("SimulationSummary"),
-    mode: S.Literal("simulation"),
-    runs: S.Number,
-    seed: S.String,
-    summary: JsonRecordSchema,
-    samples: S.optional(ArtifactRefSchema),
-  }),
-  S.Struct({
     _tag: S.Literal("EvalScorecard"),
     mode: S.Literal("eval"),
+    /**
+     * passed / evaluated over the run's declared, machine-checked
+     * expectations (tier-1 contracts + tier-2 validators). 0 when nothing
+     * was scored — an eval with no declared expectations never reports a
+     * synthetic pass.
+     */
     score: S.Number,
     metrics: JsonRecordSchema,
-  }),
-  S.Struct({
-    _tag: S.Literal("FailureCapsuleResult"),
-    mode: S.Literal("failure_capsule"),
-    reproduced: S.Boolean,
-    fixed: S.Boolean,
-    regressionArtifact: S.optional(ArtifactRefSchema),
-  }),
-  S.Struct({
-    _tag: S.Literal("AdrEvidenceResult"),
-    mode: S.Literal("adr_evidence"),
-    outcome: S.Literal("validated", "rejected", "inconclusive"),
-    evidence: JsonRecordSchema,
-  }),
-  S.Struct({
-    _tag: S.Literal("SkillCertificationResult"),
-    mode: S.Literal("skill_certification"),
-    certified: S.Boolean,
-    cases: JsonRecordSchema,
-  }),
-  S.Struct({
-    _tag: S.Literal("ScenarioFactoryResult"),
-    mode: S.Literal("scenario_factory"),
-    generated: S.Number,
-    artifact: ArtifactRefSchema,
-  }),
-  S.Struct({
-    _tag: S.Literal("SystemAuditResult"),
-    mode: S.Literal("system_audit"),
-    findings: S.Array(JsonRecordSchema),
+    evidence: S.optional(S.Unknown),
   }),
   S.Struct({
     /**
@@ -367,7 +270,12 @@ export type NotebookPersistence = typeof NotebookPersistenceSchema.Type;
 
 export class InvalidNotebookShape extends Data.TaggedError("InvalidNotebookShape")<{
   readonly reason: string;
-}> {}
+}> {
+  /** Surface the reason through Effect.runPromise rejections (matches NotebookModeNotImplemented). */
+  override get message(): string {
+    return this.reason;
+  }
+}
 export class ValidatorFailed extends Data.TaggedError("ValidatorFailed")<{
   readonly reason: string;
 }> {}

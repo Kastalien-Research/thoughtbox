@@ -76,21 +76,23 @@ describe("ExperimentRunner", () => {
     expect(result).toBeNull();
   });
 
-  it("runExperiment resolves evaluators by name", async () => {
+  it("runExperiment passes caller-supplied evaluators through", async () => {
     const { mockEvaluate, getLastOptions } = createMockEvaluate([]);
     const runner = new ExperimentRunner(createConfig(), undefined, mockEvaluate as any);
 
+    const evalA = () => ({ key: "a", score: 1 });
+    const evalB = () => ({ key: "b", score: 0 });
     await runner.runExperiment({
       datasetName: "test-ds",
       target: async (input) => input,
-      evaluators: ["sessionQuality", "dgmFitness"],
+      evaluators: [evalA as any, evalB as any],
     });
 
     const opts = getLastOptions();
     expect(opts.evaluators.length).toBe(2);
   });
 
-  it("runExperiment defaults to all evaluators when none specified", async () => {
+  it("runExperiment defaults to no evaluators when none specified", async () => {
     const { mockEvaluate, getLastOptions } = createMockEvaluate([]);
     const runner = new ExperimentRunner(createConfig(), undefined, mockEvaluate as any);
 
@@ -100,7 +102,7 @@ describe("ExperimentRunner", () => {
     });
 
     const opts = getLastOptions();
-    expect(opts.evaluators.length).toBe(4);
+    expect(opts.evaluators.length).toBe(0);
   });
 
   it("runExperiment passes correct options to evaluate()", async () => {
@@ -206,15 +208,18 @@ describe("ExperimentRunner", () => {
         example: { id: "ex-1", inputs: {} },
         evaluationResults: {
           results: [
-            { key: "sessionQuality", score: 0.9 },
-            { key: "reasoningCoherence", score: 0.8 },
+            { key: "task_success", score: 0.9 },
+            { key: "pairwise_win_rate", score: 0.8 },
           ],
         },
       },
     ]);
 
     const runner = new ExperimentRunner(createConfig(), undefined, mockEvaluate as any);
-    const check = await runner.runRegressionCheck("regression-ds", async (input) => input);
+    const check = await runner.runRegressionCheck("regression-ds", async (input) => input, {
+      task_success: 0.5,
+      pairwise_win_rate: 0.5,
+    });
 
     expect(check.passed).toBe(true);
     expect(check.skipped).toBe(false);
@@ -228,20 +233,23 @@ describe("ExperimentRunner", () => {
         example: { id: "ex-1", inputs: {} },
         evaluationResults: {
           results: [
-            { key: "sessionQuality", score: 0.2 },
-            { key: "reasoningCoherence", score: 0.9 },
+            { key: "task_success", score: 0.2 },
+            { key: "pairwise_win_rate", score: 0.9 },
           ],
         },
       },
     ]);
 
     const runner = new ExperimentRunner(createConfig(), undefined, mockEvaluate as any);
-    const check = await runner.runRegressionCheck("regression-ds", async (input) => input);
+    const check = await runner.runRegressionCheck("regression-ds", async (input) => input, {
+      task_success: 0.5,
+      pairwise_win_rate: 0.5,
+    });
 
     expect(check.passed).toBe(false);
     expect(check.skipped).toBe(false);
-    expect(check.failedEvaluators).toContain("sessionQuality");
-    expect(check.failedEvaluators).not.toContain("reasoningCoherence");
+    expect(check.failedEvaluators).toContain("task_success");
+    expect(check.failedEvaluators).not.toContain("pairwise_win_rate");
   });
 
   it("runRegressionCheck on unconfigured runner is skipped and NOT passed", async () => {

@@ -150,6 +150,30 @@ export class DatasetManager {
   }
 
   /**
+   * Add free-form examples to a dataset (causal-lift datasets carry
+   * task text plus labeling metadata like task_family / negative_control).
+   */
+  async addExamples(
+    datasetName: string,
+    examples: Array<{ inputs: KV; outputs?: KV; metadata?: KV; split?: string | string[] }>,
+  ): Promise<number> {
+    if (examples.length === 0) return 0;
+
+    return this.safe("addExamples", 0, async () => {
+      const uploads = examples.map((example) => ({
+        dataset_name: datasetName,
+        inputs: example.inputs,
+        outputs: example.outputs,
+        metadata: example.metadata,
+        split: example.split,
+      }));
+
+      await this.chunkedCreateExamples(uploads);
+      return uploads.length;
+    });
+  }
+
+  /**
    * List datasets in the current workspace/project.
    */
   async listDatasets(filter?: { nameContains?: string; limit?: number; offset?: number }): Promise<DatasetRecord[]> {
