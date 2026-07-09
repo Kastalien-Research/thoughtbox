@@ -50,24 +50,34 @@ interface TB {
     agentName?: string;
   }): Promise<unknown>;
 
-  /** Session management. Source: src/sessions/tool.ts */
+  /**
+   * Session management. Source: src/sessions/tool.ts
+   * Positional methods (get, search, resume, export, analyze) equally accept
+   * a single named-args object, e.g. export({ sessionId, format }).
+   */
   session: {
     list(args?: { limit?: number; offset?: number; tags?: string[] }): Promise<unknown>;
     get(sessionId: string): Promise<unknown>;
+    get(args: { sessionId: string }): Promise<unknown>;
     search(query: string, limit?: number): Promise<unknown>;
+    search(args: { query: string; limit?: number }): Promise<unknown>;
     resume(sessionId: string): Promise<unknown>;
+    resume(args: { sessionId: string }): Promise<unknown>;
     /** Resume the most recently updated session in this workspace (no ID needed). */
     resumeLatest(args?: { tags?: string[] }): Promise<unknown>;
     /** Structured thought-graph queries: exactly one of type | start+end | referencesThought | revisionsOf. */
     queryThoughts(args: { sessionId: string; type?: string; start?: number; end?: number; referencesThought?: number; revisionsOf?: number }): Promise<unknown>;
     export(sessionId: string, format?: "markdown" | "cipher" | "json"): Promise<unknown>;
+    export(args: { sessionId: string; format?: "markdown" | "cipher" | "json" }): Promise<unknown>;
     analyze(sessionId: string): Promise<unknown>;
+    analyze(args: { sessionId: string }): Promise<unknown>;
   };
 
   /** Knowledge graph. Source: src/knowledge/tool.ts */
   knowledge: {
     createEntity(args: { name: string; type: "Insight" | "Concept" | "Workflow" | "Decision" | "Agent"; label: string; properties?: Record<string, unknown>; created_by?: string; visibility?: "public" | "agent-private" | "user-private" | "team-private" }): Promise<unknown>;
     getEntity(entityId: string): Promise<unknown>;
+    getEntity(args: { entityId: string } | { entity_id: string }): Promise<unknown>;
     listEntities(args?: { types?: string[]; name_pattern?: string; created_after?: string; created_before?: string; limit?: number; offset?: number }): Promise<unknown>;
     addObservation(args: { entity_id: string; content: string; source_session?: string; added_by?: string }): Promise<unknown>;
     createRelation(args: { from_id: string; to_id: string; relation_type: "RELATES_TO" | "BUILDS_ON" | "CONTRADICTS" | "EXTRACTED_FROM" | "APPLIED_IN" | "LEARNED_BY" | "DEPENDS_ON" | "SUPERSEDES" | "MERGED_FROM"; properties?: Record<string, unknown> }): Promise<unknown>;

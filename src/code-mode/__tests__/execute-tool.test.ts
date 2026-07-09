@@ -334,6 +334,131 @@ describe("thoughtbox_execute", () => {
   });
 });
 
+describe("thoughtbox_execute named-vs-positional coercion (feedback A3)", () => {
+  // Exact failing shape from .specs/agent-user-feedback/claude-code-001.md §A3:
+  // tb.session.export({ sessionId, format, includeMetadata }) was coerced to
+  // the positional sessionId slot and hit Postgres as "[object Object]".
+  it("tb.session.export accepts the named-object form", async () => {
+    const { tool } = createHarness();
+    const result = await tool.handle({
+      code: `async () => {
+        const t = await tb.thought({
+          thought: "seed session",
+          thoughtType: "reasoning",
+          nextThoughtNeeded: false,
+          sessionTitle: "Coercion Regression",
+        });
+        return await tb.session.export({
+          sessionId: t.sessionId ?? t.closedSessionId,
+          format: "markdown",
+          includeMetadata: true,
+        });
+      }`,
+    });
+    const output = JSON.parse(result.content[0].text);
+    expect(output.error).toBeUndefined();
+    expect(JSON.stringify(output)).not.toContain("[object Object]");
+  });
+
+  it("tb.session.export still accepts the positional form", async () => {
+    const { tool } = createHarness();
+    const result = await tool.handle({
+      code: `async () => {
+        const t = await tb.thought({
+          thought: "seed session",
+          thoughtType: "reasoning",
+          nextThoughtNeeded: false,
+        });
+        return await tb.session.export(t.sessionId ?? t.closedSessionId, "markdown");
+      }`,
+    });
+    const output = JSON.parse(result.content[0].text);
+    expect(output.error).toBeUndefined();
+  });
+
+  it("tb.session.get and tb.session.analyze accept both forms", async () => {
+    const { tool } = createHarness();
+    const result = await tool.handle({
+      code: `async () => {
+        const t = await tb.thought({
+          thought: "seed session",
+          thoughtType: "reasoning",
+          nextThoughtNeeded: false,
+        });
+        const id = t.sessionId ?? t.closedSessionId;
+        const positional = await tb.session.get(id);
+        const named = await tb.session.get({ sessionId: id });
+        const analyzed = await tb.session.analyze({ sessionId: id });
+        const idOf = (r) => r?.session?.id ?? r?.id;
+        return { positionalId: idOf(positional), namedId: idOf(named), analyzed };
+      }`,
+    });
+    const output = JSON.parse(result.content[0].text);
+    expect(output.error).toBeUndefined();
+    expect(output.result.namedId).toBeDefined();
+    expect(output.result.namedId).toBe(output.result.positionalId);
+    expect(output.result.analyzed).toBeDefined();
+  });
+
+  it("tb.session.search accepts named form with limit", async () => {
+    const { tool } = createHarness();
+    const result = await tool.handle({
+      code: `async () => tb.session.search({ query: "anything", limit: 5 })`,
+    });
+    const output = JSON.parse(result.content[0].text);
+    expect(output.error).toBeUndefined();
+  });
+
+  it("throws a clear error when the named object is missing the required field", async () => {
+    const { tool } = createHarness();
+    const result = await tool.handle({
+      code: `async () => tb.session.export({ format: "markdown" })`,
+    });
+    const output = JSON.parse(result.content[0].text);
+    expect(output.error).toContain("tb.session.export");
+    expect(output.error).toContain("missing required 'sessionId'");
+    expect(output.error).toContain("positional (sessionId, format)");
+    expect(output.error).toContain("named ({ sessionId, format })");
+  });
+
+  it("throws a clear error on ambiguous object-plus-positional calls", async () => {
+    const { tool } = createHarness();
+    const result = await tool.handle({
+      code: `async () => tb.session.export({ sessionId: "abc" }, "markdown")`,
+    });
+    const output = JSON.parse(result.content[0].text);
+    expect(output.error).toContain("ambiguous");
+    expect(output.error).toContain("tb.session.export");
+  });
+
+  it("tb.knowledge.getEntity accepts positional, camelCase, and snake_case named forms", async () => {
+    const knowledgeDir = await mkdtemp(join(tmpdir(), "tb-knowledge-coercion-"));
+    tempHubDirs.push(knowledgeDir);
+    const knowledgeStorage = new FileSystemKnowledgeStorage({ basePath: knowledgeDir });
+    await knowledgeStorage.setProject("coercion-test");
+    const { tool } = createHarness({
+      knowledgeTool: new KnowledgeTool(new KnowledgeHandler(knowledgeStorage)),
+    });
+    const result = await tool.handle({
+      code: `async () => {
+        const e = await tb.knowledge.createEntity({
+          name: "coercion-test-entity",
+          type: "Concept",
+          label: "Coercion Test",
+        });
+        const positional = await tb.knowledge.getEntity(e.id);
+        const camel = await tb.knowledge.getEntity({ entityId: e.id });
+        const snake = await tb.knowledge.getEntity({ entity_id: e.id });
+        return { positional, camel, snake };
+      }`,
+    });
+    const output = JSON.parse(result.content[0].text);
+    expect(output.error).toBeUndefined();
+    expect(output.result.camel.id).toBe(output.result.positional.id);
+    expect(output.result.snake.id).toBe(output.result.positional.id);
+  });
+});
+
 describe("thoughtbox_execute tb.hub", () => {
   it("register makes the agentId implicit for subsequent calls", async () => {
     const { tool } = await createHubHarness();

@@ -299,6 +299,71 @@ interface TbContext {
   sessionId?: string;
 }
 
+/**
+ * Named-vs-positional argument coercion for SDK methods with positional
+ * signatures (feedback spec A3). Historically `tb.session.export({ sessionId,
+ * format })` shoved the whole object into the positional `sessionId` slot,
+ * which Postgres then rejected as `invalid input syntax for type uuid:
+ * "[object Object]"` — the worst failure mode, a wrong-looking type error.
+ *
+ * Rules:
+ * - A single plain-object argument is treated as named args. It must contain
+ *   every required parameter (extra keys pass through; downstream Zod strips
+ *   unknowns).
+ * - Otherwise arguments are mapped positionally onto `params`.
+ * - Mixing both forms (object first arg plus more positional args) is
+ *   ambiguous and throws with the two accepted call shapes spelled out.
+ */
+function coerceCallArgs(
+  method: string,
+  params: string[],
+  required: string[],
+  args: unknown[],
+): Record<string, unknown> {
+  const positionalSig = `(${params.join(", ")})`;
+  const namedSig = `({ ${params.join(", ")} })`;
+  const usage = `${method} accepts positional ${positionalSig} or named ${namedSig}`;
+
+  const [first, ...rest] = args;
+  const firstIsObject =
+    typeof first === "object" && first !== null && !Array.isArray(first);
+
+  if (firstIsObject) {
+    if (rest.some((r) => r !== undefined)) {
+      throw new Error(
+        `${method}: ambiguous call — received a named-args object plus extra ` +
+          `positional arguments. ${usage}, not a mix of both.`,
+      );
+    }
+    const named = first as Record<string, unknown>;
+    for (const req of required) {
+      if (named[req] === undefined) {
+        throw new Error(
+          `${method}: named-args object is missing required '${req}'. ${usage}.`,
+        );
+      }
+    }
+    return named;
+  }
+
+  if (Array.isArray(first)) {
+    throw new Error(
+      `${method}: received an array as the first argument. ${usage}.`,
+    );
+  }
+
+  const mapped: Record<string, unknown> = {};
+  params.forEach((param, i) => {
+    if (args[i] !== undefined) mapped[param] = args[i];
+  });
+  for (const req of required) {
+    if (mapped[req] === undefined) {
+      throw new Error(`${method}: missing required '${req}'. ${usage}.`);
+    }
+  }
+  return mapped;
+}
+
 function buildTbObject(deps: ExecuteToolDeps, ctx: TbContext): Record<string, unknown> {
   const { thoughtTool, sessionTool, knowledgeTool, notebookTool,
           theseusTool, ulyssesTool, observabilityHandler, branchHandler,
@@ -393,20 +458,35 @@ function buildTbObject(deps: ExecuteToolDeps, ctx: TbContext): Record<string, un
     session: {
       list: async (args?: { limit?: number; offset?: number; tags?: string[] }) =>
         unwrapToolResult(await sessionTool.handle({ operation: "session_list", ...args })),
-      get: async (sessionId: string) =>
-        unwrapToolResult(await sessionTool.handle({ operation: "session_get", sessionId })),
-      search: async (query: string, limit?: number) =>
-        unwrapToolResult(await sessionTool.handle({ operation: "session_search", query, limit })),
-      resume: async (sessionId: string) =>
-        unwrapToolResult(await sessionTool.handle({ operation: "session_resume", sessionId })),
+      get: async (...args: unknown[]) =>
+        unwrapToolResult(await sessionTool.handle({
+          operation: "session_get",
+          ...coerceCallArgs("tb.session.get", ["sessionId"], ["sessionId"], args),
+        } as SessionToolInput)),
+      search: async (...args: unknown[]) =>
+        unwrapToolResult(await sessionTool.handle({
+          operation: "session_search",
+          ...coerceCallArgs("tb.session.search", ["query", "limit"], ["query"], args),
+        } as SessionToolInput)),
+      resume: async (...args: unknown[]) =>
+        unwrapToolResult(await sessionTool.handle({
+          operation: "session_resume",
+          ...coerceCallArgs("tb.session.resume", ["sessionId"], ["sessionId"], args),
+        } as SessionToolInput)),
       resumeLatest: async (args?: { tags?: string[] }) =>
         unwrapToolResult(await sessionTool.handle({ operation: "session_resume_latest", ...args } as SessionToolInput)),
       queryThoughts: async (args: { sessionId: string; type?: string; start?: number; end?: number; referencesThought?: number; revisionsOf?: number }) =>
         unwrapToolResult(await sessionTool.handle({ operation: "session_query_thoughts", ...args } as SessionToolInput)),
-      export: async (sessionId: string, format?: "markdown" | "cipher" | "json") =>
-        unwrapToolResult(await sessionTool.handle({ operation: "session_export", sessionId, format })),
-      analyze: async (sessionId: string) =>
-        unwrapToolResult(await sessionTool.handle({ operation: "session_analyze", sessionId })),
+      export: async (...args: unknown[]) =>
+        unwrapToolResult(await sessionTool.handle({
+          operation: "session_export",
+          ...coerceCallArgs("tb.session.export", ["sessionId", "format"], ["sessionId"], args),
+        } as SessionToolInput)),
+      analyze: async (...args: unknown[]) =>
+        unwrapToolResult(await sessionTool.handle({
+          operation: "session_analyze",
+          ...coerceCallArgs("tb.session.analyze", ["sessionId"], ["sessionId"], args),
+        } as SessionToolInput)),
     },
 
     knowledge: {
@@ -414,10 +494,21 @@ function buildTbObject(deps: ExecuteToolDeps, ctx: TbContext): Record<string, un
         normalizeEntityResult(unwrapToolResult(await requireKnowledgeTool().handle({
           operation: "knowledge_create_entity", ...args,
         } as KnowledgeToolInput))),
-      getEntity: async (entityId: string) =>
-        normalizeEntityResult(unwrapToolResult(await requireKnowledgeTool().handle({
+      getEntity: async (...args: unknown[]) => {
+        // Accept positional (entityId) plus named { entityId } or the
+        // operation's snake_case { entity_id }.
+        const coerced = coerceCallArgs("tb.knowledge.getEntity", ["entityId"], [], args);
+        const entityId = coerced.entityId ?? coerced.entity_id;
+        if (entityId === undefined) {
+          throw new Error(
+            "tb.knowledge.getEntity: missing required 'entityId'. Accepts " +
+              "positional (entityId) or named ({ entityId }) / ({ entity_id }).",
+          );
+        }
+        return normalizeEntityResult(unwrapToolResult(await requireKnowledgeTool().handle({
           operation: "knowledge_get_entity", entity_id: entityId,
-        } as KnowledgeToolInput))),
+        } as KnowledgeToolInput)));
+      },
       listEntities: async (args?: Record<string, unknown>) =>
         unwrapToolResult(await requireKnowledgeTool().handle({
           operation: "knowledge_list_entities", ...args,

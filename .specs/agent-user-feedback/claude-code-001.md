@@ -94,6 +94,16 @@ The runtime auto-handles `thoughtNumber` (next-in-sequence), `isRevision: true`,
 
 ### A3. Inconsistent SDK calling conventions — UUID-string-coercion bug
 
+> **Status: FIXED (2026-07-09, feat/agent-user-feedback-fixes).** Suggestion 2
+> was implemented via `coerceCallArgs` in `src/code-mode/execute-tool.ts`:
+> positional SDK methods (`tb.session.get/search/resume/export/analyze`,
+> `tb.knowledge.getEntity`) now accept a single named-args object as well,
+> throw a clear two-form usage error when a required field is missing, and
+> reject ambiguous object-plus-positional calls. Regression tests use the
+> exact failing shape from this section
+> (src/code-mode/__tests__/execute-tool.test.ts). A single SDK-wide
+> convention (suggestion 1) was NOT adopted — both forms are now first-class.
+
 **Found during verification.** I called:
 
 ```js
