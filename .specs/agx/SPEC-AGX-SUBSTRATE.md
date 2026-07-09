@@ -198,6 +198,20 @@ claims with ids and evidence), and handoff `standing_facts` are existing obligat
 that become claim-graph readers/writers. The thought journal remains for operator-class agents
 and is otherwise demoted to legacy; it is not extended.
 
+**B11 delivery notes (2026-07-09 — as built):** the standing-facts shim
+(`src/claims/standing-facts.ts`) is the migration surface for the first two consumers. A
+standing fact is a keyed, workspace-scoped claim: `write` → `tb.claims.assert` with the key
+encoded as a queryable statement prefix (`[fact:<key>] <statement>`); `read`/`list` →
+`tb.claims.query` returning only LIVE facts (asserted/supported); revision is an explicit
+`supersede` → `tb.claims.supersede` (old claim flips to `superseded` pointing at its
+replacement, atomically — never a silent overwrite). Consumer mapping: assumption-registry
+entries write as type `assumption` (the default); session-handoff `standing_facts` write as
+`observation`/`decision`. The shim routes through the ClaimsHandler, so facts inherit
+tb.claims validation, the supersede CAS, and Realtime status emission verbatim. Round-trip
+and supersede semantics are vitest-evidenced (`src/claims/__tests__/standing-facts.test.ts`).
+Skill/handoff integrations are deliberately NOT built here — the shim is the reader/writer
+those artifacts adopt.
+
 ## 5. Layer 2: Reactive Runbooks (EVOLVES the notebook subsystem)
 
 The prior Notebook Evidence Engine spec (`.specs/agentic-runbooks.md`, draft, largely
@@ -391,7 +405,7 @@ Phases 4+5 (≈9 M-units) shipped in about a week of agent-team time.
 | B8 | Advancer v0 (advance-on-open + cron tick) | B4–B6 | **S** | Low | Explicitly not a workflow engine |
 | B9 | Fitness ledger + aggregates | B4 | **S/M** | Low | Schema + queries |
 | B10 | Evidence-gated graduation | #389 graduation, B9 | **M** | Med | Delivered 2026-07-09 — ELG tier ladder, shadow default (§7 delivery notes) |
-| B11 | Migration shims: assumption registry & handoff standing-facts → claims | B1–B2 | **S** | Low | Principle 3 delivery |
+| B11 | Migration shims: assumption registry & handoff standing-facts → claims | B1–B2 | **S** | Low | Delivered 2026-07-09 — standing-facts shim (§4 delivery notes); consumer rewiring tracked in §12 |
 | — | Semantic relevance routing / watch predicates | B3 | **XL** | — | Deferred; v0 is explicit subscription |
 | — | MAP-Elites descriptor archive | B9 | **XL** | — | Deferred; needs fitness history first |
 | — | Durable suspended execution | — | **XL** | — | Explicitly rejected (Principle 5) |
@@ -501,8 +515,9 @@ design decisions for v0; the residual open questions are marked.
 
 ## 12. Capability Status (point-in-time)
 
-What an agent can and cannot yet do through `thoughtbox_execute`, as of **2026-07-06**
-(units B1–B5 merged via PRs #398–#402; B6+B8 built on feat/agx-await-advancer). This is
+What an agent can and cannot yet do through `thoughtbox_execute`, as of **2026-07-09**
+(units B1–B5 merged via PRs #398–#402; B6+B8 via #418; B10+B11 built on
+feat/agx-b10-graduation-b11-shims). This is
 derived status, not authority — the claims block and §9 are the pre-registration. Update the
 table as units land.
 
@@ -522,6 +537,8 @@ table as units land.
 | A runbook cell that **blocks on a claim** — a run parks at an unsatisfied `await` cell (skipped tail, durable claim subscription, instance stays `in_progress`), and the next pull past a satisfying claim status records the satisfaction and executes the cells behind it | `await` cell (`tb.runbook.addAwaitCell`) + `tb.runbook.advance` (B6) | c4 / §5 delivery notes |
 | Pull advancement of an instance by any agent, with concurrent advancers executing side effects **exactly once** — CAS reservation on `(instance_id, seq)` before any exec-cell side effect; losers observe `in_flight` (GH #403 resolved) | `tb.runbook.advance`, `tb.runbook.status`, `runbook_advance_reservations` | c4 (B8) |
 | Keep shell, filesystem, and code editing native and unmediated — the substrate wraps only trust-boundary verbs | (invariant; §10) | c10 |
+| Evidence-gated notebook→manifest **graduation** — `graduateNotebook` reads the fitness ledger and evaluates the ELG tier ladder (advisory → shadow → enforce; shadow default records would-have-blocked without blocking, `THOUGHTBOX_GRADUATION_GATE=enforce` rejects below threshold naming the missing evidence) | `peer_graduate_notebook` gate (B10, §7 delivery notes) | c8 (2026-07-09) |
+| Round-trip standing facts through the claim graph — keyed, workspace-scoped write/read/list/supersede over tb.claims semantics, for the assumption registry and handoff `standing_facts` | standing-facts shim (B11, §4 delivery notes) | Principle 3 (2026-07-09) |
 
 **Not yet — the unbuilt joins:**
 
@@ -529,9 +546,10 @@ table as units land.
 |---|---|---|
 | Cron tick advancing unattended instances (advance is agent-pull only today) | **B8 follow-up** | c4 |
 | Cells executing under the agent's **brokered allowlist and budget** (no ambient authority) | **B7** | c6 |
-| Evidence-gated notebook→manifest **graduation** (reject below fitness threshold) | **B10** | c8 |
+| Graduation gate ENFORCED by default (today: shadow default; enforce is a config switch — ELG shadow-window promotion is deliberate, not ambient) | operator decision after a shadow window | c8 |
+| Assumptions skill / session-handoff actually writing through the B11 shim (the shim is built; the consumers still write their legacy artifacts) | skill + handoff rewiring (H5) | Principle 3 |
 | Local durable claims (FileSystem `ClaimStorage`) | deferred §11.5 (gated on H1/H2) | c1 |
 
-**Verified vs claimed:** c3, c7, c10 are met and evidenced; c4 is met for the manual-pull path — vitest evidence covers (a) parking at an unsatisfied await on both the advance and real batch-run paths, (b) claim satisfaction un-parking the next advance end-to-end through the real execution path, (c) concurrent advance executing side effects exactly once, (d) the reservation CAS on both backends (`src/notebook/__tests__/await-advance.test.ts`), and code review confirms no suspended-execution machinery exists (the advancer is a loop inside one explicit call; the cron tick remains unbuilt); c1 is met for Supabase + InMemory (FS deferred by design); c2's mechanism is proven but its full two-live-client agentic test is deploy-gated; c5 (fresh-session instance resumption) has its substrate in #401 + `tb.runbook.status` but is unverified pending **Experiment H2**; c6/c8 are unbuilt. The two thesis experiments (**H1** coordination-beats-orchestrator, **H2** runbook resumption) are unrun.
+**Verified vs claimed:** c3, c7, c10 are met and evidenced; c8 is met — the gate reads the ledger and vitest covers the accept, reject-naming-the-deficit, and shadow would-have-blocked paths (`src/peer-notebook/__tests__/graduation-gate.test.ts`), with enforcement itself an opt-in switch per the ELG shadow-first policy; c4 is met for the manual-pull path — vitest evidence covers (a) parking at an unsatisfied await on both the advance and real batch-run paths, (b) claim satisfaction un-parking the next advance end-to-end through the real execution path, (c) concurrent advance executing side effects exactly once, (d) the reservation CAS on both backends (`src/notebook/__tests__/await-advance.test.ts`), and code review confirms no suspended-execution machinery exists (the advancer is a loop inside one explicit call; the cron tick remains unbuilt); c1 is met for Supabase + InMemory (FS deferred by design); c2's mechanism is proven but its full two-live-client agentic test is deploy-gated; c5 (fresh-session instance resumption) has its substrate in #401 + `tb.runbook.status` but is unverified pending **Experiment H2**; c6 is unbuilt. The two thesis experiments (**H1** coordination-beats-orchestrator, **H2** runbook resumption) are unrun.
 
-**Bottom line:** the claim graph and durable runbooks are now **wired into each other**: the reactive payoff ("block on a claim, wake the runbook") is built and test-evidenced via B6+B8, with the GH #403 double-execute hazard resolved by the advance reservation CAS. The first unbuilt things are now the B8 cron tick, brokered cell authority (**B7** / c6), and evidence-gated graduation (**B10** / c8); **H2** is unblocked and should run next (§9).
+**Bottom line:** the selection pipeline now closes end-to-end: behaviors accrue ledger fitness (B9) and graduation reads it (B10), with the ELG shadow tier keeping the evidence stream alive until an operator promotes the gate to enforce. B11 gives the first two obligatory artifacts (assumption registry, handoff standing facts) their claims-native reader/writer. The remaining unbuilt joins are the B8 cron tick and brokered cell authority (**B7** / c6); **H2** is unblocked and should run next (§9), and **H4** (graduation cheaper than specification) now has its mechanism.

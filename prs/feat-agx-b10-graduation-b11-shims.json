@@ -1,0 +1,27 @@
+{
+  "branch": "feat/agx-b10-graduation-b11-shims",
+  "summary": "SPEC-AGX-SUBSTRATE B10 (evidence-gated graduation) + B11 (standing-facts migration shim). graduateNotebook now evaluates the fitness ledger through the ELG tier ladder (advisory -> shadow -> enforce) with a shadow-mode default that records would-have-blocked decisions without blocking; THOUGHTBOX_GRADUATION_GATE=enforce (or the graduationGate handler option) rejects below-threshold graduations with an error naming the missing evidence. B11 adds src/claims/standing-facts.ts: keyed, workspace-scoped standing facts (assumption registry / session-handoff standing_facts) round-trip through tb.claims semantics — write as typed claim, read back live, supersede atomically.",
+  "claims": [
+    {
+      "id": "SPEC-AGX-SUBSTRATE:c8",
+      "statement": "graduateNotebook reads the fitness ledger and rejects graduation below threshold with an error naming the deficit; tests cover accept and reject paths.",
+      "evidence_type": "test",
+      "evidence_path": "src/peer-notebook/__tests__/graduation-gate.test.ts",
+      "evidence_description": "7 tests: enforce rejects a never-run notebook with code graduation_below_threshold naming the empty ledger; enforce passes when seeded evidence meets thresholds; enforce rejects on failing pass rate naming it; shadow default graduates unchanged while recording wouldHaveBlocked; env-var switch flips enforcement; missing runbook storage counts as absent evidence. Policy unit tests (10) in src/notebook/__tests__/graduation-gate.test.ts."
+    },
+    {
+      "id": "SPEC-AGX-SUBSTRATE:b10-shadow-default",
+      "statement": "Shadow mode is the default and records would-have-blocked with zero behavior change to graduation.",
+      "evidence_type": "test",
+      "evidence_path": "src/peer-notebook/__tests__/graduation-gate.test.ts",
+      "evidence_description": "Default-mode test asserts the draft manifest lands exactly as before (status draft, version 1, no supersessions) while gateDecision records mode=shadow, pass=false, wouldHaveBlocked=true with deficits naming the missing evidence. Pre-existing graduation suite (notebook-graduation.test.ts, 9 tests) passes unmodified under the shadow default."
+    },
+    {
+      "id": "SPEC-AGX-SUBSTRATE:b11-standing-facts",
+      "statement": "Standing facts round-trip through tb.claims: write as a typed workspace-scoped claim, read back, supersede atomically (old claim -> superseded pointing at replacement).",
+      "evidence_type": "test",
+      "evidence_path": "src/claims/__tests__/standing-facts.test.ts",
+      "evidence_description": "9 tests over the real ClaimsHandler + InMemoryClaimStorage: write/read round-trip with workspace and exact-key scoping, duplicate write refused in favor of explicit supersede, supersede flips status/supersededBy and read converges on the replacement, list excludes superseded history, mutations require agent identity."
+    }
+  ]
+}
