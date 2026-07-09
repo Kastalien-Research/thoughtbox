@@ -9,6 +9,11 @@ import type { ClaimStorage } from "./claims/types.js";
 import type { RunbookStorage } from "./notebook/runbook/types.js";
 import { createClaimsToolHandler } from "./claims/claims-tool-handler.js";
 import { createRunbookClaimBinding } from "./claims/runbook-binding.js";
+import type { MergeCommitStorage } from "./merge/types.js";
+import { createMergeToolHandler } from "./merge/merge-tool-handler.js";
+import { createClaimGraphDiff } from "./merge/claim-graph-diff.js";
+import { createMergeEvidenceGenerator } from "./merge-evidence/generate.js";
+import type { NotebookDocumentStorage } from "./persistence/notebook-document-storage.js";
 import {
   createThoughtStoreAdapter,
   type ThoughtStoreAdapter,
@@ -158,6 +163,21 @@ export interface CreateMcpServerArgs {
    * templates/instances/executions/ledger rows are lost with the process.
    */
   runbookStorage?: RunbookStorage;
+  /**
+   * Merge-commit storage (SPEC-MERGE-CORE c8/c9). Like claimStorage, must
+   * be shared across MCP sessions (single in-memory instance locally;
+   * tenant-scoped SupabaseMergeCommitStorage when hosted). tb.merge.* is
+   * unavailable without it; identity rides the hub session registry, and
+   * evidence generation additionally requires claimStorage.
+   */
+  mergeStorage?: MergeCommitStorage;
+  /**
+   * Durable notebook document storage (persist/restore seam).
+   * Local mode injects FileSystemNotebookDocumentStorage; multi-tenant
+   * mode injects a tenant-scoped SupabaseNotebookDocumentStorage. Without
+   * it notebook persist/restore returns a clear "not wired" error.
+   */
+  notebookDocumentStorage?: NotebookDocumentStorage;
   /** Data directory for task store (filesystem persistence) */
   dataDir?: string;
   /** Optional pre-created knowledge storage (used by Supabase mode) */
@@ -328,6 +348,11 @@ Use \`console.log()\` for debugging — output captured in response logs.`;
       // claim storage is wired; without it awaits fall back to unbound.
       ...(args.claimStorage
         ? { claimBinding: createRunbookClaimBinding(args.claimStorage) }
+        : {}),
+      // Durable notebook persist/restore: FileSystemNotebookDocumentStorage
+      // locally, tenant-scoped SupabaseNotebookDocumentStorage when hosted.
+      ...(args.notebookDocumentStorage
+        ? { documentStorage: args.notebookDocumentStorage }
         : {}),
     },
   );
@@ -640,6 +665,31 @@ Use \`console.log()\` for debugging — output captured in response logs.`;
       }
     : undefined;
 
+  // Merge dispatcher — tb.merge.* over the process-shared merge-commit
+  // storage (SPEC-MERGE-CORE c9), bound to the same session key and
+  // identity registry as the hub dispatcher. Evidence notebooks are
+  // AUTO-GENERATED through the real generator (SPEC-MERGE-EVIDENCE c2):
+  // cells execute against THIS session's notebook handler and claim sets
+  // are read from the shared claim graph, so the stub generator is no
+  // longer wired anywhere in the server path.
+  const mergeToolHandler = args.mergeStorage && args.claimStorage
+    ? createMergeToolHandler({
+        mergeStorage: args.mergeStorage,
+        evidenceGenerator: createMergeEvidenceGenerator({
+          notebooks: notebookHandler,
+          claims: args.claimStorage,
+        }),
+        claimDiff: createClaimGraphDiff(args.claimStorage),
+        identityRegistry: sessionIdentities,
+      })
+    : undefined;
+  const mergeDispatcher = mergeToolHandler
+    ? {
+        handle: (input: { operation: string; [key: string]: unknown }) =>
+          mergeToolHandler.handle(input, hubSessionKey),
+      }
+    : undefined;
+
   const searchCatalog = buildSearchCatalog();
   const searchTool = new SearchTool(searchCatalog);
   const executeTool = new ExecuteTool({
@@ -654,6 +704,7 @@ Use \`console.log()\` for debugging — output captured in response logs.`;
     branchHandler,
     hubDispatcher,
     claimsDispatcher,
+    mergeDispatcher,
   });
 
   registerTool(SEARCH_TOOL, searchTool);

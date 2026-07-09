@@ -94,7 +94,10 @@ B6/B8 (the reactive substrate) so the realtime transport is defined once, there.
    prefix. `protocol_events` mirrors the full nine-type `ThoughtboxEvent`
    taxonomy the channel emits, so hosted pull equals local SSE byte-for-byte.
 3. **Pull endpoint** (c3) — `GET /protocol/events?changed_since=<cursor>`,
-   authorized by API key, filtered by `tenant_workspace_id`.
+   authorized by API key, filtered by `tenant_workspace_id`. An optional
+   `session_id` query param (the one the plugin polling client already
+   forwards) narrows the pull to one reasoning session server-side;
+   absent, behavior is unchanged.
 4. **Channel client transport selection** (c4) — SSE (local) vs polling (hosted),
    chosen by config; identical `pushEvent` behavior.
 5. **Tests** (c2/c3/c4/c5) — persistence, cross-tenant negative control, both

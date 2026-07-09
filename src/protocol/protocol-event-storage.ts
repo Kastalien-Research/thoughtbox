@@ -29,8 +29,14 @@ export interface ProtocolEventStorage {
   /**
    * Events with id greater than `cursor`, oldest first. `cursor` 0 reads from
    * the start. Caller scopes nothing — the storage is bound to one tenant.
+   * `sessionId` optionally narrows to one reasoning session's events
+   * (the plugin polling client sends `session_id`); omitted = all sessions.
    */
-  changedSince(cursor: number, limit?: number): Promise<ProtocolEventRecord[]>;
+  changedSince(
+    cursor: number,
+    limit?: number,
+    sessionId?: string,
+  ): Promise<ProtocolEventRecord[]>;
 }
 
 export interface SupabaseProtocolEventStorageConfig {
@@ -72,15 +78,21 @@ export class SupabaseProtocolEventStorage implements ProtocolEventStorage {
     if (error) this.fail('append', error.message);
   }
 
-  async changedSince(cursor: number, limit = DEFAULT_LIMIT): Promise<ProtocolEventRecord[]> {
+  async changedSince(
+    cursor: number,
+    limit = DEFAULT_LIMIT,
+    sessionId?: string,
+  ): Promise<ProtocolEventRecord[]> {
     const capped = Math.min(Math.max(1, limit), MAX_LIMIT);
-    const { data, error } = await this.client
+    let query = this.client
       .from('protocol_events')
       .select('id, source, type, event_timestamp, data')
       .eq('tenant_workspace_id', this.tenantWorkspaceId)
-      .gt('id', cursor)
-      .order('id', { ascending: true })
-      .limit(capped);
+      .gt('id', cursor);
+    if (sessionId !== undefined) {
+      query = query.eq('session_id', sessionId);
+    }
+    const { data, error } = await query.order('id', { ascending: true }).limit(capped);
     if (error) this.fail('changedSince', error.message);
 
     return (data ?? []).map((row) => ({

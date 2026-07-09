@@ -110,8 +110,9 @@ claims:
       tb.merge.request, tb.merge.status, tb.merge.list, and
       tb.merge.claimDiff are registered in the Code Mode surface
       (execute-tool dispatcher, TB SDK types, search catalog); request,
-      status, and list are callable end-to-end locally with the stub
-      generator, and claimDiff dispatches to the claim-diff seam.
+      status, and list are callable end-to-end locally (server wiring uses
+      the real SPEC-MERGE-EVIDENCE generator; the stub remains a test
+      harness), and claimDiff dispatches to the claim-diff seam.
     type: implementation
     behavioral: true
     required_evidence: >-
@@ -277,12 +278,14 @@ interface MergeEvidenceGenerator {
 }
 ```
 
-**The swap is a one-line join for the warden** (both branches merged):
+**The join is wired** (warden integration pass, 2026-07):
+`src/server-factory.ts` constructs the merge dispatcher per MCP session
+when both `mergeStorage` and `claimStorage` are provided:
 
 ```ts
-// server-factory wiring — replaces createStubMergeEvidenceGenerator():
+// server-factory wiring (src/server-factory.ts):
 import { createMergeEvidenceGenerator } from "./merge-evidence/generate.js";
-const evidenceGenerator = createMergeEvidenceGenerator({ notebooks: notebookHandler, claims: claimStorage });
+const evidenceGenerator = createMergeEvidenceGenerator({ notebooks: notebookHandler, claims: args.claimStorage });
 ```
 
 The handler treats generator output adversarially (fail-safe defaults):
@@ -296,35 +299,30 @@ The handler treats generator output adversarially (fail-safe defaults):
   (c2). The real generator already forces this (SPEC-MERGE-EVIDENCE c4);
   the clamp here is enforcement, not trust.
 
-Until the branches are integrated, the wired implementation is
 `createStubMergeEvidenceGenerator()` — a deterministic prose-only
 generator returning `decision: "merge"` with empty `evidenceRefs`, so
-every stub merge reaches `pending_approval` at forced-low confidence.
+every stub merge reaches `pending_approval` at forced-low confidence —
+remains as a test harness only; no server path constructs it.
 
 ### Claim diff seam (`tb.merge.claimDiff`)
 
 SPEC-MERGE-EVIDENCE c6 ships `diffBranchClaims`
-(`src/merge-evidence/claim-diff.ts`) but could not register it (this spec
-owns the tb.merge.* registration block). The read op is registered here
-behind a seam:
+(`src/merge-evidence/claim-diff.ts`); this spec owns the tb.merge.*
+registration block. The read op is registered behind a seam, wired in
+`src/server-factory.ts`:
 
 ```ts
-// MergeHandlerOptions.claimDiff — warden join (both branches merged):
-import { claimsForBranch, diffBranchClaims } from "./merge-evidence/claim-diff.js";
-const claimDiff = async ({ workspaceId, branchA, branchB }) => {
-  const [claimsA, claimsB, edges] = await Promise.all([
-    claimsForBranch(claimStorage, workspaceId, branchA),
-    claimsForBranch(claimStorage, workspaceId, branchB),
-    claimStorage.listEdges({ kind: "contradicts" }),
-  ]);
-  return diffBranchClaims({ branchA, claimsA, branchB, claimsB, contradictsEdges: edges });
-};
+// MergeHandlerOptions.claimDiff — server-factory wiring:
+import { createClaimGraphDiff } from "./merge/claim-graph-diff.js";
+const claimDiff = createClaimGraphDiff(args.claimStorage);
+// createClaimGraphDiff reads both branches' claims + contradicts edges
+// and delegates to diffBranchClaims (src/merge/claim-graph-diff.ts).
 ```
 
 `tb.merge.claimDiff({ workspaceId, branchA, branchB })` is read-only and
 returns the `BranchClaimDiff` shape (added / removed / shared /
-superseded / contradicting). When the seam is not wired, it returns a
-clear error naming this join point.
+superseded / contradicting). When the seam is not wired (e.g. a harness
+without claim storage), it returns a clear error naming this join point.
 
 ## Code Mode surface (`tb.merge.*`)
 
