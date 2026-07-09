@@ -4,7 +4,7 @@
  * Connects to the Thoughtbox /events SSE endpoint and emits
  * parsed ThoughtboxEvent objects. Reconnects with exponential backoff.
  */
-import type { ThoughtboxEvent } from "./event-types.js";
+import { type ThoughtboxEvent } from "./event-types.js";
 export interface EventClientConfig {
     baseUrl: string;
     apiKey: string;

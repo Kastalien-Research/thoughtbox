@@ -7,7 +7,9 @@
  * via the `claude/channel` notification surface.
  *
  * Configuration via environment variables:
- *   THOUGHTBOX_URL      - Thoughtbox HTTP server URL (required)
+ *   THOUGHTBOX_URL      - Optional override for the Thoughtbox HTTP server URL;
+ *                         when absent, derives from local Claude settings
+ *                         written by `thoughtbox init`
  *   THOUGHTBOX_SESSION  - Optional active Thoughtbox session id; when set,
  *                         only events for this session are forwarded
  */

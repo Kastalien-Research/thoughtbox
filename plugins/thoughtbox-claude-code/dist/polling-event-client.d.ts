@@ -11,7 +11,7 @@
  * emitting, so a fresh channel reacts to NEW protocol events rather than
  * replaying completed sessions.
  */
-import type { ThoughtboxEvent } from "./event-types.js";
+import { type ThoughtboxEvent } from "./event-types.js";
 export interface PollingEventClientConfig {
     baseUrl: string;
     apiKey: string;
@@ -34,6 +34,8 @@ export declare class PollingEventClient {
     private scheduleNext;
     private poll;
     private emit;
+    private prime;
+    private primeOnce;
     private fetchPage;
     private reportError;
 }
