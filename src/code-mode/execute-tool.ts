@@ -22,6 +22,7 @@ import type { ObservabilityGatewayHandler, ObservabilityInput } from "../observa
 import type { BranchHandler } from "../branch/index.js";
 import type { HubToolResult } from "../hub/hub-tool-handler.js";
 import type { ClaimsToolResult } from "../claims/claims-tool-handler.js";
+import type { MergeToolResult } from "../merge/merge-tool-handler.js";
 
 const MAX_LOGS = 100;
 const TIMEOUT_MS = 30_000;
@@ -58,6 +59,21 @@ export interface ClaimsDispatcher {
   handle(input: { operation: string; [key: string]: unknown }): Promise<ClaimsToolResult>;
 }
 
+// --- tb.merge (SPEC-MERGE-CORE) — owned by merge-core -------------------
+
+/**
+ * Session-bound merge dispatch surface (SPEC-MERGE-CORE c9). Same
+ * shape as HubDispatcher/ClaimsDispatcher; identity rides the session
+ * registry shared with the hub handler, so tb.merge.request gets an
+ * implicit agentId after the first tb.hub.register/quick_join. Approval
+ * is deliberately NOT reachable from this surface (human-only, spec c4).
+ */
+export interface MergeDispatcher {
+  handle(input: { operation: string; [key: string]: unknown }): Promise<MergeToolResult>;
+}
+
+// --- end tb.merge ------------------------------------------------------------
+
 export interface ExecuteToolDeps {
   thoughtTool: ThoughtTool;
   sessionTool: SessionTool;
@@ -93,13 +109,22 @@ export interface ExecuteToolDeps {
    * crashing.
    */
   claimsDispatcher?: ClaimsDispatcher;
+  // --- tb.merge (SPEC-MERGE-CORE) — owned by merge-core -----------------
+  /**
+   * Per-session dispatcher over the process-shared merge-commit storage
+   * (SPEC-MERGE-CORE c9). Undefined when no merge storage was wired at
+   * server creation; `tb.merge.*` then returns a clear error instead of
+   * crashing.
+   */
+  mergeDispatcher?: MergeDispatcher;
+  // --- end tb.merge ----------------------------------------------------------
 }
 
 export const EXECUTE_TOOL = {
   name: "thoughtbox_execute",
   description: `Run JavaScript using the \`tb\` SDK to chain Thoughtbox operations in a single call.
 
-**One state-mutating operation per call.** Submit only one \`tb.thought()\`, \`tb.ulysses()\`, \`tb.theseus()\`, hub-mutating call (\`tb.hub.register()\`, \`tb.hub.createWorkspace()\`, \`tb.hub.createProblem()\`, \`tb.hub.mergeProposal()\`, etc.), or claims-mutating call (\`tb.claims.assert()\`, \`tb.claims.invalidate()\`, \`tb.claims.supersede()\`, etc.) per \`thoughtbox_execute\` invocation. Each response contains guidance (patterns, session state, protocol state) that should inform your next operation. Batching multiple state-mutating calls bypasses this feedback loop and produces lower-quality reasoning. Read-only operations (\`tb.session.*\`, \`tb.knowledge.*\`, \`tb.observability()\`, \`tb.branch.*\`, \`tb.hub.whoami()\`, \`tb.hub.listWorkspaces()\`, \`tb.hub.readChannel()\`, \`tb.claims.query()\`, \`tb.claims.affected()\`, etc.) may be freely chained.
+**One state-mutating operation per call.** Submit only one \`tb.thought()\`, \`tb.ulysses()\`, \`tb.theseus()\`, hub-mutating call (\`tb.hub.register()\`, \`tb.hub.createWorkspace()\`, \`tb.hub.createProblem()\`, \`tb.hub.mergeProposal()\`, etc.), claims-mutating call (\`tb.claims.assert()\`, \`tb.claims.invalidate()\`, \`tb.claims.supersede()\`, etc.), or merge-mutating call (\`tb.merge.request()\`) per \`thoughtbox_execute\` invocation. Each response contains guidance (patterns, session state, protocol state) that should inform your next operation. Batching multiple state-mutating calls bypasses this feedback loop and produces lower-quality reasoning. Read-only operations (\`tb.session.*\`, \`tb.knowledge.*\`, \`tb.observability()\`, \`tb.branch.*\`, \`tb.hub.whoami()\`, \`tb.hub.listWorkspaces()\`, \`tb.hub.readChannel()\`, \`tb.claims.query()\`, \`tb.claims.affected()\`, \`tb.merge.status()\`, \`tb.merge.list()\`, \`tb.merge.claimDiff()\`, etc.) may be freely chained.
 
 ${TB_SDK_TYPES}
 
@@ -254,6 +279,22 @@ const CLAIMS_SDK_METHODS: Record<string, string> = {
   affected: "affected",
 };
 
+// --- tb.merge (SPEC-MERGE-CORE) — owned by merge-core -------------------
+
+/**
+ * tb.merge method names mapped to merge operation names
+ * (canonical list: src/merge/operations.ts). No approve method exists:
+ * approval is human-only via the apps/web route (spec c4).
+ */
+const MERGE_SDK_METHODS: Record<string, string> = {
+  request: "request",
+  status: "status",
+  list: "list",
+  claimDiff: "claim_diff",
+};
+
+// --- end tb.merge ------------------------------------------------------------
+
 interface TbContext {
   sessionId?: string;
 }
@@ -261,7 +302,7 @@ interface TbContext {
 function buildTbObject(deps: ExecuteToolDeps, ctx: TbContext): Record<string, unknown> {
   const { thoughtTool, sessionTool, knowledgeTool, notebookTool,
           theseusTool, ulyssesTool, observabilityHandler, branchHandler,
-          hubDispatcher, claimsDispatcher } = deps;
+          hubDispatcher, claimsDispatcher, mergeDispatcher } = deps;
 
   const requireKnowledgeTool = (): KnowledgeTool => {
     if (!knowledgeTool) {
@@ -316,6 +357,25 @@ function buildTbObject(deps: ExecuteToolDeps, ctx: TbContext): Record<string, un
     claims[method] = async (claimsArgs: Record<string, unknown> = {}) =>
       unwrapHubResult(await requireClaimsDispatcher().handle({ operation, ...claimsArgs }));
   }
+
+  // --- tb.merge (SPEC-MERGE-CORE) — owned by merge-core -----------------
+  const requireMergeDispatcher = (): MergeDispatcher => {
+    if (!mergeDispatcher) {
+      throw new Error(
+        "Merge operations are unavailable: no merge-commit storage was wired " +
+          "into this server instance. tb.merge.* requires the server to be " +
+          "started with merge storage (see createMcpServer's mergeStorage argument).",
+      );
+    }
+    return mergeDispatcher;
+  };
+
+  const merge: Record<string, (args?: Record<string, unknown>) => Promise<unknown>> = {};
+  for (const [method, operation] of Object.entries(MERGE_SDK_METHODS)) {
+    merge[method] = async (mergeArgs: Record<string, unknown> = {}) =>
+      unwrapHubResult(await requireMergeDispatcher().handle({ operation, ...mergeArgs }));
+  }
+  // --- end tb.merge ----------------------------------------------------------
 
   return {
     thought: async (input: ThoughtToolInput) => {
@@ -502,6 +562,10 @@ function buildTbObject(deps: ExecuteToolDeps, ctx: TbContext): Record<string, un
     hub,
 
     claims,
+
+    // --- tb.merge (SPEC-MERGE-CORE) — owned by merge-core ---------------
+    merge,
+    // --- end tb.merge --------------------------------------------------------
   };
 }
 

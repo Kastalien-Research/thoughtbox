@@ -17,6 +17,9 @@ describe("thoughtbox_search", () => {
       "claims",
       "hub",
       "knowledge",
+      // --- tb.merge (SPEC-MERGE-CORE) — owned by merge-core ---
+      "merge",
+      // --- end tb.merge ---
       "notebook",
       "observability",
       "runbook",
@@ -26,6 +29,19 @@ describe("thoughtbox_search", () => {
       "ulysses",
     ]);
   });
+
+  // --- tb.merge (SPEC-MERGE-CORE) — owned by merge-core ---
+  it("merge operations are discoverable in the catalog (no approve)", async () => {
+    const result = await tool.handle({
+      code: "async () => Object.keys(catalog.operations.merge).sort()",
+    });
+    const output = JSON.parse(result.content[0].text);
+    expect(output.error).toBeUndefined();
+    // Approval is human-only via apps/web (SPEC-MERGE-CORE c4):
+    // exactly request/status/list/claim_diff, never an approve operation.
+    expect(output.result).toEqual(["claim_diff", "list", "request", "status"]);
+  });
+  // --- end tb.merge ---
 
   it("claims operations are discoverable in the catalog", async () => {
     const result = await tool.handle({

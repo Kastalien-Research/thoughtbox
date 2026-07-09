@@ -74,7 +74,7 @@ export const STATIC_RESOURCES: StaticResourceDef[] = [
     key: "gateway-operations",
     name: "Gateway Operations Catalog",
     uri: "thoughtbox://gateway/operations",
-    description: "Complete catalog of operations available through the Code Mode gateway, grouped by tb SDK module (thought, session, knowledge, notebook, theseus, ulysses, observability, branch, hub, claims)",
+    description: "Complete catalog of operations available through the Code Mode gateway, grouped by tb SDK module (thought, session, knowledge, notebook, theseus, ulysses, observability, branch, hub, claims, runbook, merge)",
     mimeType: "application/json",
   },
   {
