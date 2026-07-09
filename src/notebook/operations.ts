@@ -74,12 +74,13 @@ export const NOTEBOOK_OPERATIONS: OperationDefinition[] = [
     title: "Load Notebook",
     description: `Load a notebook from .src.md format.
 
-Accepts either a filesystem path OR content string (exactly one required).
+Accepts exactly one source:
 
-- STDIO mode: Provide 'path' to read from local filesystem
-- HTTP mode: Provide 'content' string (e.g., from previous export)
-
-Both approaches create an identical in-memory notebook.`,
+- 'path': read a .src.md file from the local filesystem (STDIO mode)
+- 'content': raw .src.md string (HTTP mode, e.g. from a previous export)
+- 'notebookId': restore a document persisted via notebook_persist from the
+  configured durable backend (file_system or supabase); the notebook
+  re-materializes under its ORIGINAL id, surviving process restarts.`,
     category: "notebook-management",
     inputSchema: {
       type: "object",
@@ -92,8 +93,17 @@ Both approaches create an identical in-memory notebook.`,
           type: "string",
           description: "Raw .src.md file content as string (option 2)",
         },
+        notebookId: {
+          type: "string",
+          description:
+            "Persisted notebook id to restore from durable storage (option 3)",
+        },
       },
-      oneOf: [{ required: ["path"] }, { required: ["content"] }],
+      oneOf: [
+        { required: ["path"] },
+        { required: ["content"] },
+        { required: ["notebookId"] },
+      ],
     },
     example: {
       path: "/path/to/notebook.src.md",
@@ -319,7 +329,7 @@ When 'expectedSnapshotHash' is provided, the operation refuses to run if the cel
   {
     name: "notebook_persist",
     title: "Persist Notebook Artifact",
-    description: "Persist the current notebook document as an in-process artifact for replay/export. Supabase persistence is the durable production follow-up; this operation establishes the public contract.",
+    description: "Persist the current notebook document. Always stores an in-process artifact for replay/export; with a durable backend configured (FileSystem locally, Supabase deployed) the document also persists durably — upsert by notebookId, latest wins — and the response's 'persistence' field names the backend (otherwise it stays the honest 'in_memory'). Restore across restarts with notebook_load { notebookId }.",
     category: "evidence-engine",
     inputSchema: {
       type: "object",
@@ -333,7 +343,7 @@ When 'expectedSnapshotHash' is provided, the operation refuses to run if the cel
   {
     name: "notebook_start_run",
     title: "Start Notebook Evidence Run",
-    description: "Execute a notebook's cells in-process and derive a verdict from the real results. Modes marked implemented in the registry execute; other modes return an explicit not-implemented error. See thoughtbox://notebook/capabilities.",
+    description: "Execute a notebook's cells in-process and derive a mode-specific verdict from the real results: runbook yields a pass/fail RunbookVerdict, eval yields an EvalScorecard scored over declared expectations, merge_evidence yields a MergeEvidenceRunResult (runbook semantics, retagged). See thoughtbox://notebook/capabilities.",
     category: "evidence-engine",
     inputSchema: {
       type: "object",
@@ -411,6 +421,70 @@ When 'expectedSnapshotHash' is provided, the operation refuses to run if the cel
       required: ["artifactId"],
     },
     example: { artifactId: "nba_abc123" },
+  },
+  {
+    name: "notebook_instantiate",
+    title: "Instantiate Runbook From Template",
+    description:
+      "Reconstruct a live notebook from a persisted, versioned runbook template and " +
+      "create (or resume) an append-only instance — the fresh-session path " +
+      "(SPEC-AGX-SUBSTRATE claim c5 / Experiment H2). With templateId, the latest " +
+      "(or pinned) template version is materialized and a NEW instance is created. " +
+      "With instanceId, an existing instance is RESUMED from its durable records alone: " +
+      "the response reports derived status, executed cells, and the next unsatisfied cell. " +
+      "The notebook id equals the templateId, so notebook_run_cell with instanceId " +
+      "continues ordered execution unchanged. Contract hashes are re-verified on load.",
+    category: "evidence-engine",
+    inputSchema: {
+      type: "object",
+      properties: {
+        templateId: {
+          type: "string",
+          description:
+            "Runbook template ID (the source notebook's id). Required unless instanceId is given.",
+        },
+        templateVersion: {
+          type: "integer",
+          description: "Optional version pin; defaults to the latest version",
+        },
+        instanceId: {
+          type: "string",
+          description: "Existing instance ID to resume (no new instance is created)",
+        },
+      },
+    },
+    example: { templateId: "abc123" },
+  },
+  {
+    name: "notebook_fitness",
+    title: "Read Runbook Fitness",
+    description:
+      "Read the fitness ledger for a runbook template (SPEC-AGX-SUBSTRATE §7). " +
+      "Returns per-version aggregates — instances, evaluated/passed expectation counts, " +
+      "pass rate, error rate, distinct agents — computed from machine-checked ledger rows " +
+      "only. Without templateVersion, aggregates for every recorded version are returned. " +
+      "The templateId is the notebook id that produced the template (notebook_start_run " +
+      "versions a notebook's cells automatically).",
+    category: "evidence-engine",
+    inputSchema: {
+      type: "object",
+      properties: {
+        templateId: {
+          type: "string",
+          description: "Runbook template ID (the source notebook's id)",
+        },
+        templateVersion: {
+          type: "integer",
+          description: "Optional template version; omit for aggregates across all versions",
+        },
+        includeRows: {
+          type: "boolean",
+          description: "Include the raw fitness ledger rows in the response",
+        },
+      },
+      required: ["templateId"],
+    },
+    example: { templateId: "abc123", templateVersion: 1 },
   },
   {
     name: "notebook_export",

@@ -143,10 +143,16 @@ export class NotebookStateManager {
   }
 
   /**
-   * Load a notebook from path or content
+   * Load a notebook from path or content.
+   *
+   * `options.id` pins the loaded notebook's id (decode otherwise generates a
+   * fresh one) — used by the durable notebook_persist restore path so a
+   * persisted document re-materializes under its original id across
+   * process restarts.
    */
   async loadNotebook(
-    source: { path: string } | { content: string }
+    source: { path: string } | { content: string },
+    options: { id?: string } = {}
   ): Promise<Notebook> {
     let notebookContent: string;
 
@@ -161,6 +167,9 @@ export class NotebookStateManager {
 
     // Decode from .src.md format
     const notebook = decode(notebookContent);
+    if (options.id !== undefined) {
+      notebook.id = options.id;
+    }
 
     // Create notebook directory
     const notebookDir = path.join(this.tempDir, notebook.id);
@@ -174,6 +183,28 @@ export class NotebookStateManager {
     this.notebooks.set(notebook.id, notebook);
     this.notebookDirs.set(notebook.id, notebookDir);
 
+    return notebook;
+  }
+
+  /**
+   * Register a fully-formed notebook (explicit id and cell ids) in this
+   * state manager and write its files to disk. Used by runbook template
+   * instantiation (SPEC-AGX-SUBSTRATE c5): a fresh session reconstructs a
+   * notebook from a persisted template, and the notebook id must equal the
+   * templateId so instance-aware execution accepts it. Throws when the id
+   * is already loaded — callers decide whether the existing notebook is
+   * the same template (hash check) or a conflict.
+   */
+  async materializeNotebook(notebook: Notebook): Promise<Notebook> {
+    if (this.notebooks.has(notebook.id)) {
+      throw new Error(`Notebook ${notebook.id} is already loaded`);
+    }
+    const notebookDir = path.join(this.tempDir, notebook.id);
+    await fs.mkdir(notebookDir, { recursive: true });
+    await fs.mkdir(path.join(notebookDir, "src"), { recursive: true });
+    await this.writeNotebookToDisk(notebook, notebookDir);
+    this.notebooks.set(notebook.id, notebook);
+    this.notebookDirs.set(notebook.id, notebookDir);
     return notebook;
   }
 

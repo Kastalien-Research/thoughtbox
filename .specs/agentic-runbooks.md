@@ -17,18 +17,29 @@ Observatory integration is out of scope. Outputs remain local-first notebook exp
 
 ## Modes
 
-The supported notebook modes are:
+**Amended 2026-07-06.** The engine now recognizes exactly the modes it can run
+— every registered mode has a real verdict derivation in `notebook_start_run`:
 
-| Mode | Purpose |
-|---|---|
-| `runbook` | Reusable agent workflows with ordered steps and deterministic validators |
-| `simulation` | Seeded Monte Carlo or parameterized simulation notebooks |
-| `eval` | Executable evaluation workbooks with datasets, graders, and scorecards |
-| `failure_capsule` | Replayable debugging labs for bugs, incidents, and agent failures |
-| `adr_evidence` | Executable evidence packs for ADR hypotheses and predictions |
-| `skill_certification` | Positive, adversarial, and negative-control harnesses for reusable skills |
-| `scenario_factory` | Parameterized generation of tests, eval datasets, or regression scenarios |
-| `system_audit` | Recurring repo, protocol, or infrastructure invariant checks |
+| Mode | Purpose | Verdict |
+|---|---|---|
+| `runbook` | Reusable agent workflows with ordered steps and deterministic validators | `RunbookVerdict` — pass/fail over declared expectations (§5.1 semantics in SPEC-AGX-SUBSTRATE) |
+| `eval` | Executable evaluation workbooks scored over declared expectations | `EvalScorecard` — `score = passed / evaluated` over tier-1 contract + tier-2 validator records; zero declared expectations scores 0 with an explicit note, never a synthetic pass |
+| `merge_evidence` | Auto-generated evidence packet for a reasoning merge (`.specs/merge-evidence.md`; agents never hand-author these) | `MergeEvidenceRunResult` — runbook derivation semantics, retagged; the frozen-schema merge verdict JSON is assembled from it by `generateMergeEvidence` |
+
+Eval and merge-evidence runs flow through the same durable path as runbooks
+(template versioning, append-only instances, fitness ledger rows), so their
+machine-checked expectations accrue fitness identically.
+
+The six former speculative stub modes (`simulation`, `failure_capsule`,
+`adr_evidence`, `skill_certification`, `scenario_factory`, `system_audit`)
+were **removed from the engine's mode enum** — they had no verdict derivation
+and rejected every run. Their `.src.md` files survive unchanged as plain
+`notebook_create` authoring templates (`evidence-simulation`,
+`evidence-failure-capsule`, `evidence-adr-pack`, `evidence-skill-certification`,
+`evidence-scenario-factory`, `evidence-system-audit`). The mode registry stays
+extensible: a new mode registers its enum literal, document/output schemas,
+registry descriptor, and verdict builder — `merge_evidence` (PR #413) is the
+worked example.
 
 ## Effect-Backed Domain Core
 
@@ -51,6 +62,43 @@ The model using Thoughtbox must be able to discover these capabilities without r
 - `thoughtbox://notebook/capabilities` summarizes modes, templates, required inputs, expected outputs, and example operation sequences
 - `list_mcp_assets` describes notebooks as an evidence engine, not only a scratchpad
 - Code Mode SDK types include `tb.notebook.persist`, `startRun`, `getRun`, `listRuns`, `cancelRun`, and `getArtifact`
+- The fitness ledger is readable, not write-only: `notebook_fitness` / `tb.notebook.fitness`
+  returns per-template-version aggregates (instances, evaluated, passed, pass rate, error
+  rate, distinct agents) and optionally the raw ledger rows (SPEC-AGX-SUBSTRATE §7 read path,
+  added 2026-07-06)
+- Fresh sessions instantiate and resume runbooks from durable state alone:
+  `notebook_instantiate` / `tb.notebook.instantiate` reconstructs a live notebook from a
+  persisted template version (notebook id = templateId; contract hashes re-verified) and
+  either creates a new pinned instance or resumes an existing one from its instanceId,
+  reporting derived status and the next unsatisfied cell (SPEC-AGX-SUBSTRATE claim c5 /
+  Experiment H2 substrate, added 2026-07-06)
+
+## Durable Document Persistence (Amended 2026-07-06 — supersedes the legacy schema sketch below)
+
+`notebook_persist` is durable behind the dual-backend architecture decision
+(H4):
+
+- The persisted unit is the notebook's canonical `.src.md` encoding (contract
+  and validator bindings survive via `thoughtbox:cell` comments) plus metadata
+  (title, language, persistedAt). Notebooks are living documents: `save` is an
+  **upsert keyed by notebookId** — deliberately unlike the append-only runbook
+  substrate (templates/instances/ledger), which stays in `RunbookStorage`.
+- Backends implement `NotebookDocumentStorage`
+  (`src/persistence/notebook-document-storage.ts`):
+  `FileSystemNotebookDocumentStorage` (local/self-hosted; `<id>.src.md` +
+  `<id>.meta.json` under a base dir) and `SupabaseNotebookDocumentStorage`
+  (deployed; `public.notebooks` table, tenant-scoped by `tenant_workspace_id`
+  with primary key `(tenant_workspace_id, id)` — the hub/runbook tenancy
+  pattern, NOT the legacy project-JWT sketch below).
+- Restore: `notebook_load { notebookId }` re-materializes the persisted
+  document under its ORIGINAL id across process restarts.
+- Honesty rule: with no backend configured, `notebook_persist` keeps its
+  in-process artifact behavior and reports `persistence: "in_memory"`; with a
+  backend it reports the backend name. The `notebooks` table migration
+  (`supabase/migrations/20260709010000_create_notebooks_table.sql`) shipped as
+  a separate final commit once the DB-parity ruling came back GREEN — without
+  it, the Supabase backend fails loudly on a missing relation and default
+  deployments stay in_memory.
 
 ## Legacy Section Note
 

@@ -26,7 +26,7 @@ import {
   type ExpectationResult,
 } from "../contracts.js";
 import { hashJson } from "../../peer-notebook/manifest.js";
-import type { Notebook } from "../types.js";
+import { buildDefaultTsconfig, type Cell, type Notebook } from "../types.js";
 import type { AwaitCondition } from "./await.js";
 
 // ---------------------------------------------------------------------------
@@ -300,6 +300,82 @@ export function templateCellsFromNotebook(
     });
   }
   return cells;
+}
+
+/**
+ * Reconstruct a live, executable Notebook from a persisted template version
+ * (SPEC-AGX-SUBSTRATE claim c5 substrate — fresh-session instantiation).
+ * The inverse of `templateCellsFromNotebook`: the round-trip preserves every
+ * hash-bearing field, so `hashTemplateCells(templateCellsFromNotebook(nb))`
+ * equals the template's `cellsHash` and instance-aware execution accepts the
+ * reconstructed notebook against the pinned version.
+ *
+ * The notebook id IS the templateId (the engine's identity scheme, header
+ * comment above), so `notebook_run_cell { notebookId, cellId, instanceId }`
+ * works unchanged against instances of this template.
+ */
+export function notebookFromTemplate(template: RunbookTemplate): Notebook {
+  const cells: Cell[] = [
+    {
+      id: `${template.templateId}-title`,
+      type: "title",
+      text: `Runbook ${template.templateId} v${template.version}`,
+    },
+  ];
+  let hasTypescript = false;
+  for (const cell of template.cells) {
+    if (cell.cellType === "await") {
+      // B6: reconstruct the claim predicate verbatim — awaitClaim is a
+      // hash-bearing field, so the round-trip must preserve it exactly.
+      if (cell.awaitClaim === undefined) {
+        throw new Error(
+          `template ${template.templateId} v${template.version} await cell ` +
+            `${cell.cellId} has no awaitClaim predicate`,
+        );
+      }
+      cells.push({
+        id: cell.cellId,
+        type: "await",
+        claimId: cell.awaitClaim.claimId,
+        until: [...cell.awaitClaim.until],
+      });
+      continue;
+    }
+    if (cell.cellType === "package.json") {
+      cells.push({
+        id: cell.cellId,
+        type: "package.json",
+        filename: "package.json",
+        source: cell.source,
+        status: "idle",
+      });
+      continue;
+    }
+    const language = /\.tsx?$/.test(cell.filename) ? "typescript" : "javascript";
+    if (language === "typescript") hasTypescript = true;
+    cells.push({
+      id: cell.cellId,
+      type: "code",
+      language,
+      filename: cell.filename,
+      source: cell.source,
+      status: "idle",
+      ...(cell.contract !== undefined ? { contract: cell.contract } : {}),
+      ...(cell.validatorFor !== undefined ? { validatorFor: cell.validatorFor } : {}),
+      ...(cell.validatorSnapshotHash !== undefined
+        ? { validatorSnapshotHash: cell.validatorSnapshotHash }
+        : {}),
+    });
+  }
+  const now = Date.now();
+  return {
+    id: template.templateId,
+    cells,
+    language: hasTypescript ? "typescript" : "javascript",
+    ...(hasTypescript ? { "tsconfig.json": buildDefaultTsconfig() } : {}),
+    createdAt: now,
+    updatedAt: now,
+  };
 }
 
 /**
