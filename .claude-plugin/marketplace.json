@@ -11,7 +11,7 @@
       "name": "thoughtbox-claude-code",
       "source": "./plugins/thoughtbox-claude-code",
       "description": "Observability hooks, protocol enforcement, and the thoughtbox CLI",
-      "version": "0.1.7",
+      "version": "0.1.8",
       "category": "observability",
       "keywords": ["thoughtbox", "observability", "otlp", "protocols"]
     }

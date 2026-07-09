@@ -1,5 +1,6 @@
 import process from 'node:process';
 import { DEFAULT_BASE_URL, loadLocalThoughtboxConfig, mergeThoughtboxInitConfig, saveLocalThoughtboxConfig, warnIfClaudeDirNotGitignored, } from './config.js';
+import { runHookCommand } from './hooks.js';
 function createDefaultWriter(stream) {
     return (line) => {
         stream.write(`${line}\n`);
@@ -13,6 +14,8 @@ function flagValue(args, flag) {
 }
 function printHelp(writeStdout) {
     writeStdout('thoughtbox init --key <api_key>');
+    writeStdout('thoughtbox hook <capture-user-turn|surface-decisions|promote-to-decision|audit-response>');
+    writeStdout('  (drift-prevention hooks; read a Claude Code hook payload from stdin)');
 }
 async function handleInit(args, runtime) {
     const apiKey = flagValue(args, '--key');
@@ -59,6 +62,13 @@ export async function runCli(argv, runtime = {}) {
     switch (command) {
         case 'init':
             return handleInit(argv.slice(1), shared);
+        case 'hook':
+            return runHookCommand(argv.slice(1), {
+                ...shared,
+                ...(runtime.stdinText !== undefined
+                    ? { stdinText: runtime.stdinText }
+                    : {}),
+            });
         default:
             writeStderr(`error: unknown command "${command}"`);
             printHelp(writeStdout);

@@ -6,6 +6,7 @@ import {
   saveLocalThoughtboxConfig,
   warnIfClaudeDirNotGitignored,
 } from './config.js';
+import { runHookCommand } from './hooks.js';
 
 type FetchLike = typeof fetch;
 
@@ -34,6 +35,10 @@ function flagValue(args: string[], flag: string): string | undefined {
 
 function printHelp(writeStdout: (line: string) => void): void {
   writeStdout('thoughtbox init --key <api_key>');
+  writeStdout(
+    'thoughtbox hook <capture-user-turn|surface-decisions|promote-to-decision|audit-response>',
+  );
+  writeStdout('  (drift-prevention hooks; read a Claude Code hook payload from stdin)');
 }
 
 async function handleInit(
@@ -97,6 +102,13 @@ export async function runCli(
   switch (command) {
     case 'init':
       return handleInit(argv.slice(1), shared);
+    case 'hook':
+      return runHookCommand(argv.slice(1), {
+        ...shared,
+        ...(runtime.stdinText !== undefined
+          ? { stdinText: runtime.stdinText }
+          : {}),
+      });
     default:
       writeStderr(`error: unknown command "${command}"`);
       printHelp(writeStdout);
