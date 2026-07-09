@@ -1,7 +1,7 @@
 ---
 name: capture-learning
 description: Capture significant learnings from the current work session. Structures insights for future sessions and updates agent memory.
-argument-hint: [optional topic or context]
+argument-hint: "[optional topic or context]"
 user-invocable: true
 ---
 

@@ -1,7 +1,7 @@
 ---
 name: workflow-tournament
 description: Execute an implementation by dispatching multiple sub-agents to parallel Git worktrees. Each builds the entire feature independently, and the best implementation is selected and merged.
-argument-hint: [number of agents/worktrees]
+argument-hint: "[number of agents/worktrees]"
 user-invocable: true
 ---
 

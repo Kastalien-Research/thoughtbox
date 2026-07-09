@@ -26,6 +26,10 @@ export interface AuditManifest {
     context_snapshot: number
     progress: number
     action_receipt: number
+    finding: number
+    synthesis: number
+    question: number
+    conclusion: number
   }
   decisions: {
     total: number
@@ -115,6 +119,10 @@ export function parseAuditManifest(value: unknown): AuditManifest | null {
       context_snapshot: num(thoughtCounts.context_snapshot),
       progress: num(thoughtCounts.progress),
       action_receipt: num(thoughtCounts.action_receipt),
+      finding: num(thoughtCounts.finding),
+      synthesis: num(thoughtCounts.synthesis),
+      question: num(thoughtCounts.question),
+      conclusion: num(thoughtCounts.conclusion),
     },
     decisions: {
       total: num(decisions.total),

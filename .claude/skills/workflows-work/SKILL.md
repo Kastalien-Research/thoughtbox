@@ -1,7 +1,7 @@
 ---
 name: workflows-work
 description: Execute the implementation plan by dispatching sub-agents for each task. Stage 4 of the development workflow.
-argument-hint: [plan path or task selection]
+argument-hint: "[plan path or task selection]"
 user-invocable: true
 ---
 

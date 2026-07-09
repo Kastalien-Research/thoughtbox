@@ -1,7 +1,7 @@
 ---
 name: escalate
 description: Format a structured escalation to the human decision-maker (Chief Agentic). Use when hitting an escalation threshold.
-argument-hint: [situation summary]
+argument-hint: "[situation summary]"
 user-invocable: true
 ---
 

@@ -2,7 +2,7 @@
 name: thoughtbox:session-review
 description: Analyze completed Thoughtbox sessions to extract patterns, anti-patterns, and learnings for the knowledge graph. This is the learning loop that makes Thoughtbox improve over time. Use after completing a reasoning session, when reviewing past sessions for insights, or when you want to assess reasoning quality. Triggers on "review session", "what did I learn", "extract insights", "analyze reasoning", "session retrospective", or proactively after any significant session completes.
 user-invocable: true
-argument-hint: [session ID, or "latest" to review most recent]
+argument-hint: '[session ID, or "latest" to review most recent]'
 ---
 
 # Thoughtbox Session Review

@@ -72,9 +72,10 @@ export const thoughtToolInputSchema = z.object({
   
   // Type discriminators & Metadata
   thoughtType: z.enum([
-    "reasoning", "decision_frame", "action_report", 
-    "belief_snapshot", "assumption_update", "context_snapshot", "progress"
-  ]).describe("The structured type of this thought"),
+    "reasoning", "decision_frame", "action_report",
+    "belief_snapshot", "assumption_update", "context_snapshot", "progress",
+    "finding", "synthesis", "question", "conclusion"
+  ]).describe("The structured type of this thought. Inquiry-session types (finding, synthesis, question, conclusion) carry no extra payload, like reasoning."),
   
   confidence: z.enum(["high", "medium", "low"]).optional().describe("Confidence level for decision frames"),
   options: z.array(OptionSchema).optional().describe("Options evaluated during decision frames"),

@@ -125,6 +125,10 @@ export function SessionTraceExplorer({
       assumption_update: 0,
       context_snapshot: 0,
       progress: 0,
+      finding: 0,
+      synthesis: 0,
+      question: 0,
+      conclusion: 0,
     }
     for (const row of rows) {
       counts[row.displayType]++

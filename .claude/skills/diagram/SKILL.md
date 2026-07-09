@@ -1,7 +1,7 @@
 ---
 name: diagram
 description: Generate architecture diagrams for a codebase subsystem or module. Explores source files and produces Mermaid diagrams in docs/.
-argument-hint: [subsystem or module path, e.g. "observatory", "hub", "persistence"]
+argument-hint: '[subsystem or module path, e.g. "observatory", "hub", "persistence"]'
 user-invocable: true
 allowed-tools: Read, Glob, Grep, Bash, Write, Task
 ---

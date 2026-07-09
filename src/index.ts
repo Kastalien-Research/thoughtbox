@@ -51,6 +51,7 @@ import {
   createProtocolHttpSurface,
   type ProtocolEnforcementHandler,
 } from "./http/protocol-http.js";
+import { createDriftHttpSurface } from "./http/drift-http.js";
 import { createSupabaseProtocolHandler } from "./protocol/index.js";
 import { resolveRequestAuth } from "./auth/resolve-request-auth.js";
 import { ensureStaticWorkspace } from "./auth/static-workspace.js";
@@ -681,6 +682,19 @@ async function startHttpServer() {
         },
   );
   protocolHttpSurface.mount(app);
+
+  // Drift-prevention decision store (SPEC-DRIFT-PREVENTION-HOOKS §8) —
+  // /drift/session-thought + /drift/session-decisions, both modes. Hosted
+  // auth reuses the enforcement workspace resolver above.
+  const driftHttpSurface = createDriftHttpSurface(
+    isMultiTenant
+      ? {
+          getStorage: (workspaceId) => factory.getStorage(workspaceId),
+          resolveWorkspaceId: resolveEnforcementWorkspace,
+        }
+      : { getStorage: () => factory.getStorage() },
+  );
+  driftHttpSurface.mount(app);
 
   // ---------------------------------------------------------------------------
   // Hub Event SSE Endpoint — pushes HubEvents to Channel subscribers

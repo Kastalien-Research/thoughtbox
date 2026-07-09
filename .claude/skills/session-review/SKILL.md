@@ -1,7 +1,7 @@
 ---
 name: session-review
 description: Generate a structured session summary for cross-session continuity. Captures key decisions, hypotheses, partial work, and knowledge references. Output is written to .claude/session-handoff.json for the next session to load automatically.
-argument-hint: [optional: focus area or notes]
+argument-hint: "[optional: focus area or notes]"
 user-invocable: true
 allowed-tools: Read, Glob, Grep, Bash, Write
 ---

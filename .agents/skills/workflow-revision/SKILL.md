@@ -1,7 +1,7 @@
 ---
 name: workflow-revision
 description: Iterate on implementation fixes surfaced by review until all claims are verified. Stage 6 of the development workflow.
-argument-hint: [review findings summary or path]
+argument-hint: "[review findings summary or path]"
 user-invocable: true
 ---
 

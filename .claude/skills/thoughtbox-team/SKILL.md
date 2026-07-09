@@ -1,7 +1,7 @@
 ---
 name: thoughtbox-team
 description: Spawn an Agent Team with a background Thoughtbox analyst teammate. The analyst monitors your reasoning sessions for evolution candidates, contradictions, and generates periodic digests. Use this at the start of any deep Thoughtbox reasoning session, when you're about to record many thoughts and want background analysis. Triggers on "start thoughtbox team", "I want a session analyst", "monitor my reasoning", or at the start of any session where you plan to use Thoughtbox extensively.
-argument-hint: [optional session ID to monitor]
+argument-hint: "[optional session ID to monitor]"
 user-invocable: true
 ---
 

@@ -1,7 +1,7 @@
 ---
 name: research-task
 description: Execute a research task using compositional workflow planning. Characterizes the task, selects an approach from a library of research strategies, executes it, and self-evaluates output quality.
-argument-hint: [research question or topic]
+argument-hint: "[research question or topic]"
 user-invocable: true
 allowed-tools: Read, Glob, Grep, Bash, WebFetch, WebSearch
 ---

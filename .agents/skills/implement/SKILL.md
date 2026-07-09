@@ -1,7 +1,7 @@
 ---
 name: implement
 description: Implement a specification using a TDD-oriented workflow. Extracts requirements, generates tests first, then implements to pass the tests. Includes spiral detection and acceptance gates.
-argument-hint: [spec file or description]
+argument-hint: "[spec file or description]"
 user-invocable: true
 allowed-tools: Read, Glob, Grep, Bash, Edit, Write
 ---

@@ -1,7 +1,7 @@
 ---
 name: taste
 description: Run a taste evaluation on a research proposal or technical direction. Determines whether to proceed, simplify, defer, or kill before committing research effort.
-argument-hint: [proposal or question to evaluate]
+argument-hint: "[proposal or question to evaluate]"
 user-invocable: true
 ---
 
