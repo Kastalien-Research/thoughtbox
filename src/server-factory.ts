@@ -8,6 +8,7 @@ import { SessionIdentityRegistry } from "./hub/session-identity.js";
 import type { ClaimStorage } from "./claims/types.js";
 import type { RunbookStorage } from "./notebook/runbook/types.js";
 import { createClaimsToolHandler } from "./claims/claims-tool-handler.js";
+import { createRunbookClaimBinding } from "./claims/runbook-binding.js";
 import {
   createThoughtStoreAdapter,
   type ThoughtStoreAdapter,
@@ -321,7 +322,14 @@ Use \`console.log()\` for debugging — output captured in response logs.`;
 
   const notebookHandler = new NotebookHandler(
     undefined,
-    args.runbookStorage ? { runbookStorage: args.runbookStorage } : {},
+    {
+      ...(args.runbookStorage ? { runbookStorage: args.runbookStorage } : {}),
+      // SPEC-AGX-SUBSTRATE B6: await-cells can bind on claim status when
+      // claim storage is wired; without it awaits fall back to unbound.
+      ...(args.claimStorage
+        ? { claimBinding: createRunbookClaimBinding(args.claimStorage) }
+        : {}),
+    },
   );
   let resolvedWorkspaceId = args.workspaceId || process.env.THOUGHTBOX_PROJECT || "default";
   const durablePeerWorkspaceId = resolvedWorkspaceId === "default" ? undefined : resolvedWorkspaceId;

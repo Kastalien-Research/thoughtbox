@@ -45,7 +45,7 @@ interface SearchCatalog {
   resourceTemplates: Array<{ name: string; uriTemplate: string; description: string; mimeType: string }>;
 }
 
-Modules in catalog.operations: session, thought, knowledge, notebook, theseus, ulysses, observability, branch, hub, claims
+Modules in catalog.operations: session, thought, knowledge, notebook, theseus, ulysses, observability, branch, hub, claims, runbook
 Public MCP tools in catalog.publicTools: thoughtbox_search, thoughtbox_execute, thoughtbox_peer_notebook
 
 Examples:
