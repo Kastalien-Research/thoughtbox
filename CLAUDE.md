@@ -106,7 +106,7 @@ Hub coordination (workspaces, problems, proposals, channels) is exposed over MCP
 - **Execution plane**: Google Cloud Run
 - **Control plane / persistence**: Supabase — Postgres, Auth, Storage
 - **Billing**: Stripe
-- **Session routing**: Cloud Memorystore for Redis (live transport state only)
+- **Session routing**: single-instance Cloud Run (maxScale=1); transport sessions in-process
 - **NO Cloud Storage FUSE** — all persistence goes through Supabase, containers are stateless
 - **DUAL BACKEND**: FileSystemStorage (local/self-hosted) + SupabaseStorage (deployed). Both implement same interfaces. Neither replaces the other.
 - Initiative spec: `.specs/deployment/v1-initiative.md`

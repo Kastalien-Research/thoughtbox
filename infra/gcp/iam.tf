@@ -1,4 +1,6 @@
-# Service Account for the agent runner
+# Runtime service account for the MCP Cloud Run service (mcp-service.tf).
+# Historically created for the (since-destroyed) agent-runner job; the
+# account_id/description are immutable-in-place, so they keep the old name.
 resource "google_service_account" "agent_runner" {
   account_id   = "agent-runner-sa"
   display_name = "Agent Runner Service Account"
@@ -12,6 +14,6 @@ resource "google_service_account" "build_system" {
   description  = "Identity for CI/CD pipeline to push to Artifact Registry."
 }
 
-# Note: We bind permissions to these Service Accounts dynamically 
-# in the resource files (storage.tf, execution.tf) to ensure scope is 
+# Note: We bind permissions to these Service Accounts dynamically
+# in the resource files (storage.tf, mcp-service.tf) to ensure scope is
 # as narrow as possible.

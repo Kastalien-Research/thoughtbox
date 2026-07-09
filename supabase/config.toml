@@ -270,13 +270,6 @@ inspector_port = 8083
 # For example, if you want to serve static HTML pages in your function:
 # static_files = [ "./functions/MY_FUNCTION_NAME/*.html" ]
 
-# Prototype: background queue worker (cron / pg_net); not a user-facing MCP surface.
-[functions.process-thought-queue]
-enabled = true
-verify_jwt = false
-import_map = "./functions/process-thought-queue/deno.json"
-entrypoint = "./functions/process-thought-queue/index.ts"
-
 # tb-branch authenticates via its own signed branch token (?token=), so the
 # Supabase edge gateway must not require an Authorization JWT header.
 [functions.tb-branch]

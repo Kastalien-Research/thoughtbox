@@ -13,7 +13,7 @@ This research session surveyed the empirical practice of Anthropic (Claude Code)
 ## Contents
 
 - **SPEC-SEVEN-LAYER-ARCHITECTURE.md** — The convergent architecture used by every successful AI-heavy team.
-- **SPEC-THOUGHTBOX-SLEEP-TIME.md** — Supabase-native proposal: adopt Letta's sleep-time compute pattern as the async governance substrate, running on pgmq + pg_cron infrastructure already shipped in migration `20260408033928`.
+- **SPEC-THOUGHTBOX-SLEEP-TIME.md** — *removed in the 2026-07 demolition pass* (owner-approved sleep-time kill; the `process-thought-queue` edge function was undeployed). Was: Supabase-native proposal to adopt Letta's sleep-time compute pattern on pgmq + pg_cron. See git history for the full text.
 - **SPEC-EVOLUTION-CHECK-GENERALIZED.md** — Generalize the existing `thoughtbox://prompts/evolution-check` pattern (A-Mem-based) from thoughts to skills, specs, rules, and memories. This is the mechanism by which governance moves from friction to search-space-narrowing.
 - **STARTER-TIER-A.md** — The concrete starter actions sized for a solo operator. MVP is A1 (branch protection) + B5 (outbound claim truth layer), ~2 hours total.
 

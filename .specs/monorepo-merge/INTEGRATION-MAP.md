@@ -24,7 +24,7 @@ Architectural split, not coincidence:
 
 - **Server WRITES most tables** via `SupabaseStorage` and related persistence adapters, then emits OTEL events through the same connection.
 - **Web app READS most tables** in Server Components or via RLS-enforced browser clients; also MUTATES only `workspaces` (via Stripe webhook) and `api_keys` (via server actions).
-- **Edge functions operate on the data plane independently** of both, triggered by pgmq + pg_cron; currently `process-thought-queue` and `tb-branch` only.
+- **Edge functions operate on the data plane independently** of both; currently `tb-branch` only (`process-thought-queue` was undeployed and removed in the 2026-07 demolition pass).
 - **Realtime bridges live state** back to the web app — `thoughts`, `sessions`, `branches` publications feed the trace explorer and run views.
 
 The design goal — and the one the integration map makes visible — is that the data plane is the API between server and web. Both sides write to Supabase; both sides read from Supabase; neither calls the other directly. This is desirable for stewardship (one schema is the contract) but produces the drift risk the research document flagged: when server and web expectations about a column or RLS policy diverge, nothing catches it until a user sees wrong data.
@@ -117,7 +117,7 @@ From migration `20260408033928_add_hub_tables_vectors_pgmq_realtime.sql`:
 
 | Queue | Trigger | Consumer | Status |
 |---|---|---|---|
-| `thought_processing` | `trg_thought_insert_enqueue` → `enqueue_thought_processing()` | `process-thought-queue` edge function | ✓ live, worker only broadcasts + archives (no evolution-check yet) |
+| `thought_processing` | `trg_thought_insert_enqueue` → `enqueue_thought_processing()` | NONE — `process-thought-queue` undeployed (2026-07 demolition) | ⚠ enqueue happens, messages pile up |
 | `entity_processing` | `trg_entity_insert_enqueue` → `enqueue_entity_processing()` | NONE — no edge function deployed | ⚠ enqueue happens, messages pile up |
 | `session_closing` | NO TRIGGER — queue exists, nothing enqueues | NONE | ⚠ empty; `trg_session_close_enqueue` needs to be added |
 
@@ -206,7 +206,7 @@ From migration `20260408033928_add_hub_tables_vectors_pgmq_realtime.sql`:
 
 | Function | File | Trigger / invocation | Role |
 |---|---|---|---|
-| `process-thought-queue` | `supabase/functions/process-thought-queue/index.ts` | pgmq queue `thought_processing`; invoked via pg_net from Vault-backed cron (not yet scheduled) | Broadcast Realtime event + archive message. **Does not yet do evolution-check classification** — the extension point proposed in `SPEC-THOUGHTBOX-SLEEP-TIME.md` Delta 1. |
+| `process-thought-queue` | **REMOVED** (2026-07 demolition pass, owner-approved sleep-time kill) | Was: pgmq queue `thought_processing` via pg_net cron (never scheduled) | Undeployed from prod and deleted from the repo; the applied pgmq/pg_cron migrations remain in place. |
 | `tb-branch` | `supabase/functions/tb-branch/index.ts` | HTTP POST with signed token (HMAC-SHA-256); routes under `/functions/v1/tb-branch/tb-branch/mcp` | MCP-lite JSON-RPC server inside Supabase Edge; tools `branch_thought`, `branch_status`, `branch_read`. Writes directly to `thoughts`. |
 
 ### 3.5 OTEL signals (into `otel_events`)
@@ -384,7 +384,6 @@ These ARE implemented and work, but aren't named in the web app's public-facing 
 - The Ulysses protocol ships with full audit/history tables — could be a differentiator.
 - The OTEL cost-by-model chart actually works on real data.
 - The `tb-branch` edge function is deployed and provides branch-scoped MCP — a novel capability.
-- The process-thought-queue edge function is deployed and ready to be extended into the evolution-check worker.
 
 ---
 
