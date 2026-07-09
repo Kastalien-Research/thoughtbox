@@ -1,6 +1,13 @@
 # SPEC-DRIFT-PREVENTION-HOOKS: Agent Drift Prevention Hook Stack
 
-## Status: DRAFT
+## Status: IMPLEMENTED (v1) — detect-flip (§6) deferred
+
+Shipped: server surface (`src/http/drift-http.ts`, mounted in
+`src/index.ts`), CLI hook family
+(`plugins/thoughtbox-claude-code/src/cli/hooks.ts`), and hooks.json wiring
+(UserPromptSubmit ×3, Stop ×1). Verified headlessly against a live local
+server; see Acceptance Criteria for per-item evidence and what still
+requires a human-attended Claude Code session.
 
 ## Summary
 
@@ -257,20 +264,46 @@ processes via the session environment (including the `env` block
 
 ## Acceptance Criteria
 
-- [ ] With the hook stack enabled, a session that reproduces today's
-      interaction sequence (npm/hub/channel/server-distribution drifts) has
-      the relevant decision_frames surfaced by thought M and the drift
-      attempts at turn M+1 blocked or auto-retracted.
-- [ ] Hook latency budgets (500ms p95 for surface-decisions, 800ms p95 for
-      audit-response) are met under the hosted Cloud Run default latency.
-- [ ] With Thoughtbox server unreachable, the hooks degrade silently and
-      the user's turns still complete.
-- [ ] Disabling the plugin disables the hooks entirely with no residual
-      effect on `.claude/settings.json`.
-- [ ] `thoughtbox doctor` reports the drift-prevention hooks as an optional
-      informational item, not a required one.
-- [ ] No hook reclassifies user prompts without an accompanying Thoughtbox
-      revision record attributable to the promotion event.
+- [x] HEADLESS EQUIVALENT VERIFIED (2026-07-09, live local server, real
+      CLI binary driven with simulated hook payloads): a correction turn
+      ("no, we removed the redis dependency — stop adding it back") was
+      captured detached by capture-user-turn, promoted by
+      promote-to-decision to a refuted `assumption_update` revision
+      (`revisesThought` pointing at the captured turn), and re-injected on
+      the next turn by surface-decisions as a
+      `<system-reminder type="session-decisions">` block via
+      `additionalContext`. An unverified repo-state assertion in a fixture
+      transcript was blocked by audit-response with the exact §5.4
+      message; the same assertion backed by Read/Bash tool_use passed.
+      REMAINING HUMAN-ATTENDED CHECK: the same loop inside a real Claude
+      Code session (hooks fired by the runtime rather than piped payloads,
+      reminder visibly present in model context, Stop-block re-prompting
+      the model) — reproducing the original npm/hub/channel drift sequence
+      end to end.
+- [~] Latency: local measurements — surface-decisions full CLI round trip
+      62ms; warm `/drift/session-decisions` GET <1ms (2s server cache);
+      audit-response is local-only file parsing. The 500ms p95 bound
+      UNDER HOSTED Cloud Run latency is not yet measured — needs a run
+      against the deployed endpoint (no hosted mutations were permitted
+      during this implementation pass).
+- [x] Unreachable server (dead port, sync mode): capture-user-turn,
+      surface-decisions, and promote-to-decision all exit 0 with no
+      stdout; the async pair additionally detach so the foreground cost
+      is ~0.3s regardless. Verified live.
+- [x] All hooks live in the plugin's `hooks/hooks.json`; nothing was
+      added to `.claude/settings.json`, so disabling the plugin removes
+      the hooks with no residual effect. (Structural: the hooks exist
+      nowhere else.)
+- [ ] `thoughtbox doctor` reporting: the shipped CLI has no `doctor`
+      subcommand yet (the old doctor lives behind the collapsed
+      `src/http/cli-routes.ts` boundary slated for separation). Deferred
+      until doctor lands plugin-side.
+- [x] Reclassification always carries a revision record: the server
+      records promotions as `isRevision`/`revisesThought` against the
+      captured user-turn thought (verified live: `revisesThought: 1` in
+      the promote response), and the only fallback (capture not yet
+      landed) creates a NEW assumption_update without touching any prior
+      thought.
 
 ## Non-Goals
 
