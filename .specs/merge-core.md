@@ -398,7 +398,7 @@ Behavior:
   `UPDATE ... WHERE id = ? AND tenant_workspace_id = ? AND status = ?`.
   Uses locally declared row types (not the generated `Database` type)
   until the gated migration lands and types are regenerated.
-- Migration: `supabase/migrations/20260706000000_add_merge_commits_table.sql`
+- Migration: `supabase/migrations/20260709084500_add_merge_commits_table.sql`
   — held in a separate final commit, gated on the DB-parity ruling. RLS:
   service_role full access; workspace-membership SELECT; workspace-owner
   UPDATE (the approval path for the authenticated web client).
