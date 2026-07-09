@@ -106,7 +106,7 @@ export const OBSERVABILITY_OPERATIONS: OperationDefinition[] = [
     name: "session_cost",
     title: "Session Cost",
     description:
-      "Get aggregated API cost data for a Claude Code session, broken down by model. If no sessionId is provided, returns costs across all sessions.",
+      "Get aggregated API cost data for a Claude Code session, broken down by model. If no sessionId is provided, returns costs across all sessions. Aggregation runs server-side in Postgres via the otel_session_cost RPC (bounded memory as otel_events grows). Hosted mode only: in local/self-hosted mode there is no OTEL event store and this operation returns an explicit 'unavailable in local mode' error.",
     category: "otel",
     inputSchema: {
       type: "object",
