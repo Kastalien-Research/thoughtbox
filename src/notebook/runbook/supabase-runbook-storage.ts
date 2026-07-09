@@ -283,7 +283,7 @@ export class SupabaseRunbookStorage implements RunbookStorage {
    * guarantees exactly one of any set of concurrent inserts commits; every
    * loser observes 23505 and surfaces the typed conflict WITHOUT having run
    * any side effect. The table is insert-only (UPDATE/DELETE revoked by
-   * migration 20260615000000), so a reservation can never be stolen.
+   * migration 20260706230000), so a reservation can never be stolen.
    */
   async reserveAdvance(reservation: AdvanceReservation): Promise<void> {
     const { error } = await this.client.from("runbook_advance_reservations").insert({
