@@ -48,7 +48,7 @@ export async function runAgentFile(opts: {
   agentFile: string;
   prompt: string;
   budget?: number;
-}) {
+}): Promise<string> {
   const raw = await fs.readFile(opts.agentFile, "utf8");
   const { fm, body } = parseFrontmatter(raw);
   const allowed = parseList(fm.tools);
@@ -75,16 +75,21 @@ export async function runAgentFile(opts: {
     },
   });
 
+  const collected: string[] = [];
   for await (const msg of q) {
     if (msg.type === "assistant") {
       const blocks = msg.message.content.filter((b: any) => b.type === "text");
-      for (const block of blocks) process.stdout.write(`${block.text}\n`);
+      for (const block of blocks) {
+        process.stdout.write(`${block.text}\n`);
+        collected.push(block.text);
+      }
     } else if (msg.type === "result") {
       process.stdout.write(
         `Result: ${msg.subtype} | cost: ${msg.total_cost_usd ?? "n/a"} | turns: ${msg.num_turns}\n`,
       );
     }
   }
+  return collected.join("\n");
 }
 
 export function agentPath(agentName: string): string {

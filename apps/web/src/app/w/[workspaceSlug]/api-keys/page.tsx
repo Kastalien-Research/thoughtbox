@@ -9,7 +9,7 @@ type Props = { params: Promise<{ workspaceSlug: string }> }
 
 export default async function ApiKeysPage({ params }: Props) {
   const { workspaceSlug } = await params
-  const keys = await listApiKeys()
+  const keys = await listApiKeys(workspaceSlug)
 
   return (
     <div className="mx-auto max-w-4xl">
@@ -32,7 +32,7 @@ export default async function ApiKeysPage({ params }: Props) {
         </p>
       </div>
 
-      <ApiKeyTable keys={keys} />
+      <ApiKeyTable keys={keys} workspaceSlug={workspaceSlug} />
 
       <p className="mt-4 text-xs text-foreground">
         Keys are stored as bcrypt hashes. The plaintext is shown only at creation time.

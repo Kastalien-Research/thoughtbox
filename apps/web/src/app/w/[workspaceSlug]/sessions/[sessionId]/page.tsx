@@ -10,6 +10,7 @@ import {
   type RawOtelEventRecord,
 } from '@/lib/session/view-models'
 import { computeSessionSummary } from '@/lib/session/compute-session-summary'
+import { parseAuditManifest } from '@/lib/session/audit-manifest'
 import { createClient } from '@/lib/supabase/server'
 
 export const metadata: Metadata = { title: 'Session' }
@@ -136,6 +137,7 @@ export default async function SessionDetailPage({ params }: Props) {
   }))
 
   const summary = computeSessionSummary(rawThoughts, rawSession.tags || [])
+  const auditManifest = parseAuditManifest(sessionRow.audit_manifest)
   const defaultExpanded = true
 
   return (
@@ -146,6 +148,7 @@ export default async function SessionDetailPage({ params }: Props) {
         {...summary}
         durationLabel={sessionVM.durationLabel}
         defaultExpanded={defaultExpanded}
+        auditManifest={auditManifest}
       />
 
       <SessionTraceExplorer

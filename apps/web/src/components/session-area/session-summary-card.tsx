@@ -3,6 +3,8 @@
 import { useState } from 'react'
 import type { ThoughtDisplayType } from '@/lib/session/view-models'
 import type { SessionSummary } from '@/lib/session/compute-session-summary'
+import type { AuditManifest } from '@/lib/session/audit-manifest'
+import { AuditManifestSection } from './audit-manifest-section'
 import {
   BADGE_BASE,
   THOUGHT_TYPE_BADGE,
@@ -12,6 +14,7 @@ import {
 type Props = SessionSummary & {
   durationLabel: string
   defaultExpanded: boolean
+  auditManifest?: AuditManifest | null
 }
 
 export function SessionSummaryCard({
@@ -23,6 +26,7 @@ export function SessionSummaryCard({
   tags,
   durationLabel,
   defaultExpanded,
+  auditManifest,
 }: Props) {
   const [expanded, setExpanded] = useState(defaultExpanded)
 
@@ -128,6 +132,9 @@ export function SessionSummaryCard({
                 ))}
               </div>
             )}
+
+            {/* Audit manifest (AUDIT-003) — present once the session closes */}
+            {auditManifest && <AuditManifestSection manifest={auditManifest} />}
           </div>
         </div>
       </div>
