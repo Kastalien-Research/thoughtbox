@@ -25,10 +25,13 @@ import { createFileSystemHubStorage } from "./hub/hub-storage-fs.js";
 import { createSupabaseHubStorageProvider } from "./hub/supabase-hub-storage.js";
 import type { HubStorage } from "./hub/hub-types.js";
 import { InMemoryClaimStorage } from "./claims/in-memory-claim-storage.js";
+import { SqliteClaimStorage } from "./claims/sqlite-claim-storage.js";
 import { createSupabaseClaimStorageProvider } from "./claims/supabase-claim-storage.js";
 import { InMemoryRunbookStorage } from "./notebook/runbook/in-memory-runbook-storage.js";
+import { SqliteRunbookStorage } from "./notebook/runbook/sqlite-runbook-storage.js";
 import { createSupabaseRunbookStorageProvider } from "./notebook/runbook/supabase-runbook-storage.js";
 import { InMemoryMergeCommitStorage } from "./merge/in-memory-merge-storage.js";
+import { SqliteMergeCommitStorage } from "./merge/sqlite-merge-storage.js";
 import { createSupabaseMergeStorageProvider } from "./merge/supabase-merge-storage.js";
 import {
   createSupabaseProtocolEventStorageProvider,
@@ -167,6 +170,12 @@ interface SessionEntry {
 async function startHttpServer() {
   const { factory, hubStorage, dataDir } = await createStorage();
   const isMultiTenant = process.env.THOUGHTBOX_STORAGE === "supabase";
+  // THOUGHTBOX_STORAGE=memory keeps every local store volatile (tests,
+  // throwaway runs). The default local mode (fs) is DURABLE: claims,
+  // runbooks, and merge commits live in SQLite files under dataDir and
+  // survive restarts (dual-backend architecture; SPEC-AGX-SUBSTRATE §11.5).
+  const isVolatileMemory =
+    (process.env.THOUGHTBOX_STORAGE || "fs").toLowerCase() === "memory";
 
   // Multi-tenant hub isolation (Phase 4.3): each tenant workspace gets a
   // SupabaseHubStorage scoped by tenant_workspace_id, so tb.hub can never
@@ -181,41 +190,55 @@ async function startHttpServer() {
     : null;
 
   // Claim graph storage (SPEC-AGX-SUBSTRATE B1/B2): tenant-scoped
-  // SupabaseClaimStorage when hosted; a single process-shared
-  // InMemoryClaimStorage locally (volatile — the FileSystem backend is
-  // deferred per spec §11.5 until the H1/H2 experiments pass).
+  // SupabaseClaimStorage when hosted; locally a single process-shared
+  // SqliteClaimStorage at <dataDir>/claims.db so the claim graph survives
+  // restarts (InMemory only under THOUGHTBOX_STORAGE=memory).
   const tenantClaimStorage = isMultiTenant
     ? createSupabaseClaimStorageProvider({
         supabaseUrl: process.env.SUPABASE_URL!,
         serviceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY!,
       })
     : null;
-  const localClaimStorage = isMultiTenant ? null : new InMemoryClaimStorage();
+  const localClaimStorage = isMultiTenant
+    ? null
+    : isVolatileMemory
+      ? new InMemoryClaimStorage()
+      : new SqliteClaimStorage(path.join(dataDir, "claims.db"));
 
   // Durable runbook storage (SPEC-AGX-SUBSTRATE B4b): tenant-scoped
-  // SupabaseRunbookStorage when hosted; a single process-shared
-  // InMemoryRunbookStorage locally. Without it the notebook engine falls
-  // back to a per-handler InMemoryRunbookStorage and runbook
-  // templates/instances/executions/ledger rows are lost with the process.
+  // SupabaseRunbookStorage when hosted; locally a single process-shared
+  // SqliteRunbookStorage at <dataDir>/runbooks.db (templates/instances/
+  // executions/ledger/advance-reservations survive restarts; InMemory only
+  // under THOUGHTBOX_STORAGE=memory). Without it the notebook engine falls
+  // back to a per-handler InMemoryRunbookStorage.
   const tenantRunbookStorage = isMultiTenant
     ? createSupabaseRunbookStorageProvider({
         supabaseUrl: process.env.SUPABASE_URL!,
         serviceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY!,
       })
     : null;
-  const localRunbookStorage = isMultiTenant ? null : new InMemoryRunbookStorage();
+  const localRunbookStorage = isMultiTenant
+    ? null
+    : isVolatileMemory
+      ? new InMemoryRunbookStorage()
+      : new SqliteRunbookStorage(path.join(dataDir, "runbooks.db"));
 
   // Merge-commit storage (SPEC-MERGE-CORE c8): tenant-scoped
-  // SupabaseMergeCommitStorage when hosted; a single process-shared
-  // InMemoryMergeCommitStorage locally, mirroring the claims wiring.
-  // tb.merge.* is unavailable without it.
+  // SupabaseMergeCommitStorage when hosted; locally a single process-shared
+  // SqliteMergeCommitStorage at <dataDir>/merges.db, mirroring the claims
+  // wiring (InMemory only under THOUGHTBOX_STORAGE=memory). tb.merge.* is
+  // unavailable without it.
   const tenantMergeStorage = isMultiTenant
     ? createSupabaseMergeStorageProvider({
         supabaseUrl: process.env.SUPABASE_URL!,
         serviceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY!,
       })
     : null;
-  const localMergeStorage = isMultiTenant ? null : new InMemoryMergeCommitStorage();
+  const localMergeStorage = isMultiTenant
+    ? null
+    : isVolatileMemory
+      ? new InMemoryMergeCommitStorage()
+      : new SqliteMergeCommitStorage(path.join(dataDir, "merges.db"));
 
   // Durable notebook documents (persist/restore seam): tenant-scoped
   // SupabaseNotebookDocumentStorage when hosted; FileSystemNotebookDocumentStorage

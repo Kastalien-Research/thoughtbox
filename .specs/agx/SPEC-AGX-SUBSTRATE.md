@@ -462,6 +462,14 @@ design decisions for v0; the residual open questions are marked.
    the in-process emitter). The FS implementation is a product requirement, delivered after
    H1/H2 pass, not before. This honors the standing dual-backend architecture decision as a
    product gate rather than an experiment tax.
+   **DELIVERED 2026-07-09 — this deferral is VOID.** The local durable backends shipped as
+   SQLite (better-sqlite3), not flat files, because the contracts demand transactional
+   semantics (atomic supersede, status CAS, PK-arbitrated advance reservations) a JSON file
+   cannot honor: `SqliteClaimStorage` (`<dataDir>/claims.db`), `SqliteRunbookStorage`
+   (`<dataDir>/runbooks.db`), and `SqliteMergeCommitStorage` (`<dataDir>/merges.db`), each
+   passing the same contract suite as its Supabase and InMemory siblings plus
+   restart-survival and cross-instance race tests. Default local mode (fs) wires them in
+   `src/index.ts`; `THOUGHTBOX_STORAGE=memory` keeps the volatile InMemory stores.
 6. **Adoption is the meta-risk.** Principles 1–3 exist because the thought journal failed
    them; better architecture alone does not change agent behavior.
    **Position: adoption is centralized, not per-agent — engineer it at three chokepoints.**
@@ -496,6 +504,7 @@ table as units land.
 | A runbook cell that **blocks on a claim** — a run parks at an unsatisfied `await` cell (skipped tail, durable claim subscription, instance stays `in_progress`), and the next pull past a satisfying claim status records the satisfaction and executes the cells behind it | `await` cell (`tb.runbook.addAwaitCell`) + `tb.runbook.advance` (B6) | c4 / §5 delivery notes |
 | Pull advancement of an instance by any agent, with concurrent advancers executing side effects **exactly once** — CAS reservation on `(instance_id, seq)` before any exec-cell side effect; losers observe `in_flight` (GH #403 resolved) | `tb.runbook.advance`, `tb.runbook.status`, `runbook_advance_reservations` | c4 (B8) |
 | Keep shell, filesystem, and code editing native and unmediated — the substrate wraps only trust-boundary verbs | (invariant; §10) | c10 |
+| Local mode is DURABLE for the coordination substrate — claims, runbook templates/instances/executions/ledger/advance-reservations, and merge commits survive server restarts via SQLite files under `<dataDir>` (`claims.db`, `runbooks.db`, `merges.db`); an instance parked at an await cell resumes after a restart | `SqliteClaimStorage` / `SqliteRunbookStorage` / `SqliteMergeCommitStorage` wired in `src/index.ts` (fs mode; `THOUGHTBOX_STORAGE=memory` stays volatile) | c1/c3/c4 local durability (2026-07-09; §11.5 gate delivered) |
 
 **Not yet — the unbuilt joins:**
 
@@ -504,8 +513,7 @@ table as units land.
 | Cron tick advancing unattended instances (advance is agent-pull only today) | **B8 follow-up** | c4 |
 | Cells executing under the agent's **brokered allowlist and budget** (no ambient authority) | **B7** | c6 |
 | Evidence-gated notebook→manifest **graduation** (reject below fitness threshold) | **B10** | c8 |
-| Local durable claims (FileSystem `ClaimStorage`) | deferred §11.5 (gated on H1/H2) | c1 |
 
-**Verified vs claimed:** c3, c7, c10 are met and evidenced; c4 is met for the manual-pull path — vitest evidence covers (a) parking at an unsatisfied await on both the advance and real batch-run paths, (b) claim satisfaction un-parking the next advance end-to-end through the real execution path, (c) concurrent advance executing side effects exactly once, (d) the reservation CAS on both backends (`src/notebook/__tests__/await-advance.test.ts`), and code review confirms no suspended-execution machinery exists (the advancer is a loop inside one explicit call; the cron tick remains unbuilt); c1 is met for Supabase + InMemory (FS deferred by design); c2's mechanism is proven but its full two-live-client agentic test is deploy-gated; c5 (fresh-session instance resumption) has its substrate in #401 + `tb.runbook.status` but is unverified pending **Experiment H2**; c6/c8 are unbuilt. The two thesis experiments (**H1** coordination-beats-orchestrator, **H2** runbook resumption) are unrun.
+**Verified vs claimed:** c3, c7, c10 are met and evidenced; c4 is met for the manual-pull path — vitest evidence covers (a) parking at an unsatisfied await on both the advance and real batch-run paths, (b) claim satisfaction un-parking the next advance end-to-end through the real execution path, (c) concurrent advance executing side effects exactly once, (d) the reservation CAS on all three backends including two SQLite handles racing over one database file (`src/notebook/__tests__/await-advance.test.ts`), and (e) an in-flight await surviving a restart (fresh SQLite storage instances over the same files); code review confirms no suspended-execution machinery exists (the advancer is a loop inside one explicit call; the cron tick remains unbuilt); c1 is met for Supabase + SQLite + InMemory (the §11.5 FS deferral is void — delivered as SQLite 2026-07-09); c2's mechanism is proven but its full two-live-client agentic test is deploy-gated; c5 (fresh-session instance resumption) has its substrate in #401 + `tb.runbook.status` but is unverified pending **Experiment H2**; c6/c8 are unbuilt. The two thesis experiments (**H1** coordination-beats-orchestrator, **H2** runbook resumption) are unrun.
 
 **Bottom line:** the claim graph and durable runbooks are now **wired into each other**: the reactive payoff ("block on a claim, wake the runbook") is built and test-evidenced via B6+B8, with the GH #403 double-execute hazard resolved by the advance reservation CAS. The first unbuilt things are now the B8 cron tick, brokered cell authority (**B7** / c6), and evidence-gated graduation (**B10** / c8); **H2** is unblocked and should run next (§9).
