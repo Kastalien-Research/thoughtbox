@@ -22,6 +22,10 @@ import { BRANCH_OPERATIONS } from "../branch/operations.js";
 import { HUB_OPERATIONS } from "../hub/operations.js";
 import { CLAIMS_OPERATIONS } from "../claims/operations.js";
 import { PEER_NOTEBOOK_TOOL } from "../peer-notebook/tool.js";
+import {
+  STATIC_RESOURCES,
+  RESOURCE_TEMPLATES,
+} from "../resources/static-registry.js";
 
 export interface SearchCatalog {
   publicTools: Array<{
@@ -265,115 +269,19 @@ export function buildSearchCatalog(): SearchCatalog {
       },
     ],
 
-    resources: [
-      {
-        name: "Notebook Server Status",
-        uri: "system://status",
-        description: "Health snapshot of the notebook server",
-        mimeType: "application/json",
-      },
-      {
-        name: "Notebook Operations Catalog",
-        uri: "thoughtbox://notebook/operations",
-        description: "Complete catalog of notebook operations with schemas and examples",
-        mimeType: "application/json",
-      },
-      {
-        name: "Peer Notebook",
-        uri: "thoughtbox://peer-notebook/pilot",
-        description: "Peer notebook surface (graduated peers) and operation quick reference",
-        mimeType: "application/json",
-      },
-      {
-        name: "Session Operations Catalog",
-        uri: "thoughtbox://session/operations",
-        description: "Complete catalog of session operations with schemas and examples",
-        mimeType: "application/json",
-      },
-      {
-        name: "Knowledge Operations Catalog",
-        uri: "thoughtbox://knowledge/operations",
-        description: "Complete catalog of knowledge graph operations with schemas and examples",
-        mimeType: "application/json",
-      },
-      {
-        name: "Hub Operations Catalog",
-        uri: "thoughtbox://hub/operations",
-        description: "Complete catalog of all 28 hub operations organized by category with stage metadata and vocabulary",
-        mimeType: "application/json",
-      },
-      {
-        name: "Thoughtbox Patterns Cookbook",
-        uri: "thoughtbox://patterns-cookbook",
-        description: "Guide to core reasoning patterns for thoughtbox tool",
-        mimeType: "text/markdown",
-      },
-      {
-        name: "Server Architecture Guide",
-        uri: "thoughtbox://architecture",
-        description:
-          "Interactive notebook explaining Thoughtbox MCP server architecture and implementation patterns",
-        mimeType: "text/markdown",
-      },
-      {
-        name: "Thoughtbox Cipher Notation",
-        uri: "thoughtbox://cipher",
-        description: "Token-efficient notation system for long reasoning chains",
-        mimeType: "text/markdown",
-      },
-      {
-        name: "Session Analysis Process Guide",
-        uri: "thoughtbox://session-analysis-guide",
-        description:
-          "Process guide for qualitative analysis of reasoning sessions (key moments, record learnings)",
-        mimeType: "text/markdown",
-      },
-      {
-        name: "Parallel Verification Guide",
-        uri: "thoughtbox://guidance/parallel-verification",
-        description: "Workflow for parallel hypothesis exploration using Thoughtbox branching",
-        mimeType: "text/markdown",
-      },
-      {
-        name: "Knowledge Graph Statistics",
-        uri: "thoughtbox://knowledge/stats",
-        description: "Entity and relation counts for the knowledge graph",
-        mimeType: "application/json",
-      },
-    ],
+    resources: STATIC_RESOURCES.map((def) => ({
+      name: def.name,
+      uri: def.uri,
+      description: def.description,
+      mimeType: def.mimeType,
+    })),
 
-    resourceTemplates: [
-      {
-        name: "Session Operation Detail",
-        uriTemplate: "thoughtbox://session/operations/{op}",
-        description: "Individual session operation schema and examples",
-        mimeType: "application/json",
-      },
-      {
-        name: "Knowledge Operation Detail",
-        uriTemplate: "thoughtbox://knowledge/operations/{op}",
-        description: "Individual knowledge graph operation schema and examples",
-        mimeType: "application/json",
-      },
-      {
-        name: "Hub Operation Detail",
-        uriTemplate: "thoughtbox://hub/operations/{op}",
-        description: "Individual hub operation schema and examples",
-        mimeType: "application/json",
-      },
-      {
-        name: "Notebook Operation Detail",
-        uriTemplate: "thoughtbox://notebook/operations/{op}",
-        description: "Individual notebook operation schema and examples",
-        mimeType: "application/json",
-      },
-      {
-        name: "Interleaved Thinking Guides",
-        uriTemplate: "thoughtbox://interleaved/{guide}",
-        description: "Interleaved thinking guides",
-        mimeType: "text/markdown",
-      },
-    ],
+    resourceTemplates: RESOURCE_TEMPLATES.map((def) => ({
+      name: def.name,
+      uriTemplate: def.uriTemplate,
+      description: def.description,
+      mimeType: def.mimeType,
+    })),
   };
 
   annotateCatalog(catalog);

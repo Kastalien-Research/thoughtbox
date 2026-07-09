@@ -28,10 +28,12 @@ import {
 } from "./prompts/index.js";
 import { THOUGHTBOX_CIPHER } from "./resources/thoughtbox-cipher-content.js";
 import { PARALLEL_VERIFICATION_CONTENT } from "./prompts/contents/parallel-verification.js";
+import { SESSION_ANALYSIS_GUIDE } from "./resources/session-analysis-guide-content.js";
 import {
-  getSessionAnalysisGuideContent,
-  getSessionAnalysisResourceTemplates,
-} from "./resources/session-analysis-guide-content.js";
+  STATIC_RESOURCES,
+  RESOURCE_TEMPLATES,
+  resourceTemplate,
+} from "./resources/static-registry.js";
 import {
   InMemoryStorage,
   type ThoughtboxStorage,
@@ -700,519 +702,152 @@ Use \`console.log()\` for debugging — output captured in response logs.`;
     }
   );
 
-  // Register static resources using McpServer's registerResource API
-  server.registerResource(
-    "status",
-    "system://status",
-    {
-      description: "Health snapshot of the notebook server",
-      mimeType: "application/json",
-    },
-    async (uri) => ({
-      contents: [
+  // ===========================================================================
+  // Static resources + resource templates (metadata from the single registry)
+  // ===========================================================================
+  // STATIC_RESOURCES / RESOURCE_TEMPLATES in src/resources/static-registry.ts
+  // are the single source of truth for names, URIs, descriptions, and MIME
+  // types. Content resolvers live here because they close over runtime
+  // handlers. Registration throws at startup if a registry entry has no
+  // resolver, so the registry and this map cannot drift silently.
+
+  const staticResourceResolvers: Record<string, (uri: string) => Promise<string> | string> = {
+    "system://status": () => JSON.stringify(notebookHandler.getStatus(), null, 2),
+    "thoughtbox://notebook/operations": () => notebookHandler.getOperationsCatalog(),
+    "thoughtbox://notebook/capabilities": () => notebookHandler.getCapabilitiesCatalog(),
+    "thoughtbox://peer-notebook/pilot": () => getPeerNotebookPilotResourceContent(),
+    "thoughtbox://session/operations": () => getSessionOperationsCatalog(),
+    "thoughtbox://gateway/operations": () =>
+      JSON.stringify(
         {
-          uri: uri.toString(),
-          mimeType: "application/json",
-          text: JSON.stringify(notebookHandler.getStatus(), null, 2),
+          version: "1.0.0",
+          publicTools: searchCatalog.publicTools,
+          operations: searchCatalog.operations,
         },
-      ],
-    })
-  );
-
-  server.registerResource(
-    "notebook-operations",
-    "thoughtbox://notebook/operations",
-    {
-      description: "Complete catalog of notebook operations with schemas and examples",
-      mimeType: "application/json",
-    },
-    async (uri) => ({
-      contents: [
-        {
-          uri: uri.toString(),
-          mimeType: "application/json",
-          text: notebookHandler.getOperationsCatalog(),
-        },
-      ],
-    })
-  );
-
-  server.registerResource(
-    "notebook-capabilities",
-    "thoughtbox://notebook/capabilities",
-    {
-      description: "Notebook Evidence Engine modes, templates, outputs, and recommended use cases",
-      mimeType: "application/json",
-    },
-    async (uri) => ({
-      contents: [
-        {
-          uri: uri.toString(),
-          mimeType: "application/json",
-          text: notebookHandler.getCapabilitiesCatalog(),
-        },
-      ],
-    })
-  );
-
-  server.registerResource(
-    "peer-notebook-pilot",
-    "thoughtbox://peer-notebook/pilot",
-    {
-      description: "Peer notebook surface: artifact seed, graduated-peer invocation, invocation/trace/artifact reads",
-      mimeType: "application/json",
-    },
-    async (uri) => ({
-      contents: [
-        {
-          uri: uri.toString(),
-          mimeType: "application/json",
-          text: getPeerNotebookPilotResourceContent(),
-        },
-      ],
-    })
-  );
-
-  server.registerResource(
-    "patterns-cookbook",
-    "thoughtbox://patterns-cookbook",
-    {
-      description: "Guide to core reasoning patterns for thoughtbox tool",
-      mimeType: "text/markdown",
-    },
-    async (uri) => ({
-      contents: [
-        {
-          uri: uri.toString(),
-          mimeType: "text/markdown",
-          text: PATTERNS_COOKBOOK,
-        },
-      ],
-    })
-  );
-
-  server.registerResource(
-    "architecture",
-    "thoughtbox://architecture",
-    {
-      description:
-        "Interactive notebook explaining Thoughtbox MCP server architecture and implementation patterns",
-      mimeType: "text/markdown",
-    },
-    async (uri) => ({
-      contents: [
-        {
-          uri: uri.toString(),
-          mimeType: "text/markdown",
-          text: SERVER_ARCHITECTURE_GUIDE,
-        },
-      ],
-    })
-  );
-
-  server.registerResource(
-    "cipher",
-    "thoughtbox://cipher",
-    {
-      description: "Token-efficient notation system for long reasoning chains",
-      mimeType: "text/markdown",
-    },
-    async (uri) => ({
-      contents: [
-        {
-          uri: uri.toString(),
-          mimeType: "text/markdown",
-          text: THOUGHTBOX_CIPHER,
-        },
-      ],
-    })
-  );
-
-  server.registerResource(
-    "session-analysis-guide",
-    "thoughtbox://session-analysis-guide",
-    {
-      description:
-        "Process guide for qualitative analysis of reasoning sessions (key moments → extract learnings)",
-      mimeType: "text/markdown",
-    },
-    async (uri) => {
-      const content = getSessionAnalysisGuideContent(uri.toString());
-      return { contents: [content] };
-    }
-  );
-
-  server.registerResource(
-    "parallel-verification-guide",
-    "thoughtbox://guidance/parallel-verification",
-    {
-      description: "Workflow for parallel hypothesis exploration using Thoughtbox branching",
-      mimeType: "text/markdown",
-    },
-    async (uri) => ({
-      contents: [
-        {
-          uri: uri.toString(),
-          mimeType: "text/markdown",
-          text: PARALLEL_VERIFICATION_CONTENT,
-        },
-      ],
-    })
-  );
-
-  server.registerResource(
-    "session-operations",
-    "thoughtbox://session/operations",
-    {
-      description: "Complete catalog of session operations with schemas and examples",
-      mimeType: "application/json",
-    },
-    async (uri) => ({
-      contents: [
-        {
-          uri: uri.toString(),
-          mimeType: "application/json",
-          text: getSessionOperationsCatalog(),
-        },
-      ],
-    })
-  );
-
-
-
-  server.registerResource(
-    "knowledge-operations",
-    "thoughtbox://knowledge/operations",
-    {
-      description: "Complete catalog of knowledge graph operations (create_entity, get_entity, list_entities, add_observation, create_relation, query_graph, stats) with schemas and examples",
-      mimeType: "application/json",
-    },
-    async (uri) => ({
-      contents: [
-        {
-          uri: uri.toString(),
-          mimeType: "application/json",
-          text: getKnowledgeOperationsCatalog(),
-        },
-      ],
-    })
-  );
-
-  server.registerResource(
-    "hub-operations",
-    "thoughtbox://hub/operations",
-    {
-      description: "Complete catalog of all 28 hub operations organized by category with stage metadata and vocabulary",
-      mimeType: "application/json",
-    },
-    async (uri) => ({
-      contents: [
-        {
-          uri: uri.toString(),
-          mimeType: "application/json",
-          text: getHubOperationsCatalog(),
-        },
-      ],
-    })
-  );
-
-  server.registerResource(
-    "claims-operations",
-    "thoughtbox://claims/operations",
-    {
-      description: "Complete catalog of the 9 claim graph operations (assert, support, invalidate, supersede, link, subscribe, unsubscribe, query, affected) with schemas, examples, and vocabulary",
-      mimeType: "application/json",
-    },
-    async (uri) => ({
-      contents: [
-        {
-          uri: uri.toString(),
-          mimeType: "application/json",
-          text: getClaimsOperationsCatalog(),
-        },
-      ],
-    })
-  );
-
-  server.registerResource(
-    "gateway-operations",
-    "thoughtbox://gateway/operations",
-    {
-      description: "Complete catalog of operations available through the Code Mode gateway, grouped by tb SDK module (thought, session, knowledge, notebook, theseus, ulysses, observability, branch, hub)",
-      mimeType: "application/json",
-    },
-    async (uri) => ({
-      contents: [
-        {
-          uri: uri.toString(),
-          mimeType: "application/json",
-          text: JSON.stringify(
-            {
-              version: "1.0.0",
-              publicTools: searchCatalog.publicTools,
-              operations: searchCatalog.operations,
-            },
-            null,
-            2
-          ),
-        },
-      ],
-    })
-  );
-
-  server.registerResource(
-    "session-operation",
-    new ResourceTemplate("thoughtbox://session/operations/{op}", { list: undefined }),
-    { description: "Individual session operation schema and examples", mimeType: "application/json" },
-    async (uri, { op }) => {
-      const opDef = getSessOp(op as string);
-      if (!opDef) throw new Error(`Unknown session operation: ${op}`);
-      return { contents: [{ uri: uri.href, mimeType: "application/json", text: JSON.stringify(opDef, null, 2) }] };
-    }
-  );
-
-  server.registerResource(
-    "knowledge-operation",
-    new ResourceTemplate("thoughtbox://knowledge/operations/{op}", { list: undefined }),
-    { description: "Individual knowledge graph operation schema and examples", mimeType: "application/json" },
-    async (uri, { op }) => {
-      const opDef = getKnowOp(op as string);
-      if (!opDef) throw new Error(`Unknown knowledge operation: ${op}`);
-      return { contents: [{ uri: uri.href, mimeType: "application/json", text: JSON.stringify(opDef, null, 2) }] };
-    }
-  );
-
-  server.registerResource(
-    "hub-operation",
-    new ResourceTemplate("thoughtbox://hub/operations/{op}", { list: undefined }),
-    { description: "Individual hub operation schema and examples", mimeType: "application/json" },
-    async (uri, { op }) => {
-      const opDef = getHubOp(op as string);
-      if (!opDef) throw new Error(`Unknown hub operation: ${op}`);
-      return { contents: [{ uri: uri.href, mimeType: "application/json", text: JSON.stringify(opDef, null, 2) }] };
-    }
-  );
-
-  server.registerResource(
-    "claims-operation",
-    new ResourceTemplate("thoughtbox://claims/operations/{op}", { list: undefined }),
-    { description: "Individual claim graph operation schema and examples", mimeType: "application/json" },
-    async (uri, { op }) => {
-      const opDef = getClaimsOperation(op as string);
-      if (!opDef) throw new Error(`Unknown claims operation: ${op}`);
-      return { contents: [{ uri: uri.href, mimeType: "application/json", text: JSON.stringify(opDef, null, 2) }] };
-    }
-  );
-
-  server.registerResource(
-    "gateway-operation",
-    new ResourceTemplate("thoughtbox://gateway/operations/{op}", { list: undefined }),
-    { description: "Individual operation schema from the Code Mode gateway catalog, looked up by name across tb SDK modules", mimeType: "application/json" },
-    async (uri, { op }) => {
-      const opName = op as string;
-      for (const [module, ops] of Object.entries(searchCatalog.operations)) {
-        const opDef = ops[opName];
-        if (opDef) {
-          return { contents: [{ uri: uri.href, mimeType: "application/json", text: JSON.stringify({ module, name: opName, ...opDef }, null, 2) }] };
-        }
-      }
-      throw new Error(`Unknown gateway operation: ${opName}`);
-    }
-  );
-
-  server.registerResource(
-    "notebook-operation",
-    new ResourceTemplate("thoughtbox://notebook/operations/{op}", { list: undefined }),
-    { description: "Individual notebook operation schema and examples", mimeType: "application/json" },
-    async (uri, { op }) => {
-      const opDef = getNbOp(op as string);
-      if (!opDef) throw new Error(`Unknown notebook operation: ${op}`);
-      return { contents: [{ uri: uri.href, mimeType: "application/json", text: JSON.stringify(opDef, null, 2) }] };
-    }
-  );
-
-  // Register resource templates
-  server.registerResource(
-    "interleaved-guide",
-    new ResourceTemplate("thoughtbox://interleaved/{guide}", { list: undefined }),
-    { description: "Interleaved thinking guides", mimeType: "text/markdown" },
-    async (_uri, { guide }) => ({
-      contents: [getInterleavedGuideForUri(`thoughtbox://interleaved/${guide}`)],
-    })
-  );
-
-
-
-  // Knowledge graph resources (Phase 1)
-  server.registerResource(
-    "knowledge-stats",
-    "thoughtbox://knowledge/stats",
-    { description: "Knowledge graph statistics (entity/relation counts)", mimeType: "application/json" },
-    async (uri) => {
+        null,
+        2
+      ),
+    "thoughtbox://knowledge/operations": () => getKnowledgeOperationsCatalog(),
+    "thoughtbox://hub/operations": () => getHubOperationsCatalog(),
+    "thoughtbox://claims/operations": () => getClaimsOperationsCatalog(),
+    "thoughtbox://patterns-cookbook": () => PATTERNS_COOKBOOK,
+    "thoughtbox://architecture": () => SERVER_ARCHITECTURE_GUIDE,
+    "thoughtbox://cipher": () => THOUGHTBOX_CIPHER,
+    "thoughtbox://session-analysis-guide": () => SESSION_ANALYSIS_GUIDE,
+    "thoughtbox://guidance/parallel-verification": () => PARALLEL_VERIFICATION_CONTENT,
+    "thoughtbox://knowledge/stats": async () => {
       if (!knowledgeHandler) {
-        return {
-          contents: [{
-            uri: uri.toString(),
-            mimeType: "application/json",
-            text: JSON.stringify({ error: 'Knowledge storage not initialized' }, null, 2),
-          }],
-        };
+        return JSON.stringify({ error: "Knowledge storage not initialized" }, null, 2);
       }
-      const result = await knowledgeHandler.processOperation({ operation: 'stats' });
-      return {
-        contents: [{
-          uri: uri.toString(),
-          mimeType: "application/json",
-          text: result.content[0].text,
-        }],
-      };
-    }
-  );
+      const result = await knowledgeHandler.processOperation({ operation: "stats" });
+      return result.content[0].text;
+    },
+  };
 
-  // Escape hatch: Use server.server for ListResourcesRequestSchema to include dynamic resources
-  server.server.setRequestHandler(ListResourcesRequestSchema, async () => ({
-    resources: [
-      {
-        uri: "system://status",
-        name: "Notebook Server Status",
-        description: "Health snapshot of the notebook server",
-        mimeType: "application/json",
-      },
-      {
-        uri: "thoughtbox://notebook/operations",
-        name: "Notebook Operations Catalog",
-        description: "Complete catalog of notebook operations with schemas and examples",
-        mimeType: "application/json",
-      },
-      {
-        uri: "thoughtbox://notebook/capabilities",
-        name: "Notebook Evidence Engine Capabilities",
-        description: "Notebook modes, templates, outputs, and recommended use cases",
-        mimeType: "application/json",
-      },
-      {
-        uri: "thoughtbox://peer-notebook/pilot",
-        name: "Peer Notebook",
-        description: "Peer notebook surface: artifact seed, graduated-peer invocation, invocation/trace/artifact reads",
-        mimeType: "application/json",
-      },
-      {
-        uri: "thoughtbox://session/operations",
-        name: "Session Operations Catalog",
-        description: "Complete catalog of session operations with schemas and examples",
-        mimeType: "application/json",
-      },
-      {
-        uri: "thoughtbox://gateway/operations",
-        name: "Gateway Operations Catalog",
-        description: "Complete catalog of operations available through the Code Mode gateway, grouped by tb SDK module (thought, session, knowledge, notebook, theseus, ulysses, observability, branch, hub)",
-        mimeType: "application/json",
-      },
-      {
-        uri: "thoughtbox://knowledge/operations",
-        name: "Knowledge Operations Catalog",
-        description: "Complete catalog of knowledge graph operations with schemas and examples",
-        mimeType: "application/json",
-      },
-      {
-        uri: "thoughtbox://hub/operations",
-        name: "Hub Operations Catalog",
-        description: "Complete catalog of all 28 hub operations with stage metadata and vocabulary",
-        mimeType: "application/json",
-      },
-      {
-        uri: "thoughtbox://claims/operations",
-        name: "Claims Operations Catalog",
-        description: "Complete catalog of the 9 claim graph operations with schemas, examples, and vocabulary",
-        mimeType: "application/json",
-      },
-      {
-        uri: "thoughtbox://patterns-cookbook",
-        name: "Thoughtbox Patterns Cookbook",
-        description: "Guide to core reasoning patterns for thoughtbox tool",
-        mimeType: "text/markdown",
-      },
-      {
-        uri: "thoughtbox://architecture",
-        name: "Server Architecture Guide",
-        description:
-          "Interactive notebook explaining Thoughtbox MCP server architecture and implementation patterns",
-        mimeType: "text/markdown",
-      },
-      {
-        uri: "thoughtbox://cipher",
-        name: "Thoughtbox Cipher Notation",
-        description: "Token-efficient notation system for long reasoning chains",
-        mimeType: "text/markdown",
-      },
-      {
-        uri: "thoughtbox://session-analysis-guide",
-        name: "Session Analysis Process Guide",
-        description:
-          "Process guide for qualitative analysis of reasoning sessions (key moments → extract learnings)",
-        mimeType: "text/markdown",
-      },
-      {
-        uri: "thoughtbox://guidance/parallel-verification",
-        name: "Parallel Verification Guide",
-        description:
-          "Workflow for parallel hypothesis exploration using Thoughtbox branching",
-        mimeType: "text/markdown",
-      },
-      // Knowledge graph resources (Phase 1)
-      {
-        uri: "thoughtbox://knowledge/stats",
-        name: "Knowledge Graph Statistics",
-        description: "Entity and relation counts for the knowledge graph",
-        mimeType: "application/json",
-      },
-    ],
+  for (const def of STATIC_RESOURCES) {
+    const resolve = staticResourceResolvers[def.uri];
+    if (!resolve) {
+      throw new Error(
+        `Static resource ${def.uri} is in the registry but has no content resolver`
+      );
+    }
+    server.registerResource(
+      def.key,
+      def.uri,
+      { description: def.description, mimeType: def.mimeType },
+      async (uri) => ({
+        contents: [
+          {
+            uri: uri.toString(),
+            mimeType: def.mimeType,
+            text: await resolve(uri.toString()),
+          },
+        ],
+      })
+    );
+  }
+
+  // Resource templates: handlers are bespoke, metadata comes from the registry.
+  const registerTemplate = (
+    key: string,
+    handler: (uri: URL, params: Record<string, string | string[] | undefined>) => Promise<{
+      contents: Array<{ uri: string; mimeType: string; text: string }>;
+    }>,
+  ) => {
+    const def = resourceTemplate(key);
+    server.registerResource(
+      def.key,
+      new ResourceTemplate(def.uriTemplate, { list: undefined }),
+      { description: def.description, mimeType: def.mimeType },
+      handler as any
+    );
+  };
+
+  registerTemplate("session-operation", async (uri, { op }) => {
+    const opDef = getSessOp(op as string);
+    if (!opDef) throw new Error(`Unknown session operation: ${op}`);
+    return { contents: [{ uri: uri.href, mimeType: "application/json", text: JSON.stringify(opDef, null, 2) }] };
+  });
+
+  registerTemplate("knowledge-operation", async (uri, { op }) => {
+    const opDef = getKnowOp(op as string);
+    if (!opDef) throw new Error(`Unknown knowledge operation: ${op}`);
+    return { contents: [{ uri: uri.href, mimeType: "application/json", text: JSON.stringify(opDef, null, 2) }] };
+  });
+
+  registerTemplate("hub-operation", async (uri, { op }) => {
+    const opDef = getHubOp(op as string);
+    if (!opDef) throw new Error(`Unknown hub operation: ${op}`);
+    return { contents: [{ uri: uri.href, mimeType: "application/json", text: JSON.stringify(opDef, null, 2) }] };
+  });
+
+  registerTemplate("claims-operation", async (uri, { op }) => {
+    const opDef = getClaimsOperation(op as string);
+    if (!opDef) throw new Error(`Unknown claims operation: ${op}`);
+    return { contents: [{ uri: uri.href, mimeType: "application/json", text: JSON.stringify(opDef, null, 2) }] };
+  });
+
+  registerTemplate("gateway-operation", async (uri, { op }) => {
+    const opName = op as string;
+    for (const [module, ops] of Object.entries(searchCatalog.operations)) {
+      const opDef = ops[opName];
+      if (opDef) {
+        return { contents: [{ uri: uri.href, mimeType: "application/json", text: JSON.stringify({ module, name: opName, ...opDef }, null, 2) }] };
+      }
+    }
+    throw new Error(`Unknown gateway operation: ${opName}`);
+  });
+
+  registerTemplate("notebook-operation", async (uri, { op }) => {
+    const opDef = getNbOp(op as string);
+    if (!opDef) throw new Error(`Unknown notebook operation: ${op}`);
+    return { contents: [{ uri: uri.href, mimeType: "application/json", text: JSON.stringify(opDef, null, 2) }] };
+  });
+
+  registerTemplate("interleaved-guide", async (_uri, { guide }) => ({
+    contents: [getInterleavedGuideForUri(`thoughtbox://interleaved/${guide as string}`)],
   }));
 
-  // Escape hatch: Use server.server for ListResourceTemplatesRequestSchema to preserve template metadata
+  // Escape hatches: both list handlers are generated from the same registry
+  // the registrations above use, so the three views cannot drift.
+  server.server.setRequestHandler(ListResourcesRequestSchema, async () => ({
+    resources: STATIC_RESOURCES.map((def) => ({
+      uri: def.uri,
+      name: def.name,
+      description: def.description,
+      mimeType: def.mimeType,
+    })),
+  }));
+
   server.server.setRequestHandler(
     ListResourceTemplatesRequestSchema,
     async () => ({
-      resourceTemplates: [
-        // Per-operation resource templates (Fix #4)
-        {
-          uriTemplate: "thoughtbox://gateway/operations/{op}",
-          name: "Gateway Operation Detail",
-          description: "Individual operation schema from the Code Mode gateway catalog, looked up by name across tb SDK modules",
-          mimeType: "application/json",
-        },
-        {
-          uriTemplate: "thoughtbox://session/operations/{op}",
-          name: "Session Operation Detail",
-          description: "Individual session operation schema and examples",
-          mimeType: "application/json",
-        },
-        {
-          uriTemplate: "thoughtbox://knowledge/operations/{op}",
-          name: "Knowledge Operation Detail",
-          description: "Individual knowledge graph operation schema and examples",
-          mimeType: "application/json",
-        },
-        {
-          uriTemplate: "thoughtbox://hub/operations/{op}",
-          name: "Hub Operation Detail",
-          description: "Individual hub operation schema and examples",
-          mimeType: "application/json",
-        },
-        {
-          uriTemplate: "thoughtbox://claims/operations/{op}",
-          name: "Claims Operation Detail",
-          description: "Individual claim graph operation schema and examples",
-          mimeType: "application/json",
-        },
-        {
-          uriTemplate: "thoughtbox://notebook/operations/{op}",
-          name: "Notebook Operation Detail",
-          description: "Individual notebook operation schema and examples",
-          mimeType: "application/json",
-        },
-        ...getSessionAnalysisResourceTemplates().resourceTemplates,
-      ],
+      resourceTemplates: RESOURCE_TEMPLATES.map((def) => ({
+        uriTemplate: def.uriTemplate,
+        name: def.name,
+        description: def.description,
+        mimeType: def.mimeType,
+      })),
     })
   );
 
