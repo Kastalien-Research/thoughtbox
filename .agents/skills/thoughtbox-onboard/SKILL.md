@@ -2,7 +2,7 @@
 name: thoughtbox:onboard
 description: Gateway orientation for agents using Thoughtbox MCP for the first time. Use this skill when you connect to a Thoughtbox MCP server and need to understand what's available, how to structure reasoning sessions, or how to use the tb SDK. Also use when you're unsure which Thoughtbox operation to use for a task, or when you want to check what modules and patterns are available. Triggers on first Thoughtbox interaction, "how do I use Thoughtbox", "what can Thoughtbox do", or any confusion about Thoughtbox operations.
 user-invocable: true
-argument-hint: [optional: specific area to learn about, e.g. "branching" or "knowledge graph"]
+argument-hint: '[optional: specific area to learn about, e.g. "branching" or "knowledge graph"]'
 ---
 
 # Thoughtbox Onboarding

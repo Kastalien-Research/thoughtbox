@@ -1,7 +1,7 @@
 ---
 name: thoughtbox:debug
 description: Trigger when debugging something unexpected — a test failure, surprising behavior, production incident, or any situation where initial attempts aren't working. Prevents the common agent failure mode of trying random things when stuck. Use when "the first fix didn't work", "this is behaving unexpectedly", "I'm stuck", "why is this happening", or after 2+ failed attempts to fix something.
-argument-hint: [problem description]
+argument-hint: "[problem description]"
 user-invocable: true
 allowed-tools: Read, Glob, Grep, Bash, Edit, Write, mcp__thoughtbox-cloud-run__thoughtbox_execute, mcp__thoughtbox-cloud-run__thoughtbox_search
 ---

@@ -1,7 +1,7 @@
 ---
 name: experiment
 description: Run parallel experiments across git worktrees. Define competing approaches to the same problem, dispatch sub-agents to implement each in isolation, then compare results. Use when you have 2-5 alternatives and want to test all of them before committing to one.
-argument-hint: [source document or description of alternatives to test]
+argument-hint: "[source document or description of alternatives to test]"
 user-invocable: true
 ---
 

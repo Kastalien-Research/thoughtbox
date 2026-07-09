@@ -1,7 +1,7 @@
 ---
 name: workflow
 description: Orchestrate the full development lifecycle from ideation through merge. Sequences 8 stages with gates, dispatches to stage skills, and maintains workflow state.
-argument-hint: [idea or feature description]
+argument-hint: "[idea or feature description]"
 user-invocable: true
 ---
 

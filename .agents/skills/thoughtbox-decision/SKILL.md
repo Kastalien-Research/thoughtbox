@@ -4,7 +4,7 @@ description: >
   Structure decisions with parallel hypothesis exploration and knowledge graph
   persistence. Triggers on: "decide", "choose between", "which approach",
   "compare options", "evaluate alternatives", "tradeoff analysis".
-argument-hint: [decision to make or options to evaluate]
+argument-hint: "[decision to make or options to evaluate]"
 user-invocable: true
 allowed-tools: Read, Glob, Grep, Bash, ToolSearch
 ---

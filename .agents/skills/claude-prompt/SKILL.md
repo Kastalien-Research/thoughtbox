@@ -1,7 +1,7 @@
 ---
 name: Codex-prompt
 description: Write or improve prompts for Codex using Anthropic's official best practices. Creates system prompts, agent prompts, tool descriptions, and MCP resource templates. Pass an existing prompt to improve it, or describe what you need to create one from scratch.
-argument-hint: [existing prompt to improve, OR description of what prompt to create]
+argument-hint: "[existing prompt to improve, OR description of what prompt to create]"
 user-invocable: true
 ---
 

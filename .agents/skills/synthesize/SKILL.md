@@ -1,7 +1,7 @@
 ---
 name: synthesize
 description: Fuse insights from multiple knowledge sources (code, docs, memory, research, web) into coherent understanding. Use when you have scattered information that needs integration.
-argument-hint: [topic to synthesize]
+argument-hint: "[topic to synthesize]"
 user-invocable: true
 allowed-tools: Read, Glob, Grep, Bash, WebFetch, WebSearch
 ---

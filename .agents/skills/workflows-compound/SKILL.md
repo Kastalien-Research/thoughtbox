@@ -1,7 +1,7 @@
 ---
 name: workflows-compound
 description: Capture learnings from the workflow into reusable documentation. Stage 7 of the development workflow.
-argument-hint: [optional focus area]
+argument-hint: "[optional focus area]"
 user-invocable: true
 ---
 

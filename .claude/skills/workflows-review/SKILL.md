@@ -1,7 +1,7 @@
 ---
 name: workflows-review
 description: Verify implementation claims by dispatching review agents. Stage 5 of the development workflow.
-argument-hint: [summary paths or review scope]
+argument-hint: "[summary paths or review scope]"
 user-invocable: true
 ---
 

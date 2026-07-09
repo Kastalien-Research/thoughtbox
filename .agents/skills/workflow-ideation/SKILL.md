@@ -1,7 +1,7 @@
 ---
 name: workflow-ideation
 description: Evaluate whether an idea is worth implementing by asking structured questions about outcomes, alignment, and opportunity cost. Stage 1 of the development workflow.
-argument-hint: [idea description]
+argument-hint: "[idea description]"
 user-invocable: true
 ---
 

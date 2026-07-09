@@ -1,7 +1,7 @@
 ---
 name: distill
 description: Extract reusable principles and decision frameworks from accumulated experience. Use after significant work sessions, project milestones, or when you notice recurring patterns worth codifying.
-argument-hint: [domain or topic to distill]
+argument-hint: "[domain or topic to distill]"
 user-invocable: true
 allowed-tools: Read, Glob, Grep, Bash
 ---
