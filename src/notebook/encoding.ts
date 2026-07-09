@@ -25,6 +25,47 @@ type CellBindingMetadata = z.infer<typeof CellBindingMetadataSchema>;
 
 const CELL_BINDING_PREFIX = "<!-- thoughtbox:cell ";
 
+/**
+ * Await-cell persistence (SPEC-AGX-SUBSTRATE B6): a standalone HTML comment
+ * line (`<!-- thoughtbox:await {...} -->`). Await cells have no code fence —
+ * they execute nothing — so the comment IS the cell. The persisted id keeps
+ * instance execution records resolvable across an export → load round trip.
+ */
+const AwaitCellMetadataSchema = z.object({
+  id: z.string().min(1),
+  claimId: z.string().min(1),
+  until: z
+    .array(z.enum(["asserted", "supported", "invalidated", "superseded"]))
+    .min(1),
+});
+
+const AWAIT_CELL_PREFIX = "<!-- thoughtbox:await ";
+
+function parseAwaitCellLine(line: string): z.infer<typeof AwaitCellMetadataSchema> {
+  const match = line.trim().match(/^<!-- thoughtbox:await (.+) -->$/);
+  if (!match) {
+    throw new Error(`Malformed thoughtbox:await metadata line: ${line.trim()}`);
+  }
+  let raw: unknown;
+  try {
+    raw = JSON.parse(match[1]);
+  } catch (error) {
+    throw new Error(
+      `thoughtbox:await metadata is not valid JSON: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    );
+  }
+  const parsed = AwaitCellMetadataSchema.safeParse(raw);
+  if (!parsed.success) {
+    const issues = parsed.error.issues
+      .map((issue) => `${issue.path.join(".") || "(root)"}: ${issue.message}`)
+      .join("; ");
+    throw new Error(`thoughtbox:await metadata failed validation: ${issues}`);
+  }
+  return parsed.data;
+}
+
 function encodeCellBinding(
   cell: CodeCell,
   validatorTargetIds: Set<string>,
@@ -134,6 +175,15 @@ export function encode(notebook: Notebook): string {
       lines.push(`\`\`\`${langTag}`);
       lines.push(cell.source);
       lines.push("```");
+      lines.push("");
+    } else if (cell.type === "await") {
+      lines.push(
+        `${AWAIT_CELL_PREFIX}${JSON.stringify({
+          id: cell.id,
+          claimId: cell.claimId,
+          until: cell.until,
+        })} -->`,
+      );
       lines.push("");
     }
   }
@@ -268,15 +318,29 @@ export function decode(srcmd: string): Notebook {
         );
       }
     }
+    // Await cell (B6): a standalone thoughtbox:await comment line.
+    else if (line.trim().startsWith(AWAIT_CELL_PREFIX)) {
+      const awaitMeta = parseAwaitCellLine(line);
+      cells.push({
+        id: awaitMeta.id,
+        type: "await",
+        claimId: awaitMeta.claimId,
+        until: awaitMeta.until,
+      });
+      i++;
+      // Skip following empty line
+      if (i < lines.length && lines[i].trim() === "") i++;
+    }
     // Markdown cell (everything else)
     else {
       const markdownLines: string[] = [];
 
-      // Collect lines until we hit a title or code cell marker
+      // Collect lines until we hit a title, code cell, or await cell marker
       while (
         i < lines.length &&
         !lines[i].startsWith("# ") &&
-        !lines[i].startsWith("###### ")
+        !lines[i].startsWith("###### ") &&
+        !lines[i].trim().startsWith(AWAIT_CELL_PREFIX)
       ) {
         markdownLines.push(lines[i]);
         i++;

@@ -10,10 +10,11 @@ export const notebookToolInputSchema = z.object({
     "notebook_start_run", "notebook_get_run", "notebook_list_runs",
     "notebook_cancel_run", "notebook_get_artifact", "notebook_fitness",
     "notebook_instantiate",
+    // tb.runbook.* (SPEC-AGX-SUBSTRATE B6+B8) — owned by flagship-b6b8
+    "notebook_advance", "notebook_instance_status",
   ]),
   notebookId: z.string().optional().describe("Notebook ID"),
   cellId: z.string().optional().describe("Cell ID"),
-  instanceId: z.string().optional().describe("Runbook instance ID (instance-aware notebook_run_cell; resume for notebook_instantiate)"),
   templateId: z.string().optional().describe("Runbook template ID — the source notebook's id (notebook_fitness, notebook_instantiate)"),
   templateVersion: z.number().int().optional().describe("Runbook template version (notebook_fitness, notebook_instantiate)"),
   includeRows: z.boolean().optional().describe("Include raw fitness ledger rows (notebook_fitness)"),
@@ -33,9 +34,18 @@ export const notebookToolInputSchema = z.object({
   ]).optional().describe("Template for create"),
   path: z.string().optional().describe("Filesystem path for load/export"),
   content: z.string().optional().describe("Content for load (raw .src.md) or add_cell/update_cell"),
-  cellType: z.enum(["title", "markdown", "code"]).optional().describe("Cell type for add_cell"),
+  cellType: z.enum(["title", "markdown", "code", "await"]).optional().describe("Cell type for add_cell"),
   filename: z.string().optional().describe("Filename for code cells"),
   position: z.number().int().optional().describe("Insert position for add_cell (0-indexed)"),
+  // tb.runbook.* args (SPEC-AGX-SUBSTRATE B6+B8) — owned by flagship-b6b8
+  instanceId: z.string().optional().describe("Runbook instance ID (instance-aware run_cell, runbook advance/status, resume for notebook_instantiate)"),
+  claimId: z.string().optional().describe("Claim the await cell subscribes to (add_cell with cellType await)"),
+  until: z.union([
+    z.enum(["asserted", "supported", "invalidated", "superseded"]),
+    z.array(z.enum(["asserted", "supported", "invalidated", "superseded"])).min(1),
+  ]).optional().describe("Claim status(es) that satisfy the await cell"),
+  maxCells: z.number().int().min(1).optional().describe("Cap on exec-cell executions per notebook_advance call"),
+  force: z.boolean().optional().describe("notebook_advance: skip a dead in-flight reservation (explicit double-execute acceptance)"),
   observed: z.unknown().optional().describe("JSON-serialisable value piped into a validator cell (notebook_validate)"),
   expectedSnapshotHash: z.string().optional().describe("Optional integrity hash for notebook_validate; refuses to run on mismatch"),
   mode: z.enum([

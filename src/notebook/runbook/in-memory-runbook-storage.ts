@@ -14,6 +14,8 @@
 
 import {
   aggregateFitness,
+  AdvanceReservationConflictError,
+  type AdvanceReservation,
   type CellExecutionRecord,
   type FitnessAggregate,
   type FitnessLedgerRow,
@@ -29,6 +31,8 @@ export interface RunbookMemoryState {
   instances: Map<string, RunbookInstance>;
   /** Keyed by `${instanceId}#${seq}`. */
   executions: Map<string, CellExecutionRecord>;
+  /** Keyed by `${instanceId}#${seq}` — B8 advance CAS claims (GH #403). */
+  reservations: Map<string, AdvanceReservation>;
   ledger: FitnessLedgerRow[];
 }
 
@@ -37,6 +41,7 @@ export function createRunbookMemoryState(): RunbookMemoryState {
     templates: new Map(),
     instances: new Map(),
     executions: new Map(),
+    reservations: new Map(),
     ledger: [],
   };
 }
@@ -153,6 +158,43 @@ export class InMemoryRunbookStorage implements RunbookStorage {
     const matches: CellExecutionRecord[] = [];
     for (const record of this.state.executions.values()) {
       if (record.instanceId === instanceId) matches.push(copy(record));
+    }
+    matches.sort((a, b) => a.seq - b.seq);
+    return matches;
+  }
+
+  /**
+   * B8 advance CAS (GH #403). Atomic with respect to concurrent callers:
+   * the check-and-set below has no await point, so in single-threaded JS no
+   * other reservation can interleave between the conflict check and the set.
+   */
+  async reserveAdvance(reservation: AdvanceReservation): Promise<void> {
+    if (!Number.isInteger(reservation.seq) || reservation.seq < 1) {
+      throw new Error(
+        `InMemoryRunbookStorage.reserveAdvance failed: seq must be a positive integer, got ${reservation.seq}`,
+      );
+    }
+    if (!this.state.instances.has(reservation.instanceId)) {
+      throw new Error(
+        `InMemoryRunbookStorage.reserveAdvance failed: instance ${reservation.instanceId} not found`,
+      );
+    }
+    const key = executionKey(reservation.instanceId, reservation.seq);
+    const holder = this.state.reservations.get(key);
+    if (holder !== undefined) {
+      throw new AdvanceReservationConflictError(
+        reservation.instanceId,
+        reservation.seq,
+        `held by ${holder.agentId} since ${holder.reservedAt}`,
+      );
+    }
+    this.state.reservations.set(key, copy(reservation));
+  }
+
+  async listAdvanceReservations(instanceId: string): Promise<AdvanceReservation[]> {
+    const matches: AdvanceReservation[] = [];
+    for (const reservation of this.state.reservations.values()) {
+      if (reservation.instanceId === instanceId) matches.push(copy(reservation));
     }
     matches.sort((a, b) => a.seq - b.seq);
     return matches;

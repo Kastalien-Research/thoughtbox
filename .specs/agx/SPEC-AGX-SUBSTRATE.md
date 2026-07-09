@@ -231,6 +231,37 @@ satisfied simply leaves the instance parked — visible, resumable, costing noth
 **Ordering.** Cells execute in document order; an `exec` cell cannot run before all prior
 cells are satisfied. Out-of-order execution is rejected, not warned.
 
+**B6+B8 delivery notes (2026-07-06 — as built):**
+
+1. **Await semantics are pull-only.** An `await` cell carries `{ claimId, until: ClaimStatus[] }`
+   and is satisfied when the claim's CURRENT status ∈ `until`. Satisfaction appends a normal
+   append-only execution record (status `completed`, one pass expectation documenting the
+   observed status), so the B5 ordering/derivation rules apply unchanged; an unsatisfied await
+   appends NOTHING — the instance derives `in_progress` (parked), never `failed`. A batch run
+   (`notebook_start_run`) reaching an unsatisfied await halts there with the trailing cells
+   skipped and the verdict not passing (reason names the awaited claim).
+2. **Subscription registration (the B6 binding).** When an instance parks at an await, the
+   cell's claim subscription is written durably (`claim_subscriptions.subscriber =
+   "runbook:<instanceId>/<cellId>"`, idempotent) — the hook Realtime/notification delivery
+   attaches to. A claim that does not exist yet parks without a subscription; the next
+   advance retries the read. Await evaluations are excluded from the fitness ledger
+   (coordination state, not a hypothesis — §7 scopes fitness to exec/assert cells).
+3. **Double-execute guard (GH #403, resolved with B8).** Advance runs an exec cell's side
+   effects behind a compare-and-swap: it must first INSERT a reservation keyed
+   `(instance_id, seq)` into the append-only `runbook_advance_reservations` table (InMemory:
+   synchronous check-and-set; Supabase: primary-key conditional insert). Exactly one
+   concurrent advancer wins; losers return `in_flight` having executed nothing. A reservation
+   with no matching execution record (crashed advancer) also reports `in_flight`; only an
+   explicit `force` skips past it (documented double-execute acceptance). Satisfied-await
+   records need no reservation — they are side-effect-free, and the `(instance_id, seq)`
+   unique key dedupes concurrent appends benignly.
+4. **Advancer v0 scope.** Manual pull only: `tb.runbook.advance` / `tb.runbook.status` (plus
+   `tb.runbook.addAwaitCell` authoring). The cron tick for unattended instances is NOT built
+   yet — deliberately deferred; nothing suspends, times out, or retries server-side (claim c4).
+   Exec cells require the notebook (template id = notebook id) loaded in the advancing
+   session; awaits advance without it, so a fresh session can un-park an instance before
+   reloading the notebook.
+
 **Canonical first use (Principle 3):** the post-merge checklist. The 2026-06-11 session
 executed "after each migration merge confirm prod-migration-health green → clean worktrees →
 verify ledger" manually from prose JSON, leaving no durable record. As a runbook template:
@@ -444,9 +475,10 @@ design decisions for v0; the residual open questions are marked.
 
 ## 12. Capability Status (point-in-time)
 
-What an agent can and cannot yet do through `thoughtbox_execute`, as of **2026-06-15**
-(units B1–B5 merged via PRs #398–#402). This is derived status, not authority — the claims
-block and §9 are the pre-registration. Update the table as units land.
+What an agent can and cannot yet do through `thoughtbox_execute`, as of **2026-07-06**
+(units B1–B5 merged via PRs #398–#402; B6+B8 built on feat/agx-await-advancer). This is
+derived status, not authority — the claims block and §9 are the pre-registration. Update the
+table as units land.
 
 **Available now:**
 
@@ -454,25 +486,26 @@ block and §9 are the pre-registration. Update the table as units land.
 |---|---|---|
 | Maintain a shared, typed premise-set across agents and sessions — assert/support/invalidate/supersede claims, link `depends_on` edges, query, and walk transitive dependents | `tb.claims.assert/support/invalidate/supersede/link/subscribe/unsubscribe/query/affected` | c1 / #398 |
 | Detect stale premises without any agent-to-agent message — batch revalidation and a status-change digest | `tb.claims.verify`, `tb.claims.changed_since` | c2 §11.1 / #400 |
-| Claim status transitions propagate over Supabase Realtime to subscribers (web clients today; awaiting runbook cells once B6 lands) | `supabase_realtime` publication on `claims` | c2 / #400 (full two-client agentic test deploy-gated) |
+| Claim status transitions propagate over Supabase Realtime to subscribers (web clients and awaiting runbook cells' subscription rows) | `supabase_realtime` publication on `claims` | c2 / #400 (full two-client agentic test deploy-gated) |
 | Author durable, versioned runbook templates; every run is an append-only instance, resumable by instance id | `tb.notebook.*` over `RunbookStorage` | c3 / #399 + #401 |
 | Contract-governed, ordered cell execution — document order enforced, predicted failures pass, real failures halt; tier-1 declarative + tier-2 validator outcome contracts, hash-verified | notebook engine (B5) | c3 / #399 + #402 |
 | Accrue a fitness ledger — hypothesis-vs-actual per template version, only machine-checked outcomes contribute | `runbook_fitness_ledger` aggregates | c7 / #401 |
 | Read the fitness ledger back — per-version aggregates (instances, pass rate, error rate, distinct agents) and raw rows via the public tool surface | `tb.notebook.fitness` (`notebook_fitness`) | c7 read path (2026-07-06) |
 | Instantiate a runbook from a persisted template version in a FRESH session, or resume a half-executed instance from its instanceId alone (derived status + next unsatisfied cell; ordered execution continues via `notebook_run_cell`) | `tb.notebook.instantiate` (`notebook_instantiate`) | c5 substrate (2026-07-06); Experiment H2 remains the agentic verification |
 | Run scored executable evals through the same durable path as runbooks — EvalScorecard = passed/evaluated over declared expectations; zero expectations scores 0, never a synthetic pass; graders accrue fitness ledger rows identically (the six verdict-less stub modes were removed 2026-07-06; their templates remain plain scaffolds) | `notebook_start_run { mode: "eval" }` | c7-adjacent (typed outcomes only, Principle 6) |
+| A runbook cell that **blocks on a claim** — a run parks at an unsatisfied `await` cell (skipped tail, durable claim subscription, instance stays `in_progress`), and the next pull past a satisfying claim status records the satisfaction and executes the cells behind it | `await` cell (`tb.runbook.addAwaitCell`) + `tb.runbook.advance` (B6) | c4 / §5 delivery notes |
+| Pull advancement of an instance by any agent, with concurrent advancers executing side effects **exactly once** — CAS reservation on `(instance_id, seq)` before any exec-cell side effect; losers observe `in_flight` (GH #403 resolved) | `tb.runbook.advance`, `tb.runbook.status`, `runbook_advance_reservations` | c4 (B8) |
 | Keep shell, filesystem, and code editing native and unmediated — the substrate wraps only trust-boundary verbs | (invariant; §10) | c10 |
 
 **Not yet — the unbuilt joins:**
 
 | Capability | Unlocked by | Claim |
 |---|---|---|
-| A runbook cell that **blocks on a claim and wakes itself** — `await` cell becomes runnable on claim satisfaction, executed on the next pull | **B6** (await↔claim binding) + **B8** (advancer) | c4 |
-| Pull advancement of an instance by agent or cron (`tb.runbook.advance`) | **B8** | c4 |
+| Cron tick advancing unattended instances (advance is agent-pull only today) | **B8 follow-up** | c4 |
 | Cells executing under the agent's **brokered allowlist and budget** (no ambient authority) | **B7** | c6 |
 | Evidence-gated notebook→manifest **graduation** (reject below fitness threshold) | **B10** | c8 |
 | Local durable claims (FileSystem `ClaimStorage`) | deferred §11.5 (gated on H1/H2) | c1 |
 
-**Verified vs claimed:** c3, c7, c10 are met and evidenced; c1 is met for Supabase + InMemory (FS deferred by design); c2's mechanism is proven but its full two-live-client agentic test is deploy-gated; c5 (fresh-session instance resumption) has its substrate in #401 but is unverified pending **Experiment H2**; c4/c6/c8 are unbuilt. The two thesis experiments (**H1** coordination-beats-orchestrator, **H2** runbook resumption) are unrun.
+**Verified vs claimed:** c3, c7, c10 are met and evidenced; c4 is met for the manual-pull path — vitest evidence covers (a) parking at an unsatisfied await on both the advance and real batch-run paths, (b) claim satisfaction un-parking the next advance end-to-end through the real execution path, (c) concurrent advance executing side effects exactly once, (d) the reservation CAS on both backends (`src/notebook/__tests__/await-advance.test.ts`), and code review confirms no suspended-execution machinery exists (the advancer is a loop inside one explicit call; the cron tick remains unbuilt); c1 is met for Supabase + InMemory (FS deferred by design); c2's mechanism is proven but its full two-live-client agentic test is deploy-gated; c5 (fresh-session instance resumption) has its substrate in #401 + `tb.runbook.status` but is unverified pending **Experiment H2**; c6/c8 are unbuilt. The two thesis experiments (**H1** coordination-beats-orchestrator, **H2** runbook resumption) are unrun.
 
-**Bottom line:** the two halves — claim graph and durable runbooks — are built and individually evidenced, but they are **not yet wired into each other**. The reactive payoff ("block on a claim, wake the runbook") is **c4 / B6 + B8**, and it is the first unbuilt thing. Deferred concurrency hazard in single-cell advance is tracked in GH #403, to be designed with B8.
+**Bottom line:** the claim graph and durable runbooks are now **wired into each other**: the reactive payoff ("block on a claim, wake the runbook") is built and test-evidenced via B6+B8, with the GH #403 double-execute hazard resolved by the advance reservation CAS. The first unbuilt things are now the B8 cron tick, brokered cell authority (**B7** / c6), and evidence-gated graduation (**B10** / c8); **H2** is unblocked and should run next (§9).
