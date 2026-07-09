@@ -29,7 +29,6 @@ npx tsx scripts/agents/silent-failure-hunter.ts --prompt "Scan all hooks in .cla
 
 # Utility agents
 npx tsx scripts/agents/architecture-diagrammer.ts --prompt "..."
-npx tsx scripts/agents/meta-agent.ts --prompt "..."
 npx tsx scripts/agents/fact-checking-agent.ts --prompt "..."
 ```
 
@@ -37,6 +36,12 @@ npx tsx scripts/agents/fact-checking-agent.ts --prompt "..."
 
 ```bash
 npx tsx scripts/agents/agent-harness.ts --prompt "..."
-npx tsx scripts/agents/spec-implementer.ts --file specs/continual-improvement/04-cross-session-continuity.md --plan-only
-npx tsx scripts/agents/ulc-meta-loop.ts --budget 2
+npx tsx scripts/agents/spec-implementer.ts --file <spec path> --plan-only
+```
+
+### Behavioral contract tests
+
+```bash
+pnpm test:behavioral            # full BCV suite against the devils-advocate surface
+pnpm test:behavioral:variance   # VARIANCE check only
 ```
