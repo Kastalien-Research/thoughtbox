@@ -111,15 +111,16 @@ claims:
       none — asserting identical outcomes.
   - id: c8
     statement: >-
-      Operator-facing guidance is updated in the same change: the
-      .claude/team-prompts/ bootstrap instructions and
+      Operator-facing guidance is updated in the same change that
+      implements this spec (the PR satisfying c1-c7, not the spec-authoring
+      PR): the .claude/team-prompts/ bootstrap instructions and
       .claude/rules/mcp-gotchas.md no longer describe session-default
       identity or permanent coordinator loss, and instead document explicit
       agentId, principal binding, and transfer_coordinator.
     type: governance
     behavioral: false
     required_evidence: >-
-      Diff in the same PR updating .claude/team-prompts/*.md and
+      Diff in the implementation PR updating .claude/team-prompts/*.md and
       .claude/rules/mcp-gotchas.md to the new identity model.
 links:
   - .specs/SPEC-HUB-002-hierarchical-agent-roles.md
@@ -254,7 +255,8 @@ fail with an instructive error (c5). The well-behaved path — the
 `.claude/team-prompts/` instruction to pass `agentId` explicitly on every
 call — is unchanged; the footgun path is removed rather than fixed.
 Registration responses and the error message both carry the guidance, and
-the team prompts and `mcp-gotchas.md` are updated in the same change (c8).
+the team prompts and `mcp-gotchas.md` are updated in the same change that
+implements this spec (c8).
 
 ## Out of scope
 
