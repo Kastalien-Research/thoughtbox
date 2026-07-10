@@ -1,0 +1,31 @@
+{
+  "branch": "feat/hub-durable-identity",
+  "specs": ["SPEC-HUB-003"],
+  "summary": "Add SPEC-HUB-003 (draft): durable, stateless, principal-bound hub agent identity. Spec-only PR — no runtime changes, so no spec claims are implemented here (spec_claim_id is deliberately __none__ throughout; the implementation PR will reference SPEC-HUB-003:c1-c8). Fixes the defect where hub state is durable but identity binding lives in the in-process SessionIdentityRegistry keyed on Mcp-Session-Id: coordinator role dies with the session, explicit agentIds only resolve if registered in the same session, and the MCP 2026-07-28 stateless revision (SEP-2567/2575, final July 28) removes the session header the registry is keyed on. Design: the durable AgentIdentity record becomes the source of identity truth; explicit agentId is the MCP-blessed state handle; hosted mode binds identity to the authenticated principal (ownerPrincipal), local fs mode stays assertion-based; SessionIdentityRegistry is deleted; transfer_coordinator covers lost identities. Resume tokens considered and rejected.",
+  "claims": [
+    {
+      "id": "c1",
+      "spec_claim_id": "__none__",
+      "statement": "The spec file exists at .specs/SPEC-HUB-003-durable-agent-identity.md with frontmatter conforming to .schemas/spec-v1.json.",
+      "evidence_type": "deterministic_check",
+      "evidence_path": ".specs/SPEC-HUB-003-durable-agent-identity.md",
+      "evidence_description": "Frontmatter parsed and checked against every spec-v1.json constraint (required fields, spec_id pattern, status enum, claim required keys, additionalProperties, type enum, unique ids): VALID, 8 claims c1-c8."
+    },
+    {
+      "id": "c2",
+      "spec_claim_id": "__none__",
+      "statement": "The defect the spec describes is real in current source: identity resolution requires same-session registration and register always mints a new UUID.",
+      "evidence_type": "implementation",
+      "evidence_path": "src/hub/session-identity.ts",
+      "evidence_description": "SessionIdentityRegistry.resolve() throws 'not registered in this session' for unknown explicit agentIds (session-identity.ts:43-53); createIdentityManager.register() always calls randomUUID() (src/hub/identity.ts); sessionKey falls back to '__default__' when no MCP session id is present (src/hub/hub-tool-handler.ts:85)."
+    },
+    {
+      "id": "c3",
+      "spec_claim_id": "__none__",
+      "statement": "The MCP stateless claims in the spec reflect the 2026-07-28 release candidate, not memory.",
+      "evidence_type": "agentic_test",
+      "evidence_path": null,
+      "evidence_description": "Agent fetched https://modelcontextprotocol.io/specification/draft/changelog and SEP-2567 on 2026-07-10: Mcp-Session-Id and initialize handshake removed; explicit server-minted handles passed as tool arguments are the prescribed replacement for session-scoped state; RC locked 2026-05-21, final 2026-07-28."
+    }
+  ]
+}
